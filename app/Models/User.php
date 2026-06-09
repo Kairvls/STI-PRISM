@@ -1,0 +1,56 @@
+<?php
+
+namespace App\Models;
+
+use App\Models\Role;
+
+use Illuminate\Foundation\Auth\User as Authenticatable;
+
+class User extends Authenticatable
+{
+    protected $table = 'users_table';
+
+    protected $primaryKey = 'user_id';
+
+    public $timestamps = false;
+
+    protected $fillable = [
+
+        'user_role_id',
+        'user_employee_id',
+        'user_username',
+        'user_full_name',
+        'user_email_address',
+        'user_contact_number',
+        'user_password',
+
+    ];
+
+    protected $hidden = [
+
+        'user_password',
+
+    ];
+
+    /**
+     * CUSTOM PASSWORD COLUMN
+     */
+    public function getAuthPassword()
+    {
+        return $this->user_password;
+    }
+
+    /**
+     * ROLE RELATIONSHIP
+     */
+    public function role()
+    {
+        return $this->belongsTo(
+
+            Role::class,
+            'user_role_id',
+            'role_id'
+
+        );
+    }
+}
