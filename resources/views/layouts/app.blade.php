@@ -17,69 +17,93 @@
     <!-- TAILWIND -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- LUCIDE ICONS -->
+    <!-- LUCIDE -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
-    <!-- GOOGLE FONT -->
+    <!-- FONT -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap"
           rel="stylesheet">
 
     <style>
 
-        * {
+        *{
 
-            font-family: 'Poppins', sans-serif;
+            font-family:'Poppins',sans-serif;
 
         }
 
-        body {
+        body{
 
-            overflow-x: hidden;
+            overflow-x:hidden;
+            background:#0B1120;
 
         }
 
         /* SCROLLBAR */
 
-        ::-webkit-scrollbar {
+        ::-webkit-scrollbar{
 
-            width: 8px;
-
-        }
-
-        ::-webkit-scrollbar-track {
-
-            background: #0B1120;
+            width:8px;
 
         }
 
-        ::-webkit-scrollbar-thumb {
+        ::-webkit-scrollbar-track{
 
-            background: #1D4ED8;
-            border-radius: 20px;
-
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-
-            background: #2563EB;
+            background:#0F172A;
 
         }
 
-        /* Maintenance Sidebar */
-        .sidebar-link {
+        ::-webkit-scrollbar-thumb{
 
-            display: block;
-            padding: 10px 14px;
-            border-radius: 12px;
-            color: #D1D5DB;
-            transition: 0.2s;
+            background:#2563EB;
+            border-radius:20px;
 
         }
 
-        .sidebar-link:hover {
+        /* SIDEBAR */
 
-            background: #1E3A8A;
-            color: white;
+        #sidebar{
+
+            transition:.3s;
+
+        }
+
+        /* MOBILE SIDEBAR */
+
+        @media(max-width:1279px){
+
+            #sidebar{
+
+                position:fixed;
+                left:0;
+                top:0;
+                z-index:999;
+                transform:translateX(-100%);
+
+            }
+
+            #sidebar.active{
+
+                transform:translateX(0);
+
+            }
+
+        }
+
+        /* DROPDOWN CONTENT */
+
+        .sidebar-dropdown-content{
+
+            display:none;
+
+        }
+
+        /* CONTENT */
+
+        .content-wrapper{
+
+            width:100%;
+            min-width:0;
 
         }
 
@@ -87,18 +111,18 @@
 
 </head>
 
-<body class="bg-[#0B1120] text-white">
+<body class="text-white">
 
     <div class="flex min-h-screen">
 
         <!-- SIDEBAR -->
         @yield('sidebar')
 
-        <!-- MAIN CONTENT -->
-        <div class="flex-1 flex flex-col">
+        <!-- MAIN -->
+        <div class="flex-1 flex flex-col content-wrapper">
 
             <!-- TOPBAR -->
-            @include('layouts.topbar')
+            @yield('topbar')
 
             <!-- PAGE CONTENT -->
             <main class="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
@@ -111,6 +135,90 @@
 
     </div>
 
+    <!-- SIDEBAR OVERLAY -->
+    <div id="sidebarOverlay"
+        onclick="toggleSidebar()"
+        class="hidden fixed inset-0 bg-black/70 z-[998] xl:hidden">
+
+    </div>
+
+    <script>
+
+        lucide.createIcons();
+
+        /*
+        |--------------------------------------------------------------------------
+        | MOBILE SIDEBAR
+        |--------------------------------------------------------------------------
+        */
+
+        function toggleSidebar(){
+
+            const sidebar =
+                document.getElementById('sidebar');
+
+            const overlay =
+                document.getElementById('sidebarOverlay');
+
+            sidebar.classList.toggle('active');
+
+            overlay.classList.toggle('hidden');
+
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | SIDEBAR DROPDOWN
+        |--------------------------------------------------------------------------
+        */
+
+        function toggleDropdown(id){
+
+            const dropdown =
+                document.getElementById(id);
+
+            if(dropdown.style.display === 'block'){
+
+                dropdown.style.display = 'none';
+
+            }else{
+
+                dropdown.style.display = 'block';
+
+            }
+
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | CLOSE DROPDOWN WHEN CLICK OUTSIDE
+        |--------------------------------------------------------------------------
+        */
+
+        window.onclick = function(event){
+
+            if(!event.target.closest('.sidebar-dropdown')){
+
+                const dropdowns =
+                    document.querySelectorAll(
+                        '.sidebar-dropdown-content'
+                    );
+
+                dropdowns.forEach(dropdown => {
+
+                    dropdown.style.display = 'none';
+
+                });
+
+            }
+
+        }
+
+    </script>
+
+    @stack('scripts')
+
 </body>
 
 </html>
+

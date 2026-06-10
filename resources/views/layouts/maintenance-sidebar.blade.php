@@ -1,225 +1,423 @@
 <div id="sidebar"
-    class="w-[300px] min-h-screen bg-[#111827] border-r border-white/10 text-white overflow-y-auto">
+    class="w-[320px] min-h-screen bg-[#0F172A] border-r border-white/10 text-white overflow-y-auto">
 
     <!-- LOGO -->
-    <div class="p-6 border-b border-white/10">
+    <div class="h-[85px] px-6 flex items-center border-b border-white/10">
 
-        <h1 class="text-2xl font-extrabold">
-            PRISM
-        </h1>
+        <div class="flex items-center gap-4">
 
-        <p class="text-sm text-gray-400 mt-1">
-            Maintenance Personnel
-        </p>
+            <div class="w-14 h-14 rounded-2xl bg-blue-600 flex items-center justify-center">
+
+                <i data-lucide="shield-check"
+                   class="w-7 h-7 text-white"></i>
+
+            </div>
+
+            <div>
+
+                <h1 class="text-2xl font-extrabold">
+                    PRISM
+                </h1>
+
+                <p class="text-sm text-gray-400">
+                    Maintenance Personnel
+                </p>
+
+            </div>
+
+        </div>
 
     </div>
 
     <!-- SIDEBAR CONTENT -->
-    <div class="p-5 space-y-6">
+    <div class="p-5 space-y-4">
 
         <!-- DASHBOARD -->
-        <div>
+        <a href="/maintenance/dashboard"
+            class="sidebar-active">
 
-            <a href="/maintenance/dashboard"
-                class="flex items-center gap-3 bg-blue-600 hover:bg-blue-700 px-4 py-3 rounded-xl transition">
+            <i data-lucide="layout-dashboard"></i>
 
-                <i data-lucide="layout-dashboard"></i>
+            Dashboard
 
-                Dashboard
-
-            </a>
-
-        </div>
+        </a>
 
         <!-- REPORT MANAGEMENT -->
-        <div>
+        <div class="sidebar-dropdown">
 
-            <h2 class="text-xs font-bold text-gray-400 mb-3 uppercase">
-                Report Management
-            </h2>
+            <button onclick="toggleDropdown('reportManagementDropdown')"
+                class="sidebar-dropdown-button">
 
-            <div class="space-y-2">
+                <div class="flex items-center gap-3">
 
-                <a href="#" class="sidebar-link">Incoming Reports</a>
-                <a href="#" class="sidebar-link">Urgent Reports</a>
-                <a href="#" class="sidebar-link">Pending Reports</a>
-                <a href="#" class="sidebar-link">Processing Reports</a>
-                <a href="#" class="sidebar-link">Resolved Reports</a>
-                <a href="#" class="sidebar-link">Replacement Reports</a>
-                <a href="#" class="sidebar-link">Rejected Reports</a>
+                    <i data-lucide="clipboard-list"></i>
+
+                    Report Management
+
+                </div>
+
+                <i data-lucide="chevron-down"></i>
+
+            </button>
+
+            <div id="reportManagementDropdown"
+                class="sidebar-dropdown-content">
+
+                <a href="/maintenance/reports/incoming"
+                    class="sidebar-link">
+                    Incoming Reports
+                </a>
+
+                <a href="/maintenance/reports/urgent"
+                    class="sidebar-link">
+                    Urgent Reports
+                </a>
+
+                <a href="/maintenance/reports/pending"
+                    class="sidebar-link">
+                    Pending Reports
+                </a>
+
+                <a href="/maintenance/reports/processing"
+                    class="sidebar-link">
+                    Processing Reports
+                </a>
+
+                <a href="/maintenance/reports/resolved"
+                    class="sidebar-link">
+                    Resolved Reports
+                </a>
+
+                <a href="/maintenance/reports/replacement"
+                    class="sidebar-link">
+                    Replacement Reports
+                </a>
+
+                <a href="/maintenance/reports/rejected"
+                    class="sidebar-link">
+                    Rejected Reports
+                </a>
 
             </div>
 
         </div>
 
         <!-- EQUIPMENT MANAGEMENT -->
-        <div>
+        <div class="sidebar-dropdown">
 
-            <h2 class="text-xs font-bold text-gray-400 mb-3 uppercase">
-                Equipment Management
-            </h2>
+            <button onclick="toggleDropdown('equipmentManagementDropdown')"
+                class="sidebar-dropdown-button">
 
-            <div class="space-y-2">
+                <div class="flex items-center gap-3">
 
-                <a href="#" class="sidebar-link">All Equipment</a>
-                <a href="#" class="sidebar-link">Damaged Equipment</a>
-                <a href="#" class="sidebar-link">Under Maintenance</a>
-                <a href="#" class="sidebar-link">For Replacement</a>
-                <a href="#" class="sidebar-link">Disposed Equipment</a>
-                <a href="#" class="sidebar-link">Inventory Monitoring</a>
-                <a href="#" class="sidebar-link">QR Code Generator</a>
-                <a href="#" class="sidebar-link">Equipment Transfer</a>
-                <a href="#" class="sidebar-link">Equipment Location History</a>
+                    <i data-lucide="package"></i>
+
+                    Equipment Management
+
+                </div>
+
+                <i data-lucide="chevron-down"></i>
+
+            </button>
+
+            <div id="equipmentManagementDropdown"
+                class="sidebar-dropdown-content">
+
+                <a href="#" class="sidebar-link">
+                    All Equipment
+                </a>
+
+                <a href="#" class="sidebar-link">
+                    Damaged Equipment
+                </a>
+
+                <a href="#" class="sidebar-link">
+                    Under Maintenance
+                </a>
+
+                <a href="#" class="sidebar-link">
+                    For Replacement
+                </a>
+
+                <a href="#" class="sidebar-link">
+                    Disposed Equipment
+                </a>
+
+                <a href="#" class="sidebar-link">
+                    Inventory Monitoring
+                </a>
+
+                <a href="#" class="sidebar-link">
+                    QR Code Generator
+                </a>
+
+                <a href="#" class="sidebar-link">
+                    Equipment Transfer
+                </a>
+
+                <a href="#" class="sidebar-link">
+                    Equipment Location History
+                </a>
 
             </div>
 
         </div>
 
         <!-- QR MONITORING -->
-        <div>
+        <div class="sidebar-dropdown">
 
-            <h2 class="text-xs font-bold text-gray-400 mb-3 uppercase">
-                QR Monitoring
-            </h2>
+            <button onclick="toggleDropdown('qrMonitoringDropdown')"
+                class="sidebar-dropdown-button">
 
-            <div class="space-y-2">
+                <div class="flex items-center gap-3">
 
-                <a href="#" class="sidebar-link">Scan Equipment</a>
-                <a href="#" class="sidebar-link">Equipment Information</a>
-                <a href="#" class="sidebar-link">QR History</a>
-                <a href="#" class="sidebar-link">Mobile Monitoring</a>
+                    <i data-lucide="qr-code"></i>
 
-            </div>
+                    QR Monitoring
 
-        </div>
+                </div>
 
-        <!-- BORROWING -->
-        <div>
+                <i data-lucide="chevron-down"></i>
 
-            <h2 class="text-xs font-bold text-gray-400 mb-3 uppercase">
-                Borrowing Management
-            </h2>
+            </button>
 
-            <div class="space-y-2">
+            <div id="qrMonitoringDropdown"
+                class="sidebar-dropdown-content">
 
-                <a href="#" class="sidebar-link">Borrowed Equipment</a>
-                <a href="#" class="sidebar-link">Returned Equipment</a>
-                <a href="#" class="sidebar-link">Overdue Equipment</a>
-                <a href="#" class="sidebar-link">Borrowing History</a>
-                <a href="#" class="sidebar-link">Return Equipment</a>
+                <a href="#" class="sidebar-link">
+                    Scan Equipment
+                </a>
 
-            </div>
+                <a href="#" class="sidebar-link">
+                    Equipment Information
+                </a>
 
-        </div>
+                <a href="#" class="sidebar-link">
+                    QR History
+                </a>
 
-        <!-- MAINTENANCE -->
-        <div>
-
-            <h2 class="text-xs font-bold text-gray-400 mb-3 uppercase">
-                Maintenance Schedules
-            </h2>
-
-            <div class="space-y-2">
-
-                <a href="#" class="sidebar-link">Schedule List</a>
-                <a href="#" class="sidebar-link">Calendar</a>
-                <a href="#" class="sidebar-link">Overdue Maintenance</a>
-                <a href="#" class="sidebar-link">Maintenance Notifications</a>
+                <a href="#" class="sidebar-link">
+                    Mobile Monitoring
+                </a>
 
             </div>
 
         </div>
 
-        <!-- BUILDINGS -->
-        <div>
+        <!-- BORROWING MANAGEMENT -->
+        <div class="sidebar-dropdown">
 
-            <h2 class="text-xs font-bold text-gray-400 mb-3 uppercase">
-                Building & Rooms
-            </h2>
+            <button onclick="toggleDropdown('borrowingManagementDropdown')"
+                class="sidebar-dropdown-button">
 
-            <div class="space-y-2">
+                <div class="flex items-center gap-3">
 
-                <a href="#" class="sidebar-link">Buildings</a>
-                <a href="#" class="sidebar-link">Floors</a>
-                <a href="#" class="sidebar-link">Rooms</a>
-                <a href="#" class="sidebar-link">Room Equipment</a>
-                <a href="#" class="sidebar-link">Room Maintenance History</a>
+                    <i data-lucide="clipboard-check"></i>
+
+                    Borrowing Management
+
+                </div>
+
+                <i data-lucide="chevron-down"></i>
+
+            </button>
+
+            <div id="borrowingManagementDropdown"
+                class="sidebar-dropdown-content">
+
+                <a href="#" class="sidebar-link">
+                    Borrowed Equipment
+                </a>
+
+                <a href="#" class="sidebar-link">
+                    Returned Equipment
+                </a>
+
+                <a href="#" class="sidebar-link">
+                    Overdue Equipment
+                </a>
+
+                <a href="#" class="sidebar-link">
+                    Borrowing History
+                </a>
+
+                <a href="#" class="sidebar-link">
+                    Return Equipment
+                </a>
 
             </div>
 
         </div>
 
-        <!-- DISPOSAL -->
-        <div>
+        <!-- MAINTENANCE SCHEDULES -->
+        <div class="sidebar-dropdown">
 
-            <h2 class="text-xs font-bold text-gray-400 mb-3 uppercase">
-                Disposal Management
-            </h2>
+            <button onclick="toggleDropdown('maintenanceSchedulesDropdown')"
+                class="sidebar-dropdown-button">
 
-            <div class="space-y-2">
+                <div class="flex items-center gap-3">
 
-                <a href="#" class="sidebar-link">Disposal Records</a>
-                <a href="#" class="sidebar-link">Disposal History</a>
-                <a href="#" class="sidebar-link">Disposal Remarks</a>
+                    <i data-lucide="calendar-days"></i>
+
+                    Maintenance Schedules
+
+                </div>
+
+                <i data-lucide="chevron-down"></i>
+
+            </button>
+
+            <div id="maintenanceSchedulesDropdown"
+                class="sidebar-dropdown-content">
+
+                <a href="#" class="sidebar-link">
+                    Schedule List
+                </a>
+
+                <a href="#" class="sidebar-link">
+                    Calendar
+                </a>
+
+                <a href="#" class="sidebar-link">
+                    Overdue Maintenance
+                </a>
+
+                <a href="#" class="sidebar-link">
+                    Maintenance Notifications
+                </a>
+
+            </div>
+
+        </div>
+
+        <!-- BUILDINGS & ROOMS -->
+        <div class="sidebar-dropdown">
+
+            <button onclick="toggleDropdown('buildingsRoomsDropdown')"
+                class="sidebar-dropdown-button">
+
+                <div class="flex items-center gap-3">
+
+                    <i data-lucide="building-2"></i>
+
+                    Buildings & Rooms
+
+                </div>
+
+                <i data-lucide="chevron-down"></i>
+
+            </button>
+
+            <div id="buildingsRoomsDropdown"
+                class="sidebar-dropdown-content">
+
+                <a href="/maintenance/buildings"
+                    class="sidebar-link">
+
+                    Buildings
+
+                </a>
+
+                <a href="/maintenance/floors"
+                    class="sidebar-link">
+
+                    Floors
+
+                </a>
+
+                <a href="/maintenance/rooms"
+                    class="sidebar-link">
+
+                    Rooms
+
+                </a>
+
+                <a href="/maintenance/rooms/equipment"
+                    class="sidebar-link">
+
+                    Room Equipment
+
+                </a>
+
+                <a href="/maintenance/rooms/history"
+                    class="sidebar-link">
+
+                    Room Maintenance History
+
+                </a>
+
+                <a href="/maintenance/rooms/statistics"
+                    class="sidebar-link">
+
+                    Room Statistics
+
+                </a>
+
+            </div>
+
+        </div>
+
+        <!-- DISPOSAL MANAGEMENT -->
+        <div class="sidebar-dropdown">
+
+            <button onclick="toggleDropdown('disposalManagementDropdown')"
+                class="sidebar-dropdown-button">
+
+                <div class="flex items-center gap-3">
+
+                    <i data-lucide="trash-2"></i>
+
+                    Disposal Management
+
+                </div>
+
+                <i data-lucide="chevron-down"></i>
+
+            </button>
+
+            <div id="disposalManagementDropdown"
+                class="sidebar-dropdown-content">
+
+                <a href="#" class="sidebar-link">
+                    Disposal Records
+                </a>
+
+                <a href="#" class="sidebar-link">
+                    Disposal History
+                </a>
+
+                <a href="#" class="sidebar-link">
+                    Disposal Remarks
+                </a>
 
             </div>
 
         </div>
 
         <!-- REPORTERS -->
-        <div>
+        <div class="sidebar-dropdown">
 
-            <h2 class="text-xs font-bold text-gray-400 mb-3 uppercase">
-                Reporters
-            </h2>
+            <button onclick="toggleDropdown('reportersDropdown')"
+                class="sidebar-dropdown-button">
 
-            <div class="space-y-2">
+                <div class="flex items-center gap-3">
 
-                <a href="#" class="sidebar-link">Reporters List</a>
+                    <i data-lucide="users"></i>
 
-            </div>
+                    Reporters
 
-        </div>
+                </div>
 
-        <!-- NOTIFICATIONS -->
-        <div>
+                <i data-lucide="chevron-down"></i>
 
-            <h2 class="text-xs font-bold text-gray-400 mb-3 uppercase">
-                Notifications
-            </h2>
+            </button>
 
-            <div class="space-y-2">
+            <div id="reportersDropdown"
+                class="sidebar-dropdown-content">
 
-                <a href="#" class="sidebar-link">All Notifications</a>
-                <a href="#" class="sidebar-link">Reminders</a>
-
-            </div>
-
-        </div>
-
-        <!-- SETTINGS -->
-        <div>
-
-            <h2 class="text-xs font-bold text-gray-400 mb-3 uppercase">
-                Settings
-            </h2>
-
-            <div class="space-y-2">
-
-                <a href="#" class="sidebar-link">Profile Settings</a>
-
-                <form method="POST" action="{{ route('logout') }}">
-
-                    @csrf
-
-                    <button type="submit"
-                        class="w-full text-left text-red-400 hover:text-red-500 px-3 py-2 rounded-lg transition">
-
-                        Logout
-
-                    </button>
-
-                </form>
+                <a href="#" class="sidebar-link">
+                    Reporters List
+                </a>
 
             </div>
 
@@ -228,3 +426,72 @@
     </div>
 
 </div>
+
+<style>
+
+.sidebar-active{
+
+    display:flex;
+    align-items:center;
+    gap:14px;
+    background:#2563EB;
+    padding:15px 18px;
+    border-radius:18px;
+    font-weight:600;
+
+}
+
+.sidebar-dropdown{
+
+    background:#111827;
+    border:1px solid rgba(255,255,255,.05);
+    border-radius:18px;
+    overflow:hidden;
+
+}
+
+.sidebar-dropdown-button{
+
+    width:100%;
+    display:flex;
+    align-items:center;
+    justify-between;
+    padding:16px 18px;
+    font-weight:600;
+    transition:.2s;
+
+}
+
+.sidebar-dropdown-button:hover{
+
+    background:#1E293B;
+
+}
+
+.sidebar-dropdown-content{
+
+    display:none;
+    padding:0 10px 12px 10px;
+
+}
+
+.sidebar-link{
+
+    display:block;
+    padding:12px 16px;
+    border-radius:12px;
+    color:#CBD5E1;
+    font-size:14px;
+    transition:.2s;
+
+}
+
+.sidebar-link:hover{
+
+    background:#1E293B;
+    color:white;
+
+}
+
+</style>
+

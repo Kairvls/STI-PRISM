@@ -6,6 +6,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Auth\MicrosoftController;
+use App\Http\Controllers\MaintenanceController;
 
 /*
 |--------------------------------------------------------------------------
@@ -172,5 +173,215 @@ Route::get(
     '/auth/microsoft/callback',
     [MicrosoftController::class, 'handleMicrosoftCallback']
 )->name('auth.microsoft.callback');
+
+
+
+// MAINTENANCE PERSONNEL
+
+Route::middleware(['auth'])->group(function () {
+
+    Route::get(
+        '/maintenance/dashboard',
+        [MaintenanceController::class, 'dashboard']
+    );
+
+    Route::get(
+        '/maintenance/reports/incoming',
+        [MaintenanceController::class, 'incomingReports']
+    );
+
+    Route::get(
+        '/maintenance/reports/urgent',
+        [MaintenanceController::class, 'urgentReports']
+    );
+
+    Route::get(
+        '/maintenance/reports/pending',
+        [MaintenanceController::class, 'pendingReports']
+    );
+
+    Route::get(
+        '/maintenance/reports/processing',
+        [MaintenanceController::class, 'processingReports']
+    );
+
+    Route::get(
+        '/maintenance/reports/resolved',
+        [MaintenanceController::class, 'resolvedReports']
+    );
+
+    Route::get(
+        '/maintenance/reports/replacement',
+        [MaintenanceController::class, 'replacementReports']
+    );
+
+    Route::get(
+        '/maintenance/reports/rejected',
+        [MaintenanceController::class, 'rejectedReports']
+    );
+});
+
+
+
+/*
+|--------------------------------------------------------------------------
+| MAINTENANCE REPORT MANAGEMENT
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware(['auth'])->group(function () {
+
+    /*
+    |--------------------------------------------------------------------------
+    | REPORT DASHBOARD
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get(
+        '/maintenance/reports/incoming',
+        [MaintenanceController::class, 'incomingReports']
+    );
+
+    Route::get(
+        '/maintenance/reports/urgent',
+        [MaintenanceController::class, 'urgentReports']
+    );
+
+    Route::get(
+        '/maintenance/reports/pending',
+        [MaintenanceController::class, 'pendingReports']
+    );
+
+    Route::get(
+        '/maintenance/reports/processing',
+        [MaintenanceController::class, 'processingReports']
+    );
+
+    Route::get(
+        '/maintenance/reports/resolved',
+        [MaintenanceController::class, 'resolvedReports']
+    );
+
+    Route::get(
+        '/maintenance/reports/replacement',
+        [MaintenanceController::class, 'replacementReports']
+    );
+
+    Route::get(
+        '/maintenance/reports/rejected',
+        [MaintenanceController::class, 'rejectedReports']
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | REPORT OPERATIONS
+    |--------------------------------------------------------------------------
+    */
+
+    Route::get(
+        '/maintenance/reports/{id}',
+        [MaintenanceController::class, 'reportDetails']
+    );
+
+    Route::get(
+        '/maintenance/reports/{id}/assign',
+        [MaintenanceController::class, 'assignReport']
+    );
+
+    Route::get(
+        '/maintenance/reports/{id}/findings',
+        [MaintenanceController::class, 'addFindings']
+    );
+
+    Route::get(
+        '/maintenance/reports/{id}/update-status',
+        [MaintenanceController::class, 'updateStatus']
+    );
+
+});
+
+//Report Details
+Route::get(
+    '/maintenance/reports/details/{id}',
+    [MaintenanceController::class, 'reportDetails']
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| REPORTER ROUTES
+|--------------------------------------------------------------------------
+*/
+
+use App\Http\Controllers\ReporterController;
+
+Route::get(
+    '/',
+    [ReporterController::class, 'index']
+);
+
+Route::get(
+    '/submit-report',
+    [ReporterController::class, 'submitReport']
+);
+
+Route::post(
+    '/store-report',
+    [ReporterController::class, 'storeReport']
+);
+
+Route::get(
+    '/get-equipment/{roomId}',
+    [ReporterController::class, 'getEquipmentByRoom']
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| REPORTER VALIDATION
+|--------------------------------------------------------------------------
+*/
+
+Route::get(
+
+    '/get-reporter/{employeeId}',
+
+    [ReporterController::class, 'getReporter']
+
+);
+
+/*
+|--------------------------------------------------------------------------
+| EQUIPMENT BY ROOM
+|--------------------------------------------------------------------------
+*/
+
+Route::get(
+
+    '/get-equipment/{roomId}',
+
+    [ReporterController::class, 'getEquipmentByRoom']
+
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| REPORTER VALIDATION
+|--------------------------------------------------------------------------
+*/
+
+Route::get(
+
+    '/get-reporter/{employeeId}',
+
+    [ReporterController::class, 'getReporter']
+
+);
+
+
+
+
+
 
 require __DIR__.'/auth.php';

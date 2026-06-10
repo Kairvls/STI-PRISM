@@ -4,107 +4,178 @@
 <head>
 
     <meta charset="UTF-8">
-
-    <meta name="viewport"
-          content="width=device-width, initial-scale=1.0">
-
-    
-
-    <title>
-        PRISM | STI College Ormoc
-    </title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PRISM | STI College Ormoc</title>
 
     <!-- TAILWIND -->
     <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- GOOGLE FONT -->
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap"
-          rel="stylesheet">
+    <!-- GOOGLE FONTS -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 
     <!-- ICONS -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
-        html,
-        body {
 
-            font-family: 'Poppins', sans-serif;
-            background: #020617;
+        *, *::before, *::after { box-sizing: border-box; }
+
+        html, body {
+            font-family: 'Inter', sans-serif;
+            background: #080c18;
             overflow-x: hidden;
-
+            color: #f0f2f8;
         }
 
-        .modal-animation {
-
-            width: 100%;
-
+        /* ── GRID BACKGROUND ── */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            background-image:
+                linear-gradient(rgba(240,180,41,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(240,180,41,0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
         }
 
-        @media (max-width: 640px) {
-
-            .hero-section {
-
-                padding-top: 140px;
-
-            }
-
+        /* ── GLOW ORBS ── */
+        body::after {
+            content: '';
+            position: fixed;
+            top: -200px;
+            left: -100px;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(240,180,41,0.08) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
         }
 
+        .glow-right {
+            position: fixed;
+            top: 100px;
+            right: -150px;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(96,165,250,0.06) 0%, transparent 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ── HERO ── */
         .hero-section {
-
             background:
-                linear-gradient(
-                    rgba(2, 6, 23, 0.92),
-                    rgba(2, 6, 23, 0.96)
-                ),
-
+                linear-gradient(rgba(8, 12, 24, 0.88), rgba(8, 12, 24, 0.96)),
                 url({{ asset('image/sti-bg.webp') }});
-
             background-size: cover;
             background-position: center;
-
         }
 
+        /* ── GLASS CARD ── */
         .glass {
-
-            background: rgba(255,255,255,0.04);
-
-            backdrop-filter: blur(10px);
-
-            border: 1px solid rgba(255,255,255,0.06);
-
+            background: rgba(255,255,255,0.03);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.07);
         }
 
-        .feature-divider {
-
-            border-bottom:
-                1px solid rgba(255,255,255,0.08);
-
-        }
-
+        /* ── MODAL ANIMATION ── */
         .modal-animation {
-
-            animation:
-                modalShow .25s ease;
-
+            animation: modalShow .25s ease;
         }
 
         @keyframes modalShow {
+            from { opacity: 0; transform: translateY(20px) scale(.95); }
+            to   { opacity: 1; transform: translateY(0)    scale(1);   }
+        }
 
-            from {
+        /* ── NAV SCROLL ── */
+        .nav-scrolled {
+            background: rgba(8, 12, 24, 0.92) !important;
+            backdrop-filter: blur(20px) !important;
+            border-bottom: 1px solid rgba(255,255,255,0.06) !important;
+        }
 
-                opacity: 0;
-                transform: translateY(20px) scale(.95);
+        /* ── FEATURE CARD HOVER ── */
+        .feature-card {
+            transition: transform .25s ease, border-color .25s ease, background .25s ease;
+        }
+        .feature-card:hover {
+            transform: translateX(5px);
+            border-color: rgba(240,180,41,0.25) !important;
+            background: rgba(255,255,255,0.06) !important;
+        }
 
-            }
+        /* ── CAPABILITY CARD HOVER ── */
+        .cap-card {
+            transition: transform .3s ease, box-shadow .3s ease, background .3s ease;
+        }
+        .cap-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 24px 48px rgba(0,0,0,0.4);
+            background: rgba(255,255,255,0.06) !important;
+        }
 
-            to {
+        /* ── BUTTON HOVER ── */
+        .btn-primary {
+            background: linear-gradient(135deg, #f0b429, #e8920a);
+            color: #080c18;
+            font-weight: 700;
+            font-family: 'Outfit', sans-serif;
+            transition: transform .2s ease, box-shadow .2s ease;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 28px rgba(240,180,41,0.38);
+        }
 
-                opacity: 1;
-                transform: translateY(0) scale(1);
+        .btn-ghost {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #f0f2f8;
+            font-weight: 600;
+            transition: background .2s ease;
+        }
+        .btn-ghost:hover {
+            background: rgba(255,255,255,0.11);
+        }
 
-            }
+        /* ── SCROLLBAR HIDE ── */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 6px; }
 
+        /* ── MOBILE PADDING ── */
+        @media (max-width: 640px) {
+            .hero-section { padding-top: 140px; }
+        }
+
+        /* ── MODAL INPUT ── */
+        .modal-input {
+            width: 100%;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 12px;
+            padding: 12px 16px;
+            font-size: 14px;
+            color: #f0f2f8;
+            outline: none;
+            transition: border-color .2s ease;
+        }
+        .modal-input::placeholder { color: #8892a4; }
+        .modal-input:focus { border-color: rgba(240,180,41,0.5); }
+
+        .modal-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #8892a4;
+            margin-bottom: 8px;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
         }
 
     </style>
@@ -113,103 +184,76 @@
 
 <body>
 
-    <!-- NAVBAR -->
-    <nav class="fixed top-0 left-0 w-full z-50 border-b border-white/10 bg-[#020B2D]/90 backdrop-blur-xl">
+    <div class="glow-right"></div>
 
-        <div class="max-w-7xl mx-auto px-5 lg:px-10 py-4 flex items-center justify-between">
+    <!-- ═══════════════════════════════════════════════ NAVBAR -->
+    <nav id="navbar" class="fixed top-0 left-0 w-full z-50 transition-all duration-300" style="background:transparent;">
+
+        <div class="max-w-7xl mx-auto px-5 lg:px-10 py-4 flex items-center justify-between relative z-10">
 
             <!-- LOGO -->
-            <div class="flex items-center gap-4">
+            <div class="flex items-center gap-3">
 
-                <div class="bg-[#FFC600] w-14 h-14 rounded-2xl overflow-hidden">
-
+                <div class="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0"
+                     style="background: linear-gradient(135deg, #f0b429, #e8920a);">
                     <img
                         src="{{ asset('image/prism-logo.png') }}"
                         alt="PRISM Logo"
-                        class="w-full h-full p-0.2 object-cover">
-
+                        class="w-full h-full object-cover">
                 </div>
 
                 <div>
-
-                    <h1 class="text-white text-2xl font-bold">
+                    <div style="font-family:'Outfit',sans-serif; font-weight:700; font-size:1.1rem; color:#f0f2f8; letter-spacing:0.08em;">
                         PRISM
-                    </h1>
-
-                    <p class="text-gray-300 text-xs">
-                        Procurement & Maintenance System
-                    </p>
-
+                    </div>
+                    <div style="font-size:0.6rem; color:#8892a4; letter-spacing:0.1em;">
+                        PROCUREMENT &amp; MAINTENANCE SYSTEM
+                    </div>
                 </div>
 
             </div>
 
-            <!-- MENU -->
-            <div class="hidden lg:flex items-center gap-10">
+            <!-- DESKTOP MENU -->
+            <div class="hidden lg:flex items-center gap-8">
 
-                <a href="#"
-                   class="text-gray-200 hover:text-yellow-400 transition font-medium">
+                <a href="#features" class="nav-link" style="color:#8892a4; font-size:.875rem; text-decoration:none; transition:color .2s;"
+                   onmouseover="this.style.color='#f0f2f8'" onmouseout="this.style.color='#8892a4'">Features</a>
 
-                    Features
+                <a href="#capabilities" class="nav-link" style="color:#8892a4; font-size:.875rem; text-decoration:none; transition:color .2s;"
+                   onmouseover="this.style.color='#f0f2f8'" onmouseout="this.style.color='#8892a4'">Solutions</a>
 
-                </a>
+                <a href="#" style="color:#8892a4; font-size:.875rem; text-decoration:none; transition:color .2s;"
+                   onmouseover="this.style.color='#f0f2f8'" onmouseout="this.style.color='#8892a4'">About</a>
 
-                <a href="#"
-                   class="text-gray-200 hover:text-yellow-400 transition font-medium">
-
-                    Solutions
-
-                </a>
-
-                <a href="#"
-                   class="text-gray-200 hover:text-yellow-400 transition font-medium">
-
-                    About
-
-                </a>
-
-                <button
-                    onclick="openReportModal()"
-                    class="text-yellow-400 font-semibold hover:text-yellow-300">
-
+                <button onclick="openReportModal()"
+                    style="color:#f0b429; font-size:.875rem; font-weight:600; background:none; border:none; cursor:pointer; transition:color .2s;"
+                    onmouseover="this.style.color='#ffd166'" onmouseout="this.style.color='#f0b429'">
                     Make Report
-
                 </button>
 
-                <button
-                    onclick="openLoginModal()"
-                    class="bg-[#0037C7] hover:bg-[#002ea8] text-white px-6 py-3 rounded-2xl font-semibold hover:scale-105 transition">
-
-                    <div class="flex items-center gap-2">
-
-                        <i data-lucide="user"
-                           class="w-4 h-4"></i>
-
-                        Log In
-
-                    </div>
-
+                <button onclick="openLoginModal()"
+                    class="flex items-center gap-2 px-4 py-2 rounded-xl btn-ghost"
+                    style="font-size:.875rem;">
+                    <i data-lucide="log-in" class="w-4 h-4"></i>
+                    Log In
                 </button>
 
             </div>
 
-            <!-- MOBILE -->
-            <button
-                onclick="openLoginModal()"
-                class="lg:hidden bg-blue-600 text-white px-5 py-2 rounded-xl">
-
+            <!-- MOBILE LOGIN -->
+            <button onclick="openLoginModal()"
+                class="lg:hidden btn-primary px-5 py-2 rounded-xl text-sm">
                 Login
-
             </button>
 
         </div>
 
     </nav>
 
-    <!-- HERO -->
-    <section class="hero-section min-h-screen flex items-center pt-36 pb-24">
+    <!-- ═══════════════════════════════════════════════ HERO -->
+    <section class="hero-section min-h-screen flex items-center pt-36 pb-24 relative">
 
-        <div class="max-w-7xl mx-auto px-5 lg:px-10 w-full">
+        <div class="max-w-7xl mx-auto px-5 lg:px-10 w-full relative z-10">
 
             <div class="grid lg:grid-cols-2 gap-16 items-center">
 
@@ -218,168 +262,103 @@
 
                     <!-- BADGE -->
                     <div class="mb-8">
-
-                        <span class="border border-yellow-400 bg-yellow-400/10 text-yellow-400 px-6 py-3 rounded-full text-sm font-semibold">
-
-                            STI COLLEGE ORMOC
-
+                        <span class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold"
+                              style="background:rgba(240,180,41,0.1); border:1px solid rgba(240,180,41,0.25); color:#f0b429; letter-spacing:0.08em; font-family:'Outfit',sans-serif;">
+                            ⚡ STI COLLEGE ORMOC
                         </span>
-
                     </div>
 
                     <!-- TITLE -->
-                    <h1 class="text-white text-5xl md:text-7xl font-extrabold leading-tight mb-8">
-
-                        Procurement
-                        <br>
-
-                        and
-
-                        <br>
-
-                        <span class="text-yellow-400">
-                            Maintenance
-                        </span>
-
-                        <br>
-
+                    <h1 style="font-family:'Outfit',sans-serif; font-size:clamp(2.6rem,6vw,4.2rem); font-weight:900; line-height:1.05; letter-spacing:-0.02em; color:#f0f2f8; margin-bottom:24px;">
+                        Procurement<br>
+                        and<br>
+                        <span style="color:#f0b429;">Maintenance</span><br>
                         Monitoring System
-
                     </h1>
 
                     <!-- DESCRIPTION -->
-                    <p class="text-gray-300 text-lg leading-relaxed max-w-2xl mb-10">
-
-                        A centralized enterprise platform designed
-                        for procurement workflow automation,
-                        maintenance reporting, inventory monitoring,
-                        accounting validation, and institutional
-                        asset management.
-
+                    <p style="color:#8892a4; font-size:1rem; line-height:1.75; max-width:480px; margin-bottom:36px;">
+                        A comprehensive platform for equipment, facilities, and audio-visual equipment 
+                        management with mobile damage reporting and QR code 
+                        equipment maintenance monitoring for STI College Ormoc.
                     </p>
 
                     <!-- BUTTONS -->
-                    <div class="flex flex-col sm:flex-row gap-5">
+                    <div class="flex flex-col sm:flex-row gap-4">
 
-                        <button
-                            onclick="openReportModal()"
-                            class="bg-gradient-to-r from-yellow-400 to-orange-400 text-black font-bold px-10 py-5 rounded-2xl hover:scale-105 transition">
-
-                            Make Maintenance Report >
-
+                        <button onclick="openReportModal()"
+                            class="btn-primary flex items-center justify-center gap-2 px-8 py-4 rounded-2xl text-base">
+                            <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
+                            Make Maintenance Report
                         </button>
 
-                        <button
-                            onclick="openLoginModal()"
-                            class="bg-[#0037C7] hover:bg-[#002ea8] text-white font-bold px-10 py-5 rounded-2xl hover:scale-105 transition">
-
-                            <div class="flex items-center gap-2">
-
-                                <i data-lucide="user"
-                                class="w-4 h-4"></i>
-
-                                System Login
-
-                            </div>
-
+                        <button onclick="openLoginModal()"
+                            class="btn-ghost flex items-center justify-center gap-2 px-8 py-4 rounded-2xl text-base">
+                            <i data-lucide="log-in" class="w-5 h-5"></i>
+                            System Login
                         </button>
 
                     </div>
 
                 </div>
 
-                <!-- RIGHT FEATURES -->
-                <div class="glass rounded-[35px] p-8 lg:p-10">
+                <!-- RIGHT: FEATURE CARDS -->
+                <div class="flex flex-col gap-4">
 
-                    <!-- FEATURE -->
-                    <div class="flex gap-5 pb-8 feature-divider">
-
-                        <div class="bg-yellow-400 min-w-[70px] h-[70px] rounded-3xl flex items-center justify-center">
-
-                            <i data-lucide="box"
-                               class="w-8 h-8 text-black"></i>
-
+                    <!-- CARD 1 -->
+                    <div class="feature-card flex items-start gap-4 p-5 rounded-2xl glass cursor-pointer">
+                        <div class="flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center"
+                             style="background:rgba(240,180,41,0.15);">
+                            <i data-lucide="package" class="w-6 h-6" style="color:#f0b429;"></i>
                         </div>
-
-                        <div>
-
-                            <h1 class="text-white text-2xl font-bold mb-3">
-
-                                Procurement & Inventory
-
-                            </h1>
-
-                            <p class="text-gray-300 leading-relaxed">
-
-                                Manage procurement workflows and
-                                track inventory for equipment,
-                                facilities, and audio-visual
-                                resources efficiently.
-
+                        <div class="flex-1">
+                            <div style="font-family:'Outfit',sans-serif; font-weight:700; font-size:1rem; color:#f0f2f8; margin-bottom:6px;">
+                                Procurement &amp; Inventory
+                            </div>
+                            <p style="color:#8892a4; font-size:.825rem; line-height:1.65;">
+                                Manage procurement workflows and track inventory for equipment,
+                                facilities, and audio-visual resources efficiently.
                             </p>
-
                         </div>
-
+                        <i data-lucide="chevron-right" class="w-4 h-4 flex-shrink-0 mt-1" style="color:#8892a4;"></i>
                     </div>
 
-                    <!-- FEATURE -->
-                    <div class="flex gap-5 py-8 feature-divider">
-
-                        <div class="bg-yellow-400 min-w-[70px] h-[70px] rounded-3xl flex items-center justify-center">
-
-                            <i data-lucide="smartphone"
-                               class="w-8 h-8 text-black"></i>
-
+                    <!-- CARD 2 -->
+                    <div class="feature-card flex items-start gap-4 p-5 rounded-2xl cursor-pointer"
+                         style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); backdrop-filter:blur(12px);">
+                        <div class="flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center"
+                             style="background:rgba(96,165,250,0.15);">
+                            <i data-lucide="smartphone" class="w-6 h-6" style="color:#60a5fa;"></i>
                         </div>
-
-                        <div>
-
-                            <h1 class="text-white text-2xl font-bold mb-3">
-
+                        <div class="flex-1">
+                            <div style="font-family:'Outfit',sans-serif; font-weight:700; font-size:1rem; color:#f0f2f8; margin-bottom:6px;">
                                 Mobile Damage Reporting
-
-                            </h1>
-
-                            <p class="text-gray-300 leading-relaxed">
-
-                                Report equipment damage instantly
-                                through mobile devices with photo
-                                documentation and real-time tracking.
-
+                            </div>
+                            <p style="color:#8892a4; font-size:.825rem; line-height:1.65;">
+                                Report equipment damage instantly through mobile devices
+                                with photo documentation and real-time tracking.
                             </p>
-
                         </div>
-
+                        <i data-lucide="chevron-right" class="w-4 h-4 flex-shrink-0 mt-1" style="color:#8892a4;"></i>
                     </div>
 
-                    <!-- FEATURE -->
-                    <div class="flex gap-5 pt-8">
-
-                        <div class="bg-yellow-400 min-w-[70px] h-[70px] rounded-3xl flex items-center justify-center">
-
-                            <i data-lucide="qr-code"
-                               class="w-8 h-8 text-black"></i>
-
+                    <!-- CARD 3 -->
+                    <div class="feature-card flex items-start gap-4 p-5 rounded-2xl cursor-pointer"
+                         style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); backdrop-filter:blur(12px);">
+                        <div class="flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center"
+                             style="background:rgba(52,211,153,0.15);">
+                            <i data-lucide="qr-code" class="w-6 h-6" style="color:#34d399;"></i>
                         </div>
-
-                        <div>
-
-                            <h1 class="text-white text-2xl font-bold mb-3">
-
+                        <div class="flex-1">
+                            <div style="font-family:'Outfit',sans-serif; font-weight:700; font-size:1rem; color:#f0f2f8; margin-bottom:6px;">
                                 QR Code Monitoring
-
-                            </h1>
-
-                            <p class="text-gray-300 leading-relaxed">
-
-                                Track equipment maintenance history
-                                and status using QR code scanning
-                                for quick access to records.
-
+                            </div>
+                            <p style="color:#8892a4; font-size:.825rem; line-height:1.65;">
+                                Track equipment maintenance history and status using
+                                QR code scanning for quick access to records.
                             </p>
-
                         </div>
-
+                        <i data-lucide="chevron-right" class="w-4 h-4 flex-shrink-0 mt-1" style="color:#8892a4;"></i>
                     </div>
 
                 </div>
@@ -390,80 +369,272 @@
 
     </section>
 
+    <!-- ═══════════════════════════════════════════════ STATS -->
+    <section class="relative z-10 px-5 lg:px-10 py-16">
 
-    <!-- 1 -->
-    <!-- LOGIN CHOOSER MODAL -->
+        <div class="max-w-7xl mx-auto">
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-8 rounded-2xl p-8"
+                 style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07);">
+
+                <div class="text-center">
+                    <div style="font-family:'Outfit',sans-serif; font-size:clamp(1.6rem,3vw,2.4rem); font-weight:800; color:#f0b429; line-height:1.1;">2,400+</div>
+                    <div style="color:#8892a4; font-size:.8rem; margin-top:6px; letter-spacing:.05em;">Assets Tracked</div>
+                </div>
+
+                <div class="text-center">
+                    <div style="font-family:'Outfit',sans-serif; font-size:clamp(1.6rem,3vw,2.4rem); font-weight:800; color:#f0b429; line-height:1.1;">98.6%</div>
+                    <div style="color:#8892a4; font-size:.8rem; margin-top:6px; letter-spacing:.05em;">Uptime Rate</div>
+                </div>
+
+                <div class="text-center">
+                    <div style="font-family:'Outfit',sans-serif; font-size:clamp(1.6rem,3vw,2.4rem); font-weight:800; color:#f0b429; line-height:1.1;">340+</div>
+                    <div style="color:#8892a4; font-size:.8rem; margin-top:6px; letter-spacing:.05em;">Reports Filed</div>
+                </div>
+
+                <div class="text-center">
+                    <div style="font-family:'Outfit',sans-serif; font-size:clamp(1.6rem,3vw,2.4rem); font-weight:800; color:#f0b429; line-height:1.1;">12</div>
+                    <div style="color:#8892a4; font-size:.8rem; margin-top:6px; letter-spacing:.05em;">Departments</div>
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ CAPABILITIES -->
+    <section id="capabilities" class="relative z-10 px-5 lg:px-10 py-20">
+
+        <div class="max-w-7xl mx-auto">
+
+            <!-- HEADING -->
+            <div class="text-center mb-14">
+
+                <span class="inline-block px-3 py-1.5 rounded-full mb-4"
+                      style="background:rgba(240,180,41,0.1); border:1px solid rgba(240,180,41,0.2); color:#f0b429; font-size:.72rem; letter-spacing:.12em; font-weight:600;">
+                    PLATFORM CAPABILITIES
+                </span>
+
+                <h2 style="font-family:'Outfit',sans-serif; font-size:clamp(1.8rem,3vw,2.6rem); font-weight:700; color:#f0f2f8; line-height:1.2;">
+                    Everything you need to manage<br>institutional assets
+                </h2>
+
+            </div>
+
+            <!-- CARDS -->
+            <div class="grid md:grid-cols-3 gap-6">
+
+                <!-- CARD -->
+                <div class="cap-card p-6 rounded-2xl"
+                     style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07);">
+
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5"
+                         style="background:rgba(240,180,41,0.15);">
+                        <i data-lucide="package" class="w-6 h-6" style="color:#f0b429;"></i>
+                    </div>
+
+                    <h3 style="font-family:'Outfit',sans-serif; font-weight:700; font-size:1.05rem; color:#f0f2f8; margin-bottom:10px;">
+                        Asset Procurement
+                    </h3>
+
+                    <p style="color:#8892a4; font-size:.875rem; line-height:1.7;">
+                        End-to-end procurement workflow from requisition to approval,
+                        with full audit trails and budget tracking.
+                    </p>
+
+                    <div class="flex items-center gap-1 mt-5" style="color:#f0b429; font-size:.8rem; font-weight:600;">
+                        Learn more <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+                    </div>
+
+                </div>
+
+                <!-- CARD -->
+                <div class="cap-card p-6 rounded-2xl"
+                     style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07);">
+
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5"
+                         style="background:rgba(96,165,250,0.15);">
+                        <i data-lucide="bar-chart-3" class="w-6 h-6" style="color:#60a5fa;"></i>
+                    </div>
+
+                    <h3 style="font-family:'Outfit',sans-serif; font-weight:700; font-size:1.05rem; color:#f0f2f8; margin-bottom:10px;">
+                        Analytics Dashboard
+                    </h3>
+
+                    <p style="color:#8892a4; font-size:.875rem; line-height:1.7;">
+                        Real-time reporting dashboards for maintenance costs,
+                        asset utilization, and departmental spending.
+                    </p>
+
+                    <div class="flex items-center gap-1 mt-5" style="color:#60a5fa; font-size:.8rem; font-weight:600;">
+                        Learn more <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+                    </div>
+
+                </div>
+
+                <!-- CARD -->
+                <div class="cap-card p-6 rounded-2xl"
+                     style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07);">
+
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5"
+                         style="background:rgba(52,211,153,0.15);">
+                        <i data-lucide="check-circle" class="w-6 h-6" style="color:#34d399;"></i>
+                    </div>
+
+                    <h3 style="font-family:'Outfit',sans-serif; font-weight:700; font-size:1.05rem; color:#f0f2f8; margin-bottom:10px;">
+                        Compliance &amp; Validation
+                    </h3>
+
+                    <p style="color:#8892a4; font-size:.875rem; line-height:1.7;">
+                        Accounting validation and institutional compliance tools
+                        keep every transaction properly documented.
+                    </p>
+
+                    <div class="flex items-center gap-1 mt-5" style="color:#34d399; font-size:.8rem; font-weight:600;">
+                        Learn more <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ CTA BANNER -->
+    <section class="relative z-10 px-5 lg:px-10 pb-24">
+
+        <div class="max-w-7xl mx-auto">
+
+            <div class="relative overflow-hidden rounded-3xl p-10 md:p-14 text-center"
+                 style="background:linear-gradient(135deg,rgba(240,180,41,0.1) 0%,rgba(96,165,250,0.07) 100%); border:1px solid rgba(240,180,41,0.2);">
+
+                <!-- top glow -->
+                <div style="position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 0%,rgba(240,180,41,0.1) 0%,transparent 60%);"></div>
+
+                <span class="inline-block px-3 py-1.5 rounded-full mb-5"
+                      style="background:rgba(240,180,41,0.15); border:1px solid rgba(240,180,41,0.25); color:#f0b429; font-size:.72rem; letter-spacing:.12em; font-weight:600; position:relative; z-index:1;">
+                    GET STARTED TODAY
+                </span>
+
+                <h2 style="font-family:'Outfit',sans-serif; font-size:clamp(1.6rem,3vw,2.4rem); font-weight:700; color:#f0f2f8; line-height:1.2; margin-bottom:14px; position:relative; z-index:1;">
+                    Ready to streamline your<br>institutional operations?
+                </h2>
+
+                <p style="color:#8892a4; font-size:.95rem; max-width:480px; margin:0 auto 32px; line-height:1.7; position:relative; z-index:1;">
+                    Join departments already using PRISM to manage procurement,
+                    maintenance, and asset lifecycle efficiently.
+                </p>
+
+                <div class="flex flex-wrap gap-4 justify-center" style="position:relative;z-index:1;">
+
+                    <button onclick="openReportModal()"
+                        class="btn-primary flex items-center gap-2 px-8 py-4 rounded-2xl text-base">
+                        <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
+                        Make Maintenance Report
+                    </button>
+
+                    <button onclick="openLoginModal()"
+                        class="btn-ghost flex items-center gap-2 px-8 py-4 rounded-2xl text-base">
+                        <i data-lucide="log-in" class="w-5 h-5"></i>
+                        System Login
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+    <!-- ═══════════════════════════════════════════════ FOOTER -->
+    <footer style="border-top:1px solid rgba(255,255,255,0.07); background:#05080f; position:relative; z-index:10;">
+
+        <div class="max-w-7xl mx-auto px-5 lg:px-10 py-10 flex flex-col lg:flex-row items-center justify-between gap-6">
+
+            <!-- LEFT -->
+            <div class="flex items-center gap-3">
+
+                <div class="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0"
+                     style="background:linear-gradient(135deg,#f0b429,#e8920a);">
+                    <img src="{{ asset('image/prism-logo.png') }}" alt="PRISM" class="w-full h-full object-cover">
+                </div>
+
+                <div>
+                    <div style="font-family:'Outfit',sans-serif; font-weight:700; color:#f0f2f8; font-size:.95rem; letter-spacing:.08em;">PRISM</div>
+                    <div style="color:#8892a4; font-size:.7rem;">Procurement &amp; Maintenance System</div>
+                </div>
+
+            </div>
+
+            <!-- CENTER -->
+            <p style="color:#8892a4; font-size:.8rem; text-align:center;">
+                © 2026 STI College Ormoc. All rights reserved.
+            </p>
+
+            <!-- RIGHT -->
+            <p style="color:#8892a4; font-size:.8rem; text-align:center;">
+                Empowering institutions through technology.
+            </p>
+
+        </div>
+
+    </footer>
+
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         MODALS
+    ═══════════════════════════════════════════════════════════════════ -->
+
+    <!-- ── 1. LOGIN CHOOSER ── -->
     <div id="loginChooserModal"
-        class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center px-4">
+         class="hidden fixed inset-0 z-50 flex items-center justify-center px-4"
+         style="background:rgba(0,0,0,0.75); backdrop-filter:blur(6px);">
 
-        <!-- MODAL BOX -->
-        <div class="bg-white rounded-[24px] w-full max-w-[450px] p-6 relative shadow-2xl modal-animation">
+        <div class="modal-animation w-full max-w-[440px] rounded-3xl p-7 relative"
+             style="background:#0f1628; border:1px solid rgba(255,255,255,0.1); box-shadow:0 32px 80px rgba(0,0,0,0.6);">
 
-            <!-- CLOSE BUTTON -->
-            <button
-                onclick="closeLoginChooser()"
-                class="absolute top-5 right-5 text-[40px] leading-none text-gray-500 hover:text-black transition">
-
+            <!-- CLOSE -->
+            <button onclick="closeLoginChooser()"
+                class="absolute top-4 right-5 w-8 h-8 flex items-center justify-center rounded-lg transition"
+                style="color:#8892a4; background:rgba(255,255,255,0.05); font-size:1.4rem; line-height:1;"
+                onmouseover="this.style.color='#f0f2f8'" onmouseout="this.style.color='#8892a4'">
                 &times;
-
             </button>
 
             <!-- TITLE -->
-            <h1 class="text-[34px] font-bold text-[#081238] mb-8 leading-none">
+            <h2 style="font-family:'Outfit',sans-serif; font-size:1.8rem; font-weight:800; color:#f0f2f8; margin-bottom:6px;">Log In</h2>
+            <p style="color:#8892a4; font-size:.875rem; margin-bottom:28px;">Select your access level to continue.</p>
 
-                Log In
-
-            </h1>
-
-            <!-- BUTTONS -->
-            <div class="space-y-4">
+            <div class="space-y-3">
 
                 <!-- STAFF -->
-                <button
-                    onclick="openStaffLoginChooser()"
-                    class="w-full bg-[#0037C7] hover:bg-[#002ea8] text-white py-5 rounded-2xl font-semibold text-[17px] transition">
-
-                    <div class="flex items-center justify-center gap-3">
-
-                        <i data-lucide="users"
-                        class="w-5 h-5"></i>
-
-                        Log in as Staff
-
-                    </div>
-
+                <button onclick="openStaffLoginChooser()"
+                    class="w-full flex items-center justify-center gap-3 py-4 rounded-2xl font-semibold transition"
+                    style="background:rgba(0,55,199,0.85); color:#fff; border:1px solid rgba(0,55,199,0.4); font-size:.95rem;"
+                    onmouseover="this.style.background='rgba(0,46,168,0.95)'" onmouseout="this.style.background='rgba(0,55,199,0.85)'">
+                    <i data-lucide="users" class="w-5 h-5"></i>
+                    Log in as Staff
                 </button>
 
                 <!-- PRESIDENT -->
-                <button
-                    onclick="openPresidentLogin()"
-                    class="w-full bg-[#FFC700] hover:bg-yellow-400 text-black py-5 rounded-2xl font-semibold text-[17px] transition">
-
-                    <div class="flex items-center justify-center gap-3">
-
-                        <i data-lucide="crown"
-                        class="w-5 h-5"></i>
-
-                        President Log in
-
-                    </div>
-
+                <button onclick="openPresidentLogin()"
+                    class="w-full flex items-center justify-center gap-3 py-4 rounded-2xl font-semibold transition btn-primary"
+                    style="font-size:.95rem;">
+                    <i data-lucide="crown" class="w-5 h-5"></i>
+                    President Log in
                 </button>
 
                 <!-- ADMIN -->
-                <button
-                    onclick="openAdminLogin()"
-                    class="w-full border-2 border-[#0037C7] text-[#0037C7] hover:bg-[#0037C7] hover:text-white py-5 rounded-2xl font-semibold text-[17px] transition">
-
-                    <div class="flex items-center justify-center gap-3">
-
-                        <i data-lucide="shield-check"
-                        class="w-5 h-5"></i>
-
-                        Admin Log in
-
-                    </div>
-
+                <button onclick="openAdminLogin()"
+                    class="w-full flex items-center justify-center gap-3 py-4 rounded-2xl font-semibold transition"
+                    style="background:transparent; border:1px solid rgba(0,55,199,0.5); color:#60a5fa; font-size:.95rem;"
+                    onmouseover="this.style.background='rgba(0,55,199,0.2)'" onmouseout="this.style.background='transparent'">
+                    <i data-lucide="shield-check" class="w-5 h-5"></i>
+                    Admin Log in
                 </button>
 
             </div>
@@ -473,300 +644,176 @@
     </div>
 
 
-    <!-- 2 -->
-    <!-- STAFF CHOOSER MODAL -->
+    <!-- ── 2. STAFF CHOOSER ── -->
     <div id="staffChooserModal"
-        class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center px-4">
+         class="hidden fixed inset-0 z-50 flex items-center justify-center px-4"
+         style="background:rgba(0,0,0,0.75); backdrop-filter:blur(6px);">
 
-        <!-- MODAL BOX -->
-        <div class="bg-white rounded-[24px] w-full max-w-[450px] p-6 relative shadow-2xl modal-animation">
+        <div class="modal-animation w-full max-w-[440px] rounded-3xl p-7 relative"
+             style="background:#0f1628; border:1px solid rgba(255,255,255,0.1); box-shadow:0 32px 80px rgba(0,0,0,0.6);">
 
-            <!-- CLOSE BUTTON -->
-            <button
-                onclick="closeStaffChooser()"
-                class="absolute top-5 right-5 text-[40px] leading-none text-gray-500 hover:text-black transition">
-
+            <!-- CLOSE -->
+            <button onclick="closeStaffChooser()"
+                class="absolute top-4 right-5 w-8 h-8 flex items-center justify-center rounded-lg transition"
+                style="color:#8892a4; background:rgba(255,255,255,0.05); font-size:1.4rem; line-height:1;"
+                onmouseover="this.style.color='#f0f2f8'" onmouseout="this.style.color='#8892a4'">
                 &times;
-
             </button>
 
-            <!-- TITLE -->
-            <h1 class="text-[34px] font-bold text-[#081238] leading-none mb-2">
-
-                Staff Login
-
-            </h1>
-
-            <!-- SUBTITLE -->
-            <p class="text-gray-500 text-sm mb-7">
-
-                Select your role to continue
-
-            </p>
+            <h2 style="font-family:'Outfit',sans-serif; font-size:1.8rem; font-weight:800; color:#f0f2f8; margin-bottom:4px;">Staff Login</h2>
+            <p style="color:#8892a4; font-size:.875rem; margin-bottom:24px;">Select your role to continue.</p>
 
             <!-- ROLE GRID -->
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-2 gap-3 mb-4">
 
-                <!-- MAINTENANCE -->
-                <button
-                    onclick="openRoleLogin('Maintenance Personnel', 2)"
-                    class="bg-[#0037C7] hover:bg-[#002ea8] text-white rounded-2xl h-[120px] flex flex-col items-center justify-center transition">
-
-                    <i data-lucide="wrench"
-                    class="w-7 h-7 mb-3"></i>
-
-                    <span class="font-semibold text-[15px] leading-tight text-center px-2">
-
-                        Maintenance
-                        <br>
-                        Personnel
-
-                    </span>
-
+                <button onclick="openRoleLogin('Maintenance Personnel', 2)"
+                    class="h-28 flex flex-col items-center justify-center gap-2 rounded-2xl transition"
+                    style="background:rgba(0,55,199,0.7); border:1px solid rgba(0,55,199,0.4); color:#fff;"
+                    onmouseover="this.style.background='rgba(0,46,168,0.9)'" onmouseout="this.style.background='rgba(0,55,199,0.7)'">
+                    <i data-lucide="wrench" class="w-7 h-7"></i>
+                    <span style="font-weight:600; font-size:.85rem; text-align:center; line-height:1.3;">Maintenance<br>Personnel</span>
                 </button>
 
-                <!-- PURCHASER -->
-                <button
-                    onclick="openRoleLogin('Purchaser', 3)"
-                    class="bg-[#FFC700] hover:bg-yellow-400 text-black rounded-2xl h-[120px] flex flex-col items-center justify-center transition">
-
-                    <i data-lucide="shopping-cart"
-                    class="w-7 h-7 mb-3"></i>
-
-                    <span class="font-semibold text-[15px]">
-
-                        Purchaser
-
-                    </span>
-
+                <button onclick="openRoleLogin('Purchaser', 3)"
+                    class="h-28 flex flex-col items-center justify-center gap-2 rounded-2xl transition btn-primary">
+                    <i data-lucide="shopping-cart" class="w-7 h-7"></i>
+                    <span style="font-weight:600; font-size:.85rem;">Purchaser</span>
                 </button>
 
-                <!-- ACCOUNTING -->
-                <button
-                    onclick="openRoleLogin('Accounting', 5)"
-                    class="bg-[#0037C7] hover:bg-[#002ea8] text-white rounded-2xl h-[120px] flex flex-col items-center justify-center transition">
-
-                    <i data-lucide="calculator"
-                    class="w-7 h-7 mb-3"></i>
-
-                    <span class="font-semibold text-[15px]">
-
-                        Accounting
-
-                    </span>
-
+                <button onclick="openRoleLogin('Accounting', 5)"
+                    class="h-28 flex flex-col items-center justify-center gap-2 rounded-2xl transition"
+                    style="background:rgba(0,55,199,0.7); border:1px solid rgba(0,55,199,0.4); color:#fff;"
+                    onmouseover="this.style.background='rgba(0,46,168,0.9)'" onmouseout="this.style.background='rgba(0,55,199,0.7)'">
+                    <i data-lucide="calculator" class="w-7 h-7"></i>
+                    <span style="font-weight:600; font-size:.85rem;">Accounting</span>
                 </button>
 
-                <!-- RECEIVING -->
-                <button
-                    onclick="openRoleLogin('Receiving Officer', 6)"
-                    class="bg-[#FFC700] hover:bg-yellow-400 text-black rounded-2xl h-[120px] flex flex-col items-center justify-center transition">
-
-                    <i data-lucide="clipboard-list"
-                    class="w-7 h-7 mb-3"></i>
-
-                    <span class="font-semibold text-[15px] leading-tight text-center">
-
-                        Receiving
-                        <br>
-                        Officer
-
-                    </span>
-
+                <button onclick="openRoleLogin('Receiving Officer', 6)"
+                    class="h-28 flex flex-col items-center justify-center gap-2 rounded-2xl transition btn-primary">
+                    <i data-lucide="clipboard-list" class="w-7 h-7"></i>
+                    <span style="font-weight:600; font-size:.85rem; text-align:center; line-height:1.3;">Receiving<br>Officer</span>
                 </button>
 
             </div>
 
-            <!-- BACK BUTTON -->
-                <button
-                    type="button"
-                    onclick="showModal(loginChooserModal)"
-                    class="w-full bg-gray-800 hover:bg-gray-900 mt-4 text-white py-3.5 rounded-xl text-[16px] font-semibold transition mb-3">
-
-                    Back
-
-                </button>
+            <!-- BACK -->
+            <button type="button" onclick="showModal(loginChooserModal)"
+                class="w-full py-3.5 rounded-xl font-semibold transition"
+                style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#8892a4;"
+                onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.06)'">
+                ← Back
+            </button>
 
         </div>
 
     </div>
 
 
-    <!-- 3 -->
-    <!-- ROLE LOGIN MODAL -->
+    <!-- ── 3. ROLE LOGIN FORM ── -->
     <div id="roleLoginModal"
-        class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center px-4">
+         class="hidden fixed inset-0 z-50 flex items-center justify-center px-4"
+         style="background:rgba(0,0,0,0.75); backdrop-filter:blur(6px);">
 
-        <!-- MODAL BOX -->
-        <div class="bg-white rounded-[24px] w-full max-w-[450px] p-6 sm:p-7 relative shadow-2xl modal-animation">
+        <div class="modal-animation w-full max-w-[440px] rounded-3xl p-7 relative"
+             style="background:#0f1628; border:1px solid rgba(255,255,255,0.1); box-shadow:0 32px 80px rgba(0,0,0,0.6);">
 
-            <!-- CLOSE BUTTON -->
-            <button
-                onclick="closeRoleLogin()"
-                class="absolute top-4 right-5 text-[38px] leading-none text-gray-500 hover:text-black transition">
-
+            <!-- CLOSE -->
+            <button onclick="closeRoleLogin()"
+                class="absolute top-4 right-5 w-8 h-8 flex items-center justify-center rounded-lg"
+                style="color:#8892a4; background:rgba(255,255,255,0.05); font-size:1.4rem; line-height:1;"
+                onmouseover="this.style.color='#f0f2f8'" onmouseout="this.style.color='#8892a4'">
                 &times;
-
             </button>
 
-            <!-- TITLE -->
-            <h1 id="roleLoginTitle"
-                class="text-[20px] sm:text-[24px] font-bold text-[#081238] mb-8 leading-tight pr-10">
-
+            <h2 id="roleLoginTitle"
+                style="font-family:'Outfit',sans-serif; font-size:1.5rem; font-weight:800; color:#f0f2f8; margin-bottom:24px; padding-right:40px; line-height:1.2;">
                 Maintenance Personnel Login
+            </h2>
 
-            </h1>
-
-            <!-- FORM -->
-            <form method="POST"
-                action="{{ route('login') }}">
+            <form method="POST" action="{{ route('login') }}">
 
                 @csrf
 
-                <!-- HIDDEN -->
-                <input
-                    type="hidden"
-                    name="login_role_id"
-                    id="login_role_id">
-
-                <input
-                    type="hidden"
-                    name="login_modal"
-                    id="login_modal">
+                <input type="hidden" name="login_role_id" id="login_role_id">
+                <input type="hidden" name="login_modal"   id="login_modal">
 
                 <!-- USER ID -->
                 <div class="mb-5">
-
-                    <label class="block text-[14px] font-semibold text-gray-700 mb-2">
-
-                        User ID
-
-                    </label>
-
-                    <input
-                        type="text"
-                        name="user_employee_id"
-                        value="{{ old('user_employee_id') }}"
-                        placeholder="Enter your user ID"
-                        class="w-full border border-gray-300 rounded-xl px-4 py-3 text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-700"
-                        required>
-
+                    <label class="modal-label">User ID</label>
+                    <input type="text"
+                           name="user_employee_id"
+                           value="{{ old('user_employee_id') }}"
+                           placeholder="Enter your user ID"
+                           class="modal-input"
+                           required>
                 </div>
 
                 <!-- PASSWORD -->
                 <div class="mb-2">
-
-                    <label class="block text-[14px] font-semibold text-gray-700 mb-2">
-
-                        Password
-
-                    </label>
-
-                    <!-- PASSWORD WRAPPER -->
-                    <div class="relative">
-
-                        <input
-                            type="password"
-                            name="password"
-                            id="password"
-                            placeholder="Enter your password"
-                            class="w-full border border-gray-300 rounded-xl px-4 py-3 pr-12 text-[14px] focus:outline-none focus:ring-2 focus:ring-blue-700"
-                            required>
-
-                        <!-- EYE BUTTON -->
-                        <button
-                            type="button"
-                            onclick="togglePassword()"
-                            class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-700 transition">
-
-                            <i
-                                data-lucide="eye"
-                                id="eyeIcon"
-                                class="w-5 h-5"></i>
-
+                    <label class="modal-label">Password</label>
+                    <div style="position:relative;">
+                        <input type="password"
+                               name="password"
+                               id="password"
+                               placeholder="Enter your password"
+                               class="modal-input"
+                               style="padding-right:48px;"
+                               required>
+                        <button type="button" onclick="togglePassword()"
+                            style="position:absolute; right:14px; top:50%; transform:translateY(-50%); color:#8892a4; background:none; border:none; cursor:pointer; transition:color .2s;"
+                            onmouseover="this.style.color='#f0b429'" onmouseout="this.style.color='#8892a4'">
+                            <i data-lucide="eye" id="eyeIcon" class="w-5 h-5"></i>
                         </button>
-
                     </div>
-
                 </div>
 
                 <!-- ERROR -->
-                <p
-                    id="loginErrorMessage"
-                    class="text-red-500 text-[13px] mt-2 mb-4 font-medium hidden">
-
+                <p id="loginErrorMessage"
+                   class="hidden mt-2 mb-1"
+                   style="color:#f87171; font-size:.8rem; font-weight:500;">
                     Incorrect User ID or Password.
-
                 </p>
 
                 <!-- REMEMBER + FORGOT -->
-                <div class="flex items-center justify-between mb-6 mt-3">
+                <div class="flex items-center justify-between mt-4 mb-6">
 
-                    <!-- REMEMBER -->
-                    <label class="flex items-center gap-2 text-[13px] text-gray-600">
-
-                        <input
-                            type="checkbox"
-                            name="remember"
-                            class="rounded border-gray-300 text-blue-600 focus:ring-blue-600">
-
+                    <label class="flex items-center gap-2" style="font-size:.8rem; color:#8892a4; cursor:pointer;">
+                        <input type="checkbox" name="remember"
+                               style="accent-color:#f0b429; border-radius:4px;">
                         Remember me
-
                     </label>
 
-                    <!-- FORGOT -->
-                    <a
-                        href="{{ route('password.request') }}"
-                        class="text-[13px] text-blue-600 hover:underline font-medium">
-
+                    <a href="{{ route('password.request') }}"
+                       style="font-size:.8rem; color:#f0b429; text-decoration:none; font-weight:500;">
                         Forgot password?
-
                     </a>
 
                 </div>
 
-                <!-- BUTTON -->
+                <!-- SUBMIT -->
+                <button type="submit"
+                    class="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl btn-primary mb-2"
+                    style="font-size:.95rem;">
+                    <i data-lucide="lock" class="w-4 h-4"></i>
+                    Log In
+                </button>
 
-                    <!-- NORMAL LOGIN BUTTON -->
+                <!-- MICROSOFT -->
+                <a href="{{ route('auth.microsoft.redirect') }}"
+                   class="w-full flex items-center justify-center gap-3 py-3.5 rounded-xl mb-3 transition"
+                   style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:#f0f2f8; font-weight:600; font-size:.95rem; text-decoration:none;"
+                   onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_logo.svg"
+                         class="w-5 h-5" alt="Microsoft">
+                    Log in with Office 365
+                </a>
 
-                    <button
-                        type="submit"
-                        class="w-full bg-[#0037C7] hover:bg-[#002ea8] text-white py-3.5 rounded-xl text-[16px] font-semibold transition">
-
-                        <div class="flex items-center justify-center gap-2">
-
-                            <i data-lucide="lock"
-                            class="w-4 h-4"></i>
-
-                            Log In
-
-                        </div>
-
-                    </button>
-
-                    <!-- MICROSOFT LOGIN BUTTON -->
-
-                    <a
-                        href="{{ route('auth.microsoft.redirect') }}"
-                        class="w-full border border-gray-300 hover:bg-gray-100 text-gray-700 py-3.5 mt-2 rounded-xl text-[16px] font-semibold transition flex items-center justify-center gap-3 mb-3">
-
-                        <img
-                            src="https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_logo.svg"
-                            class="w-5 h-5"
-                            alt="Microsoft">
-
-                        Log in with Office 365
-
-                    </a>
-
-                <!-- BACK BUTTON -->
-                <button
-                    type="button"
-                    onclick="goBackRoleLogin()"
-                    class="w-full bg-gray-800 hover:bg-gray-900 mt-2 text-white py-3.5 rounded-xl text-[16px] font-semibold transition mb-3">
-
-                    Back to SSO
-
+                <!-- BACK -->
+                <button type="button" onclick="goBackRoleLogin()"
+                    class="w-full py-3.5 rounded-xl font-semibold transition"
+                    style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#8892a4;"
+                    onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.06)'">
+                    ← Back to SSO
                 </button>
 
             </form>
@@ -775,643 +822,138 @@
 
     </div>
 
-    <!-- REPORT MODAL  --------------------------------------------------------------------------------------------->
+
+    <!-- ── 4. REPORT MODAL ── -->
     <div id="reportModal"
-         class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center px-4">
+         class="hidden fixed inset-0 z-50 flex items-center justify-center px-4 overflow-y-auto py-10"
+         style="background:rgba(0,0,0,0.8); backdrop-filter:blur(6px);">
 
-        <div class="bg-white rounded-[30px] w-full max-w-2xl p-6 md:p-10 relative shadow-2xl modal-animation">
-
-            <button
-                onclick="closeReportModal()"
-                class="absolute top-4 right-4 text-4xl text-gray-400 hover:text-black">
-
-                &times;
-
-            </button>
-
-            <h1 class="text-3xl md:text-4xl font-bold text-[#081238] mb-4">Maintenance Report</h1>
-            <p class="text-gray-600 text-lg leading-relaxed">Maintenance reporting form implementation will be added next.</p>
-
+        <div class="w-full max-w-6xl relative modal-animation">
+            @include('reporter.partials.report-form')
         </div>
 
     </div>
 
-    <!-- SECOND SECTION -->
-    <section class="bg-[#01091F] py-24">
 
-        <div class="max-w-7xl mx-auto px-5 lg:px-10">
-
-            <div class="grid lg:grid-cols-3 gap-8">
-
-                <!-- CARD -->
-                <div class="bg-white rounded-[30px] p-8">
-
-                    <div class="flex justify-between items-center mb-8">
-
-                        <h1 class="text-3xl font-bold text-[#081238]">
-                            Log In
-                        </h1>
-
-                        <button class="text-4xl text-gray-400">
-                            ×
-                        </button>
-
-                    </div>
-
-                    <div class="space-y-5">
-
-                        <button class="w-full bg-blue-700 text-white py-5 rounded-2xl font-semibold">
-                            Log in as Staff
-                        </button>
-
-                        <button class="w-full bg-yellow-400 text-black py-5 rounded-2xl font-semibold">
-                            President Log in
-                        </button>
-
-                        <button class="w-full border-2 border-blue-700 text-blue-700 py-5 rounded-2xl font-semibold">
-                            Admin Log in
-                        </button>
-
-                    </div>
-
-                </div>
-
-                <!-- CARD -->
-                <div class="bg-white rounded-[30px] p-8">
-
-                    <div class="flex justify-between items-center mb-3">
-
-                        <h1 class="text-3xl font-bold text-[#081238]">
-                            Staff Login
-                        </h1>
-
-                        <button class="text-4xl text-gray-400">
-                            ×
-                        </button>
-
-                    </div>
-
-                    <p class="text-gray-500 mb-8">
-                        Select your role to continue
-                    </p>
-
-                    <div class="grid grid-cols-2 gap-5">
-
-                        <button class="bg-blue-700 text-white rounded-2xl py-8 font-bold">
-                            Maintenance Personnel
-                        </button>
-
-                        <button class="bg-yellow-400 text-black rounded-2xl py-8 font-bold">
-                            Purchaser
-                        </button>
-
-                        <button class="bg-blue-700 text-white rounded-2xl py-8 font-bold">
-                            Accounting
-                        </button>
-
-                        <button class="bg-yellow-400 text-black rounded-2xl py-8 font-bold">
-                            Receiving Officer
-                        </button>
-
-                    </div>
-
-                </div>
-
-                <!-- CARD -->
-                <div class="bg-white rounded-[30px] p-8">
-
-                    <div class="flex justify-between items-center mb-8">
-
-                        <h1 class="text-2xl font-bold text-[#081238]">
-                            Maintenance Personnel Login
-                        </h1>
-
-                        <button class="text-4xl text-gray-400">
-                            ×
-                        </button>
-
-                    </div>
-
-                    <form class="space-y-6">
-
-                        <div>
-
-                            <label class="block mb-2 font-medium">
-                                Email Address
-                            </label>
-
-                            <input type="email"
-                                   placeholder="Enter your email"
-                                   class="w-full border rounded-xl px-4 py-4">
-
-                        </div>
-
-                        <div>
-
-                            <label class="block mb-2 font-medium">
-                                Password
-                            </label>
-
-                            <input type="password"
-                                   placeholder="Enter your password"
-                                   class="w-full border rounded-xl px-4 py-4">
-
-                        </div>
-
-                        <button class="w-full bg-blue-700 text-white py-4 rounded-2xl font-semibold">
-                            Log In
-                        </button>
-
-                    </form>
-
-                </div>
-
-            </div>
-
-        </div>
-
-    </section>
-
-    <!-- FOOTER -->
-    <footer class="border-t border-white/10 bg-[#02081F]">
-
-        <div class="max-w-7xl mx-auto px-5 lg:px-10 py-10 flex flex-col lg:flex-row items-center justify-between gap-8">
-
-            <!-- LEFT -->
-            <div class="flex items-center gap-4">
-
-                <div class="bg-[#FFC600] w-14 h-14 rounded-2xl overflow-hidden">
-
-                    <img
-                        src="{{ asset('image/prism-logo.png') }}"
-                        alt="PRISM Logo"
-                        class="w-full h-full p-0.2 object-cover">
-
-                </div>
-
-                <div>
-
-                    <h1 class="text-white text-2xl font-bold">
-                        PRISM
-                    </h1>
-
-                    <p class="text-gray-400 text-sm">
-                        Procurement & Maintenance System
-                    </p>
-
-                </div>
-
-            </div>
-
-            <!-- CENTER -->
-            <p class="text-gray-400 text-center">
-                © 2026 STI College Ormoc.
-                All rights reserved.
-            </p>
-
-            <!-- RIGHT -->
-            <p class="text-gray-400 text-center">
-                Empowering institutions through technology.
-            </p>
-
-        </div>
-
-    </footer>
-
+    <!-- ═══════════════════════════════════════════════ SCRIPTS -->
     <script>
-
-    lucide.createIcons();
-
-    /*
-    |--------------------------------------------------------------------------
-    | GET MODALS
-    |--------------------------------------------------------------------------
-    */
-
-    const loginChooserModal =
-        document.getElementById('loginChooserModal');
-
-    const staffChooserModal =
-        document.getElementById('staffChooserModal');
-
-    const roleLoginModal =
-        document.getElementById('roleLoginModal');
-
-    const reportModal =
-        document.getElementById('reportModal');
-
-    /*
-    |--------------------------------------------------------------------------
-    | GENERAL FUNCTIONS
-    |--------------------------------------------------------------------------
-    */
-
-    function closeAllModals() {
-
-        loginChooserModal.classList.add('hidden');
-
-        staffChooserModal.classList.add('hidden');
-
-        roleLoginModal.classList.add('hidden');
-
-        reportModal.classList.add('hidden');
-
-    }
-
-    function showModal(modal) {
-
-        closeAllModals();
-
-        modal.classList.remove('hidden');
-
-        document.body.classList.add('overflow-hidden');
-
-    }
-
-    function hideModal(modal) {
-
-        modal.classList.add('hidden');
-
-        const visibleModal =
-            document.querySelector(
-                '.fixed.inset-0:not(.hidden)'
-            );
-
-        if (!visibleModal) {
-
-            document.body.classList.remove('overflow-hidden');
-
-        }
-
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | LOGIN CHOOSER MODAL
-    |--------------------------------------------------------------------------
-    */
-
-    function openLoginModal() {
-
-        showModal(loginChooserModal);
-
-    }
-
-    function openLoginChooser() {
-
-        showModal(loginChooserModal);
-
-    }
-
-   
-
-    /*
-    |--------------------------------------------------------------------------
-    | STAFF CHOOSER MODAL
-    |--------------------------------------------------------------------------
-    */
-
-    function openStaffLoginChooser() {
-
-        showModal(staffChooserModal);
-
-    }
-
-    
-
-    /*
-    |--------------------------------------------------------------------------
-    | ROLE LOGIN MODAL
-    |--------------------------------------------------------------------------
-    */
-
-    function openRoleLogin(roleName, roleId) {
-
-        showModal(roleLoginModal);
-
-        /*
-        |--------------------------------------------------------------------------
-        | TITLE
-        |--------------------------------------------------------------------------
-        */
-
-        document.getElementById(
-            'roleLoginTitle'
-        ).innerText = roleName + ' Login';
-
-        /*
-        |--------------------------------------------------------------------------
-        | ROLE ID
-        |--------------------------------------------------------------------------
-        */
-
-        document.getElementById(
-            'login_role_id'
-        ).value = roleId;
-
-        /*
-        |--------------------------------------------------------------------------
-        | SAVE CURRENT MODAL
-        |--------------------------------------------------------------------------
-        */
-
-        document.getElementById(
-            'login_modal'
-        ).value = roleName;
-
-        /*
-        |--------------------------------------------------------------------------
-        | CLEAR INPUTS ONLY WHEN SWITCHING ROLE
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            roleName !== "{{ old('login_modal') }}"
-        ) {
-
-            document.querySelector(
-                'input[name="user_employee_id"]'
-            ).value = '';
-
-            document.querySelector(
-                'input[name="password"]'
-            ).value = '';
-
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | ERROR MESSAGE
-        |--------------------------------------------------------------------------
-        */
-
-        const errorMessage =
-            document.getElementById(
-                'loginErrorMessage'
-            );
-
-        if (
-            "{{ $errors->has('user_employee_id') }}"
-            &&
-            roleName === "{{ old('login_modal') }}"
-        ) {
-
-            errorMessage.classList.remove('hidden');
-
-        }
-
-        else {
-
-            errorMessage.classList.add('hidden');
-
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | BACK NAVIGATION SYSTEM
-        |--------------------------------------------------------------------------
-        */
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | CLOSE MODALS
-    |--------------------------------------------------------------------------
-    */
-
-    function closeLoginChooser() {
-
-        hideModal(loginChooserModal);
-
-    }
-
-    function closeStaffChooser() {
-
-        hideModal(staffChooserModal);
-
-    }
-
-    function closeRoleLogin() {
-
-        hideModal(roleLoginModal);
-
-    }
-
-    
-
-    /*
-    |--------------------------------------------------------------------------
-    | ADMIN LOGIN
-    |--------------------------------------------------------------------------
-    */
-
-    function openAdminLogin() {
-
-        openRoleLogin('Admin', 1);
-
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | PRESIDENT LOGIN
-    |--------------------------------------------------------------------------
-    */
-
-    function openPresidentLogin() {
-
-        openRoleLogin('President', 4);
-
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | BACK BUTTON
-    |--------------------------------------------------------------------------
-    */
-
-    function goBackRoleLogin() {
-
-        const currentRole =
-            document.getElementById(
-                'login_modal'
-            ).value;
-
-        /*
-        |--------------------------------------------------------------------------
-        | ADMIN AND PRESIDENT
-        |--------------------------------------------------------------------------
-        */
-
-        if (
-            currentRole === 'Admin'
-            ||
-            currentRole === 'President'
-        ) {
-
-            showModal(loginChooserModal);
-
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | STAFF ROLES
-        |--------------------------------------------------------------------------
-        */
-
-        else {
-
-            showModal(staffChooserModal);
-
-        }
-
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | REPORT MODAL
-    |--------------------------------------------------------------------------
-    */
-
-    function openReportModal() {
-
-        showModal(reportModal);
-
-    }
-
-    function closeReportModal() {
-
-        hideModal(reportModal);
-
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | CLICK OUTSIDE TO CLOSE
-    |--------------------------------------------------------------------------
-    */
-
-    /*window.addEventListener('click', function(event) {
-
-        if (event.target === loginChooserModal) {
-
-            closeLoginChooser();
-
-        }
-
-        if (event.target === staffChooserModal) {
-
-            closeStaffChooser();
-
-        }
-
-        if (event.target === roleLoginModal) {
-
-            closeRoleLogin();
-
-        }
-
-        if (event.target === reportModal) {
-
-            closeReportModal();
-
-        }
-
-    });
-    */
-
-    /*
-    |--------------------------------------------------------------------------
-    | ESC KEY CLOSE
-    |--------------------------------------------------------------------------
-    */
-
-    document.addEventListener('keydown', function(event) {
-
-        if (event.key === 'Escape') {
-
-            closeAllModals();
-
-            document.body.classList.remove(
-                'overflow-hidden'
-            );
-
-        }
-
-    });
-
-    /*
-    |--------------------------------------------------------------------------
-    | Password Eye Fill Icon Toggle
-    |--------------------------------------------------------------------------
-    */
-
-
-    function togglePassword() {
-
-        const passwordInput =
-            document.getElementById('password');
-
-        const eyeIcon =
-            document.getElementById('eyeIcon');
-
-        if (passwordInput.type === 'password') {
-
-            passwordInput.type = 'text';
-
-            eyeIcon.setAttribute(
-                'data-lucide',
-                'eye-off'
-            );
-
-        }
-
-        else {
-
-            passwordInput.type = 'password';
-
-            eyeIcon.setAttribute(
-                'data-lucide',
-                'eye'
-            );
-
-        }
 
         lucide.createIcons();
 
-    }
+        /* ── NAV SCROLL ── */
+        const navbar = document.getElementById('navbar');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 20) {
+                navbar.classList.add('nav-scrolled');
+            } else {
+                navbar.classList.remove('nav-scrolled');
+            }
+        });
 
-</script>
+        /* ── MODALS ── */
+        const loginChooserModal = document.getElementById('loginChooserModal');
+        const staffChooserModal = document.getElementById('staffChooserModal');
+        const roleLoginModal    = document.getElementById('roleLoginModal');
+        const reportModal       = document.getElementById('reportModal');
 
-<script>
-    lucide.createIcons();
-</script>
-
-@if ($errors->any())
-
-<script>
-
-    window.addEventListener('load', function() {
-
-        const modalName =
-            "{{ old('login_modal') }}";
-
-        const roleId =
-            "{{ old('login_role_id') }}";
-
-        if (modalName !== '') {
-
-            openRoleLogin(
-                modalName,
-                roleId
-            );
-
+        function closeAllModals() {
+            loginChooserModal.classList.add('hidden');
+            staffChooserModal.classList.add('hidden');
+            roleLoginModal.classList.add('hidden');
+            reportModal.classList.add('hidden');
         }
 
-    });
+        function showModal(modal) {
+            closeAllModals();
+            modal.classList.remove('hidden');
+            document.body.classList.add('overflow-hidden');
+        }
 
-</script>
+        function hideModal(modal) {
+            modal.classList.add('hidden');
+            const visible = document.querySelector('.fixed.inset-0:not(.hidden)');
+            if (!visible) document.body.classList.remove('overflow-hidden');
+        }
 
-@endif
+        function openLoginModal()       { showModal(loginChooserModal); }
+        function openLoginChooser()     { showModal(loginChooserModal); }
+        function openStaffLoginChooser(){ showModal(staffChooserModal); }
+        function closeLoginChooser()    { hideModal(loginChooserModal); }
+        function closeStaffChooser()    { hideModal(staffChooserModal); }
+        function closeRoleLogin()       { hideModal(roleLoginModal); }
+        function openReportModal()      { showModal(reportModal); }
+        function closeReportModal()     { hideModal(reportModal); }
+        function openAdminLogin()       { openRoleLogin('Admin', 1); }
+        function openPresidentLogin()   { openRoleLogin('President', 4); }
+
+        function openRoleLogin(roleName, roleId) {
+
+            showModal(roleLoginModal);
+
+            document.getElementById('roleLoginTitle').innerText = roleName + ' Login';
+            document.getElementById('login_role_id').value = roleId;
+            document.getElementById('login_modal').value   = roleName;
+
+            if (roleName !== "{{ old('login_modal') }}") {
+                document.querySelector('input[name="user_employee_id"]').value = '';
+                document.querySelector('input[name="password"]').value = '';
+            }
+
+            const errorMessage = document.getElementById('loginErrorMessage');
+            if (
+                "{{ $errors->has('user_employee_id') }}"
+                && roleName === "{{ old('login_modal') }}"
+            ) {
+                errorMessage.classList.remove('hidden');
+            } else {
+                errorMessage.classList.add('hidden');
+            }
+        }
+
+        function goBackRoleLogin() {
+            const currentRole = document.getElementById('login_modal').value;
+            if (currentRole === 'Admin' || currentRole === 'President') {
+                showModal(loginChooserModal);
+            } else {
+                showModal(staffChooserModal);
+            }
+        }
+
+        /* ── PASSWORD TOGGLE ── */
+        function togglePassword() {
+            const input   = document.getElementById('password');
+            const eyeIcon = document.getElementById('eyeIcon');
+            if (input.type === 'password') {
+                input.type = 'text';
+                eyeIcon.setAttribute('data-lucide', 'eye-off');
+            } else {
+                input.type = 'password';
+                eyeIcon.setAttribute('data-lucide', 'eye');
+            }
+            lucide.createIcons();
+        }
+
+        /* ── ESC KEY ── */
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeAllModals();
+                document.body.classList.remove('overflow-hidden');
+            }
+        });
+
+    </script>
+
+    @if ($errors->any())
+    <script>
+        window.addEventListener('load', function() {
+            const modalName = "{{ old('login_modal') }}";
+            const roleId    = "{{ old('login_role_id') }}";
+            if (modalName !== '') {
+                openRoleLogin(modalName, roleId);
+            }
+        });
+    </script>
+    @endif
 
 </body>
 </html>
