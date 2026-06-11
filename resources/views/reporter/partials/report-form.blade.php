@@ -1,574 +1,537 @@
+{{-- ══════════════════════════════════════════════════════════════
+     MAINTENANCE REPORT FORM  ·  PRISM Dark Theme
+     reporter/partials/report-form.blade.php
+══════════════════════════════════════════════════════════════ --}}
+
+<style>
+
+    /* ── TOKENS ─────────────────────────────────────────────── */
+    .rf-input {
+        width: 100%;
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(24, 23, 23, 0.1);
+        border-radius: 14px;
+        padding: 11px 14px;
+        font-size: 14px;
+        color: #0f172a;
+        font-family: 'Inter', sans-serif;
+        outline: none;
+        transition: border-color .2s, background .2s;
+        appearance: none;
+        -webkit-appearance: none;
+    }
+    .rf-input::placeholder { color: #4a5568; }
+    .rf-input:focus {
+        border-color: rgba(240,180,41,0.55);
+        background: rgba(255,255,255,0.08);
+        box-shadow: 0 0 0 3px rgba(240,180,41,0.08);
+    }
+    .rf-input option { background: #f7f7f8; color: #0f172a; }
+
+    .rf-label {
+        display: block;
+        font-size: 11px;
+        font-weight: 700;
+        color: #000000;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+    }
+
+    /* ── SELECT ARROW ── */
+    .rf-select-wrap { position: relative; }
+    .rf-select-wrap::after {
+        content: '';
+        position: absolute;
+        right: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 0; height: 0;
+        border-left: 5px solid transparent;
+        border-right: 5px solid transparent;
+        border-top: 5px solid #8892a4;
+        pointer-events: none;
+    }
+
+    /* ── REPORTER INFO BOX ── */
+    .reporter-box {
+        background: rgba(240,180,41,0.06);
+        border: 1px solid rgba(240,180,41,0.2);
+        border-radius: 16px;
+        padding: 16px 18px;
+    }
+
+    /* ── PRIORITY RADIO CARD ── */
+    .priority-card {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 14px 16px;
+        border-radius: 16px;
+        border: 1px solid rgba(255,255,255,0.07);
+        background: rgba(255,255,255,0.03);
+        cursor: pointer;
+        transition: all .2s ease;
+    }
+    .priority-card:hover { border-color: rgba(255,255,255,0.15); background: rgba(255,255,255,0.06); }
+    .priority-card.p-non-urgent { border-color: rgba(52,211,153,0.35); background: rgba(52,211,153,0.07); }
+    .priority-card.p-urgent { border-color: rgba(239, 68, 68, 0.35); background: rgba(239, 68, 68, 0.07); }
+
+    /* ── ISSUE TAG ── */
+    .issue-btn {
+        background: #fef3c7;
+        border: 1.5px solid rgba(240,180,41,0.5);
+        color: #92400e;
+        padding: 8px 16px;
+        border-radius: 999px;
+        font-size: 12.5px;
+        font-weight: 600;
+        white-space: nowrap;
+        flex-shrink: 0;
+        transition: all .2s ease;
+        font-family: 'Inter', sans-serif;
+        cursor: pointer;
+    }
+    .issue-btn:hover {
+        
+
+        background: #f0b429ab;
+        border: 1.5px solid #e8920a;
+        color: #92400e;
+    }
+    .issue-btn.active {
+        background: #f0b429;
+        border: 1.5px solid #e8920a;
+        color: #080c18;
+
+        
+    }
+
+    /* ── UPLOAD ZONE ── */
+    .upload-zone {
+        border: 1.5px dashed rgba(255,255,255,0.12);
+        border-radius: 16px;
+        padding: 20px;
+        text-align: center;
+        background: rgba(255,255,255,0.02);
+        cursor: pointer;
+        transition: all .2s ease;
+        display: block;
+    }
+    .upload-zone:hover {
+        border-color: rgba(240,180,41,0.4);
+        background: rgba(240,180,41,0.04);
+    }
+    .upload-zone.uploaded {
+        border-color: rgba(52,211,153,0.4);
+        background: rgba(52,211,153,0.05);
+    }
+
+    /* ── SCROLL HIDE ── */
+    #issueCarousel::-webkit-scrollbar { display: none; }
+    #issueCarousel { -ms-overflow-style: none; scrollbar-width: none; }
+
+    /* ── MOBILE MODAL ALIGN ── */
+    @media (max-width: 640px) {
+        #reportModal { align-items: flex-start; }
+    }
+
+</style>
+
+
+<style>
+    #issueCarousel {
+
+        cursor: grab;
+
+        user-select: none;
+
+        -webkit-user-select: none;
+
+        overflow-x: auto;
+
+        scroll-behavior: auto;
+
+    }
+
+    #issueCarousel:active {
+
+        cursor: grabbing;
+
+    }
+
+    .issue-btn {
+
+        pointer-events: auto;
+
+    }
+
+    .issue-btn {
+
+        transition:
+            background .25s ease,
+            border-color .25s ease,
+            transform .15s ease;
+
+    }
+
+    .issue-btn:hover {
+
+        transform: translateY(-2px);
+
+    }
+
+    .issue-btn:active {
+
+        transform: scale(.96);
+
+    }
+</style>
+
+
 <form method="POST"
       action="/store-report"
       enctype="multipart/form-data"
-      class="space-y-5">
+      id="reportForm">
 
     @csrf
 
-    <!-- MAIN CONTAINER -->
     <div class="w-full max-w-6xl mx-auto px-2">
 
-        <!-- RESPONSIVE GRID -->
-        
-        <!-- LANDSCAPE FORM -->
-        <div class="bg-white rounded-[32px] overflow-hidden shadow-2xl border border-gray-200">
+        <div class="rounded-3xl overflow-hidden"
+             style="background:#0d1120; border:1px solid rgba(255,255,255,0.09); box-shadow:0 40px 100px rgba(0,0,0,0.7); font-family:'Inter',sans-serif;">
 
-            <div class="grid grid-cols-1 lg:grid-cols-12 lg:min-h-[560px]">
+            <div class="grid grid-cols-1 lg:grid-cols-12 lg:min-h-[580px]">
 
-                <!-- LEFT SIDE -->
-                <div class="lg:col-span-8 p-4 sm:p-5 lg:p-7">
+                {{-- ══════════════════ LEFT PANEL ══════════════════ --}}
+                <div class="lg:col-span-8 p-6 sm:p-7 lg:p-9 bg-white"
+                     style="border-right:1px solid rgba(255,255,255,0.07);">
 
-                    <!-- TITLE -->
-                    <div class="flex items-center gap-4 mb-6">
+                    {{-- HEADER --}}
+                    <div class="flex items-center gap-4 mb-7">
 
-                        <div class="w-14 h-14 rounded-3xl bg-blue-100 flex items-center justify-center">
-
-                            <i data-lucide="clipboard-signature"
-                            class="w-7 h-7 text-blue-700"></i>
-
+                        <div class="w-13 h-13 w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
+                             style="background:rgba(240,180,41,0.12); border:1px solid rgba(240,180,41,0.2);">
+                            <i data-lucide="clipboard-pen" class="w-6 h-6" style="color:#f0b429;"></i>
                         </div>
 
-                        <div>
-
-                            <h1 class="text-xl sm:text-2xl lg:text-3xl font-black text-[#081238] leading-tight">
-
+                        <div class="flex-1">
+                            <h2 style="font-family:'Outfit',sans-serif; font-weight:800; font-size:1.5rem; color:#0f172a; line-height:1.1;">
                                 Maintenance Report
-
-                            </h1>
-
-                            <p class="text-gray-500 text-sm mt-1">
-
+                            </h2>
+                            <p style="color:#8892a4; font-size:.8rem; margin-top:3px;">
                                 Report room, facility, or equipment concerns.
-
                             </p>
-
                         </div>
+
+                        {{-- CLOSE (mobile) --}}
+                        <button type="button" onclick="closeReportModal()"
+                            class="lg:hidden flex items-center justify-center w-8 h-8 rounded-lg"
+                            style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#8892a4;">
+                            <i data-lucide="x" class="w-4 h-4"></i>
+                        </button>
 
                     </div>
 
-                    <!-- EMPLOYEE -->
+                    {{-- EMPLOYEE ID --}}
                     <div class="mb-5">
 
-                        <label class="block text-sm font-bold text-gray-700 mb-2">
+                        <label class="rf-label">Employee ID</label>
 
-                            Employee ID
-
-                        </label>
-
-                        <div class="relative">
-
-                            <i data-lucide="scan-face"
-                            class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"></i>
-
-                            <input
-                                type="text"
-                                id="employeeIdInput"
-                                name="report_reporter_employee_id"
-                                value="{{ old('report_reporter_employee_id') }}"
-                                placeholder="e.g. OMC0****"
-                                class="w-full h-12 border border-gray-300 rounded-2xl pl-12 pr-4 text-sm focus:ring-2 focus:ring-blue-700 outline-none text-black"
-                                required>
-
+                        <div style="position:relative;">
+                            <span style="position:absolute; left:13px; top:50%; transform:translateY(-50%); color:#8892a4; pointer-events:none;">
+                                <i data-lucide="scan-face" class="w-5 h-5"></i>
+                            </span>
+                            <input type="text"
+                                   id="employeeIdInput"
+                                   name="report_reporter_employee_id"
+                                   value="{{ old('report_reporter_employee_id') }}"
+                                   placeholder="e.g. OM******"
+                                   class="rf-input"
+                                   style="padding-left:42px; height:48px;"
+                                   required>
                         </div>
 
                     </div>
 
-                    <!-- REPORTER BOX -->
-                    <div id="reporterInfoBox"
-                        class="hidden bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-3xl p-5 mb-5">
-
-                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {{-- REPORTER INFO BOX --}}
+                    <div id="reporterInfoBox" class="reporter-box hidden mb-5">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
                             <div>
-
-                                <p class="text-xs text-gray-500 mb-1">
-
-                                    Full Name
-
-                                </p>
-
-                                <h1 id="reporterName"
-                                    class="font-bold text-[#081238]">
-
-                                    -
-
-                                </h1>
-
+                                <p style="font-size:11px; color:#8892a4; text-transform:uppercase; letter-spacing:.08em; margin-bottom:4px;">Full Name</p>
+                                <p id="reporterName" style="font-family:'Outfit',sans-serif; color:#000000; font-size:.95rem;">—</p>
                             </div>
 
                             <div>
-
-                                <p class="text-xs text-gray-500 mb-1">
-
-                                    Email Address
-
-                                </p>
-
-                                <h1 id="reporterEmail"
-                                    class="font-bold text-[#081238] break-all">
-
-                                    -
-
-                                </h1>
-
+                                <p style="font-size:11px; color:#8892a4; text-transform:uppercase; letter-spacing:.08em; margin-bottom:4px;">Email Address</p>
+                                <p id="reporterEmail" style="font-family:'Outfit',sans-serif; color:#000000; font-size:.95rem; word-break:break-all;">—</p>
                             </div>
 
                             <div>
-
-                                <p class="text-xs text-gray-500 mb-1">
-
-                                    Contact Number
-
-                                </p>
-
-                                <h1 id="reporterContact"
-                                    class="font-bold text-[#081238]">
-
-                                    -
-
-                                </h1>
-
+                                <p style="font-size:11px; color:#8892a4; text-transform:uppercase; letter-spacing:.08em; margin-bottom:4px;">Contact Number</p>
+                                <p id="reporterContact" style="font-family:'Outfit',sans-serif; color:#000000; font-size:.95rem;">—</p>
                             </div>
 
                         </div>
-
                     </div>
 
-                    <!-- ERROR -->
+                    {{-- EMPLOYEE ERROR --}}
                     <p id="employeeError"
-                    class="hidden text-red-500 text-sm font-semibold mb-4">
-
+                       class="hidden mb-4"
+                       style="color:#f87171; font-size:.82rem; font-weight:600; display:none;">
                         Employee ID not found.
-
                     </p>
 
-                    <!-- ROOM + EQUIPMENT -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+                    {{-- LOCATION + EQUIPMENT --}}
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
 
-                        
-                        <!-- ROOM -->
+                        {{-- LOCATION --}}
                         <div>
 
-                            <!-- LABEL + TOGGLE -->
                             <div class="flex items-center justify-between mb-2">
-
-                                <label class="block text-sm font-bold text-gray-700">
-
-                                    Location
-
-                                </label>
-
-                                <!-- TOGGLE BUTTON -->
-                                <button
-                                    type="button"
-                                    id="toggleRoomInput"
-                                    class="text-xs font-bold text-blue-700 hover:text-blue-900 transition">
-
-                                    Location not listed?
-
-                                </button>
-
+                                <label class="rf-label" style="margin-bottom:0;">Location</label>
+                                
                             </div>
 
-                            <!-- DROPDOWN MODE -->
-                            <div id="roomDropdownContainer">
-
-                                <select
-                                    name="report_room_id"
-                                    id="roomSelect"
-                                    class="w-full h-12 border border-gray-300 rounded-2xl px-4 text-sm focus:ring-2 focus:ring-blue-700 outline-none text-black">
-
-                                    <option value="">
-
-                                        Select Location
-
-                                    </option>
-
-                                    
+                            <div id="roomDropdownContainer" class="rf-select-wrap">
+                                <select name="report_room_id" id="roomSelect" class="rf-input" style="height:48px; padding-right:36px; color:#0f172a; cursor: pointer;">
+                                    <option value="">Select Location</option>
                                     @foreach($rooms as $room)
-
-                                        <option value="{{ $room->room_id }}">
-
-                                            {{ $room->floor_level }}
-                                            -
-                                            {{ $room->room_name }}
-
-                                        </option>
-
+                                        <option value="{{ $room->room_id }}">{{ $room->floor_level }} - {{ $room->room_name }}</option>
                                     @endforeach
-
-
-
                                 </select>
-
                             </div>
 
-                            <!-- MANUAL INPUT MODE -->
-                            <div
-                                id="roomManualContainer"
-                                class="hidden">
+                            
 
-                                <input
-                                    type="text"
-                                    name="report_room_manual"
-                                    id="roomManualInput"
-                                    placeholder="Enter room manually..."
-                                    class="w-full h-12 border border-gray-300 rounded-2xl px-4 text-sm focus:ring-2 focus:ring-blue-700 outline-none text-black">
-
-                            </div>
-
-                            <!-- HELPER -->
-                            <p class="text-xs text-gray-400 mt-2">
-
-                                Select from existing rooms or manually enter unavailable room.
-
+                            <p style="font-size:11px; color:#4a5568; margin-top:7px;">
+                                Select the room or facility where the issue occurred.
                             </p>
 
                         </div>
 
-
-
-                        
-                        <!-- EQUIPMENT -->
+                        {{-- EQUIPMENT --}}
                         <div>
 
-                            <!-- LABEL + TOGGLE -->
                             <div class="flex items-center justify-between mb-2">
-
-                                <label class="block text-sm font-bold text-gray-700">
-
-                                    Equipment
-
-                                </label>
-
-                                <!-- TOGGLE BUTTON -->
-                                <button
-                                    type="button"
-                                    id="toggleEquipmentInput"
-                                    class="text-xs font-bold text-blue-700 hover:text-blue-900 transition">
-
+                                <label class="rf-label" style="margin-bottom:0;">Equipment</label>
+                                <button type="button" id="toggleEquipmentInput"
+                                    style="font-size:11px; font-weight:700; color:#0037C7; background:none; border:none; cursor:pointer; transition:color .2s;"
+                                    onmouseover="this.style.color='#002ea8'" onmouseout="this.style.color='#0037C7'">
                                     Other equipment?
-
                                 </button>
-
                             </div>
 
-                            <!-- DROPDOWN MODE -->
-                            <div id="equipmentDropdownContainer">
-
-                                <select
-                                    name="report_equipment_id"
-                                    id="equipmentSelect"
-                                    class="w-full h-12 border border-gray-300 rounded-2xl px-4 text-sm focus:ring-2 focus:ring-blue-700 outline-none text-black">
-
-                                    <option value="">
-
-                                        Select Equipment
-
-                                    </option>
-
+                            <div id="equipmentDropdownContainer" class="rf-select-wrap">
+                                <select name="report_equipment_id" id="equipmentSelect" class="rf-input" style="height:48px; padding-right:36px; cursor: pointer;">
+                                    <option value="">Select Equipment</option>
                                 </select>
-
                             </div>
 
-                            <!-- MANUAL INPUT MODE -->
-                            <div
-                                id="equipmentManualContainer"
-                                class="hidden">
-
-                                <input
-                                    type="text"
-                                    name="report_equipment_manual"
-                                    id="equipmentManualInput"
-                                    placeholder="Enter equipment name manually..."
-                                    class="w-full h-12 border border-gray-300 rounded-2xl px-4 text-sm focus:ring-2 focus:ring-blue-700 outline-none text-black">
-
+                            <div id="equipmentManualContainer" class="hidden">
+                                <input type="text"
+                                       name="report_equipment_manual"
+                                       id="equipmentManualInput"
+                                       placeholder="Enter equipment name manually..."
+                                       class="rf-input"
+                                       style="height:48px;">
                             </div>
 
-                            <!-- HELPER -->
-                            <p class="text-xs text-gray-400 mt-2">
-
-                                Select from existing equipment or manually enter unavailable equipment.
-
+                            <p style="font-size:11px; color:#4a5568; margin-top:7px;">
+                                Select from existing equipment or enter manually.
                             </p>
 
                         </div>
-
-
 
                     </div>
 
-                    <!-- DESCRIPTION -->
+                    {{-- PROBLEM DESCRIPTION --}}
+                    <div class="mb-6">
+
+                        <label class="rf-label">Problem Description</label>
+
+                        <textarea name="report_problem_description"
+                                  rows="4"
+                                  placeholder="Describe the issue or damage in detail..."
+                                  class="rf-input"
+                                  style="resize:vertical; min-height:110px; padding:14px 16px;"
+                                  required>{{ old('report_problem_description') }}</textarea>
+
+                    </div>
+
+                    {{-- SUGGESTED ISSUES --}}
                     <div>
 
-                        <label class="block text-sm font-bold text-gray-700 mb-2">
+                        <div class="flex items-center justify-between mb-3">
 
-                            Problem Description
+                            <label class="rf-label" style="margin-bottom:0;">Suggested Issues</label>
 
-                        </label>
-
-                        <textarea
-                            name="report_problem_description"
-                            rows="4"
-                            placeholder="Describe the issue or damage..."
-                            class="w-full border border-gray-300 rounded-3xl px-5 py-4 text-sm resize-none focus:ring-2 focus:ring-blue-700 outline-none text-black"
-                            required>{{ old('report_problem_description') }}</textarea>
-
-                    </div>
-
-                    <!-- SUGGESTIONS -->
-                    
-                    <!-- SUGGESTED ISSUES -->
-                    <div class="mt-5">
-
-                        <!-- HEADER -->
-                        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-
-                            <p class="text-sm font-bold text-gray-700">
-
-                                Suggested Issues
-
-                            </p>
-
-                            <!-- ARROWS -->
                             <div class="flex items-center gap-2">
-
-                                <!-- LEFT -->
-                                <button
-                                    type="button"
-                                    id="scrollLeftBtn"
-                                    class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-blue-100 hover:bg-blue-200 flex items-center justify-center transition">
-
-                                    <i data-lucide="chevron-left"
-                                    class="w-5 h-5 text-blue-700"></i>
-
+                                <button type="button" id="scrollLeftBtn"
+                                        class="w-8 h-8 rounded-full flex items-center justify-center transition"
+                                        style="background: #fef3c7; border: 1.5px solid rgba(240,180,41,0.5);"
+                                        onmouseover="this.style.background='#f0b429'; this.style.borderColor='rgba(240,180,41,0.3)';"
+                                        onmouseout="this.style.background='#fef3c7'; this.style.borderColor='rgba(240,180,41,0.5)';" >
+                                    <i data-lucide="chevron-left" class="w-4 h-4" style="color:#92400e;"></i>
                                 </button>
-
-                                <!-- RIGHT -->
-                                <button
-                                    type="button"
-                                    id="scrollRightBtn"
-                                    class="w-9 h-9 rounded-full bg-blue-100 hover:bg-blue-200 flex items-center justify-center transition">
-
-                                    <i data-lucide="chevron-right"
-                                    class="w-5 h-5 text-blue-700"></i>
-
+                                <button type="button" id="scrollRightBtn"
+                                        class="w-8 h-8 rounded-full flex items-center justify-center transition"
+                                        style="background: #fef3c7; border: 1.5px solid rgba(240,180,41,0.5);"
+                                        onmouseover="this.style.background='#f0b429'; this.style.borderColor='rgba(240,180,41,0.3)';"
+                                        onmouseout="this.style.background='#fef3c7'; this.style.borderColor='rgba(240,180,41,0.5)';" >
+                                    <i data-lucide="chevron-right" class="w-4 h-4" style="color:#92400e;"></i>
                                 </button>
-
                             </div>
 
                         </div>
 
-                        <!-- SLIDER -->
                         <div
                             id="issueCarousel"
-                            class="flex gap-3 overflow-x-auto scroll-smooth scrollbar-hide pb-2">
-
-                            <button type="button" class="issue-btn">
-
-                                No Power
-
-                            </button>
-
-                            <button type="button" class="issue-btn">
-
-                                Broken Monitor
-
-                            </button>
-
-                            <button type="button" class="issue-btn">
-
-                                Aircon Malfunction
-
-                            </button>
-
-                            <button type="button" class="issue-btn">
-
-                                Network Issue
-
-                            </button>
-
-                            <button type="button" class="issue-btn">
-
-                                Not Functioning
-
-                            </button>
-
-                            <button type="button" class="issue-btn">
-
-                                Keyboard Not Working
-
-                            </button>
-
-                            <button type="button" class="issue-btn">
-
-                                Mouse Defective
-
-                            </button>
-
-                            <button type="button" class="issue-btn">
-
-                                Projector Flickering
-
-                            </button>
-
-                            <button type="button" class="issue-btn">
-
-                                Internet Connection Lost
-
-                            </button>
-
-                            <button type="button" class="issue-btn">
-
-                                Broken Chair
-
-                            </button>
-
-                            <button type="button" class="issue-btn">
-
-                                Electrical Issue
-
-                            </button>
-
-                            <button type="button" class="issue-btn">
-
-                                Water Leakage
-
-                            </button>
-
-                            <button type="button" class="issue-btn">
-
-                                Ceiling Damage
-
-                            </button>
-
-                            <button type="button" class="issue-btn">
-
-                                Printer Not Working
-
-                            </button>
-
-                            <button type="button" class="issue-btn">
-
-                                System Unit Failure
-
-                            </button>
+                            class="flex gap-2 overflow-x-auto scroll-smooth pb-1">
 
                         </div>
 
                     </div>
-
-
-
-
-
 
                 </div>
 
-                <!-- RIGHT PANEL -->
-                <div class="lg:col-span-4 bg-[#081238] p-4 sm:p-5 lg:p-7 text-white flex flex-col justify-between gap-5">
+                {{-- ══════════════════ RIGHT PANEL ══════════════════ --}}
+                <div class="lg:col-span-4 p-6 sm:p-7 flex flex-col gap-6"
+                     style="background:rgba(255,255,255,0.015); border-top:1px solid rgba(255,255,255,0.07);"
+                     class="lg:border-top-0">
 
+                    {{-- CLOSE (desktop) --}}
+                    <div class="hidden lg:flex justify-end">
+                        <button type="button" onclick="closeReportModal()"
+                            class="flex items-center justify-center w-8 h-8 rounded-lg transition"
+                            style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#8892a4;"
+                            onmouseover="this.style.color='#f0f2f8'; this.style.background='rgba(255,255,255,0.1)'"
+                            onmouseout="this.style.color='#8892a4'; this.style.background='rgba(255,255,255,0.06)'">
+                            <i data-lucide="x" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+
+                    {{-- PRIORITY LEVEL --}}
                     <div>
 
-                        <!-- URGENCY -->
-                        <h1 class="text-2xl font-black mb-5">
+                        <label class="rf-label" style="margin-bottom:14px; color: white">Priority Level</label>
 
-                            Priority Level
-
-                        </h1>
-
-                        <div class="space-y-3 mb-6">
-
-                            <label class="flex gap-3 bg-green-500/10 border border-green-400/20 rounded-3xl p-4 cursor-pointer">
-
-                                <input
-                                    type="radio"
-                                    name="report_urgency_level"
-                                    value="Non-Urgent"
-                                    checked
-                                    class="mt-1">
-
-                                <div>
-
-                                    <h1 class="font-bold text-green-300">
-
-                                        Non-Urgent
-
-                                    </h1>
-
-                                    <p class="text-xs text-green-100 mt-1">
-
-                                        Minor issue or repair concern
-
-                                    </p>
-
+                        {{-- NON-URGENT --}}
+                        <label class="priority-card p-non-urgent mb-3" id="card-non-urgent">
+                            <input type="radio"
+                                   name="report_urgency_level"
+                                   value="Non-Urgent"
+                                   checked
+                                   class="mt-1 flex-shrink-0"
+                                   style="accent-color:#34d399;"
+                                   onchange="updatePriorityCards()">
+                            <div>
+                                <div style="font-family:'Outfit',sans-serif; font-weight:700; font-size:.9rem; color:#34d399;">
+                                    Non-Urgent
                                 </div>
+                                <p style="font-size:.73rem; color:#B6B6B6; margin-top:3px; line-height:1.4;">
+                                    Minor issue or repair concern
+                                </p>
+                            </div>
+                        </label>
 
-                            </label>
-
-                            <label class="flex gap-3 bg-red-500/10 border border-red-400/20 rounded-3xl p-4 cursor-pointer">
-
-                                <input
-                                    type="radio"
-                                    name="report_urgency_level"
-                                    value="Urgent"
-                                    class="mt-1">
-
-                                <div>
-
-                                    <h1 class="font-bold text-red-300">
-
-                                        Urgent
-
-                                    </h1>
-
-                                    <p class="text-xs text-red-100 mt-1">
-
-                                        Immediate maintenance required
-
-                                    </p>
-
+                        {{-- URGENT --}}
+                        <label class="priority-card" id="card-urgent">
+                            <input type="radio"
+                                   name="report_urgency_level"
+                                   value="Urgent"
+                                   class="mt-1 flex-shrink-0"
+                                   style="accent-color:#ef4444;"
+                                   onchange="updatePriorityCards()">
+                            <div>
+                                <div style="font-family:'Outfit',sans-serif; font-weight:700; font-size:.9rem; color:#f0f2f8;">
+                                    Urgent
                                 </div>
-
-                            </label>
-
-                        </div>
-
-                        <!-- IMAGE -->
-                        <div>
-
-                            <h1 class="text-lg font-bold mb-3">
-
-                                Upload Proof Image
-
-                            </h1>
-
-                            <input
-                                type="file"
-                                name="report_uploaded_image"
-                                class="w-full border border-white/20 bg-white/5 rounded-3xl px-4 py-5 text-sm">
-                        </div>
+                                <p style="font-size:.73rem; color:#B6B6B6; margin-top:3px; line-height:1.4;">
+                                    Immediate maintenance required
+                                </p>
+                            </div>
+                        </label>
 
                     </div>
 
-                    <!-- BUTTONS -->
-                    <div class="mt-8 space-y-3">
+                    {{-- UPLOAD PROOF --}}
+                    <div>
 
-                        <button
-                            type="submit"
-                            class="w-full bg-[#0037C7] hover:bg-[#0044f0] py-3 sm:py-4 rounded-2xl sm:rounded-3xl font-black text-base sm:text-lg transition">
+                        <label class="rf-label" style="margin-bottom:10px; color: white">Upload Proof Image</label>
 
+                        <label
+                            for="proofImageInput"
+                            class="upload-zone"
+                            id="uploadZone"
+                            style="position:relative;">
+                            <i data-lucide="image-plus" class="w-7 h-7 mx-auto mb-2" style="color:#8892a4;"></i>
+                            <div id="uploadLabel" style="color:#8892a4; font-size:.8rem; font-weight:600;">
+                                Click to upload photo
+                            </div>
+                            <div
+                                id="removeFileBtn"
+                                class="hidden"
+                                style="
+                                    position:absolute;
+                                    top:10px;
+                                    right:10px;
+                                    z-index:20;
+                                ">
+
+                                <button
+                                    type="button"
+                                    onclick="event.preventDefault(); removeSelectedFile();"
+                                    class="flex items-center justify-center transition"
+                                    style="
+                                        width:30px;
+                                        height:30px;
+                                        border-radius:999px;
+                                        background:rgba(239,68,68,.15);
+                                        border:1px solid rgba(239,68,68,.3);
+                                        color:#ef4444;
+                                        font-size:14px;
+                                        font-weight:700;
+                                    "
+                                    title="Remove file">
+
+                                    <i data-lucide="x" class="w-4 h-4"></i>
+
+                                </button>
+
+                            </div>
+                            <div style="color:#777777; font-size:.7rem; margin-top:3px;">
+                                PNG, JPG, JPEG, WEBP up to 10MB
+                            </div>
+                            <input type="file"
+                                   id="proofImageInput"
+                                   name="report_uploaded_image"
+                                   accept=".jpg,.jpeg,.png,.webp"
+                                   class="hidden"
+                                   onchange="handleFileSelect(this)">
+                        </label>
+
+                    </div>
+
+                    {{-- ACTIONS --}}
+                    <div class="mt-auto flex flex-col gap-2 pt-2">
+
+                        <button type="submit"
+                                class="w-full flex items-center justify-center gap-2 py-4 rounded-2xl font-bold transition"
+                                style="background: linear-gradient(135deg, #f0b429, #e8920a); color: #080c18; font-family: 'Outfit', sans-serif; font-size: .95rem;"
+                                onmouseover="this.style.background='linear-gradient(135deg, #e8920a, #c67a05)'"
+                                onmouseout="this.style.background='linear-gradient(135deg, #f0b429, #e8920a)'">
+                            <i data-lucide="send" class="w-4 h-4"></i>
                             Submit Report
-
                         </button>
 
-                        <button
-                            type="button"
-                            onclick="closeReportModal()"
-                            class="w-full bg-white/10 hover:bg-white/20 py-3 sm:py-4 rounded-2xl sm:rounded-3xl font-black text-base sm:text-lg transition">
-
+                        <button type="button" onclick="closeReportModal()"
+                            class="w-full py-4 rounded-2xl font-semibold transition"
+                            style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.09); color:#8892a4; font-size:.9rem;"
+                            onmouseover="this.style.background='rgba(255,255,255,0.09)'; this.style.color='#f0f2f8'"
+                            onmouseout="this.style.background='rgba(255,255,255,0.05)'; this.style.color='#8892a4'">
                             Cancel
-
                         </button>
 
                     </div>
@@ -579,403 +542,475 @@
 
         </div>
 
-
     </div>
 
 </form>
 
-</style>
 
-<style>
+<script>
 
-.issue-btn{
+/* ── RE-RENDER ICONS ── */
+if (typeof lucide !== 'undefined') lucide.createIcons();
 
-    background:#EFF6FF;
-    color:#1D4ED8;
-    padding:11px 18px;
-    border-radius:999px;
-    font-size:13px;
-    font-weight:700;
-    white-space:nowrap;
-    transition:.2s;
-    border:1px solid #DBEAFE;
-    flex-shrink:0;
 
+/* ─────────────────────────────────────────────────────────
+   PRIORITY CARD VISUAL STATE
+───────────────────────────────────────────────────────── */
+function updatePriorityCards() {
+    const radios = document.querySelectorAll('input[name="report_urgency_level"]');
+    const cardNon = document.getElementById('card-non-urgent');
+    const cardUrg = document.getElementById('card-urgent');
+
+    radios.forEach(r => {
+        if (r.value === 'Non-Urgent') {
+            if (r.checked) {
+                cardNon.classList.add('p-non-urgent');
+                cardNon.querySelector('div div:first-child').style.color = '#34d399';
+            } else {
+                cardNon.classList.remove('p-non-urgent');
+                cardNon.querySelector('div div:first-child').style.color = '#f0f2f8';
+            }
+        }
+        if (r.value === 'Urgent') {
+            if (r.checked) {
+                cardUrg.classList.add('p-urgent');
+                cardUrg.querySelector('div div:first-child').style.color = '#ef4444'; // Red text when checked
+            } else {
+                cardUrg.classList.remove('p-urgent');
+                cardUrg.querySelector('div div:first-child').style.color = '#f0f2f8'; // Reverts when unchecked
+            }
+        }
+    });
 }
 
-.issue-btn:hover{
+updatePriorityCards();
 
-    background:#DBEAFE;
+/* ─────────────────────────────────────────────────────────
+   SUGGESTED ISSUE AUTO-FILL
+───────────────────────────────────────────────────────── */
+const descriptionTextarea =
+    document.querySelector(
+        'textarea[name="report_problem_description"]'
+    );
 
-}
 
-.scrollbar-hide::-webkit-scrollbar{
 
-    display:none;
+/*
+|--------------------------------------------------------------------------
+| REMOVE ACTIVE IF DESCRIPTION CLEARED
+|--------------------------------------------------------------------------
 
-}
 
-.scrollbar-hide{
+descriptionTextarea.addEventListener('input', function () {
 
-    -ms-overflow-style:none;
-    scrollbar-width:none;
+    if(this.value.trim() === ''){
 
-}
-
-</style>
-
-<style>
-
-@media(max-width:640px){
-
-    #reportModal{
-
-        align-items:flex-start;
+        document.querySelectorAll('.issue-btn')
+            .forEach(btn =>
+                btn.classList.remove('active')
+            );
 
     }
 
-}
+});*/
 
-</style>
-
-
-
-<script>
-
-/*
-|--------------------------------------------------------------------------
-| SUGGESTED ISSUE AUTO FILL
-|--------------------------------------------------------------------------
-*/
-
-document.querySelectorAll('.issue-btn')
-
-    .forEach(button => {
-
-        button.addEventListener('click', function(){
-
-            document.querySelector(
-                'textarea[name="report_problem_description"]'
-            ).value = this.innerText;
-
-        });
-
-    });
-
-</script>
-
-
-<script>
-
-/*
-|--------------------------------------------------------------------------
-| REPORT SUBMISSION INTELLIGENCE LAYER
-|--------------------------------------------------------------------------
-*/
-
-document.addEventListener('DOMContentLoaded', function () {
-
-    /*
-    |--------------------------------------------------------------------------
-    | ELEMENTS
-    |--------------------------------------------------------------------------
-    */
-
-    const employeeInput =
-        document.getElementById(
-            'employeeIdInput'
-        );
-
-    const reporterBox =
-        document.getElementById(
-            'reporterInfoBox'
-        );
-
-    const employeeError =
-        document.getElementById(
-            'employeeError'
-        );
-
-    const roomSelect =
-        document.getElementById(
-            'roomSelect'
-        );
-
-    const equipmentSelect =
-        document.getElementById(
-            'equipmentSelect'
-        );
-
-    /*
-    |--------------------------------------------------------------------------
-    | EMPLOYEE VALIDATION
-    |--------------------------------------------------------------------------
-    */
-
-    employeeInput.addEventListener('keyup', function () {
-
-        let employeeId =
-            this.value;
-
-        /*
-        |--------------------------------------------------------------------------
-        | EMPTY INPUT
-        |--------------------------------------------------------------------------
-        */
-
-        if(employeeId.length < 2){
-
-            reporterBox.classList.add('hidden');
-
-            employeeError.classList.add('hidden');
-
-            return;
-
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | FETCH REPORTER
-        |--------------------------------------------------------------------------
-        */
-
-        fetch(`/get-reporter/${employeeId}`)
-
-            .then(response => response.json())
-
-            .then(data => {
-
-                /*
-                |--------------------------------------------------------------------------
-                | REPORTER FOUND
-                |--------------------------------------------------------------------------
-                */
-
-                if(data){
-
-                    reporterBox.classList.remove('hidden');
-
-                    employeeError.classList.add('hidden');
-
-                    document.getElementById(
-                        'reporterName'
-                    ).innerText =
-                        data.reporter_full_name ?? '-';
-
-                    document.getElementById(
-                        'reporterEmail'
-                    ).innerText =
-                        data.reporter_email_address ?? '-';
-
-                    document.getElementById(
-                        'reporterContact'
-                    ).innerText =
-                        data.reporter_contact_number ?? '-';
-
-                }
-
-                /*
-                |--------------------------------------------------------------------------
-                | REPORTER NOT FOUND
-                |--------------------------------------------------------------------------
-                */
-
-                else{
-
-                    reporterBox.classList.add('hidden');
-
-                    employeeError.classList.remove('hidden');
-
-                }
-
-            });
-
-    });
-
-    /*
-    |--------------------------------------------------------------------------
-    | ROOM EQUIPMENT FILTER
-    |--------------------------------------------------------------------------
-    */
-
-    roomSelect.addEventListener('change', function () {
-
-        let roomId = this.value;
-
-        equipmentSelect.innerHTML =
-            '<option value="">Select Equipment</option>';
-
-        /*
-        |--------------------------------------------------------------------------
-        | EMPTY ROOM
-        |--------------------------------------------------------------------------
-        */
-
-        if(!roomId){
-
-            return;
-
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | FETCH EQUIPMENT
-        |--------------------------------------------------------------------------
-        */
-
-        fetch(`/get-equipment/${roomId}`)
-
-            .then(response => response.json())
-
-            .then(data => {
-
-                data.forEach(equipment => {
-
-                    equipmentSelect.innerHTML += `
-
-                        <option value="${equipment.equipment_id}">
-
-                            ${equipment.equipment_name}
-
-                        </option>
-
-                    `;
-
-                });
-
-            });
-
-    });
-
-});
-
-</script>
-
-<script>
-
-/*
-|--------------------------------------------------------------------------
-| ISSUE CAROUSEL
-|--------------------------------------------------------------------------
-*/
-
-const issueCarousel =
-    document.getElementById(
-        'issueCarousel'
-    );
-
-document.getElementById(
-    'scrollLeftBtn'
-).addEventListener('click', () => {
-
-    issueCarousel.scrollBy({
-
-        left: -300,
-        behavior: 'smooth'
-
-    });
-
-});
-
-document.getElementById(
-    'scrollRightBtn'
-).addEventListener('click', () => {
-
-    issueCarousel.scrollBy({
-
-        left: 300,
-        behavior: 'smooth'
-
-    });
-
-});
-
-</script>
-
-
-<script>
-
-/*
-|--------------------------------------------------------------------------
-| ROOM INPUT TOGGLE
-|--------------------------------------------------------------------------
-*/
-
-const toggleRoomBtn =
-    document.getElementById(
-        'toggleRoomInput'
-    );
-
-const roomDropdown =
-    document.getElementById(
-        'roomDropdownContainer'
-    );
-
-const roomManual =
-    document.getElementById(
-        'roomManualContainer'
-    );
-
-let roomManualMode = false;
-
-toggleRoomBtn.addEventListener(
-    'click',
+/*descriptionTextarea.addEventListener(
+    'input',
     function(){
 
-        roomManualMode =
-            !roomManualMode;
+        const text =
+            this.value.trim();
 
-        /*
-        |--------------------------------------------------------------------------
-        | MANUAL INPUT MODE
-        |--------------------------------------------------------------------------
-        */
+        let matched = false;
 
-        if(roomManualMode){
+        document
+            .querySelectorAll('.issue-btn')
+            .forEach(btn => {
 
-            roomDropdown
-                .classList.add('hidden');
+                if(
+                    btn.innerText.trim() === text
+                ){
 
-            roomManual
-                .classList.remove('hidden');
+                    btn.classList.add(
+                        'active'
+                    );
 
-            toggleRoomBtn.innerText =
-                'Use location list instead';
+                    matched = true;
+
+                }
+                else{
+
+                    btn.classList.remove(
+                        'active'
+                    );
+
+                }
+
+            });
+
+        if(!matched){
+
+            document
+                .querySelectorAll('.issue-btn')
+                .forEach(btn =>
+                    btn.classList.remove(
+                        'active'
+                    )
+                );
 
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | DROPDOWN MODE
-        |--------------------------------------------------------------------------
-        */
+    }
+);*/
 
-        else{
+//Active - not Active
+descriptionTextarea.addEventListener(
+    'input',
+    function(){
 
-            roomDropdown
-                .classList.remove('hidden');
+        const activeBtn =
+            document.querySelector(
+                '.issue-btn.active'
+            );
 
-            roomManual
-                .classList.add('hidden');
+        if(
+            activeBtn &&
+            this.value.trim() !==
+            activeBtn.innerText.trim()
+        ){
 
-            toggleRoomBtn.innerText =
-                'Location not listed?';
+            activeBtn.classList.remove(
+                'active'
+            );
 
         }
 
     }
 );
 
-</script>
+/* ─────────────────────────────────────────────────────────
+   ISSUE CAROUSEL SCROLL
+───────────────────────────────────────────────────────── */
+const issueCarousel = document.getElementById('issueCarousel');
 
-
-<script>
+document.getElementById('scrollLeftBtn').addEventListener('click', () => {
+    issueCarousel.scrollBy({ left: -280, behavior: 'smooth' });
+});
+document.getElementById('scrollRightBtn').addEventListener('click', () => {
+    issueCarousel.scrollBy({ left: 280, behavior: 'smooth' });
+});
 
 /*
 |--------------------------------------------------------------------------
-| EQUIPMENT INPUT TOGGLE
+| PREMIUM MOMENTUM DRAG CAROUSEL
 |--------------------------------------------------------------------------
 */
+
+let isDragging = false;
+let startX = 0;
+let startScrollLeft = 0;
+let velocity = 0;
+let lastX = 0;
+let animationFrame;
+
+issueCarousel.style.cursor = 'grab';
+
+issueCarousel.addEventListener('pointerdown', (e) => {
+
+    isDragging = true;
+
+    issueCarousel.style.cursor = 'grabbing';
+
+    cancelAnimationFrame(animationFrame);
+
+    startX = e.clientX;
+
+    lastX = e.clientX;
+
+    startScrollLeft = issueCarousel.scrollLeft;
+
+    velocity = 0;
+
+});
+
+window.addEventListener('pointermove', (e) => {
+
+    if (!isDragging) return;
+
+    e.preventDefault();
+
+    const dx =
+        e.clientX - startX;
+
+    issueCarousel.scrollLeft =
+        startScrollLeft - dx;
+
+    velocity =
+        e.clientX - lastX;
+
+    lastX =
+        e.clientX;
+
+});
+
+window.addEventListener('pointerup', () => {
+
+    if (!isDragging) return;
+
+    isDragging = false;
+
+    issueCarousel.style.cursor = 'grab';
+
+    momentumScroll();
+
+});
+
+function momentumScroll() {
+
+    issueCarousel.scrollLeft -= velocity * 4;
+
+    velocity *= 0.95;
+
+    if (Math.abs(velocity) > 0.5) {
+
+        animationFrame =
+            requestAnimationFrame(
+                momentumScroll
+            );
+
+    }
+
+}
+
+/*
+|--------------------------------------------------------------------------
+| TOUCH SWIPE SUPPORT
+|--------------------------------------------------------------------------
+*/
+
+let touchStartX = 0;
+let touchScrollLeft = 0;
+
+issueCarousel.addEventListener('touchstart', (e) => {
+
+    touchStartX =
+        e.touches[0].pageX;
+
+    touchScrollLeft =
+        issueCarousel.scrollLeft;
+
+});
+
+issueCarousel.addEventListener('touchmove', (e) => {
+
+    const touchX =
+        e.touches[0].pageX;
+
+    const walk =
+        (touchX - touchStartX);
+
+    issueCarousel.scrollLeft =
+        touchScrollLeft - walk;
+
+});
+
+/* ─────────────────────────────────────────────────────────
+   FILE UPLOAD PREVIEW
+───────────────────────────────────────────────────────── */
+function handleFileSelect(input) {
+
+    const file = input.files[0];
+
+    const label =
+        document.getElementById(
+            'uploadLabel'
+        );
+
+    const zone =
+        document.getElementById(
+            'uploadZone'
+        );
+
+    if (!file) return;
+
+    const allowedTypes = [
+
+        'image/jpeg',
+        'image/png',
+        'image/webp'
+
+    ];
+
+    const maxSize =
+        10 * 1024 * 1024;
+
+    /*
+    |--------------------------------------------------------------------------
+    | INVALID FILE TYPE
+    |--------------------------------------------------------------------------
+    */
+
+    if (!allowedTypes.includes(file.type)) {
+
+        alert(
+            'Unsupported file format. Please upload a PNG, JPG, JPEG, or WEBP image.'
+        );
+
+        input.value = '';
+
+        label.innerText =
+            'Click to upload photo';
+
+        label.style.color =
+            '#8892a4';
+
+        zone.classList.remove(
+            'uploaded'
+        );
+
+        return;
+
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | FILE TOO LARGE
+    |--------------------------------------------------------------------------
+    */
+
+    if (file.size > maxSize) {
+
+        alert(
+            'File size exceeds the 10MB limit. Please upload a smaller image.'
+        );
+
+        input.value = '';
+
+        label.innerText =
+            'Click to upload photo';
+
+        label.style.color =
+            '#8892a4';
+
+        zone.classList.remove(
+            'uploaded'
+        );
+
+        return;
+
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | VALID FILE
+    |--------------------------------------------------------------------------
+    */
+
+    label.textContent =
+        '✓ ' + file.name;
+
+    label.style.color =
+        '#34d399';
+
+    zone.classList.add(
+        'uploaded'
+    );
+
+    document
+    .getElementById(
+        'removeFileBtn'
+    )
+    .classList
+    .remove(
+        'hidden'
+    );
+
+    const icon =
+        zone.querySelector('i');
+
+    if(icon){
+
+        icon.style.color =
+            '#34d399';
+
+    }
+
+}
+
+function removeSelectedFile(){
+
+    const input =
+        document.getElementById(
+            'proofImageInput'
+        );
+
+    const label =
+        document.getElementById(
+            'uploadLabel'
+        );
+
+    const zone =
+        document.getElementById(
+            'uploadZone'
+        );
+
+    const removeBtn =
+        document.getElementById(
+            'removeFileBtn'
+        );
+
+    input.value = '';
+
+    label.textContent =
+        'Click to upload photo';
+
+    label.style.color =
+        '#8892a4';
+
+    zone.classList.remove(
+        'uploaded'
+    );
+
+    removeBtn.classList.add(
+        'hidden'
+    );
+
+    const icon =
+        zone.querySelector('i');
+
+    if(icon){
+
+        icon.style.color =
+            '#8892a4';
+
+    }
+
+}
+
+/* ─────────────────────────────────────────────────────────
+   ROOM INPUT TOGGLE
+───────────────────────────────────────────────────────── 
+const toggleRoomBtn         = document.getElementById('toggleRoomInput');
+const roomDropdown          = document.getElementById('roomDropdownContainer');
+const roomManual            = document.getElementById('roomManualContainer');
+let   roomManualMode        = false;
+
+toggleRoomBtn.addEventListener('click', function () {
+    roomManualMode = !roomManualMode;
+    if (roomManualMode) {
+        roomDropdown.classList.add('hidden');
+        roomManual.classList.remove('hidden');
+        this.innerText = 'Use location list instead';
+    } else {
+        roomDropdown.classList.remove('hidden');
+        roomManual.classList.add('hidden');
+        this.innerText = 'Other Location?';
+    }
+}); */
+
+/* ─────────────────────────────────────────────────────────
+   EQUIPMENT INPUT TOGGLE
+───────────────────────────────────────────────────────── */
 
 const toggleEquipmentBtn =
     document.getElementById(
@@ -992,60 +1027,379 @@ const equipmentManual =
         'equipmentManualContainer'
     );
 
+const equipmentSelect =
+    document.getElementById(
+        'equipmentSelect'
+    );
+
+const equipmentManualInput =
+    document.getElementById(
+        'equipmentManualInput'
+    );
+
 let equipmentManualMode = false;
+
+let lastSelectedEquipment = '';
 
 toggleEquipmentBtn.addEventListener(
     'click',
-    function(){
+    function () {
 
         equipmentManualMode =
             !equipmentManualMode;
 
         /*
         |--------------------------------------------------------------------------
-        | MANUAL INPUT MODE
+        | SWITCH TO MANUAL EQUIPMENT
         |--------------------------------------------------------------------------
         */
 
-        if(equipmentManualMode){
+        if (equipmentManualMode) {
+
+            if (equipmentSelect.value) {
+
+                lastSelectedEquipment =
+                    equipmentSelect.value;
+
+            }
+
+            equipmentSelect.value = '';
 
             equipmentDropdown
-                .classList.add('hidden');
+                .classList
+                .add('hidden');
 
             equipmentManual
-                .classList.remove('hidden');
+                .classList
+                .remove('hidden');
 
-            toggleEquipmentBtn.innerText =
+            this.innerText =
                 'Use equipment list instead';
+
+            descriptionTextarea.value =
+                '';
+
+            document
+                .querySelectorAll(
+                    '.issue-btn'
+                )
+                .forEach(btn =>
+                    btn.classList.remove(
+                        'active'
+                    )
+                );
+
+            loadGenericSuggestions();
 
         }
 
         /*
         |--------------------------------------------------------------------------
-        | DROPDOWN MODE
+        | SWITCH BACK TO EQUIPMENT LIST
         |--------------------------------------------------------------------------
         */
 
-        else{
+        else {
 
             equipmentDropdown
-                .classList.remove('hidden');
+                .classList
+                .remove('hidden');
 
             equipmentManual
-                .classList.add('hidden');
+                .classList
+                .add('hidden');
 
-            toggleEquipmentBtn.innerText =
+            equipmentManualInput.value =
+                '';
+
+            this.innerText =
                 'Other equipment?';
+
+            descriptionTextarea.value =
+                '';
+
+            document
+                .querySelectorAll(
+                    '.issue-btn'
+                )
+                .forEach(btn =>
+                    btn.classList.remove(
+                        'active'
+                    )
+                );
+
+            if (lastSelectedEquipment) {
+
+                equipmentSelect.value =
+                    lastSelectedEquipment;
+
+                fetch(
+                    `/get-suggestions/${lastSelectedEquipment}`
+                )
+                .then(response =>
+                    response.json()
+                )
+                .then(data => {
+
+                    issueCarousel.innerHTML =
+                        '';
+
+                    data.forEach(issue => {
+
+                        issueCarousel.innerHTML += `
+                            <button
+                                type="button"
+                                class="issue-btn">
+
+                                ${issue}
+
+                            </button>
+                        `;
+
+                    });
+
+                    bindIssueButtons();
+
+                });
+
+            }
+            else {
+
+                issueCarousel.innerHTML =
+                    '';
+
+            }
 
         }
 
     }
 );
 
+
+
+
+/*
+|--------------------------------------------------------------------------
+| GENERIC SUGGESTIONS
+|--------------------------------------------------------------------------
+*/
+
+function loadGenericSuggestions() {
+
+    issueCarousel.innerHTML = `
+
+        <button type="button" class="issue-btn">
+            Not Functioning
+        </button>
+
+        <button type="button" class="issue-btn">
+            Physical Damage
+        </button>
+
+        <button type="button" class="issue-btn">
+            Missing Parts
+        </button>
+
+        <button type="button" class="issue-btn">
+            Needs Inspection
+        </button>
+
+        <button type="button" class="issue-btn">
+            Needs Replacement
+        </button>
+
+        <button type="button" class="issue-btn">
+            Cannot Operate
+        </button>
+
+        <button type="button" class="issue-btn">
+            Electrical Issue
+        </button>
+
+    `;
+
+    bindIssueButtons();
+
+}
+
+// AUTO SUGGESTIOn
+
+function bindIssueButtons(){
+
+    document
+        .querySelectorAll('.issue-btn')
+        .forEach(btn => {
+
+            btn.addEventListener(
+                'click',
+                function(){
+
+                    document
+                        .querySelectorAll('.issue-btn')
+                        .forEach(b =>
+                            b.classList.remove(
+                                'active'
+                            )
+                        );
+
+                    this.classList.add(
+                        'active'
+                    );
+
+                    descriptionTextarea.value =
+                        this.innerText;
+
+                }
+            );
+
+        });
+
+}
+
+/* ─────────────────────────────────────────────────────────
+   REPORT SUBMISSION INTELLIGENCE LAYER
+───────────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', function () {
+
+    const employeeInput = document.getElementById('employeeIdInput');
+    const reporterBox   = document.getElementById('reporterInfoBox');
+    const employeeError = document.getElementById('employeeError');
+    const roomSelect    = document.getElementById('roomSelect');
+    const equipSelect   = document.getElementById('equipmentSelect');
+
+    /* EMPLOYEE LIVE LOOKUP */
+    employeeInput.addEventListener('blur', function () {
+        const id = this.value.trim();
+        if (id.length < 2) {
+            reporterBox.classList.add('hidden');
+            employeeError.style.display = 'none';
+            return;
+        }
+        fetch(`/get-reporter/${id}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data) {
+                    reporterBox.classList.remove('hidden');
+                    employeeError.style.display = 'none';
+                    document.getElementById('reporterName').innerText    = data.reporter_full_name      ?? '—';
+                    document.getElementById('reporterEmail').innerText   = data.reporter_email_address  ?? '—';
+                    document.getElementById('reporterContact').innerText = data.reporter_contact_number ?? '—';
+                } else {
+                    reporterBox.classList.add('hidden');
+                    employeeError.style.display = 'block';
+                }
+            });
+    });
+
+    /* ROOM → EQUIPMENT FILTER */
+    roomSelect.addEventListener('change', function () {
+
+    lastSelectedEquipment = '';
+
+    const roomId = this.value;
+
+    if (equipmentManualMode) {
+
+        document.getElementById(
+            'equipmentManualInput'
+        ).value = '';
+
+        descriptionTextarea.value = '';
+
+        document
+            .querySelectorAll('.issue-btn')
+            .forEach(btn =>
+                btn.classList.remove('active')
+            );
+
+        loadGenericSuggestions();
+
+    }
+    else {
+
+        issueCarousel.innerHTML = '';
+
+        descriptionTextarea.value = '';
+
+        document
+            .querySelectorAll('.issue-btn')
+            .forEach(btn =>
+                btn.classList.remove('active')
+            );
+
+    }
+
+    equipSelect.innerHTML =
+        '<option value="">Select Equipment</option>';
+        if (!roomId) return;
+        fetch(`/get-equipment/${roomId}`)
+            .then(r => r.json())
+            .then(data => {
+                data.forEach(e => {
+                    equipSelect.innerHTML += `<option value="${e.equipment_id}">${e.equipment_name}</option>`;
+                });
+            });
+    });
+
+    /* AUTO SUGGESTION */
+    equipSelect.addEventListener(
+        'change',
+        function(){
+
+            lastSelectedEquipment =
+            this.value;
+
+            const equipmentId =
+                this.value;
+
+            if(!equipmentId){
+
+                if(equipmentManualMode){
+
+                    loadGenericSuggestions();
+
+                }
+                else{
+
+                    issueCarousel.innerHTML = '';
+
+                    descriptionTextarea.value = '';
+
+                }
+
+                return;
+
+            }
+
+            fetch(
+                `/get-suggestions/${equipmentId}`
+            )
+            .then(response => response.json())
+            .then(data => {
+
+                issueCarousel.innerHTML = '';
+
+                data.forEach(issue => {
+
+                    issueCarousel.innerHTML += `
+                        <button
+                            type="button"
+                            class="issue-btn">
+
+                            ${issue}
+
+                        </button>
+                    `;
+
+                });
+
+                bindIssueButtons();
+
+            });
+
+        }
+    );
+
+});
+
 </script>
-
-
-
-
-
-

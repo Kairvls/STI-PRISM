@@ -20,6 +20,20 @@
 
         *, *::before, *::after { box-sizing: border-box; }
 
+        html{
+
+            scroll-behavior:smooth;
+
+        }
+
+        #about,
+        #capabilities,
+        #features{
+
+            scroll-margin-top:120px;
+
+        }
+
         html, body {
             font-family: 'Inter', sans-serif;
             background: #080c18;
@@ -66,11 +80,20 @@
             z-index: 0;
         }
 
+        .gr {
+            background: 
+            linear-gradient(rgba(8, 12, 24, 0.88), rgba(8, 12, 24, 0.96)),
+            linear-gradient(rgba(6, 10, 20, 0.88), rgba(0, 0, 0, 0.96));
+
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
         /* ── HERO ── */
         .hero-section {
             background:
-                linear-gradient(rgba(8, 12, 24, 0.88), rgba(8, 12, 24, 0.96)),
-                url({{ asset('image/sti-bg.webp') }});
+                linear-gradient(rgba(6, 10, 20, 0.88), rgba(0, 0, 0, 0.96)),
+                url({{ asset('image/sti-college-ormoc.png') }});
             background-size: cover;
             background-position: center;
         }
@@ -128,19 +151,18 @@
             transition: transform .2s ease, box-shadow .2s ease;
         }
         .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 28px rgba(240,180,41,0.38);
+            background: linear-gradient(135deg, #d8a225, #c97f08);
         }
 
         .btn-ghost {
-            background: rgba(255,255,255,0.06);
-            border: 1px solid rgba(255,255,255,0.1);
+            background:rgba(0,55,199,0.85); 
+            border:1px solid rgba(0,55,199,0.4);
             color: #f0f2f8;
             font-weight: 600;
             transition: background .2s ease;
         }
         .btn-ghost:hover {
-            background: rgba(255,255,255,0.11);
+            background:rgba(0, 44, 155, 0.85); 
         }
 
         /* ── SCROLLBAR HIDE ── */
@@ -180,6 +202,56 @@
 
     </style>
 
+    <style>
+        .nav-link{
+
+            color:#8892a4;
+
+            font-size:.875rem;
+
+            text-decoration:none;
+
+            transition:all .25s ease;
+
+            position:relative;
+
+        }
+
+        .nav-link:hover{
+
+            color:#f0f2f8;
+
+        }
+
+        .nav-link.active{
+
+            color:#f0f2f8;
+
+            font-weight:600;
+
+        }
+
+        .nav-link.active::after{
+
+            content:'';
+
+            position:absolute;
+
+            left:0;
+
+            bottom:-8px;
+
+            width:100%;
+
+            height:2px;
+
+            background:#f0f2f8;
+
+            border-radius:999px;
+
+        }
+    </style>
+
 </head>
 
 <body>
@@ -216,14 +288,11 @@
             <!-- DESKTOP MENU -->
             <div class="hidden lg:flex items-center gap-8">
 
-                <a href="#features" class="nav-link" style="color:#8892a4; font-size:.875rem; text-decoration:none; transition:color .2s;"
-                   onmouseover="this.style.color='#f0f2f8'" onmouseout="this.style.color='#8892a4'">Features</a>
+                <a href="#about" class="nav-link active">About</a>
 
-                <a href="#capabilities" class="nav-link" style="color:#8892a4; font-size:.875rem; text-decoration:none; transition:color .2s;"
-                   onmouseover="this.style.color='#f0f2f8'" onmouseout="this.style.color='#8892a4'">Solutions</a>
+                <a href="#capabilities" class="nav-link">Features</a>
 
-                <a href="#" style="color:#8892a4; font-size:.875rem; text-decoration:none; transition:color .2s;"
-                   onmouseover="this.style.color='#f0f2f8'" onmouseout="this.style.color='#8892a4'">About</a>
+                <a href="#features" class="nav-link">Modules</a>
 
                 <button onclick="openReportModal()"
                     style="color:#f0b429; font-size:.875rem; font-weight:600; background:none; border:none; cursor:pointer; transition:color .2s;"
@@ -234,7 +303,7 @@
                 <button onclick="openLoginModal()"
                     class="flex items-center gap-2 px-4 py-2 rounded-xl btn-ghost"
                     style="font-size:.875rem;">
-                    <i data-lucide="log-in" class="w-4 h-4"></i>
+                    <i data-lucide="user" class="w-4 h-4"></i>
                     Log In
                 </button>
 
@@ -251,7 +320,7 @@
     </nav>
 
     <!-- ═══════════════════════════════════════════════ HERO -->
-    <section class="hero-section min-h-screen flex items-center pt-36 pb-24 relative">
+    <section id="about" class="hero-section min-h-screen flex items-center pt-36 pb-24 relative">
 
         <div class="max-w-7xl mx-auto px-5 lg:px-10 w-full relative z-10">
 
@@ -278,9 +347,10 @@
 
                     <!-- DESCRIPTION -->
                     <p style="color:#8892a4; font-size:1rem; line-height:1.75; max-width:480px; margin-bottom:36px;">
-                        A comprehensive platform for equipment, facilities, and audio-visual equipment 
-                        management with mobile damage reporting and QR code 
-                        equipment maintenance monitoring for STI College Ormoc.
+                        A centralized web-based procurement and inventory management system 
+                        for equipment, facilities, and audio-visual resources, 
+                        featuring mobile damage reporting and QR code-based 
+                        maintenance monitoring for STI College Ormoc.
                     </p>
 
                     <!-- BUTTONS -->
@@ -294,7 +364,7 @@
 
                         <button onclick="openLoginModal()"
                             class="btn-ghost flex items-center justify-center gap-2 px-8 py-4 rounded-2xl text-base">
-                            <i data-lucide="log-in" class="w-5 h-5"></i>
+                            <i data-lucide="user" class="w-5 h-5"></i>
                             System Login
                         </button>
 
@@ -313,11 +383,12 @@
                         </div>
                         <div class="flex-1">
                             <div style="font-family:'Outfit',sans-serif; font-weight:700; font-size:1rem; color:#f0f2f8; margin-bottom:6px;">
-                                Procurement &amp; Inventory
+                                Procurement &amp; Inventory Management
                             </div>
                             <p style="color:#8892a4; font-size:.825rem; line-height:1.65;">
-                                Manage procurement workflows and track inventory for equipment,
-                                facilities, and audio-visual resources efficiently.
+                                Manage procurement requests, monitor inventory levels, 
+                                and maintain accurate records of institutional 
+                                equipment, facilities, and audio-visual resources.
                             </p>
                         </div>
                         <i data-lucide="chevron-right" class="w-4 h-4 flex-shrink-0 mt-1" style="color:#8892a4;"></i>
@@ -331,12 +402,31 @@
                             <i data-lucide="smartphone" class="w-6 h-6" style="color:#60a5fa;"></i>
                         </div>
                         <div class="flex-1">
-                            <div style="font-family:'Outfit',sans-serif; font-weight:700; font-size:1rem; color:#f0f2f8; margin-bottom:6px;">
-                                Mobile Damage Reporting
+                            <div class="flex items-center gap-2 mb-2">
+
+                                <div style="
+                                    font-family:'Outfit',sans-serif;
+                                    font-weight:700;
+                                    font-size:1rem;
+                                    color:#f0f2f8;
+                                ">
+                                    Mobile Damage Reporting
+                                </div>
+
+                                <span class="px-2 py-1 rounded-full text-[10px] font-bold"
+                                    style="
+                                        background:rgba(96,165,250,.15);
+                                        color:#60a5fa;
+                                        border:1px solid rgba(96,165,250,.25);
+                                    ">
+                                    CORE
+                                </span>
+
                             </div>
                             <p style="color:#8892a4; font-size:.825rem; line-height:1.65;">
-                                Report equipment damage instantly through mobile devices
-                                with photo documentation and real-time tracking.
+                                Allow teachers to instantly report damaged equipment 
+                                and facilities through mobile devices with photo 
+                                evidence and priority-based reporting.
                             </p>
                         </div>
                         <i data-lucide="chevron-right" class="w-4 h-4 flex-shrink-0 mt-1" style="color:#8892a4;"></i>
@@ -351,11 +441,11 @@
                         </div>
                         <div class="flex-1">
                             <div style="font-family:'Outfit',sans-serif; font-weight:700; font-size:1rem; color:#f0f2f8; margin-bottom:6px;">
-                                QR Code Monitoring
+                                QR Code Maintenance Monitoring
                             </div>
                             <p style="color:#8892a4; font-size:.825rem; line-height:1.65;">
-                                Track equipment maintenance history and status using
-                                QR code scanning for quick access to records.
+                                Access maintenance history, equipment information, 
+                                and service records instantly through QR code scanning.
                             </p>
                         </div>
                         <i data-lucide="chevron-right" class="w-4 h-4 flex-shrink-0 mt-1" style="color:#8892a4;"></i>
@@ -378,23 +468,23 @@
                  style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07);">
 
                 <div class="text-center">
-                    <div style="font-family:'Outfit',sans-serif; font-size:clamp(1.6rem,3vw,2.4rem); font-weight:800; color:#f0b429; line-height:1.1;">2,400+</div>
-                    <div style="color:#8892a4; font-size:.8rem; margin-top:6px; letter-spacing:.05em;">Assets Tracked</div>
+                    <div style="font-family:'Outfit',sans-serif; font-size:clamp(1.6rem,3vw,2.4rem); font-weight:800; color:#f0b429; line-height:1.1;">24/7</div>
+                    <div style="color:#8892a4; font-size:.8rem; margin-top:6px; letter-spacing:.05em;">System Availability</div>
                 </div>
 
                 <div class="text-center">
-                    <div style="font-family:'Outfit',sans-serif; font-size:clamp(1.6rem,3vw,2.4rem); font-weight:800; color:#f0b429; line-height:1.1;">98.6%</div>
-                    <div style="color:#8892a4; font-size:.8rem; margin-top:6px; letter-spacing:.05em;">Uptime Rate</div>
+                    <div style="font-family:'Outfit',sans-serif; font-size:clamp(1.6rem,3vw,2.4rem); font-weight:800; color:#f0b429; line-height:1.1;">Real-Time</div>
+                    <div style="color:#8892a4; font-size:.8rem; margin-top:6px; letter-spacing:.05em;">Inventory Updates</div>
                 </div>
 
                 <div class="text-center">
-                    <div style="font-family:'Outfit',sans-serif; font-size:clamp(1.6rem,3vw,2.4rem); font-weight:800; color:#f0b429; line-height:1.1;">340+</div>
-                    <div style="color:#8892a4; font-size:.8rem; margin-top:6px; letter-spacing:.05em;">Reports Filed</div>
+                    <div style="font-family:'Outfit',sans-serif; font-size:clamp(1.6rem,3vw,2.4rem); font-weight:800; color:#f0b429; line-height:1.1;">Mobile</div>
+                    <div style="color:#8892a4; font-size:.8rem; margin-top:6px; letter-spacing:.05em;">Damage Reporting</div>
                 </div>
 
                 <div class="text-center">
-                    <div style="font-family:'Outfit',sans-serif; font-size:clamp(1.6rem,3vw,2.4rem); font-weight:800; color:#f0b429; line-height:1.1;">12</div>
-                    <div style="color:#8892a4; font-size:.8rem; margin-top:6px; letter-spacing:.05em;">Departments</div>
+                    <div style="font-family:'Outfit',sans-serif; font-size:clamp(1.6rem,3vw,2.4rem); font-weight:800; color:#f0b429; line-height:1.1;">QR Code</div>
+                    <div style="color:#8892a4; font-size:.8rem; margin-top:6px; letter-spacing:.05em;">Maintenance Tracking</div>
                 </div>
 
             </div>
@@ -403,97 +493,327 @@
 
     </section>
 
-    <!-- ═══════════════════════════════════════════════ CAPABILITIES -->
-    <section id="capabilities" class="relative z-10 px-5 lg:px-10 py-20">
+    <!-- ═══════════════════════════════════════════════ FEATURES -->
+<section id="capabilities" class="relative z-10 px-5 lg:px-10 py-20">
+
+    <div class="max-w-7xl mx-auto">
+
+        <div class="text-center mb-14">
+
+            <span class="inline-block px-3 py-1.5 rounded-full mb-4"
+                style="
+                    background:rgba(240,180,41,0.1);
+                    border:1px solid rgba(240,180,41,0.2);
+                    color:#f0b429;
+                    font-size:.72rem;
+                    letter-spacing:.12em;
+                    font-weight:600;
+                ">
+
+                SYSTEM FEATURES
+
+            </span>
+
+            <h2
+                style="
+                    font-family:'Outfit',sans-serif;
+                    font-size:clamp(1.8rem,3vw,2.6rem);
+                    font-weight:700;
+                    color:#f0f2f8;
+                ">
+
+                Smart Asset Management for Modern Institutions
+
+            </h2>
+
+            <p class="mt-4 max-w-3xl mx-auto text-gray-400">
+
+                PRISM streamlines procurement, inventory management,
+                maintenance monitoring, and damage reporting
+                through a centralized digital platform.
+
+            </p>
+
+        </div>
+
+        <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+            <!-- FEATURE 1 -->
+            <div class="cap-card p-6 rounded-2xl gr">
+
+                <i data-lucide="database"
+                class="w-10 h-10 text-yellow-400 mb-4"></i>
+
+                <h3 class="text-xl font-bold text-white mb-3">
+
+                    Centralized Asset Management
+
+                </h3>
+
+                <p class="text-gray-400 text-sm leading-7">
+
+                    Manage equipment, facilities,
+                    and audio visual resources from
+                    a single platform.
+
+                </p>
+
+            </div>
+
+            <!-- FEATURE 2 -->
+            <div class="cap-card p-6 rounded-2xl gr">
+
+                <i data-lucide="activity"
+                class="w-10 h-10 text-blue-400 mb-4"></i>
+
+                <h3 class="text-xl font-bold text-white mb-3">
+
+                    Real Time Monitoring
+
+                </h3>
+
+                <p class="text-gray-400 text-sm leading-7">
+
+                    Track inventory status,
+                    maintenance activities,
+                    and asset availability instantly.
+
+                </p>
+
+            </div>
+
+            <!-- FEATURE 3 -->
+            <div class="cap-card p-6 rounded-2xl gr">
+
+                <i data-lucide="smartphone"
+                class="w-10 h-10 text-cyan-400 mb-4"></i>
+
+                <h3 class="text-xl font-bold text-white mb-3">
+
+                    Mobile Accessibility
+
+                </h3>
+
+                <p class="text-gray-400 text-sm leading-7">
+
+                    Submit maintenance concerns
+                    using mobile devices with
+                    image evidence.
+
+                </p>
+
+            </div>
+
+            <!-- FEATURE 4 -->
+            <div class="cap-card p-6 rounded-2xl gr">
+
+                <i data-lucide="qr-code"
+                class="w-10 h-10 text-green-400 mb-4"></i>
+
+                <h3 class="text-xl font-bold text-white mb-3">
+
+                    QR Enabled Tracking
+
+                </h3>
+
+                <p class="text-gray-400 text-sm leading-7">
+
+                    Access maintenance records
+                    and equipment information
+                    through QR code scanning.
+
+                </p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+
+
+
+
+
+    <!-- ═══════════════════════════════════════════════ SYSTEM MODULES -->
+    <section id="features" class="relative z-10 px-5 lg:px-10 py-20">
 
         <div class="max-w-7xl mx-auto">
 
             <!-- HEADING -->
             <div class="text-center mb-14">
 
-                <span class="inline-block px-3 py-1.5 rounded-full mb-4"
-                      style="background:rgba(240,180,41,0.1); border:1px solid rgba(240,180,41,0.2); color:#f0b429; font-size:.72rem; letter-spacing:.12em; font-weight:600;">
-                    PLATFORM CAPABILITIES
+                <span
+                    class="inline-block px-3 py-1.5 rounded-full mb-4"
+                    style="
+                        background:rgba(240,180,41,0.1);
+                        border:1px solid rgba(240,180,41,0.2);
+                        color:#f0b429;
+                        font-size:.72rem;
+                        letter-spacing:.12em;
+                        font-weight:600;
+                    ">
+
+                    CORE MODULES
+
                 </span>
 
-                <h2 style="font-family:'Outfit',sans-serif; font-size:clamp(1.8rem,3vw,2.6rem); font-weight:700; color:#f0f2f8; line-height:1.2;">
-                    Everything you need to manage<br>institutional assets
+                <h2
+                    style="
+                        font-family:'Outfit',sans-serif;
+                        font-size:clamp(1.8rem,3vw,2.6rem);
+                        font-weight:700;
+                        color:#f0f2f8;
+                    ">
+
+                    Core Functional Modules of PRISM
+
                 </h2>
+
+                <p
+                    class="mt-4 max-w-2xl mx-auto"
+                    style="
+                        color:#8892a4;
+                        line-height:1.8;
+                    ">
+
+                    Designed to centralize procurement, inventory management,
+                    maintenance monitoring, and damage reporting within a
+                    single platform.
+
+                </p>
 
             </div>
 
-            <!-- CARDS -->
-            <div class="grid md:grid-cols-3 gap-6">
+            <!-- MODULE GRID -->
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
 
-                <!-- CARD -->
-                <div class="cap-card p-6 rounded-2xl"
-                     style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07);">
+                <!-- PROCUREMENT -->
+                <div class="cap-card p-6 rounded-2xl gr">
 
-                    <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5"
-                         style="background:rgba(240,180,41,0.15);">
-                        <i data-lucide="package" class="w-6 h-6" style="color:#f0b429;"></i>
-                    </div>
+                    <i data-lucide="shopping-cart"
+                    class="w-10 h-10 text-yellow-400 mb-4"></i>
 
-                    <h3 style="font-family:'Outfit',sans-serif; font-weight:700; font-size:1.05rem; color:#f0f2f8; margin-bottom:10px;">
-                        Asset Procurement
+                    <h3 class="text-xl font-bold text-white mb-3">
+
+                        Procurement Requests
+
                     </h3>
 
-                    <p style="color:#8892a4; font-size:.875rem; line-height:1.7;">
-                        End-to-end procurement workflow from requisition to approval,
-                        with full audit trails and budget tracking.
-                    </p>
+                    <p class="text-gray-400 text-sm leading-7">
 
-                    <div class="flex items-center gap-1 mt-5" style="color:#f0b429; font-size:.8rem; font-weight:600;">
-                        Learn more <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
-                    </div>
+                        Manage purchase requests, approvals,
+                        quotations, and procurement workflows.
+
+                    </p>
 
                 </div>
 
-                <!-- CARD -->
-                <div class="cap-card p-6 rounded-2xl"
-                     style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07);">
+                <!-- INVENTORY -->
+                <div class="cap-card p-6 rounded-2xl gr">
 
-                    <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5"
-                         style="background:rgba(96,165,250,0.15);">
-                        <i data-lucide="bar-chart-3" class="w-6 h-6" style="color:#60a5fa;"></i>
-                    </div>
+                    <i data-lucide="package"
+                    class="w-10 h-10 text-blue-400 mb-4"></i>
 
-                    <h3 style="font-family:'Outfit',sans-serif; font-weight:700; font-size:1.05rem; color:#f0f2f8; margin-bottom:10px;">
-                        Analytics Dashboard
+                    <h3 class="text-xl font-bold text-white mb-3">
+
+                        Inventory Management
+
                     </h3>
 
-                    <p style="color:#8892a4; font-size:.875rem; line-height:1.7;">
-                        Real-time reporting dashboards for maintenance costs,
-                        asset utilization, and departmental spending.
-                    </p>
+                    <p class="text-gray-400 text-sm leading-7">
 
-                    <div class="flex items-center gap-1 mt-5" style="color:#60a5fa; font-size:.8rem; font-weight:600;">
-                        Learn more <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
-                    </div>
+                        Track equipment, facilities, and
+                        audio visual assets in real time.
+
+                    </p>
 
                 </div>
 
-                <!-- CARD -->
-                <div class="cap-card p-6 rounded-2xl"
-                     style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07);">
+                <!-- SUPPLIER -->
+                <div class="cap-card p-6 rounded-2xl gr">
 
-                    <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-5"
-                         style="background:rgba(52,211,153,0.15);">
-                        <i data-lucide="check-circle" class="w-6 h-6" style="color:#34d399;"></i>
-                    </div>
+                    <i data-lucide="truck"
+                    class="w-10 h-10 text-green-400 mb-4"></i>
 
-                    <h3 style="font-family:'Outfit',sans-serif; font-weight:700; font-size:1.05rem; color:#f0f2f8; margin-bottom:10px;">
-                        Compliance &amp; Validation
+                    <h3 class="text-xl font-bold text-white mb-3">
+
+                        Supplier Management
+
                     </h3>
 
-                    <p style="color:#8892a4; font-size:.875rem; line-height:1.7;">
-                        Accounting validation and institutional compliance tools
-                        keep every transaction properly documented.
+                    <p class="text-gray-400 text-sm leading-7">
+
+                        Maintain supplier records,
+                        accreditation status, and transactions.
+
                     </p>
 
-                    <div class="flex items-center gap-1 mt-5" style="color:#34d399; font-size:.8rem; font-weight:600;">
-                        Learn more <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
-                    </div>
+                </div>
+
+                <!-- MOBILE REPORTING -->
+                <div class="cap-card p-6 rounded-2xl gr">
+
+                    <i data-lucide="smartphone"
+                    class="w-10 h-10 text-cyan-400 mb-4"></i>
+
+                    <h3 class="text-xl font-bold text-white mb-3">
+
+                        Mobile Damage Reporting
+
+                    </h3>
+
+                    <p class="text-gray-400 text-sm leading-7">
+
+                        Submit maintenance concerns using
+                        mobile devices with image evidence.
+
+                    </p>
+
+                </div>
+
+                <!-- QR -->
+                <div class="cap-card p-6 rounded-2xl gr">
+
+                    <i data-lucide="qr-code"
+                    class="w-10 h-10 text-emerald-400 mb-4"></i>
+
+                    <h3 class="text-xl font-bold text-white mb-3">
+
+                        QR Code Monitoring
+
+                    </h3>
+
+                    <p class="text-gray-400 text-sm leading-7">
+
+                        Scan QR codes to instantly access
+                        equipment information and records.
+
+                    </p>
+
+                </div>
+
+                <!-- MAINTENANCE -->
+                <div class="cap-card p-6 rounded-2xl gr">
+
+                    <i data-lucide="wrench"
+                    class="w-10 h-10 text-orange-400 mb-4"></i>
+
+                    <h3 class="text-xl font-bold text-white mb-3">
+
+                        Maintenance History Tracking
+
+                    </h3>
+
+                    <p class="text-gray-400 text-sm leading-7">
+
+                        Monitor repair history, maintenance logs,
+                        and equipment service activities.
+
+                    </p>
 
                 </div>
 
@@ -502,6 +822,21 @@
         </div>
 
     </section>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <!-- ═══════════════════════════════════════════════ CTA BANNER -->
     <section class="relative z-10 px-5 lg:px-10 pb-24">
@@ -516,16 +851,16 @@
 
                 <span class="inline-block px-3 py-1.5 rounded-full mb-5"
                       style="background:rgba(240,180,41,0.15); border:1px solid rgba(240,180,41,0.25); color:#f0b429; font-size:.72rem; letter-spacing:.12em; font-weight:600; position:relative; z-index:1;">
-                    GET STARTED TODAY
+                    DIGITIZE CAMPUS OPERATIONS
                 </span>
 
                 <h2 style="font-family:'Outfit',sans-serif; font-size:clamp(1.6rem,3vw,2.4rem); font-weight:700; color:#f0f2f8; line-height:1.2; margin-bottom:14px; position:relative; z-index:1;">
-                    Ready to streamline your<br>institutional operations?
+                    Improve procurement, inventory, and maintenance management <br>through a centralized digital platform
                 </h2>
 
                 <p style="color:#8892a4; font-size:.95rem; max-width:480px; margin:0 auto 32px; line-height:1.7; position:relative; z-index:1;">
-                    Join departments already using PRISM to manage procurement,
-                    maintenance, and asset lifecycle efficiently.
+                    Monitor equipment, track inventory, submit damage reports, and 
+                    manage maintenance activities through a single integrated system.
                 </p>
 
                 <div class="flex flex-wrap gap-4 justify-center" style="position:relative;z-index:1;">
@@ -826,7 +1161,7 @@
     <!-- ── 4. REPORT MODAL ── -->
     <div id="reportModal"
          class="hidden fixed inset-0 z-50 flex items-center justify-center px-4 overflow-y-auto py-10"
-         style="background:rgba(0,0,0,0.8); backdrop-filter:blur(6px);">
+         style=" backdrop-filter:blur(6px);">
 
         <div class="w-full max-w-6xl relative modal-animation">
             @include('reporter.partials.report-form')
@@ -940,6 +1275,78 @@
                 document.body.classList.remove('overflow-hidden');
             }
         });
+
+    </script>
+
+    <script>
+
+    /*
+    |--------------------------------------------------------------------------
+    | ACTIVE NAV LINK
+    |--------------------------------------------------------------------------
+    */
+
+    const sections =
+        document.querySelectorAll(
+            'section[id]'
+        );
+
+    const navLinks =
+        document.querySelectorAll(
+            '.nav-link'
+        );
+
+    window.addEventListener(
+        'scroll',
+        () => {
+
+            let current = '';
+
+            sections.forEach(section => {
+
+                const sectionTop =
+                    section.offsetTop - 200;
+
+                const sectionHeight =
+                    section.clientHeight;
+
+                if(
+                    pageYOffset >= sectionTop
+                    &&
+                    pageYOffset <
+                    sectionTop + sectionHeight
+                ){
+
+                    current =
+                        section.getAttribute('id');
+
+                }
+
+            });
+
+            navLinks.forEach(link => {
+
+                link.classList.remove(
+                    'active'
+                );
+
+                if(
+                    link.getAttribute('href')
+                    ===
+                    '#' + current
+                ){
+
+                    link.classList.add(
+                        'active'
+                    );
+
+                }
+
+            });
+
+        }
+
+    );
 
     </script>
 

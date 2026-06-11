@@ -379,6 +379,12 @@ Route::get(
 
 );
 
+//AUTO SUGGESTION
+Route::get(
+    '/get-suggestions/{equipmentId}',
+    [ReporterController::class, 'getSuggestions']
+);
+
 
 
 

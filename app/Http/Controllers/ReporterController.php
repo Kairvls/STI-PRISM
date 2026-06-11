@@ -159,30 +159,53 @@ class ReporterController extends Controller
         $request->validate([
 
             'report_reporter_employee_id' =>
-
                 'required|string',
 
-            'report_equipment_id' =>
+            'report_room_id' =>
+                'required|integer',
 
-                'nullable',
+            'report_equipment_id' =>
+                'nullable|integer',
+
+            'report_equipment_manual' =>
+                'nullable|string|max:255',
 
             'report_problem_description' =>
-
                 'required|string',
 
             'report_urgency_level' =>
-
-                'required',
-
-            'report_room_id' =>
-
-                'required',
+                'required|in:Urgent,Non-Urgent',
 
             'report_uploaded_image' =>
-
-                'nullable|image|mimes:jpg,jpeg,png|max:2048'
+                'nullable|image|mimes:jpg,jpeg,png,webp|max:10240'
 
         ]);
+
+        /*
+        |--------------------------------------------------------------------------
+        | EQUIPMENT REQUIRED
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+
+            empty($request->report_equipment_id)
+
+            &&
+
+            empty($request->report_equipment_manual)
+
+        ) {
+
+            return back()->with(
+
+                'error',
+
+                'Please select equipment or enter an equipment name.'
+
+            );
+
+        }
 
         /*
         |--------------------------------------------------------------------------
@@ -365,6 +388,10 @@ class ReporterController extends Controller
 
                     $request->report_equipment_id,
 
+                'report_unlisted_equipment_name' =>
+
+                    $request->report_equipment_manual,
+
                 /*
                 |--------------------------------------------------------------------------
                 | DESCRIPTION
@@ -508,6 +535,43 @@ class ReporterController extends Controller
             ->first();
 
         return response()->json($reporter);
+    }
+
+    // REPORTCONTROLLER.PHP
+
+    public function getSuggestions($equipmentId)
+    {
+        $equipment = DB::table(
+            'equipment_table'
+        )
+        ->where(
+            'equipment_id',
+            $equipmentId
+        )
+        ->first();
+
+        if (!$equipment) {
+
+            return response()->json([]);
+
+        }
+
+        $suggestions = DB::table(
+            'issue_templates_table'
+        )
+
+        ->where(
+            'issue_template_category_id',
+            $equipment->equipment_category_id
+        )
+
+        ->pluck(
+            'issue_template_name'
+        );
+
+        return response()->json(
+            $suggestions
+        );
     }
 }
 
