@@ -10,6 +10,10 @@
     <!-- TAILWIND -->
     <script src="https://cdn.tailwindcss.com"></script>
 
+    <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico?v=1') }}">
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
     <!-- GOOGLE FONTS -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 
@@ -261,7 +265,7 @@
     <!-- ═══════════════════════════════════════════════ NAVBAR -->
     <nav id="navbar" class="fixed top-0 left-0 w-full z-50 transition-all duration-300" style="background:transparent;">
 
-        <div class="max-w-7xl mx-auto px-5 lg:px-10 py-4 flex items-center justify-between relative z-10">
+        <div class="max-w-[1350px] mx-auto px-5 lg:px-10 py-4 flex items-center justify-between relative z-10">
 
             <!-- LOGO -->
             <div class="flex items-center gap-3">
@@ -269,7 +273,7 @@
                 <div class="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center flex-shrink-0"
                      style="background: linear-gradient(135deg, #f0b429, #e8920a);">
                     <img
-                        src="{{ asset('image/prism-logo.png') }}"
+                        src="{{ asset('image/STI.png') }}"
                         alt="PRISM Logo"
                         class="w-full h-full object-cover">
                 </div>
@@ -322,7 +326,7 @@
     <!-- ═══════════════════════════════════════════════ HERO -->
     <section id="about" class="hero-section min-h-screen flex items-center pt-36 pb-24 relative">
 
-        <div class="max-w-7xl mx-auto px-5 lg:px-10 w-full relative z-10">
+        <div class="max-w-[1350px] mx-auto px-5 lg:px-10 w-full relative z-10">
 
             <div class="grid lg:grid-cols-2 gap-16 items-center">
 
@@ -888,14 +892,14 @@
     <!-- ═══════════════════════════════════════════════ FOOTER -->
     <footer style="border-top:1px solid rgba(255,255,255,0.07); background:#05080f; position:relative; z-index:10;">
 
-        <div class="max-w-7xl mx-auto px-5 lg:px-10 py-10 flex flex-col lg:flex-row items-center justify-between gap-6">
+        <div class="max-w-[1350px] mx-auto px-5 lg:px-10 py-10 flex flex-col lg:flex-row items-center justify-between gap-6">
 
             <!-- LEFT -->
             <div class="flex items-center gap-3">
 
                 <div class="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0"
                      style="background:linear-gradient(135deg,#f0b429,#e8920a);">
-                    <img src="{{ asset('image/prism-logo.png') }}" alt="PRISM" class="w-full h-full object-cover">
+                    <img src="{{ asset('image/STI.png') }}" alt="PRISM" class="w-full h-full object-cover">
                 </div>
 
                 <div>
@@ -907,7 +911,7 @@
 
             <!-- CENTER -->
             <p style="color:#8892a4; font-size:.8rem; text-align:center;">
-                © 2026 STI College Ormoc. All rights reserved.
+                © 1997 STI College Ormoc. All rights reserved.
             </p>
 
             <!-- RIGHT -->
@@ -927,10 +931,10 @@
     <!-- ── 1. LOGIN CHOOSER ── -->
     <div id="loginChooserModal"
          class="hidden fixed inset-0 z-50 flex items-center justify-center px-4"
-         style="background:rgba(0,0,0,0.75); backdrop-filter:blur(6px);">
+         style="backdrop-filter:blur(6px);">
 
         <div class="modal-animation w-full max-w-[440px] rounded-3xl p-7 relative"
-             style="background:#0f1628; border:1px solid rgba(255,255,255,0.1); box-shadow:0 32px 80px rgba(0,0,0,0.6);">
+             style="background:#ffffff; border:1px solid rgba(13, 9, 241, 0.1); box-shadow:0 32px 80px rgba(0,0,0,0.6);">
 
             <!-- CLOSE -->
             <button onclick="closeLoginChooser()"
@@ -941,7 +945,7 @@
             </button>
 
             <!-- TITLE -->
-            <h2 style="font-family:'Outfit',sans-serif; font-size:1.8rem; font-weight:800; color:#f0f2f8; margin-bottom:6px;">Log In</h2>
+            <h2 style="font-family:'Outfit',sans-serif; font-size:1.8rem; font-weight:800; color:#000000; margin-bottom:6px;">Log In</h2>
             <p style="color:#8892a4; font-size:.875rem; margin-bottom:28px;">Select your access level to continue.</p>
 
             <div class="space-y-3">
@@ -1036,7 +1040,7 @@
                 class="w-full py-3.5 rounded-xl font-semibold transition"
                 style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#8892a4;"
                 onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.06)'">
-                ← Back
+                Back
             </button>
 
         </div>
@@ -1047,7 +1051,7 @@
     <!-- ── 3. ROLE LOGIN FORM ── -->
     <div id="roleLoginModal"
          class="hidden fixed inset-0 z-50 flex items-center justify-center px-4"
-         style="background:rgba(0,0,0,0.75); backdrop-filter:blur(6px);">
+         style="backdrop-filter:blur(6px);">
 
         <div class="modal-animation w-full max-w-[440px] rounded-3xl p-7 relative"
              style="background:#0f1628; border:1px solid rgba(255,255,255,0.1); box-shadow:0 32px 80px rgba(0,0,0,0.6);">
@@ -1148,7 +1152,7 @@
                     class="w-full py-3.5 rounded-xl font-semibold transition"
                     style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#8892a4;"
                     onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.06)'">
-                    ← Back to SSO
+                    Back to SSO
                 </button>
 
             </form>
@@ -1360,6 +1364,33 @@
             }
         });
     </script>
+    @endif
+
+    @if(session('success'))
+
+    <script>
+
+    document.addEventListener(
+        'DOMContentLoaded',
+        function(){
+
+            Swal.fire({
+
+                icon: 'success',
+
+                title: 'Report Submitted',
+
+                text: '{{ session("success") }}',
+
+                confirmButtonColor: '#f0b429'
+
+            });
+
+        }
+    );
+
+    </script>
+
     @endif
 
 </body>

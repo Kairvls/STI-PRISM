@@ -173,6 +173,9 @@ class ReporterController extends Controller
             'report_problem_description' =>
                 'required|string',
 
+            'report_suggested_issue' =>
+            'nullable|string|max:255',
+
             'report_urgency_level' =>
                 'required|in:Urgent,Non-Urgent',
 
@@ -237,7 +240,7 @@ class ReporterController extends Controller
 
                 'error',
 
-                'Employee ID not found.'
+                'Employee ID not recognized.'
 
             );
 
@@ -402,6 +405,10 @@ class ReporterController extends Controller
 
                     $request->report_problem_description,
 
+                'report_suggested_issue' =>
+
+                    $request->report_suggested_issue,
+
                 /*
                 |--------------------------------------------------------------------------
                 | URGENCY
@@ -525,18 +532,14 @@ class ReporterController extends Controller
         $reporter = DB::table('reporters_table')
 
             ->where(
-
                 'reporter_employee_id',
-
                 $employeeId
-
             )
 
             ->first();
 
         return response()->json($reporter);
     }
-
     // REPORTCONTROLLER.PHP
 
     public function getSuggestions($equipmentId)
