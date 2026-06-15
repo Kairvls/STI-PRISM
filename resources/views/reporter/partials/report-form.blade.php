@@ -8,8 +8,8 @@
     /* ── TOKENS ─────────────────────────────────────────────── */
     .rf-input {
         width: 100%;
-        background: rgba(255,255,255,0.05);
-        border: 1px solid rgba(24, 23, 23, 0.1);
+        background:#ffffff;
+        border:1px solid rgba(41,71,240,.15);
         border-radius: 14px;
         padding: 11px 14px;
         font-size: 14px;
@@ -22,11 +22,22 @@
     }
     .rf-input::placeholder { color: #4a5568; }
     .rf-input:focus {
-        border-color: rgba(240,180,41,0.55);
+        border-color:#2947f0;
         background: rgba(255,255,255,0.08);
-        box-shadow: 0 0 0 3px rgba(240,180,41,0.08);
+        box-shadow: 0 0 0 3px rgba(41,71,240,.10);
     }
     .rf-input option { background: #f7f7f8; color: #0f172a; }
+
+    .details-textarea{
+        background:#ffffff;
+        border:1px solid rgba(41,71,240,.15);
+    }
+
+    .details-textarea:focus{
+        border-color:#2947f0;
+        box-shadow:
+            0 0 0 3px rgba(41,71,240,.10);
+    }
 
     .rf-label {
         display: block;
@@ -55,8 +66,8 @@
 
     /* ── REPORTER INFO BOX ── */
     .reporter-box {
-        background: rgba(240,180,41,0.06);
-        border: 1px solid rgba(240,180,41,0.2);
+        background: rgba(41,71,240,0.05);
+        border: 1px solid rgba(41,71,240,0.15);
         border-radius: 16px;
         padding: 16px 18px;
     }
@@ -79,32 +90,74 @@
 
     /* ── ISSUE TAG ── */
     .issue-btn {
-        background: #fef3c7;
-        border: 1.5px solid rgba(240,180,41,0.5);
-        color: #92400e;
-        padding: 8px 16px;
-        border-radius: 999px;
-        font-size: 12.5px;
-        font-weight: 600;
-        white-space: nowrap;
-        flex-shrink: 0;
-        transition: all .2s ease;
-        font-family: 'Inter', sans-serif;
-        cursor: pointer;
+        background:#fef3c7;
+        border:1.5px solid rgba(240,180,41,.45);
+        color:#b45309;
+        padding:8px 16px;
+        border-radius:999px;
+        font-size:12.5px;
+        font-weight:600;
+        white-space:nowrap;
+        flex-shrink:0;
+        transition:all .2s ease;
+        font-family:'Inter', sans-serif;
+        cursor:pointer;
     }
+
     .issue-btn:hover {
-        
-
-        background: #f0b429ab;
-        border: 1.5px solid #e8920a;
-        color: #92400e;
+        background:#fde68a;
+        border:1.5px solid #f0b429;
+        color:#92400e;
+        transform:translateY(-1px);
+        box-shadow:0 4px 12px rgba(240,180,41,.20);
     }
-    .issue-btn.active {
-        background: #f0b429;
-        border: 1.5px solid #e8920a;
-        color: #080c18;
 
-        
+    .issue-btn.active {
+        background:#f0b429;
+        border:1.5px solid #e8920a;
+        color:#080c18;
+        box-shadow:0 4px 12px rgba(240,180,41,.30);
+    }
+
+    .issue-action-btn{
+        width:36px;
+        height:36px;
+        border-radius:999px;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        transition:all .2s ease;
+        cursor:pointer;
+    }
+
+    /* LEFT & RIGHT BUTTONS */
+    .issue-action-btn.yellow{
+        background:#fef3c7;
+        border:1.5px solid rgba(240,180,41,.45);
+        color:#b45309;
+    }
+
+    .issue-action-btn.yellow:hover{
+        background:#f0b429;
+        border-color:#f0b429;
+        color:#080c18;
+        transform:translateY(-1px);
+        box-shadow:0 4px 12px rgba(240,180,41,.25);
+    }
+
+    /* CLEAR BUTTON */
+    .issue-action-btn.red{
+        background:#fef2f2;
+        border:1.5px solid rgba(239,68,68,.18);
+        color:#ef4444;
+    }
+
+    .issue-action-btn.red:hover{
+        background:#ef4444;
+        border-color:#ef4444;
+        color:#fff;
+        transform:translateY(-1px);
+        box-shadow:0 4px 12px rgba(239,68,68,.25);
     }
 
     /* SELECTED ISSUE CONTAINER */
@@ -240,15 +293,15 @@
                     <div class="flex items-center gap-4 mb-7">
 
                         <div class="w-13 h-13 w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
-                             style="background:rgba(240,180,41,0.12); border:1px solid rgba(240,180,41,0.2);">
-                            <i data-lucide="clipboard-pen" class="w-6 h-6" style="color:#f0b429;"></i>
+                             style="background:rgba(54, 41, 240, 0.12); border:1px solid rgba(41, 61, 240, 0.2);">
+                            <i data-lucide="clipboard-pen" class="w-6 h-6" style="color:#2947f0;"></i>
                         </div>
 
                         <div class="flex-1">
                             <h2 style="font-family:'Outfit',sans-serif; font-weight:800; font-size:1.5rem; color:#0f172a; line-height:1.1;">
                                 Maintenance Report
                             </h2>
-                            <p style="color:#8892a4; font-size:.8rem; margin-top:3px;">
+                            <p style="color:#656568; font-size:.8rem; margin-top:3px;">
                                 Report room, facility, or equipment concerns.
                             </p>
                         </div>
@@ -256,7 +309,7 @@
                         {{-- CLOSE (mobile) --}}
                         <button type="button" onclick="closeReportModal()"
                             class="lg:hidden flex items-center justify-center w-8 h-8 rounded-lg"
-                            style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#8892a4;">
+                            style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#2947f0;">
                             <i data-lucide="x" class="w-4 h-4"></i>
                         </button>
 
@@ -268,7 +321,7 @@
                         <label class="rf-label">Employee ID</label>
 
                         <div style="position:relative;">
-                            <span style="position:absolute; left:13px; top:50%; transform:translateY(-50%); color:#8892a4; pointer-events:none;">
+                            <span style="position:absolute; left:13px; top:50%; transform:translateY(-50%); color:#2947f0; pointer-events:none;">
                                 <i data-lucide="scan-face" class="w-5 h-5"></i>
                             </span>
                             <input type="text"
@@ -276,7 +329,7 @@
                                    name="report_reporter_employee_id"
                                    value="{{ old('report_reporter_employee_id') }}"
                                    placeholder="EMPLOYEE ID"
-                                   class="rf-input"
+                                   class="rf-input details-textarea"
                                    style="padding-left:42px; height:48px;"
                                    required>
                         </div>
@@ -300,7 +353,7 @@
 
                         <p style="
                             font-size:11px;
-                            color:#8892a4;
+                            color:#2947f0;
                             text-transform:uppercase;
                             letter-spacing:.08em;
                             margin-bottom:6px;
@@ -310,12 +363,14 @@
 
                         <p id="reporterName"
                         style="
-                                font-family:'Outfit',sans-serif;
-                                color:#16a34a;
-                                font-size:1rem;
-                                font-weight:700;
+                            display:flex;
+                            align-items:center;
+                            gap:8px;
+                            font-family:'Outfit',sans-serif;
+                            color:#3c3c3f;
+                            font-size:1rem;
+                            
                         ">
-                        ✓ Verified
                         </p>
 
                     </div>
@@ -334,7 +389,7 @@
                             </div>
 
                             <div id="roomDropdownContainer" class="rf-select-wrap">
-                                <select name="report_room_id" id="roomSelect" class="rf-input" style="height:48px; padding-right:36px; color:#0f172a; cursor: pointer;" required>
+                                <select name="report_room_id" id="roomSelect" class="rf-input details-textarea" style="height:48px; padding-right:36px; color:#0f172a; cursor: pointer;" >
                                     <option value="">Select Location</option>
                                     @foreach($rooms as $room)
                                         <option value="{{ $room->room_id }}">{{ $room->floor_level }} - {{ $room->room_name }}</option>
@@ -344,8 +399,10 @@
 
                             
 
-                            <p style="font-size:11px; color:#4a5568; margin-top:7px;">
-                                Select the room or facility where the issue occurred.
+                            
+
+                            <p id="locationError" class="hidden text-red-500 text-[14px] mt-1">
+                                Please select a location.
                             </p>
 
                         </div>
@@ -358,12 +415,12 @@
                                 <button type="button" id="toggleEquipmentInput"
                                     style="font-size:11px; font-weight:700; color:#0037C7; background:none; border:none; cursor:pointer; transition:color .2s;"
                                     onmouseover="this.style.color='#002ea8'" onmouseout="this.style.color='#0037C7'">
-                                    Other equipment?
+                                    Equipment not listed?
                                 </button>
                             </div>
 
                             <div id="equipmentDropdownContainer" class="rf-select-wrap">
-                                <select name="report_equipment_id" id="equipmentSelect" class="rf-input" style="height:48px; padding-right:36px; cursor: pointer;">
+                                <select name="report_equipment_id" id="equipmentSelect" class="rf-input details-textarea" style="height:48px; padding-right:36px; cursor: pointer;">
                                     <option value="">Select Equipment</option>
                                 </select>
                             </div>
@@ -373,20 +430,21 @@
                                        name="report_equipment_manual"
                                        id="equipmentManualInput"
                                        placeholder="Enter equipment name manually..."
-                                       class="rf-input"
+                                       class="rf-input details-textarea"
                                        style="height:48px;">
                             </div>
 
-                            <p style="font-size:11px; color:#4a5568; margin-top:7px;">
-                                Choose the equipment item that requires attention.
+                            
+
+                            <p id="equipmentError" class="hidden text-red-500 text-[14px] mt-1">
+                                Please enter or select an equipment.
                             </p>
 
                         </div>
 
                     </div>
 
-                    {{-- PROBLEM DESCRIPTION --}}
-                    <div class="mb-6">
+                    
 
                         {{-- SUGGESTED ISSUES --}}
                         <div>
@@ -398,32 +456,43 @@
                                     <span id="issueCount">(0)</span>
                                 </label>
 
-                                <div class="flex items-center gap-2">
-                                    <button type="button" id="scrollLeftBtn"
-                                            class="w-8 h-8 rounded-full flex items-center justify-center transition"
-                                            style="background: #fef3c7; border: 1.5px solid rgba(240,180,41,0.5);"
-                                            onmouseover="this.style.background='#f0b429'; this.style.borderColor='rgba(240,180,41,0.3)';"
-                                            onmouseout="this.style.background='#fef3c7'; this.style.borderColor='rgba(240,180,41,0.5)';" >
-                                        <i data-lucide="chevron-left" class="w-4 h-4" style="color:#92400e;"></i>
+                                <div
+                                    id="issueControls"
+                                    class="flex items-center gap-2 hidden">
+                                    <button
+                                        type="button"
+                                        id="scrollLeftBtn"
+                                        class="issue-action-btn yellow">
+
+                                        <i
+                                            data-lucide="chevron-left"
+                                            class="w-4 h-4">
+                                        </i>
+
                                     </button>
-                                    <button type="button" id="scrollRightBtn"
-                                            class="w-8 h-8 rounded-full flex items-center justify-center transition"
-                                            style="background: #fef3c7; border: 1.5px solid rgba(240,180,41,0.5);"
-                                            onmouseover="this.style.background='#f0b429'; this.style.borderColor='rgba(240,180,41,0.3)';"
-                                            onmouseout="this.style.background='#fef3c7'; this.style.borderColor='rgba(240,180,41,0.5)';" >
-                                        <i data-lucide="chevron-right" class="w-4 h-4" style="color:#92400e;"></i>
+
+                                    <button
+                                        type="button"
+                                        id="scrollRightBtn"
+                                        class="issue-action-btn yellow">
+
+                                        <i
+                                            data-lucide="chevron-right"
+                                            class="w-4 h-4">
+                                        </i>
+
                                     </button>
 
                                     <button
                                         type="button"
                                         onclick="clearSuggestedIssue()"
-                                        class="w-8 h-8 rounded-full flex items-center justify-center"
-                                        style="
-                                            background:rgba(239,68,68,.12);
-                                            color:#ef4444;
-                                            border:none;
-                                        ">
-                                        ✕
+                                        class="issue-action-btn red">
+
+                                        <i
+                                            data-lucide="x"
+                                            class="w-4 h-4">
+                                        </i>
+
                                     </button>
                                 </div>
 
@@ -431,35 +500,58 @@
 
                             <div
                                 id="issueCarousel"
-                                class="flex gap-2 overflow-x-auto scroll-smooth pb-2 mb-5">
+                                class="flex gap-2 overflow-x-auto scroll-smooth ">
 
                                 <div id="issuePlaceholder"
                                     style="
                                         width:100%;
                                         height:48px;
-                                        border:1.5px dashed rgba(240, 180, 41, 0.61);
+                                        border:1.5px dashed rgba(98, 98, 100, 0.61);
                                         border-radius:999px;
                                         display:flex;
                                         align-items:center;
                                         justify-content:center;
-                                        color:#8892a4;
+                                        color:#6b6c6e;
                                         font-size:12px;
                                         font-weight:600;
                                     ">
-                                    Select a location and equipment to load suggested issues
+                                    Select a location and choose or type equipment to see suggestions
                                 </div>
                             </div>
+
+                            <p
+                                id="issueError"
+                                class="hidden"
+                                style="
+                                    color: red;
+                                    font-size: 14px;
+                                    margin-top:-12px;
+                                    margin-bottom:22px;
+                                ">
+                                Please select a suggested issue.
+                            </p>
 
                             <input
                                 type="hidden"
                                 id="suggestedIssueInput"
                                 name="report_suggested_issue">
 
+                            
+
                         </div>
 
                         
 
-                    <label
+                    
+
+                    <!-- PROBLEM DESCRIPTION WRAPPER -->
+                    <div
+                        style="
+                            
+                            margin-top:4px;
+                        ">
+                        
+                        <label
                         class="rf-label"
                         style="
                             margin-top:12px;
@@ -467,23 +559,17 @@
                         ">
                         Additional Details
                     </label>
-
-                    <!-- PROBLEM DESCRIPTION WRAPPER -->
-                    <div
-                        style="
-                            position:relative;
-                            margin-top:4px;
-                        ">
+                    <div style="position:relative;">
 
                         <textarea
                             id="problemDescription"
                             name="report_problem_description"
                             rows="4"
                             placeholder="Provide specific details or context about the issue here (optional)..."
-                            class="rf-input"
+                            class="rf-input details-textarea"
                             style="
                                 resize:vertical;
-                                min-height:110px;
+                                min-height:140px;
                                 padding:16px 40px 16px 16px;
                                 line-height:1.6;
                             "
@@ -522,9 +608,11 @@
 
                         </div>
 
-                    </div>
+                        </div>
 
                     </div>
+
+                    
 
                     </div>
 
@@ -539,7 +627,7 @@
                     <div class="hidden lg:flex justify-end">
                         <button type="button" onclick="closeReportModal()"
                             class="flex items-center justify-center w-8 h-8 rounded-lg transition"
-                            style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#8892a4;"
+                            style="background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#a7aab9;"
                             onmouseover="this.style.color='#f0f2f8'; this.style.background='rgba(255,255,255,0.1)'"
                             onmouseout="this.style.color='#8892a4'; this.style.background='rgba(255,255,255,0.06)'">
                             <i data-lucide="x" class="w-4 h-4"></i>
@@ -600,9 +688,10 @@
                             class="upload-zone"
                             id="uploadZone"
                             style="position:relative;">
-                            <i data-lucide="image-plus" class="w-7 h-7 mx-auto mb-2" style="color:#8892a4;"></i>
-                            <div id="uploadLabel" style="color:#8892a4; font-size:.8rem; font-weight:600;">
-                                Click to upload photo
+                            <i data-lucide="image-plus" class="w-7 h-7 mx-auto mb-2" style="color:#2947f0;"></i>
+                            <div id="uploadLabel" style="color:#a7aab9; font-size:.8rem; font-weight:600;">
+                                Click to upload photo <br>
+                                (Optional) 
                             </div>
                             <div
                                 id="removeFileBtn"
@@ -663,7 +752,7 @@
 
                         <button type="button" onclick="closeReportModal()"
                             class="w-full py-4 rounded-2xl font-semibold transition"
-                            style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.09); color:#8892a4; font-size:.9rem;"
+                            style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.09); color:#a7aab9; font-size:.9rem;"
                             onmouseover="this.style.background='rgba(255,255,255,0.09)'; this.style.color='#f0f2f8'"
                             onmouseout="this.style.background='rgba(255,255,255,0.05)'; this.style.color='#8892a4'">
                             Cancel
@@ -1054,7 +1143,7 @@ function handleFileSelect(input) {
     */
 
     label.textContent =
-        '✓ ' + file.name;
+        '🔵✓ ' + file.name;
 
     label.style.color =
         '#34d399';
@@ -1192,6 +1281,14 @@ toggleEquipmentBtn.addEventListener(
     'click',
     function () {
 
+        document
+            .getElementById('equipmentError')
+            .classList.add('hidden');
+
+        equipmentSelect.style.borderColor = '';
+
+        equipmentManualInput.style.borderColor = '';
+
         equipmentManualMode =
             !equipmentManualMode;
 
@@ -1221,7 +1318,7 @@ toggleEquipmentBtn.addEventListener(
                 .remove('hidden');
 
             this.innerText =
-                'Use equipment list instead';
+                'Back to equipment list';
 
             
 
@@ -1259,7 +1356,7 @@ toggleEquipmentBtn.addEventListener(
                 '';
 
             this.innerText =
-                'Other equipment?';
+                'Equipment not listed?';
 
             
 
@@ -1286,15 +1383,7 @@ toggleEquipmentBtn.addEventListener(
                 )
                 .then(data => {
 
-                    document.getElementById(
-                        'issueCount'
-                    ).textContent =
-                        `(${data.length})`;
-
-                    issueCarousel.innerHTML =
-                        '';
-
-                    updateIssueCount();
+                    issueCarousel.innerHTML = '';
 
                     data.forEach(issue => {
 
@@ -1302,9 +1391,7 @@ toggleEquipmentBtn.addEventListener(
                             <button
                                 type="button"
                                 class="issue-btn">
-
                                 ${issue}
-
                             </button>
                         `;
 
@@ -1312,32 +1399,35 @@ toggleEquipmentBtn.addEventListener(
 
                     bindIssueButtons();
 
+                    updateIssueCount();
+
                 });
 
             }
             else {
 
                 issueCarousel.innerHTML = `
-                    <div
-                        id="issuePlaceholder"
+                    <div id="issuePlaceholder"
                         style="
                             width:100%;
-                            height:44px;
-                            border:1.5px dashed rgba(240,180,41,.35);
+                            height:48px;
+                            border:1.5px dashed rgba(98, 98, 100, 0.61);
                             border-radius:999px;
                             display:flex;
                             align-items:center;
                             justify-content:center;
-                            color:#8892a4;
+                            color:#6b6c6e;
                             font-size:12px;
                             font-weight:600;
                         ">
-                        Select a location and equipment to load suggested issues
+                        Select a location and choose or type equipment to see suggestions
                     </div>
                 `;
 
 
                 updateIssueCount();
+
+                toggleIssueControls();
 
             }
 
@@ -1349,27 +1439,57 @@ toggleEquipmentBtn.addEventListener(
 function showIssuePlaceholder(){
 
     issueCarousel.innerHTML = `
-        <div
-            id="issuePlaceholder"
+        <div id="issuePlaceholder"
             style="
                 width:100%;
-                height:44px;
-                border:1.5px dashed rgba(240,180,41,.35);
+                height:48px;
+                border:1.5px dashed rgba(98, 98, 100, 0.61);
                 border-radius:999px;
                 display:flex;
                 align-items:center;
                 justify-content:center;
-                color:#8892a4;
+                color:#6b6c6e;
                 font-size:12px;
                 font-weight:600;
             ">
-            Select a location and equipment to load suggested issues
+            Select a location and choose or type equipment to see suggestions
         </div>
     `;
 
     updateIssueCount();
 
+    toggleIssueControls();
+
 }
+
+function toggleIssueControls(){
+
+        const controls =
+            document.getElementById(
+                'issueControls'
+            );
+
+        const issueCount =
+            document.querySelectorAll(
+                '.issue-btn'
+            ).length;
+
+        if(issueCount > 0){
+
+            controls.classList.remove(
+                'hidden'
+            );
+
+        }
+        else{
+
+            controls.classList.add(
+                'hidden'
+            );
+
+        }
+
+    }
 
 
 /*
@@ -1410,9 +1530,24 @@ function loadGenericSuggestions() {
             Electrical Issue
         </button>
 
+        <!-- Changed from "Issues" to "Issue" -->
+        <button type="button" class="issue-btn">
+            Connectivity Issue 
+        </button>
+
+        <button type="button" class="issue-btn">
+            Power Failure
+        </button>
+
+        <button type="button" class="issue-btn">
+            Malfunctioning Component
+        </button>
+
     `;
 
     updateIssueCount();
+
+    toggleIssueControls();
 
     bindIssueButtons();
 
@@ -1440,6 +1575,10 @@ function bindIssueButtons(){
                         );
 
                     this.classList.add('active');
+
+                    document
+                        .getElementById('issueError')
+                        .classList.add('hidden');
 
                     selectedSuggestedIssue =
                         newIssue;
@@ -1552,12 +1691,41 @@ function clearSuggestedIssue(){
 ───────────────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', function () {
 
-    const employeeInput = document.getElementById('employeeIdInput');
-    const reporterBox   = document.getElementById('reporterInfoBox');
-    const employeeError = document.getElementById('employeeError');
-    const roomSelect    = document.getElementById('roomSelect');
-    const equipSelect   = document.getElementById('equipmentSelect');
+    const employeeInput =
+        document.getElementById(
+            'employeeIdInput'
+        );
 
+    const reporterBox =
+        document.getElementById(
+            'reporterInfoBox'
+        );
+
+    const employeeError =
+        document.getElementById(
+            'employeeError'
+        );
+
+    const roomSelect =
+        document.getElementById(
+            'roomSelect'
+        );
+
+    const equipSelect =
+        document.getElementById(
+            'equipmentSelect'
+        );
+
+    const equipmentManualInput =
+        document.getElementById(
+            'equipmentManualInput'
+        );
+
+    /*
+    |--------------------------------------------------------------------------
+    | CLEAR EMPLOYEE ERROR WHILE TYPING
+    |--------------------------------------------------------------------------
+    */
     employeeInput.addEventListener(
         'input',
         function(){
@@ -1565,8 +1733,112 @@ document.addEventListener('DOMContentLoaded', function () {
             employeeError.style.display =
                 'none';
 
+            this.style.borderColor = '';
+
         }
     );
+
+    /*
+    |--------------------------------------------------------------------------
+    | CLEAR LOCATION ERROR
+    |--------------------------------------------------------------------------
+    */
+    roomSelect.addEventListener(
+        'change',
+        function(){
+
+            this.style.borderColor = '';
+
+            document
+                .getElementById(
+                    'locationError'
+                )
+                .classList.add(
+                    'hidden'
+                );
+
+        }
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | CLEAR EQUIPMENT ERROR
+    |--------------------------------------------------------------------------
+    */
+    equipSelect.addEventListener(
+        'change',
+        function(){
+
+            this.style.borderColor = '';
+
+            document
+                .getElementById(
+                    'equipmentError'
+                )
+                .classList.add(
+                    'hidden'
+                );
+
+        }
+    );
+
+    /*
+    |--------------------------------------------------------------------------
+    | CLEAR MANUAL EQUIPMENT ERROR
+    |--------------------------------------------------------------------------
+    */
+    if(equipmentManualInput){
+
+        equipmentManualInput.addEventListener(
+            'input',
+            function(){
+
+                this.style.borderColor = '';
+
+                document
+                    .getElementById(
+                        'equipmentError'
+                    )
+                    .classList.add(
+                        'hidden'
+                    );
+
+            }
+        );
+
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | CLEAR SUGGESTED ISSUE ERROR
+    |--------------------------------------------------------------------------
+    */
+    document.addEventListener(
+        'click',
+        function(e){
+
+            if(
+                e.target.classList.contains(
+                    'issue-btn'
+                )
+            ){
+
+                document
+                    .getElementById(
+                        'issueError'
+                    )
+                    .classList.add(
+                        'hidden'
+                    );
+
+            }
+
+        }
+    );
+
+    
+
+    
 
     /* EMPLOYEE LIVE LOOKUP */
     /* EMPLOYEE LIVE LOOKUP */
@@ -1620,9 +1892,33 @@ document.addEventListener('DOMContentLoaded', function () {
 
                     document.getElementById(
                         'reporterName'
-                    ).innerText =
-                        '✓ ' +
-                        data.reporter_full_name;
+                    ).innerHTML =
+                    `
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="#1877F2"
+                            flex-shrink="0">
+
+                            <circle
+                                cx="12"
+                                cy="12"
+                                r="12">
+                            </circle>
+
+                            <path
+                                d="M10.2 15.3L6.9 12l1.4-1.4 1.9 1.9 5.5-5.5 1.4 1.4z"
+                                fill="white">
+                            </path>
+
+                        </svg>
+
+                        <span>
+                            ${data.reporter_full_name}
+                        </span>
+                    `;
 
                     employeeError.style.display = 'none';
 
@@ -1664,6 +1960,16 @@ document.addEventListener('DOMContentLoaded', function () {
     /* ROOM → EQUIPMENT FILTER */
     roomSelect.addEventListener('change', function () {
 
+    document
+        .getElementById('locationError')
+        .classList.add('hidden');
+
+    clearSuggestedIssue();
+
+    document
+        .getElementById('issueError')
+        .classList.add('hidden');
+
     lastSelectedEquipment = '';
 
     const roomId = this.value;
@@ -1686,7 +1992,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
     equipSelect.innerHTML =
         '<option value="">Select Equipment</option>';
-        if (!roomId) return;
+        if (!roomId) {
+
+            lastSelectedEquipment = '';
+
+            equipSelect.value = '';
+
+            clearSuggestedIssue();
+
+            showIssuePlaceholder();
+
+            return;
+        }
         fetch(`/get-equipment/${roomId}`)
             .then(r => r.json())
             .then(data => {
@@ -1746,6 +2063,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 updateIssueCount();
 
+                toggleIssueControls();
+
                 bindIssueButtons();
 
             });
@@ -1760,17 +2079,19 @@ document.addEventListener('DOMContentLoaded', function () {
 <script>
     function updateIssueCount(){
 
-    const count =
-        document.querySelectorAll(
-            '.issue-btn'
-        ).length;
+        const count =
+            document.querySelectorAll(
+                '.issue-btn'
+            ).length;
 
-    document.getElementById(
-        'issueCount'
-    ).textContent =
-        `(${count})`;
+        document.getElementById(
+            'issueCount'
+        ).textContent =
+            `(${count})`;
 
-}
+        toggleIssueControls();
+
+    }
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
@@ -1782,25 +2103,39 @@ document
     'submit',
     function(e){
 
-        const roomId =
+        const employeeInput =
+            document.getElementById(
+                'employeeIdInput'
+            );
+
+        const employeeError =
+            document.getElementById(
+                'employeeError'
+            );
+
+        const roomSelect =
             document.getElementById(
                 'roomSelect'
-            ).value;
+            );
 
-        const equipmentId =
+        const equipmentSelect =
             document.getElementById(
                 'equipmentSelect'
-            ).value;
+            );
 
-        const equipmentManual =
+        const equipmentManualInput =
             document.getElementById(
                 'equipmentManualInput'
-            ).value.trim();
+            );
 
-        const description =
-            document.getElementById(
-                'problemDescription'
-            ).value.trim();
+        const roomId =
+            roomSelect.value;
+
+        const equipmentId =
+            equipmentSelect.value;
+
+        const equipmentManual =
+            equipmentManualInput.value.trim();
 
         const selectedIssue =
             document.getElementById(
@@ -1809,85 +2144,65 @@ document
 
         /*
         |--------------------------------------------------------------------------
-        | EMPLOYEE ID VALIDATION
+        | RESET ALL ERRORS
         |--------------------------------------------------------------------------
         */
-        let errors = [];
+        document
+            .getElementById('locationError')
+            .classList.add('hidden');
 
-        if(!reporterVerified){
+        document
+            .getElementById('equipmentError')
+            .classList.add('hidden');
 
-            e.preventDefault();
+        document
+            .getElementById('issueError')
+            .classList.add('hidden');
 
-            employeeError.innerText =
-                'Employee ID not recognized.';
+        employeeError.style.display =
+            'none';
 
-            employeeError.style.display =
-                'block';
+        /*
+        |--------------------------------------------------------------------------
+        | RESET BORDERS
+        |--------------------------------------------------------------------------
+        */
+        roomSelect.style.borderColor = '';
 
-            employeeInput.focus();
+        equipmentSelect.style.borderColor = '';
 
-            return;
+        if(equipmentManualInput){
+
+            equipmentManualInput.style.borderColor = '';
+
         }
-        
 
+        employeeInput.style.borderColor = '';
+
+        /*
+        |--------------------------------------------------------------------------
+        | STEP 1 : LOCATION REQUIRED
+        |--------------------------------------------------------------------------
+        */
         if(!roomId){
-            errors.push('Please select a location.');
-        }
 
-        if(!equipmentManualMode && !equipmentId){
-            errors.push('Please select an equipment.');
-        }
+            document
+                .getElementById('locationError')
+                .classList.remove('hidden');
 
-        if(
-            equipmentManualMode &&
-            equipmentManual === ''
-        ){
-            errors.push('Please enter the equipment name.');
-        }
+            roomSelect.style.borderColor =
+                '#dc2626';
 
-        if(selectedIssue === ''){
-            errors.push('Please select a suggested issue.');
-        }
-
-        if(errors.length > 0){
+            roomSelect.focus();
 
             e.preventDefault();
-
-            Swal.fire({
-                icon: 'warning',
-                title: 'Incomplete Report',
-                html: errors.join('<br>')
-            });
 
             return;
         }
 
         /*
         |--------------------------------------------------------------------------
-        | LOCATION REQUIRED
-        |--------------------------------------------------------------------------
-        */
-        if(!roomId){
-
-            e.preventDefault();
-
-            Swal.fire({
-
-                icon: 'warning',
-
-                title: 'Location Required',
-
-                text: 'Please select a location.'
-
-            });
-
-            return;
-
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | EQUIPMENT REQUIRED
+        | STEP 2 : EQUIPMENT REQUIRED
         |--------------------------------------------------------------------------
         */
         if(
@@ -1895,24 +2210,23 @@ document
             !equipmentId
         ){
 
+            document
+                .getElementById('equipmentError')
+                .classList.remove('hidden');
+
+            equipmentSelect.style.borderColor =
+                '#dc2626';
+
+            equipmentSelect.focus();
+
             e.preventDefault();
-
-            Swal.fire({
-
-                icon: 'warning',
-
-                title: 'Equipment Required',
-
-                text: 'Please select an equipment.'
-
-            });
 
             return;
         }
 
         /*
         |--------------------------------------------------------------------------
-        | MANUAL EQUIPMENT REQUIRED
+        | STEP 3 : MANUAL EQUIPMENT REQUIRED
         |--------------------------------------------------------------------------
         */
         if(
@@ -1920,60 +2234,73 @@ document
             equipmentManual === ''
         ){
 
-            e.preventDefault();
+            document
+                .getElementById('equipmentError')
+                .classList.remove('hidden');
 
-            Swal.fire({
+            equipmentManualInput.style.borderColor =
+                '#dc2626';
 
-                icon: 'warning',
-
-                title: 'Equipment Required',
-
-                text: 'Please enter the equipment name.'
-
-            });
-
-            return;
-        }
-
-        
-
-        if(selectedIssue === ''){
+            equipmentManualInput.focus();
 
             e.preventDefault();
 
-            Swal.fire({
-
-                icon: 'warning',
-
-                title: 'Suggested Issue Required',
-
-                text: 'Please select a suggested issue.'
-
-            });
-
             return;
-
         }
 
         /*
         |--------------------------------------------------------------------------
-        | PROBLEM DESCRIPTION REQUIRED
+        | STEP 4 : SUGGESTED ISSUE REQUIRED
         |--------------------------------------------------------------------------
         */
-        
+        if(selectedIssue === ''){
 
-        
+            document
+                .getElementById('issueError')
+                .classList.remove('hidden');
+
+            e.preventDefault();
+
+            return;
+        }
 
         /*
         |--------------------------------------------------------------------------
-        | SUBMITTING
+        | STEP 5 : EMPLOYEE ID VALIDATION
+        |--------------------------------------------------------------------------
+        */
+        if(!reporterVerified){
+
+            employeeError.innerText =
+                'Employee ID not recognized.';
+
+            employeeError.style.display =
+                'block';
+
+            employeeInput.style.borderColor =
+                '#dc2626';
+
+            employeeInput.focus();
+
+            e.preventDefault();
+
+            return;
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | LOADING MODAL
         |--------------------------------------------------------------------------
         */
         Swal.fire({
 
-            title: 'Submitting Report...',
+            title: 'Submitting Report',
 
-            text: 'Please wait while we submit your maintenance report.',
+            html: `
+                <div class="mt-2 text-sm">
+                    Processing maintenance report...
+                </div>
+            `,
 
             allowOutsideClick: false,
 
@@ -1981,7 +2308,26 @@ document
 
             showConfirmButton: false,
 
+            background: '#0f1628',
+
+            color: '#f0f2f8',
+
+            backdrop: `
+                rgba(0,0,0,0.65)
+                blur(6px)
+            `,
+
             didOpen: () => {
+
+                const popup = Swal.getPopup();
+
+                popup.style.border =
+                    '1px solid rgba(255,255,255,0.08)';
+
+                popup.style.borderRadius = '24px';
+
+                popup.style.boxShadow =
+                    '0 32px 80px rgba(0,0,0,.55)';
 
                 Swal.showLoading();
 

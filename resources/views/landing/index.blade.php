@@ -1369,7 +1369,6 @@
     @if(session('success'))
 
     <script>
-
     document.addEventListener(
         'DOMContentLoaded',
         function(){
@@ -1378,17 +1377,111 @@
 
                 icon: 'success',
 
-                title: 'Report Submitted',
+                title: 'Maintenance Report Submitted',
 
-                text: '{{ session("success") }}',
+                html: `
+                    <div style="color:#6b7280;">
+                        Your maintenance request has been successfully submitted and is awaiting review.
+                    </div>
+                `,
 
-                confirmButtonColor: '#f0b429'
+                showConfirmButton: false,
+
+                timer: 3000,
+
+                timerProgressBar: true,
+
+                iconColor: '#2947f0',
+
+                background: '#ffffff',
+
+                color: '#111827',
+
+                backdrop: `
+                    rgba(0,0,0,0.45)
+                    blur(8px)
+                `,
+
+                didOpen: () => {
+
+                    const popup = Swal.getPopup();
+
+                    popup.style.border =
+                        '1.5px solid rgba(41,71,240,.15)';
+
+                    popup.style.borderRadius =
+                        '20px';
+
+                    popup.style.boxShadow =
+                        '0 20px 45px rgba(41,71,240,.15)';
+
+                    popup.style.padding =
+                        '1rem';
+
+                    popup.style.overflow =
+                        'hidden';
+
+                    popup.insertAdjacentHTML(
+                        'afterbegin',
+                        `
+                        <div
+                            style="
+                                height:4px;
+                                margin:-1rem -1rem .8rem -1rem;
+                                background:
+                                linear-gradient(
+                                    90deg,
+                                    #2947f0,
+                                    #f0b429
+                                );
+                            ">
+                        </div>
+                        `
+                    );
+
+                    const title = popup.querySelector('.swal2-title');
+
+                    if(title){
+
+                        title.style.fontFamily =
+                            'Poppins, sans-serif';
+
+                        title.style.fontSize =
+                            '1.25rem';
+
+                        title.style.fontWeight =
+                            '700';
+
+                        title.style.margin =
+                            '0 0 .4rem 0';
+
+                    }
+
+                    const htmlContainer =
+                        popup.querySelector('.swal2-html-container');
+
+                    if(htmlContainer){
+
+                        htmlContainer.style.fontFamily =
+                            'Inter, sans-serif';
+
+                        htmlContainer.style.fontSize =
+                            '.9rem';
+
+                        htmlContainer.style.lineHeight =
+                            '1.45';
+
+                        htmlContainer.style.margin =
+                            '0';
+
+                    }
+
+                }
 
             });
 
         }
     );
-
     </script>
 
     @endif

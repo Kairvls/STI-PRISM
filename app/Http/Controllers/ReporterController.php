@@ -171,7 +171,7 @@ class ReporterController extends Controller
                 'nullable|string|max:255',
 
             'report_problem_description' =>
-                'required|string',
+                'nullable|string',
 
             'report_suggested_issue' =>
             'nullable|string|max:255',
