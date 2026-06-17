@@ -5,19 +5,59 @@
 @section('content')
 
 <!-- PAGE HEADER -->
-<div class="mb-8">
+<div class="mb-6 flex items-center justify-between">
 
-    <h1 class="text-3xl font-extrabold text-red-400">
+    <div>
 
-        Urgent Reports
+        <div class="flex items-center gap-2 text-sm text-gray-500 mb-2">
 
-    </h1>
+            <span>Reports</span>
 
-    <p class="text-gray-400 mt-2">
+            <i data-lucide="chevron-right" class="w-4 h-4"></i>
 
-        View all urgent and high-priority maintenance reports.
+            <span class="text-gray-700 font-medium">
+                Urgent Reports
+            </span>
 
-    </p>
+        </div>
+
+        <h1 class="text-3xl font-bold text-gray-900">
+            Urgent Reports
+        </h1>
+
+        <p class="text-gray-500 mt-1">
+            Monitor and prioritize critical maintenance reports requiring immediate attention.
+        </p>
+
+    </div>
+
+    <div class="flex items-center gap-6">
+
+        <div class="text-right">
+
+            <p class="text-xs uppercase tracking-wider text-gray-400">
+                Urgent Reports
+            </p>
+
+            <p class="text-2xl font-bold text-red-600">
+                {{ $reports->total() }}
+            </p>
+
+        </div>
+
+        <div class="w-px h-10 bg-gray-300"></div>
+
+        <div class="flex items-center gap-2">
+
+            <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+
+            <span class="text-sm font-medium text-gray-600">
+                Priority Monitoring
+            </span>
+
+        </div>
+
+    </div>
 
 </div>
 

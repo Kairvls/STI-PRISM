@@ -1164,7 +1164,7 @@
 
     <!-- ── 4. REPORT MODAL ── -->
     <div id="reportModal"
-         class="hidden fixed inset-0 z-50 flex items-center justify-center px-4 overflow-y-auto py-10"
+         class="hidden fixed inset-0 z-50 flex items-center justify-center px-4 py-10"
          style=" backdrop-filter:blur(6px);">
 
         <div class="w-full max-w-6xl relative modal-animation">
@@ -1203,15 +1203,29 @@
         }
 
         function showModal(modal) {
+
             closeAllModals();
+
             modal.classList.remove('hidden');
+
             document.body.classList.add('overflow-hidden');
+
+            document.documentElement.classList.add('overflow-hidden');
         }
 
         function hideModal(modal) {
+
             modal.classList.add('hidden');
-            const visible = document.querySelector('.fixed.inset-0:not(.hidden)');
-            if (!visible) document.body.classList.remove('overflow-hidden');
+
+            const visible =
+                document.querySelector('.fixed.inset-0:not(.hidden)');
+
+            if (!visible) {
+
+                document.body.classList.remove('overflow-hidden');
+
+                document.documentElement.classList.remove('overflow-hidden');
+            }
         }
 
         function openLoginModal()       { showModal(loginChooserModal); }

@@ -55,7 +55,14 @@
 
         ::-webkit-scrollbar-thumb{
 
-            background:#2563EB;
+            background:#323c4d;
+            border-radius:20px;
+
+        }
+
+        ::-webkit-scrollbar-thumb:hover{
+
+            background:#4A5568;
             border-radius:20px;
 
         }
@@ -111,21 +118,21 @@
 
 </head>
 
-<body class="text-white">
+<body class="text-white h-screen overflow-hidden">
 
-    <div class="flex min-h-screen">
+    <div class="flex h-screen overflow-hidden">
 
         <!-- SIDEBAR -->
         @yield('sidebar')
 
         <!-- MAIN -->
-        <div class="flex-1 flex flex-col content-wrapper">
+        <div class="flex-1 flex flex-col content-wrapper overflow-hidden">
 
             <!-- TOPBAR -->
             @yield('topbar')
 
             <!-- PAGE CONTENT -->
-            <main class="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+            <main class="flex-1 overflow-y-auto overflow-x-hidden p-8 bg-gray-100">
 
                 @yield('content')
 

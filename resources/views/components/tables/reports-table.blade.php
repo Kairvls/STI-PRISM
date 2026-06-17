@@ -1,24 +1,27 @@
-<div class="bg-[#1E293B] rounded-3xl p-6 overflow-x-auto border border-white/5">
+<div class="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
 
-    <!-- HEADER -->
-    <div class="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4 mb-6">
+    <!-- FILTER BAR -->
+    <div class="p-6 bg-gray-50 border-b border-gray-200">
 
-        <!-- SEARCH -->
         <form method="GET"
-              class="flex flex-col lg:flex-row gap-4 w-full">
+              class="flex flex-col lg:flex-row gap-4">
 
-            <!-- SEARCH INPUT -->
-            <input
-                type="text"
-                name="search"
-                value="{{ request('search') }}"
-                placeholder="Search report ID, equipment, room, reporter..."
-                class="bg-[#0F172A] border border-white/10 rounded-2xl px-5 py-3 w-full lg:w-[420px] outline-none focus:border-blue-500">
+            <!-- SEARCH -->
+            <div class="relative flex-1">
 
-            <!-- STATUS FILTER -->
+                <input
+                    type="text"
+                    name="search"
+                    value="{{ request('search') }}"
+                    placeholder="Search report ID, equipment, room, reporter..."
+                    class="w-full h-12 pl-4 pr-4 rounded-xl border border-gray-300 bg-white text-gray-700 outline-none focus:ring-4 focus:ring-yellow-100 focus:border-yellow-400">
+
+            </div>
+
+            <!-- STATUS -->
             <select
                 name="status"
-                class="bg-[#0F172A] border border-white/10 rounded-2xl px-5 py-3 outline-none focus:border-blue-500">
+                class="h-12 px-4 rounded-xl border border-gray-300 bg-white text-gray-700 outline-none focus:ring-4 focus:ring-yellow-100 focus:border-yellow-400">
 
                 <option value="">
                     All Status
@@ -51,9 +54,9 @@
 
             </select>
 
-            <!-- SEARCH BUTTON -->
+            <!-- BUTTON -->
             <button
-                class="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-2xl font-semibold transition">
+                class="h-12 px-8 rounded-xl bg-[#FFF200] text-gray-900 font-semibold hover:bg-yellow-300 transition">
 
                 Search
 
@@ -64,247 +67,245 @@
     </div>
 
     <!-- TABLE -->
-    <table class="w-full text-left">
+    <div class="overflow-x-auto">
 
-        <!-- TABLE HEADER -->
-        <thead>
+        <table class="w-full">
 
-            <tr class="border-b border-white/10 text-gray-400 text-sm">
+            <thead>
 
-                <th class="pb-5 px-3">
-                    Report ID
-                </th>
+                <tr class="bg-gray-50 border-b border-gray-200">
 
-                <th class="pb-5 px-3">
-                    Reporter
-                </th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                        Report ID
+                    </th>
 
-                <th class="pb-5 px-3">
-                    Room
-                </th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                        Reporter
+                    </th>
 
-                <th class="pb-5 px-3">
-                    Equipment
-                </th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                        Room
+                    </th>
 
-                <th class="pb-5 px-3">
-                    Urgency
-                </th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                        Equipment
+                    </th>
 
-                <th class="pb-5 px-3">
-                    Status
-                </th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                        Urgency
+                    </th>
 
-                <th class="pb-5 px-3">
-                    Date Submitted
-                </th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                        Status
+                    </th>
 
-                <th class="pb-5 px-3 text-center">
-                    Actions
-                </th>
+                    <th class="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
+                        Date Submitted
+                    </th>
 
-            </tr>
+                    <th class="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wider text-gray-500">
+                        Actions
+                    </th>
 
-        </thead>
+                </tr>
 
-        <!-- TABLE BODY -->
-        <tbody>
+            </thead>
 
-            @forelse($reports as $report)
+            <tbody>
 
-            <tr class="border-b border-white/5 hover:bg-[#0F172A] transition duration-200">
+                @forelse($reports as $report)
 
-                <!-- REPORT ID -->
-                <td class="py-5 px-3 font-bold text-white">
+                <tr class="border-b border-gray-100 hover:bg-gray-50 transition">
 
-                    #{{ $report->report_id }}
+                    <!-- ID -->
+                    <td class="px-6 py-5 font-bold text-gray-900">
 
-                </td>
+                        #{{ $report->report_id }}
 
-                <!-- REPORTER -->
-                <td class="py-5 px-3">
+                    </td>
 
-                    <div>
+                    <!-- REPORTER -->
+                    <td class="px-6 py-5">
 
-                        <h1 class="font-semibold">
+                        <div>
 
-                            {{ $report->reporter_full_name ?? 'Unknown Reporter' }}
+                            <h4 class="font-semibold text-gray-900">
 
-                        </h1>
+                                {{ $report->reporter_full_name ?? 'Unknown Reporter' }}
 
-                    </div>
+                            </h4>
 
-                </td>
+                        </div>
 
-                <!-- ROOM -->
-                <td class="py-5 px-3">
+                    </td>
 
-                    {{ $report->room_name ?? 'No Assigned Room' }}
+                    <!-- ROOM -->
+                    <td class="px-6 py-5 text-gray-700">
 
-                </td>
+                        {{ $report->room_name ?? 'No Assigned Room' }}
 
-                <!-- EQUIPMENT -->
-                <td class="py-5 px-3">
+                    </td>
 
-                    {{ $report->equipment_name ?? 'Unlisted Equipment' }}
+                    <!-- EQUIPMENT -->
+                    <td class="px-6 py-5 text-gray-700">
 
-                </td>
+                        {{ $report->equipment_name ?? 'Unlisted Equipment' }}
 
-                <!-- URGENCY -->
-                <td class="py-5 px-3">
+                    </td>
 
-                    @if($report->report_urgency_level == 'Urgent')
+                    <!-- URGENCY -->
+                    <td class="px-6 py-5">
 
-                        <span class="bg-red-500/20 text-red-400 px-4 py-1.5 rounded-full text-xs font-bold">
+                        @if($report->report_urgency_level == 'Urgent')
+
+                        <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
 
                             Urgent
 
                         </span>
 
-                    @else
+                        @else
 
-                        <span class="bg-green-500/20 text-green-400 px-4 py-1.5 rounded-full text-xs font-bold">
+                        <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
 
                             Non-Urgent
 
                         </span>
 
-                    @endif
+                        @endif
 
-                </td>
+                    </td>
 
-                <!-- STATUS -->
-                <td class="py-5 px-3">
+                    <!-- STATUS -->
+                    <td class="px-6 py-5">
 
-                    @if($report->report_current_status == 'Pending')
+                        @if($report->report_current_status == 'Pending')
 
-                        <span class="bg-yellow-500/20 text-yellow-400 px-4 py-1.5 rounded-full text-xs font-bold">
+                        <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">
 
                             Pending
 
                         </span>
 
-                    @elseif($report->report_current_status == 'Processing')
+                        @elseif($report->report_current_status == 'Processing')
 
-                        <span class="bg-blue-500/20 text-blue-400 px-4 py-1.5 rounded-full text-xs font-bold">
+                        <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
 
                             Processing
 
                         </span>
 
-                    @elseif($report->report_current_status == 'Resolved')
+                        @elseif($report->report_current_status == 'Resolved')
 
-                        <span class="bg-green-500/20 text-green-400 px-4 py-1.5 rounded-full text-xs font-bold">
+                        <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-700">
 
                             Resolved
 
                         </span>
 
-                    @elseif($report->report_current_status == 'Rejected')
+                        @elseif($report->report_current_status == 'Rejected')
 
-                        <span class="bg-red-500/20 text-red-400 px-4 py-1.5 rounded-full text-xs font-bold">
+                        <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700">
 
                             Rejected
 
                         </span>
 
-                    @else
+                        @else
 
-                        <span class="bg-orange-500/20 text-orange-400 px-4 py-1.5 rounded-full text-xs font-bold">
+                        <span class="inline-flex px-3 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-700">
 
                             For Replacement
 
                         </span>
 
-                    @endif
+                        @endif
 
-                </td>
+                    </td>
 
-                <!-- DATE -->
-                <td class="py-5 px-3 text-gray-400 text-sm">
+                    <!-- DATE -->
+                    <td class="px-6 py-5 text-sm text-gray-500">
 
-                    {{ \Carbon\Carbon::parse($report->report_submitted_at)->format('M d, Y h:i A') }}
+                        {{ \Carbon\Carbon::parse($report->report_submitted_at)->format('M d, Y h:i A') }}
 
-                </td>
+                    </td>
 
-                <!-- ACTION BUTTONS -->
-                <td class="py-5 px-3">
+                    <!-- ACTIONS -->
+                    <td class="px-6 py-5">
 
-                    <div class="flex items-center justify-center gap-2">
+                        <div class="flex items-center justify-center gap-2">
 
-                        <!-- VIEW -->
-                        <a href="/maintenance/reports/details/{{ $report->report_id }}"
-                            class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-xl text-sm font-semibold transition">
+                            <a href="/maintenance/reports/details/{{ $report->report_id }}"
+                               class="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition">
 
-                            View
+                                View
 
-                        </a>
+                            </a>
 
-                        <!-- ASSIGN -->
-                        <a href="/maintenance/reports/assign/{{ $report->report_id }}"
-                            class="bg-yellow-500 hover:bg-yellow-600 text-black px-4 py-2 rounded-xl text-sm font-semibold transition">
+                            <a href="/maintenance/reports/assign/{{ $report->report_id }}"
+                               class="px-4 py-2 rounded-lg bg-yellow-100 text-yellow-800 text-sm font-medium hover:bg-yellow-200 transition">
 
-                            Assign
+                                Assign
 
-                        </a>
+                            </a>
 
-                        <!-- UPDATE -->
-                        <a href="/maintenance/reports/update-status/{{ $report->report_id }}"
-                            class="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-xl text-sm font-semibold transition">
+                            <a href="/maintenance/reports/update-status/{{ $report->report_id }}"
+                               class="px-4 py-2 rounded-lg bg-green-100 text-green-700 text-sm font-medium hover:bg-green-200 transition">
 
-                            Update
+                                Update
 
-                        </a>
-
-                    </div>
-
-                </td>
-
-            </tr>
-
-            @empty
-
-            <!-- EMPTY STATE -->
-            <tr>
-
-                <td colspan="8"
-                    class="text-center py-14">
-
-                    <div class="flex flex-col items-center justify-center">
-
-                        <div class="w-20 h-20 rounded-full bg-[#0F172A] flex items-center justify-center mb-4">
-
-                            <i data-lucide="file-search"
-                               class="w-9 h-9 text-gray-500"></i>
+                            </a>
 
                         </div>
 
-                        <h1 class="text-lg font-bold text-gray-300">
+                    </td>
 
-                            No Reports Found
+                </tr>
 
-                        </h1>
+                @empty
 
-                        <p class="text-gray-500 mt-2">
+                <tr>
 
-                            No maintenance reports match the current filters.
+                    <td colspan="8" class="py-20">
 
-                        </p>
+                        <div class="flex flex-col items-center justify-center">
 
-                    </div>
+                            <div class="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-4">
 
-                </td>
+                                <i data-lucide="file-search"
+                                   class="w-8 h-8 text-gray-400"></i>
 
-            </tr>
+                            </div>
 
-            @endforelse
+                            <h3 class="text-lg font-semibold text-gray-700">
 
-        </tbody>
+                                No Reports Found
 
-    </table>
+                            </h3>
+
+                            <p class="text-gray-500 mt-2">
+
+                                No maintenance reports match the current filters.
+
+                            </p>
+
+                        </div>
+
+                    </td>
+
+                </tr>
+
+                @endforelse
+
+            </tbody>
+
+        </table>
+
+    </div>
 
     <!-- PAGINATION -->
-    <div class="mt-8">
+
+    <div class="p-6 border-t border-gray-200 bg-gray-50">
 
         {{ $reports->links() }}
 

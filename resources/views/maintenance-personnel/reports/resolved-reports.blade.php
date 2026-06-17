@@ -4,22 +4,61 @@
 
 @section('content')
 
-<div class="mb-8">
+<div class="mb-6 flex items-center justify-between">
 
-    <h1 class="text-3xl font-extrabold text-green-400">
+    <div>
 
-        Resolved Reports
+        <div class="flex items-center gap-2 text-sm text-gray-500 mb-2">
 
-    </h1>
+            <span>Reports</span>
 
-    <p class="text-gray-400 mt-2">
+            <i data-lucide="chevron-right" class="w-4 h-4"></i>
 
-        Successfully resolved and completed maintenance reports.
+            <span class="text-gray-700 font-medium">
+                Resolved Reports
+            </span>
 
-    </p>
+        </div>
+
+        <h1 class="text-3xl font-bold text-gray-900">
+            Resolved Reports
+        </h1>
+
+        <p class="text-gray-500 mt-1">
+            Successfully resolved and completed maintenance reports
+        </p>
+
+    </div>
+
+    <div class="flex items-center gap-6">
+
+        <div class="text-right">
+
+            <p class="text-xs uppercase tracking-wider text-gray-400">
+                Completed Reports
+            </p>
+
+            <p class="text-2xl font-bold text-green-600">
+                {{ $reports->total() }}
+            </p>
+
+        </div>
+
+        <div class="w-px h-10 bg-gray-300"></div>
+
+        <div class="flex items-center gap-2">
+
+            <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+
+            <span class="text-sm font-medium text-gray-600">
+                Successfully Resolved
+            </span>
+
+        </div>
+
+    </div>
 
 </div>
-
 @include(
     'components.tables.reports-table',
     [
