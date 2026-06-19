@@ -6,71 +6,145 @@
 
 <div class="max-w-5xl mx-auto">
 
-    <!-- HEADER -->
-    <div class="mb-8">
 
-        <h1 class="text-3xl font-extrabold">
-            Assign Report
-        </h1>
+<!-- PAGE HEADER -->
+<div class="mb-8">
 
-        <p class="text-gray-400 mt-2">
-            Assign maintenance personnel to this report.
-        </p>
+    <h1 class="text-3xl font-extrabold text-white">
+
+        Assign Report
+
+    </h1>
+
+    <p class="text-gray-400 mt-2">
+
+        Assign maintenance personnel to handle this report.
+
+    </p>
+
+</div>
+
+<!-- SUCCESS MESSAGE -->
+@if(session('success'))
+
+<div class="mb-6 bg-green-500/10 border border-green-500/20 text-green-400 px-5 py-4 rounded-2xl">
+
+    {{ session('success') }}
+
+</div>
+
+@endif
+
+<!-- REPORT INFORMATION -->
+<div class="bg-[#1E293B] rounded-3xl p-8 mb-8">
+
+    <div class="flex items-center justify-between mb-6">
+
+        <h2 class="text-xl font-bold text-white">
+
+            Report Information
+
+        </h2>
+
+        <span class="
+            px-4 py-2 rounded-xl text-sm font-semibold
+
+            @if($report->report_current_status == 'Pending')
+                bg-yellow-500/20 text-yellow-400
+            @elseif($report->report_current_status == 'Processing')
+                bg-blue-500/20 text-blue-400
+            @elseif($report->report_current_status == 'Resolved')
+                bg-green-500/20 text-green-400
+            @elseif($report->report_current_status == 'Rejected')
+                bg-red-500/20 text-red-400
+            @else
+                bg-orange-500/20 text-orange-400
+            @endif
+        ">
+
+            {{ $report->report_current_status }}
+
+        </span>
 
     </div>
 
-    <!-- REPORT CARD -->
-    <div class="bg-[#1E293B] rounded-3xl p-8 mb-8">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
 
-            <div>
+            <p class="text-gray-400 text-sm">
 
-                <p class="text-gray-400 text-sm">
-                    Report ID
-                </p>
+                Report ID
 
-                <h1 class="text-xl font-bold mt-2">
-                    RP-2026-001
-                </h1>
+            </p>
 
-            </div>
+            <h3 class="text-lg font-bold mt-2 text-white">
 
-            <div>
+                #{{ $report->report_id }}
 
-                <p class="text-gray-400 text-sm">
-                    Current Status
-                </p>
+            </h3>
 
-                <span class="bg-yellow-500/20 text-yellow-400 px-4 py-2 rounded-xl inline-block mt-2">
+        </div>
 
-                    Pending
+        <div>
 
-                </span>
+            <p class="text-gray-400 text-sm">
 
-            </div>
+                Date Submitted
 
-            <div>
+            </p>
 
-                <p class="text-gray-400 text-sm">
-                    Problem Description
-                </p>
+            <h3 class="text-lg font-semibold mt-2 text-white">
 
-                <h1 class="font-semibold mt-2">
-                    Air conditioning unit not cooling properly.
-                </h1>
+                {{ \Carbon\Carbon::parse($report->report_submitted_at)->format('F d, Y h:i A') }}
 
-            </div>
+            </h3>
 
-            <div>
+        </div>
 
-                <p class="text-gray-400 text-sm">
-                    Room
-                </p>
+        <div>
 
-                <h1 class="font-semibold mt-2">
-                    Computer Laboratory 1
-                </h1>
+            <p class="text-gray-400 text-sm">
+
+                Room
+
+            </p>
+
+            <h3 class="text-lg font-semibold mt-2 text-white">
+
+                {{ $report->room_name ?? 'No Assigned Room' }}
+
+            </h3>
+
+        </div>
+
+        <div>
+
+            <p class="text-gray-400 text-sm">
+
+                Equipment
+
+            </p>
+
+            <h3 class="text-lg font-semibold mt-2 text-white">
+
+                {{ $report->equipment_name ?? 'Unlisted Equipment' }}
+
+            </h3>
+
+        </div>
+
+        <div class="md:col-span-2">
+
+            <p class="text-gray-400 text-sm">
+
+                Problem Description
+
+            </p>
+
+            <div class="bg-[#0F172A] rounded-2xl p-4 mt-2 text-gray-300 leading-relaxed">
+
+                {{ $report->report_problem_description }}
 
             </div>
 
@@ -78,66 +152,104 @@
 
     </div>
 
-    <!-- ASSIGN FORM -->
-    <div class="bg-[#1E293B] rounded-3xl p-8">
+</div>
 
-        <form action="#"
-              method="POST">
+<!-- ASSIGNMENT FORM -->
+<div class="bg-[#1E293B] rounded-3xl p-8">
 
-            @csrf
+    <h2 class="text-xl font-bold text-white mb-6">
 
-            <div class="mb-6">
+        Assign Maintenance Personnel
 
-                <label class="block mb-3 font-semibold">
+    </h2>
 
-                    Assign Maintenance Personnel
+    <form
+        action="/maintenance/reports/assign/{{ $report->report_id }}"
+        method="POST"
+    >
 
-                </label>
+        @csrf
 
-                <select
-                    class="w-full bg-[#0F172A] border border-white/10 rounded-2xl px-5 py-4 text-white">
+        <!-- PERSONNEL -->
+        <div class="mb-6">
 
-                    <option>
-                        Select Personnel
-                    </option>
+            <label class="block mb-3 font-semibold text-white">
 
-                    <option>
-                        Kenn Mehares
-                    </option>
+                Select Personnel
 
-                    <option>
-                        John Dela Cruz
-                    </option>
+            </label>
 
-                </select>
+            <select
+                name="personnel_id"
+                class="w-full bg-[#0F172A] border border-white/10 rounded-2xl px-5 py-4 text-white focus:outline-none focus:border-blue-500"
+                required
+            >
 
-            </div>
+                <option value="">
 
-            <div class="mb-6">
+                    Choose Personnel
 
-                <label class="block mb-3 font-semibold">
+                </option>
 
-                    Assignment Remarks
+                @foreach($personnel as $user)
 
-                </label>
+                <option value="{{ $user->user_id }}">
 
-                <textarea
-                    rows="5"
-                    class="w-full bg-[#0F172A] border border-white/10 rounded-2xl px-5 py-4 text-white resize-none"
-                    placeholder="Enter assignment remarks..."></textarea>
+                    {{ $user->user_full_name }}
 
-            </div>
+                </option>
+
+                @endforeach
+
+            </select>
+
+        </div>
+
+        <!-- REMARKS -->
+        <div class="mb-8">
+
+            <label class="block mb-3 font-semibold text-white">
+
+                Assignment Remarks
+
+            </label>
+
+            <textarea
+                name="assignment_remarks"
+                rows="5"
+                class="w-full bg-[#0F172A] border border-white/10 rounded-2xl px-5 py-4 text-white resize-none focus:outline-none focus:border-blue-500"
+                placeholder="Enter assignment remarks..."
+            ></textarea>
+
+        </div>
+
+        <!-- BUTTONS -->
+        <div class="flex flex-col sm:flex-row gap-4">
 
             <button
-                class="bg-blue-600 hover:bg-blue-700 px-8 py-4 rounded-2xl font-bold transition">
+                type="submit"
+                class="bg-blue-600 hover:bg-blue-700 px-8 py-4 rounded-2xl font-bold transition"
+            >
 
                 Assign Report
 
             </button>
 
-        </form>
+            <a
+                href="/maintenance/reports/details/{{ $report->report_id }}"
+                class="px-8 py-4 rounded-2xl font-bold bg-gray-700 hover:bg-gray-600 transition text-center"
+            >
 
-    </div>
+                Cancel
+
+            </a>
+
+        </div>
+
+    </form>
+
+</div>
+
 
 </div>
 

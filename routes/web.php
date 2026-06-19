@@ -279,22 +279,32 @@ Route::middleware(['auth'])->group(function () {
     */
 
     Route::get(
-        '/maintenance/reports/{id}',
+        '/maintenance/reports/details/{id}',
         [MaintenanceController::class, 'reportDetails']
     );
 
     Route::get(
-        '/maintenance/reports/{id}/assign',
-        [MaintenanceController::class, 'assignReport']
+        '/maintenance/reports/assign/{id}',
+        [MaintenanceController::class, 'assignReportPage']
     );
 
+    Route::post(
+        '/maintenance/reports/assign/{id}',
+        [MaintenanceController::class, 'assignReport'
+    ]);
+
     Route::get(
-        '/maintenance/reports/{id}/findings',
+        '/maintenance/reports/findings/{id}',
         [MaintenanceController::class, 'addFindings']
     );
 
     Route::get(
-        '/maintenance/reports/{id}/update-status',
+        '/maintenance/reports/update-status/{id}',
+        [MaintenanceController::class, 'updateStatusPage']
+    );
+
+    Route::post(
+        '/maintenance/reports/update-status/{id}',
         [MaintenanceController::class, 'updateStatus']
     );
 
@@ -350,19 +360,6 @@ Route::get(
 
 );
 
-/*
-|--------------------------------------------------------------------------
-| EQUIPMENT BY ROOM
-|--------------------------------------------------------------------------
-*/
-
-Route::get(
-
-    '/get-equipment/{roomId}',
-
-    [ReporterController::class, 'getEquipmentByRoom']
-
-);
 
 
 /*
@@ -371,14 +368,6 @@ Route::get(
 |--------------------------------------------------------------------------
 */
 
-Route::get(
-
-    '/get-reporter/{employeeId}',
-
-    [ReporterController::class, 'getReporter']
-
-);
-
 //AUTO SUGGESTION
 Route::get(
     '/get-suggestions/{equipmentId}',
@@ -386,7 +375,10 @@ Route::get(
 );
 
 
-
+Route::get(
+    '/maintenance/reports',
+    [MaintenanceController::class, 'allReports']
+);
 
 
 

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class MaintenanceController extends Controller
@@ -145,7 +146,7 @@ class MaintenanceController extends Controller
 
             ->when(
 
-                $request->search,
+                $request->filled('search'),
 
                 function ($query) use ($request) {
 
@@ -183,6 +184,21 @@ class MaintenanceController extends Controller
 
             )
 
+            ->when(
+
+                $request->filled('status'),
+
+                function ($query) use ($request) {
+
+                    $query->where(
+                        'reports_table.report_current_status',
+                        $request->status
+                    );
+
+                }
+
+            )
+
             /*
             |--------------------------------------------------------------------------
             | ORDERING
@@ -213,6 +229,20 @@ class MaintenanceController extends Controller
             );
     }
 
+    public function allReports()
+    {
+        $reports = $this->reportsQuery()
+
+            ->paginate(10)
+
+            ->withQueryString();
+
+        return view(
+            'maintenance-personnel.reports.all-reports',
+            compact('reports')
+        );
+    }
+
     /*
     |--------------------------------------------------------------------------
     | INCOMING REPORTS
@@ -228,7 +258,7 @@ class MaintenanceController extends Controller
             ->withQueryString();
 
         return view(
-            'maintenance-personnel.reports.incoming-reports',
+            'maintenance-personnel.reports.all-reports',
             compact('reports')
         );
     }
@@ -253,7 +283,7 @@ class MaintenanceController extends Controller
             ->withQueryString();
 
         return view(
-            'maintenance-personnel.reports.urgent-reports',
+            'maintenance-personnel.reports.all-reports',
             compact('reports')
         );
     }
@@ -278,7 +308,7 @@ class MaintenanceController extends Controller
             ->withQueryString();
 
         return view(
-            'maintenance-personnel.reports.pending-reports',
+            'maintenance-personnel.reports.all-reports',
             compact('reports')
         );
     }
@@ -303,7 +333,7 @@ class MaintenanceController extends Controller
             ->withQueryString();
 
         return view(
-            'maintenance-personnel.reports.processing-reports',
+            'maintenance-personnel.reports.all-reports',
             compact('reports')
         );
     }
@@ -328,7 +358,7 @@ class MaintenanceController extends Controller
             ->withQueryString();
 
         return view(
-            'maintenance-personnel.reports.resolved-reports',
+            'maintenance-personnel.reports.all-reports',
             compact('reports')
         );
     }
@@ -353,7 +383,7 @@ class MaintenanceController extends Controller
             ->withQueryString();
 
         return view(
-            'maintenance-personnel.reports.replacement-reports',
+            'maintenance-personnel.reports.all-reports',
             compact('reports')
         );
     }
@@ -378,7 +408,7 @@ class MaintenanceController extends Controller
             ->withQueryString();
 
         return view(
-            'maintenance-personnel.reports.rejected-reports',
+            'maintenance-personnel.reports.all-reports',
             compact('reports')
         );
     }
@@ -391,13 +421,13 @@ class MaintenanceController extends Controller
 
     public function reportDetails(int $id)
     {
-        $report = DB::table('reports_table')
+        /*
+        |--------------------------------------------------------------------------
+        | RETURN SINGLE REPORT
+        |--------------------------------------------------------------------------
+        */
 
-            /*
-            |--------------------------------------------------------------------------
-            | JOINS
-            |--------------------------------------------------------------------------
-            */
+        $report = DB::table('reports_table')
 
             ->leftJoin(
                 'rooms_table',
@@ -407,8 +437,15 @@ class MaintenanceController extends Controller
             )
 
             ->leftJoin(
+                'floors_table',
+                'rooms_table.room_floor_id',
+                '=',
+                'floors_table.floor_id'
+            )
+
+            ->leftJoin(
                 'buildings_table',
-                'rooms_table.room_building_id',
+                'floors_table.floor_building_id',
                 '=',
                 'buildings_table.building_id'
             )
@@ -426,12 +463,6 @@ class MaintenanceController extends Controller
                 '=',
                 'reporters_table.reporter_employee_id'
             )
-
-            /*
-            |--------------------------------------------------------------------------
-            | SELECT DATA
-            |--------------------------------------------------------------------------
-            */
 
             ->select(
 
@@ -451,28 +482,244 @@ class MaintenanceController extends Controller
 
             )
 
-            /*
-            |--------------------------------------------------------------------------
-            | REPORT FILTER
-            |--------------------------------------------------------------------------
-            */
-
             ->where(
                 'reports_table.report_id',
                 $id
             )
 
-            /*
-            |--------------------------------------------------------------------------
-            | RETURN SINGLE REPORT
-            |--------------------------------------------------------------------------
-            */
+            ->first();
 
-            ->firstOrFail();
+        /*
+        |--------------------------------------------------------------------------
+        | DEBUG
+        |--------------------------------------------------------------------------
+        */
+
+        //dd($report);
+
+        /*
+        |--------------------------------------------------------------------------
+        | RELATED REPORTS
+        |--------------------------------------------------------------------------
+        */
+
+        $relatedReports = collect();
 
         return view(
             'maintenance-personnel.reports.report-details',
+            compact(
+                'report',
+                'relatedReports'
+            )
+        );
+    }
+
+
+    public function assignReportPage($id)
+    {
+        $report = DB::table('reports_table')
+            ->leftJoin(
+                'rooms_table',
+                'reports_table.report_room_id',
+                '=',
+                'rooms_table.room_id'
+            )
+            ->leftJoin(
+                'equipment_table',
+                'reports_table.report_equipment_id',
+                '=',
+                'equipment_table.equipment_id'
+            )
+            ->where(
+                'reports_table.report_id',
+                $id
+            )
+            ->first();
+
+        if (!$report) {
+            return redirect()
+                ->back()
+                ->with('error', 'Report not found.');
+        }
+
+        if ($report->report_current_status !== 'Pending') {
+            return redirect()
+                ->to('/maintenance/reports/details/' . $id)
+                ->with('error', 'Only pending reports can be assigned.');
+        }
+
+        $personnel = DB::table('users_table')
+            ->where(
+                'user_role_id',
+                2
+            )
+            ->orderBy('user_full_name')
+            ->get();
+
+        return view(
+            'maintenance-personnel.reports.assign-report',
+            compact(
+                'report',
+                'personnel'
+            )
+        );
+    }
+
+    public function assignReport(Request $request, $id)
+    {
+        $request->validate([
+
+            'personnel_id' => 'required'
+
+        ]);
+
+        $report = DB::table('reports_table')
+            ->where('report_id', $id)
+            ->first();
+
+        if (!$report) {
+            return redirect()
+                ->back()
+                ->with('error', 'Report not found.');
+        }
+
+        if ($report->report_current_status !== 'Pending') {
+            return redirect()
+                ->back()
+                ->with('error', 'Only pending reports can be assigned.');
+        }
+
+        DB::table('reports_table')
+
+            ->where(
+                'report_id',
+                $id
+            )
+
+            ->update([
+
+                'report_assigned_personnel_id'
+                    =>
+                    $request->personnel_id,
+
+                'report_current_status'
+                    =>
+                    'Processing',
+
+                'report_updated_at'
+                    =>
+                    now()
+
+            ]);
+
+        return redirect()
+
+            ->to(
+                '/maintenance/reports/details/' . $id
+            )
+
+            ->with(
+                'success',
+                'Report assigned successfully.'
+            );
+    }
+
+    public function updateStatusPage($id)
+    {
+        $report = DB::table('reports_table')
+            ->leftJoin(
+                'rooms_table',
+                'reports_table.report_room_id',
+                '=',
+                'rooms_table.room_id'
+            )
+            ->leftJoin(
+                'equipment_table',
+                'reports_table.report_equipment_id',
+                '=',
+                'equipment_table.equipment_id'
+            )
+            ->where(
+                'reports_table.report_id',
+                $id
+            )
+            ->first();
+
+        return view(
+            'maintenance-personnel.reports.update-status',
             compact('report')
         );
+    }
+
+    public function updateStatus(Request $request, $id)
+    {
+        $request->validate([
+            'status' => 'required'
+        ]);
+
+        $report = DB::table('reports_table')
+            ->where('report_id', $id)
+            ->first();
+
+        if (!$report) {
+            return redirect()
+                ->back()
+                ->with('error', 'Report not found.');
+        }
+
+        $undoRequested = (bool) $request->boolean('undo');
+        $newStatus = $request->status;
+
+        if ($undoRequested) {
+            $update = [
+                'report_current_status' => $newStatus,
+                'report_updated_at' => now()
+            ];
+
+            DB::table('reports_table')
+                ->where('report_id', $id)
+                ->update($update);
+
+            return redirect()
+                ->back()
+                ->with('success', 'Status reverted successfully.');
+        }
+
+        $allowedTransitions = [
+            'Pending' => ['Processing', 'Rejected'],
+            'Processing' => ['Resolved', 'Rejected', 'For Replacement'],
+        ];
+
+        if (
+            !isset($allowedTransitions[$report->report_current_status])
+            || !in_array($newStatus, $allowedTransitions[$report->report_current_status], true)
+        ) {
+            return redirect()
+                ->back()
+                ->with('error', 'This status cannot be changed to the selected value.');
+        }
+
+        $update = [
+            'report_current_status' => $newStatus,
+            'report_updated_at' => now()
+        ];
+
+        if (
+            $report->report_current_status === 'Pending'
+            && $newStatus === 'Processing'
+            && Auth::id()
+        ) {
+            $update['report_assigned_personnel_id'] = Auth::id();
+        }
+
+        DB::table('reports_table')
+            ->where('report_id', $id)
+            ->update($update);
+
+        return redirect()
+            ->back()
+            ->with('success', 'Report status updated successfully.')
+            ->with('undo_report_id', $id)
+            ->with('undo_previous_status', $report->report_current_status);
     }
 }
