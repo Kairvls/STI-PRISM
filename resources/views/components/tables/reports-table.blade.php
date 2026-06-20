@@ -6,6 +6,10 @@
 
             <form method="GET" class="flex flex-col lg:flex-row gap-3 flex-1 items-center">
 
+                <input type="hidden"
+                    name="archive"
+                    value="{{ request('archive', 0) }}">
+
                 <!-- SEARCH -->
                 <div class="relative flex-1">
                     <svg class="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -21,18 +25,70 @@
                 <select
                     name="status"
                     class="h-10 px-3 pr-8 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-yellow-300 focus:border-yellow-400 transition">
-                    <option value="">All Statuses</option>
-                    <option value="Pending"         {{ request('status') == 'Pending'         ? 'selected' : '' }}>Pending</option>
-                    <option value="Processing"      {{ request('status') == 'Processing'      ? 'selected' : '' }}>Processing</option>
-                    <option value="Resolved"        {{ request('status') == 'Resolved'        ? 'selected' : '' }}>Resolved</option>
-                    <option value="Rejected"        {{ request('status') == 'Rejected'        ? 'selected' : '' }}>Rejected</option>
-                    <option value="For Replacement" {{ request('status') == 'For Replacement' ? 'selected' : '' }}>For Replacement</option>
+
+                    @if(request('archive'))
+
+                        <option value="">All Archived Statuses</option>
+
+                        <option value="Resolved"
+                            {{ request('status') == 'Resolved' ? 'selected' : '' }}>
+                            Resolved
+                        </option>
+
+                        <option value="Rejected"
+                            {{ request('status') == 'Rejected' ? 'selected' : '' }}>
+                            Rejected
+                        </option>
+
+                        <option value="For Replacement"
+                            {{ request('status') == 'For Replacement' ? 'selected' : '' }}>
+                            For Replacement
+                        </option>
+
+                    @else
+
+                        <option value="">All Statuses</option>
+
+                        <option value="Pending"
+                            {{ request('status') == 'Pending' ? 'selected' : '' }}>
+                            Pending
+                        </option>
+
+                        <option value="Processing"
+                            {{ request('status') == 'Processing' ? 'selected' : '' }}>
+                            Processing
+                        </option>
+
+                        <option value="Resolved"
+                            {{ request('status') == 'Resolved' ? 'selected' : '' }}>
+                            Resolved
+                        </option>
+
+                        <option value="Rejected"
+                            {{ request('status') == 'Rejected' ? 'selected' : '' }}>
+                            Rejected
+                        </option>
+
+                        <option value="For Replacement"
+                            {{ request('status') == 'For Replacement' ? 'selected' : '' }}>
+                            For Replacement
+                        </option>
+
+                    @endif
+
                 </select>
 
                 <!-- SEARCH BUTTON -->
                 <button class="h-10 px-5 rounded-xl bg-[#0d1120] text-white text-sm hover:bg-gray-300 transition shadow-sm">
                     Search
                 </button>
+
+                <a href="/maintenance/reports?archive={{ request('archive') ? 0 : 1 }}"
+                class="h-10 px-5 rounded-xl bg-gray-200 text-gray-700 text-sm flex items-center justify-center">
+
+                    {{ request('archive') ? 'View Active' : 'View Archive' }}
+
+                </a>
 
             </form>
 
@@ -152,20 +208,32 @@
                 <hr class="mt-4 mb-2">
 
                 @php
-                    $mainFlow    = ['Pending', 'Processing', 'Resolved'];
-                    $terminalSet = ['Rejected', 'For Replacement'];
-                    $isTerminal  = in_array($currentStatus, $terminalSet);
-
-                    if ($isTerminal) {
-                        $pipelineSteps = array_map(fn($s) => ['step' => $s, 'state' => 'done'], $mainFlow);
-                        $pipelineSteps[] = ['step' => $currentStatus, 'state' => 'active'];
-                    } else {
-                        $idx = array_search($currentStatus, $mainFlow);
-                        $pipelineSteps = array_map(fn($s, $i) => [
-                            'step'  => $s,
-                            'state' => $i < $idx ? 'done' : ($i === $idx ? 'active' : 'upcoming'),
-                        ], $mainFlow, array_keys($mainFlow));
-                    }
+                    $pipelineSteps = match ($currentStatus) {
+                        'Pending' => [
+                            ['step' => 'Pending', 'state' => 'active'],
+                        ],
+                        'Processing' => [
+                            ['step' => 'Pending', 'state' => 'done'],
+                            ['step' => 'Processing', 'state' => 'active'],
+                        ],
+                        'Resolved' => [
+                            ['step' => 'Pending', 'state' => 'done'],
+                            ['step' => 'Processing', 'state' => 'done'],
+                            ['step' => 'Resolved', 'state' => 'done'],
+                        ],
+                        'Rejected' => [
+                            ['step' => 'Pending', 'state' => 'done'],
+                            ['step' => 'Rejected', 'state' => 'done'],
+                        ],
+                        'For Replacement' => [
+                            ['step' => 'Pending', 'state' => 'done'],
+                            ['step' => 'Processing', 'state' => 'done'],
+                            ['step' => 'For Replacement', 'state' => 'done'],
+                        ],
+                        default => [
+                            ['step' => 'Pending', 'state' => 'active'],
+                        ],
+                    };
 
                     $ARROW = 14; // px
                 @endphp
@@ -173,15 +241,48 @@
                 <div class="space-y-2.5">
                     <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400">Workflow Pipeline Tracker</p>
 
-                    <div class="flex items-stretch" style="height:36px;">
+                    <div class="flex items-stretch" style="height:36px; gap: 3px;">
                         @foreach($pipelineSteps as $i => $ps)
                         @php
                             $isFirst = $i === 0;
                             $isLast  = $i === count($pipelineSteps) - 1;
                             $total   = count($pipelineSteps);
 
-                            $bg   = $ps['state'] === 'active'   ? 'bg-[#FFF200]'  : ($ps['state'] === 'done' ? 'bg-blue-100' : 'bg-gray-100');
-                            $text = $ps['state'] === 'active'   ? 'text-gray-900 font-bold' : ($ps['state'] === 'done' ? 'text-blue-700 font-semibold' : 'text-gray-400 font-medium');
+                            $stepName = $ps['step'];
+                            $isTerminalStep = in_array($stepName, ['Rejected', 'For Replacement']);
+                            if ($stepName === 'Resolved') {
+
+    $bg = 'bg-emerald-100';
+    $text = 'text-emerald-700 font-semibold';
+
+} elseif ($stepName === 'Rejected') {
+
+    $bg = 'bg-red-100';
+    $text = 'text-red-700 font-semibold';
+
+} elseif ($stepName === 'For Replacement') {
+
+    $bg = 'bg-orange-100';
+    $text = 'text-orange-700 font-semibold';
+
+} elseif ($ps['state'] === 'active') {
+
+    $bg = 'bg-[#FFF200]';
+    $text = 'text-gray-900 font-bold';
+
+} elseif ($ps['state'] === 'done') {
+
+    $bg = 'bg-blue-100';
+    $text = 'text-blue-700 font-semibold';
+
+} else {
+
+    $bg = 'bg-gray-100';
+    $text = 'text-gray-400 font-medium';
+
+}
+
+Result:
 
                             if ($isFirst) {
                                 $clip = "polygon(0 0, calc(100% - {$ARROW}px) 0, 100% 50%, calc(100% - {$ARROW}px) 100%, 0 100%)";
@@ -196,8 +297,8 @@
                             $ml = $isFirst ? 0  : -$ARROW;
                             $z  = $total - $i;
                         @endphp
-                        <div class="relative flex items-center gap-1.5 text-xs whitespace-nowrap select-none {{ $bg }} {{ $text }}"
-                            style="clip-path: {{ $clip }}; padding-left: {{ $pl }}px; padding-right: {{ $pr }}px; margin-left: {{ $ml }}px; z-index: {{ $z }}; min-width: 90px;">
+                        <div class="relative flex items-center justify-center gap-1.5 text-[11px] whitespace-nowrap select-none {{ $bg }} {{ $text }}"
+                            style="clip-path: {{ $clip }}; padding-left: {{ $pl }}px; padding-right: {{ $pr }}px; margin-left: {{ $ml }}px; z-index: {{ $z }}; min-width: 94px; max-width: 140px;">
 
                             @if($ps['state'] === 'done')
                                 {{-- checkmark SVG --}}
@@ -223,7 +324,7 @@
                     {{-- Quick Transition --}}
                     @if(!empty($nextOptions))
                     <div class="flex items-center gap-2 flex-wrap">
-                        <span class="text-xs text-gray-500 font-medium">Quick Transition:</span>
+                        <span class="text-xs text-gray-500 font-medium">Update To:</span>
                         @foreach($nextOptions as $option)
                         <form action="/maintenance/reports/update-status/{{ $report->report_id }}" method="POST" class="inline-block">
                             @csrf
@@ -242,6 +343,39 @@
                                 class="h-8 px-3 rounded-lg bg-gray-100 text-gray-700 text-xs font-semibold hover:bg-gray-200 transition">
                             View
                         </button>
+
+                        @if(
+                            in_array(
+                                $currentStatus,
+                                ['Resolved','Rejected','For Replacement']
+                            )
+                            &&
+                            !$report->report_is_archived
+                        )
+                        <form method="POST"
+                            action="/maintenance/reports/archive/{{ $report->report_id }}">
+                            @csrf
+
+                            <button
+                                class="h-8 px-3 rounded-lg bg-gray-800 text-white text-xs">
+                                Archive
+                            </button>
+                        </form>
+                        @endif
+
+                        @if($report->report_is_archived)
+
+                        <form method="POST"
+                            action="/maintenance/reports/restore/{{ $report->report_id }}">
+                            @csrf
+
+                            <button
+                                class="h-8 px-3 rounded-lg bg-blue-600 text-white text-xs">
+                                Restore
+                            </button>
+                        </form>
+
+                        @endif
                         
                     </div>
 
@@ -326,6 +460,37 @@
                                     class="h-8 px-3 rounded-lg bg-[#FFF200] text-gray-900 text-xs font-bold hover:bg-yellow-300 transition">
                                 Update
                             </button>
+                            @endif
+                            @if(
+                                in_array(
+                                    $currentStatus,
+                                    ['Resolved','Rejected','For Replacement']
+                                )
+                                &&
+                                !$report->report_is_archived
+                            )
+                            <form method="POST"
+                                action="/maintenance/reports/archive/{{ $report->report_id }}">
+                                @csrf
+
+                                <button
+                                    class="h-8 px-3 rounded-lg bg-gray-800 text-white text-xs">
+                                    Archive
+                                </button>
+                            </form>
+                            @endif
+                            @if($report->report_is_archived)
+
+                            <form method="POST"
+                                action="/maintenance/reports/restore/{{ $report->report_id }}">
+                                @csrf
+
+                                <button
+                                    class="h-8 px-3 rounded-lg bg-blue-600 text-white text-xs">
+                                    Restore
+                                </button>
+                            </form>
+
                             @endif
                         </div>
                     </td>

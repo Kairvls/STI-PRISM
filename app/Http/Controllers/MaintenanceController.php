@@ -108,6 +108,8 @@ class MaintenanceController extends Controller
     private function reportsQuery()
     {
         $request = request();
+        $showArchive = $request->archive == 1;
+        $isArchiveMode = $request->boolean('archive');
 
         return DB::table('reports_table')
 
@@ -185,10 +187,18 @@ class MaintenanceController extends Controller
             )
 
             ->when(
-
                 $request->filled('status'),
+                function ($query) use ($request, $isArchiveMode) {
 
-                function ($query) use ($request) {
+                    if (
+                        $isArchiveMode &&
+                        !in_array(
+                            $request->status,
+                            ['Resolved', 'Rejected', 'For Replacement']
+                        )
+                    ) {
+                        return;
+                    }
 
                     $query->where(
                         'reports_table.report_current_status',
@@ -196,7 +206,23 @@ class MaintenanceController extends Controller
                     );
 
                 }
+            )
 
+            //REPORTS ARCHIVE SWITCH
+            ->when(
+                $showArchive,
+                function ($query) {
+                    $query->where(
+                        'reports_table.report_is_archived',
+                        true
+                    );
+                },
+                function ($query) {
+                    $query->where(
+                        'reports_table.report_is_archived',
+                        false
+                    );
+                }
             )
 
             /*
@@ -721,5 +747,35 @@ class MaintenanceController extends Controller
             ->with('success', 'Report status updated successfully.')
             ->with('undo_report_id', $id)
             ->with('undo_previous_status', $report->report_current_status);
+    }
+
+    public function archiveReport($id)
+    {
+        DB::table('reports_table')
+            ->where('report_id', $id)
+            ->update([
+                'report_is_archived' => true
+            ]);
+
+        return back()
+            ->with(
+                'success',
+                'Report archived successfully.'
+            );
+    }
+
+    public function restoreReport($id)
+    {
+        DB::table('reports_table')
+            ->where('report_id', $id)
+            ->update([
+                'report_is_archived' => false
+            ]);
+
+        return back()
+            ->with(
+                'success',
+                'Report restored successfully.'
+            );
     }
 }

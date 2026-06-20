@@ -381,5 +381,16 @@ Route::get(
 );
 
 
+Route::post(
+    '/maintenance/reports/archive/{id}',
+    [MaintenanceController::class, 'archiveReport']
+);
+
+Route::post(
+    '/maintenance/reports/restore/{id}',
+    [MaintenanceController::class, 'restoreReport']
+);
+
+
 
 require __DIR__.'/auth.php';
