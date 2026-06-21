@@ -680,7 +680,9 @@ class MaintenanceController extends Controller
     public function updateStatus(Request $request, $id)
     {
         $request->validate([
-            'status' => 'required'
+            'status' => 'required',
+            'remarks' => 'nullable|string',
+            'proof_image' => 'nullable|image|max:5120'
         ]);
 
         $report = DB::table('reports_table')
@@ -697,14 +699,13 @@ class MaintenanceController extends Controller
         $newStatus = $request->status;
 
         if ($undoRequested) {
-            $update = [
-                'report_current_status' => $newStatus,
-                'report_updated_at' => now()
-            ];
 
             DB::table('reports_table')
                 ->where('report_id', $id)
-                ->update($update);
+                ->update([
+                    'report_current_status' => $newStatus,
+                    'report_updated_at' => now()
+                ]);
 
             return redirect()
                 ->back()
@@ -713,7 +714,7 @@ class MaintenanceController extends Controller
 
         $allowedTransitions = [
             'Pending' => ['Processing', 'Rejected'],
-            'Processing' => ['Resolved', 'Rejected', 'For Replacement'],
+            'Processing' => ['Resolved', 'For Replacement'],
         ];
 
         if (
@@ -725,10 +726,119 @@ class MaintenanceController extends Controller
                 ->with('error', 'This status cannot be changed to the selected value.');
         }
 
+        $imagePath = null;
+
+        if($request->hasFile('proof_image')){
+
+            $imagePath = $request
+                ->file('proof_image')
+                ->store(
+                    'maintenance-proofs',
+                    'public'
+                );
+        }
+
         $update = [
             'report_current_status' => $newStatus,
             'report_updated_at' => now()
         ];
+
+        if($newStatus === 'Resolved'){
+
+            $update['report_resolution_notes']
+                = $request->remarks;
+
+            $update['report_resolution_image']
+                = $imagePath;
+        }
+
+        if($newStatus === 'Rejected'){
+
+            $update['report_rejection_notes']
+                = $request->remarks;
+        }
+
+        if($newStatus === 'For Replacement'){
+
+            $update['report_replacement_notes']
+                = $request->remarks;
+
+            $update['report_replacement_image']
+                = $imagePath;
+
+            $update['report_replacement_submitted_to_purchaser']
+                = 1;
+        }
+
+        if($newStatus === 'For Replacement'){
+
+            $existingNotification = DB::table(
+                'notifications_table'
+            )
+            ->where(
+                'notification_type',
+                'replacement'
+            )
+            ->where(
+                'notification_message',
+                'Report #'.$id.' requires replacement.'
+            )
+            ->exists();
+
+            if(!$existingNotification){
+
+                DB::table('notifications_table')
+                    ->insert([
+
+                        'notification_user_id' => 3,
+
+                        'notification_title'
+                            => 'Replacement Request',
+
+                        'notification_message'
+                            => 'Report #'.$id.' requires replacement.',
+
+                        'notification_type'
+                            => 'replacement',
+
+                        'notification_created_at'
+                            => now()
+
+                    ]);
+
+            }
+        }
+
+        if($newStatus === 'For Replacement'){
+
+            $existingProcurement = DB::table(
+                'procurement_requests_table'
+            )
+            ->where(
+                'procurement_request_report_id',
+                $id
+            )
+            ->exists();
+
+            if(!$existingProcurement){
+
+                DB::table(
+                    'procurement_requests_table'
+                )->insert([
+
+                    'procurement_request_report_id'
+                        => $id,
+
+                    'procurement_request_status'
+                        => 'Pending',
+
+                    'procurement_request_created_by'
+                        => Auth::id()
+
+                ]);
+
+            }
+        }
 
         if (
             $report->report_current_status === 'Pending'
