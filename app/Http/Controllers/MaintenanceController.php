@@ -165,19 +165,19 @@ class MaintenanceController extends Controller
                             ->orWhere(
                                 'equipment_table.equipment_name',
                                 'LIKE',
-                                '%' . $request->search . '%'
+                                $request->search . '%'
                             )
 
                             ->orWhere(
                                 'rooms_table.room_name',
                                 'LIKE',
-                                '%' . $request->search . '%'
+                                $request->search . '%'
                             )
 
                             ->orWhere(
                                 'reporters_table.reporter_full_name',
                                 'LIKE',
-                                '%' . $request->search . '%'
+                                $request->search . '%'
                             );
 
                     });
@@ -203,6 +203,19 @@ class MaintenanceController extends Controller
                     $query->where(
                         'reports_table.report_current_status',
                         $request->status
+                    );
+
+                }
+            )
+
+            /* ADD THIS HERE */
+            ->when(
+                $request->filled('urgency'),
+                function ($query) use ($request) {
+
+                    $query->where(
+                        'reports_table.report_urgency_level',
+                        $request->urgency
                     );
 
                 }
@@ -250,7 +263,9 @@ class MaintenanceController extends Controller
 
                 'equipment_table.equipment_name',
 
-                'reporters_table.reporter_full_name'
+                'reporters_table.reporter_full_name',
+
+                'reporters_table.reporter_employee_id'
 
             );
     }
@@ -503,6 +518,8 @@ class MaintenanceController extends Controller
                 'equipment_table.equipment_inventory_status',
 
                 'reporters_table.reporter_full_name',
+
+                'reporters_table.reporter_employee_id',
 
                 'reporters_table.reporter_contact_number'
 

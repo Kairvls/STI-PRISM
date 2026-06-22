@@ -1,3 +1,36 @@
+<style>
+    
+
+    @keyframes scanner {
+        0% {
+            left: -40%;
+        }
+
+        100% {
+            left: 140%;
+        }
+    }
+
+    .scanner-bar {
+        position: absolute;
+        top: -4px;
+        bottom: -4px;
+        width: 180px;
+
+        background: linear-gradient(
+            90deg,
+            transparent,
+            rgba(255,255,255,1),
+            rgba(255,255,255,.7),
+            transparent
+        );
+
+        filter: blur(12px);
+
+        animation: scanner 2s linear infinite;
+    }
+</style>
+
 <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
 
     <!-- FILTER BAR -->
@@ -24,7 +57,7 @@
                 <!-- STATUS -->
                 <select
                     name="status"
-                    class="h-10 px-3 pr-8 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-2 focus:ring-blue-200 focus:border-blue-500 transition">
+                    class="h-10 px-3 pr-8 rounded-xl border cursor-pointer border-gray-200 bg-gray-50 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-2 focus:ring-blue-200 focus:border-blue-500 transition">
 
                     @if(request('archive'))
 
@@ -77,6 +110,34 @@
                     @endif
 
                 </select>
+                
+                <!-- DIVIDER -->
+                @if(!request()->is('maintenance/reports/urgent'))
+                    <div class="hidden lg:block w-px h-6 bg-gray-200"></div>
+                @endif
+
+                <!-- PRIORITIES BUTTON -->
+                @if(!request()->is('maintenance/reports/urgent'))
+
+                <select
+                    name="urgency"
+                    class="h-10 px-3 pr-8 cursor-pointer rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-500 transition">
+
+                    <option value="">All Priorities</option>
+
+                    <option value="Urgent"
+                        {{ request('urgency') == 'Urgent' ? 'selected' : '' }}>
+                        Urgent
+                    </option>
+
+                    <option value="Non-Urgent"
+                        {{ request('urgency') == 'Non-Urgent' ? 'selected' : '' }}>
+                        Non-Urgent
+                    </option>
+
+                </select>
+
+                @endif
 
                 <!-- SEARCH BUTTON -->
                 <button class="h-10 px-5 rounded-xl bg-[rgba(0,55,199,1)]
@@ -88,12 +149,14 @@
                     Search
                 </button>
 
+        
+
                 <!-- DIVIDER -->
                 <div class="hidden lg:block w-px h-6 bg-gray-200"></div>
 
                 <div class="flex items-center bg-gray-100 rounded-xl p-1 gap-0.5 shrink-0">
 
-                    <a href="/maintenance/reports?archive=0"
+                    <a href="{{ request()->url() }}?archive=0"
                     class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition
                     {{ !request('archive')
                             ? 'bg-[#FFF200] text-gray-900 shadow-sm'
@@ -105,7 +168,7 @@
 
                     </a>
 
-                    <a href="/maintenance/reports?archive=1"
+                    <a href="{{ request()->url() }}?archive=1"
                     class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition
                     {{ request('archive')
                             ? 'bg-[#FFF200] text-gray-900 shadow-sm'
@@ -146,7 +209,9 @@
 
         @forelse($reports as $report)
         @php
-            $urgencyColor = $report->report_urgency_level == 'Urgent' ? 'bg-red-400' : 'bg-emerald-400';
+            $urgencyColor = $report->report_urgency_level == 'Urgent'
+                ? 'bg-gradient-to-r from-red-900 via-red-300 to-red-500'
+                : 'bg-gradient-to-r from-emerald-900 via-emerald-300 to-emerald-500';
             $urgencyPill  = $report->report_urgency_level == 'Urgent'
                 ? 'bg-red-50 text-red-700 border border-red-200'
                 : 'bg-emerald-50 text-emerald-700 border border-emerald-200';
@@ -170,16 +235,47 @@
             $statusDot     = $dotMap[$currentStatus]    ?? 'bg-gray-400';
 
             $nextOptions = [];
+
             if ($currentStatus === 'Pending') {
+
                 $nextOptions = [
-                    ['label' => 'Start Processing', 'value' => 'Processing', 'class' => 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100/70 hover:border-blue-300'],
-                    ['label' => 'Reject', 'value' => 'Rejected', 'class' => 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100/70 hover:border-red-300'],
+
+                    [
+                        'label' => 'Start Processing',
+                        'value' => 'Processing',
+                        'icon'  => 'play-circle',
+                        'class' => 'bg-blue-600 text-white border-b border-b-blue-900 hover:bg-blue-700 hover:border-blue-900'
+                    ],
+
+                    [
+                        'label' => 'Reject',
+                        'value' => 'Rejected',
+                        'icon'  => 'x-circle',
+                        'class' => 'bg-red-600 text-white border-b border-b-red-900 hover:bg-red-700 hover:border-red-900'
+                    ],
+
                 ];
+
             } elseif ($currentStatus === 'Processing') {
+
                 $nextOptions = [
-                    ['label' => 'Resolve', 'value' => 'Resolved', 'class' => 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100/70 hover:border-emerald-300'],
-                    ['label' => 'For Replacement', 'value' => 'For Replacement', 'class' => 'bg-orange-50 text-orange-700 border border-orange-200 hover:bg-orange-100/70 hover:border-orange-300'],
+
+                    [
+                        'label' => 'Resolve',
+                        'value' => 'Resolved',
+                        'icon'  => 'check-circle-2',
+                        'class' => 'bg-emerald-600 text-white border-b border-b-emerald-900 hover:bg-emerald-700 hover:border-emerald-900'
+                    ],
+
+                    [
+                        'label' => 'For Replacement',
+                        'value' => 'For Replacement',
+                        'icon'  => 'refresh-cw',
+                        'class' => 'bg-orange-500 text-gray-100 border-b border-b-orange-900 hover:bg-orange-600 hover:border-orange-900'
+                    ],
+
                 ];
+
             }
 
             $canUpdate = in_array($currentStatus, ['Pending', 'Processing']);
@@ -188,31 +284,70 @@
         <div class="border border-gray-200 rounded-xl bg-white hover:border-gray-300 hover:shadow-md transition-all overflow-hidden">
 
             <!-- Urgency accent bar -->
-            <div class="h-1 w-full {{ $urgencyColor }}"></div>
+            <div class="h-1 w-full relative overflow-hidden">
+
+                <!-- Base Color -->
+                <div class="absolute inset-0 {{ $urgencyColor }}"></div>
+
+                <!-- Moving Shine -->
+                <div class="scanner-bar"></div>
+
+            </div>
 
             <div class="p-5">
 
                 <!-- Header row -->
                 
-                <div class="flex items-start justify-between gap-3 pb-3 border-b border-gray-100">
+                <div class="flex items-start justify-between gap-4 pb-4 border-b border-gray-100">
+
                     <div>
-                        <p class="text-[11px] font-bold uppercase tracking-wider text-gray-400">
-                            Report #{{ $report->report_id }}
-                        </p>
+                        <div class="flex items-center gap-2 mb-2">
+
+                            <span class="px-2 py-1 rounded-lg bg-slate-100 text-slate-500 text-[10px] font-bold tracking-widest uppercase">
+                                Report #{{ $report->report_id }}
+                            </span>
+
+                            <span class="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+
+                            <span class="text-xs text-slate-400">
+                                {{ \Carbon\Carbon::parse($report->report_submitted_at)->diffForHumans() }}
+                            </span>
+
+                        </div>
+
                         <h3 class="mt-1 text-lg font-bold text-gray-900 leading-snug">
                             {{ $report->equipment_name ?? 'Unlisted Equipment' }}
                         </h3>
+
                     </div>
 
-                    <span class="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold {{ $urgencyPill }}">
-                            {{ $report->report_urgency_level }}
-                        </span>
+                    <span class="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold {{ $urgencyPill }}">
+                        {{ $report->report_urgency_level }}
+                    </span>
+
                 </div>
 
+                
+
                 <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                    <div class="space-y-1">
-                        <span class="text-xs font-medium text-gray-400 block">Reporter</span>
-                        <p class="font-semibold text-gray-700 truncate">{{ $report->reporter_full_name ?? 'Unknown Reporter' }}</p>
+                    <div>
+                        <span class="text-xs font-medium text-gray-400 block mb-2">
+                            Reporter
+                        </span>
+
+                        <div class="black items-center">
+
+                            <p class="font-semibold text-gray-700 truncate">
+                                {{ $report->reporter_full_name ?? 'Unknown Reporter' }}
+                            </p>
+
+                            
+
+                            <span class="text-xs text-black">
+                                ID: {{ $report->reporter_employee_id }}
+                            </span>
+
+                        </div>
                     </div>
                     <div class="space-y-1">
                         <span class="text-xs font-medium text-gray-400 block">Location Room</span>
@@ -234,7 +369,7 @@
                     </div>
                 </div>
 
-                <hr class="mt-4 mb-2">
+                
 
                 @php
                     $pipelineSteps = match ($currentStatus) {
@@ -267,8 +402,8 @@
                     $ARROW = 14; // px
                 @endphp
 
-                <div class="space-y-2.5">
-                    <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400">Workflow Pipeline Tracker</p>
+                <div class="space-y-2.5 border-t border-gray-100 mt-4">
+                    <p class="text-[10px] font-bold uppercase tracking-widest text-gray-400 mt-4">Workflow Pipeline Tracker</p>
 
                     <div class="flex items-stretch" style="height:36px; gap: 3px;">
                         @foreach($pipelineSteps as $i => $ps)
@@ -345,6 +480,7 @@
                     
                 </div>
 
+                
 
                 <!-- Footer: status + actions -->
                 <div class="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between gap-3">
@@ -353,7 +489,24 @@
                     {{-- Quick Transition --}}
                     @if(!empty($nextOptions))
                     <div class="flex items-center gap-2 flex-wrap">
-                        <span class="text-xs text-gray-500 font-medium">Update To:</span>
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
+                                <i data-lucide="workflow" class="w-4 h-4 text-slate-500"></i>
+                            </div>
+
+                            <div>
+                                <p class="text-[10px] uppercase tracking-widest text-slate-400 font-bold">
+                                    Workflow Action
+                                </p>
+
+                                <p class="text-xs text-slate-600 font-medium">
+                                    Select next status
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- DIVIDER -->
+                        <div class="hidden lg:block w-px h-6 bg-gray-200"></div>
                         @foreach($nextOptions as $option)
 
                             <button
@@ -370,9 +523,22 @@
 
                                     toggleStatusFields(select);
                                 "
-                                class="px-3 py-1 rounded-lg text-xs transition {{ $option['class'] }}">
+                                class="h-9 px-3 rounded-full text-xs transition {{ $option['class'] }}">
 
-                                {{ $option['label'] }}
+                                <div class="flex items-center gap-2">
+
+                                    <div class="w-4 h-4 flex items-center justify-center">
+                                        <i
+                                            data-lucide="{{ $option['icon'] }}"
+                                            class="w-4 h-4">
+                                        </i>
+                                    </div>
+
+                                    <span >
+                                        {{ $option['label'] }}
+                                    </span>
+
+                                </div>
 
                             </button>
 
@@ -383,8 +549,8 @@
                     <!-- Actions -->
                     <div class="flex items-center gap-1.5 shrink-0">
                         <button type="button" onclick="openReportModal('view-modal-{{ $report->report_id }}')"
-                                class="h-9 px-3 flex justify-center items-center gap-1 rounded-lg bg-gray-50 border border-gray-200 text-gray-700 text-xs hover:text-gray-900 font-semibold hover:bg-gray-100 transition">
-                                <i data-lucide="eye" class="w-3.5 h-3.5 text-gray-400"></i>
+                                class="h-9 px-3 flex justify-center items-center gap-2 rounded-lg bg-gray-50 border-b border-b-gray-500  text-gray-500 text-xs hover:text-gray-900 hover:border-gray-900 hover:bg-gray-100 font-semibold transition">
+                            <i data-lucide="eye" class="w-3.5 h-3.5"></i>
                             View
                         </button>
 
@@ -401,7 +567,7 @@
                             @csrf
 
                             <button  
-                                    class="inline-flex items-center gap-2 px-4 h-9 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-sm transition-all active:scale-95">
+                                    class="inline-flex items-center gap-2 px-3 h-9 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-sm transition-all active:scale-95">
                                 <i data-lucide="archive" class="w-3.5 h-3.5"></i>
                                 Archive
                             </button>
@@ -486,7 +652,19 @@
                 @endphp
                 <tr class="border-b border-gray-100 hover:bg-yellow-50/30 transition {{ $rowBg }}">
                     <td class="px-5 py-4 font-bold text-gray-900 text-sm">#{{ $report->report_id }}</td>
-                    <td class="px-5 py-4 font-semibold text-gray-800 text-sm">{{ $report->reporter_full_name ?? 'Unknown Reporter' }}</td>
+                    <td class="px-5 py-4">
+                        <div>
+                            <p class="font-semibold text-gray-800 text-sm">
+                                {{ $report->reporter_full_name ?? 'Unknown Reporter' }}
+                            </p>
+
+                            <hr class="mt-1 mb-1">
+
+                            <p class="text-xs text-black">
+                                ID: {{ $report->reporter_employee_id }}
+                            </p>
+                        </div>
+                    </td>
                     <td class="px-5 py-4 text-sm text-gray-600">{{ $report->room_name ?? 'No Assigned Room' }}</td>
                     <td class="px-5 py-4 text-sm text-gray-700 font-medium">{{ $report->equipment_name ?? 'Unlisted Equipment' }}</td>
                     <td class="px-5 py-4">
@@ -504,8 +682,8 @@
                     <td class="px-5 py-4">
                         <div class="flex items-center justify-center gap-1.5">
                             <button type="button" onclick="openReportModal('view-modal-{{ $report->report_id }}')"
-                                    class="h-9 px-3 flex justify-center items-center gap-1 rounded-lg bg-gray-50 border border-gray-200 text-gray-700 text-xs hover:text-gray-900 font-semibold hover:bg-gray-100 transition">
-                                    <i data-lucide="eye" class="w-3.5 h-3.5 text-gray-400"></i>
+                                    class="h-9 px-3 flex justify-center items-center gap-2 rounded-lg bg-gray-50 border-b border-b-gray-500  text-gray-500 text-xs hover:text-gray-900 hover:border-gray-900 hover:bg-gray-100 font-semibold transition">
+                                <i data-lucide="eye" class="w-3.5 h-3.5"></i>
                                 View
                             </button>
                             @if($canUpdate)
@@ -657,9 +835,26 @@
                         <p class="text-xs text-gray-400 font-medium uppercase tracking-wider mb-1">Room</p>
                         <p class="text-sm text-gray-800">{{ $report->room_name ?? 'No Assigned Room' }}</p>
                     </div>
-                    <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md transition">f
-                        <p class="text-xs text-gray-400 font-medium uppercase tracking-wider mb-1">Reporter</p>
-                        <p class="text-sm text-gray-800">{{ $report->reporter_full_name ?? 'Unknown Reporter' }}</p>
+                    <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md transition">
+                        <p class="text-xs text-gray-400 font-medium uppercase tracking-wider mb-1">
+                            Reporter
+                        </p>
+
+                        <div class="flex items-center mt-2">
+
+                            <p class="text-sm font-semibold text-gray-800">
+                                {{ $report->reporter_full_name ?? 'Unknown Reporter' }}
+                            </p>
+
+                            <div class="mx-3 w-px h-6 bg-gray-200 "></div>
+
+                            
+
+                            <span class="text-xs text-black">
+                                ID: {{ $report->reporter_employee_id }}
+                            </span>
+
+                        </div>
                     </div>
                     <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md transition">
                         <p class="text-xs text-gray-400 font-medium uppercase tracking-wider mb-1">Date Submitted</p>
@@ -670,13 +865,13 @@
                 <div class="grid grid-cols-2 gap-4">
                     <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                         <p class="text-xs text-gray-400 font-medium uppercase tracking-wider mb-1.5">Status</p>
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold {{ $statusMap[$report->report_current_status] ?? 'bg-gray-100 text-gray-600 border border-gray-200' }}">
+                        <span class="inline-flex items-center px-2.5 py-1 text-xs font-bold uppercase tracking-wide rounded-lg border {{ $statusMap[$report->report_current_status] ?? 'bg-gray-100 text-gray-600 border border-gray-200' }}">
                             {{ $report->report_current_status }}
                         </span>
                     </div>
                     <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                         <p class="text-xs text-gray-400 font-medium uppercase tracking-wider mb-1.5">Urgency</p>
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold {{ $urgencyPill }}">
+                        <span class="inline-flex items-center px-2.5 py-1 text-xs font-bold uppercase tracking-wide rounded-lg border{{ $urgencyPill }}">
                             {{ $report->report_urgency_level }}
                         </span>
                     </div>
@@ -848,7 +1043,7 @@
                         <textarea
                             name="remarks"
                             rows="4"
-                            placeholder="Enter findings, actions performed, replacement justification, or maintenance remarks..."
+                            placeholder="(Optional) - Provide detailed findings, action taken, or justification..."
                             class="w-full rounded-xl border border-slate-200 text-black bg-white p-3 text-sm resize-none focus:ring-4 focus:ring-yellow-300/30 focus:border-yellow-400"></textarea>
                     </div>
 
@@ -942,7 +1137,7 @@
                     </button>
                     <button type="submit"
                             class="flex-1 py-2.5 rounded-xl bg-[#FFF200] text-gray-900 text-xs font-black tracking-wide uppercase hover:bg-yellow-300 active:scale-[0.98] transition shadow-sm">
-                        Commit Progress
+                        Update Status
                     </button>
                 </div>
             </form>

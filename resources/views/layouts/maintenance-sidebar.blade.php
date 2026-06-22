@@ -32,19 +32,19 @@
         </div>
 
         <div class="quick-actions">
-            <a href="/maintenance/reports/urgent" class="quick-card">
+            <a href="/maintenance/reports/urgent" class="quick-card {{ request()->is('maintenance/reports/urgent*') ? 'active' : '' }}">
                 <i data-lucide="triangle-alert"></i>
-                <span>Urgent</span>
+                <span>Urgent Report</span>
             </a>
-            <a href="/maintenance/schedules/today" class="quick-card">
+            <a href="/maintenance/schedules/today" class="quick-card {{ request()->is('maintenance/schedules/today*') ? 'active' : '' }}">
                 <i data-lucide="calendar-days"></i>
-                <span>Today</span>
+                <span>Today's Report</span>
             </a>
-            <a href="/maintenance/qr-scanner" class="quick-card">
+            <a href="/maintenance/qr-scanner" class="quick-card {{ request()->is('maintenance/qr-scanner*') ? 'active' : '' }}">
                 <i data-lucide="scan-line"></i>
                 <span>Generate QR</span>
             </a>
-            <a href="/maintenance/notifications" class="quick-card">
+            <a href="/maintenance/notifications" class="quick-card {{ request()->is('maintenance/notifications*') ? 'active' : '' }}">
                 <i data-lucide="bell"></i>
                 <span>Alerts</span>
             </a>
@@ -225,7 +225,7 @@
     gap: 6px;
     text-decoration: none;
     color: #CBD5E1;
-    transition: .2s;
+    transition: all 0.2s ease;
 }
 .quick-card:hover {
     background: #182235;
@@ -236,10 +236,23 @@
     width: 16px;
     height: 16px;
     color: #60A5FA;
+    transition: all 0.2s ease;
 }
 .quick-card span {
     font-size: 11px;
     font-weight: 500;
+}
+
+/* NEW BLUE ACTIVE STATE STATE FOR QUICK ACTIONS */
+.quick-card.active {
+    
+    border: 1.5px solid #2563EB !important;
+    color: #CBD5E1;
+    font-weight: 600;
+    box-shadow: 0 0 12px rgba(37, 99, 235, 0.2);
+}
+.quick-card.active i {
+    color: #3b82f6;
 }
 
 /* ======================================

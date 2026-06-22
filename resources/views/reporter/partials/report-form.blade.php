@@ -286,8 +286,8 @@
             <div class="grid grid-cols-1 lg:grid-cols-12 lg:min-h-[580px]">
 
                 {{-- ══════════════════ LEFT PANEL ══════════════════ --}}
-                <div class="lg:col-span-8 p-6 sm:p-7 lg:p-9 bg-white"
-                     style="border-right:1px solid rgba(255,255,255,0.07);">
+                <div class="lg:col-span-8 p-6 sm:p-7 lg:p-9 bg-white flex flex-col justify-center" style="border-right:1px solid rgba(255,255,255,0.07);">
+                     
 
                     {{-- HEADER --}}
                     <div class="flex items-center gap-4 mb-7">
@@ -545,76 +545,66 @@
                     
 
                     <!-- PROBLEM DESCRIPTION WRAPPER -->
-                    <div
-                        style="
-                            
-                            margin-top:4px;
-                        ">
+                    <div style="margin-top:4px;">
                         
-                        <label
-                        class="rf-label"
-                        style="
-                            margin-top:12px;
-                            margin-bottom:8px;
-                        ">
-                        Additional Details
-                    </label>
-                    <div style="position:relative;">
+                        <label class="rf-label" style="margin-top:12px; margin-bottom:8px;">
+                            Additional Details
+                        </label>
+                        
+                        <div style="position:relative;">
 
-                        <textarea
-                            id="problemDescription"
-                            name="report_problem_description"
-                            rows="4"
-                            placeholder="Provide specific details or context about the issue here (optional)..."
-                            class="rf-input details-textarea"
-                            style="
-                                resize:vertical;
-                                min-height:140px;
-                                padding:16px 40px 16px 16px;
-                                line-height:1.6;
-                            "
-                        >{{ old('report_problem_description') }}</textarea>
-
-                        <div
-                            id="clearDescriptionWrapper"
-                            class="hidden"
-                            style="
-                                position:absolute;
-                                top:10px;
-                                right:8px;
-                                z-index:20;
-                            ">
-
-                            <button
-                                type="button"
-                                id="clearDescriptionBtn"
-                                onclick="clearProblemDescription()"
+                            <textarea
+                                id="problemDescription"
+                                name="report_problem_description"
+                                rows="4"
+                                placeholder="(Optional) - Provide specific details or context about the issue here..."
+                                class="rf-input details-textarea"
                                 style="
-                                    width:24px;
-                                    height:24px;
-                                    border-radius:999px;
-                                    border:none;
-                                    background:rgba(239,68,68,.12);
-                                    color:#ef4444;
-                                    cursor:pointer;
-                                    font-size:12px;
-                                    font-weight:700;
-                                    display:flex;
-                                    align-items:center;
-                                    justify-content:center;
+                                    resize:vertical;
+                                    min-height:140px;
+                                    padding:16px 40px 16px 16px;
+                                    line-height:1.6;
+                                "
+                            >{{ old('report_problem_description') }}</textarea>
+
+                            <div
+                                id="clearDescriptionWrapper"
+                                class="hidden"
+                                style="
+                                    position:absolute;
+                                    top:10px;
+                                    right:8px;
+                                    z-index:20;
                                 ">
-                                ✕
-                            </button>
 
-                        </div>
+                                <button
+                                    type="button"
+                                    id="clearDescriptionBtn"
+                                    onclick="clearProblemDescription()"
+                                    style="
+                                        width:24px;
+                                        height:24px;
+                                        border-radius:999px;
+                                        border:none;
+                                        background:rgba(239,68,68,.12);
+                                        color:#ef4444;
+                                        cursor:pointer;
+                                        font-size:12px;
+                                        font-weight:700;
+                                        display:flex;
+                                        align-items:center;
+                                        justify-content:center;
+                                    ">
+                                    ✕
+                                </button>
+
+                            </div>
 
                         </div>
 
                     </div>
 
-                    
-
-                    </div>
+                </div> {{-- This is the single, correct closing tag for the LEFT PANEL grid column --}}
 
                     
 
