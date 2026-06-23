@@ -393,4 +393,174 @@ Route::post(
 
 
 
+/*
+|--------------------------------------------------------------------------
+| EQUIPMENT MODULE
+|--------------------------------------------------------------------------
+*/
+
+// Equipment Inventory
+Route::get(
+    '/maintenance/equipment/inventory',
+    [MaintenanceController::class, 'equipmentInventory']
+);
+
+Route::get(
+    '/maintenance/equipment/view/{id}',
+    [MaintenanceController::class, 'viewEquipment']
+);
+
+Route::get(
+    '/maintenance/equipment/create',
+    [MaintenanceController::class, 'createEquipment']
+);
+
+Route::post(
+    '/maintenance/equipment/store',
+    [MaintenanceController::class, 'storeEquipment']
+);
+
+Route::post(
+    '/maintenance/equipment/update/{id}',
+    [MaintenanceController::class, 'updateEquipment']
+);
+
+Route::get(
+    '/maintenance/equipment/transfer',
+    [MaintenanceController::class, 'equipmentTransferHistory']
+);
+
+Route::post(
+    '/maintenance/equipment/transfer',
+    [MaintenanceController::class, 'transferEquipment']
+);
+
+Route::get(
+    '/maintenance/equipment/history/{id}',
+    [MaintenanceController::class, 'getEquipmentHistory']
+);
+
+Route::post(
+    '/maintenance/equipment/history/store',
+    [MaintenanceController::class, 'storeMaintenanceHistory']
+);
+
+Route::get(
+    '/maintenance/equipment/transfers/{id}',
+    [MaintenanceController::class, 'getTransferHistory']
+);
+
+Route::get(
+    '/maintenance/equipment/qr-tools',
+    [MaintenanceController::class, 'qrTools']
+);
+
+Route::post(
+    '/maintenance/equipment/qr/generate/{id}',
+    [MaintenanceController::class, 'generateQr']
+);
+
+Route::get(
+    '/maintenance/equipment/qr-image/{code}',
+    [MaintenanceController::class, 'qrImage']
+);
+
+Route::get(
+    '/equipment/{qrCode}',
+    [MaintenanceController::class, 'equipmentByQr']
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| BORROWING MODULE
+|--------------------------------------------------------------------------
+*/
+Route::get(
+    '/maintenance/borrowing',
+    [MaintenanceController::class, 'borrowing']
+);
+
+Route::post(
+    '/maintenance/borrowing/store',
+    [MaintenanceController::class, 'storeBorrowing']
+);
+
+Route::post(
+    '/maintenance/borrowing/return',
+    [MaintenanceController::class, 'returnEquipment']
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| CREATE SCHEDULE
+|--------------------------------------------------------------------------
+*/
+
+Route::get(
+    '/maintenance/schedules',
+    [MaintenanceController::class, 'schedules']
+);
+
+Route::post(
+    '/maintenance/schedules/store',
+    [MaintenanceController::class, 'storeSchedule']
+);
+
+/*
+|--------------------------------------------------------------------------
+| COMPLETE SCHEDULE
+|--------------------------------------------------------------------------
+*/
+
+Route::post(
+    '/maintenance/schedules/complete/',
+    [MaintenanceController::class, 'completeSchedule']
+);
+
+/*
+|--------------------------------------------------------------------------
+| RESCHEDULE
+|--------------------------------------------------------------------------
+*/
+
+Route::post(
+    '/maintenance/schedules/reschedule',
+    [MaintenanceController::class, 'rescheduleSchedule']
+);
+
+/*
+|--------------------------------------------------------------------------
+| DELETE
+|--------------------------------------------------------------------------
+*/
+
+Route::delete(
+    '/maintenance/schedules/delete',
+    [MaintenanceController::class, 'deleteSchedule']
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| DISPOSAL MODULE
+|--------------------------------------------------------------------------
+*/
+
+Route::get(
+    '/maintenance/disposal',
+    [MaintenanceController::class, 'disposal']
+);
+
+Route::post(
+    '/maintenance/disposal/store',
+    [MaintenanceController::class, 'storeDisposal']
+);
+
+Route::delete(
+    '/maintenance/disposal/delete',
+    [MaintenanceController::class, 'deleteDisposal']
+);
+
 require __DIR__.'/auth.php';
