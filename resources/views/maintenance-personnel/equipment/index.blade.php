@@ -574,13 +574,13 @@
 
                     <div>
 
-                        <label class="block text-sm font-medium mb-2">
+                        <label class="block text-sm font-medium mb-2 text-black">
                             Category
                         </label>
 
                         <select
                             name="equipment_category_id"
-                            class="w-full rounded-xl border border-slate-300 px-4 py-3"
+                            class="w-full rounded-xl border border-slate-300 px-4 py-3 text-black"
                             required>
 
                             <option value="">
@@ -603,13 +603,13 @@
 
                     <div>
 
-                        <label class="block text-sm font-medium mb-2">
+                        <label class="block text-sm font-medium mb-2 text-black">
                             Room
                         </label>
 
                         <select
                             name="equipment_room_id"
-                            class="w-full rounded-xl border border-slate-300 px-4 py-3"
+                            class="w-full rounded-xl border border-slate-300 px-4 py-3 text-black"
                             required>
 
                             <option value="">
@@ -647,7 +647,7 @@
 
                     <div>
 
-                        <label class="block text-sm font-medium mb-2">
+                        <label class="block text-sm font-medium mb-2 text-black">
                             Equipment Name
                         </label>
 
@@ -655,7 +655,7 @@
                             type="text"
                             name="equipment_name"
                             required
-                            class="w-full rounded-xl border border-slate-300 px-4 py-3">
+                            class="w-full rounded-xl border border-slate-300 px-4 py-3 text-black">
 
                     </div>
 
@@ -663,14 +663,14 @@
 
                     <div>
 
-                        <label class="block text-sm font-medium mb-2">
+                        <label class="block text-sm font-medium mb-2 text-black">
                             Brand
                         </label>
 
                         <input
                             type="text"
                             name="equipment_brand_name"
-                            class="w-full rounded-xl border border-slate-300 px-4 py-3">
+                            class="w-full rounded-xl border border-slate-300 px-4 py-3 text-black">
 
                     </div>
 
@@ -678,14 +678,14 @@
 
                     <div>
 
-                        <label class="block text-sm font-medium mb-2">
+                        <label class="block text-sm font-medium mb-2 text-black">
                             Model
                         </label>
 
                         <input
                             type="text"
                             name="equipment_model"
-                            class="w-full rounded-xl border border-slate-300 px-4 py-3">
+                            class="w-full rounded-xl border border-slate-300 px-4 py-3 text-black">
 
                     </div>
 
@@ -693,14 +693,14 @@
 
                     <div>
 
-                        <label class="block text-sm font-medium mb-2">
+                        <label class="block text-sm font-medium mb-2 text-black">
                             Serial Number
                         </label>
 
                         <input
                             type="text"
                             name="equipment_serial_number"
-                            class="w-full rounded-xl border border-slate-300 px-4 py-3">
+                            class="w-full rounded-xl border border-slate-300 px-4 py-3 text-black">
 
                     </div>
 
@@ -708,7 +708,7 @@
 
                     <div>
 
-                        <label class="block text-sm font-medium mb-2">
+                        <label class="block text-sm font-medium mb-2 text-black">
                             Quantity
                         </label>
 
@@ -717,7 +717,7 @@
                             min="1"
                             value="1"
                             name="equipment_quantity"
-                            class="w-full rounded-xl border border-slate-300 px-4 py-3">
+                            class="w-full rounded-xl border border-slate-300 px-4 py-3 text-black">
 
                     </div>
 
@@ -725,13 +725,13 @@
 
                     <div>
 
-                        <label class="block text-sm font-medium mb-2">
+                        <label class="block text-sm font-medium mb-2 text-black">
                             Condition
                         </label>
 
                         <select
                             name="equipment_condition_status"
-                            class="w-full rounded-xl border border-slate-300 px-4 py-3">
+                            class="w-full rounded-xl border border-slate-300 px-4 py-3 text-black">
 
                             <option>Good</option>
                             <option>Damaged</option>

@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Auth\MicrosoftController;
 use App\Http\Controllers\MaintenanceController;
+use App\Http\Controllers\InfrastructureController;
 
 /*
 |--------------------------------------------------------------------------
@@ -494,6 +495,92 @@ Route::post(
 
 /*
 |--------------------------------------------------------------------------
+| INFRASTRUCTURE
+|--------------------------------------------------------------------------
+*/
+
+Route::get(
+    '/maintenance/infrastructure',
+    [InfrastructureController::class, 'index']
+)->name('maintenance.infrastructure.index');
+
+Route::post(
+    '/maintenance/infrastructure/campus',
+    [InfrastructureController::class, 'storeCampus']
+)->name('maintenance.infrastructure.campus.store');
+
+Route::post(
+    '/maintenance/infrastructure/save-layout',
+    [InfrastructureController::class,
+    'saveLayout']
+)->name('maintenance.infrastructure.layout.save');
+
+/*
+|--------------------------------------------------------------------------
+| INFRASTRUCTURE
+|--------------------------------------------------------------------------
+
+
+Route::get(
+    '/maintenance/infrastructure',
+    [MaintenanceController::class, 'infrastructure']
+);
+
+Route::post(
+    '/maintenance/buildings/store',
+    [MaintenanceController::class, 'storeBuilding']
+);
+
+Route::post(
+    '/maintenance/buildings/update/{id}',
+    [MaintenanceController::class, 'updateBuilding']
+);
+
+Route::delete(
+    '/maintenance/buildings/delete/{id}',
+    [MaintenanceController::class, 'deleteBuilding']
+);
+
+Route::post(
+    '/maintenance/floors/store',
+    [MaintenanceController::class, 'storeFloor']
+);
+
+Route::post(
+    '/maintenance/floors/update/{id}',
+    [MaintenanceController::class, 'updateFloor']
+);
+
+Route::delete(
+    '/maintenance/floors/delete/{id}',
+    [MaintenanceController::class, 'deleteFloor']
+);
+
+Route::post(
+    '/maintenance/rooms/store',
+    [MaintenanceController::class, 'storeRoom']
+);
+
+Route::post(
+    '/maintenance/rooms/update/{id}',
+    [MaintenanceController::class, 'updateRoom']
+);
+
+Route::delete(
+    '/maintenance/rooms/delete/{id}',
+    [MaintenanceController::class, 'deleteRoom']
+);
+
+
+
+Route::get(
+    '/maintenance/rooms/{id}',
+    [MaintenanceController::class, 'roomDetails']
+);*/
+
+
+/*
+|--------------------------------------------------------------------------
 | CREATE SCHEDULE
 |--------------------------------------------------------------------------
 */
@@ -563,4 +650,30 @@ Route::delete(
     [MaintenanceController::class, 'deleteDisposal']
 );
 
+
+/*
+|--------------------------------------------------------------------------
+| REPORTERS MODULE
+|--------------------------------------------------------------------------
+*/
+
+Route::get(
+    '/maintenance/reporters',
+    [MaintenanceController::class, 'reporters']
+);
+
+Route::post(
+    '/maintenance/reporters/store',
+    [MaintenanceController::class, 'storeReporter']
+);
+
+Route::post(
+    '/maintenance/reporters/update',
+    [MaintenanceController::class, 'updateReporter']
+);
+
+Route::post(
+    '/maintenance/reporters/delete',
+    [MaintenanceController::class, 'deleteReporter']
+);
 require __DIR__.'/auth.php';

@@ -343,7 +343,7 @@
 
                             
 
-                            <span class="text-xs text-black">
+                            <span class="text-sm text-black font-mono tracking-wider ">
                                 ID: {{ $report->reporter_employee_id }}
                             </span>
 

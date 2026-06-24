@@ -287,7 +287,7 @@ class MaintenanceController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | INCOMING REPORTS
+    | INCOMING REPORTS E - 1
     |--------------------------------------------------------------------------
     */
 
@@ -910,7 +910,7 @@ class MaintenanceController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | EQUIPMENT INVENTORY
+    | EQUIPMENT INVENTORY & STATUS E - 2
     |--------------------------------------------------------------------------
     */
 
@@ -1349,7 +1349,7 @@ class MaintenanceController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | EQUIPMENT TRANSFER & HISTORY
+    | EQUIPMENT TRANSFER & HISTORY E - 2.0
     |--------------------------------------------------------------------------
     */
 
@@ -1604,7 +1604,7 @@ class MaintenanceController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | QR CODE TOOLS
+    | QR CODE TOOLS E - 2.1
     |--------------------------------------------------------------------------
     */
 
@@ -1790,7 +1790,7 @@ class MaintenanceController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | MAINTENANCE HISTORY
+        | MAINTENANCE HISTORY E - 2.2
         |--------------------------------------------------------------------------
         */
 
@@ -1812,7 +1812,7 @@ class MaintenanceController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | TRANSFER HISTORY
+        | TRANSFER HISTORY E - 2.3
         |--------------------------------------------------------------------------
         */
 
@@ -1868,7 +1868,7 @@ class MaintenanceController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | BORROWING LIST - BORROWING MODULE
+    | BORROWING LIST - BORROWING MODULE - E 2.4
     |--------------------------------------------------------------------------
     */
 
@@ -2098,9 +2098,337 @@ class MaintenanceController extends Controller
         );
     }
 
+
     /*
     |--------------------------------------------------------------------------
-    | MAINTENANCE SCHEDULES
+    | INFRASTRUCTURE - 3
+    
+
+    public function infrastructure()
+    {
+        $buildings = DB::table('buildings_table')
+
+            ->orderBy(
+                'building_name'
+            )
+
+            ->get();
+
+        $floors = DB::table('floors_table')
+
+            ->leftJoin(
+                'buildings_table',
+                'floors_table.floor_building_id',
+                '=',
+                'buildings_table.building_id'
+            )
+
+            ->select(
+                'floors_table.*',
+                'buildings_table.building_name'
+            )
+
+            ->get();
+
+        $rooms = DB::table('rooms_table')
+
+        ->leftJoin(
+            'floors_table',
+            'rooms_table.room_floor_id',
+            '=',
+            'floors_table.floor_id'
+        )
+
+        ->leftJoin(
+            'buildings_table',
+            'floors_table.floor_building_id',
+            '=',
+            'buildings_table.building_id'
+        )
+
+        ->leftJoin(
+            'equipment_table',
+            'rooms_table.room_id',
+            '=',
+            'equipment_table.equipment_room_id'
+        )
+
+        ->groupBy(
+            'rooms_table.room_id'
+        )
+
+        ->select(
+            'rooms_table.*',
+            'floors_table.floor_level',
+            'buildings_table.building_name',
+            DB::raw(
+                'COUNT(equipment_table.equipment_id)
+                as equipment_count'
+            )
+        )
+
+        ->get();
+
+        $totalBuildings = $buildings->count();
+
+        $totalFloors = $floors->count();
+
+        $totalRooms = $rooms->count();
+
+        return view(
+            'maintenance-personnel.buildings.index',
+            compact(
+                'buildings',
+                'floors',
+                'rooms',
+                'totalBuildings',
+                'totalFloors',
+                'totalRooms'
+            )
+        );
+    }
+
+    public function storeBuilding(Request $request)
+    {
+        DB::table('buildings_table')
+
+            ->insert([
+
+                'building_name'
+                    => $request->building_name
+
+            ]);
+
+        return back()
+            ->with(
+                'success',
+                'Building added successfully.'
+            );
+    }
+
+    public function updateBuilding(
+        Request $request,
+        $id
+    )
+    {
+        DB::table(
+            'buildings_table'
+        )
+
+        ->where(
+            'building_id',
+            $id
+        )
+
+        ->update([
+
+            'building_name'
+                =>
+                $request->building_name
+
+        ]);
+
+        return back();
+    }
+
+    public function deleteBuilding($id)
+    {
+        DB::table(
+            'buildings_table'
+        )
+
+        ->where(
+            'building_id',
+            $id
+        )
+
+        ->delete();
+
+        return back();
+    }
+
+    public function storeFloor(Request $request)
+    {
+        DB::table('floors_table')
+
+            ->insert([
+
+                'floor_building_id'
+                    => $request->building_id,
+
+                'floor_level'
+                    => $request->floor_level
+
+            ]);
+
+        return back()
+            ->with(
+                'success',
+                'Floor added successfully.'
+            );
+    }
+
+    public function updateFloor(
+        Request $request,
+        $id
+    )
+    {
+        DB::table(
+            'floors_table'
+        )
+
+        ->where(
+            'floor_id',
+            $id
+        )
+
+        ->update([
+
+            'floor_building_id'
+                =>
+                $request->building_id,
+
+            'floor_level'
+                =>
+                $request->floor_level
+
+        ]);
+
+        return back();
+    }
+
+    public function deleteFloor($id)
+    {
+        DB::table(
+            'floors_table'
+        )
+
+        ->where(
+            'floor_id',
+            $id
+        )
+
+        ->delete();
+
+        return back();
+    }
+
+    public function storeRoom(Request $request)
+    {
+        DB::table('rooms_table')
+
+            ->insert([
+
+                'room_floor_id'
+                    => $request->floor_id,
+
+                'room_name'
+                    => $request->room_name
+
+            ]);
+
+        return back()
+            ->with(
+                'success',
+                'Room added successfully.'
+            );
+    }
+
+    public function updateRoom(
+        Request $request,
+        $id
+    )
+    {
+        DB::table(
+            'rooms_table'
+        )
+
+        ->where(
+            'room_id',
+            $id
+        )
+
+        ->update([
+
+            'room_floor_id'
+                =>
+                $request->floor_id,
+
+            'room_name'
+                =>
+                $request->room_name
+
+        ]);
+
+        return back();
+    }
+
+    public function deleteRoom($id)
+    {
+        DB::table(
+            'rooms_table'
+        )
+
+        ->where(
+            'room_id',
+            $id
+        )
+
+        ->delete();
+
+        return back();
+    } */
+
+
+
+
+
+    public function roomDetails($id)
+    {
+        $room = DB::table('rooms_table')
+
+            ->leftJoin(
+                'floors_table',
+                'rooms_table.room_floor_id',
+                '=',
+                'floors_table.floor_id'
+            )
+
+            ->leftJoin(
+                'buildings_table',
+                'floors_table.floor_building_id',
+                '=',
+                'buildings_table.building_id'
+            )
+
+            ->where(
+                'room_id',
+                $id
+            )
+
+            ->first();
+
+        $equipment = DB::table('equipment_table')
+
+            ->where(
+                'equipment_room_id',
+                $id
+            )
+
+            ->get();
+
+        return view(
+            'maintenance-personnel.rooms.room-details',
+            compact(
+                'room',
+                'equipment'
+            )
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | MAINTENANCE SCHEDULES - 4
     |--------------------------------------------------------------------------
     */
 
@@ -2523,6 +2851,126 @@ class MaintenanceController extends Controller
         return back()->with(
             'success',
             'Disposal record deleted.'
+        );
+    }
+
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | REPORTERS MODULE E - 5
+    |--------------------------------------------------------------------------
+    */
+
+    public function reporters()
+    {
+        $reporters = DB::table('reporters_table')
+
+            ->orderBy(
+                'reporter_full_name',
+                'asc'
+            )
+
+            ->get();
+
+        return view(
+            'maintenance-personnel.reporters.index',
+            compact('reporters')
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | STORE REPORTER
+    |--------------------------------------------------------------------------
+    */
+
+    public function storeReporter(Request $request)
+    {
+        DB::table('reporters_table')
+
+            ->insert([
+
+                'reporter_employee_id'
+                    => $request->employee_id,
+
+                'reporter_full_name'
+                    => $request->full_name,
+
+                'reporter_email_address'
+                    => $request->email,
+
+                'reporter_contact_number'
+                    => $request->contact,
+
+                'reporter_created_at'
+                    => now()
+
+            ]);
+
+        return back()->with(
+            'success',
+            'Reporter added successfully.'
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | UPDATE REPORTER
+    |--------------------------------------------------------------------------
+    */
+
+    public function updateReporter(Request $request)
+    {
+        DB::table('reporters_table')
+
+            ->where(
+                'reporter_id',
+                $request->reporter_id
+            )
+
+            ->update([
+
+                'reporter_employee_id'
+                    => $request->employee_id,
+
+                'reporter_full_name'
+                    => $request->full_name,
+
+                'reporter_email_address'
+                    => $request->email,
+
+                'reporter_contact_number'
+                    => $request->contact
+
+            ]);
+
+        return back()->with(
+            'success',
+            'Reporter updated successfully.'
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | DELETE REPORTER
+    |--------------------------------------------------------------------------
+    */
+
+    public function deleteReporter(Request $request)
+    {
+        DB::table('reporters_table')
+
+            ->where(
+                'reporter_id',
+                $request->reporter_id
+            )
+
+            ->delete();
+
+        return back()->with(
+            'success',
+            'Reporter deleted successfully.'
         );
     }
 }

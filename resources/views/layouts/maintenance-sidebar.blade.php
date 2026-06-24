@@ -23,8 +23,8 @@
                 <div id="dropdownMenu" class="dropdown-menu">
                     <div class="dropdown-item" data-target="dashboard-section">Dashboard</div>
                     <div class="dropdown-item" data-target="reports-section">Reports</div>
-                    <div class="dropdown-item" data-target="equipment-section">Equipment</div>
                     <div class="dropdown-item" data-target="infrastructure-section">Infrastructure</div>
+                    <div class="dropdown-item" data-target="equipment-section">Equipment</div>
                     <div class="dropdown-item" data-target="maintenance-section">Maintenance</div>
                     <div class="dropdown-item" data-target="users-section">Users</div>
                 </div>
@@ -62,6 +62,12 @@
             <span>Reports</span>
         </a>
 
+        <div class="menu-title" id="infrastructure-section">INFRASTRUCTURE</div>
+        <a href="/maintenance/infrastructure" class="menu-item {{ request()->is('maintenance/infrastructure*') ? 'active' : '' }}">
+            <i class="h-5 w-5" data-lucide="building-2"></i>
+            <span>Buildings & Rooms</span>
+        </a>
+
         <div class="menu-title" id="equipment-section">EQUIPMENT</div>
         <a href="/maintenance/equipment/inventory" class="menu-item {{ request()->is('maintenance/equipment/inventory*') ? 'active' : '' }}">
             <i class="h-5 w-5" data-lucide="package"></i>
@@ -80,11 +86,7 @@
             <span>Borrowing</span>
         </a>
 
-        <div class="menu-title" id="infrastructure-section">INFRASTRUCTURE</div>
-        <a href="/maintenance/infrastructure" class="menu-item {{ request()->is('maintenance/infrastructure*') ? 'active' : '' }}">
-            <i class="h-5 w-5" data-lucide="building-2"></i>
-            <span>Buildings & Rooms</span>
-        </a>
+        
 
         <div class="menu-title" id="maintenance-section">MAINTENANCE</div>
         <a href="/maintenance/schedules" class="menu-item {{ request()->is('maintenance/schedules*') ? 'active' : '' }}">
