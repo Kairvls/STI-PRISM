@@ -1,13 +1,11 @@
-@extends('layouts.app')
+@extends ("layouts.app")
 
-@section('sidebar')
-
-    @include('layouts.maintenance-sidebar')
+@section ("sidebar")
+    @include ("layouts.maintenance-sidebar")
 
 @endsection
 
-@section('topbar')
-
-    @include('layouts.maintenance-topbar')
+@section ("topbar")
+    @include ("layouts.maintenance-topbar")
 
 @endsection

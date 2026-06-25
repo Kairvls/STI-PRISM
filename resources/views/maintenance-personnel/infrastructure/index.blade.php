@@ -1,246 +1,147 @@
-@extends('layouts.maintenance-layout')
+@extends ("layouts.maintenance-layout")
 
-@section('content')
+@section ("content")
+    <div
+        x-data="{
+            activeFloor: '2nd Floor',
 
-<div
+            selectedRoom: null,
 
-    x-data="{
+            editMode: false,
 
-        activeFloor:'2nd Floor',
+            toggleEditor() {
+                this.editMode = !this.editMode;
 
-        selectedRoom:null,
+                window.layoutEditorEnabled = this.editMode;
+            },
+        }"
+        x-init="window.layoutEditorEnabled = false"
+    >
+        <div class="mb-6 flex items-center justify-between">
+            <div>
+                <h1 class="text-3xl font-bold text-slate-800">
+                    Infrastructure Monitoring
+                </h1>
 
-        editMode:false,
+                <p class="text-slate-500">Interactive Campus Layout & Room Monitoring</p>
+            </div>
 
-        toggleEditor() {
+            <div class="flex gap-3">
+                <button
+                    @click="$dispatch('open-wizard')"
+                    class="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white"
+                >
+                    Configure Campus
+                </button>
 
-            this.editMode = !this.editMode;
+                <button
+                    @click="toggleEditor()"
+                    :class="editMode
+                        ? 'bg-green-600 text-white'
+                        : 'bg-yellow-500 text-white'"
+                    class="rounded-xl px-5 py-3 font-semibold"
+                >
+                    <span
+                        x-text="editMode ? 'Editor Enabled' : 'Layout Editor'"
+                    ></span>
+                </button>
 
-            window.layoutEditorEnabled =
-            this.editMode;
-
-        }
-
-    }"
-
-    x-init="
-        window.layoutEditorEnabled = false
-    "
-
->
-
-    <div class="flex items-center justify-between mb-6">
-
-        <div>
-
-            <h1 class="text-3xl font-bold text-slate-800">
-                Infrastructure Monitoring
-            </h1>
-
-            <p class="text-slate-500">
-                Interactive Campus Layout & Room Monitoring
-            </p>
-
+                <button
+                    id="save-layout-btn"
+                    class="rounded-xl bg-green-600 px-5 py-3 font-semibold text-white"
+                >
+                    Save Layout
+                </button>
+            </div>
         </div>
 
-        <div class="flex gap-3">
-
+        <div class="mb-6 flex gap-3">
             <button
-                @click="$dispatch('open-wizard')"
-                class="
-                    px-5 py-3
-                    rounded-xl
-                    bg-blue-600
-                    text-white
-                    font-semibold
-                "
+                @click="activeFloor = '2nd Floor'"
+                :class="activeFloor === '2nd Floor'
+                    ? 'bg-[#005EA6] text-white'
+                    : 'bg-white text-slate-700'"
+                class="rounded-xl px-6 py-3 shadow"
             >
-                Configure Campus
+                2nd Floor
             </button>
 
             <button
-                @click="toggleEditor()"
-                :class="
-                    editMode
-                    ? 'bg-green-600 text-white'
-                    : 'bg-yellow-500 text-white'
-                "
-                class="
-                    px-5 py-3
-                    rounded-xl
-                    font-semibold
-                "
+                @click="activeFloor = '3rd Floor'"
+                :class="activeFloor === '3rd Floor'
+                    ? 'bg-[#005EA6] text-white'
+                    : 'bg-white text-slate-700'"
+                class="rounded-xl px-6 py-3 shadow"
             >
-                <span x-text="editMode ? 'Editor Enabled' : 'Layout Editor'"></span>
+                3rd Floor
             </button>
-
-            <button
-                id="save-layout-btn"
-                class="
-                    px-5 py-3
-                    rounded-xl
-                    bg-green-600
-                    text-white
-                    font-semibold
-                "
-            >
-                Save Layout
-            </button>
-
         </div>
 
-    </div>
+        <div class="grid grid-cols-12 gap-6">
+            <div class="col-span-8">
+                @include ("maintenance-personnel.infrastructure.floor-canvas")
+            </div>
 
-    <div class="flex gap-3 mb-6">
-
-        <button
-            @click="activeFloor='2nd Floor'"
-            :class="
-                activeFloor === '2nd Floor'
-                ? 'bg-[#005EA6] text-white'
-                : 'bg-white text-slate-700'
-            "
-            class="px-6 py-3 rounded-xl shadow"
-        >
-            2nd Floor
-        </button>
-
-        <button
-            @click="activeFloor='3rd Floor'"
-            :class="
-                activeFloor === '3rd Floor'
-                ? 'bg-[#005EA6] text-white'
-                : 'bg-white text-slate-700'
-            "
-            class="px-6 py-3 rounded-xl shadow"
-        >
-            3rd Floor
-        </button>
-
-    </div>
-
-    <div class="grid grid-cols-12 gap-6">
-
-        <div class="col-span-8">
-
-            @include(
-                'maintenance-personnel.infrastructure.floor-canvas'
-            )
-
+            <div class="col-span-4">
+                @include ("maintenance-personnel.infrastructure.room-drawer")
+            </div>
         </div>
 
-        <div class="col-span-4">
-
-            @include(
-                'maintenance-personnel.infrastructure.room-drawer'
-            )
-
-        </div>
-
+        @include ("maintenance-personnel.infrastructure.wizard-modal")
     </div>
 
-    @include(
-        'maintenance-personnel.infrastructure.wizard-modal'
-    )
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const saveButton = document.getElementById("save-layout-btn");
 
-</div>
+            if (!saveButton) return;
 
-<script>
+            saveButton.addEventListener("click", () => {
+                const rooms = [];
 
-document.addEventListener('DOMContentLoaded', () => {
+                document
+                    .querySelectorAll(".room-block")
 
-    const saveButton =
-    document.getElementById(
-        'save-layout-btn'
-    );
+                    .forEach((room) => {
+                        rooms.push({
+                            id: room.dataset.id,
 
-    if(!saveButton) return;
+                            x: room.dataset.x || 0,
 
-    saveButton.addEventListener(
-        'click',
-        () => {
+                            y: room.dataset.y || 0,
+                        });
+                    });
 
-            const rooms = [];
+                fetch("/maintenance/infrastructure/save-layout", {
+                    method: "POST",
 
-            document
-            .querySelectorAll('.room-block')
+                    headers: {
+                        "Content-Type": "application/json",
 
-            .forEach(room => {
-
-                rooms.push({
-
-                    id:
-                    room.dataset.id,
-
-                    x:
-                    room.dataset.x || 0,
-
-                    y:
-                    room.dataset.y || 0
-
-                });
-
-            });
-
-            fetch(
-                '/maintenance/infrastructure/save-layout',
-                {
-
-                    method:'POST',
-
-                    headers:{
-
-                        'Content-Type':
-                        'application/json',
-
-                        'X-CSRF-TOKEN':
-                        document
-                        .querySelector(
-                        'meta[name="csrf-token"]'
-                        )
-                        .content
-
+                        "X-CSRF-TOKEN": document.querySelector(
+                            'meta[name="csrf-token"]',
+                        ).content,
                     },
 
-                    body:
-                    JSON.stringify({
-                        rooms
+                    body: JSON.stringify({
+                        rooms,
+                    }),
+                })
+                    .then((response) => response.json())
+
+                    .then((data) => {
+                        console.log(data);
+
+                        alert("Layout Saved Successfully");
                     })
 
-                }
+                    .catch((error) => {
+                        console.error(error);
 
-            )
-
-            .then(
-                response =>
-                response.json()
-            )
-
-            .then(data => {
-
-                console.log(data);
-
-                alert(
-                    'Layout Saved Successfully'
-                );
-
-            })
-
-            .catch(error => {
-
-                console.error(error);
-
-                alert(
-                    'Failed To Save Layout'
-                );
-
+                        alert("Failed To Save Layout");
+                    });
             });
-
-        }
-    );
-
-});
-
-</script>
+        });
+    </script>
 
 @endsection

@@ -1,42 +1,30 @@
-@extends('layouts.maintenance-layout')
+@extends ("layouts.maintenance-layout")
 
-@section('title', 'Replacement Recommendation')
+@section ("title", "Replacement Recommendation")
 
-@section('content')
+@section ("content")
+    <div class="mx-auto max-w-5xl">
+        <div class="mb-8">
+            <h1 class="text-3xl font-extrabold">Replacement Recommendation</h1>
+        </div>
 
-<div class="max-w-5xl mx-auto">
+        <div class="rounded-3xl bg-[#1E293B] p-8">
+            <form action="#" method="POST">
+                @csrf
 
-    <div class="mb-8">
+                <textarea
+                    rows="8"
+                    class="w-full resize-none rounded-2xl border border-white/10 bg-[#0F172A] px-5 py-4"
+                    placeholder="Enter replacement recommendation..."
+                ></textarea>
 
-        <h1 class="text-3xl font-extrabold">
-            Replacement Recommendation
-        </h1>
-
+                <button
+                    class="mt-6 rounded-2xl bg-orange-500 px-8 py-4 font-bold hover:bg-orange-600"
+                >
+                    Save Recommendation
+                </button>
+            </form>
+        </div>
     </div>
-
-    <div class="bg-[#1E293B] rounded-3xl p-8">
-
-        <form action="#"
-              method="POST">
-
-            @csrf
-
-            <textarea
-                rows="8"
-                class="w-full bg-[#0F172A] border border-white/10 rounded-2xl px-5 py-4 resize-none"
-                placeholder="Enter replacement recommendation..."></textarea>
-
-            <button
-                class="bg-orange-500 hover:bg-orange-600 px-8 py-4 rounded-2xl font-bold mt-6">
-
-                Save Recommendation
-
-            </button>
-
-        </form>
-
-    </div>
-
-</div>
 
 @endsection

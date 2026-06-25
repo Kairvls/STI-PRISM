@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class ReporterController extends Controller
 {
@@ -22,6 +23,10 @@ class ReporterController extends Controller
         */
 
         $rooms = DB::table('rooms_table')
+            ->when(
+                Schema::hasColumn('rooms_table', 'room_is_archived'),
+                fn ($query) => $query->where('rooms_table.room_is_archived', false)
+            )
 
             ->leftJoin(
                 'floors_table',

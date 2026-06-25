@@ -12,7 +12,15 @@ class Building extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['building_name'];
+    protected $fillable = [
+
+        'building_name',
+
+        'building_logo',
+
+        'building_address',
+
+    ];
 
     public function floors()
     {

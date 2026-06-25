@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class MobileReportController extends Controller
 {
@@ -17,6 +18,10 @@ class MobileReportController extends Controller
     public function rooms()
     {
         $rooms = DB::table('rooms_table')
+            ->when(
+                Schema::hasColumn('rooms_table', 'room_is_archived'),
+                fn ($query) => $query->where('rooms_table.room_is_archived', false)
+            )
 
             ->leftJoin(
                 'floors_table',
@@ -258,4 +263,3 @@ class MobileReportController extends Controller
         ]);
     }
 }
-

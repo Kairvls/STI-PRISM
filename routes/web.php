@@ -504,6 +504,11 @@ Route::get(
     [InfrastructureController::class, 'index']
 )->name('maintenance.infrastructure.index');
 
+Route::get(
+    '/maintenance/infrastructure/campus',
+    [InfrastructureController::class, 'loadCampus']
+)->name('maintenance.infrastructure.campus.load');
+
 Route::post(
     '/maintenance/infrastructure/campus',
     [InfrastructureController::class, 'storeCampus']
@@ -514,6 +519,16 @@ Route::post(
     [InfrastructureController::class,
     'saveLayout']
 )->name('maintenance.infrastructure.layout.save');
+
+Route::patch(
+    '/maintenance/infrastructure/rooms/{room}',
+    [InfrastructureController::class, 'updateRoom']
+)->name('maintenance.infrastructure.rooms.update');
+
+Route::delete(
+    '/maintenance/infrastructure/rooms/{room}',
+    [InfrastructureController::class, 'archiveRoom']
+)->name('maintenance.infrastructure.rooms.archive');
 
 /*
 |--------------------------------------------------------------------------

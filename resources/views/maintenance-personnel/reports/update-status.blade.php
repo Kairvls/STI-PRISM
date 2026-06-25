@@ -1,48 +1,32 @@
-@extends('layouts.maintenance-layout')
+@extends ("layouts.maintenance-layout")
 
-@section('title', 'Update Status')
+@section ("title", "Update Status")
 
-@section('content')
+@section ("content")
+    <div class="mx-auto max-w-5xl">
+        <!-- HEADER -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-extrabold text-white">Update Status</h1>
 
-<div class="max-w-5xl mx-auto">
+            <p class="mt-2 text-gray-400">Change the current maintenance status for this report.</p>
+        </div>
 
-    <!-- HEADER -->
-    <div class="mb-8">
+        <!-- REPORT CARD -->
+        <div class="mb-8 rounded-3xl bg-[#1E293B] p-8">
+            <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div>
+                    <p class="text-sm text-gray-400">Report ID</p>
 
-        <h1 class="text-3xl font-extrabold text-white">
-            Update Status
-        </h1>
+                    <h1 class="mt-2 text-xl font-bold text-white">
+                        #{{ $report->report_id }}
+                    </h1>
+                </div>
 
-        <p class="text-gray-400 mt-2">
-            Change the current maintenance status for this report.
-        </p>
+                <div>
+                    <p class="text-sm text-gray-400">Current Status</p>
 
-    </div>
-
-    <!-- REPORT CARD -->
-    <div class="bg-[#1E293B] rounded-3xl p-8 mb-8">
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-            <div>
-
-                <p class="text-gray-400 text-sm">
-                    Report ID
-                </p>
-
-                <h1 class="text-xl font-bold mt-2 text-white">
-                    #{{ $report->report_id }}
-                </h1>
-
-            </div>
-
-            <div>
-
-                <p class="text-gray-400 text-sm">
-                    Current Status
-                </p>
-
-                <span class="px-4 py-2 rounded-xl inline-block mt-2
+                    <span
+                        class="px-4 py-2 rounded-xl inline-block mt-2
                     @if($report->report_current_status == 'Pending')
                         bg-yellow-500/20 text-yellow-400
                     @elseif($report->report_current_status == 'Processing')
@@ -54,95 +38,88 @@
                     @else
                         bg-orange-500/20 text-orange-400
                     @endif
-                ">
+                "
+                    >
+                        {{ $report->report_current_status }}
+                    </span>
+                </div>
 
-                    {{ $report->report_current_status }}
+                <div>
+                    <p class="text-sm text-gray-400">Problem Description</p>
 
-                </span>
+                    <h1 class="mt-2 font-semibold text-white">
+                        {{ $report->report_problem_description }}
+                    </h1>
+                </div>
 
+                <div>
+                    <p class="text-sm text-gray-400">Room</p>
+
+                    <h1 class="mt-2 font-semibold text-white">
+                        {{
+                            $report->room_name ??
+                                "No Assigned Room"
+                        }}
+                    </h1>
+                </div>
             </div>
-
-            <div>
-
-                <p class="text-gray-400 text-sm">
-                    Problem Description
-                </p>
-
-                <h1 class="font-semibold mt-2 text-white">
-                    {{ $report->report_problem_description }}
-                </h1>
-
-            </div>
-
-            <div>
-
-                <p class="text-gray-400 text-sm">
-                    Room
-                </p>
-
-                <h1 class="font-semibold mt-2 text-white">
-                    {{ $report->room_name ?? 'No Assigned Room' }}
-                </h1>
-
-            </div>
-
         </div>
 
+        <!-- UPDATE FORM -->
+        <div class="rounded-3xl bg-[#1E293B] p-8">
+            <form
+                action="/maintenance/reports/update-status/{{ $report->report_id }}"
+                method="POST"
+            >
+                @csrf
+
+                <div class="mb-6">
+                    <label class="mb-3 block font-semibold text-white">
+                        Change Status
+                    </label>
+
+                    <select
+                        name="status"
+                        required
+                        class="w-full rounded-2xl border border-white/10 bg-[#0F172A] px-5 py-4 text-white focus:border-green-500 focus:outline-none"
+                    >
+                        @if ($report->report_current_status == "Pending")
+                            <option value="Processing">Processing</option>
+                            <option value="Rejected">Rejected</option>
+                        @elseif ($report->report_current_status == "Processing")
+                            <option value="Resolved">Resolved</option>
+                            <option value="Rejected">Rejected</option>
+                            <option value="For Replacement">
+                                For Replacement
+                            </option>
+                        @else
+                            <option
+                                value="{{ $report->report_current_status }}"
+                                selected
+                            >
+                                {{ $report->report_current_status }}
+                            </option>
+                        @endif
+                    </select>
+                </div>
+
+                <div class="flex flex-col gap-4 sm:flex-row">
+                    <button
+                        type="submit"
+                        class="rounded-2xl bg-green-600 px-8 py-4 font-bold transition hover:bg-green-700"
+                    >
+                        Update Status
+                    </button>
+
+                    <a
+                        href="/maintenance/reports/details/{{ $report->report_id }}"
+                        class="rounded-2xl bg-gray-700 px-8 py-4 text-center font-bold transition hover:bg-gray-600"
+                    >
+                        Cancel
+                    </a>
+                </div>
+            </form>
+        </div>
     </div>
-
-    <!-- UPDATE FORM -->
-    <div class="bg-[#1E293B] rounded-3xl p-8">
-
-        <form action="/maintenance/reports/update-status/{{ $report->report_id }}"
-              method="POST">
-
-            @csrf
-
-            <div class="mb-6">
-
-                <label class="block mb-3 font-semibold text-white">
-                    Change Status
-                </label>
-
-                <select name="status"
-                    required
-                    class="w-full bg-[#0F172A] border border-white/10 rounded-2xl px-5 py-4 text-white focus:outline-none focus:border-green-500">
-
-                    @if($report->report_current_status == 'Pending')
-                        <option value="Processing">Processing</option>
-                        <option value="Rejected">Rejected</option>
-                    @elseif($report->report_current_status == 'Processing')
-                        <option value="Resolved">Resolved</option>
-                        <option value="Rejected">Rejected</option>
-                        <option value="For Replacement">For Replacement</option>
-                    @else
-                        <option value="{{ $report->report_current_status }}" selected>
-                            {{ $report->report_current_status }}
-                        </option>
-                    @endif
-
-                </select>
-
-            </div>
-
-            <div class="flex flex-col sm:flex-row gap-4">
-
-                <button type="submit"
-                    class="bg-green-600 hover:bg-green-700 px-8 py-4 rounded-2xl font-bold transition">
-                    Update Status
-                </button>
-
-                <a href="/maintenance/reports/details/{{ $report->report_id }}"
-                    class="px-8 py-4 rounded-2xl font-bold bg-gray-700 hover:bg-gray-600 transition text-center">
-                    Cancel
-                </a>
-
-            </div>
-
-        </form>
-
-    </div>
-
-</div>
 
 @endsection

@@ -15,10 +15,13 @@ class Room extends Model
     protected $fillable = [
         'room_floor_id', 'room_name', 'room_x', 'room_y', 'room_width',
         'room_height', 'room_color', 'room_type', 'room_metadata', 'room_status',
+        'room_is_archived', 'room_archived_at', 'room_archived_reason',
     ];
 
     protected $casts = [
-        'room_metadata' => 'array'
+        'room_metadata' => 'array',
+        'room_is_archived' => 'boolean',
+        'room_archived_at' => 'datetime',
     ];
 
     public function floor()

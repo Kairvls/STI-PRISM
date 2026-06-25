@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class MaintenanceController extends Controller
@@ -1205,7 +1206,12 @@ class MaintenanceController extends Controller
 
         $rooms = DB::table(
             'rooms_table'
-        )->get();
+        )
+            ->when(
+                Schema::hasColumn('rooms_table', 'room_is_archived'),
+                fn ($query) => $query->where('room_is_archived', false)
+            )
+            ->get();
 
         return view(
             'maintenance-personnel.equipment.create',
@@ -1362,6 +1368,10 @@ class MaintenanceController extends Controller
         */
 
         $rooms = DB::table('rooms_table')
+            ->when(
+                Schema::hasColumn('rooms_table', 'room_is_archived'),
+                fn ($query) => $query->where('room_is_archived', false)
+            )
 
             ->orderBy(
                 'room_name',
@@ -2131,6 +2141,10 @@ class MaintenanceController extends Controller
             ->get();
 
         $rooms = DB::table('rooms_table')
+            ->when(
+                Schema::hasColumn('rooms_table', 'room_is_archived'),
+                fn ($query) => $query->where('rooms_table.room_is_archived', false)
+            )
 
         ->leftJoin(
             'floors_table',
