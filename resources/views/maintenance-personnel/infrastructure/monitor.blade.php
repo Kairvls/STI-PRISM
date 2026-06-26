@@ -7,6 +7,9 @@
         $initialFloor =
             $floors->firstWhere("floor_id", $requestedFloorId) ?? $floors->first();
     @endphp
+    @php
+    use Illuminate\Support\Str;
+    @endphp
 
     <div
         x-data="infrastructureMonitor({{ (int) optional($initialFloor)->floor_id }})"
@@ -221,58 +224,51 @@
                                     <button
                                         type="button"
                                         @click="if(!editMode) selectedRoom={{ $room->room_id }}"
-                                        class="room-block room-card group absolute z-10 rounded-xl border-2 p-3 text-left shadow-[0_14px_22px_rgba(15,23,42,.18)] transition duration-200 hover:z-20 hover:-translate-y-1 hover:brightness-105 focus:outline-none focus:ring-4 focus:ring-[#005EA6]/25 {{ $room->room_status === 'Critical' ? 'critical-room' : '' }}"
+                                        class="room-block room-card group absolute overflow-hidden z-10 rounded-xl border-2 p-3 text-left shadow-[0_14px_22px_rgba(15,23,42,.18)] transition duration-200 hover:z-20 hover:-translate-y-1 hover:brightness-105 focus:outline-none focus:ring-4 focus:ring-[#005EA6]/25 {{ $room->room_status === 'Critical' ? 'critical-room' : '' }}"
                                         :class="{'cursor-move ring-4 ring-[#FFF200]/50': editMode, 'ring-4 ring-[#005EA6]/25': selectedRoom === {{ $room->room_id }}}"
+                                        data-size="large"
                                         data-id="{{ $room->room_id }}"
                                         data-floor="{{ $floor->floor_id }}"
                                         data-x="{{ $room->room_x }}"
                                         data-y="{{ $room->room_y }}"
-                                        data-width="{{ max(110, $room->room_width) }}"
-                                        data-height="{{ max(82, $room->room_height) }}"
+                                        data-width="{{ $room->room_width }}"
+                                        data-height="{{ $room->room_height }}"
                                         data-name="{{ e($room->room_name) }}"
                                         data-type="{{ e($room->room_type ?: 'Room') }}"
                                         data-assets="{{ $room->equipment->sum("equipment_quantity") }}"
                                         data-active-reports="{{ $room->monitoring["active_reports"] }}"
-                                        style="left:{{ $room->room_x }}px;top:{{ $room->room_y }}px;width:{{ max(110, $room->room_width) }}px;height:{{ max(82, $room->room_height) }}px;background:{{ $room->room_color ?: '#60A5FA' }};border-color:{{ $statusColor }};--room-depth:{{ $room->room_color ?: '#60A5FA' }}"
+                                        style="left:{{ $room->room_x }}px;top:{{ $room->room_y }}px;width:{{ $room->room_width }}px;height:{{ $room->room_height }}px;background:{{ $room->room_color ?: '#60A5FA' }};border-color:{{ $statusColor }};--room-depth:{{ $room->room_color ?: '#60A5FA' }}"
                                     >
-                                        <span
-                                            class="relative z-10 flex h-full flex-col justify-between"
-                                        >
-                                            <span
-                                                class="flex items-start justify-between gap-2"
-                                            >
+                                        <span class="relative z-10 flex h-full flex-col justify-between">
+                                            <span class="room-content">
+
                                                 <span
-                                                    class="rounded-md bg-white/80 px-2 py-1 text-[9px] font-extrabold uppercase tracking-wider text-slate-600"
-                                                    >{{
-                                                        $room->room_type ?:
-                                                            "Room"
-                                                    }}</span
+                                                    class="room-name"
+                                                    data-full-name="{{ $room->room_name }}"
                                                 >
-                                                <i
-                                                    class="mt-1 h-2.5 w-2.5 rounded-full shadow"
-                                                    style="background:{{ $statusColor }}"
-                                                ></i>
-                                            </span>
-                                            <span>
-                                                <strong
-                                                    data-room-name
-                                                    class="block text-sm font-extrabold leading-tight text-slate-950"
-                                                    >{{ $room->room_name }}</strong
-                                                >
-                                                <small
-                                                    class="mt-1 block text-[10px] font-semibold text-slate-700"
-                                                    >{{
-                                                        $room->equipment->sum(
-                                                            "equipment_quantity",
-                                                        )
-                                                    }} assets · {{
-                                                        $room->monitoring[
-                                                            "active_reports"
-                                                        ]
-                                                    }} active</small
-                                                >
+                                                    {{ $room->room_name }}
+                                                </span>
+
+                                                <span
+                                                    class="room-status absolute top-0 right-0 h-2.5 w-2.5 rounded-full bg-slate-200"
+                                                    style="background: {{ $statusColor }}"
+                                                ></span>
+
                                             </span>
                                         </span>
+
+                                        {{-- ========================= --}}
+                                        {{-- EQUIPMENT VISUALIZATION --}}
+                                        {{-- Place AFTER the room content and BEFORE the resize handles --}}
+                                        {{-- ========================= --}}
+
+                                        <div
+                                             class="absolute inset-0 z-20 overflow-hidden rounded-xl"
+                                        >
+
+                                            
+                                        </div>
+
                                         <span
                                             x-show="editMode"
                                             class="resize-grip pointer-events-none absolute -left-1.5 -top-1.5 z-30 h-3 w-3 rounded-sm border-2 border-[#005EA6] bg-white"
@@ -524,8 +520,110 @@
                     0 0 0 8px rgba(239, 68, 68, 0);
             }
         }
+        /* ============================== */
+        /* Equipment Icons */
+        /* ============================== */
+
+        .equipment-node{
+
+            cursor:grab;
+
+            user-select:none;
+
+            transition:.15s;
+
+            z-index:50;
+
+        }
+
+        .equipment-node:hover{
+
+            transform:scale(1.1);
+
+        }
+
+        .equipment-node:active{
+
+            cursor:grabbing;
+
+            transform:scale(1.05);
+
+        }
         .critical-room {
             animation: criticalPulse 1.8s ease-in-out infinite;
+        }
+
+        /* =======================================
+        Responsive Room Name
+        ======================================= */
+
+        .room-content{
+
+            width:100%;
+            height:100%;
+
+            display:flex;
+
+            align-items:center;
+
+            justify-content:center;
+
+        }
+
+        .room-name{
+
+            width:100%;
+
+            text-align:center;
+
+            font-weight:700;
+
+            color:#0f172a;
+
+            white-space:nowrap;
+
+            overflow:hidden;
+
+            text-overflow:ellipsis;
+
+            user-select:none;
+
+            pointer-events:none;
+
+            transition:.2s;
+
+        }
+
+        /* ---------- LARGE ---------- */
+
+        .room-block[data-size="large"] .room-name{
+
+            font-size:14px;
+
+        }
+
+        /* ---------- MEDIUM ---------- */
+
+        .room-block[data-size="medium"] .room-name{
+
+            font-size:12px;
+
+        }
+
+        /* ---------- SMALL ---------- */
+
+        .room-block[data-size="small"] .room-name{
+
+            font-size:10px;
+
+        }
+
+        /* ---------- TINY ---------- */
+
+        .room-block[data-size="tiny"] .room-name{
+
+            font-size:9px;
+
         }
     </style>
 
@@ -613,6 +711,49 @@
 
                         this.$nextTick(() => {
                             this.bindDragging();
+
+                            document.querySelectorAll(".room-block").forEach(room=>{
+
+                                const w = parseInt(room.dataset.width);
+
+                                const h = parseInt(room.dataset.height);
+
+                                let size="large";
+
+                                if(w<50 || h<40){
+
+                                    size="tiny";
+
+                                }
+
+                                else if(w<90 || h<60){
+
+                                    size="small";
+
+                                }
+
+                                else if(w<140 || h<80){
+
+                                    size="medium";
+
+                                }
+
+                                room.dataset.size=size;
+                                const roomName=room.querySelector(".room-name");
+
+                                if(roomName){
+
+                                    roomName.textContent=this.abbreviateRoom(
+
+                                        roomName.dataset.fullName,
+
+                                        size
+
+                                    );
+
+                                }
+
+                            });
 
                             if (window.lucide) {
                                 lucide.createIcons();
@@ -882,7 +1023,10 @@
                                         targets: [interact.snappers.grid({ x: 20, y: 20 })],
                                     }),
                                     interact.modifiers.restrictSize({
-                                        min: { width: 100, height: 70 },
+                                        min: {
+                                                width: 80,
+                                                height: 80
+                                            },
                                         max: { width: 600, height: 450 },
                                     }),
                                     interact.modifiers.restrictEdges({ outer: "parent" }),
@@ -901,6 +1045,40 @@
                                         y = Math.max(0, y);
                                         const width = Math.round(event.rect.width);
                                         const height = Math.round(event.rect.height);
+                                        /* ---------- Responsive Room Layout ---------- */
+
+                                        let size = "large";
+
+                                        if (width < 50 || height < 40) {
+
+                                            size = "tiny";
+
+                                        }
+                                        else if (width < 90 || height < 60) {
+
+                                            size = "small";
+
+                                        }
+                                        else if (width < 140 || height < 80) {
+
+                                            size = "medium";
+
+                                        }
+
+                                        el.dataset.size = size;
+                                        const roomName = el.querySelector(".room-name");
+
+                                        if(roomName){
+
+                                            roomName.textContent=this.abbreviateRoom(
+
+                                                roomName.dataset.fullName,
+
+                                                size
+
+                                            );
+
+                                        }
                                         Object.assign(el.style, {
                                             width: width + "px",
                                             height: height + "px",
@@ -919,6 +1097,8 @@
                                     },
                                 },
                             });
+
+                            
                     },
                     async saveLayout(manual = true) {
                         if (this.saving) {
@@ -946,15 +1126,42 @@
                                         ).content,
                                     },
                                     body: JSON.stringify({
+
                                         floor_id: floorBeingSaved,
-                                        rooms: nodes.map((n) => ({
+
+                                        rooms: nodes.map(n => ({
+
                                             id: +n.dataset.id,
+
                                             x: +n.dataset.x,
+
                                             y: +n.dataset.y,
+
                                             width: +n.dataset.width,
-                                            height: +n.dataset.height,
+
+                                            height: +n.dataset.height
+
                                         })),
-                                    }),
+
+                                        equipment: [
+
+                                            ...document.querySelectorAll(
+
+                                                '.equipment-node'
+
+                                            )
+
+                                        ].map(node => ({
+
+                                            id: +node.dataset.equipmentId,
+
+                                            x: +node.dataset.x,
+
+                                            y: +node.dataset.y
+
+                                        }))
+
+                                    })
                                 },
                             );
                             if (!response.ok) throw new Error();
@@ -990,6 +1197,50 @@
                     },
                     closeRoomManager() {
                         this.roomManager.open = false;
+                    },
+                    abbreviateRoom(name, size){
+
+                        if(!name) return "";
+
+                        if(size==="large"){
+
+                            return name;
+
+                        }
+
+                        let short=name;
+
+                        short=short.replace(/Computer Laboratory/gi,"Comlab");
+                        short=short.replace(/Computer Lab/gi,"Comlab");
+                        short=short.replace(/Lecture Room/gi,"Lecture");
+                        short=short.replace(/Administration Office/gi,"Admin");
+                        short=short.replace(/Registrar Office/gi,"Registrar");
+                        short=short.replace(/Guidance Office/gi,"Guidance");
+
+                        if(size==="medium" || size==="small"){
+
+                            return short;
+
+                        }
+
+                        // Tiny version
+
+                        return short
+                            .split(" ")
+                            .map(word=>{
+
+                                if(/^\d+$/.test(word)){
+
+                                    return word;
+
+                                }
+
+                                return word.charAt(0);
+
+                            })
+                            .join("")
+                            .toUpperCase();
+
                     },
                     async renameRoom() {
                         const name = this.roomManager.name.trim();

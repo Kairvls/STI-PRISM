@@ -530,6 +530,37 @@ Route::delete(
     [InfrastructureController::class, 'archiveRoom']
 )->name('maintenance.infrastructure.rooms.archive');
 
+
+Route::put(
+    '/maintenance/infrastructure/rooms/{room}',
+    [InfrastructureController::class,'updateRoom']
+);
+
+Route::patch(
+    '/maintenance/equipment/{equipment}',
+    [InfrastructureController::class, 'updateEquipment']
+)->name('maintenance.equipment.update');
+
+Route::put(
+    '/maintenance/infrastructure/equipment/{equipment}',
+    [InfrastructureController::class, 'updateEquipment']
+);
+
+Route::post(
+    '/maintenance/infrastructure/equipment/{equipment}/transfer',
+    [InfrastructureController::class, 'transferEquipment']
+);
+
+Route::delete(
+    '/maintenance/infrastructure/equipment/{equipment}',
+    [InfrastructureController::class, 'archiveEquipment']
+);
+
+Route::post(
+    '/maintenance/infrastructure/equipment',
+    [InfrastructureController::class, 'storeEquipment']
+);
+
 /*
 |--------------------------------------------------------------------------
 | INFRASTRUCTURE

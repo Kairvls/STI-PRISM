@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Building;
 use App\Models\Floor;
 use App\Models\Room;
+use App\Models\Equipment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -26,7 +27,7 @@ class InfrastructureController extends Controller
                     : $query,
             ])
             ->orderBy('floor_building_id')->orderBy('floor_level')->get();
-        $rooms = Room::query()->with(['floor.building', 'equipment'])
+        $rooms = Room::query()->with(['floor.building', 'equipment.category'])
             ->when($hasRoomArchive, fn ($query) => $query->where('room_is_archived', false))
             ->orderBy('room_floor_id')->orderBy('room_name')->get();
         $roomIds = $rooms->pluck('room_id');
@@ -66,12 +67,41 @@ class InfrastructureController extends Controller
         $rooms->each(function (Room $room) use ($reportMetrics, $frequentProblems, $schedules): void {
             $metric = $reportMetrics->get($room->room_id);
             $room->monitoring = [
+
+                'equipment_count' => $room->equipment->count(),
+
+                'equipment_quantity' => $room->equipment->sum('equipment_quantity'),
+
+                'equipment_good' => $room->equipment
+                    ->where('equipment_condition_status', 'Good')
+                    ->count(),
+
+                'equipment_damaged' => $room->equipment
+                    ->where('equipment_condition_status', 'Damaged')
+                    ->count(),
+
+                'equipment_maintenance' => $room->equipment
+                    ->where('equipment_condition_status', 'Under Maintenance')
+                    ->count(),
+
                 'active_reports' => (int) ($metric->active_count ?? 0),
+
                 'today_reports' => (int) ($metric->today_count ?? 0),
+
                 'week_reports' => (int) ($metric->week_count ?? 0),
+
                 'month_reports' => (int) ($metric->month_count ?? 0),
-                'frequent_problems' => $frequentProblems->get($room->room_id, collect())->all(),
-                'schedules' => $schedules->get($room->room_id, collect())->all(),
+
+                'frequent_problems' => $frequentProblems
+                    ->get($room->room_id, collect())
+                    ->all(),
+
+                'schedules' => $schedules
+                    ->get($room->room_id, collect())
+                    ->all(),
+
+                'history' => [],
+
             ];
         });
 
@@ -87,7 +117,7 @@ class InfrastructureController extends Controller
 
             ->with([
 
-                'floors.rooms.equipment'
+                'floors.rooms.equipment.category'
 
             ])
 
@@ -109,7 +139,7 @@ class InfrastructureController extends Controller
     {
         $campus = Building::query()
             ->with([
-                'floors.rooms.equipment'
+                'floors.rooms.equipment.category'
             ])
             ->first();
 
@@ -234,6 +264,9 @@ class InfrastructureController extends Controller
                             'equipment_condition_status' => $equipment['condition'],
                             'equipment_inventory_status' => $equipment['condition'] === 'Under Maintenance' ? 'Under Maintenance' : 'Active',
                             'equipment_current_location' => $equipment['zone'], 'equipment_is_borrowable' => false,
+                            'equipment_position_x' => 40,
+
+                            'equipment_position_y' => 40,
                         ];
                         if (Schema::hasColumn('equipment_table', 'equipment_placement_zone')) {
                             $values['equipment_placement_zone'] = $equipment['zone'];
@@ -268,8 +301,15 @@ class InfrastructureController extends Controller
             'rooms.*.id' => ['required', 'integer'],
             'rooms.*.x' => ['required', 'integer', 'min:0', 'max:1800'],
             'rooms.*.y' => ['required', 'integer', 'min:0', 'max:900'],
-            'rooms.*.width' => ['required', 'integer', 'min:100', 'max:600'],
-            'rooms.*.height' => ['required', 'integer', 'min:70', 'max:450'],
+            'rooms.*.width' => ['required','integer','min:80','max:600'],
+            'rooms.*.height' => ['required','integer','min:80','max:450'],
+            'equipment' => ['nullable', 'array'],
+
+            'equipment.*.id' => ['required', 'integer'],
+
+            'equipment.*.x' => ['required', 'integer'],
+
+            'equipment.*.y' => ['required', 'integer'],
         ]);
 
         DB::transaction(function () use ($validated): void {
@@ -282,6 +322,22 @@ class InfrastructureController extends Controller
                         'room_height' => $room['height'],
                     ]);
             }
+
+            foreach ($validated['equipment'] ?? [] as $equipment) {
+
+                Equipment::query()
+
+                    ->whereKey($equipment['id'])
+
+                    ->update([
+
+                        'equipment_position_x' => $equipment['x'],
+
+                        'equipment_position_y' => $equipment['y'],
+
+                    ]);
+
+            }
         });
 
         return response()->json(['message' => 'Layout saved successfully.']);
@@ -292,11 +348,35 @@ class InfrastructureController extends Controller
         abort_if($room->room_is_archived, 404);
 
         $validated = $request->validate([
-            'room_name' => ['required', 'string', 'max:255'],
+
+            'room_name'=>[
+                'required',
+                'string',
+                'max:255'
+            ],
+
+            'room_type'=>[
+                'required',
+                'string',
+                'max:255'
+            ],
+
+            'room_status'=>[
+                'required',
+                'string',
+                'max:255'
+            ],
+
         ]);
 
         $room->update([
-            'room_name' => $validated['room_name'],
+
+            'room_name'=>$validated['room_name'],
+
+            'room_type'=>$validated['room_type'],
+
+            'room_status'=>$validated['room_status'],
+
         ]);
 
         return response()->json([
@@ -368,6 +448,158 @@ class InfrastructureController extends Controller
 
         return response()->json([
             'message' => 'Room archived and live details cleared.',
+        ]);
+    }
+
+    public function updateEquipment(
+        Request $request,
+        Equipment $equipment
+    ): JsonResponse {
+
+        $validated = $request->validate([
+
+            'equipment_name' => [
+                'required',
+                'string',
+                'max:255'
+            ],
+
+            'equipment_category_id' => [
+                'nullable',
+                'integer',
+                'exists:equipment_categories_table,equipment_category_id'
+            ],
+
+            'equipment_quantity' => [
+                'required',
+                'integer',
+                'min:1'
+            ],
+
+            'equipment_condition_status' => [
+                'required',
+                Rule::in([
+                    'Good',
+                    'Damaged',
+                    'Under Maintenance'
+                ])
+            ],
+
+            'equipment_current_location' => [
+                'nullable',
+                'string',
+                'max:255'
+            ],
+
+        ]);
+
+        $equipment->update($validated);
+
+        return response()->json([
+
+            'success' => true,
+
+            'message' => 'Equipment updated successfully.',
+
+            'equipment' => $equipment->fresh('category'),
+
+        ]);
+
+    }
+
+    public function transferEquipment(
+        Request $request,
+        Equipment $equipment
+    ): JsonResponse
+    {
+        $validated = $request->validate([
+            'room_id' => [
+                'required',
+                'exists:rooms_table,room_id'
+            ]
+        ]);
+
+        $equipment->update([
+            'equipment_room_id' => $validated['room_id']
+        ]);
+
+        return response()->json([
+            'success' => true
+        ]);
+    }
+
+    public function archiveEquipment(
+        Equipment $equipment
+    ): JsonResponse
+    {
+        $equipment->update([
+
+            'equipment_inventory_status' => 'Archived'
+
+        ]);
+
+        return response()->json([
+            'success' => true
+        ]);
+    }
+
+    public function storeEquipment(
+        Request $request
+    ): JsonResponse
+    {
+        $validated = $request->validate([
+
+            'equipment_room_id'=>[
+                'required',
+                'exists:rooms_table,room_id'
+            ],
+
+            'equipment_name'=>[
+                'required',
+                'string',
+                'max:255'
+            ],
+
+            'equipment_category_id'=>[
+                'nullable',
+                'exists:equipment_categories_table,equipment_category_id'
+            ],
+
+            'equipment_quantity'=>[
+                'required',
+                'integer',
+                'min:1'
+            ],
+
+            'equipment_condition_status'=>[
+                'required'
+            ],
+
+            'equipment_current_location'=>[
+                'nullable',
+                'string'
+            ]
+
+        ]);
+
+        $equipment = Equipment::create([
+
+            ...$validated,
+
+            'equipment_inventory_status' => 'Active',
+
+            'equipment_position_x' => 40,
+
+            'equipment_position_y' => 40,
+
+        ]);
+
+        return response()->json([
+
+            'success'=>true,
+
+            'equipment'=>$equipment
+
         ]);
     }
 
@@ -453,6 +685,10 @@ class InfrastructureController extends Controller
                                                 'condition' => $equipment->equipment_condition_status,
 
                                                 'zone' => $equipment->equipment_current_location,
+
+                                                'x' => $equipment->equipment_position_x,
+
+                                                'y' => $equipment->equipment_position_y,
 
                                             ];
 
