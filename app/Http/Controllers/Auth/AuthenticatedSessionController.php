@@ -105,6 +105,6 @@ class AuthenticatedSessionController extends Controller
         $request->session()->regenerateToken();
 
         // REDIRECT TO HOME PAGE
-        return redirect('/');
+        return redirect('http://127.0.0.1:8000/');
     }
 }

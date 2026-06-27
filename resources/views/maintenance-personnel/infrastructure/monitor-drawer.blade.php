@@ -1,10 +1,9 @@
-<aside
-    class="min-h-[720px] overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-xl shadow-slate-900/5"
+<aside class="flex h-[900px] flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-xl">
+    <!-- Selected room container -->
+<div
+    x-show="selectedRoom === null"
+    class="flex h-full flex-col"
 >
-    <div
-        x-show="selectedRoom === null"
-        class="flex h-full min-h-[720px] flex-col"
-    >
         <div class="bg-slate-950 p-7 text-white">
             <div
                 class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#005EA6]"
@@ -72,6 +71,8 @@
 
                     quantity:1,
 
+                    tracking:'Bulk',
+
                     condition:'Good',
 
                     location:''
@@ -113,6 +114,8 @@
                                     equipment_category_id:this.addForm.category,
 
                                     equipment_quantity:this.addForm.quantity,
+
+                                    equipment_tracking_mode:this.addForm.tracking,
 
                                     equipment_condition_status:this.addForm.condition,
 
@@ -360,7 +363,7 @@
                 }
 
             }"
-            class="min-h-[720px]"
+            class="flex h-full flex-col"
         >
             <div class="relative overflow-hidden bg-slate-950 p-6 text-white">
                 <div
@@ -374,7 +377,7 @@
                         </h2>
                         <p class="mt-1 text-sm text-slate-400">{{
                             $room->room_type ?:
-                                "Unclassified room"
+                                "No Room Type"
                         }}</p>
                     </div>
                     <button
@@ -392,7 +395,7 @@
                                 "equipment_quantity",
                             )
                         }}</b
-                        ><span class="text-[10px] text-slate-400">Assets</span>
+                        ><span class="text-[10px] text-slate-400">{{ $room->equipment->sum('equipment_quantity') > 1 ? 'Equipments' : 'Equipment'}}</span>
                     </div>
                     <div class="rounded-xl bg-white/5 p-3">
                         <b class="block text-lg">{{
@@ -401,7 +404,7 @@
                             ]
                         }}</b
                         ><span class="text-[10px] text-slate-400"
-                            >Active tickets</span
+                            >{{ $room->monitoring['active_reports'] > 1 ? 'Active Reports' : 'Active Report'}}</span
                         >
                     </div>
                     <div class="rounded-xl bg-white/5 p-3">
@@ -410,7 +413,7 @@
                                 ->where("equipment_condition_status", "Good")
                                 ->sum("equipment_quantity")
                         }}</b
-                        ><span class="text-[10px] text-slate-400">Healthy</span>
+                        ><span class="text-[10px] text-slate-400">{{ $room->equipment->where('equipment_condition_status', 'Good')->sum('equipment_quantity') > 1 ? 'Good Conditions' : 'Good Condition'}}</span>
                     </div>
                 </div>
             </div>
@@ -473,7 +476,7 @@
                 </div>
             </div>
 
-            <div class="max-h-[475px] overflow-y-auto p-5">
+            <div class="relative flex-1 overflow-y-auto p-5">
                 <div
                     x-show="tab === 'overview'"
                     x-cloak
@@ -498,9 +501,12 @@
 
                                 </dt>
 
-                                <dd class="font-bold">
+                                <dd @class([
+                                    'font-semibold text-sm' => $room->room_name,
+                                    'text-sm text-gray-400' => !$room->room_name
+                                ])>
 
-                                    {{ $room->room_name }}
+                                    {{ $room->room_name ?: 'Not Specified'}}
 
                                 </dd>
 
@@ -514,9 +520,12 @@
 
                                 </dt>
 
-                                <dd class="font-bold">
+                                <dd @class([
+                                    'font-semibold text-sm' => $room->floor->floor_level,
+                                    'text-sm text-gray-400' => !$room->floor->floor_level
+                                ])>
 
-                                    {{ $room->floor->floor_level }}
+                                    {{ $room->floor->floor_level ?: 'Not Specified'}}
 
                                 </dd>
 
@@ -530,10 +539,11 @@
 
                                 </dt>
 
-                                <dd class="font-bold">
-
-                                    {{ $room->room_type }}
-
+                                <dd @class([
+                                    'font-semibold text-sm' => $room->room_type,
+                                    'text-sm text-gray-400' => !$room->room_type
+                                ])>
+                                    {{ $room->room_type ?: 'No Room Type' }}
                                 </dd>
 
                             </div>
@@ -567,28 +577,24 @@
                         <div class="rounded-2xl bg-blue-50 p-4">
 
                             <p class="text-xs font-bold uppercase text-blue-500">
-
-                                Assets
-
+                                {{ $room->monitoring['equipment_quantity'] > 1 ? 'Equipments' : 'Equipment' }}
                             </p>
 
                             <h2 class="mt-2 text-3xl font-black text-blue-700">
-
                                 {{ $room->monitoring['equipment_quantity'] }}
-
                             </h2>
 
                         </div>
 
-                        <div class="rounded-2xl bg-emerald-50 p-4">
+                        <div class="rounded-2xl bg-yellow-50 p-4">
 
-                            <p class="text-xs font-bold uppercase text-emerald-500">
+                            <p class="text-xs font-bold uppercase text-yellow-500">
 
-                                Reports
+                                {{ $room->monitoring['active_reports'] > 1 ? 'Reports' : 'Report' }}
 
                             </p>
 
-                            <h2 class="mt-2 text-3xl font-black text-emerald-700">
+                            <h2 class="mt-2 text-3xl font-black text-yellow-700">
 
                                 {{ $room->monitoring['active_reports'] }}
 
@@ -602,7 +608,7 @@
 
                         <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-400">
 
-                            Equipment Health
+                            Equipment Condition
 
                         </h3>
 
@@ -610,13 +616,13 @@
 
                             <div class="flex justify-between">
 
-                                <span>
+                                <span class="text-sm text-slate-500">
 
                                     Good
 
                                 </span>
 
-                                <span class="font-black text-emerald-600">
+                                <span class="text-sm font-semibold">
 
                                     {{ $room->monitoring['equipment_good'] }}
 
@@ -626,13 +632,13 @@
 
                             <div class="flex justify-between">
 
-                                <span>
+                                <span class="text-sm text-slate-500">
 
                                     Under Maintenance
 
                                 </span>
 
-                                <span class="font-black text-amber-500">
+                                <span class="text-sm font-semibold">
 
                                     {{ $room->monitoring['equipment_maintenance'] }}
 
@@ -642,15 +648,31 @@
 
                             <div class="flex justify-between">
 
-                                <span>
+                                <span class="text-sm ">
 
                                     Damaged
 
                                 </span>
 
-                                <span class="font-black text-red-600">
+                                <span class="text-sm font-semibold">
 
                                     {{ $room->monitoring['equipment_damaged'] }}
+
+                                </span>
+
+                            </div>
+
+                            <div class="flex justify-between">
+
+                                <span class="text-sm text-slate-500">
+
+                                    Disposed
+
+                                </span>
+
+                                <span class="text-sm font-semibold">
+
+                                    {{ $room->monitoring['equipment_disposed'] }}
 
                                 </span>
 
@@ -781,15 +803,15 @@
 
                             <button
                                 type="button"
-                                title="Coming in Phase 3.3"
-                                class="group rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-left transition hover:border-violet-500 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-70"
+                                @click="archiveRoomModal = true"
+                                class="group rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-left transition hover:border-red-500 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-70"
                             >
 
                                 <div class="flex items-center gap-3">
 
-                                    <div class="rounded-xl bg-violet-100 p-2 text-violet-600">
+                                    <div class="rounded-xl bg-red-100 p-2 text-red-600">
 
-                                        <i data-lucide="history" class="h-5 w-5"></i>
+                                        <i data-lucide="archive" class="h-5 w-5"></i>
 
                                     </div>
 
@@ -797,13 +819,13 @@
 
                                         <h4 class="text-sm font-bold">
 
-                                            View History
+                                            Archive Room
 
                                         </h4>
 
                                         <p class="mt-1 text-[11px] text-slate-500">
 
-                                            Review room activity and changes.
+                                            Archive this room and keep records.
 
                                         </p>
 
@@ -821,7 +843,7 @@
 
                                 <span class="text-xs font-semibold text-slate-500">
 
-                                    Blueprint Editor
+                                    Layout Editor
 
                                 </span>
 
@@ -839,138 +861,295 @@
 
                 </div>
 
-                <!-- Add Equipment Modal -->
+                <!-- ========================================= -->
+                <!-- Premium Add Equipment Modal -->
+                <!-- Replace your current Add Equipment Modal -->
+                <!-- ========================================= -->
 
                 <div
-
                     x-show="addEquipmentModal"
-
-                    x-transition
-
-                    class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40"
-
+                    x-transition.opacity
+                    class="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/60 backdrop-blur-sm p-6"
                 >
 
                     <div
 
-                       @click.outside="
+                        @click.outside="
+                            addEquipmentModal=false;
 
-                        addEquipmentModal=false;
-
-                        addForm={
-
-                            room_id:{{ $room->room_id }},
-
-                            name:'',
-
-                            category:'',
-
-                            quantity:1,
-
-                            condition:'Good',
-
-                            location:''
-
-                        }
-
+                            addForm={
+                                room_id:{{ $room->room_id }},
+                                name:'',
+                                category:'',
+                                quantity:1,
+                                condition:'Good',
+                                location:''
+                            }
                         "
 
-                        class="w-full max-w-lg rounded-3xl bg-white p-6"
+                        class="w-full max-w-xl overflow-hidden rounded-[28px] bg-white shadow-2xl"
 
                     >
 
-                        <h2 class="text-xl font-bold">
+                        <!-- Header -->
 
-                            Add Equipment
+                        <div class="relative overflow-hidden bg-gradient-to-r from-[#005EA6] to-[#0A84FF] px-7 py-6 text-white">
 
-                        </h2>
+                            <div class="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-white/10 blur-2xl"></div>
 
-                        <div class="mt-5 space-y-4">
+                            <div class="relative flex items-center gap-4">
 
-                            <input
-                                x-model="addForm.name"
-                                type="text"
-                                placeholder="Equipment Name"
-                                class="w-full rounded-xl border p-3"
-                            >
+                                <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15 backdrop-blur">
 
-                            <select
-                                x-model="addForm.category"
-                                class="w-full rounded-xl border p-3"
-                            >
+                                    <i data-lucide="package-plus" class="h-7 w-7"></i>
 
-                                <option value="">
+                                </div>
 
-                                    Select Category
+                                <div>
 
-                                </option>
+                                    <h2 class="text-2xl font-extrabold">
 
-                                @foreach($categories as $category)
+                                        Add Equipment
 
-                                    <option value="{{ $category->equipment_category_id }}">
+                                    </h2>
 
-                                        {{ $category->equipment_category_name }}
+                                    <p class="mt-1 text-sm text-blue-100">
 
-                                    </option>
+                                        Register a new asset for this room.
 
-                                @endforeach
+                                    </p>
 
-                            </select>
+                                </div>
 
-                            <input
-                                x-model="addForm.quantity"
-                                type="number"
-                                min="1"
-                                class="w-full rounded-xl border p-3"
-                            >
-
-                            <select
-                                x-model="addForm.condition"
-                                class="w-full rounded-xl border p-3"
-                            >
-
-                                <option>Good</option>
-                                <option>Under Maintenance</option>
-                                <option>Damaged</option>
-
-                            </select>
-
-                            <input
-                                x-model="addForm.location"
-                                type="text"
-                                placeholder="Location"
-                                class="w-full rounded-xl border p-3"
-                            >
+                            </div>
 
                         </div>
 
-                        <div class="mt-6 flex justify-end gap-3">
+                        <!-- Body -->
+
+                        <div class="space-y-6 p-7">
+
+                            <div>
+
+                                <label class="mb-2 block text-sm font-semibold text-slate-700">
+
+                                    Equipment Name
+
+                                </label>
+
+                                <input
+
+                                    x-model="addForm.name"
+
+                                    type="text"
+
+                                    placeholder="Example: Split Type Air Conditioner"
+
+                                    class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 transition focus:border-[#005EA6] focus:bg-white focus:outline-none"
+
+                                >
+
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-5">
+
+                                <div>
+
+                                    <label class="mb-2 block text-sm font-semibold text-slate-700">
+
+                                        Category
+
+                                    </label>
+
+                                    <select
+
+                                        x-model="addForm.category"
+
+                                        class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 transition focus:border-[#005EA6] focus:bg-white focus:outline-none"
+
+                                    >
+
+                                        <option value="">
+
+                                            Select Category
+
+                                        </option>
+
+                                        @foreach($categories as $category)
+
+                                            <option value="{{ $category->equipment_category_id }}">
+
+                                                {{ $category->equipment_category_name }}
+
+                                            </option>
+
+                                        @endforeach
+
+                                    </select>
+
+                                </div>
+
+                                <div>
+
+                                    <label class="mb-2 block text-sm font-semibold text-slate-700">
+
+                                        Quantity
+
+                                    </label>
+
+                                    <input
+
+                                        x-model="addForm.quantity"
+
+                                        type="number"
+
+                                        min="1"
+
+                                        class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 transition focus:border-[#005EA6] focus:bg-white focus:outline-none"
+
+                                    >
+
+                                </div>
+
+                                <div>
+
+                                    <label class="mb-2 block text-sm font-semibold">
+
+                                        Tracking Mode
+
+                                    </label>
+
+                                    <select
+
+                                        x-model="addForm.tracking"
+
+                                        class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
+
+                                    >
+
+                                        <option value="Bulk">
+
+                                            Bulk
+
+                                        </option>
+
+                                        <option value="Individual">
+
+                                            Individual
+
+                                        </option>
+
+                                    </select>
+
+                                </div>
+
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-5">
+
+                                <div>
+
+                                    <label class="mb-2 block text-sm font-semibold text-slate-700">
+
+                                        Condition
+
+                                    </label>
+
+                                    <select
+
+                                        x-model="addForm.condition"
+
+                                        class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 transition focus:border-[#005EA6] focus:bg-white focus:outline-none"
+
+                                    >
+
+                                        <option>Good</option>
+                                        <option>Under Maintenance</option>
+                                        <option>Damaged</option>
+                                        <option>Disposed</option>
+
+                                    </select>
+
+                                </div>
+
+                                <div>
+
+                                    <label class="mb-2 block text-sm font-semibold text-slate-700">
+
+                                        Placement
+
+                                    </label>
+
+                                    <input
+
+                                        x-model="addForm.location"
+
+                                        type="text"
+
+                                        placeholder="Example: Front Wall"
+
+                                        class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 transition focus:border-[#005EA6] focus:bg-white focus:outline-none"
+
+                                    >
+
+                                </div>
+
+                            </div>
+
+                            <!-- Information Card -->
+
+                            <div class="rounded-2xl border border-blue-100 bg-blue-50 p-4">
+
+                                <div class="flex items-start gap-3">
+
+                                    <div class="rounded-xl bg-[#005EA6] p-2 text-white">
+
+                                        <i data-lucide="info" class="h-5 w-5"></i>
+
+                                    </div>
+
+                                    <div>
+
+                                        <h4 class="font-bold text-slate-800">
+
+                                            Equipment Registration
+
+                                        </h4>
+
+                                        <p class="mt-1 text-sm text-slate-600">
+
+                                            The equipment will immediately appear in this room's inventory after saving.
+
+                                        </p>
+
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                        <!-- Footer -->
+
+                        <div class="flex gap-4 border-t border-slate-100 bg-slate-50 px-7 py-5">
 
                             <button
 
                                 @click="
+                                    addEquipmentModal=false;
 
-                                addEquipmentModal=false;
-
-                                addForm={
-
-                                    room_id:{{ $room->room_id }},
-
-                                    name:'',
-
-                                    category:'',
-
-                                    quantity:1,
-
-                                    condition:'Good',
-
-                                    location:''
-
-                                }
-
+                                    addForm={
+                                        room_id:{{ $room->room_id }},
+                                        name:'',
+                                        category:'',
+                                        quantity:1,
+                                        condition:'Good',
+                                        location:''
+                                    }
                                 "
 
-                                class="rounded-xl border px-5 py-2"
+                                class="flex-1 rounded-2xl border border-slate-300 bg-white py-3 font-semibold text-slate-700 transition hover:bg-slate-100"
 
                             >
 
@@ -984,11 +1163,11 @@
 
                                 :disabled="saving"
 
-                                class="rounded-xl bg-[#005EA6] px-5 py-2 text-white"
+                                class="flex-1 rounded-2xl bg-[#005EA6] py-3 font-semibold text-white transition hover:bg-[#004B86] disabled:cursor-not-allowed disabled:opacity-60"
 
                             >
 
-                                <span x-text="saving ? 'Saving...' : 'Save'"></span>
+                                <span x-text="saving ? 'Saving Equipment...' : 'Add Equipment'"></span>
 
                             </button>
 
@@ -1167,45 +1346,7 @@
 
                         </div>
 
-                        <hr class="my-6">
-
-                        <div class="rounded-2xl border border-red-200 bg-red-50 p-5">
-
-                            <h3 class="font-bold text-red-700">
-
-                                Archive Room
-
-                            </h3>
-
-                            <p class="mt-2 text-sm text-red-600">
-
-                                This removes the room from the active blueprint.
-
-                                Reports remain in history.
-
-                            </p>
-
-                            <button
-
-                               @click="
-
-                                    editRoomModal = false;
-
-                                    archiveRoomModal = true;
-
-                                "
-
-                                :disabled="roomSaving"
-
-                                class="mt-5 w-full rounded-xl bg-red-600 py-3 font-semibold text-white hover:bg-red-700"
-
-                            >
-
-                                Archive Room
-
-                            </button>
-
-                        </div>
+                        
 
                     </div>
 
@@ -1551,6 +1692,12 @@
 
                             </option>
 
+                            <option value="disposed">
+
+                                Disposed
+
+                            </option>
+
                         </select>
 
                     </div>
@@ -1558,8 +1705,10 @@
                 </div>
                     @forelse ($room->equipment as $item)
                         @php
-                            $healthy = $item->equipment_condition_status === "Good";
-                            $maintenance = $item->equipment_condition_status === "Under Maintenance";
+                            $healthy = $item->equipment_condition_status === 'Good';
+                            $maintenance = $item->equipment_condition_status === 'Under Maintenance';
+                            $damaged = $item->equipment_condition_status === 'Damaged';
+                            $disposed = $item->equipment_condition_status === 'Disposed';
                         @endphp
                         <article
                         x-show="
@@ -1624,10 +1773,22 @@
 
                                         )
 
+                                        ||
+
+                                        (
+                                            filter === 'disposed'
+
+                                            &&
+
+                                            '{{ $item->equipment_condition_status }}'
+
+                                            === 'Disposed'
+                                        )
+
                                     )
 
                             "
-                                class="rounded-2xl border border-slate-100 bg-slate-50 p-4 transition hover:border-slate-200 hover:bg-white hover:shadow-md"
+                                class="relative overflow-visible rounded-2xl border border-slate-100 bg-slate-50 p-4 transition hover:border-slate-200 hover:bg-white hover:shadow-md" 
                             >
                             <!-- Equipment Alpine Component -->
                             <div x-data="equipmentCard({
@@ -1648,24 +1809,33 @@
 
                             <!-- Equipment Header -->
 
+                                <!-- ========================= -->
+                                <!-- Equipment Header -->
+                                <!-- Replace your current header + 4-column grid -->
+                                <!-- ========================= -->
+
                                 <div class="flex items-start justify-between gap-3">
 
-                                    <div class="flex gap-3">
+                                    <div class="flex min-w-0 gap-3">
 
                                         <span
-                                            class="mt-1 h-3 w-3 rounded-full
+                                            class="mt-1 h-2.5 w-2.5 shrink-0 rounded-full
                                             {{
                                                 $healthy
                                                     ? 'bg-emerald-500'
                                                     : ($maintenance
                                                         ? 'bg-amber-400'
-                                                        : 'bg-red-500')
+                                                        : ($damaged
+                                                            ? 'bg-red-600'
+                                                            : ($disposed
+                                                                ? 'bg-zinc-500'
+                                                                : 'bg-gray-300')))
                                             }}"
                                         ></span>
 
-                                        <div>
+                                        <div class="min-w-0">
 
-                                            <h3 class="text-sm font-bold text-slate-800">
+                                            <h3 class="truncate text-sm font-bold text-slate-800">
 
                                                 {{ $item->equipment_name }}
 
@@ -1673,7 +1843,19 @@
 
                                             <p class="mt-1 text-[11px] text-slate-500">
 
-                                                {{ $item->category->equipment_category_name ?? 'Uncategorized' }}
+                                                {{ $item->equipment_asset_tag ?: 'No Asset Tag' }}
+
+                                                ·
+
+                                                @if($item->equipment_tracking_mode == 'Bulk')
+
+                                                Qty {{ $item->equipment_quantity }}
+
+                                                @else
+
+                                                Individual Asset
+
+                                                @endif
 
                                             </p>
 
@@ -1681,94 +1863,108 @@
 
                                     </div>
 
-                                    <div class="relative">
+                                    <div class="flex items-center gap-2">
 
-                                        <button
-
-                                            @click="menu=!menu"
-
-                                            class="rounded-lg p-2 hover:bg-slate-100"
-
+                                        <span
+                                            class="rounded-full px-2 py-1 text-[9px] font-extrabold
+                                            {{
+                                                $healthy
+                                                    ? 'bg-emerald-100 text-emerald-700'
+                                                    : ($maintenance
+                                                        ? 'bg-amber-100 text-amber-700'
+                                                        : ($damaged
+                                                            ? 'bg-red-100 text-red-700'
+                                                            : ($disposed
+                                                                ? 'bg-slate-200 text-slate-700'
+                                                                : 'bg-gray-100 text-gray-700')))
+                                            }}"
                                         >
 
-                                            <i data-lucide="ellipsis-vertical" class="h-4 w-4"></i>
+                                            {{ $item->equipment_condition_status }}
 
-                                        </button>
+                                        </span>
 
-                                        <div
-                                            x-show="menu"
-                                            @click.outside="menu=false"
-                                            x-transition
-                                            class="absolute right-2 top-8 z-20 w-44 max-h-[132px] overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl"
+                                        <div 
+                                            x-data="{ menu: false }" 
+                                            :class="menu ? 'relative z-40' : 'relative z-10'"
+                                            class="rounded-xl border border-slate-100 bg-white p-1 shadow-sm"
                                         >
-                                            <button
-                                                @click="
-                                                    details=!details;
-                                                    menu=false;
-                                                "
-                                                class="flex w-full items-center gap-2 px-4 py-3 text-left text-sm hover:bg-slate-50"
-                                            >
-                                                <i data-lucide="eye" class="h-4 w-4"></i>
-                                                View Details
-                                            </button>
 
-                                            <button
+                                            <div class="relative z-30">
 
-                                                @click="
+                                                <button @click="menu=!menu" class="rounded-lg p-2 hover:bg-slate-100">
+                                                    <i data-lucide="ellipsis-vertical" class="h-4 w-4"></i>
+                                                </button>
 
-                                                    editing=true;
+                                                <!-- your dropdown stays here -->
 
-                                                    menu=false;
+                                                <div
+                                                    x-show="menu"
+                                                    @click.outside="menu=false"
+                                                    x-transition
+                                                    class="absolute -right-1 top-full mt-2 z-50 w-48 rounded-lg border border-dashed border-slate-200 bg-white shadow-2xl"
+                                                >
+                                                    <button
+                                                        @click="
+                                                        panel = panel === 'details' ? '' : 'details';
+                                                        menu = false;
+                                                        "
+                                                        class="flex w-full items-center gap-2 px-4 py-3 text-left text-sm hover:bg-slate-50"
+                                                    >
+                                                        <i data-lucide="eye" class="h-4 w-4"></i>
+                                                        View Details
+                                                    </button>
 
-                                                "
+                                                    <button
 
-                                                class="flex w-full items-center gap-2 px-4 py-3 text-left text-sm hover:bg-slate-50"
+                                                        @click="
+                                                        panel = 'edit';
+                                                        menu = false;
+                                                        "
 
-                                            >
+                                                        class="flex w-full items-center gap-2 px-4 py-3 text-left text-sm hover:bg-slate-50"
 
-                                                <i data-lucide="square-pen" class="h-4 w-4"></i>
+                                                    >
 
-                                                Edit Equipment
+                                                        <i data-lucide="square-pen" class="h-4 w-4"></i>
 
-                                            </button>
+                                                        Edit Equipment
 
-                                            <button
-                                                @click="
+                                                    </button>
 
-                                                    transferRoom='';
+                                                    <button
+                                                        @click="
+                                                        transferRoom='';
+                                                        panel='transfer';
+                                                        menu=false;
+                                                        "
+                                                        class="flex w-full items-center gap-2 px-4 py-3 text-left text-sm hover:bg-slate-50"
+                                                    >
+                                                        <i data-lucide="arrow-right-left" class="h-4 w-4"></i>
+                                                        Transfer
+                                                    </button>
 
-                                                    transferModal=true;
+                                                    <button
 
-                                                    menu=false;
+                                                        @click="
+                                                        archiveReason='';
+                                                        panel='archive';
+                                                        menu=false;
+                                                        "
 
-                                                "
-                                                class="flex w-full items-center gap-2 px-4 py-3 text-left text-sm hover:bg-slate-50"
-                                            >
-                                                <i data-lucide="move-right" class="h-4 w-4"></i>
-                                                Transfer
-                                            </button>
+                                                        class="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50"
 
-                                            <button
+                                                    >
 
-                                                @click="
+                                                        <i data-lucide="archive" class="h-4 w-4"></i>
 
-                                                    archiveReason='';
+                                                        Archive
 
-                                                    archiveModal=true;
+                                                    </button>
+                                                </div>
 
-                                                    menu=false;
+                                            </div>
 
-                                                "
-
-                                                class="flex w-full items-center gap-2 px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50"
-
-                                            >
-
-                                                <i data-lucide="archive" class="h-4 w-4"></i>
-
-                                                Archive
-
-                                            </button>
                                         </div>
 
                                     </div>
@@ -1777,96 +1973,36 @@
                             
                             
 
-                                <div class="mt-4 grid grid-cols-2 gap-x-6 gap-y-4">
+                                <div class="mt-3 flex items-center gap-2 border-t border-slate-200 pt-3 text-[11px] text-slate-500">
 
-                                    <div>
+                                    <i
+                                    data-lucide="map-pin"
+                                    class="h-3.5 w-3.5 text-[#005EA6]"
+                                    ></i>
 
-                                        <p class="text-[10px] uppercase tracking-wide text-slate-400">
+                                    <span>
 
-                                            Asset Tag
+                                    {{
 
-                                        </p>
+                                        $item->equipment_placement_zone
 
-                                        <p class="mt-1 font-semibold">
+                                        ?:
 
-                                            {{ $item->equipment_asset_tag ?: 'N/A' }}
+                                        ($item->equipment_current_location ?: 'Placement not plotted')
 
-                                        </p>
+                                    }}
 
-                                    </div>
-
-                                    <div>
-
-                                        <p class="text-[10px] uppercase tracking-wide text-slate-400">
-
-                                            Quantity
-
-                                        </p>
-
-                                        <p class="mt-1 font-semibold">
-
-                                            {{ $item->equipment_quantity }}
-
-                                        </p>
+                                    </span>
 
                                     </div>
-
-                                    <div>
-
-                                        <p class="text-[10px] uppercase tracking-wide text-slate-400">
-
-                                            Condition
-
-                                        </p>
-
-                                        <span
-                                            class="mt-1 inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold
-                                            {{
-                                                $item->equipment_condition_status === 'Good'
-                                                    ? 'bg-emerald-100 text-emerald-700'
-                                                    : ($item->equipment_condition_status === 'Under Maintenance'
-                                                        ? 'bg-amber-100 text-amber-700'
-                                                        : 'bg-red-100 text-red-700')
-                                            }}"
-                                        >
-                                            {{ $item->equipment_condition_status }}
-                                        </span>
-
-                                    </div>
-
-                                    <div>
-
-                                        <p class="text-[10px] uppercase tracking-wide text-slate-400">
-
-                                            Placement
-
-                                        </p>
-
-                                        <p class="mt-1">
-
-                                            {{
-
-                                                $item->equipment_placement_zone
-
-                                                ?:
-
-                                                ($item->equipment_current_location ?: 'Not plotted')
-
-                                            }}
-
-                                        </p>
-
-                                    </div>
-
-                                </div>
 
                                 <div
 
-                                    x-show="details"
+                                    x-show="panel === 'details'"
 
                                     x-collapse
 
-                                    class="mt-5 border-t border-slate-200 pt-5"
+                                    class="mt-6 border-t border-slate-200 pt-6"
 
                                 >
 
@@ -1874,9 +2010,13 @@
                                         class="text-xs font-extrabold uppercase tracking-[.2em] text-slate-400"
                                     >
 
-                                        Asset Details
+                                        Equipment Information
 
                                     </h4>
+
+                                    
+
+                                
 
                                     <div class="mt-4 grid grid-cols-2 gap-x-6 gap-y-5">
 
@@ -1916,29 +2056,13 @@
 
                                             <p class="text-[10px] uppercase tracking-wide text-slate-400">
 
-                                                Purchase Date
-
-                                            </p>
-
-                                            <p class="mt-1">
-
-                                                {{ $item->equipment_purchase_date ?? 'Unknown' }}
-
-                                            </p>
-
-                                        </div>
-
-                                        <div>
-
-                                            <p class="text-[10px] uppercase tracking-wide text-slate-400">
-
                                                 Warranty
 
                                             </p>
 
                                             <p class="mt-1">
 
-                                                {{ $item->equipment_warranty_until ?? 'Unknown' }}
+                                                {{ $item->equipment_warranty_expiration ?? 'Unknown' }}
 
                                             </p>
 
@@ -1955,6 +2079,22 @@
                                             <p class="mt-1">
 
                                                 {{ $item->equipment_supplier ?? 'Not Assigned' }}
+
+                                            </p>
+
+                                        </div>
+
+                                        <div>
+
+                                            <p class="text-[10px] uppercase tracking-wide text-slate-400">
+
+                                                Purchase Date
+
+                                            </p>
+
+                                            <p class="mt-1">
+
+                                                {{ $item->equipment_purchase_date ?? 'Unknown' }}
 
                                             </p>
 
@@ -2017,115 +2157,37 @@
 
                                     <div
 
-                                    x-show="editing"
+                                        x-show="panel === 'edit'"
 
-                                    x-transition
+                                        x-transition
 
-                                    class="mt-5 rounded-2xl border border-blue-200 bg-blue-50 p-5"
+                                        class="mt-5 rounded-2xl border border-blue-200 bg-blue-50 p-5"
 
-                                >
-
-                                    <h4
-                                        class="text-xs font-extrabold uppercase tracking-[.2em] text-slate-500"
                                     >
 
-                                        Edit Equipment
+                                        <h4
+                                            class="text-xs font-extrabold uppercase tracking-[.2em] text-slate-500"
+                                        >
 
-                                    </h4>
+                                            Edit Equipment
 
-                                    <div class="mt-5 space-y-4">
+                                        </h4>
 
-                                        <div>
-
-                                            <label class="mb-1 block text-xs font-semibold text-slate-600">
-
-                                                Equipment Name
-
-                                            </label>
-
-                                            <input
-
-                                                x-model="form.name"
-
-                                                type="text"
-
-                                                class="w-full rounded-xl border border-slate-300 px-3 py-2.5"
-
-                                            >
-
-                                        </div>
-
-                                        <div>
-
-                                            <label class="mb-1 block text-xs font-semibold text-slate-600">
-
-                                                Category
-
-                                            </label>
-
-                                            <select
-
-                                                x-model="form.category"
-
-                                                class="w-full rounded-xl border border-slate-300 px-3 py-2.5"
-
-                                            >
-
-                                                <option value="">
-
-                                                    Select Category
-
-                                                </option>
-
-                                                @foreach($categories as $category)
-
-                                                    <option value="{{ $category->equipment_category_id }}">
-
-                                                        {{ $category->equipment_category_name }}
-
-                                                    </option>
-
-                                                @endforeach
-
-                                            </select>
-
-                                        </div>
-
-                                        <div>
-
-                                            <label class="mb-1 block text-xs font-semibold text-slate-600">
-
-                                                Location
-
-                                            </label>
-
-                                            <input
-
-                                                x-model="form.location"
-
-                                                type="text"
-
-                                                class="w-full rounded-xl border border-slate-300 px-3 py-2.5"
-
-                                            >
-
-                                        </div>
-
-                                        <div class="grid grid-cols-2 gap-4">
+                                        <div class="mt-5 space-y-4">
 
                                             <div>
 
                                                 <label class="mb-1 block text-xs font-semibold text-slate-600">
 
-                                                    Quantity
+                                                    Equipment Name
 
                                                 </label>
 
                                                 <input
 
-                                                    x-model="form.quantity"
+                                                    x-model="form.name"
 
-                                                    type="number"
+                                                    type="text"
 
                                                     class="w-full rounded-xl border border-slate-300 px-3 py-2.5"
 
@@ -2137,132 +2199,185 @@
 
                                                 <label class="mb-1 block text-xs font-semibold text-slate-600">
 
-                                                    Condition
+                                                    Category
 
                                                 </label>
 
                                                 <select
-                                                    x-model="form.condition"
+
+                                                    x-model="form.category"
+
                                                     class="w-full rounded-xl border border-slate-300 px-3 py-2.5"
+
                                                 >
 
-                                                    <option
-                                                        
-                                                    >
-                                                        Good
+                                                    <option value="">
+
+                                                        Select Category
+
                                                     </option>
 
-                                                    <option
-                                                        
-                                                    >
-                                                        Under Maintenance
-                                                    </option>
+                                                    @foreach($categories as $category)
 
-                                                    <option
-                                                        
-                                                    >
-                                                        Damaged
-                                                    </option>
+                                                        <option value="{{ $category->equipment_category_id }}">
+
+                                                            {{ $category->equipment_category_name }}
+
+                                                        </option>
+
+                                                    @endforeach
 
                                                 </select>
 
                                             </div>
 
-                                        </div>
+                                            <div>
 
-                                        <div class="flex justify-end gap-3">
+                                                <label class="mb-1 block text-xs font-semibold text-slate-600">
 
-                                            <button
+                                                    Location
 
-                                                @click="editing=false"
+                                                </label>
 
-                                                class="rounded-xl border border-slate-300 px-4 py-2"
+                                                <input
 
-                                            >
+                                                    x-model="form.location"
 
-                                                Cancel
+                                                    type="text"
 
-                                            </button>
+                                                    class="w-full rounded-xl border border-slate-300 px-3 py-2.5"
 
-                                            <button
+                                                >
 
-                                                @click="saveEquipment()"
+                                            </div>
 
-                                                :disabled="saving"
+                                            <div class="grid grid-cols-2 gap-4">
 
-                                                class="rounded-xl bg-[#005EA6] px-5 py-2 font-semibold text-white hover:bg-[#004b86] disabled:cursor-not-allowed disabled:opacity-60"
+                                                <div>
 
-                                            >
+                                                    <label class="mb-1 block text-xs font-semibold text-slate-600">
 
-                                                <span
-                                                    x-text="saving ? 'Saving...' : 'Save Changes'"
-                                                ></span>
+                                                        Quantity
 
-                                            </button>
+                                                    </label>
+
+                                                    @if($item->equipment_tracking_mode == 'Bulk')
+
+                                                    <input
+
+                                                        x-model="form.quantity"
+
+                                                        type="number"
+
+                                                        class="w-full rounded-xl border border-slate-300 px-3 py-2.5"
+
+                                                    >
+
+                                                    @endif
+
+                                                </div>
+
+                                                <div>
+
+                                                    <label class="mb-1 block text-xs font-semibold text-slate-600">
+
+                                                        Condition
+
+                                                    </label>
+
+                                                    <select
+                                                        x-model="form.condition"
+                                                        class="w-full rounded-xl border border-slate-300 px-3 py-2.5"
+                                                    >
+
+                                                        <option
+                                                            
+                                                        >
+                                                            Good
+                                                        </option>
+
+                                                        <option
+                                                            
+                                                        >
+                                                            Under Maintenance
+                                                        </option>
+
+                                                        <option
+                                                            
+                                                        >
+                                                            Damaged
+                                                        </option>
+
+                                                        <option>
+
+                                                            Disposed
+
+                                                        </option>
+
+                                                    </select>
+
+                                                </div>
+
+                                            </div>
+
+                                            <div class="flex justify-end gap-3">
+
+                                                <button
+
+                                                     @click="panel=''"
+
+                                                    class="rounded-xl border border-slate-300 px-4 py-2"
+
+                                                >
+
+                                                    Cancel
+
+                                                </button>
+
+                                                <button
+
+                                                    @click="saveEquipment()"
+
+                                                    :disabled="saving"
+
+                                                    class="rounded-xl bg-[#005EA6] px-5 py-2 font-semibold text-white hover:bg-[#004b86] disabled:cursor-not-allowed disabled:opacity-60"
+
+                                                >
+
+                                                    <span
+                                                        x-text="saving ? 'Saving...' : 'Save Changes'"
+                                                    ></span>
+
+                                                </button>
+
+                                            </div>
 
                                         </div>
 
                                     </div>
 
-                                </div>
-
-                                <!-- ============================== -->
-                                <!-- Transfer Equipment Modal -->
-                                <!-- Place BEFORE </article> -->
-                                <!-- ============================== -->
-
-                                <div
-
-                                    x-show="transferModal"
-
-                                    x-transition
-
-                                    class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40"
-
-                                >
-
                                     <div
-
-                                        @click.outside="transferModal=false"
-
-                                        class="w-full max-w-md rounded-3xl bg-white p-6"
-
+                                        x-show="panel === 'transfer'"
+                                        x-collapse
+                                        class="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-5"
                                     >
 
-                                        <h3 class="text-xl font-bold">
-
+                                        <h4 class="text-xs font-extrabold uppercase tracking-[.2em] text-slate-500">
                                             Transfer Equipment
-
-                                        </h3>
-
-                                        <p class="mt-2 text-sm text-slate-500">
-
-                                            Select the destination room.
-
-                                        </p>
+                                        </h4>
 
                                         <select
-
                                             x-model="transferRoom"
-
-                                            class="mt-6 w-full rounded-xl border border-slate-300 p-3"
-
+                                            class="mt-5 w-full rounded-xl border border-slate-300 p-3"
                                         >
-
-                                            <option value="">
-
-                                                Select Room
-
-                                            </option>
+                                            <option value="">Select Room</option>
 
                                             @foreach($rooms as $destination)
 
                                                 @if($destination->room_id != $room->room_id)
 
                                                     <option value="{{ $destination->room_id }}">
-
                                                         {{ $destination->room_name }}
-
                                                     </option>
 
                                                 @endif
@@ -2271,111 +2386,64 @@
 
                                         </select>
 
-                                        <div class="mt-6 flex justify-end gap-3">
+                                        <div class="mt-5 flex justify-end gap-3">
 
                                             <button
-
-                                                @click="transferModal=false"
-
+                                                @click="panel=''"
                                                 class="rounded-xl border px-5 py-2"
-
                                             >
-
                                                 Cancel
-
                                             </button>
 
                                             <button
-
                                                 @click="transferEquipment()"
-
                                                 class="rounded-xl bg-[#005EA6] px-5 py-2 text-white"
-
                                             >
-
                                                 Transfer
-
                                             </button>
 
                                         </div>
 
                                     </div>
-
-                                </div>
-
-
-                                <!-- ============================== -->
-                                <!-- Archive Equipment Modal -->
-                                <!-- Place AFTER Transfer Modal -->
-                                <!-- ============================== -->
-
-                                <div
-
-                                    x-show="archiveModal"
-
-                                    x-transition
-
-                                    class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40"
-
-                                >
 
                                     <div
-
-                                        @click.outside="archiveModal=false"
-
-                                        class="w-full max-w-md rounded-3xl bg-white p-6"
-
+                                        x-show="panel === 'archive'"
+                                        x-collapse
+                                        class="mt-5 rounded-2xl border border-red-200 bg-red-50 p-5"
                                     >
 
-                                        <h3 class="text-xl font-bold text-red-600">
-
+                                        <h4 class="text-xs font-extrabold uppercase tracking-[.2em] text-red-600">
                                             Archive Equipment
-
-                                        </h3>
+                                        </h4>
 
                                         <textarea
-
                                             x-model="archiveReason"
-
                                             rows="4"
-
                                             placeholder="Reason"
-
                                             class="mt-5 w-full rounded-xl border border-slate-300 p-3"
-
                                         ></textarea>
 
-                                        <div class="mt-6 flex justify-end gap-3">
+                                        <div class="mt-5 flex justify-end gap-3">
 
                                             <button
-
-                                                @click="archiveModal=false"
-
+                                                @click="panel=''"
                                                 class="rounded-xl border px-5 py-2"
-
                                             >
-
                                                 Cancel
-
                                             </button>
 
                                             <button
-
                                                 @click="archiveEquipment()"
-
                                                 class="rounded-xl bg-red-600 px-5 py-2 text-white"
-
                                             >
-
                                                 Archive
-
                                             </button>
 
                                         </div>
 
                                     </div>
 
-                                </div>
+                                    
 
                             </div>
 
@@ -2515,32 +2583,26 @@
 
                         @forelse($room->monitoring['history'] as $history)
 
-                            <div
-                                class="flex gap-4 rounded-2xl border border-slate-200 p-4"
-                            >
+                            <div class="relative flex gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
 
-                                <div
-                                    class="mt-1 h-3 w-3 rounded-full bg-[#005EA6]"
-                                ></div>
+                                <div class="mt-1 flex flex-col items-center">
+                                    <div class="h-3 w-3 rounded-full bg-[#005EA6]"></div>
+
+                                    <div class="mt-1 h-full w-px bg-slate-200"></div>
+                                </div>
 
                                 <div class="flex-1">
 
                                     <p class="font-semibold">
-
-                                        {{ $history->title }}
-
+                                        {{ $history->activity_title }}
                                     </p>
 
                                     <p class="mt-1 text-sm text-slate-500">
-
-                                        {{ $history->description }}
-
+                                        {{ $history->activity_description }}
                                     </p>
 
                                     <p class="mt-2 text-[11px] text-slate-400">
-
-                                        {{ $history->date }}
-
+                                        {{ \Carbon\Carbon::parse($history->created_at)->format('M d, Y h:i A') }}
                                     </p>
 
                                 </div>
@@ -2582,12 +2644,9 @@ document.addEventListener('alpine:init', () => {
     Alpine.data('equipmentCard', (equipment) => ({
 
         menu:false,
-        details:false,
-        editing:false,
         saving:false,
 
-        transferModal:false,
-        archiveModal:false,
+        panel:'',
 
         transferRoom:'',
         archiveReason:'',
@@ -2604,7 +2663,7 @@ document.addEventListener('alpine:init', () => {
 
         saveEquipment(){
 
-            this.saving=true;
+            this.saving = true;
 
             fetch(`/maintenance/infrastructure/equipment/${this.equipmentId}`,{
 
@@ -2644,8 +2703,9 @@ document.addEventListener('alpine:init', () => {
 
             .then(()=>{
 
-                this.editing=false;
+                this.panel='';
                 this.saving=false;
+
                 location.reload();
 
             })
@@ -2653,6 +2713,7 @@ document.addEventListener('alpine:init', () => {
             .catch(()=>{
 
                 this.saving=false;
+
                 alert('Unable to save equipment.');
 
             });
@@ -2661,7 +2722,13 @@ document.addEventListener('alpine:init', () => {
 
         transferEquipment(){
 
-            if(this.transferRoom==='') return;
+            if(this.transferRoom===''){
+
+                alert('Please select a destination room.');
+
+                return;
+
+            }
 
             fetch(`/maintenance/infrastructure/equipment/${this.equipmentId}/transfer`,{
 
@@ -2683,7 +2750,15 @@ document.addEventListener('alpine:init', () => {
 
             })
 
-            .then(()=>{
+            .then(res=>{
+
+                if(!res.ok){
+
+                    throw new Error();
+
+                }
+
+                this.panel='';
 
                 location.reload();
 
@@ -2719,7 +2794,15 @@ document.addEventListener('alpine:init', () => {
 
             })
 
-            .then(()=>{
+            .then(res=>{
+
+                if(!res.ok){
+
+                    throw new Error();
+
+                }
+
+                this.panel='';
 
                 location.reload();
 

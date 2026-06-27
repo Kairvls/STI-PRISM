@@ -20,6 +20,8 @@ class Equipment extends Model
 
         'equipment_quantity',
 
+        'equipment_tracking_mode',
+
         'equipment_condition_status',
 
         'equipment_inventory_status',
@@ -55,6 +57,23 @@ class Equipment extends Model
             EquipmentCategory::class,
             'equipment_category_id',
             'equipment_category_id'
+        );
+    }
+
+    // ==============================
+    // Supplier Relationship
+    // ==============================
+
+    public function supplier()
+    {
+        return $this->belongsTo(
+
+            Supplier::class,
+
+            'equipment_supplier_id',
+
+            'supplier_id'
+
         );
     }
 }

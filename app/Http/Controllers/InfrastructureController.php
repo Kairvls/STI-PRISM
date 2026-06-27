@@ -6,6 +6,7 @@ use App\Models\Building;
 use App\Models\Floor;
 use App\Models\Room;
 use App\Models\Equipment;
+use App\Models\RoomActivityLog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -13,6 +14,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
+use Illuminate\Support\Facades\Auth;
+
 
 class InfrastructureController extends Controller
 {
@@ -27,7 +30,7 @@ class InfrastructureController extends Controller
                     : $query,
             ])
             ->orderBy('floor_building_id')->orderBy('floor_level')->get();
-        $rooms = Room::query()->with(['floor.building', 'equipment.category'])
+        $rooms = Room::query()->with(['floor.building', 'equipment.category', 'equipment.supplier'])
             ->when($hasRoomArchive, fn ($query) => $query->where('room_is_archived', false))
             ->orderBy('room_floor_id')->orderBy('room_name')->get();
         $roomIds = $rooms->pluck('room_id');
@@ -84,6 +87,10 @@ class InfrastructureController extends Controller
                     ->where('equipment_condition_status', 'Under Maintenance')
                     ->count(),
 
+                'equipment_disposed' => $room->equipment
+                    ->where('equipment_condition_status', 'Disposed')
+                    ->count(),
+
                 'active_reports' => (int) ($metric->active_count ?? 0),
 
                 'today_reports' => (int) ($metric->today_count ?? 0),
@@ -100,7 +107,19 @@ class InfrastructureController extends Controller
                     ->get($room->room_id, collect())
                     ->all(),
 
-                'history' => [],
+                'history'=>RoomActivityLog::where(
+
+                        'room_id',
+
+                        $room->room_id
+
+                    )
+
+                    ->latest('created_at')
+
+                    ->take(100)
+
+                    ->get()
 
             ];
         });
@@ -174,7 +193,7 @@ class InfrastructureController extends Controller
             'floors.*.rooms.*.equipment.*.name' => ['required', 'string', 'max:255'],
             'floors.*.rooms.*.equipment.*.category_id' => ['nullable', 'integer', 'exists:equipment_categories_table,equipment_category_id'],
             'floors.*.rooms.*.equipment.*.quantity' => ['required', 'integer', 'min:1', 'max:500'],
-            'floors.*.rooms.*.equipment.*.condition' => ['required', Rule::in(['Good', 'Damaged', 'Under Maintenance'])],
+            'floors.*.rooms.*.equipment.*.condition' => ['required', Rule::in(['Good', 'Damaged', 'Under Maintenance', 'Disposed'])],
             'floors.*.rooms.*.equipment.*.zone' => ['required', Rule::in(['Front Wall', 'Center Ceiling', 'Left Row Pods', 'Right Row Pods', 'Rear Wall', 'Storage'])],
         ]);
 
@@ -379,6 +398,26 @@ class InfrastructureController extends Controller
 
         ]);
 
+        RoomActivityLog::create([
+
+            'room_id'=>$room->room_id,
+
+            'user_id'=>Auth::check()
+                    ? Auth::id()
+                    : null,
+
+            'activity_type'=>'room_updated',
+
+            'activity_title'=>'Room Updated',
+
+            'activity_description' =>
+                'Renamed to '.$room->room_name.
+                ' and status changed to '.$room->room_status,
+
+            'created_at'=>now()
+
+        ]);
+
         return response()->json([
             'message' => 'Room name updated.',
             'room' => [
@@ -446,6 +485,26 @@ class InfrastructureController extends Controller
             ]);
         });
 
+        RoomActivityLog::create([
+
+            'room_id'=>$room->room_id,
+
+            'user_id'=>Auth::check()
+                    ? Auth::id()
+                    : null,
+
+            'activity_type'=>'room_archived',
+
+            'activity_title'=>'Room Archived',
+
+            'activity_description'=>
+
+                $validated['reason'] ?: 'Room archived.',
+
+            'created_at'=>now()
+
+        ]);
+
         return response()->json([
             'message' => 'Room archived and live details cleared.',
         ]);
@@ -481,7 +540,8 @@ class InfrastructureController extends Controller
                 Rule::in([
                     'Good',
                     'Damaged',
-                    'Under Maintenance'
+                    'Under Maintenance',
+                    'Disposed'
                 ])
             ],
 
@@ -493,7 +553,46 @@ class InfrastructureController extends Controller
 
         ]);
 
+        // ===============================
+        // Sync inventory status
+        // ===============================
+        
+
+        $inventoryStatus = match ($validated['equipment_condition_status']) {
+
+            'Disposed' => 'Disposed',
+
+            'Under Maintenance' => 'Under Maintenance',
+
+            default => 'Active',
+
+        };
+
+        $validated['equipment_inventory_status'] = $inventoryStatus;
+
         $equipment->update($validated);
+
+        RoomActivityLog::create([
+
+            'room_id'=>$equipment->equipment_room_id,
+
+            'equipment_id'=>$equipment->equipment_id,
+
+            'user_id'=>Auth::check()
+                    ? Auth::id()
+                    : null,
+
+            'activity_type'=>'equipment_updated',
+
+            'activity_title'=>'Equipment Updated',
+
+            'activity_description'=>
+
+                $equipment->equipment_name.' was updated.',
+
+            'created_at'=>now()
+
+        ]);
 
         return response()->json([
 
@@ -519,8 +618,58 @@ class InfrastructureController extends Controller
             ]
         ]);
 
+        $oldRoom = $equipment->equipment_room_id;
+
         $equipment->update([
             'equipment_room_id' => $validated['room_id']
+        ]);
+
+        RoomActivityLog::create([
+
+            'room_id'=>$oldRoom,
+
+            'equipment_id'=>$equipment->equipment_id,
+
+            'user_id'=>Auth::check()
+                    ? Auth::id()
+                    : null,
+
+            'activity_type'=>'equipment_transfer_out',
+
+            'activity_title'=>'Equipment Transferred',
+
+            'activity_description'=>
+
+                $equipment->equipment_name.
+
+                ' moved to another room.',
+
+            'created_at'=>now()
+
+        ]);
+
+        RoomActivityLog::create([
+
+            'room_id'=>$validated['room_id'],
+
+            'equipment_id'=>$equipment->equipment_id,
+
+            'user_id'=>Auth::check()
+                    ? Auth::id()
+                    : null,
+
+            'activity_type'=>'equipment_transfer_in',
+
+            'activity_title'=>'Equipment Received',
+
+            'activity_description'=>
+
+                $equipment->equipment_name.
+
+                ' transferred into this room.',
+
+            'created_at'=>now()
+
         ]);
 
         return response()->json([
@@ -534,7 +683,31 @@ class InfrastructureController extends Controller
     {
         $equipment->update([
 
-            'equipment_inventory_status' => 'Archived'
+            'equipment_condition_status'=>'Disposed',
+
+            'equipment_inventory_status'=>'Disposed',
+
+        ]);
+
+        RoomActivityLog::create([
+
+            'room_id'=>$equipment->equipment_room_id,
+
+            'equipment_id'=>$equipment->equipment_id,
+
+            'user_id'=>Auth::check()
+                    ? Auth::id()
+                    : null,
+
+            'activity_type'=>'equipment_archived',
+
+            'activity_title'=>'Equipment Archived',
+
+            'activity_description'=>
+
+                $equipment->equipment_name.' was archived.',
+
+            'created_at'=>now()
 
         ]);
 
@@ -571,6 +744,20 @@ class InfrastructureController extends Controller
                 'min:1'
             ],
 
+            'equipment_tracking_mode'=>[
+
+                'required',
+
+                Rule::in([
+
+                'Bulk',
+
+                'Individual'
+
+                ])
+
+                ],
+
             'equipment_condition_status'=>[
                 'required'
             ],
@@ -582,15 +769,93 @@ class InfrastructureController extends Controller
 
         ]);
 
-        $equipment = Equipment::create([
+        $inventoryStatus = match ($validated['equipment_condition_status']) {
 
-            ...$validated,
+            'Disposed' => 'Disposed',
 
-            'equipment_inventory_status' => 'Active',
+            'Under Maintenance' => 'Under Maintenance',
 
-            'equipment_position_x' => 40,
+            default => 'Active',
 
-            'equipment_position_y' => 40,
+        };
+
+        DB::transaction(function () use ($validated, $inventoryStatus, &$equipment) {
+
+            if ($validated['equipment_tracking_mode'] === 'Bulk') {
+
+                $equipment = Equipment::create([
+
+                    ...$validated,
+
+                    'equipment_inventory_status' => $inventoryStatus,
+
+                    'equipment_position_x' => 40,
+
+                    'equipment_position_y' => 40,
+
+                ]);
+
+            } else {
+
+                for (
+
+                    $i = 1;
+
+                    $i <= $validated['equipment_quantity'];
+
+                    $i++
+
+                ) {
+
+                    $equipment = Equipment::create([
+
+                        ...$validated,
+
+                        'equipment_quantity' => 1,
+
+                        'equipment_inventory_status' => $inventoryStatus,
+
+                        'equipment_position_x' => 40,
+
+                        'equipment_position_y' => 40,
+
+                    ]);
+
+                }
+
+            }
+
+        });
+
+        if (!$equipment) {
+
+            return response()->json([
+
+                'message' => 'Equipment could not be created.'
+
+            ], 500);
+
+        }
+
+        RoomActivityLog::create([
+
+            'room_id'=>$equipment->equipment_room_id,
+
+            'equipment_id'=>$equipment->equipment_id,
+
+            'user_id'=>Auth::check()
+                    ? Auth::id()
+                    : null,
+
+            'activity_type'=>'equipment_added',
+
+            'activity_title'=>'Equipment Added',
+
+            'activity_description'=>
+
+                $equipment->equipment_name.' was added.',
+
+            'created_at'=>now()
 
         ]);
 
