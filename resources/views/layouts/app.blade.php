@@ -25,8 +25,8 @@
     <!-- LUCIDE -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
-    <!-- ALPINE -->
-    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- LOCAL APP JS / ALPINE -->
+    @vite(['resources/js/app.js'])
 
     <!-- FONT -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap"
@@ -126,7 +126,7 @@
 
 </head>
 
-<body class="text-white h-screen overflow-hidden">
+<body class="text-black h-screen overflow-hidden">
 
     <div class="flex h-screen overflow-hidden">
 
@@ -237,4 +237,3 @@
 </body>
 
 </html>
-

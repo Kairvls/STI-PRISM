@@ -1,9 +1,7 @@
-@extends ("layouts.maintenance-layout")
+<?php $__env->startSection("title", "Infrastructure Monitoring | PRISM"); ?>
 
-@section ("title", "Infrastructure Monitoring | PRISM")
-
-@section ("content")
-    @php
+<?php $__env->startSection("content"); ?>
+    <?php
         $initialFloor =
             $floors->firstWhere("floor_id", $requestedFloorId) ?? $floors->first();
         $roomCatalog = $rooms
@@ -18,42 +16,27 @@
                 "width" => (int) $room->room_width,
                 "height" => (int) $room->room_height,
                 "equipment" => $room->equipment
-                ->values()
-                ->map(fn ($equipment) => [
-                    "id" => $equipment->equipment_id,
-
-                    "name" => $equipment->equipment_name,
-
-                    "category" => optional($equipment->category)->equipment_category_name,
-
-                    "quantity" => (int) $equipment->equipment_quantity,
-
-                    "condition" => $equipment->equipment_condition_status,
-
-                    "inventory_status" => $equipment->equipment_inventory_status,
-
-                    "location" => $equipment->equipment_current_location,
-
-                    "placement_zone" => $equipment->equipment_placement_zone,
-
-                    "x" => (int) ($equipment->equipment_position_x ?? 50),
-
-                    "y" => (int) ($equipment->equipment_position_y ?? 50),
-                ])
-                ->all(),
+                    ->values()
+                    ->map(fn ($equipment) => [
+                        "id" => $equipment->equipment_id,
+                        "name" => $equipment->equipment_name,
+                        "quantity" => (int) $equipment->equipment_quantity,
+                        "condition" => $equipment->equipment_condition_status,
+                        "inventory_status" => $equipment->equipment_inventory_status,
+                        "x" => (int) ($equipment->equipment_position_x ?? 50),
+                        "y" => (int) ($equipment->equipment_position_y ?? 50),
+                    ])
+                    ->all(),
             ])
             ->values();
-    @endphp
-    @php
+    ?>
+    <?php
     use Illuminate\Support\Str;
-    @endphp
+    ?>
 
     <div
-        x-data="infrastructureMonitor({{ (int) optional($initialFloor)->floor_id }})"
+        x-data="infrastructureMonitor(<?php echo e((int) optional($initialFloor)->floor_id); ?>)"
         x-init="init()"
-        @keydown.space.window.prevent="spacePressed = true"
-
-        @keyup.space.window="spacePressed = false"
         @keydown.escape.window="
             wizardOpen = false;
 
@@ -61,23 +44,9 @@
 
             step = 1;
         "
-            class="
-mx-auto
-
-max-w-[1700px]
-
-flex-1
-
-min-h-0
-
-flex
-
-flex-col
-
-overflow-hidden
-"
+        class="mx-auto max-w-[1700px] text-slate-900"
     >
-        @if (session("success"))
+        <?php if(session("success")): ?>
             <div
                 x-data="{ show: true }"
                 x-show="show"
@@ -85,20 +54,18 @@ overflow-hidden
                 class="mb-5 flex items-center justify-between rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-semibold text-emerald-800"
             >
                 <span class="flex items-center gap-2"
-                    ><i data-lucide="circle-check" class="h-5 w-5"></i>{{
-                        session(
+                    ><i data-lucide="circle-check" class="h-5 w-5"></i><?php echo e(session(
                             "success",
-                        )
-                    }}</span
+                        )); ?></span
                 >
                 <button @click="show = false" aria-label="Dismiss">
                     <i data-lucide="x" class="h-4 w-4"></i>
                 </button>
             </div>
-        @endif
+        <?php endif; ?>
 
         <header
-            class="mb-6 shrink-0 flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between"
+            class="mb-6 flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between"
         >
             <div>
                 <div
@@ -166,30 +133,30 @@ overflow-hidden
         </header>
 
         <section
-            class="mb-5 shrink-0 flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm lg:flex-row lg:items-center lg:justify-between"
+            class="mb-5 flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm lg:flex-row lg:items-center lg:justify-between"
         >
             <div
                 class="flex gap-2 overflow-x-auto p-1"
                 role="tablist"
                 aria-label="Floor selection"
             >
-                @forelse ($floors as $floor)
+                <?php $__empty_1 = true; $__currentLoopData = $floors; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $floor): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
                     <button
-                        @click="selectFloor({{ $floor->floor_id }})"
-                        :class="activeFloor === {{ $floor->floor_id }} ? 'bg-[#005EA6] text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'"
+                        @click="selectFloor(<?php echo e($floor->floor_id); ?>)"
+                        :class="activeFloor === <?php echo e($floor->floor_id); ?> ? 'bg-[#005EA6] text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'"
                         class="flex min-w-max items-center gap-3 rounded-xl px-5 py-3 text-sm font-bold transition"
                         role="tab"
                     >
-                        <span>{{ $floor->floor_level }}</span>
+                        <span><?php echo e($floor->floor_level); ?></span>
                         <span
-                            :class="activeFloor === {{ $floor->floor_id }} ? 'bg-white/15' : 'bg-slate-100'"
+                            :class="activeFloor === <?php echo e($floor->floor_id); ?> ? 'bg-white/15' : 'bg-slate-100'"
                             class="rounded-md px-2 py-0.5 text-[10px]"
-                            >{{ $floor->rooms_count }} rooms</span
+                            ><?php echo e($floor->rooms_count); ?> rooms</span
                         >
                     </button>
-                @empty
+                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
                     <p class="px-4 py-3 text-sm text-slate-500">No floors configured yet.</p>
-                @endforelse
+                <?php endif; ?>
             </div>
             <div
                 class="flex flex-wrap items-center gap-x-5 gap-y-2 px-4 pb-2 text-[11px] font-semibold text-slate-500 lg:pb-0"
@@ -212,7 +179,7 @@ overflow-hidden
         </section>
 
         <section
-            class="mb-5 shrink-0 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm xl:flex-row xl:items-center xl:justify-between"
+            class="mb-5 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm xl:flex-row xl:items-center xl:justify-between"
         >
             <div class="flex min-w-0 flex-1 items-center gap-3">
                 <div
@@ -221,7 +188,12 @@ overflow-hidden
                     <i data-lucide="search" class="h-5 w-5"></i>
                 </div>
                 <div class="min-w-0 flex-1">
-                    
+                    <label
+                        for="room-blueprint-search"
+                        class="text-[10px] font-extrabold uppercase tracking-[.18em] text-slate-400"
+                    >
+                        Room search + zoom
+                    </label>
                     <input
                         id="room-blueprint-search"
                         type="search"
@@ -247,23 +219,10 @@ overflow-hidden
                 >
                     -
                 </button>
-                <div class="relative w-20">
-
-                    <input
-                        type="text"
-                        x-model="zoomInput"
-                        @focus="$event.target.select()"
-                        @keydown.enter.prevent="applyZoomInput()"
-                        class="w-full rounded-xl bg-slate-100 pr-6 pl-3 py-2 text-center text-sm font-bold outline-none focus:ring-2 focus:ring-[#005EA6]"
-                    >
-
-                    <span
-                        class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-500"
-                    >
-                        %
-                    </span>
-
-                </div>
+                <span
+                    class="min-w-16 rounded-xl bg-slate-100 px-3 py-2 text-center"
+                    x-text="Math.round(blueprint.zoom * 100) + '%'"
+                ></span>
                 <button
                     type="button"
                     @click="zoomBlueprint(0.1)"
@@ -278,65 +237,18 @@ overflow-hidden
                 >
                     Reset view
                 </button>
-                <!--<span class="rounded-xl bg-yellow-50 px-3 py-2 text-yellow-700">
+                <span class="rounded-xl bg-yellow-50 px-3 py-2 text-yellow-700">
                     Wheel = zoom · Hold Space = pan
-                </span>-->
+                </span>
             </div>
         </section>
 
-        <!-- =============================== -->
-<!-- Workspace -->
-<!-- Replace this whole class -->
-<!-- =============================== -->
-
-<div
-
-class="
-flex
-
-flex-1
-
-min-h-0
-
-w-full
-
-gap-6
-
-overflow-hidden
-"
-
->
+        <div class="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_400px]">
             <section
-
-class="
-relative
-
-flex-1
-
-min-w-0
-
-min-h-0
-
-flex
-
-flex-col
-
-overflow-hidden
-
-rounded-[28px]
-
-border
-
-border-slate-200
-
-bg-[#e8eef5]
-
-shadow-xl
-"
-
->
+                class="relative min-w-0 overflow-hidden rounded-[28px] border border-slate-200 bg-[#e8eef5] shadow-xl shadow-slate-900/5"
+            >
                 <div
-                    class="absolute left-2 top-2 z-20 rounded-xl border border-white/70 bg-white/85 px-4 py-3 shadow-lg backdrop-blur"
+                    class="absolute left-5 top-5 z-20 rounded-xl border border-white/70 bg-white/85 px-4 py-3 shadow-lg backdrop-blur"
                 >
                     <p class="text-[10px] font-extrabold uppercase tracking-[.18em] text-slate-400">Active blueprint</p>
                     <p class="mt-1 flex items-center gap-2 text-sm font-bold text-slate-800"><i data-lucide="map" class="h-4 w-4 text-[#005EA6]"></i><span x-text="activeFloorLabel"></span></p>
@@ -363,89 +275,21 @@ shadow-xl
                     ></span>
                 </div>
 
-                <!-- ========================================= -->
-<!-- Blueprint Viewport -->
-<!-- Fixed viewport -->
-<!-- ========================================= -->
-
-<div
-
-    x-ref="blueprintViewport"
-
-    @wheel="handleBlueprintWheel($event)"
-
-    @mousedown="startBlueprintPan($event)"
-
-    @mousemove.window="moveBlueprintPan($event)"
-
-    @mouseup.window="endBlueprintPan()"
-
-    @mouseleave="endBlueprintPan()"
-
-    class="
-relative
-
-flex-1
-
-min-h-0
-
-overflow-hidden
-"
-
-    :class="
-        blueprint.isPanning
-        ? 'cursor-grabbing'
-        : 'cursor-grab'
-    "
-
->
+                <div
+                    x-ref="blueprintViewport"
+                    @wheel.prevent="handleBlueprintWheel($event)"
+                    @mousedown="startBlueprintPan($event)"
+                    @mousemove.window="moveBlueprintPan($event)"
+                    @mouseup.window="endBlueprintPan()"
+                    @mouseleave="endBlueprintPan()"
+                    class="overflow-hidden p-5 pt-24 sm:p-8 sm:pt-24"
+                    :class="blueprint.spaceDown ? 'cursor-grab' : ''"
+                >
                     <div
-
-    x-ref="blueprintCanvas"
-
-    class="
-        absolute
-        left-0
-        top-0
-        blueprint-grid
-        overflow-hidden
-        rounded-[24px]
-        border
-        border-white/70
-        bg-gradient-to-br
-        from-[#dbe6f1]
-        via-[#edf3f8]
-        to-[#cbd9e7]
-        shadow-inner
-    "
-
-    :style="`
-
-        width:${blueprint.width}px;
-
-        height:${blueprint.height}px;
-
-        transform:
-
-            translate3d(
-
-                ${blueprint.panX}px,
-
-                ${blueprint.panY}px,
-
-                0
-
-            )
-
-            scale(${blueprint.zoom});
-
-        transform-origin:0 0;
-
-        will-change:transform;
-
-    `"
-
->
+                        x-ref="blueprintCanvas"
+                        :style="`transform: translate(${blueprint.panX}px, ${blueprint.panY}px) scale(${blueprint.zoom}); transform-origin: 0 0;`"
+                        class="blueprint-grid relative h-[720px] min-w-[1180px] overflow-hidden rounded-[24px] border border-white/70 bg-gradient-to-br from-[#dbe6f1] via-[#edf3f8] to-[#cbd9e7] shadow-inner"
+                    >
                         <div
                             class="pointer-events-none absolute inset-[38px] rounded-[36px] border-[14px] border-slate-500/15 shadow-[inset_0_0_0_2px_rgba(255,255,255,.8)]"
                         ></div>
@@ -459,53 +303,54 @@ overflow-hidden
                             Central corridor
                         </div>
 
-                        @foreach ($floors as $floor)
+                        <?php $__currentLoopData = $floors; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $floor): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
                             <div
-                                x-show="activeFloor === {{ $floor->floor_id }}"
+                                x-show="activeFloor === <?php echo e($floor->floor_id); ?>"
                                 x-cloak
                                 class="absolute inset-0"
-                                data-floor-panel="{{ $floor->floor_id }}"
+                                data-floor-panel="<?php echo e($floor->floor_id); ?>"
                             >
-                                @forelse ($rooms->where("room_floor_id", $floor->floor_id) as $room)
-                                    @php
+                                <?php $__empty_1 = true; $__currentLoopData = $rooms->where("room_floor_id", $floor->floor_id); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $room): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
+                                    <?php
                                         $statusColor = match ($room->room_status) {
                                             "Critical" => "#EF4444",
                                             "Maintenance Needed" => "#F59E0B",
                                             default => "#10B981",
                                         };
-                                    @endphp
+                                    ?>
                                     <button
                                         type="button"
-                                        @click="if(!editMode) selectedRoom={{ $room->room_id }}"
-                                        class="room-block room-card group absolute overflow-hidden z-10 rounded-xl border-2 p-3 text-left shadow-[0_14px_22px_rgba(15,23,42,.18)] transition duration-200 hover:z-20 hover:-translate-y-1 hover:brightness-105 focus:outline-none focus:ring-4 focus:ring-[#005EA6]/25 {{ $room->room_status === 'Critical' ? 'critical-room' : '' }}"
-                                        :class="{'cursor-move ring-4 ring-[#FFF200]/50': editMode, 'ring-4 ring-[#005EA6]/25': selectedRoom === {{ $room->room_id }}}"
+                                        @click="if(!editMode) selectedRoom=<?php echo e($room->room_id); ?>"
+                                        class="room-block room-card group absolute overflow-hidden z-10 rounded-xl border-2 p-3 text-left shadow-[0_14px_22px_rgba(15,23,42,.18)] transition duration-200 hover:z-20 hover:-translate-y-1 hover:brightness-105 focus:outline-none focus:ring-4 focus:ring-[#005EA6]/25 <?php echo e($room->room_status === 'Critical' ? 'critical-room' : ''); ?>"
+                                        :class="{'cursor-move ring-4 ring-[#FFF200]/50': editMode, 'ring-4 ring-[#005EA6]/25': selectedRoom === <?php echo e($room->room_id); ?>}"
                                         data-size="large"
-                                        data-id="{{ $room->room_id }}"
-                                        data-floor="{{ $floor->floor_id }}"
-                                        data-x="{{ $room->room_x }}"
-                                        data-y="{{ $room->room_y }}"
-                                        data-width="{{ $room->room_width }}"
-                                        data-height="{{ $room->room_height }}"
-                                        data-name="{{ e($room->room_name) }}"
-                                        data-type="{{ e($room->room_type ?: 'Room') }}"
-                                        data-assets="{{ $room->equipment->sum("equipment_quantity") }}"
-                                        data-active-reports="{{ $room->monitoring["active_reports"] }}"
-                                        style="left:{{ $room->room_x }}px;top:{{ $room->room_y }}px;width:{{ $room->room_width }}px;height:{{ $room->room_height }}px;background:{{ $room->room_color ?: '#60A5FA' }};border-color:{{ $statusColor }};--room-depth:{{ $room->room_color ?: '#60A5FA' }}"
+                                        data-id="<?php echo e($room->room_id); ?>"
+                                        data-floor="<?php echo e($floor->floor_id); ?>"
+                                        data-x="<?php echo e($room->room_x); ?>"
+                                        data-y="<?php echo e($room->room_y); ?>"
+                                        data-width="<?php echo e($room->room_width); ?>"
+                                        data-height="<?php echo e($room->room_height); ?>"
+                                        data-name="<?php echo e(e($room->room_name)); ?>"
+                                        data-type="<?php echo e(e($room->room_type ?: 'Room')); ?>"
+                                        data-assets="<?php echo e($room->equipment->sum("equipment_quantity")); ?>"
+                                        data-active-reports="<?php echo e($room->monitoring["active_reports"]); ?>"
+                                        style="left:<?php echo e($room->room_x); ?>px;top:<?php echo e($room->room_y); ?>px;width:<?php echo e($room->room_width); ?>px;height:<?php echo e($room->room_height); ?>px;background:<?php echo e($room->room_color ?: '#60A5FA'); ?>;border-color:<?php echo e($statusColor); ?>;--room-depth:<?php echo e($room->room_color ?: '#60A5FA'); ?>"
                                     >
                                         <span class="relative z-10 flex h-full flex-col justify-between">
                                             <span class="room-content">
 
                                                 <span
                                                     class="room-name"
-                                                    data-full-name="{{ $room->room_name }}"
+                                                    data-full-name="<?php echo e($room->room_name); ?>"
                                                     data-room-name
                                                 >
-                                                    {{ $room->room_name }}
+                                                    <?php echo e($room->room_name); ?>
+
                                                 </span>
 
                                                 <span
                                                     class="room-status absolute top-0 right-0 h-2.5 w-2.5 rounded-full bg-slate-200"
-                                                    style="background: {{ $statusColor }}"
+                                                    style="background: <?php echo e($statusColor); ?>"
                                                 ></span>
 
                                             </span>
@@ -515,17 +360,17 @@ overflow-hidden
                                             role="button"
                                             tabindex="0"
                                             title="View room layout"
-                                            @click.stop="openRoomLayout({{ $room->room_id }})"
-                                            @keydown.enter.stop.prevent="openRoomLayout({{ $room->room_id }})"
+                                            @click.stop="openRoomLayout(<?php echo e($room->room_id); ?>)"
+                                            @keydown.enter.stop.prevent="openRoomLayout(<?php echo e($room->room_id); ?>)"
                                             class="absolute right-2 top-2 z-40 flex h-7 w-7 items-center justify-center rounded-lg bg-white/85 text-slate-700 opacity-0 shadow-sm ring-1 ring-slate-200 transition hover:bg-white group-hover:opacity-100"
                                         >
                                             <i data-lucide="more-vertical" class="h-4 w-4"></i>
                                         </span>
 
-                                        {{-- ========================= --}}
-                                        {{-- EQUIPMENT VISUALIZATION --}}
-                                        {{-- Place AFTER the room content and BEFORE the resize handles --}}
-                                        {{-- ========================= --}}
+                                        
+                                        
+                                        
+                                        
 
                                         <div
                                              class="absolute inset-0 z-20 overflow-hidden rounded-xl"
@@ -567,7 +412,7 @@ overflow-hidden
                                             class="resize-grip pointer-events-none absolute -right-1.5 top-1/2 z-30 h-3 w-3 -translate-y-1/2 rounded-sm border-2 border-[#005EA6] bg-white"
                                         ></span>
                                     </button>
-                                @empty
+                                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
                                     <div
                                         class="absolute inset-0 z-10 flex items-center justify-center"
                                     >
@@ -586,17 +431,17 @@ overflow-hidden
                                             <p class="mt-2 text-sm text-slate-500">Use Configure campus to map rooms and their initial assets.</p>
                                         </div>
                                     </div>
-                                @endforelse
+                                <?php endif; ?>
                             </div>
-                        @endforeach
+                        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
                     </div>
                 </div>
             </section>
 
-            @include ("maintenance-personnel.infrastructure.monitor-drawer")
+            <?php echo $__env->make("maintenance-personnel.infrastructure.monitor-drawer", array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>
         </div>
 
-        @include ("maintenance-personnel.infrastructure.campus-wizard")
+        <?php echo $__env->make("maintenance-personnel.infrastructure.campus-wizard", array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>
 
         <div
             x-show="roomManager.open"
@@ -732,7 +577,7 @@ overflow-hidden
             x-show="roomLayout.open"
             x-transition.opacity
             x-cloak
-            class="fixed inset-0 z-[1250] flex items-center justify-center bg-slate-950/60 p-4 "
+            class="fixed inset-0 z-[1250] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm"
             @click.self="closeRoomLayout()"
         >
             <div class="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-[30px] bg-white shadow-2xl">
@@ -813,19 +658,7 @@ overflow-hidden
                                 :style="`left:${item.x}%;top:${item.y}%`"
                             >
                                 <span class="text-lg" x-text="equipmentIcon(item.name)"></span>
-                                <div class="flex flex-col leading-tight">
-
-                                    <span
-                                        class="max-w-[130px] truncate"
-                                        x-text="item.name"
-                                    ></span>
-
-                                    <span
-                                        class="max-w-[130px] truncate text-[10px] font-semibold text-slate-400"
-                                        x-text="item.location || item.placement_zone || 'No location'"
-                                    ></span>
-
-                                </div>
+                                <span class="max-w-[120px] truncate" x-text="item.name"></span>
                             </div>
                         </template>
                     </div>
@@ -845,34 +678,11 @@ overflow-hidden
                                     <span x-text="equipmentIcon(item.name)"></span>
                                     <span x-text="item.name"></span>
                                 </p>
-                                <div class="mt-2 space-y-1 text-xs">
-
-                                    <p class="font-semibold text-slate-600">
-                                        Condition:
-                                        <span x-text="item.condition || 'Unknown'"></span>
-                                    </p>
-
-                                    <p class="text-slate-500">
-                                        Location:
-                                        <span x-text="item.location || 'Not assigned'"></span>
-                                    </p>
-
-                                    <p class="text-slate-500">
-                                        Placement:
-                                        <span x-text="item.placement_zone || 'None'"></span>
-                                    </p>
-
-                                    <p class="text-slate-400">
-                                        X:
-                                        <span x-text="item.x"></span>%
-
-                                        •
-
-                                        Y:
-                                        <span x-text="item.y"></span>%
-                                    </p>
-
-                                </div>
+                                <p class="mt-1 text-xs font-semibold text-slate-500">
+                                    <span x-text="item.condition || 'No condition'"></span>
+                                    <span> · X </span><span x-text="item.x"></span>
+                                    <span>% · Y </span><span x-text="item.y"></span><span>%</span>
+                                </p>
                             </div>
                         </template>
                     </aside>
@@ -1080,7 +890,7 @@ overflow-hidden
         }
     </style>
 
-    @push ("scripts")
+    <?php $__env->startPush("scripts"); ?>
         <script>
             function infrastructureMonitor(initialFloor) {
                 return {
@@ -1090,45 +900,19 @@ overflow-hidden
                     saving: false,
                     autoSaveTimer: null,
                     saveQueued: false,
-                    equipmentFallbackBound: false,
-                    equipmentDrag: null,
                     roomSearch: "",
-                    zoomInput: "100",
-                    roomCatalog: @js($roomCatalog),
+                    roomCatalog: <?php echo \Illuminate\Support\Js::from($roomCatalog)->toHtml() ?>,
                     blueprint: {
-
-                        // =====================================
-                        // Blueprint Canvas Size
-                        // Change these values anytime
-                        // =====================================
-
-                        width: 1180,
-
-                        height: 720,
-
-                        // =====================================
-                        // View Controls
-                        // =====================================
-
                         zoom: 1,
-
                         panX: 0,
-
                         panY: 0,
-
                         isPanning: false,
-
+                        spaceDown: false,
                         startX: 0,
-
                         startY: 0,
-
                         originX: 0,
-
                         originY: 0,
-
                     },
-
-                    spacePressed: false,
                     roomManager: {
                         open: false,
                         id: null,
@@ -1145,16 +929,14 @@ overflow-hidden
                         name: "",
                         equipment: [],
                     },
-                    wizardOpen: {{
-                $errors->any()
+                    wizardOpen: <?php echo e($errors->any()
                     ? "true"
-                    : "false"
-            }},
+                    : "false"); ?>,
                     step: 1,
                     toast: "",
-                    floors: @js ($floors
+                    floors: <?php echo \Illuminate\Support\Js::from($floors
                     ->map(fn($f) => ["id" => $f->floor_id, "label" => $f->floor_level])
-                    ->values()),
+                    ->values())->toHtml() ?>,
                     form: Object.assign({
 
                         building_name: "",
@@ -1169,7 +951,7 @@ overflow-hidden
 
                         floors: []
 
-                    }, @js($wizardCampus ?? [])),
+                    }, <?php echo \Illuminate\Support\Js::from($wizardCampus ?? [])->toHtml() ?>),
                     get activeFloorLabel() {
                         return (
                             this.floors.find((f) => f.id === this.activeFloor)?.label ||
@@ -1208,21 +990,9 @@ overflow-hidden
 
                         });
 
-                        window.addEventListener("resize", () => {
-
-                            this.fitBlueprint();
-
-                        });
-
                         this.$nextTick(() => {
                             this.bindDragging();
-
-                            this.$nextTick(() => {
-
-                                this.fitBlueprint();
-
-                            });
-                            
+                            this.bindKeyboardPan();
 
                             document.querySelectorAll(".room-block").forEach(room=>{
 
@@ -1277,126 +1047,38 @@ overflow-hidden
                         this.selectedRoom = null;
                         this.closeRoomManager();
                     },
-                    zoomBlueprint(delta) {
+                    bindKeyboardPan() {
+                        window.addEventListener("keydown", (event) => {
+                            if (event.code !== "Space") return;
+                            const tag = event.target?.tagName?.toLowerCase();
+                            if (["input", "textarea", "select"].includes(tag)) return;
+                            event.preventDefault();
+                            this.blueprint.spaceDown = true;
+                        });
 
-                        const oldZoom =
-                            this.blueprint.zoom;
-
-                        const newZoom = Math.min(
-
-                            2.2,
-
-                            Math.max(
-
-                                0.55,
-
-                                +(oldZoom + delta).toFixed(2)
-
-                            )
-
-                        );
-
-                        if (oldZoom === newZoom) return;
-
-                        const viewport =
-                            this.$refs.blueprintViewport;
-
-                        const cx =
-                            viewport.clientWidth / 2;
-
-                        const cy =
-                            viewport.clientHeight / 2;
-
-                        this.blueprint.panX =
-                            cx -
-                            ((cx - this.blueprint.panX) / oldZoom) *
-                            newZoom;
-
-                        this.blueprint.panY =
-                            cy -
-                            ((cy - this.blueprint.panY) / oldZoom) *
-                            newZoom;
-
-                        this.blueprint.zoom =
-                            newZoom;
-
-                        this.zoomInput =
-                            Math.round(newZoom * 100);
-
+                        window.addEventListener("keyup", (event) => {
+                            if (event.code !== "Space") return;
+                            this.blueprint.spaceDown = false;
+                            this.endBlueprintPan();
+                        });
                     },
-                    applyZoomInput() {
-
-                        const value = parseFloat(
-
-                            String(this.zoomInput).replace("%", "")
-
+                    zoomBlueprint(delta) {
+                        this.blueprint.zoom = Math.min(
+                            2.2,
+                            Math.max(0.55, +(this.blueprint.zoom + delta).toFixed(2)),
                         );
-
-                        if (isNaN(value)) {
-
-                            this.toast = "Invalid zoom value.";
-
-                            this.zoomInput = Math.round(this.blueprint.zoom * 100);
-
-                            setTimeout(() => this.toast = "", 2500);
-
-                            return;
-
-                        }
-
-                        if (value < 55 || value > 220) {
-
-                            this.toast = "Zoom must be between 55% and 220%.";
-
-                            this.zoomInput = Math.round(this.blueprint.zoom * 100);
-
-                            setTimeout(() => this.toast = "", 2500);
-
-                            return;
-
-                        }
-
-                        this.blueprint.zoom = value / 100;
-
-                        this.zoomInput = Math.round(value);
-
                     },
                     handleBlueprintWheel(event) {
-
-                        if (!this.spacePressed) {
-
-                            return;
-
-                        }
-
-                        event.preventDefault();
-
-                        this.zoomBlueprint(
-
-                            event.deltaY > 0 ? -0.08 : 0.08
-
-                        );
-
+                        this.zoomBlueprint(event.deltaY > 0 ? -0.08 : 0.08);
                     },
                     startBlueprintPan(event) {
-
-                        // Only left mouse
+                        if (!this.blueprint.spaceDown) return;
                         if (event.button !== 0) return;
-                        if (!this.spacePressed) return;
-
-                        // Ignore clicks on rooms
-                        if (event.target.closest(".room-block")) return;
-
                         this.blueprint.isPanning = true;
-
                         this.blueprint.startX = event.clientX;
-
                         this.blueprint.startY = event.clientY;
-
                         this.blueprint.originX = this.blueprint.panX;
-
                         this.blueprint.originY = this.blueprint.panY;
-
                     },
                     moveBlueprintPan(event) {
                         if (!this.blueprint.isPanning) return;
@@ -1409,97 +1091,9 @@ overflow-hidden
                         this.blueprint.isPanning = false;
                     },
                     resetBlueprintView() {
-
-                        this.fitBlueprint();
-
-                    },
-
-                    fitBlueprint() {
-
-                        const padding = {
-
-                            top: 15,
-
-                            right: 8,
-
-                            bottom: 8,
-
-                            left: 8
-
-                        };
-
-                        const viewport = this.$refs.blueprintViewport;
-
-                        if (!viewport) return;
-
-                        // -----------------------------------
-                        // Available viewport space
-                        // -----------------------------------
-
-                        const availableWidth =
-                            viewport.clientWidth -
-                            padding.left -
-                            padding.right;
-
-                        const availableHeight =
-                            viewport.clientHeight -
-                            padding.top -
-                            padding.bottom;
-
-                        // -----------------------------------
-                        // Blueprint original size
-                        // -----------------------------------
-
-                        const blueprintWidth =
-                            this.blueprint.width;
-
-                        const blueprintHeight =
-                            this.blueprint.height;
-
-                        // -----------------------------------
-                        // Calculate scale for BOTH directions
-                        // -----------------------------------
-
-                        const scaleX =
-                            availableWidth / blueprintWidth;
-
-                        const scaleY =
-                            availableHeight / blueprintHeight;
-
-                        // -----------------------------------
-                        // Choose whichever fits BOTH
-                        // -----------------------------------
-
-                        const zoom =
-                            Math.min(scaleX, scaleY);
-
-                        this.blueprint.zoom = zoom;
-
-                        this.zoomInput =
-                            Math.round(zoom * 100);
-
-                        // -----------------------------------
-                        // Calculate scaled size
-                        // -----------------------------------
-
-                        const scaledWidth =
-                            blueprintWidth * zoom;
-
-                        const scaledHeight =
-                            blueprintHeight * zoom;
-
-                        // -----------------------------------
-                        // Perfectly center the blueprint
-                        // -----------------------------------
-
-                        this.blueprint.panX =
-                            padding.left +
-                            (availableWidth - scaledWidth) / 2;
-
-                        this.blueprint.panY =
-                            padding.top +
-                            (availableHeight - scaledHeight) / 2;
-
+                        this.blueprint.zoom = 1;
+                        this.blueprint.panX = 0;
+                        this.blueprint.panY = 0;
                     },
                     focusRoomSearch() {
                         const query = this.roomSearch.trim().toLowerCase();
@@ -1675,7 +1269,7 @@ overflow-hidden
                         try {
 
                             const response = await fetch(
-                                @js(route('maintenance.infrastructure.campus.load'))
+                                <?php echo \Illuminate\Support\Js::from(route('maintenance.infrastructure.campus.load'))->toHtml() ?>
                             );
 
                             if (!response.ok) {
@@ -1727,61 +1321,24 @@ overflow-hidden
                         }
 
                     },
-                    zonePosition(zone){
-
-                        switch(zone){
-
-                            case "Front Wall":
-
-                                return [
-                                    20 + Math.random()*60,
-                                    10
-                                ];
-
-                            case "Rear Wall":
-
-                                return [
-                                    60 + Math.random()*30,
-                                    88
-                                ];
-
-                            case "Left Row Pods":
-
-                                return [
-                                    20,
-                                    35 + Math.random()*40
-                                ];
-
-                            case "Right Row Pods":
-
-                                return [
-                                    80,
-                                    35 + Math.random()*40
-                                ];
-
-                            case "Center Ceiling":
-
-                                return [
-                                    50,
-                                    45
-                                ];
-
-                            default:
-
-                                return [50,50];
-
-                        }
-
+                    zonePosition(zone) {
+                        return (
+                            {
+                                "Front Wall": [50, 12],
+                                "Center Ceiling": [50, 48],
+                                "Left Row Pods": [20, 55],
+                                "Right Row Pods": [80, 55],
+                                "Rear Wall": [50, 86],
+                                Storage: [12, 86],
+                            }[zone] || [50, 50]
+                        );
                     },
                     scheduleAutoSave() {
                         clearTimeout(this.autoSaveTimer);
                         this.autoSaveTimer = setTimeout(() => this.saveLayout(false), 650);
                     },
                     bindDragging() {
-                        if (!window.interact) {
-                            this.bindEquipmentFallback();
-                            return;
-                        }
+                        if (!window.interact) return;
                         interact(".room-block")
                             .on("tap", (event) => {
                                 if (!this.editMode) return;
@@ -1948,54 +1505,6 @@ overflow-hidden
                             },
                         });
                     },
-                    bindEquipmentFallback() {
-                        if (this.equipmentFallbackBound) return;
-                        this.equipmentFallbackBound = true;
-
-                        document.addEventListener("pointerdown", (event) => {
-                            const node = event.target.closest(".room-equipment-node");
-                            if (!node || !this.roomLayout.edit) return;
-                            event.preventDefault();
-                            node.setPointerCapture?.(event.pointerId);
-                            this.equipmentDrag = {
-                                node,
-                                startX: event.clientX,
-                                startY: event.clientY,
-                                originX: parseFloat(node.dataset.x || 50),
-                                originY: parseFloat(node.dataset.y || 50),
-                            };
-                        });
-
-                        document.addEventListener("pointermove", (event) => {
-                            if (!this.equipmentDrag || !this.roomLayout.edit) return;
-                            const { node, startX, startY, originX, originY } =
-                                this.equipmentDrag;
-                            const parentRect = node.parentElement.getBoundingClientRect();
-                            const nextX = originX + ((event.clientX - startX) / parentRect.width) * 100;
-                            const nextY = originY + ((event.clientY - startY) / parentRect.height) * 100;
-                            const x = Math.min(96, Math.max(4, Math.round(nextX / 5) * 5));
-                            const y = Math.min(96, Math.max(4, Math.round(nextY / 5) * 5));
-
-                            node.dataset.x = x;
-                            node.dataset.y = y;
-                            node.style.left = `${x}%`;
-                            node.style.top = `${y}%`;
-
-                            const item = this.roomLayout.equipment.find(
-                                (equipment) => equipment.id === +node.dataset.equipmentId,
-                            );
-                            if (item) {
-                                item.x = x;
-                                item.y = y;
-                            }
-                        });
-
-                        document.addEventListener("pointerup", () => {
-                            if (!this.equipmentDrag) return;
-                            this.equipmentDrag = null;
-                            if (this.roomLayout.edit) this.scheduleAutoSave();
-                        });
-                    },
                     async saveLayout(manual = true) {
                         if (this.saving) {
                             this.saveQueued = true;
@@ -2011,7 +1520,7 @@ overflow-hidden
                         ];
                         try {
                             const response = await fetch(
-                                @js (route("maintenance.infrastructure.layout.save")),
+                                <?php echo \Illuminate\Support\Js::from(route("maintenance.infrastructure.layout.save"))->toHtml() ?>,
                                 {
                                     method: "POST",
                                     headers: {
@@ -2087,46 +1596,6 @@ overflow-hidden
                             }
                         }
                     },
-
-                    // =====================================
-                    // Place BELOW saveLayout()
-                    // =====================================
-
-                    zonePosition(location){
-
-                        const zones = {
-
-                            "Front Wall":      {x:50,y:12},
-
-                            "Rear Wall":       {x:50,y:88},
-
-                            "Center Ceiling":  {x:50,y:18},
-
-                            "Left Row Pods":   {x:18,y:55},
-
-                            "Right Row Pods":  {x:82,y:55},
-
-                            "Storage":         {x:90,y:90}
-
-                        };
-
-                        return zones[location] ?? {x:50,y:50};
-
-                    },
-                    // ===================================
-                    // Auto Position Equipment
-                    // Place BELOW zonePosition()
-                    // ===================================
-
-                    updateEquipmentLocation(item){
-
-                        const pos = this.zonePosition(item.location);
-
-                        item.x = pos.x;
-
-                        item.y = pos.y;
-
-                    },
                     openRoomManager(node) {
                         this.roomManager = {
                             open: true,
@@ -2152,34 +1621,11 @@ overflow-hidden
                             edit: false,
                             id: room.id,
                             name: room.name,
-                            equipment: room.equipment.map((item) => {
-
-                                const hasSavedPosition =
-                                    item.x !== null &&
-                                    item.y !== null &&
-                                    !(item.x == 40 && item.y == 40);
-
-                                if (hasSavedPosition) {
-
-                                    return {
-                                        ...item,
-                                        x: +item.x,
-                                        y: +item.y,
-                                    };
-
-                                }
-
-                                const [x, y] = this.zonePosition(
-                                    item.placement_zone || item.location
-                                );
-
-                                return {
-                                    ...item,
-                                    x,
-                                    y,
-                                };
-
-                            }),
+                            equipment: room.equipment.map((item) => ({
+                                ...item,
+                                x: Number.isFinite(+item.x) ? +item.x : 50,
+                                y: Number.isFinite(+item.y) ? +item.y : 50,
+                            })),
                         };
                         this.$nextTick(() => {
                             this.bindDragging();
@@ -2332,5 +1778,7 @@ overflow-hidden
                 };
             }
         </script>
-    @endpush
-@endsection
+    <?php $__env->stopPush(); ?>
+<?php $__env->stopSection(); ?>
+
+<?php echo $__env->make("layouts.maintenance-layout", array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?><?php /**PATH C:\xampp\htdocs\prism\resources\views/maintenance-personnel/infrastructure/monitor.blade.php ENDPATH**/ ?>

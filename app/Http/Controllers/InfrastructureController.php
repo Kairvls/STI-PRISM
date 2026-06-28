@@ -187,7 +187,12 @@ class InfrastructureController extends Controller
             ],
             'floors.*.rooms' => ['required', 'array', 'min:1'],
             'floors.*.rooms.*.name' => ['required', 'string', 'max:255'],
-            'floors.*.rooms.*.type' => ['required', Rule::in(['Lecture Room', 'Computer Laboratory', 'Hospitality Suite', 'Office', 'Library', 'Canteen', 'Clinic', 'Utility'])],
+            'floors.*.rooms.*.type' => ['required', Rule::in([
+                'Lecture Room', 'Computer Laboratory', 'Hospitality Suite', 'Office',
+                'Library', 'Canteen', 'Clinic', 'Utility', 'Hallway', 'Exit',
+                'Restroom', 'Elevator', 'Stairs', 'HM Room', 'Hotel Room Simulation',
+                'Faculty Room', 'School Clinic',
+            ])],
             'floors.*.rooms.*.status' => ['required', Rule::in(['Normal', 'Maintenance Needed', 'Critical'])],
             'floors.*.rooms.*.equipment' => ['nullable', 'array'],
             'floors.*.rooms.*.equipment.*.name' => ['required', 'string', 'max:255'],
@@ -276,6 +281,11 @@ class InfrastructureController extends Controller
                         'room_metadata' => json_encode(['wizard_floor_index' => $floorIndex]),
                     ]);
                     foreach ($roomData['equipment'] ?? [] as $equipment) {
+                        // =====================================
+                        // Default equipment position by location
+                        // =====================================
+
+                        $position = $this->zonePosition($equipment['zone']);
                         $values = [
                             'equipment_category_id' => $equipment['category_id'] ?: null,
                             'equipment_room_id' => $roomId, 'equipment_name' => $equipment['name'],
@@ -283,9 +293,11 @@ class InfrastructureController extends Controller
                             'equipment_condition_status' => $equipment['condition'],
                             'equipment_inventory_status' => $equipment['condition'] === 'Under Maintenance' ? 'Under Maintenance' : 'Active',
                             'equipment_current_location' => $equipment['zone'], 'equipment_is_borrowable' => false,
-                            'equipment_position_x' => 40,
 
-                            'equipment_position_y' => 40,
+                            'equipment_position_x' => $position['x'],
+
+                            'equipment_position_y' => $position['y'],
+                            
                         ];
                         if (Schema::hasColumn('equipment_table', 'equipment_placement_zone')) {
                             $values['equipment_placement_zone'] = $equipment['zone'];
@@ -326,9 +338,9 @@ class InfrastructureController extends Controller
 
             'equipment.*.id' => ['required', 'integer'],
 
-            'equipment.*.x' => ['required', 'integer'],
+            'equipment.*.x' => ['required', 'integer', 'min:0', 'max:100'],
 
-            'equipment.*.y' => ['required', 'integer'],
+            'equipment.*.y' => ['required', 'integer', 'min:0', 'max:100'],
         ]);
 
         DB::transaction(function () use ($validated): void {
@@ -375,13 +387,13 @@ class InfrastructureController extends Controller
             ],
 
             'room_type'=>[
-                'required',
+                'nullable',
                 'string',
                 'max:255'
             ],
 
             'room_status'=>[
-                'required',
+                'nullable',
                 'string',
                 'max:255'
             ],
@@ -392,9 +404,9 @@ class InfrastructureController extends Controller
 
             'room_name'=>$validated['room_name'],
 
-            'room_type'=>$validated['room_type'],
+            'room_type'=>$validated['room_type'] ?? $room->room_type,
 
-            'room_status'=>$validated['room_status'],
+            'room_status'=>$validated['room_status'] ?? $room->room_status,
 
         ]);
 
@@ -569,6 +581,29 @@ class InfrastructureController extends Controller
         };
 
         $validated['equipment_inventory_status'] = $inventoryStatus;
+
+        // =====================================
+        // Automatically move equipment when
+        // placement/location changes
+        // =====================================
+
+        $position = $this->zonePosition(
+            $validated['equipment_current_location']
+        );
+
+        $validated['equipment_position_x'] = $position['x'];
+
+        $validated['equipment_position_y'] = $position['y'];
+
+        if (
+            Schema::hasColumn(
+                'equipment_table',
+                'equipment_placement_zone'
+            )
+        ) {
+            $validated['equipment_placement_zone']
+                = $validated['equipment_current_location'];
+        }
 
         $equipment->update($validated);
 
@@ -779,7 +814,25 @@ class InfrastructureController extends Controller
 
         };
 
-        DB::transaction(function () use ($validated, $inventoryStatus, &$equipment) {
+        // =====================================
+        // Default position from selected location
+        // =====================================
+
+        $position = $this->zonePosition(
+            $validated['equipment_current_location']
+        );
+
+        DB::transaction(function () use (
+
+            $validated,
+
+            $inventoryStatus,
+
+            $position,
+
+            &$equipment
+
+        ) {
 
             if ($validated['equipment_tracking_mode'] === 'Bulk') {
 
@@ -789,9 +842,11 @@ class InfrastructureController extends Controller
 
                     'equipment_inventory_status' => $inventoryStatus,
 
-                    'equipment_position_x' => 40,
+                    'equipment_position_x' => $position['x'],
 
-                    'equipment_position_y' => 40,
+                    'equipment_position_y' => $position['y'],
+
+                    'equipment_placement_zone' => $validated['equipment_current_location'],
 
                 ]);
 
@@ -815,9 +870,11 @@ class InfrastructureController extends Controller
 
                         'equipment_inventory_status' => $inventoryStatus,
 
-                        'equipment_position_x' => 40,
+                        'equipment_position_x' => $position['x'],
 
-                        'equipment_position_y' => 40,
+                        'equipment_position_y' => $position['y'],
+
+                        'equipment_placement_zone' => $validated['equipment_current_location'],
 
                     ]);
 
@@ -985,8 +1042,59 @@ class InfrastructureController extends Controller
     {
         return match ($type) {
             'Computer Laboratory' => '#FFF200', 'Hospitality Suite' => '#F39200',
+            'HM Room' => '#FB7185', 'Hotel Room Simulation' => '#EA580C',
             'Library' => '#A78BFA', 'Canteen' => '#84CC16', 'Clinic' => '#FB7185',
-            'Office' => '#22C55E', 'Utility' => '#94A3B8', default => '#60A5FA',
+            'School Clinic' => '#FB7185', 'Faculty Room' => '#22C55E',
+            'Office' => '#22C55E', 'Utility' => '#94A3B8',
+            'Hallway' => '#CBD5E1', 'Exit' => '#22C55E', 'Restroom' => '#38BDF8',
+            'Elevator' => '#64748B', 'Stairs' => '#94A3B8',
+            default => '#60A5FA',
+        };
+    }
+
+    // =====================================
+    // Default Equipment Position
+    // Place BELOW roomColor()
+    // =====================================
+
+    private function zonePosition(string $zone): array
+    {
+        return match ($zone) {
+
+            'Front Wall' => [
+                'x' => 50,
+                'y' => 15,
+            ],
+
+            'Rear Wall' => [
+                'x' => 50,
+                'y' => 85,
+            ],
+
+            'Left Row Pods' => [
+                'x' => 18,
+                'y' => 50,
+            ],
+
+            'Right Row Pods' => [
+                'x' => 82,
+                'y' => 50,
+            ],
+
+            'Center Ceiling' => [
+                'x' => 50,
+                'y' => 35,
+            ],
+
+            'Storage' => [
+                'x' => 88,
+                'y' => 88,
+            ],
+
+            default => [
+                'x' => 50,
+                'y' => 50,
+            ],
         };
     }
 }

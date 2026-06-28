@@ -1,4 +1,33 @@
-<aside class="flex h-[900px] flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-xl">
+<!--<aside class="flex h-[900px] flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-xl">-->
+    <aside
+
+class="
+w-[420px]
+
+shrink-0
+
+flex
+
+flex-col
+
+min-h-0
+
+h-[700px]
+
+overflow-hidden
+
+rounded-[28px]
+
+border
+
+border-slate-200
+
+bg-white
+
+shadow-xl
+"
+
+>
     <!-- Selected room container -->
 <div
     x-show="selectedRoom === null"
@@ -84,6 +113,9 @@
                     this.saving=true;
 
                     try{
+                    const position = this.zonePosition(
+                        this.addForm.location
+                    );
 
                         const response=await fetch(
 
@@ -119,7 +151,11 @@
 
                                     equipment_condition_status:this.addForm.condition,
 
-                                    equipment_current_location:this.addForm.location
+                                    equipment_current_location:this.addForm.location,
+
+                                    equipment_position_x:position.x,
+
+                                    equipment_position_y:position.y
 
                                 })
 
@@ -476,7 +512,21 @@
                 </div>
             </div>
 
-            <div class="relative flex-1 overflow-y-auto p-5">
+            <div
+
+class="
+    relative
+
+    flex-1
+
+    min-h-0
+
+    overflow-y-auto
+
+    overflow-x-hidden
+
+    p-5
+">
                 <div
                     x-show="tab === 'overview'"
                     x-cloak
@@ -502,7 +552,7 @@
                                 </dt>
 
                                 <dd @class([
-                                    'font-semibold text-sm' => $room->room_name,
+                                    'font-semibold text-sm text-black' => $room->room_name,
                                     'text-sm text-gray-400' => !$room->room_name
                                 ])>
 
@@ -521,7 +571,7 @@
                                 </dt>
 
                                 <dd @class([
-                                    'font-semibold text-sm' => $room->floor->floor_level,
+                                    'font-semibold text-sm text-black' => $room->floor->floor_level,
                                     'text-sm text-gray-400' => !$room->floor->floor_level
                                 ])>
 
@@ -540,7 +590,7 @@
                                 </dt>
 
                                 <dd @class([
-                                    'font-semibold text-sm' => $room->room_type,
+                                    'font-semibold text-sm text-black' => $room->room_type,
                                     'text-sm text-gray-400' => !$room->room_type
                                 ])>
                                     {{ $room->room_type ?: 'No Room Type' }}
@@ -622,7 +672,7 @@
 
                                 </span>
 
-                                <span class="text-sm font-semibold">
+                                <span class="text-sm font-semibold text-black">
 
                                     {{ $room->monitoring['equipment_good'] }}
 
@@ -638,7 +688,7 @@
 
                                 </span>
 
-                                <span class="text-sm font-semibold">
+                                <span class="text-sm font-semibold text-black">
 
                                     {{ $room->monitoring['equipment_maintenance'] }}
 
@@ -648,13 +698,13 @@
 
                             <div class="flex justify-between">
 
-                                <span class="text-sm ">
+                                <span class="text-sm text-slate-500">
 
                                     Damaged
 
                                 </span>
 
-                                <span class="text-sm font-semibold">
+                                <span class="text-sm font-semibold text-black">
 
                                     {{ $room->monitoring['equipment_damaged'] }}
 
@@ -670,7 +720,7 @@
 
                                 </span>
 
-                                <span class="text-sm font-semibold">
+                                <span class="text-sm font-semibold text-black">
 
                                     {{ $room->monitoring['equipment_disposed'] }}
 
@@ -715,7 +765,7 @@
 
                                     <div>
 
-                                        <h4 class="text-sm font-bold">
+                                        <h4 class="text-sm font-bold text-black">
 
                                             Add Equipment
 
@@ -749,7 +799,7 @@
 
                                     <div>
 
-                                        <h4 class="text-sm font-bold">
+                                        <h4 class="text-sm font-bold text-black">
 
                                             Edit Room
 
@@ -783,7 +833,7 @@
 
                                     <div>
 
-                                        <h4 class="text-sm font-bold">
+                                        <h4 class="text-sm font-bold text-black">
 
                                             Transfer Assets
 
@@ -817,7 +867,7 @@
 
                                     <div>
 
-                                        <h4 class="text-sm font-bold">
+                                        <h4 class="text-sm font-bold text-black">
 
                                             Archive Room
 
@@ -1073,25 +1123,21 @@
                                 </div>
 
                                 <div>
-
                                     <label class="mb-2 block text-sm font-semibold text-slate-700">
-
                                         Placement
-
                                     </label>
-
-                                    <input
-
+                                    <select
                                         x-model="addForm.location"
-
-                                        type="text"
-
-                                        placeholder="Example: Front Wall"
-
-                                        class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 transition focus:border-[#005EA6] focus:bg-white focus:outline-none"
-
+                                        class="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 transition focus:border-[#005EA6] focus:bg-white focus:outline-none"
                                     >
-
+                                        <option value="" disabled selected hidden>Select placement zone...</option>
+                                        <option value="Front Wall">Front Wall</option>
+                                        <option value="Center Ceiling">Center Ceiling</option>
+                                        <option value="Left Row Pods">Left Row Pods</option>
+                                        <option value="Right Row Pods">Right Row Pods</option>
+                                        <option value="Rear Wall">Rear Wall</option>
+                                        <option value="Storage">Storage</option>
+                                    </select>
                                 </div>
 
                             </div>
@@ -2060,7 +2106,7 @@
 
                                             </p>
 
-                                            <p class="mt-1">
+                                            <p class="mt-1 font-semibold">
 
                                                 {{ $item->equipment_warranty_expiration ?? 'Unknown' }}
 
@@ -2076,7 +2122,7 @@
 
                                             </p>
 
-                                            <p class="mt-1">
+                                            <p class="mt-1 font-semibold">
 
                                                 {{ $item->equipment_supplier ?? 'Not Assigned' }}
 
@@ -2092,7 +2138,7 @@
 
                                             </p>
 
-                                            <p class="mt-1">
+                                            <p class="mt-1 font-semibold">
 
                                                 {{ $item->equipment_purchase_date ?? 'Unknown' }}
 
@@ -2108,7 +2154,7 @@
 
                                             </p>
 
-                                            <p class="mt-1">
+                                            <p class="mt-1 font-semibold">
 
                                                 {{ $item->equipment_assigned_to ?? 'Unassigned' }}
 
@@ -2232,23 +2278,21 @@
                                             </div>
 
                                             <div>
-
                                                 <label class="mb-1 block text-xs font-semibold text-slate-600">
-
-                                                    Location
-
+                                                    Placement
                                                 </label>
-
-                                                <input
-
+                                                <select
                                                     x-model="form.location"
-
-                                                    type="text"
-
-                                                    class="w-full rounded-xl border border-slate-300 px-3 py-2.5"
-
+                                                    class="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm bg-white"
                                                 >
-
+                                                    <option value="" disabled selected>Select equipment position...</option>
+                                                    <option value="Front Wall">Front Wall</option>
+                                                    <option value="Center Ceiling">Center Ceiling</option>
+                                                    <option value="Left Row Pods">Left Row Pods</option>
+                                                    <option value="Right Row Pods">Right Row Pods</option>
+                                                    <option value="Rear Wall">Rear Wall</option>
+                                                    <option value="Storage">Storage</option>
+                                                </select>
                                             </div>
 
                                             <div class="grid grid-cols-2 gap-4">

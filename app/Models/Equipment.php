@@ -30,6 +30,10 @@ class Equipment extends Model
 
         'equipment_placement_zone',
 
+        'equipment_position_x',
+
+        'equipment_position_y',
+
         'equipment_is_borrowable',
 
     ];
