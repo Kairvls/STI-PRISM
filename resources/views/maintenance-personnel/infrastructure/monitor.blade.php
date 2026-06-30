@@ -7,52 +7,59 @@
         $initialFloor =
             $floors->firstWhere("floor_id", $requestedFloorId) ?? $floors->first();
         $roomCatalog = $rooms
-            ->map(fn ($room) => [
-                "id" => $room->room_id,
-                "floor_id" => $room->room_floor_id,
-                "name" => $room->room_name,
-                "type" => $room->room_type ?: "Room",
-                "status" => $room->room_status,
-                "x" => (int) $room->room_x,
-                "y" => (int) $room->room_y,
-                "width" => (int) $room->room_width,
-                "height" => (int) $room->room_height,
-                "equipment" => $room->equipment
-                ->values()
-                ->map(fn ($equipment) => [
-                    "id" => $equipment->equipment_id,
+            ->map(
+                fn($room) => [
+                    "id" => $room->room_id,
+                    "floor_id" => $room->room_floor_id,
+                    "name" => $room->room_name,
+                    "type" => $room->room_type ?: "Room",
+                    "status" => $room->room_status,
+                    "x" => (int) $room->room_x,
+                    "y" => (int) $room->room_y,
+                    "width" => (int) $room->room_width,
+                    "height" => (int) $room->room_height,
+                    "equipment" => $room->equipment
+                        ->values()
+                        ->map(
+                            fn($equipment) => [
+                                "id" => $equipment->equipment_id,
 
-                    "name" => $equipment->equipment_name,
+                                "name" => $equipment->equipment_name,
 
-                    "category" => optional($equipment->category)->equipment_category_name,
+                                "category" => $equipment->equipment_category_id,
 
-                    "quantity" => (int) $equipment->equipment_quantity,
+                                "category_name" => optional($equipment->category)->equipment_category_name,
 
-                    "condition" => $equipment->equipment_condition_status,
+                                "quantity" => (int) $equipment->equipment_quantity,
 
-                    "inventory_status" => $equipment->equipment_inventory_status,
+                                "condition" => $equipment->equipment_condition_status,
 
-                    "location" => $equipment->equipment_current_location,
+                                "inventory_status" =>
+                                    $equipment->equipment_inventory_status,
 
-                    "placement_zone" => $equipment->equipment_placement_zone,
+                                "location" => $equipment->equipment_current_location,
 
-                    "x" => (int) ($equipment->equipment_position_x ?? 50),
+                                "placement_zone" =>
+                                    $equipment->equipment_placement_zone,
 
-                    "y" => (int) ($equipment->equipment_position_y ?? 50),
-                ])
-                ->all(),
-            ])
+                                "x" => (int) ($equipment->equipment_position_x ?? 50),
+
+                                "y" => (int) ($equipment->equipment_position_y ?? 50),
+                            ],
+                        )
+                        ->all(),
+                ],
+            )
             ->values();
     @endphp
     @php
-    use Illuminate\Support\Str;
+        use Illuminate\Support\Str;
     @endphp
 
     <div
         x-data="infrastructureMonitor({{ (int) optional($initialFloor)->floor_id }})"
         x-init="init()"
         @keydown.space.window.prevent="spacePressed = true"
-
         @keyup.space.window="spacePressed = false"
         @keydown.escape.window="
             wizardOpen = false;
@@ -61,21 +68,7 @@
 
             step = 1;
         "
-            class="
-mx-auto
-
-max-w-[1700px]
-
-flex-1
-
-min-h-0
-
-flex
-
-flex-col
-
-overflow-hidden
-"
+        class="mx-auto flex min-h-0 max-w-[1700px] flex-1 flex-col overflow-hidden"
     >
         @if (session("success"))
             <div
@@ -98,7 +91,7 @@ overflow-hidden
         @endif
 
         <header
-            class="mb-6 shrink-0 flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between"
+            class="mb-6 flex shrink-0 flex-col gap-5 xl:flex-row xl:items-end xl:justify-between"
         >
             <div>
                 <div
@@ -126,13 +119,9 @@ overflow-hidden
                         wizardOpen = true;
 
                         $nextTick(() => {
-
                             if (window.lucide) {
-
                                 lucide.createIcons();
-
                             }
-
                         });
                     "
                     class="inline-flex items-center gap-2 rounded-xl bg-[#005EA6] px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-900/15 transition hover:-translate-y-0.5 hover:bg-[#004b86]"
@@ -140,33 +129,12 @@ overflow-hidden
                     <i data-lucide="building-2" class="h-4 w-4"></i> Configure
                     campus
                 </button>
-                <button
-                    @click="editMode = !editMode"
-                    :class="editMode
-                        ? 'bg-[#FFF200] text-slate-950 ring-4 ring-yellow-100'
-                        : 'bg-white text-slate-700 ring-1 ring-slate-200'"
-                    class="inline-flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-bold shadow-sm transition"
-                >
-                    <i data-lucide="move-3d" class="h-4 w-4"></i
-                    ><span
-                        x-text="editMode ? 'Editing layout' : 'Layout editor'"
-                    ></span>
-                </button>
-                <button
-                    x-show="editMode"
-                    x-transition
-                    @click="saveLayout()"
-                    :disabled="saving"
-                    class="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-900/15 disabled:opacity-60"
-                >
-                    <i data-lucide="save" class="h-4 w-4"></i
-                    ><span x-text="saving ? 'Saving...' : 'Save layout'"></span>
-                </button>
+                
             </div>
         </header>
 
         <section
-            class="mb-5 shrink-0 flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm lg:flex-row lg:items-center lg:justify-between"
+            class="mb-5 flex shrink-0 flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm lg:flex-row lg:items-center lg:justify-between"
         >
             <div
                 class="flex gap-2 overflow-x-auto p-1"
@@ -212,7 +180,7 @@ overflow-hidden
         </section>
 
         <section
-            class="mb-5 shrink-0 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm xl:flex-row xl:items-center xl:justify-between"
+            class="mb-5 flex shrink-0 flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm xl:flex-row xl:items-center xl:justify-between"
         >
             <div class="flex min-w-0 flex-1 items-center gap-3">
                 <div
@@ -221,7 +189,6 @@ overflow-hidden
                     <i data-lucide="search" class="h-5 w-5"></i>
                 </div>
                 <div class="min-w-0 flex-1">
-                    
                     <input
                         id="room-blueprint-search"
                         type="search"
@@ -239,187 +206,274 @@ overflow-hidden
                     Find
                 </button>
             </div>
-            <div class="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-500">
-                <button
-                    type="button"
-                    @click="zoomBlueprint(-0.1)"
-                    class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"
-                >
-                    -
-                </button>
-                <div class="relative w-20">
-
-                    <input
-                        type="text"
-                        x-model="zoomInput"
-                        @focus="$event.target.select()"
-                        @keydown.enter.prevent="applyZoomInput()"
-                        class="w-full rounded-xl bg-slate-100 pr-6 pl-3 py-2 text-center text-sm font-bold outline-none focus:ring-2 focus:ring-[#005EA6]"
-                    >
-
-                    <span
-                        class="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-500"
-                    >
-                        %
-                    </span>
-
-                </div>
-                <button
-                    type="button"
-                    @click="zoomBlueprint(0.1)"
-                    class="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"
-                >
-                    +
-                </button>
-                <button
-                    type="button"
-                    @click="resetBlueprintView()"
-                    class="rounded-xl border border-slate-200 bg-white px-3 py-2"
-                >
-                    Reset view
-                </button>
-                <!--<span class="rounded-xl bg-yellow-50 px-3 py-2 text-yellow-700">
-                    Wheel = zoom · Hold Space = pan
-                </span>-->
-            </div>
+            
         </section>
 
         <!-- =============================== -->
-<!-- Workspace -->
-<!-- Replace this whole class -->
-<!-- =============================== -->
+        <!-- Workspace -->
+        <!-- Replace this whole class -->
+        <!-- =============================== -->
 
-<div
-
-class="
-flex
-
-flex-1
-
-min-h-0
-
-w-full
-
-gap-6
-
-overflow-hidden
-"
-
->
+        <div class="flex min-h-0 w-full flex-1 gap-6 overflow-hidden">
             <section
-
-class="
-relative
-
-flex-1
-
-min-w-0
-
-min-h-0
-
-flex
-
-flex-col
-
-overflow-hidden
-
-rounded-[28px]
-
-border
-
-border-slate-200
-
-bg-[#e8eef5]
-
-shadow-xl
-"
-
->
+                x-ref="blueprintWorkspace"
+                class="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-[#e8eef5] shadow-xl"
+            >
                 <div
-                    class="absolute left-2 top-2 z-20 rounded-xl border border-white/70 bg-white/85 px-4 py-3 shadow-lg backdrop-blur"
+                    class="absolute z-20 rounded-xl border border-blue-500 bg-white/85 px-4 py-2.5 shadow-lg backdrop-blur"
+                    :class="isFullscreen ? 'top-4 left-4' : 'top-2 left-2'"
                 >
-                    <p class="text-[10px] font-extrabold uppercase tracking-[.18em] text-slate-400">Active blueprint</p>
-                    <p class="mt-1 flex items-center gap-2 text-sm font-bold text-slate-800"><i data-lucide="map" class="h-4 w-4 text-[#005EA6]"></i><span x-text="activeFloorLabel"></span></p>
+                    <!--<p class="text-[10px] font-extrabold uppercase tracking-[.18em] text-slate-400">Active Floor</p>-->
+                    <p class="flex items-center gap-2 text-sm font-bold text-slate-800"><i data-lucide="map" class="h-4 w-4 text-[#005EA6]"></i><span x-text="activeFloorLabel"></span></p>
                 </div>
+
+
+
+
+
+
+                <div
+                    class="absolute z-30 flex items-center gap-3"
+                    :class="isFullscreen ? 'top-4 right-4' : 'top-2 right-2'"
+                >
+
+                    <button
+                        @click="toggleBlueprintEdit()"
+                        :class="editMode
+                            ? 'bg-yellow-400 text-slate-900 border-yellow-500 shadow-lg shadow-yellow-400/20 ring-4 ring-yellow-400/30'
+                            : 'bg-white/80 hover:bg-white text-slate-700 border-yellow-500 hover:text-slate-900 shadow-md'"
+                        class="inline-flex items-center gap-2.5 rounded-xl border px-4 py-2.5 text-sm font-medium backdrop-blur-md transition-all duration-200 ease-in-out active:scale-95"
+                    >
+                        <span x-show="editMode" class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-slate-900 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-slate-900"></span>
+                        </span>
+
+                        <i data-lucide="pencil" class="h-4 w-4 transition-transform" :class="editMode ? 'scale-110' : ''"></i>
+
+                        <span 
+                            x-text="editMode ? 'Editing Room Layout' : 'Edit Room Layout'"
+                            class="tracking-wide"
+                        ></span>
+                    </button>
+
+                    <button
+                        x-show="editMode"
+                        x-transition:enter="transition ease-out duration-200"
+                        x-transition:enter-start="opacity-0 scale-95"
+                        x-transition:enter-end="opacity-100 scale-100"
+                        @click="saveLayout()"
+                        :disabled="saving"
+                        :class="saving 
+                            ? 'bg-emerald-700/80 cursor-not-allowed opacity-80 shadow-none' 
+                            : saveSuccess 
+                                ? 'bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-600/10' 
+                                : 'bg-emerald-600 hover:bg-emerald-500 active:scale-95 shadow-md shadow-emerald-600/20'"
+                        class="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white border border-transparent transition-all duration-200 ease-in-out"
+                    >
+                        <svg x-show="saving" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" x-cloak>
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        
+                        <i x-show="!saving" :data-lucide="saveSuccess ? 'check' : 'save'" class="h-4 w-4" x-cloak></i>
+
+                        <span 
+                            x-text="saving ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save Layout'"
+                            class="tracking-wide"
+                        ></span>
+                    </button>
+
+                </div>
+
+
+
+
+
+
+
+
                 <div
                     x-show="editMode"
-                    x-transition
-                    class="absolute right-5 top-5 z-20 rounded-xl bg-slate-950/85 px-4 py-3 text-xs font-semibold text-white backdrop-blur"
+                    x-transition:enter="transition ease-out duration-300"
+                    x-transition:enter-start="opacity-0 translate-y-[-10px]"
+                    x-transition:enter-end="opacity-100 translate-y-0"
+                    x-transition:leave="transition ease-in duration-200"
+                    x-transition:leave-start="opacity-100 translate-y-0"
+                    x-transition:leave-end="opacity-0 translate-y-[-10px]"
+                    class="absolute left-1/2 top-3 z-20 -translate-x-1/2 inline-flex items-center rounded-xl border border-slate-800 bg-slate-950/80 px-3 py-2 text-xs font-medium text-slate-200 shadow-xl shadow-black/40 backdrop-blur-md select-none"
                 >
-                    <span class="flex items-center gap-2"
-                        ><i
-                            class="h-2 w-2 rounded-full"
-                            :class="saving
-                                ? 'animate-pulse bg-amber-400'
-                                : 'bg-emerald-400'"
-                        ></i
-                        ><span
+                    <div class="flex items-center gap-2.5">
+                        <span class="relative flex h-2 w-2">
+                            <span 
+                                x-show="saving" 
+                                class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"
+                            ></span>
+                            
+                            <span 
+                                class="relative inline-flex rounded-full h-2 w-2 transition-colors duration-300"
+                                :class="saving ? 'bg-amber-400' : 'bg-emerald-400'"
+                            ></span>
+                        </span>
+
+                        <span 
                             x-text="
-                                saving
-                                    ? 'Saving changes...'
-                                    : 'Drag or resize · autosave on'
+                            saving
+                                ? 'Saving changes...'
+                                : layoutDirty
+                                    ? 'Unsaved changes'
+                                    : 'Editing...'
                             "
-                        ></span
-                    ></span>
+                            class="tracking-wide"
+                            :class="saving ? 'text-amber-200/90' : 'text-slate-300'"
+                        ></span>
+                    </div>
+                </div>
+
+                <!-- ===================================== -->
+                <!-- Premium Blueprint Controls -->
+                <!-- Replace the old Blueprint Controls -->
+                <!-- ===================================== -->
+
+                <div
+                    class="absolute z-30"
+                    
+                    :class="isFullscreen ? 'top-20 right-4' : 'top-16 right-2'"
+                >
+
+                    <div
+                        class="blueprint-toolbar flex w-12 flex-col overflow-hidden rounded-2xl border border-white/70 bg-white/90 shadow-2xl backdrop-blur-xl"
+                    >
+
+                        <!-- ==================== -->
+                        <!-- Zoom In -->
+                        <!-- ==================== -->
+
+                        <button
+                            type="button"
+                            @click="zoomBlueprint(0.1)"
+                            title="Zoom In"
+                            class="flex h-10 w-full items-center justify-center transition hover:bg-slate-100"
+                        >
+
+                            <i
+                                data-lucide="plus"
+                                class="h-4 w-4 transition group-hover:scale-110"
+                            ></i>
+
+                        </button>
+
+                        <!-- ==================== -->
+                        <!-- Zoom Percentage -->
+                        <!-- ==================== -->
+
+                        <div
+                            class="flex h-12 flex-col items-center justify-center border-y border-slate-200 bg-slate-50"
+                        >
+
+                            <input
+                                x-model="zoomInput"
+                                @focus="$event.target.select()"
+                                @keydown.enter.prevent="applyZoomInput()"
+                                class="w-full bg-transparent text-center text-[13px] font-black leading-none outline-none"
+                            >
+
+                            <span class="mt-0.5 text-[13px] leading-none text-slate-400">
+                                %
+                            </span>
+
+                        </div>
+
+                        <!-- ==================== -->
+                        <!-- Zoom Out -->
+                        <!-- ==================== -->
+
+                        <button
+                            type="button"
+                            @click="zoomBlueprint(-0.1)"
+                            title="Zoom Out"
+                            class="flex h-10 w-full items-center justify-center transition hover:bg-slate-100"
+                        >
+
+                            <i
+                                data-lucide="minus"
+                                class="h-4 w-4 transition group-hover:scale-110"
+                            ></i>
+
+                        </button>
+
+                        <div class="border-t border-slate-200"></div>
+
+                        <!-- ==================== -->
+                        <!-- Reset -->
+                        <!-- ==================== -->
+
+                        <button
+                            type="button"
+                            @click="resetBlueprintView()"
+                            title="Reset View"
+                            class="flex w-full items-center justify-center py-3 hover:bg-slate-100"
+                        >
+
+                            <i
+                                data-lucide="rotate-ccw"
+                                class="h-4 w-4 transition duration-300 group-hover:rotate-180"
+                            ></i>
+
+                        </button>
+
+                        <div class="border-t border-slate-200"></div>
+
+                        <!-- ==================== -->
+                        <!-- Fit -->
+                        <!-- ==================== -->
+
+                        <button
+                            type="button"
+                            @click="toggleFullscreen()"
+                            :title="isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'"
+                            class="flex w-full items-center justify-center py-3 hover:bg-slate-100"
+                        >
+
+                            <i
+                                x-show="!isFullscreen"
+                                data-lucide="maximize"
+                                class="h-4 w-4"
+                            ></i>
+
+                            <i
+                                x-show="isFullscreen"
+                                data-lucide="minimize"
+                                class="h-4 w-4"
+                            ></i>
+
+                        </button>
+
+                    </div>
+
                 </div>
 
                 <!-- ========================================= -->
-<!-- Blueprint Viewport -->
-<!-- Fixed viewport -->
-<!-- ========================================= -->
+                <!-- Blueprint Viewport -->
+                <!-- Fixed viewport -->
+                <!-- ========================================= -->
 
-<div
-
-    x-ref="blueprintViewport"
-
-    @wheel="handleBlueprintWheel($event)"
-
-    @mousedown="startBlueprintPan($event)"
-
-    @mousemove.window="moveBlueprintPan($event)"
-
-    @mouseup.window="endBlueprintPan()"
-
-    @mouseleave="endBlueprintPan()"
-
-    class="
-relative
-
-flex-1
-
-min-h-0
-
-overflow-hidden
-"
-
-    :class="
-        blueprint.isPanning
-        ? 'cursor-grabbing'
-        : 'cursor-grab'
-    "
-
->
+                <div
+                    x-ref="blueprintViewport"
+                    @wheel="handleBlueprintWheel($event)"
+                    @mousedown="startBlueprintPan($event)"
+                    @mousemove.window="moveBlueprintPan($event)"
+                    @mouseup.window="endBlueprintPan()"
+                    @mouseleave="endBlueprintPan()"
+                    class="relative min-h-0 flex-1 overflow-hidden"
+                    :class="blueprint.isPanning
+                        ? 'cursor-grabbing'
+                        : 'cursor-grab'"
+                >
                     <div
-
-    x-ref="blueprintCanvas"
-
-    class="
-        absolute
-        left-0
-        top-0
-        blueprint-grid
-        overflow-hidden
-        rounded-[24px]
-        border
-        border-white/70
-        bg-gradient-to-br
-        from-[#dbe6f1]
-        via-[#edf3f8]
-        to-[#cbd9e7]
-        shadow-inner
-    "
-
-    :style="`
+                        x-ref="blueprintCanvas"
+                        class="blueprint-grid absolute left-0 top-0 overflow-hidden rounded-[24px] border border-white/70 bg-gradient-to-br from-[#dbe6f1] via-[#edf3f8] to-[#cbd9e7] shadow-inner"
+                        :style="`
 
         width:${blueprint.width}px;
 
@@ -444,8 +498,7 @@ overflow-hidden
         will-change:transform;
 
     `"
-
->
+                    >
                         <div
                             class="pointer-events-none absolute inset-[38px] rounded-[36px] border-[14px] border-slate-500/15 shadow-[inset_0_0_0_2px_rgba(255,255,255,.8)]"
                         ></div>
@@ -492,9 +545,10 @@ overflow-hidden
                                         data-active-reports="{{ $room->monitoring["active_reports"] }}"
                                         style="left:{{ $room->room_x }}px;top:{{ $room->room_y }}px;width:{{ $room->room_width }}px;height:{{ $room->room_height }}px;background:{{ $room->room_color ?: '#60A5FA' }};border-color:{{ $statusColor }};--room-depth:{{ $room->room_color ?: '#60A5FA' }}"
                                     >
-                                        <span class="relative z-10 flex h-full flex-col justify-between">
+                                        <span
+                                            class="relative z-10 flex h-full flex-col justify-between"
+                                        >
                                             <span class="room-content">
-
                                                 <span
                                                     class="room-name"
                                                     data-full-name="{{ $room->room_name }}"
@@ -504,14 +558,15 @@ overflow-hidden
                                                 </span>
 
                                                 <span
-                                                    class="room-status absolute top-0 right-0 h-2.5 w-2.5 rounded-full bg-slate-200"
+                                                    class="room-status absolute right-0 top-0 h-2.5 w-2.5 rounded-full bg-slate-200"
                                                     style="background: {{ $statusColor }}"
                                                 ></span>
-
                                             </span>
                                         </span>
 
                                         <span
+                                            x-show="!editMode"
+                                            x-transition.opacity
                                             role="button"
                                             tabindex="0"
                                             title="View room layout"
@@ -519,7 +574,10 @@ overflow-hidden
                                             @keydown.enter.stop.prevent="openRoomLayout({{ $room->room_id }})"
                                             class="absolute right-2 top-2 z-40 flex h-7 w-7 items-center justify-center rounded-lg bg-white/85 text-slate-700 opacity-0 shadow-sm ring-1 ring-slate-200 transition hover:bg-white group-hover:opacity-100"
                                         >
-                                            <i data-lucide="more-vertical" class="h-4 w-4"></i>
+                                            <i
+                                                data-lucide="more-vertical"
+                                                class="h-4 w-4"
+                                            ></i>
                                         </span>
 
                                         {{-- ========================= --}}
@@ -528,11 +586,8 @@ overflow-hidden
                                         {{-- ========================= --}}
 
                                         <div
-                                             class="absolute inset-0 z-20 overflow-hidden rounded-xl"
-                                        >
-
-                                            
-                                        </div>
+                                            class="absolute inset-0 z-20 overflow-hidden rounded-xl"
+                                        ></div>
 
                                         <span
                                             x-show="editMode"
@@ -615,16 +670,11 @@ overflow-hidden
                         <div>
                             <p
                                 class="text-[10px] font-extrabold uppercase tracking-[.22em] text-white/65"
-                            >
-                                Layout editor
-                            </p>
+                            >Layout editor</p>
                             <h2 class="mt-1 text-2xl font-black">
                                 Manage room
                             </h2>
-                            <p class="mt-1 text-sm text-white/75">
-                                Rename the room, or archive a mistaken room and
-                                clear its live details.
-                            </p>
+                            <p class="mt-1 text-sm text-white/75">Rename the room, or archive a mistaken room and clear its live details.</p>
                         </div>
                         <button
                             type="button"
@@ -643,9 +693,7 @@ overflow-hidden
                     >
                         <p
                             class="text-[10px] font-extrabold uppercase tracking-[.18em] text-slate-400"
-                        >
-                            Selected room
-                        </p>
+                        >Selected room</p>
                         <p
                             class="mt-1 text-lg font-black text-slate-950"
                             x-text="roomManager.originalName || 'Room'"
@@ -682,7 +730,9 @@ overflow-hidden
                             class="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[#005EA6] px-5 py-3 text-sm font-black text-white shadow-lg shadow-blue-900/15 disabled:opacity-50"
                         >
                             <i data-lucide="pencil" class="h-4 w-4"></i>
-                            <span x-text="saving ? 'Saving...' : 'Save name'"></span>
+                            <span
+                                x-text="saving ? 'Saving...' : 'Save name'"
+                            ></span>
                         </button>
                         <button
                             type="button"
@@ -706,12 +756,7 @@ overflow-hidden
                                 <h3 class="font-black text-red-950">
                                     Archive/reset this room
                                 </h3>
-                                <p class="mt-1 text-xs leading-5 text-red-700">
-                                    This removes the room from the active
-                                    blueprint and deletes live equipment and
-                                    schedules inside it. Old reports/history are
-                                    preserved for audit.
-                                </p>
+                                <p class="mt-1 text-xs leading-5 text-red-700">This removes the room from the active blueprint and deletes live equipment and schedules inside it. Old reports/history are preserved for audit.</p>
                             </div>
                         </div>
                         <button
@@ -732,34 +777,44 @@ overflow-hidden
             x-show="roomLayout.open"
             x-transition.opacity
             x-cloak
-            class="fixed inset-0 z-[1250] flex items-center justify-center bg-slate-950/60 p-4 "
-            @click.self="closeRoomLayout()"
+            class="fixed inset-0 z-[1250] flex items-center justify-center bg-slate-950/60 p-4"
         >
-            <div class="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-[30px] bg-white shadow-2xl">
-                <div class="flex flex-col gap-4 bg-gradient-to-br from-slate-950 to-[#005EA6] px-6 py-5 text-white lg:flex-row lg:items-center lg:justify-between">
+            <div
+                class="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-[30px] bg-white shadow-2xl"
+            >
+                <div
+                    class="flex flex-col gap-4 bg-gradient-to-br from-slate-950 to-[#005EA6] px-6 py-5 text-white lg:flex-row lg:items-center lg:justify-between"
+                >
                     <div>
-                        <p class="text-[10px] font-extrabold uppercase tracking-[.22em] text-white/60">
-                            Room interior layout
-                        </p>
-                        <h2 class="mt-1 text-2xl font-black" x-text="roomLayout.name || 'Room layout'"></h2>
-                        <p class="mt-1 text-sm text-white/70">
-                            Drag equipment inside the room. Positions autosave as percentage coordinates.
-                        </p>
+                        <p class="text-[10px] font-extrabold uppercase tracking-[.22em] text-white/60">Room interior layout</p>
+                        <h2
+                            class="mt-1 text-2xl font-black"
+                            x-text="roomLayout.name || 'Room layout'"
+                        ></h2>
+                        <p class="mt-1 text-sm text-white/70">Drag equipment inside the room, then click Save Layout to apply your changes.</p>
                     </div>
                     <div class="flex flex-wrap gap-2">
                         <button
                             type="button"
                             @click="toggleRoomLayoutEdit()"
-                            :class="roomLayout.edit ? 'bg-[#FFF200] text-slate-950' : 'bg-white/10 text-white'"
+                            :class="roomLayout.edit
+                                ? 'bg-[#FFF200] text-slate-950'
+                                : 'bg-white/10 text-white'"
                             class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-black"
                         >
                             <i data-lucide="move" class="h-4 w-4"></i>
-                            <span x-text="roomLayout.edit ? 'Editing equipment' : 'Edit layout'"></span>
+                            <span
+                                x-text="
+                                    roomLayout.edit
+                                        ? 'Editing Layout'
+                                        : 'Edit layout'
+                                "
+                            ></span>
                         </button>
                         <button
                             type="button"
                             @click="saveLayout()"
-                            :disabled="saving"
+                            :disabled="saving || !roomLayout.edit"
                             class="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-black text-white disabled:opacity-50"
                         >
                             <i data-lucide="save" class="h-4 w-4"></i>
@@ -767,7 +822,7 @@ overflow-hidden
                         </button>
                         <button
                             type="button"
-                            @click="closeRoomLayout()"
+                            @click="requestCloseRoomLayout()"
                             class="rounded-xl bg-white/10 p-2 transition hover:bg-white/20"
                             aria-label="Close room layout"
                         >
@@ -776,26 +831,37 @@ overflow-hidden
                     </div>
                 </div>
 
-                <div class="grid min-h-0 flex-1 gap-4 overflow-auto bg-slate-100 p-5 lg:grid-cols-[minmax(0,1fr)_260px]">
+                <div
+                    class="grid min-h-0 flex-1 gap-4 overflow-auto bg-slate-100 p-5 lg:grid-cols-[minmax(0,1fr)_260px]"
+                >
                     <div
                         x-ref="roomInteriorCanvas"
                         class="room-interior-grid relative h-[520px] min-w-[620px] overflow-hidden rounded-[26px] border-8 border-slate-300 bg-white shadow-inner"
                     >
-                        <div class="pointer-events-none absolute inset-x-20 top-4 rounded-full border border-dashed border-slate-300 px-4 py-1 text-center text-[10px] font-black uppercase tracking-[.2em] text-slate-400">
+                        <div
+                            class="pointer-events-none absolute inset-x-20 top-4 rounded-full border border-dashed border-slate-300 px-4 py-1 text-center text-[10px] font-black uppercase tracking-[.2em] text-slate-400"
+                        >
                             Front wall / board
                         </div>
-                        <div class="pointer-events-none absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-xl bg-amber-100 px-4 py-2 text-xs font-black text-amber-700">
+                        <div
+                            class="pointer-events-none absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-xl bg-amber-100 px-4 py-2 text-xs font-black text-amber-700"
+                        >
                             <i data-lucide="door-open" class="h-4 w-4"></i>
                             Door
                         </div>
 
                         <template x-if="roomLayout.equipment.length === 0">
-                            <div class="absolute inset-0 flex items-center justify-center">
-                                <div class="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center">
-                                    <i data-lucide="package-open" class="mx-auto h-10 w-10 text-slate-300"></i>
-                                    <p class="mt-3 text-sm font-bold text-slate-500">
-                                        No equipment yet for this room.
-                                    </p>
+                            <div
+                                class="absolute inset-0 flex items-center justify-center"
+                            >
+                                <div
+                                    class="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center"
+                                >
+                                    <i
+                                        data-lucide="package-open"
+                                        class="mx-auto h-10 w-10 text-slate-300"
+                                    ></i>
+                                    <p class="mt-3 text-sm font-bold text-slate-500">No equipment yet for this room.</p>
                                 </div>
                             </div>
                         </template>
@@ -805,16 +871,25 @@ overflow-hidden
                             :key="item.id"
                         >
                             <div
-                                class="room-equipment-node absolute z-20 flex min-w-[86px] -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 shadow-lg"
-                                :class="roomLayout.edit ? 'cursor-grab ring-4 ring-[#FFF200]/40' : ''"
+                                class="room-equipment-node absolute z-20 flex min-w-[86px] items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 shadow-lg"
+                                :class="roomLayout.edit
+                                    ? 'cursor-grab ring-4 ring-[#FFF200]/40'
+                                    : ''"
                                 :data-equipment-id="item.id"
                                 :data-x="item.x"
                                 :data-y="item.y"
-                                :style="`left:${item.x}%;top:${item.y}%`"
+                                :style="`
+                                    left:${item.x}%;
+                                    top:${item.y}%;
+                                    transform:translate(-50%,-50%);
+                                    will-change:left,top;
+                                    `"
                             >
-                                <span class="text-lg" x-text="equipmentIcon(item.name)"></span>
+                                <span
+                                    class="text-lg"
+                                    x-text="equipmentIcon(item.name)"
+                                ></span>
                                 <div class="flex flex-col leading-tight">
-
                                     <span
                                         class="max-w-[130px] truncate"
                                         x-text="item.name"
@@ -822,62 +897,230 @@ overflow-hidden
 
                                     <span
                                         class="max-w-[130px] truncate text-[10px] font-semibold text-slate-400"
-                                        x-text="item.location || item.placement_zone || 'No location'"
+                                        x-text="
+                                            item.location ||
+                                            item.placement_zone ||
+                                            'No location'
+                                        "
                                     ></span>
-
                                 </div>
                             </div>
                         </template>
                     </div>
 
-                    <aside class="space-y-3 rounded-[24px] bg-white p-4 shadow-sm">
+                    <aside
+                        class="space-y-3 rounded-[24px] bg-white p-4 shadow-sm"
+                    >
                         <div>
-                            <p class="text-[10px] font-extrabold uppercase tracking-[.18em] text-slate-400">
-                                Equipment list
-                            </p>
-                            <p class="mt-1 text-sm font-bold text-slate-600">
-                                Drag items on the room map, then save.
-                            </p>
+                            <p class="text-[10px] font-extrabold uppercase tracking-[.18em] text-slate-400">Equipment list</p>
+                            <p class="mt-1 text-sm font-bold text-slate-600">Drag items on the room map, then save.</p>
                         </div>
-                        <template x-for="item in roomLayout.equipment" :key="'list-' + item.id">
-                            <div class="rounded-2xl border border-slate-100 bg-slate-50 p-3">
+                        <template
+                            x-for="item in roomLayout.equipment"
+                            :key="'list-' + item.id"
+                        >
+                            <div
+                                class="rounded-2xl border border-slate-100 bg-slate-50 p-3"
+                            >
                                 <p class="font-black text-slate-800">
-                                    <span x-text="equipmentIcon(item.name)"></span>
+                                    <span
+                                        x-text="equipmentIcon(item.name)"
+                                    ></span>
                                     <span x-text="item.name"></span>
                                 </p>
                                 <div class="mt-2 space-y-1 text-xs">
-
                                     <p class="font-semibold text-slate-600">
                                         Condition:
-                                        <span x-text="item.condition || 'Unknown'"></span>
+                                        <span
+                                            x-text="item.condition || 'Unknown'"
+                                        ></span>
                                     </p>
 
                                     <p class="text-slate-500">
                                         Location:
-                                        <span x-text="item.location || 'Not assigned'"></span>
+                                        <span
+                                            x-text="
+                                                item.location || 'Not assigned'
+                                            "
+                                        ></span>
                                     </p>
 
                                     <p class="text-slate-500">
                                         Placement:
-                                        <span x-text="item.placement_zone || 'None'"></span>
+                                        <span
+                                            x-text="
+                                                item.placement_zone || 'None'
+                                            "
+                                        ></span>
                                     </p>
 
-                                    <p class="text-slate-400">
-                                        X:
-                                        <span x-text="item.x"></span>%
-
-                                        •
-
-                                        Y:
-                                        <span x-text="item.y"></span>%
-                                    </p>
-
+                                    <p class="text-slate-400">X:
+                                    <span x-text="item.x"></span>% • Y: <span x-text="item.y"></span>%</p>
                                 </div>
                             </div>
                         </template>
                     </aside>
                 </div>
             </div>
+        </div>
+
+        <!-- ===================================== -->
+        <!-- Discard Layout Changes Modal -->
+        <!-- Place BELOW Room Layout Modal -->
+        <!-- ===================================== -->
+
+        <div
+            x-show="closeLayoutModal.open"
+            x-transition.opacity
+            x-cloak
+            class="fixed inset-0 z-[1300] flex items-center justify-center bg-slate-950/60 p-4"
+        >
+
+            <div
+                @click.stop
+                class="w-full max-w-md overflow-hidden rounded-[28px] bg-white shadow-2xl"
+            >
+
+                <div
+                    class="bg-gradient-to-r from-yellow-500 to-[#FFF200] px-6 py-5 text-white"
+                >
+
+                    <div class="flex items-center gap-3">
+
+                        <div
+                            class="flex p-4 items-center justify-center rounded-2xl bg-white/50"
+                        >
+
+                            <i data-lucide="triangle-alert" class="h-6 w-6 text-gray-500"></i>
+
+                        </div>
+
+                        <div>
+
+                            <h2
+                                class="text-xl text-gray-900 font-bold"
+                                x-text="closeLayoutModal.title"
+                            ></h2>
+
+                            <p
+                                class="mt-1 text-sm text-gray-600"
+                                x-text="closeLayoutModal.message"
+                            ></p>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="flex justify-end gap-3 p-6">
+
+                    <button
+
+                        @click="closeLayoutModal.open = false"
+
+                        class="rounded-xl border border-slate-500 hover:text-gray-900 hover:border-gray-800 px-5 py-2.5 text-gray-500"
+
+                    >
+
+                        Continue Editing
+
+                    </button>
+
+                    <button
+
+                        @click="
+
+                            closeLayoutModal.open = false;
+
+                            closeRoomLayout();
+
+                        "
+
+                        class="rounded-xl bg-red-600 px-5 py-2.5 text-white hover:bg-red-700"
+
+                    >
+
+                        Discard Changes
+
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- ===================================== -->
+        <!-- Blueprint Layout Confirmation -->
+        <!-- Place below the existing modal -->
+        <!-- ===================================== -->
+
+        <div
+            x-show="blueprintLayoutModal.open"
+            x-transition.opacity
+            x-cloak
+            class="fixed inset-0 z-[1301] flex items-center justify-center bg-slate-950/60 p-4"
+        >
+
+            <div
+                @click.stop
+                class="w-full max-w-md overflow-hidden rounded-[28px] bg-white shadow-2xl"
+            >
+
+                <div
+                    class="bg-gradient-to-r from-yellow-500 to-[#FFF200] px-6 py-5 text-white"
+                >
+
+                    <div class="flex items-center gap-3">
+
+                        <div
+                            class="flex p-4 items-center justify-center rounded-2xl bg-white/50"
+                        >
+
+                            <i data-lucide="triangle-alert" class="h-6 w-6 text-gray-500"></i>
+
+                        </div>
+
+                        <div>
+
+                            <h2
+                                class="text-xl text-gray-900 font-bold"
+                                x-text="blueprintLayoutModal.title"
+                            ></h2>
+
+                            <p
+                                class="mt-1 text-sm text-gray-600"
+                                x-text="blueprintLayoutModal.message"
+                            ></p>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <div class="flex justify-end gap-3 p-6">
+
+                    <button
+                        @click="blueprintLayoutModal.open=false"
+                        class="rounded-xl border border-slate-500 hover:text-gray-900 hover:border-gray-800 px-5 py-2.5 text-gray-500"
+                    >
+                        Continue Editing
+                    </button>
+
+                    <button
+                        @click="discardBlueprintChanges()"
+                        class="rounded-xl bg-red-600 px-5 py-2.5 text-white hover:bg-red-700"
+                    >
+                        Discard Changes
+                    </button>
+
+                </div>
+
+            </div>
+
         </div>
 
         <div
@@ -941,37 +1184,47 @@ overflow-hidden
         /* Equipment Icons */
         /* ============================== */
 
-        .equipment-node{
+        .equipment-node {
+            cursor: grab;
 
-            cursor:grab;
+            user-select: none;
+
+            transition: 0.15s;
+
+            z-index: 50;
+        }
+
+        .equipment-node:hover {
+            transform: scale(1.1);
+        }
+
+        .equipment-node:active {
+            cursor: grabbing;
+
+            transform: scale(1.05);
+        }
+        .room-equipment-node{
+
+            touch-action:none;
 
             user-select:none;
 
-            transition:.15s;
+            will-change:left,top;
 
-            z-index:50;
+            backface-visibility:hidden;
 
-        }
+            transform-style:preserve-3d;
 
-        .equipment-node:hover{
-
-            transform:scale(1.1);
+            transition:box-shadow .15s ease;
 
         }
 
-        .equipment-node:active{
+        .room-equipment-node.dragging{
 
-            cursor:grabbing;
+            transition:none;
 
-            transform:scale(1.05);
+            z-index:9999;
 
-        }
-        .room-equipment-node {
-            touch-action: none;
-            user-select: none;
-            transition:
-                box-shadow 0.15s ease,
-                transform 0.15s ease;
         }
         .room-equipment-node:hover {
             box-shadow: 0 18px 34px rgba(15, 23, 42, 0.18);
@@ -1010,72 +1263,92 @@ overflow-hidden
         Responsive Room Name
         ======================================= */
 
-        .room-content{
+        .room-content {
+            width: 100%;
+            height: 100%;
 
-            width:100%;
-            height:100%;
+            display: flex;
 
-            display:flex;
+            align-items: center;
 
-            align-items:center;
-
-            justify-content:center;
-
+            justify-content: center;
         }
 
-        .room-name{
+        .room-name {
+            width: 100%;
 
-            width:100%;
+            text-align: center;
 
-            text-align:center;
+            font-weight: 700;
 
-            font-weight:700;
+            color: #0f172a;
 
-            color:#0f172a;
+            white-space: nowrap;
 
-            white-space:nowrap;
+            overflow: hidden;
 
-            overflow:hidden;
+            text-overflow: ellipsis;
 
-            text-overflow:ellipsis;
+            user-select: none;
 
-            user-select:none;
+            pointer-events: none;
 
-            pointer-events:none;
-
-            transition:.2s;
-
+            transition: 0.2s;
         }
 
         /* ---------- LARGE ---------- */
 
-        .room-block[data-size="large"] .room-name{
-
-            font-size:14px;
-
+        .room-block[data-size="large"] .room-name {
+            font-size: 14px;
         }
 
         /* ---------- MEDIUM ---------- */
 
-        .room-block[data-size="medium"] .room-name{
-
-            font-size:12px;
-
+        .room-block[data-size="medium"] .room-name {
+            font-size: 12px;
         }
 
         /* ---------- SMALL ---------- */
 
-        .room-block[data-size="small"] .room-name{
-
-            font-size:10px;
-
+        .room-block[data-size="small"] .room-name {
+            font-size: 10px;
         }
 
         /* ---------- TINY ---------- */
 
-        .room-block[data-size="tiny"] .room-name{
+        .room-block[data-size="tiny"] .room-name {
+            font-size: 9px;
+        }
 
-            font-size:9px;
+
+        /* =======================================
+        Premium Blueprint Toolbar
+        Place at the bottom of <style>
+        ======================================= */
+
+        .blueprint-toolbar{
+
+            animation:toolbarFloat .35s ease;
+
+        }
+
+        @keyframes toolbarFloat{
+
+            from{
+
+                opacity:0;
+
+                transform:translateY(-12px);
+
+            }
+
+            to{
+
+                opacity:1;
+
+                transform:translateY(0);
+
+            }
 
         }
     </style>
@@ -1088,15 +1361,25 @@ overflow-hidden
                     selectedRoom: null,
                     editMode: false,
                     saving: false,
-                    autoSaveTimer: null,
-                    saveQueued: false,
+                    
+                    saveSuccess:false,
+
+                    layoutDirty:false,
                     equipmentFallbackBound: false,
                     equipmentDrag: null,
                     roomSearch: "",
                     zoomInput: "100",
-                    roomCatalog: @js($roomCatalog),
-                    blueprint: {
+                    roomCatalog: @js ($roomCatalog),
+                    // =========================
+                    // Shared Equipment Store
+                    // PHASE 1
+                    // Place here
+                    // =========================
 
+                    isFullscreen:false,
+
+                    equipmentList: [],
+                    blueprint: {
                         // =====================================
                         // Blueprint Canvas Size
                         // Change these values anytime
@@ -1125,7 +1408,6 @@ overflow-hidden
                         originX: 0,
 
                         originY: 0,
-
                     },
 
                     spacePressed: false,
@@ -1145,6 +1427,19 @@ overflow-hidden
                         name: "",
                         equipment: [],
                     },
+
+                    originalRoomLayout: null,
+
+                    blueprintLayoutModal:{
+
+                        open:false,
+
+                        title:"",
+
+                        message:""
+
+                    },
+                    
                     wizardOpen: {{
                 $errors->any()
                     ? "true"
@@ -1155,21 +1450,22 @@ overflow-hidden
                     floors: @js ($floors
                     ->map(fn($f) => ["id" => $f->floor_id, "label" => $f->floor_level])
                     ->values()),
-                    form: Object.assign({
+                    form: Object.assign(
+                        {
+                            building_name: "",
 
-                        building_name: "",
+                            building_logo: null,
 
-                        building_logo: null,
+                            building_address: null,
 
-                        building_address: null,
+                            minFloor: 2,
 
-                        minFloor: 2,
+                            maxFloor: 3,
 
-                        maxFloor: 3,
-
-                        floors: []
-
-                    }, @js($wizardCampus ?? [])),
+                            floors: [],
+                        },
+                        @js ($wizardCampus ?? []),
+                    ),
                     get activeFloorLabel() {
                         return (
                             this.floors.find((f) => f.id === this.activeFloor)?.label ||
@@ -1177,95 +1473,83 @@ overflow-hidden
                         );
                     },
                     init() {
+                        window.infrastructure = this;
 
                         if (this.form.floors.length === 0) {
-
                             this.generateFloors();
-
                         } else {
-
-                            const numbers = this.form.floors.map(floor => {
-
+                            const numbers = this.form.floors.map((floor) => {
                                 return parseInt(floor.level);
-
                             });
 
                             this.form.minFloor = Math.min(...numbers);
 
                             this.form.maxFloor = Math.max(...numbers);
-
                         }
 
                         this.$watch("form.minFloor", () => {
-
                             this.generateFloors();
-
                         });
 
                         this.$watch("form.maxFloor", () => {
-
                             this.generateFloors();
-
                         });
 
                         window.addEventListener("resize", () => {
-
                             this.fitBlueprint();
-
                         });
 
                         this.$nextTick(() => {
                             this.bindDragging();
 
                             this.$nextTick(() => {
-
                                 this.fitBlueprint();
-
                             });
-                            
 
-                            document.querySelectorAll(".room-block").forEach(room=>{
-
+                            document.querySelectorAll(".room-block").forEach((room) => {
                                 const w = parseInt(room.dataset.width);
 
                                 const h = parseInt(room.dataset.height);
 
-                                let size="large";
+                                let size = "large";
 
-                                if(w<50 || h<40){
-
-                                    size="tiny";
-
+                                if (w < 50 || h < 40) {
+                                    size = "tiny";
+                                } else if (w < 90 || h < 60) {
+                                    size = "small";
+                                } else if (w < 140 || h < 80) {
+                                    size = "medium";
                                 }
 
-                                else if(w<90 || h<60){
+                                room.dataset.size = size;
+                                const roomName = room.querySelector(".room-name");
 
-                                    size="small";
-
-                                }
-
-                                else if(w<140 || h<80){
-
-                                    size="medium";
-
-                                }
-
-                                room.dataset.size=size;
-                                const roomName=room.querySelector(".room-name");
-
-                                if(roomName){
-
-                                    roomName.textContent=this.abbreviateRoom(
-
+                                if (roomName) {
+                                    roomName.textContent = this.abbreviateRoom(
                                         roomName.dataset.fullName,
 
-                                        size
-
+                                        size,
                                     );
+                                }
+                            });
+
+                            document.addEventListener(
+
+                                "fullscreenchange",
+
+                                ()=>{
+
+                                    this.isFullscreen = !!document.fullscreenElement;
+
+                                    this.$nextTick(()=>{
+
+                                        this.fitBlueprint();
+
+                                    });
 
                                 }
 
-                            });
+                            );
 
                             if (window.lucide) {
                                 lucide.createIcons();
@@ -1278,108 +1562,73 @@ overflow-hidden
                         this.closeRoomManager();
                     },
                     zoomBlueprint(delta) {
-
-                        const oldZoom =
-                            this.blueprint.zoom;
+                        const oldZoom = this.blueprint.zoom;
 
                         const newZoom = Math.min(
-
                             2.2,
 
                             Math.max(
-
                                 0.55,
 
-                                +(oldZoom + delta).toFixed(2)
-
-                            )
-
+                                +(oldZoom + delta).toFixed(2),
+                            ),
                         );
 
                         if (oldZoom === newZoom) return;
 
-                        const viewport =
-                            this.$refs.blueprintViewport;
+                        const viewport = this.$refs.blueprintViewport;
 
-                        const cx =
-                            viewport.clientWidth / 2;
+                        const cx = viewport.clientWidth / 2;
 
-                        const cy =
-                            viewport.clientHeight / 2;
+                        const cy = viewport.clientHeight / 2;
 
                         this.blueprint.panX =
-                            cx -
-                            ((cx - this.blueprint.panX) / oldZoom) *
-                            newZoom;
+                            cx - ((cx - this.blueprint.panX) / oldZoom) * newZoom;
 
                         this.blueprint.panY =
-                            cy -
-                            ((cy - this.blueprint.panY) / oldZoom) *
-                            newZoom;
+                            cy - ((cy - this.blueprint.panY) / oldZoom) * newZoom;
 
-                        this.blueprint.zoom =
-                            newZoom;
+                        this.blueprint.zoom = newZoom;
 
-                        this.zoomInput =
-                            Math.round(newZoom * 100);
-
+                        this.zoomInput = Math.round(newZoom * 100);
                     },
                     applyZoomInput() {
-
-                        const value = parseFloat(
-
-                            String(this.zoomInput).replace("%", "")
-
-                        );
+                        const value = parseFloat(String(this.zoomInput).replace("%", ""));
 
                         if (isNaN(value)) {
-
                             this.toast = "Invalid zoom value.";
 
                             this.zoomInput = Math.round(this.blueprint.zoom * 100);
 
-                            setTimeout(() => this.toast = "", 2500);
+                            setTimeout(() => (this.toast = ""), 2500);
 
                             return;
-
                         }
 
                         if (value < 55 || value > 220) {
-
                             this.toast = "Zoom must be between 55% and 220%.";
 
                             this.zoomInput = Math.round(this.blueprint.zoom * 100);
 
-                            setTimeout(() => this.toast = "", 2500);
+                            setTimeout(() => (this.toast = ""), 2500);
 
                             return;
-
                         }
 
                         this.blueprint.zoom = value / 100;
 
                         this.zoomInput = Math.round(value);
-
                     },
                     handleBlueprintWheel(event) {
-
                         if (!this.spacePressed) {
-
                             return;
-
                         }
 
                         event.preventDefault();
 
-                        this.zoomBlueprint(
-
-                            event.deltaY > 0 ? -0.08 : 0.08
-
-                        );
-
+                        this.zoomBlueprint(event.deltaY > 0 ? -0.08 : 0.08);
                     },
                     startBlueprintPan(event) {
-
                         // Only left mouse
                         if (event.button !== 0) return;
                         if (!this.spacePressed) return;
@@ -1396,7 +1645,6 @@ overflow-hidden
                         this.blueprint.originX = this.blueprint.panX;
 
                         this.blueprint.originY = this.blueprint.panY;
-
                     },
                     moveBlueprintPan(event) {
                         if (!this.blueprint.isPanning) return;
@@ -1409,23 +1657,18 @@ overflow-hidden
                         this.blueprint.isPanning = false;
                     },
                     resetBlueprintView() {
-
                         this.fitBlueprint();
-
                     },
 
                     fitBlueprint() {
-
                         const padding = {
-
                             top: 15,
 
                             right: 8,
 
                             bottom: 8,
 
-                            left: 8
-
+                            left: 8,
                         };
 
                         const viewport = this.$refs.blueprintViewport;
@@ -1437,68 +1680,166 @@ overflow-hidden
                         // -----------------------------------
 
                         const availableWidth =
-                            viewport.clientWidth -
-                            padding.left -
-                            padding.right;
+                            viewport.clientWidth - padding.left - padding.right;
 
                         const availableHeight =
-                            viewport.clientHeight -
-                            padding.top -
-                            padding.bottom;
+                            viewport.clientHeight - padding.top - padding.bottom;
 
                         // -----------------------------------
                         // Blueprint original size
                         // -----------------------------------
 
-                        const blueprintWidth =
-                            this.blueprint.width;
+                        const blueprintWidth = this.blueprint.width;
 
-                        const blueprintHeight =
-                            this.blueprint.height;
+                        const blueprintHeight = this.blueprint.height;
 
                         // -----------------------------------
                         // Calculate scale for BOTH directions
                         // -----------------------------------
 
-                        const scaleX =
-                            availableWidth / blueprintWidth;
+                        const scaleX = availableWidth / blueprintWidth;
 
-                        const scaleY =
-                            availableHeight / blueprintHeight;
+                        const scaleY = availableHeight / blueprintHeight;
 
                         // -----------------------------------
                         // Choose whichever fits BOTH
                         // -----------------------------------
 
-                        const zoom =
-                            Math.min(scaleX, scaleY);
+                        const zoom = Math.min(scaleX, scaleY);
 
                         this.blueprint.zoom = zoom;
 
-                        this.zoomInput =
-                            Math.round(zoom * 100);
+                        this.zoomInput = Math.round(zoom * 100);
 
                         // -----------------------------------
                         // Calculate scaled size
                         // -----------------------------------
 
-                        const scaledWidth =
-                            blueprintWidth * zoom;
+                        const scaledWidth = blueprintWidth * zoom;
 
-                        const scaledHeight =
-                            blueprintHeight * zoom;
+                        const scaledHeight = blueprintHeight * zoom;
 
                         // -----------------------------------
                         // Perfectly center the blueprint
                         // -----------------------------------
 
                         this.blueprint.panX =
-                            padding.left +
-                            (availableWidth - scaledWidth) / 2;
+                            padding.left + (availableWidth - scaledWidth) / 2;
 
                         this.blueprint.panY =
-                            padding.top +
-                            (availableHeight - scaledHeight) / 2;
+                            padding.top + (availableHeight - scaledHeight) / 2;
+                    },
+                    async toggleFullscreen(){
+
+                        const element = this.$refs.blueprintWorkspace;
+
+                        if(!document.fullscreenElement){
+
+                            await element.requestFullscreen();
+
+                            this.isFullscreen = true;
+
+                            this.$nextTick(()=>{
+
+                                this.fitBlueprint();
+
+                            });
+
+                        }else{
+
+                            await document.exitFullscreen();
+
+                            this.isFullscreen = false;
+
+                            this.$nextTick(()=>{
+
+                                this.fitBlueprint();
+
+                            });
+
+                        }
+
+                    },
+                    toggleBlueprintEdit(){
+
+                        if(!this.editMode){
+
+                            this.originalBlueprintLayout = [
+
+                                ...document.querySelectorAll(".room-block")
+
+                            ].map(room=>({
+
+                                id:+room.dataset.id,
+
+                                x:+room.dataset.x,
+
+                                y:+room.dataset.y,
+
+                                width:+room.dataset.width,
+
+                                height:+room.dataset.height
+
+                            }));
+
+                            this.editMode = true;
+
+                            return;
+
+                        }
+
+                        if(this.layoutDirty){
+
+                            this.blueprintLayoutModal.title =
+                                "Discard Room Layout Changes?";
+
+                            this.blueprintLayoutModal.message =
+                                "You have unsaved changes. Leaving Edit Mode will restore every room to its previous position and size.";
+
+                            this.blueprintLayoutModal.open = true;
+
+                            return;
+
+                        }
+
+                        this.editMode = false;
+
+                    },
+                    discardBlueprintChanges(){
+
+                        this.originalBlueprintLayout.forEach(original=>{
+
+                            const room = document.querySelector(
+
+                                `.room-block[data-id="${original.id}"]`
+
+                            );
+
+                            if(!room) return;
+
+                            room.dataset.x = original.x;
+
+                            room.dataset.y = original.y;
+
+                            room.dataset.width = original.width;
+
+                            room.dataset.height = original.height;
+
+                            room.style.left = original.x + "px";
+
+                            room.style.top = original.y + "px";
+
+                            room.style.width = original.width + "px";
+
+                            room.style.height = original.height + "px";
+
+                        });
+
+                        this.layoutDirty = false;
+
+                        this.editMode = false;
+
+                        this.blueprintLayoutModal.open = false;
 
                     },
                     focusRoomSearch() {
@@ -1522,8 +1863,12 @@ overflow-hidden
                         this.activeFloor = room.floor_id;
                         this.selectedRoom = room.id;
                         this.blueprint.zoom = 1.35;
-                        this.blueprint.panX = Math.round(360 - room.x * this.blueprint.zoom);
-                        this.blueprint.panY = Math.round(240 - room.y * this.blueprint.zoom);
+                        this.blueprint.panX = Math.round(
+                            360 - room.x * this.blueprint.zoom,
+                        );
+                        this.blueprint.panY = Math.round(
+                            240 - room.y * this.blueprint.zoom,
+                        );
 
                         this.$nextTick(() => {
                             const node = document.querySelector(
@@ -1549,45 +1894,31 @@ overflow-hidden
                         });
                     },
                     generateFloors() {
-
                         const existingFloors = {};
 
-                        this.form.floors.forEach(floor => {
-
+                        this.form.floors.forEach((floor) => {
                             existingFloors[floor.level] = floor;
-
                         });
 
                         const newFloors = [];
 
                         for (
-
                             let floorNumber = this.form.minFloor;
-
                             floorNumber <= this.form.maxFloor;
-
                             floorNumber++
-
                         ) {
-
                             const level = this.floorLabel(floorNumber);
 
                             if (existingFloors[level]) {
-
                                 newFloors.push(existingFloors[level]);
-
                             } else {
-
                                 newFloors.push({
-
                                     id: null,
 
                                     level,
 
                                     rooms: [
-
                                         {
-
                                             id: null,
 
                                             name: "",
@@ -1596,23 +1927,16 @@ overflow-hidden
 
                                             status: "Normal",
 
-                                            equipment: []
-
-                                        }
-
-                                    ]
-
+                                            equipment: [],
+                                        },
+                                    ],
                                 });
-
                             }
-
                         }
 
                         this.form.floors = newFloors;
-
                     },
                     floorLabel(number) {
-
                         const mod10 = number % 10;
                         const mod100 = number % 100;
 
@@ -1671,122 +1995,160 @@ overflow-hidden
                         });
                     },
                     async loadCampus() {
-
                         try {
-
                             const response = await fetch(
-                                @js(route('maintenance.infrastructure.campus.load'))
+                                @js (route("maintenance.infrastructure.campus.load")),
                             );
 
                             if (!response.ok) {
-
                                 throw new Error();
-
                             }
 
                             const data = await response.json();
 
-                            this.form = Object.assign({
+                            this.form = Object.assign(
+                                {
+                                    building_name: "",
 
-                                building_name: "",
+                                    building_logo: null,
 
-                                building_logo: null,
+                                    building_address: null,
 
-                                building_address: null,
+                                    minFloor: 2,
 
-                                minFloor: 2,
+                                    maxFloor: 3,
 
-                                maxFloor: 3,
-
-                                floors: []
-
-                            }, data);
+                                    floors: [],
+                                },
+                                data,
+                            );
 
                             if (this.form.floors.length > 0) {
-
-                                const numbers = this.form.floors.map(floor =>
-
-                                    parseInt(floor.level)
-
+                                const numbers = this.form.floors.map((floor) =>
+                                    parseInt(floor.level),
                                 );
 
                                 this.form.minFloor = Math.min(...numbers);
 
                                 this.form.maxFloor = Math.max(...numbers);
-
                             }
-
                         } catch (error) {
-
                             console.error(error);
 
                             this.toast = "Unable to load campus.";
 
-                            setTimeout(() => this.toast = "", 3000);
-
+                            setTimeout(() => (this.toast = ""), 3000);
                         }
-
                     },
-                    zonePosition(zone){
-
-                        switch(zone){
-
+                    zonePosition(zone) {
+                        switch (zone) {
                             case "Front Wall":
-
-                                return [
-                                    20 + Math.random()*60,
-                                    10
-                                ];
+                                return [20 + Math.random() * 60, 10];
 
                             case "Rear Wall":
-
-                                return [
-                                    60 + Math.random()*30,
-                                    88
-                                ];
+                                return [60 + Math.random() * 30, 88];
 
                             case "Left Row Pods":
-
-                                return [
-                                    20,
-                                    35 + Math.random()*40
-                                ];
+                                return [20, 35 + Math.random() * 40];
 
                             case "Right Row Pods":
-
-                                return [
-                                    80,
-                                    35 + Math.random()*40
-                                ];
+                                return [80, 35 + Math.random() * 40];
 
                             case "Center Ceiling":
-
-                                return [
-                                    50,
-                                    45
-                                ];
+                                return [50, 45];
 
                             default:
+                                return [50, 50];
+                        }
+                    },
+                    // =====================================
+                    // PHASE 2
+                    // Reverse lookup
+                    // Position -> Zone
+                    // Place below zonePosition()
+                    // =====================================
 
-                                return [50,50];
+                    detectEquipmentZone(x, y){
+
+                        if(y <= 25){
+
+                            return "Front Wall";
 
                         }
 
+                        if(y >= 80){
+
+                            return "Rear Wall";
+
+                        }
+
+                        if(x <= 25){
+
+                            return "Left Row Pods";
+
+                        }
+
+                        if(x >= 75){
+
+                            return "Right Row Pods";
+
+                        }
+
+                        if(
+
+                            x >= 35 &&
+                            x <= 65 &&
+                            y >= 30 &&
+                            y <= 55
+
+                        ){
+
+                            return "Center Ceiling";
+
+                        }
+
+                        return "Storage";
+
                     },
-                    scheduleAutoSave() {
-                        clearTimeout(this.autoSaveTimer);
-                        this.autoSaveTimer = setTimeout(() => this.saveLayout(false), 650);
+                    syncEquipmentZone(node) {
+                        const item = this.roomLayout.equipment.find(
+                            (equipment) => equipment.id === +node.dataset.equipmentId,
+                        );
+
+                        if (!item) return null;
+
+                        item.x = +node.dataset.x;
+                        item.y = +node.dataset.y;
+
+                        const zone = this.detectEquipmentZone(item.x, item.y);
+
+                        item.location = zone;
+                        item.placement_zone = zone;
+                        
+                        node.dataset.zone = zone;
+
+                        return item;
                     },
+                    
                     bindDragging() {
                         if (!window.interact) {
-                            this.bindEquipmentFallback();
+                            console.warn("Interact.js not loaded.");
                             return;
                         }
                         interact(".room-block")
-                            .on("tap", (event) => {
+                            /*.on("tap", (event) => {
                                 if (!this.editMode) return;
                                 event.preventDefault();
                                 this.openRoomManager(event.currentTarget);
+                            })*/
+                            .on("tap", (event) => {
+
+                                if (!this.editMode) return;
+
+                                event.preventDefault();
+
+                                this.selectedRoom = Number(event.currentTarget.dataset.id);
+
                             })
                             .draggable({
                                 inertia: false,
@@ -1817,8 +2179,16 @@ overflow-hidden
                                         el.dataset.x = Math.round(x);
                                         el.dataset.y = Math.round(y);
                                     },
-                                    end: () => {
-                                        if (this.editMode) this.scheduleAutoSave();
+                                    end:()=>{
+
+                                        if(!this.editMode){
+
+                                            return;
+
+                                        }
+
+                                        this.layoutDirty = true;
+
                                     },
                                 },
                             })
@@ -1831,9 +2201,9 @@ overflow-hidden
                                     }),
                                     interact.modifiers.restrictSize({
                                         min: {
-                                                width: 80,
-                                                height: 80
-                                            },
+                                            width: 80,
+                                            height: 80,
+                                        },
                                         max: { width: 600, height: 450 },
                                     }),
                                     interact.modifiers.restrictEdges({ outer: "parent" }),
@@ -1857,34 +2227,22 @@ overflow-hidden
                                         let size = "large";
 
                                         if (width < 50 || height < 40) {
-
                                             size = "tiny";
-
-                                        }
-                                        else if (width < 90 || height < 60) {
-
+                                        } else if (width < 90 || height < 60) {
                                             size = "small";
-
-                                        }
-                                        else if (width < 140 || height < 80) {
-
+                                        } else if (width < 140 || height < 80) {
                                             size = "medium";
-
                                         }
 
                                         el.dataset.size = size;
                                         const roomName = el.querySelector(".room-name");
 
-                                        if(roomName){
-
-                                            roomName.textContent=this.abbreviateRoom(
-
+                                        if (roomName) {
+                                            roomName.textContent = this.abbreviateRoom(
                                                 roomName.dataset.fullName,
 
-                                                size
-
+                                                size,
                                             );
-
                                         }
                                         Object.assign(el.style, {
                                             width: width + "px",
@@ -1900,108 +2258,194 @@ overflow-hidden
                                         });
                                     },
                                     end: () => {
-                                        if (this.editMode) this.scheduleAutoSave();
+
+                                        if (!this.editMode) return;
+
+                                        this.layoutDirty = true;
+
                                     },
                                 },
                             });
 
-                        interact(".room-equipment-node").draggable({
-                            inertia: false,
-                            modifiers: [
-                                interact.modifiers.restrictRect({
-                                    restriction: "parent",
-                                    endOnly: true,
-                                }),
-                            ],
-                            listeners: {
-                                move: (event) => {
-                                    if (!this.roomLayout.edit) return;
-                                    const node = event.target;
-                                    const parent = node.parentElement;
-                                    const parentRect = parent.getBoundingClientRect();
-                                    const currentX = parseFloat(node.dataset.x || 50);
-                                    const currentY = parseFloat(node.dataset.y || 50);
-                                    const nextX = currentX + (event.dx / parentRect.width) * 100;
-                                    const nextY = currentY + (event.dy / parentRect.height) * 100;
-                                    const snappedX = Math.round(nextX / 5) * 5;
-                                    const snappedY = Math.round(nextY / 5) * 5;
-                                    const x = Math.min(96, Math.max(4, snappedX));
-                                    const y = Math.min(96, Math.max(4, snappedY));
+                        interact(".room-equipment-node").unset();
+                        interact(".room-equipment-node")
+                            .draggable({
+                                inertia: false,
+                                listeners: {
+                                    start: (event) => {
+                                        if (!this.roomLayout.edit) return;
+                                        const node = event.target;
+                                        const parentRect = node.parentElement.getBoundingClientRect();
+                                        const x = (parseFloat(node.dataset.x) || 50) / 100 * parentRect.width;
+                                        const y = (parseFloat(node.dataset.y) || 50) / 100 * parentRect.height;
 
-                                    node.dataset.x = x;
-                                    node.dataset.y = y;
-                                    node.style.left = `${x}%`;
-                                    node.style.top = `${y}%`;
+                                        node.dataset.dragX = x;
+                                        node.dataset.dragY = y;
+                                        node.style.left = x + "px";
+                                        node.style.top = y + "px";
+                                        node.classList.add("dragging");
+                                    },
+                                    move: (event) => {
+                                        if (!this.roomLayout.edit) return;
 
-                                    const item = this.roomLayout.equipment.find(
-                                        (equipment) =>
-                                            equipment.id === +node.dataset.equipmentId,
-                                    );
-                                    if (item) {
-                                        item.x = x;
-                                        item.y = y;
-                                    }
+                                        const node = event.target;
+                                        const parent = node.parentElement;
+                                        const rect = parent.getBoundingClientRect();
+
+                                        let x =
+                                            (parseFloat(node.dataset.dragX) || 0) + event.dx;
+                                        let y =
+                                            (parseFloat(node.dataset.dragY) || 0) + event.dy;
+
+                                        x = Math.min(rect.width - 12, Math.max(12, x));
+                                        y = Math.min(rect.height - 12, Math.max(12, y));
+
+                                        node.style.left = x + "px";
+                                        node.style.top = y + "px";
+                                        node.dataset.dragX = x;
+                                        node.dataset.dragY = y;
+                                        node.dataset.x = Math.round((x / rect.width) * 100);
+                                        node.dataset.y = Math.round((y / rect.height) * 100);
+                                    },
+                                    end: (event) => {
+                                        if (!this.roomLayout.edit) return;
+
+                                        const node = event.target;
+                                        const rect = node.parentElement.getBoundingClientRect();
+                                        const x = Math.min(96, Math.max(4, Math.round(((parseFloat(node.dataset.dragX) || 0) / rect.width) * 100)));
+                                        const y = Math.min(96, Math.max(4, Math.round(((parseFloat(node.dataset.dragY) || 0) / rect.height) * 100)));
+
+                                        node.dataset.x = x;
+                                        node.dataset.y = y;
+                                        node.style.left = x + "%";
+                                        node.style.top = y + "%";
+                                        delete node.dataset.dragX;
+                                        delete node.dataset.dragY;
+                                        node.classList.remove("dragging");
+
+                                        this.syncEquipmentZone(node);
+
+                                        this.layoutDirty = true;
+                                    },
                                 },
-                                end: () => {
-                                    if (this.roomLayout.edit) this.scheduleAutoSave();
-                                },
-                            },
-                        });
+                            });
                     },
                     bindEquipmentFallback() {
                         if (this.equipmentFallbackBound) return;
                         this.equipmentFallbackBound = true;
 
                         document.addEventListener("pointerdown", (event) => {
+
                             const node = event.target.closest(".room-equipment-node");
+
                             if (!node || !this.roomLayout.edit) return;
+
                             event.preventDefault();
+
+                            node.classList.add("dragging");
+
                             node.setPointerCapture?.(event.pointerId);
+
+                            const parentRect = node.parentElement.getBoundingClientRect();
+
+                            const currentX = parseFloat(node.dataset.x || 50);
+
+                            const currentY = parseFloat(node.dataset.y || 50);
+
+                            const equipmentPixelX = parentRect.width * currentX / 100;
+
+                            const equipmentPixelY = parentRect.height * currentY / 100;
+
+                            node.style.left = equipmentPixelX + "px";
+
+                            node.style.top = equipmentPixelY + "px";
+
                             this.equipmentDrag = {
+
                                 node,
+
+                                parentRect,
+
+                                x: equipmentPixelX,
+
+                                y: equipmentPixelY,
+
                                 startX: event.clientX,
+
                                 startY: event.clientY,
-                                originX: parseFloat(node.dataset.x || 50),
-                                originY: parseFloat(node.dataset.y || 50),
+
                             };
+
                         });
 
                         document.addEventListener("pointermove", (event) => {
+
                             if (!this.equipmentDrag || !this.roomLayout.edit) return;
-                            const { node, startX, startY, originX, originY } =
-                                this.equipmentDrag;
-                            const parentRect = node.parentElement.getBoundingClientRect();
-                            const nextX = originX + ((event.clientX - startX) / parentRect.width) * 100;
-                            const nextY = originY + ((event.clientY - startY) / parentRect.height) * 100;
-                            const x = Math.min(96, Math.max(4, Math.round(nextX / 5) * 5));
-                            const y = Math.min(96, Math.max(4, Math.round(nextY / 5) * 5));
 
-                            node.dataset.x = x;
-                            node.dataset.y = y;
-                            node.style.left = `${x}%`;
-                            node.style.top = `${y}%`;
+                            event.preventDefault();
 
-                            const item = this.roomLayout.equipment.find(
-                                (equipment) => equipment.id === +node.dataset.equipmentId,
-                            );
-                            if (item) {
-                                item.x = x;
-                                item.y = y;
-                            }
+                            const {
+
+                                node,
+
+                                x: startPixelX,
+
+                                y: startPixelY,
+
+                                startX,
+
+                                startY,
+
+                                parentRect
+
+                            } = this.equipmentDrag;
+
+                            let x = startPixelX + event.clientX - startX;
+
+                            let y = startPixelY + event.clientY - startY;
+
+                            x = Math.min(parentRect.width - 12, Math.max(12, x));
+
+                            y = Math.min(parentRect.height - 12, Math.max(12, y));
+
+                            node.style.left = x + "px";
+
+                            node.style.top = y + "px";
+
+                            node.dataset.x = Math.round((x / parentRect.width) * 100);
+
+                            node.dataset.y = Math.round((y / parentRect.height) * 100);
+
                         });
 
                         document.addEventListener("pointerup", () => {
+
                             if (!this.equipmentDrag) return;
+
+                            const node = this.equipmentDrag.node;
+                            const x = Math.min(96, Math.max(4, +node.dataset.x));
+                            const y = Math.min(96, Math.max(4, +node.dataset.y));
+
+                            node.dataset.x = x;
+                            node.dataset.y = y;
+                            node.style.left = x + "%";
+                            node.style.top = y + "%";
+                            this.syncEquipmentZone(node);
+
+                            node.classList.remove("dragging");
+
                             this.equipmentDrag = null;
-                            if (this.roomLayout.edit) this.scheduleAutoSave();
+
+                            if (this.roomLayout.edit) {
+
+                                this.layoutDirty = true;
+
+                            }
+
                         });
                     },
                     async saveLayout(manual = true) {
-                        if (this.saving) {
-                            this.saveQueued = true;
-                            return;
-                        }
-                        clearTimeout(this.autoSaveTimer);
+                        if (this.saving) return;
                         this.saving = true;
                         const floorBeingSaved = this.activeFloor;
                         const nodes = [
@@ -2022,11 +2466,9 @@ overflow-hidden
                                         ).content,
                                     },
                                     body: JSON.stringify({
-
                                         floor_id: floorBeingSaved,
 
-                                        rooms: nodes.map(n => ({
-
+                                        rooms: nodes.map((n) => ({
                                             id: +n.dataset.id,
 
                                             x: +n.dataset.x,
@@ -2035,97 +2477,204 @@ overflow-hidden
 
                                             width: +n.dataset.width,
 
-                                            height: +n.dataset.height
-
+                                            height: +n.dataset.height,
                                         })),
 
                                         equipment: [
-
                                             ...document.querySelectorAll(
-
-                                                '.room-equipment-node'
-
-                                            )
-
-                                        ].map(node => ({
-
+                                                ".room-equipment-node",
+                                            ),
+                                        ].map((node) => ({
                                             id: +node.dataset.equipmentId,
 
                                             x: +node.dataset.x,
 
-                                            y: +node.dataset.y
+                                            y: +node.dataset.y,
 
-                                        }))
-
-                                    })
+                                            zone: node.dataset.zone ||
+                                                this.detectEquipmentZone(
+                                                    +node.dataset.x,
+                                                    +node.dataset.y,
+                                                ),
+                                        })),
+                                    }),
                                 },
                             );
                             if (!response.ok) throw new Error();
+
+                            /* =======================================
+                        Refresh from database after saving
+                        Place HERE
+                        ======================================= */
+
                             if (this.roomLayout.open) {
+                                await this.refreshRoomEquipment(this.roomLayout.id);
+
                                 const room = this.roomCatalog.find(
                                     (item) => item.id === this.roomLayout.id,
                                 );
+
                                 if (room) {
-                                    room.equipment = this.roomLayout.equipment.map((item) => ({
-                                        ...item,
-                                    }));
+                                    room.equipment = this.roomLayout.equipment.map(
+                                        (item) => ({
+                                            ...item,
+                                        }),
+                                    );
                                 }
                             }
+
                             if (manual) {
+
+                                this.layoutDirty = false;
+                                // Exit room editing mode
+                                this.roomLayout.edit = false;
+
+                                this.saveSuccess = true;
+
+                                setTimeout(() => {
+
+                                    this.saveSuccess = false;
+
+                                }, 2000);
+
+                                // Exit blueprint editing mode
                                 this.editMode = false;
-                                this.toast = "Layout saved";
-                                setTimeout(() => (this.toast = ""), 2500);
+
+                                this.toast = "✔ Layout saved successfully";
+
+                                setTimeout(() => {
+
+                                    this.toast = "";
+
+                                }, 2000);
+
                             }
                         } catch (e) {
                             this.toast = "Could not save the layout";
                             setTimeout(() => (this.toast = ""), 3000);
                         } finally {
                             this.saving = false;
-                            if (this.saveQueued) {
-                                this.saveQueued = false;
-                                this.scheduleAutoSave();
-                            }
+                            
                         }
+                    },
+
+                    // ======================================
+                    // BELOW saveLayout()
+                    // ======================================
+
+                    async refreshRoomEquipment(roomId) {
+
+                        const response = await fetch(
+
+                            `/maintenance/infrastructure/rooms/${roomId}/equipment`
+
+                        );
+
+                        if (!response.ok) {
+
+                            return;
+
+                        }
+
+                        const latestEquipment = await response.json();
+
+                        const room = this.roomCatalog.find(
+
+                            room => room.id === roomId
+
+                        );
+
+                        if(!room){
+
+                            return;
+
+                        }
+
+                        latestEquipment.forEach(incoming=>{
+
+                            let existing = room.equipment.find(
+
+                                item => item.id === incoming.id
+
+                            );
+
+                            if(existing){
+
+                                Object.assign(
+
+                                    existing,
+
+                                    incoming
+
+                                );
+
+                            }else{
+
+                                room.equipment.push(incoming);
+
+                            }
+
+                        });
+
+                        room.equipment = room.equipment.filter(existing=>{
+
+                            return latestEquipment.some(
+
+                                item => item.id === existing.id
+
+                            );
+
+                        });
+
+                        if(
+
+                            this.roomLayout.open &&
+
+                            this.roomLayout.id === roomId
+
+                        ){
+
+                            this.roomLayout.equipment = room.equipment;
+                            this.originalRoomLayout = JSON.parse(
+                                JSON.stringify(this.roomLayout.equipment)
+                            );
+
+                        }
+
                     },
 
                     // =====================================
                     // Place BELOW saveLayout()
                     // =====================================
 
-                    zonePosition(location){
-
+                    zonePosition(location) {
                         const zones = {
+                            "Front Wall": { x: 50, y: 12 },
 
-                            "Front Wall":      {x:50,y:12},
+                            "Rear Wall": { x: 50, y: 88 },
 
-                            "Rear Wall":       {x:50,y:88},
+                            "Center Ceiling": { x: 50, y: 18 },
 
-                            "Center Ceiling":  {x:50,y:18},
+                            "Left Row Pods": { x: 18, y: 55 },
 
-                            "Left Row Pods":   {x:18,y:55},
+                            "Right Row Pods": { x: 82, y: 55 },
 
-                            "Right Row Pods":  {x:82,y:55},
-
-                            "Storage":         {x:90,y:90}
-
+                            Storage: { x: 90, y: 90 },
                         };
 
-                        return zones[location] ?? {x:50,y:50};
-
+                        return zones[location] ?? { x: 50, y: 50 };
                     },
                     // ===================================
                     // Auto Position Equipment
                     // Place BELOW zonePosition()
                     // ===================================
 
-                    updateEquipmentLocation(item){
-
+                    updateEquipmentLocation(item) {
                         const pos = this.zonePosition(item.location);
 
                         item.x = pos.x;
 
                         item.y = pos.y;
-
                     },
                     openRoomManager(node) {
                         this.roomManager = {
@@ -2152,101 +2701,146 @@ overflow-hidden
                             edit: false,
                             id: room.id,
                             name: room.name,
-                            equipment: room.equipment.map((item) => {
+                            equipment: room.equipment,
+                        };
+                        this.roomLayout.equipment.forEach((item)=>{
 
-                                const hasSavedPosition =
-                                    item.x !== null &&
-                                    item.y !== null &&
-                                    !(item.x == 40 && item.y == 40);
+                            const hasSavedPosition =
 
-                                if (hasSavedPosition) {
+                                item.x !== null &&
+                                item.y !== null &&
+                                !(item.x == 40 && item.y == 40);
 
-                                    return {
-                                        ...item,
-                                        x: +item.x,
-                                        y: +item.y,
-                                    };
+                            if(!hasSavedPosition){
 
-                                }
+                                const [x,y] = this.zonePosition(
 
-                                const [x, y] = this.zonePosition(
-                                    item.placement_zone || item.location
+                                    item.placement_zone ||
+
+                                    item.location
+
                                 );
 
-                                return {
-                                    ...item,
-                                    x,
-                                    y,
-                                };
+                                item.x = x;
 
-                            }),
-                        };
+                                item.y = y;
+
+                                this.layoutDirty = true;
+
+                            }else{
+
+                                item.x = +item.x;
+
+                                item.y = +item.y;
+
+                            }
+
+                        });
                         this.$nextTick(() => {
                             this.bindDragging();
                             if (window.lucide) lucide.createIcons();
                         });
                     },
+                    closeLayoutModal:{
+
+                        open:false,
+
+                        title:"",
+
+                        message:""
+
+                    },
                     closeRoomLayout() {
                         this.roomLayout.open = false;
                         this.roomLayout.edit = false;
                     },
+                    requestCloseRoomLayout(){
+
+                        if(this.roomLayout.edit){
+
+                            this.closeLayoutModal.title = "Discard Changes?";
+
+                            this.closeLayoutModal.message =
+                                "You are still editing the room layout. Any unsaved changes will be lost.";
+
+                            this.closeLayoutModal.open = true;
+
+                            return;
+
+                        }
+
+                        this.closeRoomLayout();
+
+                    },
                     toggleRoomLayoutEdit() {
+
+                        if (this.roomLayout.edit && this.layoutDirty) {
+
+                            this.closeLayoutModal.title = "Discard Unsaved Changes?";
+
+                            this.closeLayoutModal.message =
+                                "Any changes made since entering Edit Mode will be lost.";
+
+                            this.closeLayoutModal.open = true;
+
+                            return;
+
+                        }
+
                         this.roomLayout.edit = !this.roomLayout.edit;
+
                         this.$nextTick(() => this.bindDragging());
+
                     },
                     equipmentIcon(name) {
                         const label = (name || "").toLowerCase();
                         if (label.includes("projector")) return "📽️";
                         if (label.includes("printer")) return "🖨️";
                         if (label.includes("tv") || label.includes("monitor")) return "📺";
-                        if (label.includes("speaker") || label.includes("sound")) return "🔊";
+                        if (label.includes("speaker") || label.includes("sound"))
+                            return "🔊";
                         if (label.includes("router") || label.includes("wifi")) return "📡";
-                        if (label.includes("pc") || label.includes("desktop") || label.includes("computer")) return "💻";
+                        if (
+                            label.includes("pc") ||
+                            label.includes("desktop") ||
+                            label.includes("computer")
+                        )
+                            return "💻";
                         return "📦";
                     },
-                    abbreviateRoom(name, size){
+                    abbreviateRoom(name, size) {
+                        if (!name) return "";
 
-                        if(!name) return "";
-
-                        if(size==="large"){
-
+                        if (size === "large") {
                             return name;
-
                         }
 
-                        let short=name;
+                        let short = name;
 
-                        short=short.replace(/Computer Laboratory/gi,"Comlab");
-                        short=short.replace(/Computer Lab/gi,"Comlab");
-                        short=short.replace(/Lecture Room/gi,"Lecture");
-                        short=short.replace(/Administration Office/gi,"Admin");
-                        short=short.replace(/Registrar Office/gi,"Registrar");
-                        short=short.replace(/Guidance Office/gi,"Guidance");
+                        short = short.replace(/Computer Laboratory/gi, "Comlab");
+                        short = short.replace(/Computer Lab/gi, "Comlab");
+                        short = short.replace(/Lecture Room/gi, "Lecture");
+                        short = short.replace(/Administration Office/gi, "Admin");
+                        short = short.replace(/Registrar Office/gi, "Registrar");
+                        short = short.replace(/Guidance Office/gi, "Guidance");
 
-                        if(size==="medium" || size==="small"){
-
+                        if (size === "medium" || size === "small") {
                             return short;
-
                         }
 
                         // Tiny version
 
                         return short
                             .split(" ")
-                            .map(word=>{
-
-                                if(/^\d+$/.test(word)){
-
+                            .map((word) => {
+                                if (/^\d+$/.test(word)) {
                                     return word;
-
                                 }
 
                                 return word.charAt(0);
-
                             })
                             .join("")
                             .toUpperCase();
-
                     },
                     async renameRoom() {
                         const name = this.roomManager.name.trim();

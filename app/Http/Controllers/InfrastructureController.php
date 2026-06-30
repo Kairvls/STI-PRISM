@@ -167,6 +167,42 @@ class InfrastructureController extends Controller
         );
     }
 
+    public function roomEquipment(Room $room): JsonResponse
+    {
+        return response()->json(
+
+            $room->equipment()
+                ->with('category')
+                ->get()
+                ->map(function ($equipment) {
+
+                    return [
+
+                        'id' => $equipment->equipment_id,
+
+                        'name' => $equipment->equipment_name,
+
+                        'category' => $equipment->equipment_category_id,
+
+                        'category_name' => optional($equipment->category)->equipment_category_name,
+
+                        'condition' => $equipment->equipment_condition_status,
+
+                        'location' => $equipment->equipment_current_location,
+
+                        'placement_zone' => $equipment->equipment_placement_zone,
+
+                        'x' => (int) $equipment->equipment_position_x,
+
+                        'y' => (int) $equipment->equipment_position_y,
+
+                    ];
+
+                })
+
+        );
+    }
+
     public function storeCampus(Request $request): RedirectResponse
     {
         $validated = $request->validate([
@@ -341,6 +377,8 @@ class InfrastructureController extends Controller
             'equipment.*.x' => ['required', 'integer', 'min:0', 'max:100'],
 
             'equipment.*.y' => ['required', 'integer', 'min:0', 'max:100'],
+
+            'equipment.*.zone' => ['nullable', 'string', 'max:100'],
         ]);
 
         DB::transaction(function () use ($validated): void {
@@ -365,6 +403,10 @@ class InfrastructureController extends Controller
                         'equipment_position_x' => $equipment['x'],
 
                         'equipment_position_y' => $equipment['y'],
+
+                        'equipment_current_location' => $equipment['zone'] ?? null,
+
+                        'equipment_placement_zone' => $equipment['zone'] ?? null,
 
                     ]);
 

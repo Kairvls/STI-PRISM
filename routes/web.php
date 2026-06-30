@@ -561,6 +561,15 @@ Route::post(
     [InfrastructureController::class, 'storeEquipment']
 );
 
+
+Route::get(
+
+    '/maintenance/infrastructure/rooms/{room}/equipment',
+
+    [InfrastructureController::class,'roomEquipment']
+
+)->name('maintenance.infrastructure.room-equipment');
+
 /*
 |--------------------------------------------------------------------------
 | INFRASTRUCTURE
