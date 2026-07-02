@@ -196,6 +196,12 @@ class InfrastructureController extends Controller
 
                         'y' => (int) $equipment->equipment_position_y,
 
+                        'width' => (int) ($equipment->equipment_width ?? 120),
+
+                        'height' => (int) ($equipment->equipment_height ?? 96),
+
+                        'rotation' => (int) ($equipment->equipment_rotation ?? 0),
+
                     ];
 
                 })
@@ -369,7 +375,8 @@ class InfrastructureController extends Controller
             'rooms.*.x' => ['required', 'integer', 'min:0', 'max:1800'],
             'rooms.*.y' => ['required', 'integer', 'min:0', 'max:900'],
             'rooms.*.width' => ['required','integer','min:80','max:600'],
-            'rooms.*.height' => ['required','integer','min:80','max:450'],
+            'rooms.*.height' => ['required', 'integer','min:80','max:450'],
+            'rooms.*.rotation' => ['required', 'integer', 'min:0', 'max:360'],
             'equipment' => ['nullable', 'array'],
 
             'equipment.*.id' => ['required', 'integer'],
@@ -379,30 +386,49 @@ class InfrastructureController extends Controller
             'equipment.*.y' => ['required', 'integer', 'min:0', 'max:100'],
 
             'equipment.*.zone' => ['nullable', 'string', 'max:100'],
+
+            'equipment.*.width' => ['required','integer','min:50','max:220'],
+
+            'equipment.*.height' => ['required','integer','min:80','max:220'],
+
+            'equipment.*.rotation' => ['required','integer','min:0','max:360'],
         ]);
 
         DB::transaction(function () use ($validated): void {
             foreach ($validated['rooms'] as $room) {
-                Room::query()->whereKey($room['id'])->where('room_floor_id', $validated['floor_id'])
-                    ->update([
-                        'room_x' => $room['x'],
-                        'room_y' => $room['y'],
-                        'room_width' => $room['width'],
-                        'room_height' => $room['height'],
-                    ]);
+                $roomModel = Room::query()->whereKey($room['id'])->where('room_floor_id', $validated['floor_id'])->first();
+
+                if (!$roomModel) {
+                    continue;
+                }
+
+                $metadata = $roomModel->room_metadata ?? [];
+                $metadata['rotation'] = $room['rotation'];
+
+                $roomModel->update([
+                    'room_x' => $room['x'],
+                    'room_y' => $room['y'],
+                    'room_width' => $room['width'],
+                    'room_height' => $room['height'],
+                    'room_metadata' => $metadata,
+                ]);
             }
 
             foreach ($validated['equipment'] ?? [] as $equipment) {
 
                 Equipment::query()
-
                     ->whereKey($equipment['id'])
-
                     ->update([
 
                         'equipment_position_x' => $equipment['x'],
 
                         'equipment_position_y' => $equipment['y'],
+
+                        'equipment_width' => $equipment['width'],
+
+                        'equipment_height' => $equipment['height'],
+
+                        'equipment_rotation' => $equipment['rotation'],
 
                         'equipment_current_location' => $equipment['zone'] ?? null,
 
