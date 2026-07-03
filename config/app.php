@@ -54,6 +54,8 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    'campus_setup_unlock_code' => env('CAMPUS_SETUP_UNLOCK_CODE', ''),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone

@@ -14,6 +14,7 @@
                     "name" => $room->room_name,
                     "type" => $room->room_type ?: "Room",
                     "status" => $room->room_status,
+                    "layout_mode" => $room->room_layout_mode ?: "loose_equipment",
                     "x" => (int) $room->room_x,
                     "y" => (int) $room->room_y,
                     "width" => (int) $room->room_width,
@@ -65,8 +66,29 @@
     <div
         x-data="infrastructureMonitor({{ (int) optional($initialFloor)->floor_id }})"
         x-init="init()"
-        @keydown.space.window.prevent="spacePressed = true"
-        @keyup.space.window="spacePressed = false"
+        @keydown.space.window="
+            const target = $event.target;
+            const tag = (target.tagName || '').toLowerCase();
+            const isTypingContext =
+                target.isContentEditable ||
+                ['input', 'textarea', 'select'].includes(tag);
+
+            if (!isTypingContext) {
+                $event.preventDefault();
+                spacePressed = true;
+            }
+        "
+        @keyup.space.window="
+            const target = $event.target;
+            const tag = (target.tagName || '').toLowerCase();
+            const isTypingContext =
+                target.isContentEditable ||
+                ['input', 'textarea', 'select'].includes(tag);
+
+            if (!isTypingContext) {
+                spacePressed = false;
+            }
+        "
         @keydown.escape.window="
             wizardOpen = false;
 
@@ -120,11 +142,15 @@
             <div class="flex flex-wrap gap-3">
                 <button
                     @click="
-                        await loadCampus();
-
-                        step = 1;
+                        step = (String(form.building_name || '').trim() || (form.floors || []).length > 0)
+                            ? 2
+                            : 1;
 
                         wizardOpen = true;
+
+                        wizardHasLocalChanges = false;
+
+                        loadCampus(false);
 
                         $nextTick(() => {
                             if (window.lucide) {
@@ -172,11 +198,10 @@
             >
                 <span class="flex items-center gap-2"
                     ><i class="h-2.5 w-2.5 rounded-full bg-emerald-500"></i
-                    >Healthy</span
+                    >Good</span
                 >
                 <span class="flex items-center gap-2"
-                    ><i class="h-2.5 w-2.5 rounded-full bg-amber-400"></i>Needs
-                    attention</span
+                    ><i class="h-2.5 w-2.5 rounded-full bg-amber-400"></i>Under Maintenance</span
                 >
                 <span class="flex items-center gap-2"
                     ><i
@@ -477,43 +502,44 @@
                     @mousemove.window="moveBlueprintPan($event)"
                     @mouseup.window="endBlueprintPan()"
                     @mouseleave="endBlueprintPan()"
-                    class="relative min-h-0 flex-1 overflow-hidden"
+                    class="relative min-h-0 flex-1 overflow-hidden bg-white"
                     :class="isRotating ? 'cursor-grabbing' : blueprint.isPanning ? 'cursor-grabbing' : 'cursor-grab'"
                 >
+                <!--bg-gradient-to-br from-[#dbe6f1] via-[#edf3f8] to-[#cbd9e7] for blueprintCanvas-->
                     <div
                         x-ref="blueprintCanvas"
-                        class="blueprint-grid absolute left-0 top-0 overflow-hidden rounded-[24px] border border-white/70 bg-gradient-to-br from-[#dbe6f1] via-[#edf3f8] to-[#cbd9e7] shadow-inner"
+                        class="blueprint-grid absolute left-0 top-0 overflow-hidden rounded-[24px] border border-white/70 bg-white shadow-inner"
                         :style="`
 
-        width:${blueprint.width}px;
+                            width:${blueprint.width}px;
 
-        height:${blueprint.height}px;
+                            height:${blueprint.height}px;
 
-        transform:
+                            transform:
 
-            translate3d(
+                                translate3d(
 
-                ${blueprint.panX}px,
+                                    ${blueprint.panX}px,
 
-                ${blueprint.panY}px,
+                                    ${blueprint.panY}px,
 
-                0
+                                    0
 
-            )
+                                )
 
-            scale(${blueprint.zoom});
+                                scale(${blueprint.zoom});
 
-        transform-origin:0 0;
+                            transform-origin:0 0;
 
-        will-change:transform;
+                            will-change:transform;
 
-    `"
+                        `"
                     >
                         <div
-                            class="pointer-events-none absolute inset-[38px] rounded-[36px] border-[14px] border-slate-500/15 shadow-[inset_0_0_0_2px_rgba(255,255,255,.8)]"
+                            class="pointer-events-none absolute inset-[1px] rounded-[26px] border-[14px] border-slate-500/15 shadow-[inset_0_0_0_2px_rgba(255,255,255,.8)]"
                         ></div>
                         <div
-                            class="pointer-events-none absolute left-1/2 top-1/2 h-64 w-[520px] -translate-x-1/2 -translate-y-1/2 rotate-[-8deg] rounded-[50%] border-[24px] border-white/50 bg-sky-100/60 shadow-inner"
+                            class="pointer-events-none absolute left-1/2 top-1/2 h-64 w-[520px] -translate-x-1/2 -translate-y-1/2 rotate-[-8deg] rounded-[50%] border-[24px] border-white/50 bg-sky-100/20 shadow-inner"
                         ></div>
                         <div
                             class="pointer-events-none absolute bottom-8 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-white/65 px-4 py-2 text-[10px] font-bold uppercase tracking-[.2em] text-slate-400"
@@ -542,12 +568,13 @@
                                             default => "#10B981",
                                         };
                                     @endphp
+                                    <!--ring-[#5B6682]/40-->
                                     <button
                                         type="button"
                                         @click.stop="if(!editMode) selectedRoom={{ $room->room_id }}"
                                         
-                                        class="room-block room-card group absolute overflow-visible z-10 rounded-xl border-2 p-3 text-left shadow-[0_14px_22px_rgba(15,23,42,.18)] transition duration-200 hover:z-20 hover:-translate-y-1 hover:brightness-105 focus:outline-none focus:ring-4 focus:ring-[#005EA6]/25 {{ $room->room_status === 'Critical' ? 'critical-room' : '' }}"
-                                        :class="{'cursor-move ring-4 ring-[#FFF200]/50': editMode, 'ring-4 ring-[#005EA6]/25': selectedRoom === {{ $room->room_id }}}"
+                                        class="room-block room-card group absolute overflow-visible z-10 rounded-xl border-2 p-3 text-left shadow-[0_14px_22px_rgba(15,23,42,.18)] transition duration-200 hover:z-20 hover:-translate-y-1 hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-[#07319C] {{ $room->room_status === 'Critical' ? 'critical-room' : '' }}"
+                                        :class="{'cursor-move ring-2 ring-[#07319C] rounded-lg': editMode, 'ring-2 ring-[#07319C]': selectedRoom === {{ $room->room_id }}}"
                                         data-size="large"
                                         data-id="{{ $room->room_id }}"
                                         data-floor="{{ $floor->floor_id }}"
@@ -560,7 +587,7 @@
                                         data-type="{{ e($room->room_type ?: 'Room') }}"
                                         data-assets="{{ $room->equipment->sum("equipment_quantity") }}"
                                         data-active-reports="{{ $room->monitoring["active_reports"] }}"
-                                        style="left:{{ $room->room_x }}px;top:{{ $room->room_y }}px;width:{{ $room->room_width }}px;height:{{ $room->room_height }}px;background:{{ $room->room_color ?: '#60A5FA' }};border-color:{{ $statusColor }};--room-depth:{{ $room->room_color ?: '#60A5FA' }};transform:rotate({{ data_get($room->room_metadata, 'rotation', 0) }}deg);transform-origin:center center;"
+                                        style="left:{{ $room->room_x }}px;top:{{ $room->room_y }}px;width:{{ $room->room_width }}px;height:{{ $room->room_height }}px;--room-depth:{{ $room->room_color ?: '#60A5FA' }};transform:rotate({{ data_get($room->room_metadata, 'rotation', 0) }}deg);transform-origin:center center;"
                                     >
                                         <span
                                             class="relative z-10 flex h-full flex-col justify-between"
@@ -607,35 +634,35 @@
                                         ></div>
 
                                         <span
-                                            x-show="editMode"
+                                            x-show="editMode && selectedRoom === {{ $room->room_id }}"
                                             class="resize-grip pointer-events-none absolute -left-1.5 -top-1.5 z-30 h-3 w-3 rounded-sm border-2 border-[#005EA6] bg-white"
                                         ></span>
                                         <span
-                                            x-show="editMode"
+                                            x-show="editMode && selectedRoom === {{ $room->room_id }}"
                                             class="resize-grip pointer-events-none absolute -right-1.5 -top-1.5 z-30 h-3 w-3 rounded-sm border-2 border-[#005EA6] bg-white"
                                         ></span>
                                         <span
-                                            x-show="editMode"
+                                            x-show="editMode && selectedRoom === {{ $room->room_id }}"
                                             class="resize-grip pointer-events-none absolute -bottom-1.5 -left-1.5 z-30 h-3 w-3 rounded-sm border-2 border-[#005EA6] bg-white"
                                         ></span>
                                         <span
-                                            x-show="editMode"
+                                            x-show="editMode && selectedRoom === {{ $room->room_id }}"
                                             class="resize-grip pointer-events-none absolute -bottom-1.5 -right-1.5 z-30 h-3 w-3 rounded-sm border-2 border-[#005EA6] bg-white"
                                         ></span>
                                         <span
-                                            x-show="editMode"
+                                            x-show="editMode && selectedRoom === {{ $room->room_id }}"
                                             class="resize-grip pointer-events-none absolute -top-1.5 left-1/2 z-30 h-3 w-3 -translate-x-1/2 rounded-sm border-2 border-[#005EA6] bg-white"
                                         ></span>
                                         <span
-                                            x-show="editMode"
+                                            x-show="editMode && selectedRoom === {{ $room->room_id }}"
                                             class="resize-grip pointer-events-none absolute -bottom-1.5 left-1/2 z-30 h-3 w-3 -translate-x-1/2 rounded-sm border-2 border-[#005EA6] bg-white"
                                         ></span>
                                         <span
-                                            x-show="editMode"
+                                            x-show="editMode && selectedRoom === {{ $room->room_id }}"
                                             class="resize-grip pointer-events-none absolute -left-1.5 top-1/2 z-30 h-3 w-3 -translate-y-1/2 rounded-sm border-2 border-[#005EA6] bg-white"
                                         ></span>
                                         <span
-                                            x-show="editMode"
+                                            x-show="editMode && selectedRoom === {{ $room->room_id }}"
                                             class="resize-grip pointer-events-none absolute -right-1.5 top-1/2 z-30 h-3 w-3 -translate-y-1/2 rounded-sm border-2 border-[#005EA6] bg-white"
                                         ></span>
 
@@ -863,7 +890,7 @@
                 class="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-[30px] bg-white shadow-2xl"
             >
                 <div
-                    class="flex flex-col gap-4 bg-gradient-to-br from-slate-950 to-[#005EA6] px-6 py-5 text-white lg:flex-row lg:items-center lg:justify-between"
+                    class="flex flex-col gap-4 bg-gradient-to-br from-slate-950 to-[#a68800] px-6 py-5 text-white lg:flex-row lg:items-center lg:justify-between"
                 >
                     <div>
                         <p class="text-[10px] font-extrabold uppercase tracking-[.22em] text-white/60">Room interior layout</p>
@@ -878,15 +905,15 @@
                             type="button"
                             @click="toggleRoomLayoutEdit()"
                             :class="roomLayout.edit
-                                ? 'bg-[#FFF200] text-slate-950'
-                                : 'bg-white/10 text-white'"
-                            class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-black"
+                                ? 'bg-[#FFF200] text-slate-950 hover:bg-[#f3e80e]'
+                                : 'bg-white/10 text-white hover:bg-white/20'"
+                            class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold"
                         >
-                            <i data-lucide="move" class="h-4 w-4"></i>
+                            <i data-lucide="pencil" class="h-4 w-4"></i>
                             <span
                                 x-text="
                                     roomLayout.edit
-                                        ? 'Editing Layout'
+                                        ? 'Editing...'
                                         : 'Edit layout'
                                 "
                             ></span>
@@ -895,7 +922,7 @@
                             type="button"
                             @click="saveLayout()"
                             :disabled="saving || !roomLayout.edit"
-                            class="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-black text-white disabled:opacity-50"
+                            class="inline-flex items-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
                         >
                             <i data-lucide="save" class="h-4 w-4"></i>
                             Save
@@ -952,13 +979,13 @@
                             :key="item.id"
                         >
                             <div
-                                class="room-equipment-node absolute z-20 flex min-w-[86px] items-center gap-2 overflow-visible rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 shadow-lg"
+                                class="room-equipment-node absolute z-20 flex min-w-[86px] items-center gap-2 overflow-visible rounded-2xl border-2 border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 shadow-md hover:border-[#07319C]"
                                 :class="{
-                                    'ring-4 ring-[#FFF200]/40 cursor-move':
+                                    'ring-2 ring-[#07319C]/80 cursor-move':
                                         roomLayout.edit &&
                                         selectedEquipmentId !== item.id,
 
-                                    'ring-4 ring-[#005EA6]/50 cursor-move':
+                                    'ring-2 ring-[#07319C] cursor-move':
                                         roomLayout.edit &&
                                         selectedEquipmentId === item.id,
 
@@ -1014,7 +1041,7 @@
                                     <div>
 
                                         <span
-                                            class="resize-grip absolute -left-1.5 -top-1.5 z-30 h-3 w-3 rounded-sm border-2 border-[#005EA6] bg-white cursor-nwse-resize"
+                                            class="resize-grip absolute -left-1.5 -top-1.5 z-30 h-3 w-3 rounded-sm border-2 border-[#0b00a6] bg-white cursor-nwse-resize"
                                             data-handle-x="left"
                                             data-handle-y="top"
                                         ></span>
@@ -1124,56 +1151,58 @@
                     </div>
 
                     <aside
-                        class="space-y-3 rounded-[24px] bg-white p-4 shadow-sm"
+                        class="flex h-[520px] min-h-0 flex-col rounded-[24px] bg-white p-4 shadow-sm"
                     >
                         <div>
                             <p class="text-[10px] font-extrabold uppercase tracking-[.18em] text-slate-400">Equipment list</p>
                             <p class="mt-1 text-sm font-bold text-slate-600">Drag items on the room map, then save.</p>
                         </div>
-                        <template
-                            x-for="item in roomLayout.equipment"
-                            :key="'list-' + item.id"
-                        >
-                            <div
-                                class="rounded-2xl border border-slate-100 bg-slate-50 p-3"
+                        <div class="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+                            <template
+                                x-for="item in roomLayout.equipment"
+                                :key="'list-' + item.id"
                             >
-                                <p class="font-black text-slate-800">
-                                    <span
-                                        x-text="equipmentIcon(item.name)"
-                                    ></span>
-                                    <span x-text="item.name"></span>
-                                </p>
-                                <div class="mt-2 space-y-1 text-xs">
-                                    <p class="font-semibold text-slate-600">
-                                        Condition:
+                                <div
+                                    class="rounded-2xl border border-slate-100 bg-slate-50 p-3"
+                                >
+                                    <p class="font-black text-slate-800">
                                         <span
-                                            x-text="item.condition || 'Unknown'"
+                                            x-text="equipmentIcon(item.name)"
                                         ></span>
+                                        <span x-text="item.name"></span>
                                     </p>
+                                    <div class="mt-2 space-y-1 text-xs">
+                                        <p class="font-semibold text-slate-600">
+                                            Condition:
+                                            <span
+                                                x-text="item.condition || 'Unknown'"
+                                            ></span>
+                                        </p>
 
-                                    <p class="text-slate-500">
-                                        Location:
-                                        <span
-                                            x-text="
-                                                item.location || 'Not assigned'
-                                            "
-                                        ></span>
-                                    </p>
+                                        <p class="text-slate-500">
+                                            Location:
+                                            <span
+                                                x-text="
+                                                    item.location || 'Not assigned'
+                                                "
+                                            ></span>
+                                        </p>
 
-                                    <p class="text-slate-500">
-                                        Placement:
-                                        <span
-                                            x-text="
-                                                item.placement_zone || 'None'
-                                            "
-                                        ></span>
-                                    </p>
+                                        <p class="text-slate-500">
+                                            Placement:
+                                            <span
+                                                x-text="
+                                                    item.placement_zone || 'None'
+                                                "
+                                            ></span>
+                                        </p>
 
-                                    <p class="text-slate-400">X:
-                                    <span x-text="item.x"></span>% • Y: <span x-text="item.y"></span>%</p>
+                                        <p class="text-slate-400">X:
+                                        <span x-text="item.x"></span>% • Y: <span x-text="item.y"></span>%</p>
+                                    </div>
                                 </div>
-                            </div>
-                        </template>
+                            </template>
+                        </div>
                     </aside>
                 </div>
             </div>
@@ -1361,14 +1390,14 @@
                 );
             background-size: 20px 20px;
         }
-        .room-card:before {
+        /*.room-card:before {
             content: "";
             position: absolute;
             left: 10px;
             right: -9px;
             bottom: -10px;
             height: 12px;
-            background: color-mix(in srgb, var(--room-depth), #0f172a 30%);
+            background: yellow;
             clip-path: polygon(0 0, 100% 0, 91% 100%, 7% 100%);
             border-radius: 0 0 5px 5px;
         }
@@ -1379,9 +1408,9 @@
             right: -10px;
             bottom: -8px;
             width: 12px;
-            background: color-mix(in srgb, var(--room-depth), #0f172a 42%);
+            background: yellow;
             clip-path: polygon(0 0, 100% 9%, 100% 92%, 0 100%);
-        }
+        }*/
         @keyframes criticalPulse {
             0%,
             100% {
@@ -1625,6 +1654,42 @@
                     rotationDisplayAngle: 0,
                     rotationHandleOffset: 90,
                     roomCatalog: @js ($roomCatalog),
+
+                    workstationLayout: {
+
+                        open: false,
+
+                        loading: false,
+
+                        roomId: null,
+
+                        room: null,
+
+                        slots: [],
+
+                        selectedSlotId: null,
+
+                        selectedSlot: null,
+
+                        generatorOpen: false,
+
+                        generator: {
+
+                            template_id: null,
+
+                            count: 8,
+
+                            start_x: 12,
+
+                            start_y: 30,
+
+                            spacing_x: 11,
+
+                            orientation: 'north',
+
+                        },
+
+                    },
                     // =========================
                     // Shared Equipment Store
                     // PHASE 1
@@ -1696,15 +1761,34 @@
                     },
                     
                     wizardOpen: {{
-                $errors->any()
+                $errors->getBag("campusWizard")->any()
                     ? "true"
                     : "false"
             }},
+                    canManageCampusSetup: {{ ($canManageCampusSetup ?? false) ? 'true' : 'false' }},
                     step: 1,
+                    wizardSetupUnlocked: false,
+                    unlockPromptOpen: false,
+                    unlockCredential: "",
+                    unlockVerifyBusy: false,
+                    wizardFloorIndex: 0,
+                    wizardRoomKey: 0,
+                    wizardEquipmentKey: 0,
+                    wizardHasLocalChanges: false,
+                    step3Mode: 'fast',
+                    step3ValidationAttempted: false,
+                    step3InlineErrors: {},
+                    step4InlineErrors: [],
                     toast: "",
                     floors: @js ($floors
                     ->map(fn($f) => ["id" => $f->floor_id, "label" => $f->floor_level])
                     ->values()),
+                    existingRoomNamesByFloor: @js(
+                        $rooms
+                            ->groupBy('room_floor_id')
+                            ->map(fn ($items) => $items->pluck('room_name')->filter()->values()->all())
+                            ->toArray()
+                    ),
                     form: Object.assign(
                         {
                             building_name: "",
@@ -1712,6 +1796,8 @@
                             building_logo: null,
 
                             building_address: null,
+
+                            setup_locked: false,
 
                             minFloor: 2,
 
@@ -1726,6 +1812,83 @@
                             this.floors.find((f) => f.id === this.activeFloor)?.label ||
                             "No floor selected"
                         );
+                    },
+                    get activeWizardFloor() {
+                        return this.form.floors[this.wizardFloorIndex] || null;
+                    },
+                    get isWizardSetupLocked() {
+                        return !!this.form.setup_locked && !this.wizardSetupUnlocked;
+                    },
+                    openUnlockSetupPrompt() {
+                        if (!this.canManageCampusSetup) {
+                            this.toast = "You do not have permission to unlock setup.";
+                            setTimeout(() => (this.toast = ""), 3000);
+                            return;
+                        }
+
+                        this.unlockCredential = "";
+                        this.unlockPromptOpen = true;
+                    },
+                    closeUnlockSetupPrompt() {
+                        this.unlockPromptOpen = false;
+                        this.unlockCredential = "";
+                        this.unlockVerifyBusy = false;
+                    },
+                    async confirmUnlockSetup() {
+                        if (!this.canManageCampusSetup || this.unlockVerifyBusy) {
+                            return;
+                        }
+
+                        const credential = String(this.unlockCredential || "").trim();
+
+                        if (!credential) {
+                            this.toast = "Enter your password or unlock code first.";
+                            setTimeout(() => (this.toast = ""), 3000);
+                            return;
+                        }
+
+                        this.unlockVerifyBusy = true;
+
+                        try {
+                            const response = await fetch(
+                                @js (route("maintenance.infrastructure.campus.unlock-verify")),
+                                {
+                                    method: "POST",
+                                    headers: {
+                                        "Content-Type": "application/json",
+                                        "X-CSRF-TOKEN": document
+                                            .querySelector('meta[name="csrf-token"]')
+                                            .content,
+                                    },
+                                    body: JSON.stringify({
+                                        unlock_credential: credential,
+                                    }),
+                                },
+                            );
+
+                            if (!response.ok) {
+                                throw new Error();
+                            }
+
+                            this.wizardSetupUnlocked = true;
+                            this.closeUnlockSetupPrompt();
+                            this.toast = "Setup unlocked. You can now edit Step 1.";
+                            setTimeout(() => (this.toast = ""), 3000);
+                        } catch (error) {
+                            this.toast = "Invalid credential. Setup remains locked.";
+                            setTimeout(() => (this.toast = ""), 3000);
+                        } finally {
+                            this.unlockVerifyBusy = false;
+                        }
+                    },
+                    unlockWizardSetup() {
+                        this.openUnlockSetupPrompt();
+                    },
+                    lockWizardSetup() {
+                        this.wizardSetupUnlocked = false;
+                        this.closeUnlockSetupPrompt();
+                        this.toast = "Setup locked again.";
+                        setTimeout(() => (this.toast = ""), 3000);
                     },
                     init() {
                         window.infrastructure = this;
@@ -2766,17 +2929,109 @@
                     addFloor() {
                         this.form.floors.push({
                             level: "3rd Floor",
-                            rooms: [
-                                {
-                                    name: "",
-                                    type: "Lecture Room",
-                                    status: "Normal",
-                                    equipment: [],
-                                },
-                            ],
+                            rooms: [],
                         });
+
+                        this.wizardFloorIndex = this.form.floors.length - 1;
+                    },
+                    nextWizardStep() {
+                        if (!this.canManageCampusSetup) {
+                            this.toast = "You do not have permission to manage campus setup.";
+                            setTimeout(() => (this.toast = ""), 3000);
+                            return;
+                        }
+
+                        if (this.step === 1) {
+                            if (this.isWizardSetupLocked) {
+                                this.step = Math.min(4, this.step + 1);
+                                return;
+                            }
+
+                            const buildingName = String(this.form.building_name || "").trim();
+
+                            if (!buildingName) {
+                                this.toast = "Campus name is required before continuing.";
+                                setTimeout(() => (this.toast = ""), 3000);
+                                return;
+                            }
+
+                            const min = Number(this.form.minFloor);
+                            const max = Number(this.form.maxFloor);
+
+                            if (!Number.isFinite(min) || !Number.isFinite(max)) {
+                                this.toast = "Enter valid floor numbers first.";
+                                setTimeout(() => (this.toast = ""), 3000);
+                                return;
+                            }
+
+                            let safeMin = Math.max(1, Math.min(30, Math.trunc(min)));
+                            let safeMax = Math.max(1, Math.min(30, Math.trunc(max)));
+
+                            if (safeMin > safeMax) {
+                                [safeMin, safeMax] = [safeMax, safeMin];
+                            }
+
+                            this.form.minFloor = safeMin;
+                            this.form.maxFloor = safeMax;
+                            this.generateFloors();
+
+                            if (!this.form.floors.length) {
+                                this.toast = "No floors were generated. Check your floor range.";
+                                setTimeout(() => (this.toast = ""), 3000);
+                                return;
+                            }
+
+                            this.wizardFloorIndex = Math.min(
+                                this.wizardFloorIndex,
+                                this.form.floors.length - 1,
+                            );
+                        }
+
+                        if (this.step === 3) {
+                            this.step3ValidationAttempted = true;
+
+                            if (!this.validateStep3Entries()) {
+                                this.toast = 'Please fix the highlighted fields in Step 3.';
+                                setTimeout(() => (this.toast = ''), 3000);
+                                return;
+                            }
+                        }
+
+                        this.step = Math.min(4, this.step + 1);
+                    },
+                    goToWizardStep(target) {
+                        const boundedTarget = Math.max(1, Math.min(4, Number(target) || 1));
+
+                        if (boundedTarget <= this.step) {
+                            this.step = boundedTarget;
+                            return;
+                        }
+
+                        while (this.step < boundedTarget) {
+                            const before = this.step;
+                            this.nextWizardStep();
+
+                            if (this.step === before) {
+                                break;
+                            }
+                        }
                     },
                     generateFloors() {
+                        const min = Number(this.form.minFloor);
+                        const max = Number(this.form.maxFloor);
+
+                        if (!Number.isFinite(min) || !Number.isFinite(max)) {
+                            return;
+                        }
+
+                        const safeMin = Math.max(1, Math.min(30, Math.trunc(min)));
+                        const safeMax = Math.max(1, Math.min(30, Math.trunc(max)));
+
+                        if (safeMin > safeMax) {
+                            return;
+                        }
+
+                        const activeFloorLevel = this.activeWizardFloor?.level || null;
                         const existingFloors = {};
 
                         this.form.floors.forEach((floor) => {
@@ -2786,8 +3041,8 @@
                         const newFloors = [];
 
                         for (
-                            let floorNumber = this.form.minFloor;
-                            floorNumber <= this.form.maxFloor;
+                            let floorNumber = safeMin;
+                            floorNumber <= safeMax;
                             floorNumber++
                         ) {
                             const level = this.floorLabel(floorNumber);
@@ -2800,24 +3055,26 @@
 
                                     level,
 
-                                    rooms: [
-                                        {
-                                            id: null,
-
-                                            name: "",
-
-                                            type: "Lecture Room",
-
-                                            status: "Normal",
-
-                                            equipment: [],
-                                        },
-                                    ],
+                                    rooms: [],
                                 });
                             }
                         }
 
                         this.form.floors = newFloors;
+                        this.wizardHasLocalChanges = true;
+
+                        if (!this.form.floors.length) {
+                            this.wizardFloorIndex = 0;
+                            return;
+                        }
+
+                        const matchedIndex = activeFloorLevel
+                            ? this.form.floors.findIndex((floor) => floor.level === activeFloorLevel)
+                            : -1;
+
+                        this.wizardFloorIndex = matchedIndex >= 0
+                            ? matchedIndex
+                            : Math.min(this.wizardFloorIndex, this.form.floors.length - 1);
                     },
                     floorLabel(number) {
                         const mod10 = number % 10;
@@ -2838,8 +3095,13 @@
                         return `${number}th Floor`;
                     },
                     addRoom(fi) {
+                        this.wizardFloorIndex = fi;
+                        this.wizardHasLocalChanges = true;
+
                         this.form.floors[fi].rooms.push({
                             id: null,
+
+                            client_key: `new-room-${++this.wizardRoomKey}`,
 
                             name: "",
 
@@ -2857,8 +3119,11 @@
                         });
                     },
                     addEquipment(fi, ri) {
+                        this.wizardHasLocalChanges = true;
                         this.form.floors[fi].rooms[ri].equipment.push({
                             id: null,
+
+                            client_key: `new-${++this.wizardEquipmentKey}`,
 
                             name: "",
 
@@ -2877,7 +3142,246 @@
                             }
                         });
                     },
-                    async loadCampus() {
+                    addQuickRoom(fi) {
+                        const floor = this.form.floors[fi];
+
+                        if (!floor) {
+                            return;
+                        }
+
+                        floor.rooms.push({
+                            id: null,
+                            client_key: `quick-room-${++this.wizardRoomKey}`,
+                            name: '',
+                            type: 'Lecture Room',
+                            status: 'Normal',
+                            equipment: [],
+                        });
+
+                        this.wizardHasLocalChanges = true;
+
+                        this.$nextTick(() => {
+                            if (window.lucide) {
+                                lucide.createIcons();
+                            }
+                        });
+
+                        this.wizardFloorIndex = fi;
+                    },
+                    clearStep3ErrorsForFloor(fi, types = []) {
+                        const prefixTypes = Array.isArray(types) && types.length
+                            ? types
+                            : null;
+
+                        this.step3InlineErrors = Object.fromEntries(
+                            Object.entries(this.step3InlineErrors).filter(([key]) => {
+                                const parts = key.split('-');
+                                const errorType = parts[0] === 'eq' ? `${parts[0]}-${parts[1]}` : parts[0];
+                                const floorIndexPart = parts[0] === 'eq' ? parts[2] : parts[1];
+
+                                if (Number(floorIndexPart) !== Number(fi)) {
+                                    return true;
+                                }
+
+                                if (!prefixTypes) {
+                                    return false;
+                                }
+
+                                return !prefixTypes.includes(errorType);
+                            }),
+                        );
+                    },
+                    validateStep3RoomNamesForFloor(fi) {
+                        const floor = this.form.floors?.[fi];
+
+                        if (!floor) {
+                            return;
+                        }
+
+                        const existingNames = new Set(
+                            (this.existingRoomNamesByFloor?.[String(floor.id ?? '')] || [])
+                                .map((name) => String(name || '').trim().toLowerCase())
+                                .filter((name) => name.length > 0),
+                        );
+                        const seenNames = new Set();
+
+                        (floor.rooms || []).forEach((room, ri) => {
+                            const roomName = String(room.name || '').trim();
+
+                            if (!roomName && !this.roomHasMeaningfulData(room)) {
+                                return;
+                            }
+
+                            if (!roomName) {
+                                this.setStep3Error('room-name', fi, ri, null, 'Room name is required');
+                                return;
+                            }
+
+                            const normalized = roomName.toLowerCase();
+
+                            if (seenNames.has(normalized) || existingNames.has(normalized)) {
+                                this.setStep3Error('room-name', fi, ri, null, 'Room name already exists on this floor');
+                            }
+
+                            seenNames.add(normalized);
+                        });
+                    },
+                    handleStep3RoomNameInput(fi) {
+                        this.clearStep3ErrorsForFloor(fi, ['room-name']);
+
+                        if (this.step === 3 && this.step3ValidationAttempted) {
+                            this.validateStep3RoomNamesForFloor(fi);
+                        }
+                    },
+                    selectWizardFloor(fi, options = {}) {
+                        const boundedIndex = Math.max(
+                            0,
+                            Math.min(Number(fi) || 0, Math.max((this.form.floors?.length || 1) - 1, 0)),
+                        );
+                        const previousIndex = this.wizardFloorIndex;
+
+                        this.wizardFloorIndex = boundedIndex;
+
+                        if (options.revalidateStep3 !== false && this.step === 3 && this.step3ValidationAttempted) {
+                            this.clearStep3ErrorsForFloor(previousIndex, ['room-name']);
+                            this.clearStep3ErrorsForFloor(boundedIndex, ['room-name']);
+                            this.validateStep3RoomNamesForFloor(boundedIndex);
+                        }
+                    },
+                    step3ErrorKey(type, fi, ri = null, ei = null) {
+                        return [type, fi, ri, ei].filter((part) => part !== null && part !== undefined).join('-');
+                    },
+                    setStep3Error(type, fi, ri = null, ei = null, message = 'Required field') {
+                        const key = this.step3ErrorKey(type, fi, ri, ei);
+                        this.step3InlineErrors[key] = message;
+                    },
+                    getStep3Error(type, fi, ri = null, ei = null) {
+                        const key = this.step3ErrorKey(type, fi, ri, ei);
+                        return this.step3InlineErrors[key] || '';
+                    },
+                    clearStep3InlineErrors() {
+                        this.step3InlineErrors = {};
+                    },
+                    clearStep4InlineErrors() {
+                        this.step4InlineErrors = [];
+                    },
+                    roomHasName(room) {
+                        return String(room?.name || '').trim().length > 0;
+                    },
+                    equipmentHasMeaningfulData(eq) {
+                        return String(eq?.name || '').trim().length > 0
+                            || String(eq?.category_id || '').trim().length > 0;
+                    },
+                    roomHasMeaningfulData(room) {
+                        if (this.roomHasName(room)) {
+                            return true;
+                        }
+
+                        return (room?.equipment || []).some((eq) => this.equipmentHasMeaningfulData(eq));
+                    },
+                    pruneIgnorableWizardDrafts() {
+                        this.form.floors = (this.form.floors || []).map((floor) => ({
+                            ...floor,
+                            rooms: (floor.rooms || [])
+                                .map((room) => ({
+                                    ...room,
+                                    name: String(room?.name || '').trim(),
+                                    equipment: (room.equipment || []).filter((eq) => this.equipmentHasMeaningfulData(eq)),
+                                }))
+                                .filter((room) => this.roomHasMeaningfulData(room)),
+                        }));
+                    },
+                    countNamedRoomsForFloor(floor) {
+                        return (floor?.rooms || []).filter((room) => this.roomHasName(room)).length;
+                    },
+                    countDraftRooms() {
+                        return (this.form.floors || []).reduce(
+                            (total, floor) => total + this.countNamedRoomsForFloor(floor),
+                            0,
+                        );
+                    },
+                    validateStep3Entries() {
+                        this.clearStep3InlineErrors();
+
+                        let hasError = false;
+
+                        (this.form.floors || []).forEach((floor, fi) => {
+                            const existingNames = new Set(
+                                (this.existingRoomNamesByFloor?.[String(floor.id ?? '')] || [])
+                                    .map((name) => String(name || '').trim().toLowerCase())
+                                    .filter((name) => name.length > 0),
+                            );
+                            const seenNames = new Set();
+
+                            (floor.rooms || []).forEach((room, ri) => {
+                                const roomName = String(room.name || '').trim();
+
+                                if (!roomName && !this.roomHasMeaningfulData(room)) {
+                                    return;
+                                }
+
+                                if (!roomName) {
+                                    this.setStep3Error('room-name', fi, ri, null, 'Room name is required');
+                                    hasError = true;
+                                } else {
+                                    const normalized = roomName.toLowerCase();
+
+                                    if (seenNames.has(normalized) || existingNames.has(normalized)) {
+                                        this.setStep3Error('room-name', fi, ri, null, 'Room name already exists on this floor');
+                                        hasError = true;
+                                    }
+
+                                    seenNames.add(normalized);
+                                }
+
+                                (room.equipment || []).forEach((eq, ei) => {
+                                    if (!this.equipmentHasMeaningfulData(eq)) {
+                                        return;
+                                    }
+
+                                    if (!String(eq.name || '').trim()) {
+                                        this.setStep3Error('eq-name', fi, ri, ei, 'Equipment name is required');
+                                        hasError = true;
+                                    }
+                                });
+                            });
+                        });
+
+                        return !hasError;
+                    },
+                    validateStep4BeforeSubmit() {
+                        this.clearStep4InlineErrors();
+
+                        if (this.countDraftRooms() === 0) {
+                            this.step4InlineErrors.push('Add at least one room before saving campus updates.');
+                        }
+
+                        if (!this.validateStep3Entries()) {
+                            this.step4InlineErrors.push('Please fix highlighted room/equipment errors before saving.');
+                        }
+
+                        return this.step4InlineErrors.length === 0;
+                    },
+                    submitCampusWizard(event) {
+                        if (!this.canManageCampusSetup) {
+                            this.toast = 'You do not have permission to manage campus setup.';
+                            setTimeout(() => (this.toast = ''), 3000);
+                            return;
+                        }
+
+                        this.pruneIgnorableWizardDrafts();
+
+                        if (!this.validateStep4BeforeSubmit()) {
+                            this.toast = 'Unable to save. Review inline validation badges.';
+                            setTimeout(() => (this.toast = ''), 3200);
+                            return;
+                        }
+
+                        this.$nextTick(() => {
+                            event.target.submit();
+                        });
+                    },
+                    async loadCampus(forceOverwrite = true) {
                         try {
                             const response = await fetch(
                                 @js (route("maintenance.infrastructure.campus.load")),
@@ -2889,6 +3393,10 @@
 
                             const data = await response.json();
 
+                            if (!forceOverwrite && this.wizardHasLocalChanges) {
+                                return;
+                            }
+
                             this.form = Object.assign(
                                 {
                                     building_name: "",
@@ -2896,6 +3404,8 @@
                                     building_logo: null,
 
                                     building_address: null,
+
+                                    setup_locked: false,
 
                                     minFloor: 2,
 
@@ -2906,6 +3416,18 @@
                                 data,
                             );
 
+                            this.form.floors = (this.form.floors || []).map((floor) => ({
+                                ...floor,
+                                rooms: (floor.rooms || []).map((room) => ({
+                                    ...room,
+                                    client_key: room.client_key || `load-room-${++this.wizardRoomKey}`,
+                                    equipment: (room.equipment || []).map((equipment) => ({
+                                        ...equipment,
+                                        client_key: equipment.client_key || `load-${++this.wizardEquipmentKey}`,
+                                    })),
+                                })),
+                            }));
+
                             if (this.form.floors.length > 0) {
                                 const numbers = this.form.floors.map((floor) =>
                                     parseInt(floor.level),
@@ -2915,6 +3437,14 @@
 
                                 this.form.maxFloor = Math.max(...numbers);
                             }
+
+                            this.wizardFloorIndex = 0;
+                            this.wizardHasLocalChanges = false;
+                            this.step3ValidationAttempted = false;
+                            this.wizardSetupUnlocked = false;
+                            this.unlockPromptOpen = false;
+                            this.unlockCredential = "";
+                            this.unlockVerifyBusy = false;
                         } catch (error) {
                             console.error(error);
 
@@ -2922,6 +3452,25 @@
 
                             setTimeout(() => (this.toast = ""), 3000);
                         }
+                    },
+
+                    openCampusWizard() {
+                        this.step = (String(this.form.building_name || '').trim() || (this.form.floors || []).length > 0)
+                            ? 2
+                            : 1;
+
+                        this.wizardOpen = true;
+
+                        this.wizardHasLocalChanges = false;
+                        this.step3ValidationAttempted = false;
+
+                        this.loadCampus(false);
+
+                        this.$nextTick(() => {
+                            if (window.lucide) {
+                                lucide.createIcons();
+                            }
+                        });
                     },
                     
                     // =====================================
@@ -3503,6 +4052,75 @@
 
                     },
 
+                    applyRoomUpdate(roomId, updates = {}) {
+                        const normalizedRoomId = Number(roomId);
+                        if (!normalizedRoomId) {
+                            return;
+                        }
+
+                        const room = this.roomCatalog.find((item) => item.id === normalizedRoomId);
+                        if (room) {
+                            if (typeof updates.name === "string") {
+                                room.name = updates.name;
+                            }
+                            if (typeof updates.type === "string") {
+                                room.type = updates.type;
+                            }
+                            if (typeof updates.status === "string") {
+                                room.status = updates.status;
+                            }
+                        }
+
+                        const node = document.querySelector(`.room-block[data-id="${normalizedRoomId}"]`);
+                        if (!node) {
+                            return;
+                        }
+
+                        if (typeof updates.name === "string") {
+                            node.dataset.name = updates.name;
+                            const roomNameNode = node.querySelector("[data-room-name]");
+                            if (roomNameNode) {
+                                roomNameNode.dataset.fullName = updates.name;
+                                roomNameNode.textContent = this.abbreviateRoom(
+                                    updates.name,
+                                    node.dataset.size || "large",
+                                );
+                            }
+
+                            if (this.roomLayout.open && this.roomLayout.id === normalizedRoomId) {
+                                this.roomLayout.name = updates.name;
+                            }
+
+                            if (this.roomManager.id === normalizedRoomId) {
+                                this.roomManager.name = updates.name;
+                                this.roomManager.originalName = updates.name;
+                            }
+                        }
+
+                        if (typeof updates.type === "string") {
+                            node.dataset.type = updates.type;
+
+                            if (this.roomManager.id === normalizedRoomId) {
+                                this.roomManager.type = updates.type;
+                            }
+                        }
+
+                        if (typeof updates.status === "string") {
+                            node.classList.toggle("critical-room", updates.status === "Critical");
+                            const statusDot = node.querySelector(".room-status");
+                            if (statusDot) {
+                                const statusColor =
+                                    updates.status === "Critical"
+                                        ? "#EF4444"
+                                        : updates.status === "Maintenance Needed"
+                                          ? "#F59E0B"
+                                          : "#10B981";
+
+                                statusDot.style.background = statusColor;
+                            }
+                        }
+                    },
+
                     // =====================================
                     // Place BELOW saveLayout()
                     // =====================================
@@ -3513,7 +4131,7 @@
 
                             "Rear Wall": { x: 50, y: 88 },
 
-                            "Center Ceiling": { x: 50, y: 18 },
+                            "Center Ceiling": { x: 50, y: 48 },
 
                             "Left Row Pods": { x: 18, y: 55 },
 
@@ -3556,6 +4174,13 @@
                     openRoomLayout(roomId) {
                         const room = this.roomCatalog.find((item) => item.id === roomId);
                         if (!room) return;
+
+                        if (room.layout_mode === 'workstation_grid') {
+                            this.roomLayout.open = false;
+                            this.loadWorkstationLayout(roomId);
+                            return;
+                        }
+
                         this.roomLayout = {
                             open: true,
                             edit: false,
@@ -3600,6 +4225,97 @@
                             this.bindDragging();
                             if (window.lucide) lucide.createIcons();
                         });
+                    },
+                    async loadWorkstationLayout(roomId) {
+                        this.workstationLayout.loading = true;
+
+                        try {
+                            const response = await fetch(
+                                `/maintenance/infrastructure/rooms/${roomId}/layout`,
+                                {
+                                    headers: {
+                                        Accept: 'application/json',
+                                    },
+                                },
+                            );
+
+                            if (!response.ok) {
+                                throw new Error();
+                            }
+
+                            const payload = await response.json();
+
+                            this.workstationLayout.open = true;
+                            this.workstationLayout.roomId = payload.room.id;
+                            this.workstationLayout.room = payload.room;
+                            this.workstationLayout.slots = payload.workstation_slots || [];
+                            this.workstationLayout.selectedSlotId = null;
+                            this.workstationLayout.selectedSlot = null;
+                            this.workstationLayout.generator.template_id = payload.workstation_slots?.[0]?.template_id || null;
+                        } catch (error) {
+                            this.toast = 'Unable to load workstation layout.';
+
+                            setTimeout(() => (this.toast = ''), 3000);
+                        } finally {
+                            this.workstationLayout.loading = false;
+                        }
+                    },
+                    selectWorkstationSlot(slot) {
+                        this.workstationLayout.selectedSlotId = slot?.id ?? null;
+                        this.workstationLayout.selectedSlot = slot ?? null;
+                    },
+                    workstationSlotHealth(slot) {
+                        const assets = slot?.assets || [];
+                        if (assets.length === 0) return 'No assets assigned';
+
+                        const failed = assets.filter((asset) => ['Damaged', 'Under Maintenance', 'Disposed'].includes(asset.condition)).length;
+                        if (failed === 0) return 'Healthy';
+                        if (failed >= 2) return 'Needs attention';
+                        return 'Partially degraded';
+                    },
+                    openWorkstationGenerator() {
+                        this.workstationLayout.generatorOpen = true;
+                    },
+                    closeWorkstationGenerator() {
+                        this.workstationLayout.generatorOpen = false;
+                    },
+                    async createWorkstationRow() {
+                        if (!this.workstationLayout.roomId) return;
+
+                        if (!this.workstationLayout.generator.template_id) {
+                            this.toast = 'Select a workstation template first.';
+                            setTimeout(() => (this.toast = ''), 2500);
+                            return;
+                        }
+
+                        try {
+                            const response = await fetch(
+                                `/maintenance/infrastructure/rooms/${this.workstationLayout.roomId}/workstation-slots`,
+                                {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        Accept: 'application/json',
+                                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                                    },
+                                    body: JSON.stringify(this.workstationLayout.generator),
+                                },
+                            );
+
+                            if (!response.ok) throw new Error();
+
+                            const payload = await response.json();
+                            this.workstationLayout.slots = [
+                                ...(this.workstationLayout.slots || []),
+                                ...(payload.slots || []),
+                            ];
+                            this.workstationLayout.generatorOpen = false;
+                            this.toast = 'Workstation row created.';
+                            setTimeout(() => (this.toast = ''), 2500);
+                        } catch (error) {
+                            this.toast = 'Unable to create workstation row.';
+                            setTimeout(() => (this.toast = ''), 3000);
+                        }
                     },
                     closeLayoutModal:{
 

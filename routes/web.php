@@ -129,6 +129,12 @@ Route::middleware(['auth', 'admin'])->group(function () {
     Route::post('/admin/users/store',
         [AdminController::class, 'storeUser']);
 
+    Route::get('/admin/settings/campus-setup-pin',
+        [AdminController::class, 'campusSetupPin']);
+
+    Route::post('/admin/settings/campus-setup-pin',
+        [AdminController::class, 'updateCampusSetupPin']);
+
 });
 
 /*
@@ -515,6 +521,11 @@ Route::post(
 )->name('maintenance.infrastructure.campus.store');
 
 Route::post(
+    '/maintenance/infrastructure/campus/unlock-verify',
+    [InfrastructureController::class, 'verifySetupUnlockCredential']
+)->name('maintenance.infrastructure.campus.unlock-verify');
+
+Route::post(
     '/maintenance/infrastructure/save-layout',
     [InfrastructureController::class,
     'saveLayout']
@@ -569,6 +580,21 @@ Route::get(
     [InfrastructureController::class,'roomEquipment']
 
 )->name('maintenance.infrastructure.room-equipment');
+
+Route::get(
+    '/maintenance/infrastructure/rooms/{room}/layout',
+    [InfrastructureController::class, 'getLayout']
+)->name('maintenance.infrastructure.room-layout');
+
+Route::patch(
+    '/maintenance/infrastructure/workstation-slots/{workstationSlot}/coordinates',
+    [InfrastructureController::class, 'updateCoordinates']
+)->name('maintenance.infrastructure.workstation-slots.coordinates');
+
+Route::post(
+    '/maintenance/infrastructure/rooms/{room}/workstation-slots',
+    [InfrastructureController::class, 'storeWorkstationSlots']
+)->name('maintenance.infrastructure.workstation-slots.store');
 
 /*
 |--------------------------------------------------------------------------

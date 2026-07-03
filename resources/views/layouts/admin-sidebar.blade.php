@@ -25,7 +25,7 @@
         </li>
 
         <li>
-            <a href="#">
+            <a href="/admin/settings/campus-setup-pin">
                 System Settings
             </a>
         </li>

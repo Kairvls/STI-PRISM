@@ -47,6 +47,28 @@
 
                 transferAssetsModal:false,
 
+                equipmentRenderKey:0,
+
+                initialEquipmentIds:@js($room->equipment->pluck('equipment_id')->values()),
+
+                liveStackEquipment(){
+
+                    const room = window.infrastructure?.roomCatalog?.find(
+                        item => item.id === {{ $room->room_id }}
+                    );
+
+                    if(!room || !Array.isArray(room.equipment)){
+
+                        return [];
+
+                    }
+
+                    return room.equipment
+                        .filter(eq => !this.initialEquipmentIds.includes(eq.id))
+                        .sort((a, b) => Number(b.id || 0) - Number(a.id || 0));
+
+                },
+
                 selectedEquipment:'',
 
                 destinationRoom:'',
@@ -160,6 +182,8 @@
 
                         await window.infrastructure.refreshRoomEquipment(this.addForm.room_id);
 
+                        this.equipmentRenderKey += 1;
+
                     }
 
                     catch(e){
@@ -214,6 +238,17 @@
                             throw new Error();
 
                         }
+
+                        const payload = await response.json();
+
+                        window.infrastructure.applyRoomUpdate(
+                            {{ $room->room_id }},
+                            {
+                                name: payload?.room?.name ?? this.roomForm.name,
+                                type: this.roomForm.type,
+                                status: this.roomForm.status,
+                            }
+                        );
 
                         this.editRoomModal = false;
 
@@ -379,13 +414,14 @@
                 <div class="relative flex items-start justify-between gap-4">
                     <div>
                         <p class="text-[10px] font-extrabold uppercase tracking-[.2em] text-[#FFF200]">{{ $room->floor->building->building_name ?? "STI Ormoc" }} · {{ $room->floor->floor_level }}</p>
-                        <h2 class="mt-2 text-2xl font-extrabold">
-                            {{ $room->room_name }}
-                        </h2>
-                        <p class="mt-1 text-sm text-slate-400">{{
-                            $room->room_type ?:
-                                "No Room Type"
-                        }}</p>
+                        <h2
+                            class="mt-2 text-2xl font-extrabold"
+                            x-text="roomForm.name || 'Not Specified'"
+                        ></h2>
+                        <p
+                            class="mt-1 text-sm text-slate-400"
+                            x-text="roomForm.type || 'No Room Type'"
+                        ></p>
                     </div>
                     <button
                         @click="selectedRoom = null"
@@ -511,16 +547,10 @@
                                 <dt class="text-sm text-slate-500">Room</dt>
 
                                 <dd
-                                    @class ([
-                                        "font-semibold text-sm text-black" => $room->room_name,
-                                        "text-sm text-gray-400" => !$room->room_name
-                                    ])
-                                >
-                                    {{
-                                        $room->room_name ?:
-                                            "Not Specified"
-                                    }}
-                                </dd>
+                                    class="font-semibold text-sm"
+                                    :class="roomForm.name ? 'text-black' : 'text-gray-400'"
+                                    x-text="roomForm.name || 'Not Specified'"
+                                ></dd>
                             </div>
 
                             <div class="flex justify-between">
@@ -543,16 +573,10 @@
                                 <dt class="text-sm text-slate-500">Type</dt>
 
                                 <dd
-                                    @class ([
-                                        "font-semibold text-sm text-black" => $room->room_type,
-                                        "text-sm text-gray-400" => !$room->room_type
-                                    ])
-                                >
-                                    {{
-                                        $room->room_type ?:
-                                            "No Room Type"
-                                    }}
-                                </dd>
+                                    class="font-semibold text-sm"
+                                    :class="roomForm.type ? 'text-black' : 'text-gray-400'"
+                                    x-text="roomForm.type || 'No Room Type'"
+                                ></dd>
                             </div>
 
                             <div class="flex justify-between">
@@ -560,10 +584,16 @@
 
                                 <dd>
                                     <span
-                                        class="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-700"
-                                    >
-                                        {{ $room->room_status }}
-                                    </span>
+                                        class="rounded-full px-3 py-1 text-xs font-bold"
+                                        :class="
+                                            roomForm.status === 'Critical'
+                                                ? 'bg-red-100 text-red-700'
+                                                : roomForm.status === 'Maintenance Needed'
+                                                    ? 'bg-amber-100 text-amber-700'
+                                                    : 'bg-emerald-100 text-emerald-700'
+                                        "
+                                        x-text="roomForm.status || 'Normal'"
+                                    ></span>
                                 </dd>
                             </div>
                         </dl>
@@ -822,24 +852,24 @@
                 <!-- Replace your current Add Equipment Modal -->
                 <!-- ========================================= -->
 
+                <template x-if="addEquipmentModal">
                 <div
-                    x-show="addEquipmentModal"
                     x-transition.opacity
+                    @click.self="
+                        addEquipmentModal=false;
+
+                        addForm={
+                            room_id:{{ $room->room_id }},
+                            name:'',
+                            category:'',
+                            quantity:1,
+                            condition:'Good',
+                            location:''
+                        }
+                    "
                     class="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/60 p-6 backdrop-blur-sm"
                 >
                     <div
-                        @click.outside="
-                            addEquipmentModal=false;
-
-                            addForm={
-                                room_id:{{ $room->room_id }},
-                                name:'',
-                                category:'',
-                                quantity:1,
-                                condition:'Good',
-                                location:''
-                            }
-                        "
                         class="w-full max-w-xl overflow-hidden rounded-[28px] bg-white shadow-2xl"
                     >
                         <!-- Header -->
@@ -1074,19 +1104,20 @@
                         </div>
                     </div>
                 </div>
+                </template>
 
                 <!-- ============================== -->
                 <!-- Edit Room Modal -->
                 <!-- Place AFTER Add Equipment Modal -->
                 <!-- ============================== -->
 
+                <template x-if="editRoomModal">
                 <div
-                    x-show="editRoomModal"
                     x-transition
+                    @click.self="editRoomModal = false"
                     class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40"
                 >
                     <div
-                        @click.outside="editRoomModal = false"
                         class="w-full max-w-lg rounded-3xl bg-white p-6"
                     >
                         <div class="flex items-center justify-between">
@@ -1192,19 +1223,20 @@
                         </div>
                     </div>
                 </div>
+                </template>
 
                 <!-- ===================================== -->
                 <!-- Archive Room Confirmation Modal -->
                 <!-- Place AFTER Edit Room Modal -->
                 <!-- ===================================== -->
 
+                <template x-if="archiveRoomModal">
                 <div
-                    x-show="archiveRoomModal"
                     x-transition
+                    @click.self="archiveRoomModal = false"
                     class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40"
                 >
                     <div
-                        @click.outside="archiveRoomModal = false"
                         class="w-full max-w-lg rounded-3xl bg-white p-6"
                     >
                         <div class="flex items-center justify-between">
@@ -1270,14 +1302,15 @@
                         </div>
                     </div>
                 </div>
+                </template>
 
+                <template x-if="transferAssetsModal">
                 <div
-                    x-show="transferAssetsModal"
                     x-transition
+                    @click.self="transferAssetsModal = false"
                     class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40"
                 >
                     <div
-                        @click.outside="transferAssetsModal = false"
                         class="w-full max-w-lg rounded-3xl bg-white p-6"
                     >
                         <h2 class="text-2xl font-bold">Transfer Asset</h2>
@@ -1348,6 +1381,7 @@
                         </div>
                     </div>
                 </div>
+                </template>
 
                 <div
                     x-show="tab === 'equipment'"
@@ -1392,7 +1426,54 @@
                             </select>
                         </div>
                     </div>
-                    @forelse ($room->equipment as $item)
+
+                    <template
+                        x-for="item in (equipmentRenderKey, liveStackEquipment())"
+                        :key="'live-stack-' + item.id"
+                    >
+                        <article
+                            x-show="
+                                (search === '' || (item.name || '').toLowerCase().includes(search.toLowerCase()))
+                                &&
+                                (
+                                    filter === 'all'
+                                    || (filter === 'good' && (item.condition || '') === 'Good')
+                                    || (filter === 'maintenance' && (item.condition || '') === 'Under Maintenance')
+                                    || (filter === 'damaged' && (item.condition || '') === 'Damaged')
+                                    || (filter === 'disposed' && (item.condition || '') === 'Disposed')
+                                )
+                            "
+                            class="relative overflow-visible rounded-2xl border border-emerald-200 bg-emerald-50 p-4 transition hover:border-emerald-300"
+                        >
+                            <div class="flex items-start justify-between gap-3">
+                                <div class="flex min-w-0 gap-3">
+                                    <span class="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
+                                        :class="
+                                            (item.condition || '') === 'Good'
+                                                ? 'bg-emerald-500'
+                                                : (item.condition || '') === 'Under Maintenance'
+                                                    ? 'bg-amber-400'
+                                                    : (item.condition || '') === 'Damaged'
+                                                        ? 'bg-red-600'
+                                                        : (item.condition || '') === 'Disposed'
+                                                            ? 'bg-zinc-500'
+                                                            : 'bg-gray-300'
+                                        "
+                                    ></span>
+                                    <div class="min-w-0">
+                                        <h3 class="truncate text-sm font-bold text-slate-800" x-text="item.name"></h3>
+                                        <p class="mt-1 text-[11px] text-slate-500">
+                                            <span x-text="item.condition || 'Unknown'"></span>
+                                            <span> · </span>
+                                            <span x-text="item.location || item.placement_zone || 'No location'"></span>
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </article>
+                    </template>
+
+                    @forelse ($room->equipment->sortByDesc('equipment_id') as $item)
                         @php
                             $healthy = $item->equipment_condition_status === "Good";
                             $maintenance = $item->equipment_condition_status === "Under Maintenance";

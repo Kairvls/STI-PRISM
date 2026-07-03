@@ -6,7 +6,10 @@ use App\Models\Building;
 use App\Models\Floor;
 use App\Models\Room;
 use App\Models\Equipment;
+use App\Models\Asset;
+use App\Models\WorkstationSlot;
 use App\Models\RoomActivityLog;
+use App\Models\CampusSetupSetting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -15,12 +18,16 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
 
 class InfrastructureController extends Controller
 {
     public function index(Request $request): View
     {
+        $canManageCampusSetup = $this->canManageCampusSetup();
+
         $hasRoomArchive = Schema::hasColumn('rooms_table', 'room_is_archived');
 
         $floors = Floor::query()->with('building')
@@ -150,12 +157,15 @@ class InfrastructureController extends Controller
             'rooms' => $rooms,
             'categories' => $categories,
             'wizardCampus' => $wizardCampus,
+            'canManageCampusSetup' => $canManageCampusSetup,
             'requestedFloorId' => (int) $request->integer('floor'),
         ]);
     }
 
     public function loadCampus(): JsonResponse
     {
+        abort_unless($this->canManageCampusSetup(), 403);
+
         $campus = Building::query()
             ->with([
                 'floors.rooms.equipment.category'
@@ -165,6 +175,36 @@ class InfrastructureController extends Controller
         return response()->json(
             $this->buildWizardCampusData($campus)
         );
+    }
+
+    public function verifySetupUnlockCredential(Request $request): JsonResponse
+    {
+        abort_unless($this->canManageCampusSetup(), 403);
+
+        $validated = $request->validate([
+            'unlock_credential' => ['required', 'string', 'max:255'],
+        ]);
+
+        $input = (string) $validated['unlock_credential'];
+
+        $setting = CampusSetupSetting::query()->first();
+        $configCode = (string) config('app.campus_setup_unlock_code', '');
+
+        $matchesSavedPin = $setting && !empty($setting->campus_setup_pin_hash)
+            ? Hash::check($input, (string) $setting->campus_setup_pin_hash)
+            : false;
+
+        $matchesConfigCode = $configCode !== '' && hash_equals($configCode, $input);
+
+        if (!$matchesSavedPin && !$matchesConfigCode) {
+            return response()->json([
+                'message' => 'Invalid unlock credential.',
+            ], 422);
+        }
+
+        return response()->json([
+            'message' => 'Credential verified.',
+        ]);
     }
 
     public function roomEquipment(Room $room): JsonResponse
@@ -209,9 +249,152 @@ class InfrastructureController extends Controller
         );
     }
 
-    public function storeCampus(Request $request): RedirectResponse
+    public function getLayout(Room $room): JsonResponse
+    {
+        $room->load([
+            'workstationSlots.template.slots',
+            'workstationSlots.assets.category',
+        ]);
+
+        return response()->json([
+            'room' => [
+                'id' => $room->room_id,
+                'name' => $room->room_name,
+                'layout_mode' => $room->room_layout_mode ?? 'loose_equipment',
+                'layout_version' => (int) ($room->room_layout_version ?? 1),
+            ],
+            'workstation_slots' => $room->workstationSlots->map(function (WorkstationSlot $slot) {
+                return [
+                    'id' => $slot->workstation_slot_id,
+                    'room_id' => $slot->room_id,
+                    'template_id' => $slot->workstation_template_id,
+                    'label' => $slot->workstation_slot_label,
+                    'code' => $slot->workstation_slot_code,
+                    'orientation' => $slot->workstation_slot_orientation,
+                    'x' => (float) $slot->workstation_slot_position_x,
+                    'y' => (float) $slot->workstation_slot_position_y,
+                    'width' => (int) $slot->workstation_slot_width,
+                    'height' => (int) $slot->workstation_slot_height,
+                    'status' => $slot->workstation_slot_status,
+                    'assets' => $slot->assets->map(function (Asset $asset) {
+                        return [
+                            'id' => $asset->equipment_id,
+                            'name' => $asset->equipment_name,
+                            'category' => optional($asset->category)->equipment_category_name,
+                            'condition' => $asset->equipment_condition_status,
+                            'inventory_status' => $asset->equipment_inventory_status,
+                            'location' => $asset->equipment_current_location,
+                            'serial_number' => $asset->equipment_serial_number,
+                        ];
+                    })->values(),
+                ];
+            })->values(),
+        ]);
+    }
+
+    public function updateCoordinates(Request $request, WorkstationSlot $workstationSlot): JsonResponse
     {
         $validated = $request->validate([
+            'x' => ['required', 'numeric', 'min:0', 'max:100'],
+            'y' => ['required', 'numeric', 'min:0', 'max:100'],
+        ]);
+
+        $workstationSlot->update([
+            'workstation_slot_position_x' => $validated['x'],
+            'workstation_slot_position_y' => $validated['y'],
+        ]);
+
+        return response()->json([
+            'message' => 'Workstation slot coordinates updated successfully.',
+            'slot' => [
+                'id' => $workstationSlot->workstation_slot_id,
+                'x' => (float) $workstationSlot->workstation_slot_position_x,
+                'y' => (float) $workstationSlot->workstation_slot_position_y,
+            ],
+        ]);
+    }
+
+    public function storeWorkstationSlots(Request $request, Room $room): JsonResponse
+    {
+        $validated = $request->validate([
+            'template_id' => ['required', 'integer', 'exists:workstation_templates_table,workstation_template_id'],
+            'count' => ['required', 'integer', 'min:1', 'max:50'],
+            'start_x' => ['required', 'numeric', 'min:0', 'max:100'],
+            'start_y' => ['required', 'numeric', 'min:0', 'max:100'],
+            'spacing_x' => ['required', 'numeric', 'min:0', 'max:100'],
+            'orientation' => ['required', Rule::in(['north', 'east', 'south', 'west'])],
+        ]);
+
+        $template = DB::table('workstation_templates_table')
+            ->where('workstation_template_id', $validated['template_id'])
+            ->first();
+
+        if (!$template) {
+            return response()->json(['message' => 'Template not found.'], 404);
+        }
+
+        $createdSlots = [];
+
+        DB::transaction(function () use ($room, $validated, $template, &$createdSlots): void {
+            $existingCount = DB::table('workstation_slots_table')
+                ->where('room_id', $room->room_id)
+                ->count();
+
+            for ($index = 0; $index < (int) $validated['count']; $index++) {
+                $positionX = min(100, (float) $validated['start_x'] + (($validated['spacing_x']) * $index));
+                $slot = DB::table('workstation_slots_table')->insertGetId([
+                    'room_id' => $room->room_id,
+                    'workstation_template_id' => $template->workstation_template_id,
+                    'workstation_slot_label' => sprintf('WS %02d', $existingCount + $index + 1),
+                    'workstation_slot_code' => sprintf('WS-%d-%02d', $room->room_id, $existingCount + $index + 1),
+                    'workstation_slot_orientation' => $validated['orientation'],
+                    'workstation_slot_position_x' => $positionX,
+                    'workstation_slot_position_y' => (float) $validated['start_y'],
+                    'workstation_slot_width' => (int) ($template->workstation_template_default_width ?? 140),
+                    'workstation_slot_height' => (int) ($template->workstation_template_default_height ?? 100),
+                    'workstation_slot_status' => 'Active',
+                    'workstation_slot_meta' => json_encode([
+                        'generator' => 'row',
+                        'template_code' => $template->workstation_template_code,
+                    ]),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                $createdSlots[] = DB::table('workstation_slots_table')
+                    ->where('workstation_slot_id', $slot)
+                    ->first();
+            }
+        });
+
+        return response()->json([
+            'message' => 'Workstation row created successfully.',
+            'slots' => collect($createdSlots)->map(function ($slot) {
+                return [
+                    'id' => $slot->workstation_slot_id,
+                    'room_id' => $slot->room_id,
+                    'template_id' => $slot->workstation_template_id,
+                    'label' => $slot->workstation_slot_label,
+                    'code' => $slot->workstation_slot_code,
+                    'orientation' => $slot->workstation_slot_orientation,
+                    'x' => (float) $slot->workstation_slot_position_x,
+                    'y' => (float) $slot->workstation_slot_position_y,
+                    'width' => (int) $slot->workstation_slot_width,
+                    'height' => (int) $slot->workstation_slot_height,
+                    'status' => $slot->workstation_slot_status,
+                    'assets' => [],
+                ];
+            })->values(),
+        ]);
+    }
+
+    public function storeCampus(Request $request): RedirectResponse
+    {
+        abort_unless($this->canManageCampusSetup(), 403);
+
+        $request->merge($this->sanitizeCampusWizardPayload($request->all()));
+
+        $validated = $request->validateWithBag('campusWizard', [
             'building_name' => ['required', 'string', 'max:255'],
 
             'building_logo' => ['nullable', 'string', 'max:255'],
@@ -227,7 +410,7 @@ class InfrastructureController extends Controller
                 'max:50',
 
             ],
-            'floors.*.rooms' => ['required', 'array', 'min:1'],
+            'floors.*.rooms' => ['nullable', 'array'],
             'floors.*.rooms.*.name' => ['required', 'string', 'max:255'],
             'floors.*.rooms.*.type' => ['required', Rule::in([
                 'Lecture Room', 'Computer Laboratory', 'Hospitality Suite', 'Office',
@@ -244,7 +427,22 @@ class InfrastructureController extends Controller
             'floors.*.rooms.*.equipment.*.zone' => ['required', Rule::in(['Front Wall', 'Center Ceiling', 'Left Row Pods', 'Right Row Pods', 'Rear Wall', 'Storage'])],
         ]);
 
+        $totalSubmittedRooms = collect($validated['floors'] ?? [])->sum(function ($floor) {
+            return count($floor['rooms'] ?? []);
+        });
+
+        if ($totalSubmittedRooms < 1) {
+            throw ValidationException::withMessages([
+                'floors' => ['Add at least one room before saving campus updates.'],
+            ])->errorBag('campusWizard');
+        }
+
         DB::transaction(function () use ($validated): void {
+            $roomsHasCreatedAt = Schema::hasColumn('rooms_table', 'created_at');
+            $roomsHasUpdatedAt = Schema::hasColumn('rooms_table', 'updated_at');
+            $equipmentHasCreatedAt = Schema::hasColumn('equipment_table', 'created_at');
+            $equipmentHasUpdatedAt = Schema::hasColumn('equipment_table', 'updated_at');
+
             // ---------- CREATE OR UPDATE SINGLE CAMPUS ----------
 
             $building = Building::query()->first();
@@ -312,16 +510,69 @@ class InfrastructureController extends Controller
                     $processedFloorIds[] = $floorId;
 
                 }
-                foreach ($floorData['rooms'] as $roomIndex => $roomData) {
+
+                $submittedRoomNames = [];
+
+                foreach (($floorData['rooms'] ?? []) as $roomData) {
+                    $normalizedName = mb_strtolower(trim((string) ($roomData['name'] ?? '')));
+
+                    if ($normalizedName === '') {
+                        continue;
+                    }
+
+                    if (in_array($normalizedName, $submittedRoomNames, true)) {
+                        throw ValidationException::withMessages([
+                            'floors' => [
+                                "Duplicate room name '{$roomData['name']}' found in {$floorData['level']}.",
+                            ],
+                        ])->errorBag('campusWizard');
+                    }
+
+                    $submittedRoomNames[] = $normalizedName;
+                }
+
+                foreach (($floorData['rooms'] ?? []) as $roomIndex => $roomData) {
+                    $duplicateExists = DB::table('rooms_table')
+                        ->where('room_floor_id', $floorId)
+                        ->whereRaw('LOWER(room_name) = ?', [mb_strtolower(trim((string) $roomData['name']))])
+                        ->exists();
+
+                    if ($duplicateExists) {
+                        throw ValidationException::withMessages([
+                            'floors' => [
+                                "Room '{$roomData['name']}' already exists in {$floorData['level']}.",
+                            ],
+                        ])->errorBag('campusWizard');
+                    }
+
                     $position = $this->defaultRoomPosition($roomIndex);
-                    $roomId = DB::table('rooms_table')->insertGetId([
-                        'room_floor_id' => $floorId, 'room_name' => $roomData['name'],
-                        'room_type' => $roomData['type'], 'room_status' => $roomData['status'],
+                    $roomValues = [
+                        'room_floor_id' => $floorId,
+                        'room_name' => $roomData['name'],
+                        'room_type' => $roomData['type'],
+                        'room_status' => $roomData['status'],
                         'room_color' => $this->roomColor($roomData['type']),
-                        'room_x' => $position['x'], 'room_y' => $position['y'],
-                        'room_width' => 150, 'room_height' => 105,
+                        'room_x' => $position['x'],
+                        'room_y' => $position['y'],
+                        'room_width' => 150,
+                        'room_height' => 105,
                         'room_metadata' => json_encode(['wizard_floor_index' => $floorIndex]),
-                    ]);
+                    ];
+
+                    if ($roomsHasCreatedAt) {
+                        $roomValues['created_at'] = now();
+                    }
+
+                    if ($roomsHasUpdatedAt) {
+                        $roomValues['updated_at'] = now();
+                    }
+
+                    if (Schema::hasColumn('rooms_table', 'room_is_archived')) {
+                        $roomValues['room_is_archived'] = false;
+                    }
+
+                    $roomId = DB::table('rooms_table')->insertGetId($roomValues);
+
                     foreach ($roomData['equipment'] ?? [] as $equipment) {
                         // =====================================
                         // Default equipment position by location
@@ -330,7 +581,8 @@ class InfrastructureController extends Controller
                         $position = $this->zonePosition($equipment['zone']);
                         $values = [
                             'equipment_category_id' => $equipment['category_id'] ?: null,
-                            'equipment_room_id' => $roomId, 'equipment_name' => $equipment['name'],
+                            'equipment_room_id' => $roomId,
+                            'equipment_name' => $equipment['name'],
                             'equipment_quantity' => $equipment['quantity'],
                             'equipment_condition_status' => $equipment['condition'],
                             'equipment_inventory_status' => $equipment['condition'] === 'Under Maintenance' ? 'Under Maintenance' : 'Active',
@@ -339,31 +591,28 @@ class InfrastructureController extends Controller
                             'equipment_position_x' => $position['x'],
 
                             'equipment_position_y' => $position['y'],
-                            
                         ];
+
+                        if ($equipmentHasUpdatedAt) {
+                            $values['updated_at'] = now();
+                        }
                         if (Schema::hasColumn('equipment_table', 'equipment_placement_zone')) {
                             $values['equipment_placement_zone'] = $equipment['zone'];
                         }
+
+                        if ($equipmentHasCreatedAt) {
+                            $values['created_at'] = now();
+                        }
+
                         DB::table('equipment_table')->insert($values);
                     }
                 }
             }
 
-            // ----------------------------------------------------
-            // REMOVE FLOORS NO LONGER PRESENT
-            // ----------------------------------------------------
-
-            Floor::query()
-
-                ->where('floor_building_id', $buildingId)
-
-                ->whereNotIn('floor_id', $processedFloorIds)
-
-                ->delete();
         });
 
         return redirect()->route('maintenance.infrastructure.index')
-            ->with('success', 'Campus structure, rooms, and initial equipment were created.');
+            ->with('success', 'Campus setup saved successfully.');
     }
 
     public function saveLayout(Request $request): JsonResponse
@@ -995,110 +1244,86 @@ class InfrastructureController extends Controller
 
     private function buildWizardCampusData(?Building $campus): array
     {
-        if (!$campus) {
-
+        if (! $campus) {
             return [
-
                 'building_name' => '',
-
                 'building_logo' => null,
-
                 'building_address' => null,
-
+                'setup_locked' => false,
                 'floors' => [],
-
             ];
-
         }
 
         return [
-
             'building_name' => $campus->building_name,
-
             'building_logo' => $campus->building_logo,
-
             'building_address' => $campus->building_address,
-
+            'setup_locked' => $campus->floors->isNotEmpty(),
             'floors' => $campus->floors
-
                 ->sortBy(function ($floor) {
-
                     return (int) filter_var(
                         $floor->floor_level,
                         FILTER_SANITIZE_NUMBER_INT
                     );
-
                 })
-
                 ->values()
-
                 ->map(function ($floor) {
-
                     return [
-
                         'id' => $floor->floor_id,
-
                         'level' => $floor->floor_level,
-
-                        'rooms' => $floor->rooms
-
-                            ->values()
-
-                            ->map(function ($room) {
-
-                                return [
-
-                                    'id' => $room->room_id,
-
-                                    'name' => $room->room_name,
-
-                                    'type' => $room->room_type,
-
-                                    'status' => $room->room_status,
-
-                                    'equipment' => $room->equipment
-
-                                        ->values()
-
-                                        ->map(function ($equipment) {
-
-                                            return [
-
-                                                'id' => $equipment->equipment_id,
-
-                                                'name' => $equipment->equipment_name,
-
-                                                'category_id' => $equipment->equipment_category_id,
-
-                                                'quantity' => $equipment->equipment_quantity,
-
-                                                'condition' => $equipment->equipment_condition_status,
-
-                                                'zone' => $equipment->equipment_current_location,
-
-                                                'x' => $equipment->equipment_position_x,
-
-                                                'y' => $equipment->equipment_position_y,
-
-                                            ];
-
-                                        })
-
-                                        ->values(),
-
-                                ];
-
-                            })
-
-                            ->values(),
-
+                        'rooms' => [],
                     ];
-
                 })
-
                 ->values(),
-
         ];
+    }
+
+    private function sanitizeCampusWizardPayload(array $payload): array
+    {
+        $payload['floors'] = collect($payload['floors'] ?? [])
+            ->map(function ($floor) {
+                $floor['rooms'] = collect($floor['rooms'] ?? [])
+                    ->map(function ($room) {
+                        $room['name'] = trim((string) ($room['name'] ?? ''));
+                        $room['equipment'] = collect($room['equipment'] ?? [])
+                            ->map(function ($equipment) {
+                                $equipment['name'] = trim((string) ($equipment['name'] ?? ''));
+
+                                return $equipment;
+                            })
+                            ->filter(fn ($equipment) => $this->campusWizardEquipmentHasMeaningfulData($equipment))
+                            ->values()
+                            ->all();
+
+                        return $room;
+                    })
+                    ->filter(fn ($room) => $this->campusWizardRoomHasMeaningfulData($room))
+                    ->values()
+                    ->all();
+
+                return $floor;
+            })
+            ->values()
+            ->all();
+
+        return $payload;
+    }
+
+    private function campusWizardRoomHasMeaningfulData(array $room): bool
+    {
+        if (trim((string) ($room['name'] ?? '')) !== '') {
+            return true;
+        }
+
+        return collect($room['equipment'] ?? [])->contains(
+            fn ($equipment) => $this->campusWizardEquipmentHasMeaningfulData((array) $equipment)
+        );
+    }
+
+    private function campusWizardEquipmentHasMeaningfulData(array $equipment): bool
+    {
+        return trim((string) ($equipment['name'] ?? '')) !== ''
+            || trim((string) ($equipment['category_id'] ?? '')) !== '';
     }
 
     private function defaultRoomPosition(int $index): array
@@ -1151,7 +1376,7 @@ class InfrastructureController extends Controller
 
             'Center Ceiling' => [
                 'x' => 50,
-                'y' => 35,
+                'y' => 48,
             ],
 
             'Storage' => [
@@ -1164,5 +1389,13 @@ class InfrastructureController extends Controller
                 'y' => 50,
             ],
         };
+    }
+
+    private function canManageCampusSetup(): bool
+    {
+        $roleId = (int) optional(Auth::user())->user_role_id;
+
+        // Treat maintenance personnel as setup admins for campus wizard actions.
+        return in_array($roleId, [1, 2], true);
     }
 }
