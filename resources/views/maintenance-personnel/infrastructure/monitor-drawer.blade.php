@@ -1,6 +1,6 @@
 <!--<aside class="flex h-[900px] flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-xl">-->
 <aside
-    class="flex h-[700px] min-h-0 w-[420px] shrink-0 flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-xl"
+    class="flex h-auto min-h-0 w-full shrink-0 flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-xl xl:h-[700px] xl:w-[420px]"
 >
     <!-- Selected room container -->
     <div x-show="selectedRoom === null" class="flex h-full flex-col">
@@ -78,6 +78,7 @@
                 roomForm:{
                     name:@js($room->room_name),
                     type:@js($room->room_type),
+                    color:@js($room->room_color ?: '#60A5FA'),
                     status:@js($room->room_status)
                 },
 
@@ -226,6 +227,8 @@
 
                                     room_type:this.roomForm.type,
 
+                                    room_color:this.roomForm.color,
+
                                     room_status:this.roomForm.status
 
                                 })
@@ -246,6 +249,7 @@
                             {
                                 name: payload?.room?.name ?? this.roomForm.name,
                                 type: this.roomForm.type,
+                                color: payload?.room?.color ?? this.roomForm.color,
                                 status: this.roomForm.status,
                             }
                         );
@@ -1196,6 +1200,29 @@
 
                                     <option>Critical</option>
                                 </select>
+                            </div>
+
+                            <div>
+                                <label class="mb-2 block text-sm font-semibold">
+                                    Room Color
+                                </label>
+
+                                <div class="flex items-center gap-3 rounded-xl border border-slate-300 px-3 py-2.5">
+                                    <input
+                                        x-model="roomForm.color"
+                                        type="color"
+                                        class="h-11 w-14 cursor-pointer rounded-lg border border-slate-200 bg-transparent p-1"
+                                    />
+
+                                    <input
+                                        x-model="roomForm.color"
+                                        type="text"
+                                        placeholder="#FFF200"
+                                        class="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold uppercase tracking-wide focus:border-[#005EA6] focus:outline-none"
+                                    />
+                                </div>
+
+                                <p class="mt-2 text-xs text-slate-500">Use any hex color to give this room its own blueprint identity.</p>
                             </div>
                         </div>
 

@@ -13,6 +13,7 @@
                     "floor_id" => $room->room_floor_id,
                     "name" => $room->room_name,
                     "type" => $room->room_type ?: "Room",
+                    "color" => $room->room_color ?: "#60A5FA",
                     "status" => $room->room_status,
                     "layout_mode" => $room->room_layout_mode ?: "loose_equipment",
                     "x" => (int) $room->room_x,
@@ -247,17 +248,316 @@
         <!-- Replace this whole class -->
         <!-- =============================== -->
 
-        <div class="flex min-h-0 w-full flex-1 gap-6 overflow-hidden">
+        <div class="flex min-h-0 w-full flex-1 flex-col gap-6 overflow-hidden xl:flex-row">
             <section
                 x-ref="blueprintWorkspace"
-                class="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-[#e8eef5] shadow-xl"
+                class="relative flex min-h-[60vh] min-w-0 flex-1 flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-xl xl:min-h-0"
             >
+                <!-- ========================================================= -->
+                <!-- TOP TOOLBAR -->
+                <!-- ========================================================= -->
                 <div
-                    class="absolute z-20 rounded-xl border border-blue-500 bg-white/85 px-4 py-2.5 shadow-lg backdrop-blur"
-                    :class="isFullscreen ? 'top-4 left-4' : 'top-2 left-2'"
+                    class="top-2 left-2 right-2 z-30 flex items-start mt-4 ml-4 mr-4 justify-between gap-4 md:top-4 md:left-4 md:right-4"
                 >
-                    <!--<p class="text-[10px] font-extrabold uppercase tracking-[.18em] text-slate-400">Active Floor</p>-->
-                    <p class="flex items-center gap-2 text-sm font-bold text-slate-800"><i data-lucide="map" class="h-4 w-4 text-[#005EA6]"></i><span x-text="activeFloorLabel"></span></p>
+
+                    <!-- ========================================================= -->
+                    <!-- Floor Level -->
+                    <!-- ========================================================= -->
+                    <!--
+                    <div
+                        class="rounded-xl border border-blue-500 bg-white/85 px-4 py-2.5 shadow-lg backdrop-blur"
+                    >
+                        <p class="text-[10px] font-extrabold uppercase tracking-[.18em] text-slate-400">
+                            Active Floor
+                        </p>
+
+                        <p class="flex items-center gap-2 text-sm font-bold text-slate-800">
+                            <i
+                                data-lucide="map"
+                                class="h-4 w-4 text-[#005EA6]"
+                            ></i>
+
+                            <span x-text="activeFloorLabel"></span>
+                        </p>
+                    </div>-->
+
+                    <!-- ========================================================= -->
+                    <!-- Action Buttons -->
+                    <!-- ========================================================= -->
+                    
+
+                        <!-- ===================================== -->
+                        <!-- Premium Blueprint Controls -->
+                        <!-- ===================================== -->
+
+                        <div
+                            x-ref="blueprintControlsDock"
+                            class="absolute right-0 top-0 bottom-0 z-30 flex w-12 items-start justify-center border-l border-slate-200/80 bg-slate-50/85 pt-3 sm:w-14 sm:pt-4 md:w-16"
+                        >
+
+                            <div
+                                class="blueprint-toolbar flex w-12 flex-col overflow-hidden rounded-2xl border border-white/70 bg-white/90 shadow-2xl backdrop-blur-xl"
+                            >
+                                <!-- ==================== -->
+                                <!-- Edit Layout -->
+                                <!-- ==================== -->
+                                <div class="border-b border-slate-200">
+
+                                    <button
+                                        type="button"
+                                        @click="toggleBlueprintEdit()"
+                                        :title="editMode ? 'Exit Edit Mode' : 'Edit Layout'"
+                                        :class="editMode
+                                            ? 'bg-[#FFF200] text-slate-900'
+                                            : 'hover:bg-slate-100 text-slate-700'"
+                                        class="flex h-12 w-full items-center justify-center transition"
+                                    >
+
+                                        <i
+                                            data-lucide="pencil"
+                                            class="h-4 w-4"
+                                        ></i>
+
+                                    </button>
+
+                                </div>
+
+                                <!-- ==================== -->
+                                <!-- Save Layout -->
+                                <!-- ==================== -->
+                                <div
+                                    x-show="editMode"
+                                    x-transition
+                                    class="border-b border-slate-200"
+                                >
+
+                                    <button
+                                        type="button"
+                                        @click="saveLayout()"
+                                        :disabled="saving"
+                                        :title="saving ? 'Saving...' : 'Save Layout'"
+                                        :class="saving
+                                            ? 'bg-emerald-700 text-white opacity-80'
+                                            : saveSuccess
+                                                ? 'bg-blue-600 text-white'
+                                                : 'hover:bg-slate-100 text-slate-700'"
+                                        class="flex h-12 w-full items-center justify-center transition"
+                                    >
+
+                                        <svg
+                                            x-show="saving"
+                                            class="h-4 w-4 animate-spin"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <circle
+                                                class="opacity-25"
+                                                cx="12"
+                                                cy="12"
+                                                r="10"
+                                                stroke="currentColor"
+                                                stroke-width="4"
+                                            ></circle>
+
+                                            <path
+                                                class="opacity-75"
+                                                fill="currentColor"
+                                                d="M4 12a8 8 0 018-8V0"
+                                            ></path>
+
+                                        </svg>
+
+                                        <i
+                                            x-show="!saving"
+                                            :data-lucide="saveSuccess ? 'check' : 'save'"
+                                            class="h-4 w-4"
+                                        ></i>
+
+                                    </button>
+
+                                </div>
+
+                                <!-- ==================== -->
+                                <!-- Zoom In -->
+                                <!-- ==================== -->
+
+                                <button
+                                    type="button"
+                                    @click="zoomBlueprint(0.1)"
+                                    title="Zoom In"
+                                    class="flex h-10 w-full items-center justify-center transition hover:bg-slate-100"
+                                >
+
+                                    <i
+                                        data-lucide="plus"
+                                        class="h-4 w-4 transition group-hover:scale-110"
+                                    ></i>
+
+                                </button>
+
+                                <!-- ==================== -->
+                                <!-- Zoom Percentage -->
+                                <!-- ==================== -->
+
+                                <div
+                                    class="flex h-12 flex-col items-center justify-center border-y border-slate-200 bg-slate-50"
+                                >
+
+                                    <input
+                                        x-model="zoomInput"
+                                        @focus="$event.target.select()"
+                                        @keydown.enter.prevent="applyZoomInput()"
+                                        class="w-full bg-transparent text-center text-[13px] font-black leading-none outline-none"
+                                    >
+
+                                    <span class="mt-0.5 text-[13px] leading-none text-slate-400">
+                                        %
+                                    </span>
+                                </div>
+
+                                
+
+                                <div class="border-t border-slate-200"></div>
+
+                                <!-- ==================== -->
+                                <!-- Zoom Out -->
+                                <!-- ==================== -->
+
+                                <button
+                                    type="button"
+                                    @click="zoomBlueprint(-0.1)"
+                                    title="Zoom Out"
+                                    class="flex h-10 w-full items-center justify-center transition hover:bg-slate-100"
+                                >
+
+                                    <i
+                                        data-lucide="minus"
+                                        class="h-4 w-4 transition group-hover:scale-110"
+                                    ></i>
+
+                                </button>
+
+                                <div class="border-t border-slate-200"></div>
+
+                                <!-- ==================== -->
+                                <!-- Paint Rooms -->
+                                <!-- ==================== -->
+
+                                <button
+                                    type="button"
+                                    @click="toggleRoomPaintMode()"
+                                    :title="roomPaintMode ? 'Close Room Paint' : 'Paint Rooms'"
+                                    :class="roomPaintMode ? 'bg-[#005EA6] text-white hover:bg-[#004b86]' : 'hover:bg-slate-100 text-slate-700'"
+                                    class="flex w-full items-center justify-center py-3 transition"
+                                >
+                                    <i data-lucide="paintbrush" class="h-4 w-4"></i>
+                                </button>
+
+                                <div class="border-t border-slate-200"></div>
+
+                                <!-- ==================== -->
+                                <!-- Reset -->
+                                <!-- ==================== -->
+
+                                <button
+                                    type="button"
+                                    @click="resetBlueprintView()"
+                                    title="Reset View"
+                                    class="flex w-full items-center justify-center py-3 hover:bg-slate-100"
+                                >
+
+                                    <i
+                                        data-lucide="history"
+                                        class="h-4 w-4 transition duration-300 group-hover:rotate-180"
+                                    ></i>
+
+                                </button>
+
+                                <div class="border-t border-slate-200"></div>
+
+                                <!-- ==================== -->
+                                <!-- Fit -->
+                                <!-- ==================== -->
+
+                                <button
+                                    type="button"
+                                    @click="toggleFullscreen()"
+                                    :title="isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'"
+                                    class="flex w-full items-center justify-center py-3 hover:bg-slate-100"
+                                >
+
+                                    <i
+                                        x-show="!isFullscreen"
+                                        data-lucide="maximize"
+                                        class="h-4 w-4"
+                                    ></i>
+
+                                    <i
+                                        x-show="isFullscreen"
+                                        data-lucide="minimize"
+                                        class="h-4 w-4"
+                                    ></i>
+
+                                </button>
+
+                            </div>
+
+                            <div
+                                x-show="editMode && roomPaintMode"
+                                x-transition
+                                class="absolute top-0 right-full mr-2 w-[calc(100vw-5rem)] max-w-44 rounded-lg border border-slate-200 bg-white/95 p-2 shadow-2xl backdrop-blur-xl sm:w-44"
+                            >
+                                <div class="flex items-center justify-between gap-2">
+                                    <div>
+                                        <p class="text-[8px] font-extrabold uppercase tracking-[.16em] text-slate-400">Room paint</p>
+                                        <h3 class="mt-0.5 text-[11px] font-bold leading-4 text-slate-900">Paint room</h3>
+                                    </div>
+                                    <span
+                                        x-show="selectedRoom"
+                                        class="rounded-full border border-slate-200 px-1 py-0.5 text-[9px] font-semibold text-slate-500"
+                                        x-text="roomPaintColor || 'No color selected'"
+                                    ></span>
+                                </div>
+
+                                <div class="mt-2 space-y-2">
+                                    <div class="space-y-2">
+                                        <div>
+                                            <label class="mb-1 block text-[8px] font-bold uppercase tracking-[.14em] text-slate-400">Custom color</label>
+                                            <input x-model="roomPaintColor" type="color" class="h-7 w-full cursor-pointer rounded-md border border-slate-200 bg-white p-0.5" />
+                                        </div>
+
+                                        <div>
+                                            <label class="mb-1 block text-[8px] font-bold uppercase tracking-[.14em] text-slate-400">Quick palette</label>
+                                            <div class="grid grid-cols-8 gap-1">
+                                                <template x-for="color in roomPaintPresets" :key="color">
+                                                    <button
+                                                        type="button"
+                                                        @click="roomPaintColor = color"
+                                                        class="h-6 rounded-md border border-slate-200 shadow-sm transition hover:scale-105"
+                                                        :class="roomPaintColor === color ? 'ring-2 ring-[#005EA6] ring-offset-2' : ''"
+                                                        :style="`background:${color}`"
+                                                        :title="color"
+                                                    ></button>
+                                                </template>
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            @click="resetSelectedRoomColor()"
+                                            :disabled="!selectedRoom"
+                                            class="w-full rounded-md border border-dashed border-slate-300 px-2 py-1 text-[10px] font-semibold text-slate-700 transition hover:border-[#005EA6] hover:bg-blue-50"
+                                        >
+                                            Reset room color
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+
+                    
+
                 </div>
 
 
@@ -265,68 +565,9 @@
 
 
 
-                <div
-                    class="absolute z-30 flex items-center gap-3"
-                    :class="isFullscreen ? 'top-4 right-4' : 'top-2 right-2'"
-                >
-
-                    <button
-                        @click="toggleBlueprintEdit()"
-                        :class="editMode
-                            ? 'bg-yellow-400 text-slate-900 border-yellow-500 shadow-lg shadow-yellow-400/20 ring-4 ring-yellow-400/30'
-                            : 'bg-white/80 hover:bg-white text-slate-700 border-yellow-500 hover:text-slate-900 shadow-md'"
-                        class="inline-flex items-center gap-2.5 rounded-xl border px-4 py-2.5 text-sm font-medium backdrop-blur-md transition-all duration-200 ease-in-out active:scale-95"
-                    >
-                        <span x-show="editMode" class="relative flex h-2 w-2">
-                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-slate-900 opacity-75"></span>
-                            <span class="relative inline-flex rounded-full h-2 w-2 bg-slate-900"></span>
-                        </span>
-
-                        <i data-lucide="pencil" class="h-4 w-4 transition-transform" :class="editMode ? 'scale-110' : ''"></i>
-
-                        <span 
-                            x-text="editMode ? 'Editing Room Layout' : 'Edit Room Layout'"
-                            class="tracking-wide"
-                        ></span>
-                    </button>
-
-                    <button
-                        x-show="editMode"
-                        x-transition:enter="transition ease-out duration-200"
-                        x-transition:enter-start="opacity-0 scale-95"
-                        x-transition:enter-end="opacity-100 scale-100"
-                        @click="saveLayout()"
-                        :disabled="saving"
-                        :class="saving 
-                            ? 'bg-emerald-700/80 cursor-not-allowed opacity-80 shadow-none' 
-                            : saveSuccess 
-                                ? 'bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-600/10' 
-                                : 'bg-emerald-600 hover:bg-emerald-500 active:scale-95 shadow-md shadow-emerald-600/20'"
-                        class="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white border border-transparent transition-all duration-200 ease-in-out"
-                    >
-                        <svg x-show="saving" class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" x-cloak>
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        
-                        <i x-show="!saving" :data-lucide="saveSuccess ? 'check' : 'save'" class="h-4 w-4" x-cloak></i>
-
-                        <span 
-                            x-text="saving ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save Layout'"
-                            class="tracking-wide"
-                        ></span>
-                    </button>
-
-                </div>
 
 
-
-
-
-
-
-
-                <div
+                <!--<div
                     x-show="editMode"
                     x-transition:enter="transition ease-out duration-300"
                     x-transition:enter-start="opacity-0 translate-y-[-10px]"
@@ -361,133 +602,9 @@
                             :class="saving ? 'text-amber-200/90' : 'text-slate-300'"
                         ></span>
                     </div>
-                </div>
+                </div>-->
 
-                <!-- ===================================== -->
-                <!-- Premium Blueprint Controls -->
-                <!-- Replace the old Blueprint Controls -->
-                <!-- ===================================== -->
-
-                <div
-                    class="absolute z-30"
-                    
-                    :class="isFullscreen ? 'top-20 right-4' : 'top-16 right-2'"
-                >
-
-                    <div
-                        class="blueprint-toolbar flex w-12 flex-col overflow-hidden rounded-2xl border border-white/70 bg-white/90 shadow-2xl backdrop-blur-xl"
-                    >
-
-                        <!-- ==================== -->
-                        <!-- Zoom In -->
-                        <!-- ==================== -->
-
-                        <button
-                            type="button"
-                            @click="zoomBlueprint(0.1)"
-                            title="Zoom In"
-                            class="flex h-10 w-full items-center justify-center transition hover:bg-slate-100"
-                        >
-
-                            <i
-                                data-lucide="plus"
-                                class="h-4 w-4 transition group-hover:scale-110"
-                            ></i>
-
-                        </button>
-
-                        <!-- ==================== -->
-                        <!-- Zoom Percentage -->
-                        <!-- ==================== -->
-
-                        <div
-                            class="flex h-12 flex-col items-center justify-center border-y border-slate-200 bg-slate-50"
-                        >
-
-                            <input
-                                x-model="zoomInput"
-                                @focus="$event.target.select()"
-                                @keydown.enter.prevent="applyZoomInput()"
-                                class="w-full bg-transparent text-center text-[13px] font-black leading-none outline-none"
-                            >
-
-                            <span class="mt-0.5 text-[13px] leading-none text-slate-400">
-                                %
-                            </span>
-                        </div>
-
-                        
-
-                        <div class="border-t border-slate-200"></div>
-
-                        <!-- ==================== -->
-                        <!-- Zoom Out -->
-                        <!-- ==================== -->
-
-                        <button
-                            type="button"
-                            @click="zoomBlueprint(-0.1)"
-                            title="Zoom Out"
-                            class="flex h-10 w-full items-center justify-center transition hover:bg-slate-100"
-                        >
-
-                            <i
-                                data-lucide="minus"
-                                class="h-4 w-4 transition group-hover:scale-110"
-                            ></i>
-
-                        </button>
-
-                        <div class="border-t border-slate-200"></div>
-
-                        <!-- ==================== -->
-                        <!-- Reset -->
-                        <!-- ==================== -->
-
-                        <button
-                            type="button"
-                            @click="resetBlueprintView()"
-                            title="Reset View"
-                            class="flex w-full items-center justify-center py-3 hover:bg-slate-100"
-                        >
-
-                            <i
-                                data-lucide="history"
-                                class="h-4 w-4 transition duration-300 group-hover:rotate-180"
-                            ></i>
-
-                        </button>
-
-                        <div class="border-t border-slate-200"></div>
-
-                        <!-- ==================== -->
-                        <!-- Fit -->
-                        <!-- ==================== -->
-
-                        <button
-                            type="button"
-                            @click="toggleFullscreen()"
-                            :title="isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'"
-                            class="flex w-full items-center justify-center py-3 hover:bg-slate-100"
-                        >
-
-                            <i
-                                x-show="!isFullscreen"
-                                data-lucide="maximize"
-                                class="h-4 w-4"
-                            ></i>
-
-                            <i
-                                x-show="isFullscreen"
-                                data-lucide="minimize"
-                                class="h-4 w-4"
-                            ></i>
-
-                        </button>
-
-                    </div>
-
-                </div>
+                
 
                 <!-- ========================================= -->
                 <!-- Blueprint Viewport -->
@@ -571,7 +688,7 @@
                                     <!--ring-[#5B6682]/40-->
                                     <button
                                         type="button"
-                                        @click.stop="if(!editMode) selectedRoom={{ $room->room_id }}"
+                                        @click.stop="if (editMode && roomPaintMode) { selectRoomForPaint({{ $room->room_id }}); return; } if(!editMode) selectedRoom={{ $room->room_id }}"
                                         
                                         class="room-block room-card group absolute overflow-visible z-10 rounded-xl border-2 p-3 text-left shadow-[0_14px_22px_rgba(15,23,42,.18)] transition duration-200 hover:z-20 hover:-translate-y-1 hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-[#07319C] {{ $room->room_status === 'Critical' ? 'critical-room' : '' }}"
                                         :class="{'cursor-move ring-2 ring-[#07319C] rounded-lg': editMode, 'ring-2 ring-[#07319C]': selectedRoom === {{ $room->room_id }}}"
@@ -585,9 +702,10 @@
                                         data-rotation="{{ data_get($room->room_metadata, 'rotation', 0) }}"
                                         data-name="{{ e($room->room_name) }}"
                                         data-type="{{ e($room->room_type ?: 'Room') }}"
+                                        data-color="{{ $room->room_color ?: '#60A5FA' }}"
                                         data-assets="{{ $room->equipment->sum("equipment_quantity") }}"
                                         data-active-reports="{{ $room->monitoring["active_reports"] }}"
-                                        style="left:{{ $room->room_x }}px;top:{{ $room->room_y }}px;width:{{ $room->room_width }}px;height:{{ $room->room_height }}px;--room-depth:{{ $room->room_color ?: '#60A5FA' }};transform:rotate({{ data_get($room->room_metadata, 'rotation', 0) }}deg);transform-origin:center center;"
+                                        style="left:{{ $room->room_x }}px;top:{{ $room->room_y }}px;width:{{ $room->room_width }}px;height:{{ $room->room_height }}px;background:{{ $room->room_color ?: '#60A5FA' }};--room-depth:{{ $room->room_color ?: '#60A5FA' }};transform:rotate({{ data_get($room->room_metadata, 'rotation', 0) }}deg);transform-origin:center center;"
                                     >
                                         <span
                                             class="relative z-10 flex h-full flex-col justify-between"
@@ -1641,6 +1759,18 @@
                     roomSearch: "",
                     zoomInput: "100",
                     roomRotationInput: 0,
+                    roomPaintMode: false,
+                    roomPaintColor: '#FFF200',
+                    roomPaintPresets: [
+                        '#FFF200',
+                        '#84CC16',
+                        '#22C55E',
+                        '#38BDF8',
+                        '#A78BFA',
+                        '#F97316',
+                        '#EF4444',
+                        '#94A3B8',
+                    ],
                     selectedRoomControl: {
                         x: 0,
                         y: 0,
@@ -1916,6 +2046,22 @@
                         this.$watch("selectedRoom", () => {
                             this.roomRotationInput = this.getSelectedRoomRotation();
                             this.syncSelectedRoomControl();
+
+                            if (this.editMode && this.roomPaintMode && this.selectedRoom) {
+                                const room = this.roomCatalog.find((item) => item.id === this.selectedRoom);
+
+                                if (room) {
+                                    this.roomPaintColor = room.color || this.defaultRoomColor(room.type);
+                                }
+                            }
+                        });
+
+                        this.$watch("roomPaintColor", (value) => {
+                            if (!this.editMode || !this.roomPaintMode || !this.selectedRoom) {
+                                return;
+                            }
+
+                            this.paintRoomColor(this.selectedRoom, value);
                         });
 
                         window.addEventListener("resize", () => {
@@ -2699,10 +2845,13 @@
                     },
 
                     fitBlueprint() {
+                        const dock = this.$refs.blueprintControlsDock;
+                        const dockWidth = dock ? dock.clientWidth : 64;
+
                         const padding = {
                             top: 15,
 
-                            right: 8,
+                            right: dockWidth + 12,
 
                             bottom: 8,
 
@@ -2818,7 +2967,9 @@
 
                                 height:+room.dataset.height,
 
-                                rotation:+room.dataset.rotation || 0
+                                rotation:+room.dataset.rotation || 0,
+
+                                color:room.dataset.color || room.style.background || '#60A5FA'
 
                             }));
 
@@ -2843,6 +2994,8 @@
                         }
 
                         this.editMode = false;
+
+                        this.roomPaintMode = false;
 
                     },
                     discardBlueprintChanges(){
@@ -2875,6 +3028,12 @@
 
                             room.style.height = original.height + "px";
 
+                            room.style.background = original.color;
+
+                            room.style.setProperty("--room-depth", original.color);
+
+                            room.dataset.color = original.color;
+
                             room.style.transform = `rotate(${room.dataset.rotation}deg)`;
 
                             room.style.transformOrigin = "center center";
@@ -2885,8 +3044,120 @@
 
                         this.editMode = false;
 
+                        this.roomPaintMode = false;
+
                         this.blueprintLayoutModal.open = false;
 
+                    },
+                    toggleRoomPaintMode() {
+                        if (!this.editMode) {
+                            return;
+                        }
+
+                        this.roomPaintMode = !this.roomPaintMode;
+
+                        if (!this.roomPaintMode) {
+                            return;
+                        }
+
+                        if (this.selectedRoom) {
+                            const room = this.roomCatalog.find((item) => item.id === this.selectedRoom);
+                            if (room) {
+                                this.roomPaintColor = room.color || this.defaultRoomColor(room.type);
+                                return;
+                            }
+                        }
+
+                        const fallbackRoom = this.roomCatalog.find((item) => item.floor_id === this.activeFloor)
+                            || this.roomCatalog[0];
+
+                        if (fallbackRoom) {
+                            this.selectRoomForPaint(fallbackRoom.id);
+                        }
+                    },
+                    selectRoomForPaint(roomId) {
+                        const normalizedRoomId = Number(roomId);
+                        const room = this.roomCatalog.find((item) => item.id === normalizedRoomId);
+
+                        if (!room) {
+                            return;
+                        }
+
+                        this.selectedRoom = normalizedRoomId;
+                        this.roomPaintColor = room.color || this.defaultRoomColor(room.type);
+                    },
+                    defaultRoomColor(type) {
+                        switch (String(type || '').trim()) {
+                            case 'Lecture Room':
+                                return '#84CC16';
+                            case 'Computer Laboratory':
+                                return '#FFF200';
+                            case 'Hospitality Suite':
+                            case 'HM Room':
+                                return '#F39200';
+                            case 'Hotel Room Simulation':
+                                return '#EA580C';
+                            case 'Library':
+                                return '#A78BFA';
+                            case 'Canteen':
+                                return '#84CC16';
+                            case 'Clinic':
+                            case 'School Clinic':
+                                return '#FB7185';
+                            case 'Faculty Room':
+                            case 'Office':
+                            case 'Exit':
+                                return '#22C55E';
+                            case 'Utility':
+                                return '#94A3B8';
+                            case 'Hallway':
+                                return '#CBD5E1';
+                            case 'Restroom':
+                                return '#38BDF8';
+                            case 'Elevator':
+                                return '#64748B';
+                            case 'Stairs':
+                                return '#94A3B8';
+                            default:
+                                return '#60A5FA';
+                        }
+                    },
+                    paintRoomColor(roomId, color = this.roomPaintColor) {
+                        const normalizedRoomId = Number(roomId);
+                        const room = this.roomCatalog.find((item) => item.id === normalizedRoomId);
+
+                        if (!room) {
+                            return;
+                        }
+
+                        const resolvedColor = color || this.defaultRoomColor(room.type);
+                        room.color = resolvedColor;
+
+                        const node = document.querySelector(`.room-block[data-id="${normalizedRoomId}"]`);
+                        if (node) {
+                            node.dataset.color = resolvedColor;
+                            node.style.background = resolvedColor;
+                            node.style.setProperty("--room-depth", resolvedColor);
+                        }
+
+                        if (this.selectedRoom === normalizedRoomId) {
+                            this.roomPaintColor = resolvedColor;
+                        }
+
+                        this.layoutDirty = true;
+                    },
+                    resetSelectedRoomColor() {
+                        if (!this.selectedRoom) {
+                            return;
+                        }
+
+                        const room = this.roomCatalog.find((item) => item.id === this.selectedRoom);
+
+                        if (!room) {
+                            return;
+                        }
+
+                        this.paintRoomColor(this.selectedRoom, this.defaultRoomColor(room.type));
                     },
                     focusRoomSearch() {
                         const query = this.roomSearch.trim().toLowerCase();
@@ -3559,6 +3830,14 @@
 
                                 event.preventDefault();
 
+                                if (this.roomPaintMode) {
+                                    this.selectRoomForPaint(
+                                        Number(event.currentTarget.dataset.id),
+                                    );
+
+                                    return;
+                                }
+
                                 this.selectedRoom = Number(event.currentTarget.dataset.id);
 
                             })
@@ -3576,7 +3855,7 @@
                                 ],
                                 listeners: {
                                     move: (event) => {
-                                        if (!this.editMode) return;
+                                        if (!this.editMode || this.roomPaintMode) return;
                                         const el = event.target;
                                         const x = Math.max(
                                             0,
@@ -3593,7 +3872,7 @@
                                     },
                                     end:()=>{
 
-                                        if(!this.editMode){
+                                        if(!this.editMode || this.roomPaintMode){
 
                                             return;
 
@@ -3622,7 +3901,7 @@
                                 ],
                                 listeners: {
                                     move: (event) => {
-                                        if (!this.editMode) return;
+                                        if (!this.editMode || this.roomPaintMode) return;
                                         const el = event.target;
                                         let x =
                                             (parseInt(el.dataset.x) || 0) +
@@ -3675,7 +3954,7 @@
                                     },
                                     end: () => {
 
-                                        if (!this.editMode) return;
+                                        if (!this.editMode || this.roomPaintMode) return;
 
                                         this.layoutDirty = true;
 
@@ -3696,7 +3975,7 @@
                                 ],
                                 listeners: {
                                     move: (event) => {
-                                        if (!this.editMode) return;
+                                        if (!this.editMode || this.roomPaintMode) return;
                                         const el = event.target;
                                         const x = Math.max(
                                             0,
@@ -3717,7 +3996,7 @@
                                     },
                                     end:()=>{
 
-                                        if(!this.editMode){
+                                        if(!this.editMode || this.roomPaintMode){
 
                                             return;
 
@@ -3885,6 +4164,8 @@
                                                 height: Math.round(Number(n.dataset.height || 0)),
 
                                                 rotation: Math.round(normalizedRotation),
+
+                                                color: n.dataset.color || '#60A5FA',
                                             };
                                         }),
 
@@ -3948,6 +4229,8 @@
 
                                 // Exit blueprint editing mode
                                 this.editMode = false;
+
+                                this.roomPaintMode = false;
 
                                 this.toast = "✔ Layout saved successfully";
 
@@ -4066,6 +4349,9 @@
                             if (typeof updates.type === "string") {
                                 room.type = updates.type;
                             }
+                            if (typeof updates.color === "string") {
+                                room.color = updates.color;
+                            }
                             if (typeof updates.status === "string") {
                                 room.status = updates.status;
                             }
@@ -4103,6 +4389,12 @@
                             if (this.roomManager.id === normalizedRoomId) {
                                 this.roomManager.type = updates.type;
                             }
+                        }
+
+                        if (typeof updates.color === "string") {
+                            node.dataset.color = updates.color;
+                            node.style.background = updates.color;
+                            node.style.setProperty("--room-depth", updates.color);
                         }
 
                         if (typeof updates.status === "string") {

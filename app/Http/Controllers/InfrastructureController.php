@@ -626,6 +626,7 @@ class InfrastructureController extends Controller
             'rooms.*.width' => ['required','integer','min:80','max:600'],
             'rooms.*.height' => ['required', 'integer','min:80','max:450'],
             'rooms.*.rotation' => ['required', 'integer', 'min:0', 'max:360'],
+            'rooms.*.color' => ['nullable', 'string', 'max:32'],
             'equipment' => ['nullable', 'array'],
 
             'equipment.*.id' => ['required', 'integer'],
@@ -659,6 +660,7 @@ class InfrastructureController extends Controller
                     'room_y' => $room['y'],
                     'room_width' => $room['width'],
                     'room_height' => $room['height'],
+                    'room_color' => $room['color'] ?? $roomModel->room_color,
                     'room_metadata' => $metadata,
                 ]);
             }
@@ -709,6 +711,12 @@ class InfrastructureController extends Controller
                 'max:255'
             ],
 
+            'room_color'=>[
+                'nullable',
+                'string',
+                'max:32'
+            ],
+
             'room_status'=>[
                 'nullable',
                 'string',
@@ -722,6 +730,8 @@ class InfrastructureController extends Controller
             'room_name'=>$validated['room_name'],
 
             'room_type'=>$validated['room_type'] ?? $room->room_type,
+
+            'room_color'=>$validated['room_color'] ?? $room->room_color,
 
             'room_status'=>$validated['room_status'] ?? $room->room_status,
 
@@ -752,6 +762,7 @@ class InfrastructureController extends Controller
             'room' => [
                 'id' => $room->room_id,
                 'name' => $room->room_name,
+                'color' => $room->room_color,
             ],
         ]);
     }
@@ -1334,6 +1345,7 @@ class InfrastructureController extends Controller
     private function roomColor(string $type): string
     {
         return match ($type) {
+            'Lecture Room' => '#84CC16',
             'Computer Laboratory' => '#FFF200', 'Hospitality Suite' => '#F39200',
             'HM Room' => '#FB7185', 'Hotel Room Simulation' => '#EA580C',
             'Library' => '#A78BFA', 'Canteen' => '#84CC16', 'Clinic' => '#FB7185',
