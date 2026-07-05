@@ -1,6 +1,9 @@
 <!--<aside class="flex h-[900px] flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-xl">-->
-<aside
+<!--<aside
     class="flex h-auto min-h-0 w-full shrink-0 flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-xl xl:h-[700px] xl:w-[420px]"
+>-->
+<aside
+    class="flex h-auto min-h-0 w-full shrink-0 flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-xl xl:w-[22vw] xl:min-w-[360px] xl:max-w-[460px] xl:h-[calc(100vh-160px)] xl:min-h-[700px] xl:max-h-[900px]"
 >
     <!-- Selected room container -->
     <div x-show="selectedRoom === null" class="flex h-full flex-col">
@@ -435,7 +438,7 @@
                         <i data-lucide="x" class="h-5 w-5"></i>
                     </button>
                 </div>
-                <div class="relative mt-5 grid grid-cols-3 gap-2">
+                <div class="relative mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
                     <div class="rounded-xl bg-white/5 p-3">
                         <b class="block text-lg">{{
                             $room->equipment->sum(
@@ -458,8 +461,8 @@
                         }}</b
                         ><span class="text-[10px] text-slate-400">{{
                             $room->monitoring["active_reports"] > 1
-                                ? "Active Reports"
-                                : "Active Report"
+                                ? "Reports"
+                                : "Report"
                         }}</span>
                     </div>
                     <div class="rounded-xl bg-white/5 p-3">
@@ -468,69 +471,84 @@
                                 ->where("equipment_condition_status", "Good")
                                 ->sum("equipment_quantity")
                         }}</b
-                        ><span class="text-[10px] text-slate-400">{{
-                            $room->equipment
-                                ->where("equipment_condition_status", "Good")
-                                ->sum("equipment_quantity") > 1
-                                ? "Good Conditions"
-                                : "Good Condition"
-                        }}</span>
+                        ><span
+                            class="block truncate text-[10px] mt-1.5 text-slate-400"
+                            title="Good Condition"
+                        >
+                            {{
+                                $room->equipment
+                                    ->where("equipment_condition_status", "Good")
+                                    ->sum("equipment_quantity") > 1
+                                    ? "Good Conditions"
+                                    : "Good Condition"
+                            }}
+                        </span>
                     </div>
                 </div>
             </div>
 
             <div class="border-b border-slate-100 p-2">
                 <div
-                    class="grid grid-cols-5 gap-1 rounded-xl bg-slate-100 p-1 text-[11px] font-bold"
+                    class="grid grid-cols-5 gap-1 rounded-xl bg-slate-100 p-1"
                 >
                     <button
                         @click="tab = 'overview'"
                         :class="tab === 'overview'
                             ? 'bg-white text-[#005EA6] shadow-sm'
-                            : 'text-slate-500'"
-                        class="rounded-lg px-2 py-2.5"
+                            : 'text-slate-500 hover:bg-white/60'"
+                        class="flex min-w-0 items-center justify-center rounded-lg px-1 py-2 text-[9px] font-semibold leading-tight transition sm:px-2 sm:py-2.5 sm:text-[11px]"
                     >
-                        Overview
+                        <span class="break-words text-center">
+                            Overview
+                        </span>
                     </button>
 
                     <button
                         @click="tab = 'equipment'"
                         :class="tab === 'equipment'
                             ? 'bg-white text-[#005EA6] shadow-sm'
-                            : 'text-slate-500'"
-                        class="rounded-lg px-2 py-2.5"
+                            : 'text-slate-500 hover:bg-white/60'"
+                        class="flex min-w-0 items-center justify-center rounded-lg px-1 py-2 text-[9px] font-semibold leading-tight transition sm:px-2 sm:py-2.5 sm:text-[11px]"
                     >
-                        Equipment
+                        <span class="break-words text-center">
+                            Equipment
+                        </span>
                     </button>
 
                     <button
                         @click="tab = 'analytics'"
                         :class="tab === 'analytics'
                             ? 'bg-white text-[#005EA6] shadow-sm'
-                            : 'text-slate-500'"
-                        class="rounded-lg px-2 py-2.5"
+                            : 'text-slate-500 hover:bg-white/60'"
+                        class="flex min-w-0 items-center justify-center rounded-lg px-1 py-2 text-[9px] font-semibold leading-tight transition sm:px-2 sm:py-2.5 sm:text-[11px]"
                     >
-                        Analytics
+                        <span class="break-words text-center">
+                            Analytics
+                        </span>
                     </button>
 
                     <button
                         @click="tab = 'schedule'"
                         :class="tab === 'schedule'
                             ? 'bg-white text-[#005EA6] shadow-sm'
-                            : 'text-slate-500'"
-                        class="rounded-lg px-2 py-2.5"
+                            : 'text-slate-500 hover:bg-white/60'"
+                        class="flex min-w-0 items-center justify-center rounded-lg px-1 py-2 text-[9px] font-semibold leading-tight transition sm:px-2 sm:py-2.5 sm:text-[11px]"
                     >
-                        Schedule
+                        <span class="break-words text-center">
+                            Schedule
+                        </span>
                     </button>
 
                     <button
                         @click="tab = 'history'"
                         :class="tab === 'history'
                             ? 'bg-white text-[#005EA6] shadow-sm'
-                            : 'text-slate-500'"
-                        class="rounded-lg px-2 py-2.5"
+                            : 'text-slate-500 hover:bg-white/60'"
+                        class="flex min-w-0 items-center justify-center rounded-lg px-1 py-2 text-[9px] font-semibold leading-tight transition sm:px-2 sm:py-2.5 sm:text-[11px]"
                     >
-                        History
+                        <span class="break-words text-center">
+                            History
+                        </span>
                     </button>
                 </div>
             </div>
@@ -539,68 +557,82 @@
                 class="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-5"
             >
                 <div x-show="tab === 'overview'" x-cloak class="space-y-5">
-                    <div class="rounded-2xl border border-slate-200 p-5">
+                    <div class="rounded-2xl border border-slate-200 bg-white p-5">
                         <h3
-                            class="text-xs font-extrabold uppercase tracking-wider text-slate-400"
+                            class="text-xs font-extrabold uppercase tracking-[.2em] text-slate-400"
                         >
-                            Room Summary
+                            Room Information
                         </h3>
 
-                        <dl class="mt-4 space-y-4">
-                            <div class="flex justify-between">
-                                <dt class="text-sm text-slate-500">Room</dt>
+                        <div class="mt-5 space-y-4">
 
-                                <dd
-                                    class="font-semibold text-sm"
-                                    :class="roomForm.name ? 'text-black' : 'text-gray-400'"
-                                    x-text="roomForm.name || 'Not Specified'"
-                                ></dd>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">
+                                    Last Inspection
+                                </span>
+
+                                <span
+                                    class="text-sm font-semibold text-slate-900"
+                                    x-text="
+                                        currentRoom?.monitoring?.room_information?.last_inspection
+                                            ? formatDate(currentRoom.monitoring.room_information.last_inspection)
+                                            : 'Never'
+                                    "
+                                ></span>
                             </div>
 
-                            <div class="flex justify-between">
-                                <dt class="text-sm text-slate-500">Floor</dt>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">
+                                    Next Maintenance
+                                </span>
 
-                                <dd
-                                    @class ([
-                                        "font-semibold text-sm text-black" => $room->floor->floor_level,
-                                        "text-sm text-gray-400" => !$room->floor->floor_level
-                                    ])
-                                >
-                                    {{
-                                        $room->floor->floor_level ?:
-                                            "Not Specified"
-                                    }}
-                                </dd>
+                                <span
+                                    class="text-sm font-semibold text-slate-900"
+                                    x-text="
+                                        currentRoom?.monitoring?.room_information?.next_maintenance
+                                            ? formatDate(currentRoom.monitoring.room_information.next_maintenance)
+                                            : 'No Schedule'
+                                    "
+                                ></span>
                             </div>
 
-                            <div class="flex justify-between">
-                                <dt class="text-sm text-slate-500">Type</dt>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">
+                                    Last Modified
+                                </span>
 
-                                <dd
-                                    class="font-semibold text-sm"
-                                    :class="roomForm.type ? 'text-black' : 'text-gray-400'"
-                                    x-text="roomForm.type || 'No Room Type'"
-                                ></dd>
+                                <span
+                                    class="text-sm font-semibold text-slate-900"
+                                    x-text="
+                                        currentRoom?.monitoring?.room_information?.last_updated
+                                            ? timeAgo(currentRoom.monitoring.room_information.last_updated)
+                                            : 'Unknown'
+                                    "
+                                ></span>
                             </div>
 
-                            <div class="flex justify-between">
-                                <dt class="text-sm text-slate-500">Status</dt>
+                            <div class="flex items-center justify-between">
+                                <span class="text-sm text-slate-500">
+                                    Room Status
+                                </span>
 
-                                <dd>
-                                    <span
-                                        class="rounded-full px-3 py-1 text-xs font-bold"
-                                        :class="
-                                            roomForm.status === 'Critical'
-                                                ? 'bg-red-100 text-red-700'
-                                                : roomForm.status === 'Maintenance Needed'
-                                                    ? 'bg-amber-100 text-amber-700'
-                                                    : 'bg-emerald-100 text-emerald-700'
-                                        "
-                                        x-text="roomForm.status || 'Normal'"
-                                    ></span>
-                                </dd>
+                                <span
+                                    class="rounded-full px-3 py-1 text-xs font-bold"
+                                    :class="
+                                        currentRoom?.monitoring?.room_information?.status === 'Critical'
+                                            ? 'bg-red-100 text-red-700'
+                                            : currentRoom?.monitoring?.room_information?.status === 'Maintenance Needed'
+                                                ? 'bg-amber-100 text-amber-700'
+                                                : 'bg-emerald-100 text-emerald-700'
+                                    "
+                                    x-text="
+                                        currentRoom?.monitoring?.room_information?.status || 'Normal'
+                                    "
+                                ></span>
+
                             </div>
-                        </dl>
+
+                        </div>
                     </div>
 
                     <div class="grid grid-cols-2 gap-3">
@@ -721,30 +753,30 @@
                             </h3>
                         </div>
 
-                        <div class="grid grid-cols-2 gap-3 p-5">
+                        <div class="grid auto-rows-fr grid-cols-1 gap-3 p-4 sm:grid-cols-2">
                             <button
                                 type="button"
                                 @click="addEquipmentModal = true"
-                                class="group rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-left transition hover:border-[#005EA6] hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-70"
+                                class="group h-full w-full rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-3 sm:p-4 text-left transition hover:border-[#005EA6] hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-70"
                             >
-                                <div class="flex items-center gap-3">
+                                <div class="flex flex-col items-start gap-3">
                                     <div
-                                        class="rounded-xl bg-blue-100 p-2 text-[#005EA6]"
+                                        class="rounded-xl bg-blue-100 p-2 sm:p-2.5 text-[#005EA6]"
                                     >
                                         <i
                                             data-lucide="plus"
-                                            class="h-5 w-5"
+                                            class="h-4 w-4 sm:h-5 sm:w-5"
                                         ></i>
                                     </div>
 
-                                    <div>
+                                    <div class="min-w-0 flex-1">
                                         <h4
-                                            class="text-sm font-bold text-black"
+                                            class="text-xs sm:text-[13px] font-bold text-black"
                                         >
                                             Add Equipment
                                         </h4>
 
-                                        <p class="mt-1 text-[11px] text-slate-500">Provision new equipment into this room.</p>
+                                        <p class="mt-1 text-[10px] leading-4 break-words text-slate-500">Provision new equipment into this room.</p>
                                     </div>
                                 </div>
                             </button>
@@ -752,26 +784,26 @@
                             <button
                                 type="button"
                                 @click="editRoomModal = true"
-                                class="group rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-left transition hover:border-amber-500 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-70"
+                                class="group h-full w-full rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-3 sm:p-4 text-left transition hover:border-[#005EA6] hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-70"
                             >
-                                <div class="flex items-center gap-3">
+                                <div class="flex flex-col items-start gap-3">
                                     <div
-                                        class="rounded-xl bg-amber-100 p-2 text-amber-600"
+                                        class="rounded-xl bg-amber-100 p-2 sm:p-2.5 text-amber-600"
                                     >
                                         <i
                                             data-lucide="pencil"
-                                            class="h-5 w-5"
+                                            class="h-4 w-4 sm:h-5 sm:w-5"
                                         ></i>
                                     </div>
 
-                                    <div>
+                                    <div class="min-w-0 flex-1">
                                         <h4
-                                            class="text-sm font-bold text-black"
+                                            class="text-xs sm:text-[13px] font-bold text-black"
                                         >
                                             Edit Room
                                         </h4>
-
-                                        <p class="mt-1 text-[11px] text-slate-500">Modify room information and layout.</p>
+                                        
+                                        <p class="mt-1 text-[10px] leading-4 break-words text-slate-500">Modify room information and layout.</p>
                                     </div>
                                 </div>
                             </button>
@@ -779,26 +811,26 @@
                             <button
                                 type="button"
                                 @click="transferAssetsModal = true"
-                                class="group rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-left transition hover:border-emerald-500 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-70"
+                                class="group h-full w-full rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-3 sm:p-4 text-left transition hover:border-[#005EA6] hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-70"
                             >
-                                <div class="flex items-center gap-3">
+                                <div class="flex flex-col items-start gap-3">
                                     <div
-                                        class="rounded-xl bg-emerald-100 p-2 text-emerald-600"
+                                        class="rounded-xl bg-emerald-100 p-2 sm:p-2.5 text-emerald-600"
                                     >
                                         <i
                                             data-lucide="arrow-right-left"
-                                            class="h-5 w-5"
+                                            class="h-4 w-4 sm:h-5 sm:w-5"
                                         ></i>
                                     </div>
 
-                                    <div>
+                                    <div class="min-w-0 flex-1">
                                         <h4
-                                            class="text-sm font-bold text-black"
+                                            class="text-xs sm:text-[13px] font-bold text-black"
                                         >
                                             Transfer Assets
                                         </h4>
 
-                                        <p class="mt-1 text-[11px] text-slate-500">Move equipment to another room.</p>
+                                        <p class="mt-1 text-[10px] leading-4 break-words text-slate-500">Move equipment to another room.</p>
                                     </div>
                                 </div>
                             </button>
@@ -806,26 +838,26 @@
                             <button
                                 type="button"
                                 @click="archiveRoomModal = true"
-                                class="group rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-left transition hover:border-red-500 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-70"
+                                class="group h-full w-full rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-3 sm:p-4 text-left transition hover:border-[#005EA6] hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-70"
                             >
-                                <div class="flex items-center gap-3">
+                                <div class="flex flex-col items-start gap-3">
                                     <div
-                                        class="rounded-xl bg-red-100 p-2 text-red-600"
+                                        class="rounded-xl bg-red-100 p-2 sm:p-2.5 text-red-600"
                                     >
                                         <i
                                             data-lucide="archive"
-                                            class="h-5 w-5"
+                                            class="h-4 w-4 sm:h-5 sm:w-5"
                                         ></i>
                                     </div>
 
-                                    <div>
+                                    <div class="min-w-0 flex-1">
                                         <h4
-                                            class="text-sm font-bold text-black"
+                                            class="text-xs sm:text-[13px] font-bold text-black"
                                         >
                                             Archive Room
                                         </h4>
 
-                                        <p class="mt-1 text-[11px] text-slate-500">Archive this room and keep records.</p>
+                                        <p class="mt-1 text-[10px] leading-4 break-words text-slate-500">Archive this room and keep records.</p>
                                     </div>
                                 </div>
                             </button>

@@ -20,6 +20,7 @@
                     "y" => (int) $room->room_y,
                     "width" => (int) $room->room_width,
                     "height" => (int) $room->room_height,
+                    "monitoring" => $room->monitoring,
                     "equipment" => $room->equipment
                         ->values()
                         ->map(
@@ -248,15 +249,16 @@
         <!-- Replace this whole class -->
         <!-- =============================== -->
 
-        <div class="flex min-h-0 w-full flex-1 flex-col gap-6 overflow-hidden xl:flex-row">
+        <div class="flex min-h-0 w-full flex-1 flex-col gap-6 overflow-hidden xl:flex-row xl:items-start">
             <section
                 x-ref="blueprintWorkspace"
-                class="relative flex min-h-[60vh] min-w-0 flex-1 flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-xl xl:min-h-0"
+                class="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-xl"
             >
                 <!-- ========================================================= -->
                 <!-- TOP TOOLBAR -->
                 <!-- ========================================================= -->
                 <div
+                    x-ref="blueprintToolbar"
                     class="top-2 left-2 right-2 z-30 flex items-start mt-4 ml-4 mr-4 justify-between gap-4 md:top-4 md:left-4 md:right-4"
                 >
 
@@ -2064,15 +2066,35 @@
                             this.paintRoomColor(this.selectedRoom, value);
                         });
 
+                        let resizeTimer;
+
                         window.addEventListener("resize", () => {
-                            this.fitBlueprint();
+
+                            clearTimeout(resizeTimer);
+
+                            resizeTimer = setTimeout(() => {
+
+                                this.fitBlueprint();
+
+                            }, 40);
+
                         });
 
                         this.$nextTick(() => {
                             this.bindDragging();
 
                             this.$nextTick(() => {
-                                this.fitBlueprint();
+
+                                requestAnimationFrame(() => {
+
+                                    requestAnimationFrame(() => {
+
+                                        this.fitBlueprint();
+
+                                    });
+
+                                });
+
                             });
 
                             document.querySelectorAll(".room-block").forEach((room) => {
@@ -2844,77 +2866,113 @@
                         this.fitBlueprint();
                     },
 
+                    
+
                     fitBlueprint() {
+
+                        const workspace = this.$refs.blueprintWorkspace;
+                        const toolbar = this.$refs.blueprintToolbar;
+                        const viewport = this.$refs.blueprintViewport;
                         const dock = this.$refs.blueprintControlsDock;
+
+                        if (!workspace || !viewport) return;
+
                         const dockWidth = dock ? dock.clientWidth : 64;
 
                         const padding = {
-                            top: 15,
-
-                            right: dockWidth + 12,
-
+                            top: 8,
+                            right: dockWidth + 10,
                             bottom: 8,
-
                             left: 8,
                         };
 
-                        const viewport = this.$refs.blueprintViewport;
-
-                        if (!viewport) return;
-
-                        // -----------------------------------
-                        // Available viewport space
-                        // -----------------------------------
-
-                        const availableWidth =
-                            viewport.clientWidth - padding.left - padding.right;
-
-                        const availableHeight =
-                            viewport.clientHeight - padding.top - padding.bottom;
-
-                        // -----------------------------------
-                        // Blueprint original size
-                        // -----------------------------------
-
                         const blueprintWidth = this.blueprint.width;
-
                         const blueprintHeight = this.blueprint.height;
 
-                        // -----------------------------------
-                        // Calculate scale for BOTH directions
-                        // -----------------------------------
+                        // -------------------------------------------------
+                        // STEP 1
+                        // Measure current viewport
+                        // -------------------------------------------------
 
-                        const scaleX = availableWidth / blueprintWidth;
+                        const viewportWidth = viewport.clientWidth;
 
-                        const scaleY = availableHeight / blueprintHeight;
+                        // -------------------------------------------------
+                        // STEP 2
+                        // Responsive viewport height
+                        // -------------------------------------------------
 
-                        // -----------------------------------
-                        // Choose whichever fits BOTH
-                        // -----------------------------------
+                        let targetViewportHeight;
 
-                        const zoom = Math.min(scaleX, scaleY);
+                        if (this.isFullscreen) {
 
-                        this.blueprint.zoom = zoom;
+                            const toolbarHeight = toolbar
+                                ? toolbar.getBoundingClientRect().height
+                                : 0;
 
-                        this.zoomInput = Math.round(zoom * 100);
+                            targetViewportHeight =
+                                window.innerHeight -
+                                toolbarHeight -
+                                24; // desired bottom padding
 
-                        // -----------------------------------
-                        // Calculate scaled size
-                        // -----------------------------------
+                        } else {
 
-                        const scaledWidth = blueprintWidth * zoom;
+                            targetViewportHeight = Math.max(
+                                500,
+                                Math.min(viewportWidth * 0.5, 850)
+                            );
 
-                        const scaledHeight = blueprintHeight * zoom;
+                        }
 
-                        // -----------------------------------
-                        // Perfectly center the blueprint
-                        // -----------------------------------
+                        viewport.style.height = targetViewportHeight + "px";
 
-                        this.blueprint.panX =
-                            padding.left + (availableWidth - scaledWidth) / 2;
+                        const toolbarHeight = toolbar
+                            ? toolbar.getBoundingClientRect().height
+                            : 0;
 
-                        this.blueprint.panY =
-                            padding.top + (availableHeight - scaledHeight) / 2;
+                        workspace.style.height =
+                            toolbarHeight + targetViewportHeight + "px";
+
+                        // -------------------------------------------------
+                        // STEP 3
+                        // Wait for browser layout
+                        // -------------------------------------------------
+
+                        requestAnimationFrame(() => {
+
+                            const availableWidth =
+                                viewport.clientWidth -
+                                padding.left -
+                                padding.right;
+
+                            const availableHeight =
+                                viewport.clientHeight -
+                                padding.top -
+                                padding.bottom;
+
+                            const zoom = Math.min(
+                                availableWidth / blueprintWidth,
+                                availableHeight / blueprintHeight
+                            );
+
+                            this.blueprint.zoom = zoom;
+
+                            this.zoomInput = Math.round(zoom * 100);
+
+                            const scaledWidth =
+                                blueprintWidth * zoom;
+
+                            const scaledHeight =
+                                blueprintHeight * zoom;
+
+                            this.blueprint.panX =
+                                padding.left +
+                                (availableWidth - scaledWidth) / 2;
+
+                            this.blueprint.panY =
+                                (availableHeight - scaledHeight) / 2;
+
+                        });
+
                     },
                     async toggleFullscreen(){
 
@@ -2945,6 +3003,87 @@
                             });
 
                         }
+
+                    },
+                    get currentRoom() {
+
+                        return this.roomCatalog.find(
+
+                            room => room.id === this.selectedRoom
+
+                        ) || null;
+
+                    },
+                    // =====================================
+                    // Date formatting helper
+                    // =====================================
+                    formatDate(date) {
+
+                        if (!date) return '';
+
+                        return new Date(date).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                        });
+
+                    },
+
+                    // =====================================
+                    // Time ago helper
+                    // =====================================
+                    // =====================================
+                    // Time ago helper
+                    // Replace your existing timeAgo()
+                    // =====================================
+                    // =====================================
+                    // Time ago helper
+                    // =====================================
+                    timeAgo(date) {
+
+                        if (!date) return '';
+
+                        const seconds = Math.floor((Date.now() - new Date(date)) / 1000);
+
+                        if (seconds < 60) {
+                            return 'Just now';
+                        }
+
+                        const minutes = Math.floor(seconds / 60);
+
+                        if (minutes < 60) {
+                            return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
+                        }
+
+                        const hours = Math.floor(minutes / 60);
+
+                        if (hours < 24) {
+                            return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+                        }
+
+                        const days = Math.floor(hours / 24);
+
+                        if (days < 30) {
+                            return `${days} day${days !== 1 ? 's' : ''} ago`;
+                        }
+
+                        // =====================================
+                        // More accurate month calculation
+                        // Average month = 30.44 days
+                        // =====================================
+                        const months = Math.floor(days / 30.44);
+
+                        if (months < 12) {
+                            return `${months} month${months !== 1 ? 's' : ''} ago`;
+                        }
+
+                        // =====================================
+                        // More accurate year calculation
+                        // Average year = 365.25 days
+                        // =====================================
+                        const years = Math.floor(days / 365.25);
+
+                        return `${years} year${years !== 1 ? 's' : ''} ago`;
 
                     },
                     toggleBlueprintEdit(){

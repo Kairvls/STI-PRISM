@@ -10,15 +10,33 @@ class Room extends Model
 
     protected $primaryKey = 'room_id';
 
-    public $timestamps = false;
+    // =====================================
+    // Custom timestamp columns
+    // =====================================
+    const CREATED_AT = 'room_created_at';
+    const UPDATED_AT = 'room_updated_at';
 
     protected $fillable = [
-        'room_floor_id', 'room_name', 'room_x', 'room_y', 'room_width',
-        'room_height', 'room_color', 'room_type', 'room_metadata', 'room_status',
-        'room_layout_mode', 'room_layout_version', 'room_is_archived', 'room_archived_at', 'room_archived_reason',
+        'room_floor_id',
+        'room_name',
+        'room_x',
+        'room_y',
+        'room_width',
+        'room_height',
+        'room_color',
+        'room_type',
+        'room_metadata',
+        'room_status',
+        'room_layout_mode',
+        'room_layout_version',
+        'room_is_archived',
+        'room_archived_at',
+        'room_archived_reason',
     ];
 
     protected $casts = [
+        'room_created_at' => 'datetime',
+        'room_updated_at' => 'datetime',
         'room_metadata' => 'array',
         'room_is_archived' => 'boolean',
         'room_archived_at' => 'datetime',
@@ -35,11 +53,19 @@ class Room extends Model
 
     public function equipment()
     {
-        return $this->hasMany(Equipment::class, 'equipment_room_id', 'room_id');
+        return $this->hasMany(
+            Equipment::class,
+            'equipment_room_id',
+            'room_id'
+        );
     }
 
     public function workstationSlots()
     {
-        return $this->hasMany(WorkstationSlot::class, 'room_id', 'room_id');
+        return $this->hasMany(
+            WorkstationSlot::class,
+            'room_id',
+            'room_id'
+        );
     }
 }

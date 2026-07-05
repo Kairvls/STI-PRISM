@@ -126,7 +126,41 @@ class InfrastructureController extends Controller
 
                     ->take(100)
 
-                    ->get()
+                    ->get(),
+
+                'room_information' => [
+
+                    'last_inspection' => DB::table('equipment_maintenance_history_table')
+                        ->join(
+                            'equipment_table',
+                            'equipment_maintenance_history_table.equipment_maintenance_equipment_id',
+                            '=',
+                            'equipment_table.equipment_id'
+                        )
+                        ->where(
+                            'equipment_table.equipment_room_id',
+                            $room->room_id
+                        )
+                        ->max('equipment_maintenance_completed_at'),
+
+                    'next_maintenance' => DB::table('maintenance_schedules_table')
+                        ->join(
+                            'equipment_table',
+                            'maintenance_schedules_table.maintenance_schedule_equipment_id',
+                            '=',
+                            'equipment_table.equipment_id'
+                        )
+                        ->where(
+                            'equipment_table.equipment_room_id',
+                            $room->room_id
+                        )
+                        ->min('maintenance_schedule_next_date'),
+
+                    'last_updated' => $room->room_updated_at,
+
+                    'status' => $room->room_status,
+
+                ],
 
             ];
         });
