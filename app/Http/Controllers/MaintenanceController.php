@@ -2479,9 +2479,21 @@ class MaintenanceController extends Controller
 
         $equipment = DB::table('equipment_table')
 
+            ->leftJoin(
+                'rooms_table',
+                'equipment_table.equipment_room_id',
+                '=',
+                'rooms_table.room_id'
+            )
+
             ->where(
                 'equipment_inventory_status',
                 'Active'
+            )
+
+            ->select(
+                'equipment_table.*',
+                'rooms_table.room_name'
             )
 
             ->orderBy(
@@ -2507,6 +2519,14 @@ class MaintenanceController extends Controller
 
     public function storeSchedule(Request $request)
     {
+        $request->validate([
+            'equipment_id' => ['required', 'integer', 'exists:equipment_table,equipment_id'],
+            'title' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'frequency' => ['required', 'string', 'max:100'],
+            'next_date' => ['required', 'date'],
+        ]);
+
         DB::table('maintenance_schedules_table')
 
             ->insert([
@@ -2546,6 +2566,14 @@ class MaintenanceController extends Controller
 
     public function completeSchedule(Request $request)
     {
+        $request->validate([
+            'schedule_id' => ['required', 'integer', 'exists:maintenance_schedules_table,maintenance_schedule_id'],
+            'findings' => ['required', 'string'],
+            'repair_action' => ['required', 'string'],
+            'maintenance_status' => ['required', 'string', 'max:100'],
+            'proof_image' => ['nullable', 'image', 'max:4096'],
+        ]);
+
         $schedule = DB::table(
             'maintenance_schedules_table'
         )
@@ -2644,6 +2672,12 @@ class MaintenanceController extends Controller
 
     public function rescheduleSchedule(Request $request)
     {
+        $request->validate([
+            'schedule_id' => ['required', 'integer', 'exists:maintenance_schedules_table,maintenance_schedule_id'],
+            'new_date' => ['required', 'date'],
+            'reason' => ['required', 'string'],
+        ]);
+
         $schedule = DB::table(
             'maintenance_schedules_table'
         )
@@ -2693,6 +2727,10 @@ class MaintenanceController extends Controller
 
     public function deleteSchedule(Request $request)
     {
+        $request->validate([
+            'schedule_id' => ['required', 'integer', 'exists:maintenance_schedules_table,maintenance_schedule_id'],
+        ]);
+
         DB::table(
             'maintenance_schedules_table'
         )

@@ -11,7 +11,7 @@
         class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
     >
         <div>
-            <nav
+            <!--<nav
                 class="mb-1 flex select-none items-center gap-1.5 text-xs font-semibold tracking-wide text-gray-400"
             >
                 <span
@@ -29,10 +29,10 @@
                             : "Dashboard"
                     }}
                 </span>
-            </nav>
+            </nav>-->
 
             <h1
-                class="flex items-center gap-3 text-3xl font-extrabold tracking-tight text-gray-900"
+                class="flex items-center gap-3 text-4xl font-extrabold tracking-tight text-gray-900"
             >
                 {{
                     $isUrgentPage
@@ -52,7 +52,7 @@
                 @endif
             </h1>
 
-            <p class="mt-1 text-sm font-medium text-gray-500">
+            <p class="mt-1 text-gray-500">
                 @if ($isUrgentPage)
                     View and manage urgent maintenance reports requiring
                     immediate attention.

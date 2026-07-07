@@ -931,10 +931,10 @@
     <!-- ── 1. LOGIN CHOOSER ── -->
     <div id="loginChooserModal"
          class="hidden fixed inset-0 z-50 flex items-center justify-center px-4"
-         style="backdrop-filter:blur(6px);">
+         style="background:rgba(0,0,0,0.75);  backdrop-filter:blur(6px);">
 
         <div class="modal-animation w-full max-w-[440px] rounded-3xl p-7 relative"
-             style="background:#ffffff; border:1px solid rgba(13, 9, 241, 0.1); box-shadow:0 32px 80px rgba(0,0,0,0.6);">
+             style="background:#0f1628; border:1px solid rgba(255,255,255,0.1); box-shadow:0 32px 80px rgba(0,0,0,0.6);">
 
             <!-- CLOSE -->
             <button onclick="closeLoginChooser()"
@@ -945,7 +945,7 @@
             </button>
 
             <!-- TITLE -->
-            <h2 style="font-family:'Outfit',sans-serif; font-size:1.8rem; font-weight:800; color:#000000; margin-bottom:6px;">Log In</h2>
+            <h2 style="font-family:'Outfit',sans-serif; font-size:1.8rem; font-weight:800; color:#f0f2f8; margin-bottom:6px;">Log In</h2>
             <p style="color:#8892a4; font-size:.875rem; margin-bottom:28px;">Select your access level to continue.</p>
 
             <div class="space-y-3">

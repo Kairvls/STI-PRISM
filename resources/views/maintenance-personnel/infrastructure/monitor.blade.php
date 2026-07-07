@@ -122,10 +122,10 @@
             </div>
         @endif
 
-        <header
-            class="mb-6 flex shrink-0 flex-col gap-5 xl:flex-row xl:items-end xl:justify-between"
+        <div
+            class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
         >
-            <div>
+            <!--<div>
                 <div
                     class="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[.22em] text-[#005EA6]"
                 >
@@ -140,8 +140,15 @@
                     Infrastructure Monitoring
                 </h1>
                 <p class="mt-2 max-w-2xl text-sm text-slate-500">Explore STI Ormoc room health, assets, reports, and maintenance in one spatial workspace.</p>
+            </div>-->
+            <div>
+                <h1 class="text-4xl font-black tracking-tight text-slate-950">
+                    Infrastructure Monitoring
+                </h1>
+                <p class="mt-1 text-slate-500">Explore STI Ormoc room health, assets, reports, and maintenance in one spatial workspace.</p>
             </div>
-            <div class="flex flex-wrap gap-3">
+
+            
                 <button
                     @click="
                         step = (String(form.building_name || '').trim() || (form.floors || []).length > 0)
@@ -160,88 +167,255 @@
                             }
                         });
                     "
-                    class="inline-flex items-center gap-2 rounded-xl bg-[#005EA6] px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-900/15 transition hover:-translate-y-0.5 hover:bg-[#004b86]"
+                    class="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-slate-800"
                 >
                     <i data-lucide="building-2" class="h-4 w-4"></i> Configure
                     campus
                 </button>
                 
-            </div>
-        </header>
+            
+        </div>
+
+        
+
+        {{-- ========================================================= --}}
+        {{-- INFRASTRUCTURE WORKSPACE TOOLBAR --}}
+        {{-- ========================================================= --}}
 
         <section
-            class="mb-5 flex shrink-0 flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm lg:flex-row lg:items-center lg:justify-between"
+            class="mt-6 mb-6 shrink-0 overflow-hidden rounded-2xl
+                border border-slate-200 bg-white"
         >
-            <div
-                class="flex gap-2 overflow-x-auto p-1"
-                role="tablist"
-                aria-label="Floor selection"
-            >
-                @forelse ($floors as $floor)
-                    <button
-                        @click="selectFloor({{ $floor->floor_id }})"
-                        :class="activeFloor === {{ $floor->floor_id }} ? 'bg-[#005EA6] text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'"
-                        class="flex min-w-max items-center gap-3 rounded-xl px-5 py-3 text-sm font-bold transition"
-                        role="tab"
-                    >
-                        <span>{{ $floor->floor_level }}</span>
-                        <span
-                            :class="activeFloor === {{ $floor->floor_id }} ? 'bg-white/15' : 'bg-slate-100'"
-                            class="rounded-md px-2 py-0.5 text-[10px]"
-                            >{{ $floor->rooms_count }} rooms</span
-                        >
-                    </button>
-                @empty
-                    <p class="px-4 py-3 text-sm text-slate-500">No floors configured yet.</p>
-                @endforelse
-            </div>
-            <div
-                class="flex flex-wrap items-center gap-x-5 gap-y-2 px-4 pb-2 text-[11px] font-semibold text-slate-500 lg:pb-0"
-            >
-                <span class="flex items-center gap-2"
-                    ><i class="h-2.5 w-2.5 rounded-full bg-emerald-500"></i
-                    >Good</span
-                >
-                <span class="flex items-center gap-2"
-                    ><i class="h-2.5 w-2.5 rounded-full bg-amber-400"></i>Under Maintenance</span
-                >
-                <span class="flex items-center gap-2"
-                    ><i
-                        class="h-2.5 w-2.5 animate-pulse rounded-full bg-red-500"
-                    ></i
-                    >Critical</span
-                >
-            </div>
-        </section>
 
-        <section
-            class="mb-5 flex shrink-0 flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm xl:flex-row xl:items-center xl:justify-between"
-        >
-            <div class="flex min-w-0 flex-1 items-center gap-3">
+            <div
+                class="flex flex-col gap-4 p-4
+                    xl:flex-row xl:items-center"
+            >
+
+                {{-- ================================================= --}}
+                {{-- FLOOR SELECTION --}}
+                {{-- ================================================= --}}
+
                 <div
-                    class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#005EA6]/10 text-[#005EA6]"
+                    class="flex min-w-0 flex-1 items-center gap-2"
                 >
-                    <i data-lucide="search" class="h-5 w-5"></i>
+
+                    {{-- FLOOR LABEL --}}
+                    <div
+                        class="hidden shrink-0 items-center gap-2
+                            pr-2 text-xs font-medium text-slate-400
+                            sm:flex"
+                    >
+                        <i
+                            data-lucide="layers-3"
+                            class="h-4 w-4"
+                        ></i>
+
+                        Floors
+                    </div>
+
+
+                    {{-- FLOOR TABS --}}
+                    <div
+                        class="flex min-w-0 flex-1 gap-1
+                            overflow-x-auto rounded-xl
+                            bg-slate-100 p-1"
+                        role="tablist"
+                        aria-label="Floor selection"
+                    >
+
+                        @forelse ($floors as $floor)
+
+                            <button
+                                type="button"
+
+                                @click="selectFloor({{ $floor->floor_id }})"
+
+                                :class="
+                                    activeFloor === {{ $floor->floor_id }}
+                                        ? 'bg-white text-slate-900 shadow-sm'
+                                        : 'text-slate-500 hover:text-slate-800'
+                                "
+
+                                class="flex min-w-max items-center gap-2
+                                    rounded-lg px-3 py-2
+                                    text-xs font-medium transition"
+
+                                role="tab"
+
+                                :aria-selected="
+                                    activeFloor === {{ $floor->floor_id }}
+                                "
+                            >
+
+                                {{-- FLOOR NAME --}}
+                                <span>
+                                    {{ $floor->floor_level }}
+                                </span>
+
+
+                                {{-- ROOM COUNT --}}
+                                <span
+                                    :class="
+                                        activeFloor === {{ $floor->floor_id }}
+                                            ? 'bg-slate-100 text-slate-500'
+                                            : 'bg-white/70 text-slate-400'
+                                    "
+
+                                    class="rounded-md px-1.5 py-0.5
+                                        text-[10px] font-medium"
+                                >
+                                    {{ $floor->rooms_count }}
+                                </span>
+
+                            </button>
+
+
+                        @empty
+
+                            <div
+                                class="flex items-center gap-2
+                                    px-3 py-2 text-xs text-slate-400"
+                            >
+                                <i
+                                    data-lucide="layers"
+                                    class="h-3.5 w-3.5"
+                                ></i>
+
+                                No floors configured
+                            </div>
+
+                        @endforelse
+
+                    </div>
+
                 </div>
-                <div class="min-w-0 flex-1">
+
+
+
+                {{-- ================================================= --}}
+                {{-- SEARCH --}}
+                {{-- ================================================= --}}
+
+                <div
+                    class="relative w-full
+                        xl:w-[320px]"
+                >
+
+                    <i
+                        data-lucide="search"
+                        class="pointer-events-none absolute
+                            left-3 top-1/2 h-4 w-4
+                            -translate-y-1/2 text-slate-400"
+                    ></i>
+
+
                     <input
                         id="room-blueprint-search"
+
                         type="search"
+
                         x-model="roomSearch"
+
                         @keydown.enter.prevent="focusRoomSearch()"
-                        placeholder="Search Library, Room 305, Comlab 1..."
-                        class="mt-1 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold outline-none transition focus:border-[#005EA6] focus:ring-4 focus:ring-blue-100"
-                    />
+
+                        placeholder="Search rooms..."
+
+                        class="h-10 w-full rounded-xl
+                            border border-slate-200 bg-white
+                            pl-9 pr-20
+                            text-xs font-medium text-slate-700
+                            outline-none transition
+                            placeholder:text-slate-400
+                            focus:border-slate-400"
+                    >
+
+
+                    {{-- SEARCH BUTTON --}}
+                    <button
+                        type="button"
+
+                        @click="focusRoomSearch()"
+
+                        class="absolute right-1 top-1/2
+                            flex h-8 -translate-y-1/2
+                            items-center gap-1.5 rounded-lg
+                            bg-slate-900 px-3
+                            text-[11px] font-medium text-white
+                            transition hover:bg-slate-800"
+                    >
+                        Find
+                    </button>
+
                 </div>
-                <button
-                    type="button"
-                    @click="focusRoomSearch()"
-                    class="rounded-xl bg-[#005EA6] px-4 py-3 text-sm font-black text-white"
+
+
+
+                {{-- ================================================= --}}
+                {{-- DIVIDER --}}
+                {{-- ================================================= --}}
+
+                <div
+                    class="hidden h-8 w-px
+                        shrink-0 bg-slate-200
+                        xl:block"
+                ></div>
+
+
+
+                {{-- ================================================= --}}
+                {{-- CONDITION LEGEND --}}
+                {{-- ================================================= --}}
+
+                <div
+                    class="flex shrink-0 flex-wrap
+                        items-center gap-x-4 gap-y-2
+                        text-[11px] font-medium
+                        text-slate-500"
                 >
-                    Find
-                </button>
+
+                    {{-- GOOD --}}
+                    <span class="flex items-center gap-1.5">
+
+                        <span
+                            class="h-2 w-2 rounded-full
+                                bg-emerald-500"
+                        ></span>
+
+                        Good
+
+                    </span>
+
+
+                    {{-- UNDER MAINTENANCE --}}
+                    <span class="flex items-center gap-1.5">
+
+                        <span
+                            class="h-2 w-2 rounded-full
+                                bg-amber-400"
+                        ></span>
+
+                        Maintenance
+
+                    </span>
+
+
+                    {{-- CRITICAL --}}
+                    <span class="flex items-center gap-1.5">
+
+                        <span
+                            class="h-2 w-2 rounded-full
+                                bg-red-500"
+                        ></span>
+
+                        Critical
+
+                    </span>
+
+                </div>
+
             </div>
-            
+
         </section>
 
         <!-- =============================== -->
@@ -624,7 +798,7 @@
                     class="relative min-h-0 flex-1 overflow-hidden bg-white"
                     :class="isRotating ? 'cursor-grabbing' : blueprint.isPanning ? 'cursor-grabbing' : 'cursor-grab'"
                 >
-                <!--bg-gradient-to-br from-[#dbe6f1] via-[#edf3f8] to-[#cbd9e7] for blueprintCanvas-->
+                    <!--bg-gradient-to-br from-[#dbe6f1] via-[#edf3f8] to-[#cbd9e7] for blueprintCanvas-->
                     <div
                         x-ref="blueprintCanvas"
                         class="blueprint-grid absolute left-0 top-0 overflow-hidden rounded-[24px] border border-white/70 bg-white shadow-inner"
@@ -1342,72 +1516,110 @@
 
             <div
                 @click.stop
-                class="w-full max-w-md overflow-hidden rounded-[28px] bg-white shadow-2xl"
+                class="w-full max-w-md overflow-hidden rounded-lg bg-white shadow-2xl"
             >
 
-                <div
-                    class="bg-gradient-to-r from-yellow-500 to-[#FFF200] px-6 py-5 text-white"
-                >
+                <div class="relative overflow-hidden bg-white">
 
-                    <div class="flex items-center gap-3">
+                    <!-- ===================================================== -->
+                    <!-- BACKGROUND WARNING ICON -->
+                    <!-- ===================================================== -->
+                    <div
+                        class="
+                            pointer-events-none
+                            absolute
+                            -bottom-12
+                            -left-12
+                            select-none
+                            text-slate-100
+                        "
+                        aria-hidden="true"
+                    >
+                        <i
+                            data-lucide="badge-alert"
+                            class="h-60 w-60 stroke-[1.5]"
+                        ></i>
+                    </div>
 
-                        <div
-                            class="flex p-4 items-center justify-center rounded-2xl bg-white/50"
+
+                    <!-- ===================================================== -->
+                    <!-- MODAL CONTENT -->
+                    <!-- ===================================================== -->
+                    <div class="relative z-10 px-6 pb-5 pt-6">
+
+                        <button
+                            type="button"
+                            @click="closeLayoutModal.open = false"
+                            class="
+                                absolute right-5 top-5
+                                flex h-8 w-8
+                                items-center justify-center
+                                rounded-lg
+                                text-slate-300
+                                transition
+                                hover:bg-slate-100
+                                hover:text-slate-600
+                            "
                         >
+                            <i data-lucide="x" class="h-5 w-5"></i>
+                        </button>
 
-                            <i data-lucide="triangle-alert" class="h-6 w-6 text-gray-500"></i>
+                        <h2
+                            class="pr-10 text-xl font-semibold text-slate-800"
+                            x-text="closeLayoutModal.title"
+                        ></h2>
 
-                        </div>
-
-                        <div>
-
-                            <h2
-                                class="text-xl text-gray-900 font-bold"
-                                x-text="closeLayoutModal.title"
-                            ></h2>
-
-                            <p
-                                class="mt-1 text-sm text-gray-600"
-                                x-text="closeLayoutModal.message"
-                            ></p>
-
-                        </div>
+                        <p
+                            class="mt-2 max-w-md pr-8 text-sm leading-6 text-slate-600"
+                            x-text="closeLayoutModal.message"
+                        ></p>
 
                     </div>
 
-                </div>
 
-                <div class="flex justify-end gap-3 p-6">
+                    <!-- ===================================================== -->
+                    <!-- MODAL ACTIONS -->
+                    <!-- ===================================================== -->
+                    <div class="relative z-10 flex justify-end gap-3 px-6 pb-6">
 
-                    <button
+                        <button
+                            type="button"
+                            @click="closeLayoutModal.open = false"
+                            class="
+                                min-w-[100px]
+                                rounded-md
+                                bg-slate-300
+                                px-5 py-2.5
+                                text-sm font-medium
+                                text-white
+                                transition
+                                hover:bg-slate-400
+                            "
+                        >
+                            Cancel
+                        </button>
 
-                        @click="closeLayoutModal.open = false"
+                        <button
+                            type="button"
+                            @click="
+                                closeLayoutModal.open = false;
+                                closeRoomLayout();
+                            "
+                            class="
+                                min-w-[50px]
+                                rounded-md
+                                bg-red-600
+                                px-5 py-2.5
+                                text-sm font-medium
+                                text-white
+                                transition
+                                hover:bg-red-700
+                            "
+                        >
+                            OK
+                        </button>
 
-                        class="rounded-xl border border-slate-500 hover:text-gray-900 hover:border-gray-800 px-5 py-2.5 text-gray-500"
-
-                    >
-
-                        Continue Editing
-
-                    </button>
-
-                    <button
-
-                        @click="
-
-                            closeLayoutModal.open = false;
-
-                            closeRoomLayout();
-
-                        "
-
-                        class="rounded-xl bg-red-600 px-5 py-2.5 text-white hover:bg-red-700"
-
-                    >
-
-                        Discard Changes
-
-                    </button>
+                    </div>
 
                 </div>
 
@@ -1429,57 +1641,161 @@
 
             <div
                 @click.stop
-                class="w-full max-w-md overflow-hidden rounded-[28px] bg-white shadow-2xl"
+                class="w-full max-w-md overflow-hidden rounded-lg bg-white shadow-2xl"
             >
 
+                <!-- ========================================================= -->
+                <!-- BLUEPRINT DISCARD CONFIRMATION MODAL CONTENT -->
+                <!-- ========================================================= -->
+
                 <div
-                    class="bg-gradient-to-r from-yellow-500 to-[#FFF200] px-6 py-5 text-white"
+                    class="
+                        relative
+                        overflow-hidden
+                        border border-white/50
+                        bg-white/70
+                        shadow-2xl
+                        backdrop-blur-xl
+                    "
                 >
 
-                    <div class="flex items-center gap-3">
+                    <!-- ===================================================== -->
+                    <!-- BACKGROUND WARNING ICON -->
+                    <!-- ===================================================== -->
+                    <div
+                        class="
+                            pointer-events-none
+                            absolute
+                            -bottom-12
+                            -left-12
+                            select-none
+                            text-slate-200/50
+                        "
+                        aria-hidden="true"
+                    >
+                        <i
+                            data-lucide="badge-alert"
+                            class="h-64 w-64 stroke-[1]"
+                        ></i>
+                    </div>
 
-                        <div
-                            class="flex p-4 items-center justify-center rounded-2xl bg-white/50"
+
+                    <!-- ===================================================== -->
+                    <!-- MODAL CONTENT -->
+                    <!-- ===================================================== -->
+                    <div class="relative z-10 px-6 pb-5 pt-6">
+
+                        <!-- Close Button -->
+                        <button
+                            type="button"
+                            @click="blueprintLayoutModal.open = false"
+                            class="
+                                absolute
+                                right-5
+                                top-5
+                                flex
+                                h-8
+                                w-8
+                                items-center
+                                justify-center
+                                rounded-lg
+                                text-slate-300
+                                transition
+                                hover:bg-slate-100/70
+                                hover:text-slate-600
+                            "
                         >
+                            <i
+                                data-lucide="x"
+                                class="h-5 w-5"
+                            ></i>
+                        </button>
 
-                            <i data-lucide="triangle-alert" class="h-6 w-6 text-gray-500"></i>
 
-                        </div>
+                        <!-- Title -->
+                        <h2
+                            class="
+                                pr-10
+                                text-xl
+                                font-semibold
+                                text-slate-800
+                            "
+                            x-text="blueprintLayoutModal.title"
+                        ></h2>
 
-                        <div>
 
-                            <h2
-                                class="text-xl text-gray-900 font-bold"
-                                x-text="blueprintLayoutModal.title"
-                            ></h2>
-
-                            <p
-                                class="mt-1 text-sm text-gray-600"
-                                x-text="blueprintLayoutModal.message"
-                            ></p>
-
-                        </div>
+                        <!-- Message -->
+                        <p
+                            class="
+                                mt-2
+                                max-w-md
+                                pr-8
+                                text-sm
+                                leading-6
+                                text-slate-600
+                            "
+                            x-text="blueprintLayoutModal.message"
+                        ></p>
 
                     </div>
 
-                </div>
 
-
-                <div class="flex justify-end gap-3 p-6">
-
-                    <button
-                        @click="blueprintLayoutModal.open=false"
-                        class="rounded-xl border border-slate-500 hover:text-gray-900 hover:border-gray-800 px-5 py-2.5 text-gray-500"
+                    <!-- ===================================================== -->
+                    <!-- MODAL ACTIONS -->
+                    <!-- ===================================================== -->
+                    <div
+                        class="
+                            relative
+                            z-10
+                            flex
+                            justify-end
+                            gap-3
+                            px-6
+                            pb-6
+                        "
                     >
-                        Continue Editing
-                    </button>
 
-                    <button
-                        @click="discardBlueprintChanges()"
-                        class="rounded-xl bg-red-600 px-5 py-2.5 text-white hover:bg-red-700"
-                    >
-                        Discard Changes
-                    </button>
+                        <!-- Continue Editing -->
+                        <button
+                            type="button"
+                            @click="blueprintLayoutModal.open = false"
+                            class="
+                                rounded-md
+                                bg-slate-300
+                                px-5
+                                py-2.5
+                                text-sm
+                                font-medium
+                                text-white
+                                transition
+                                hover:bg-slate-400
+                            "
+                        >
+                            Cancel
+                        </button>
+
+
+                        <!-- Discard Changes -->
+                        <button
+                            type="button"
+                            @click="discardBlueprintChanges()"
+                            class="
+                                rounded-md
+                                bg-red-600
+                                px-5
+                                py-2.5
+                                text-sm
+                                font-medium
+                                text-white
+                                shadow-sm
+                                transition
+                                hover:bg-red-700
+                            "
+                        >
+                            OK
+                        </button>
+
+                    </div>
 
                 </div>
 
@@ -3948,6 +4264,23 @@
                         item.placement_zone = zone;
                         
                         node.dataset.zone = zone;
+
+                        const room = this.roomCatalog.find(
+                            (room) => room.id === this.roomLayout.id,
+                        );
+
+                        const catalogItem = room?.equipment?.find(
+                            (equipment) => equipment.id === item.id,
+                        );
+
+                        if (catalogItem && catalogItem !== item) {
+                            Object.assign(catalogItem, {
+                                x: item.x,
+                                y: item.y,
+                                location: zone,
+                                placement_zone: zone,
+                            });
+                        }
 
                         return item;
                     },

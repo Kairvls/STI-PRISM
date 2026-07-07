@@ -23,112 +23,278 @@
 
     <!-- RIGHT -->
 
-    <div class="topbar-right">
-        <!-- TIME -->
+    <div class="flex items-center gap-2">
 
-        <!-- NOTIFICATION -->
-
+        <!-- ===================================== -->
+        <!-- NOTIFICATIONS -->
+        <!-- ===================================== -->
         <div class="relative">
-            <button onclick="toggleNotifications()" class="icon-btn">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="black" class="bi bi-bell-fill" viewBox="0 0 16 16">
-                    <path d="M8 16a2 2 0 0 0 2-2H6a2 2 0 0 0 2 2m.995-14.901a1 1 0 1 0-1.99 0A5 5 0 0 0 3 6c0 1.098-.5 6-2 7h14c-1.5-1-2-5.902-2-7 0-2.42-1.72-4.44-4.005-4.901" />
-                </svg>
+            <!-- NOTIFICATION BUTTON -->
+            <button
+                type="button"
+                onclick="toggleNotifications()"
+                class="relative flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-950"
+                aria-label="Notifications"
+            >
+                <i
+                    data-lucide="bell"
+                    class="h-5 w-5"
+                ></i>
 
-                <span class="notification-dot"></span>
+                <!-- NOTIFICATION INDICATOR -->
+                <span
+                    class="absolute right-[9px] top-[8px] h-2 w-2 rounded-full border-2 border-white bg-rose-500"
+                ></span>
             </button>
 
+            <!-- ===================================== -->
             <!-- NOTIFICATION DROPDOWN -->
+            <!-- ===================================== -->
+            <div
+                id="notificationDropdown"
+                class="absolute right-0 top-[calc(100%+10px)] z-50 hidden w-[360px] overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_20px_60px_rgba(0,0,0,0.14)]"
+            >
+                <!-- DROPDOWN HEADER -->
+                <div
+                    class="flex items-center justify-between border-b border-slate-100 px-5 py-4"
+                >
+                    <div>
+                        <h3
+                            class="text-sm font-semibold tracking-tight text-slate-950"
+                        >
+                            Notifications
+                        </h3>
 
-            <div id="notificationDropdown" class="dropdown-panel hidden">
-                <div class="dropdown-header">Notifications</div>
-
-                <div class="dropdown-content">
-                    <div class="notification-item">
-                        <div class="notification-icon danger">
-                            <i data-lucide="triangle-alert"></i>
-                        </div>
-
-                        <div>
-                            <h4>Urgent Report Submitted</h4>
-
-                            <p>Aircon malfunction at Room 204</p>
-
-                            <span> 2 minutes ago </span>
-                        </div>
+                        <p class="mt-0.5 text-xs text-slate-500">
+                            Recent activity requiring your attention
+                        </p>
                     </div>
 
-                    <div class="notification-item">
-                        <div class="notification-icon success">
-                            <i data-lucide="badge-check"></i>
+                    <span
+                        class="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-600"
+                    >
+                        2 new
+                    </span>
+                </div>
+
+                <!-- ===================================== -->
+                <!-- NOTIFICATION LIST -->
+                <!-- ===================================== -->
+                <div class="max-h-[360px] overflow-y-auto">
+
+                    <!-- URGENT REPORT -->
+                    <button
+                        type="button"
+                        class="flex w-full items-start gap-3 border-b border-slate-100 px-5 py-4 text-left transition hover:bg-slate-50"
+                    >
+                        <!-- ICON -->
+                        <div
+                            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-rose-50 text-rose-600"
+                        >
+                            <i
+                                data-lucide="triangle-alert"
+                                class="h-4 w-4"
+                            ></i>
                         </div>
 
-                        <div>
-                            <h4>Equipment Repaired</h4>
+                        <!-- CONTENT -->
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-start justify-between gap-4">
+                                <h4
+                                    class="truncate text-sm font-medium text-slate-900"
+                                >
+                                    Urgent report submitted
+                                </h4>
 
-                            <p>Projector repaired at AVR Room</p>
+                                <!-- UNREAD INDICATOR -->
+                                <span
+                                    class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500"
+                                ></span>
+                            </div>
 
-                            <span> 15 minutes ago </span>
+                            <p
+                                class="mt-1 line-clamp-2 text-sm leading-5 text-slate-500"
+                            >
+                                Aircon malfunction at Room 204
+                            </p>
+
+                            <p class="mt-2 text-xs text-slate-400">
+                                2 minutes ago
+                            </p>
                         </div>
-                    </div>
+                    </button>
+
+                    <!-- EQUIPMENT REPAIRED -->
+                    <button
+                        type="button"
+                        class="flex w-full items-start gap-3 px-5 py-4 text-left transition hover:bg-slate-50"
+                    >
+                        <!-- ICON -->
+                        <div
+                            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600"
+                        >
+                            <i
+                                data-lucide="badge-check"
+                                class="h-4 w-4"
+                            ></i>
+                        </div>
+
+                        <!-- CONTENT -->
+                        <div class="min-w-0 flex-1">
+                            <h4
+                                class="truncate text-sm font-medium text-slate-900"
+                            >
+                                Equipment repaired
+                            </h4>
+
+                            <p
+                                class="mt-1 line-clamp-2 text-sm leading-5 text-slate-500"
+                            >
+                                Projector repaired at AVR Room
+                            </p>
+
+                            <p class="mt-2 text-xs text-slate-400">
+                                15 minutes ago
+                            </p>
+                        </div>
+                    </button>
+                </div>
+
+                <!-- DROPDOWN FOOTER -->
+                <div class="border-t border-slate-100 px-3 py-2">
+                    <button
+                        type="button"
+                        class="w-full rounded-lg px-3 py-2 text-center text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+                    >
+                        View all notifications
+                    </button>
                 </div>
             </div>
         </div>
 
+        <!-- ===================================== -->
         <!-- PROFILE -->
-
+        <!-- ===================================== -->
         <div class="relative">
+
+            <!-- PROFILE BUTTON -->
             <button
+                type="button"
                 onclick="toggleProfileDropdown()"
-                class="profile-btn bg-gray-100 hover:bg-gray-200"
+                class="flex items-center gap-3 rounded-xl px-2 py-1.5 text-left transition hover:bg-slate-100"
             >
+                <!-- AVATAR -->
                 <div
-                    class="profile-avatar h-9 w-9 shrink-0 overflow-hidden rounded-full bg-gray-200 shadow-lg"
+                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-900 text-sm font-medium text-white"
                 >
                     K
                 </div>
 
-                <div
-                    class="profile-info mt-0.5 flex flex-col items-start justify-start"
-                >
-                    <h4>Kenn Mehares</h4>
+                <!-- PROFILE INFORMATION -->
+                <div class="hidden min-w-0 sm:block">
+                    <p
+                        class="max-w-[150px] truncate text-sm font-medium text-slate-900"
+                    >
+                        Kenn Mehares
+                    </p>
 
-                    <p>Maintenance Personnel</p>
+                    <p
+                        class="mt-0.5 max-w-[150px] truncate text-xs text-slate-500"
+                    >
+                        Maintenance Personnel
+                    </p>
                 </div>
 
-                <i data-lucide="chevron-down" class="profile-arrow"></i>
+                <!-- CHEVRON -->
+                <i
+                    data-lucide="chevron-down"
+                    class="hidden h-4 w-4 shrink-0 text-slate-400 sm:block"
+                ></i>
             </button>
 
+            <!-- ===================================== -->
             <!-- PROFILE DROPDOWN -->
+            <!-- ===================================== -->
+            <div
+                id="profileDropdown"
+                class="absolute right-0 top-[calc(100%+10px)] z-50 hidden w-[260px] overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_20px_60px_rgba(0,0,0,0.14)]"
+            >
+                <!-- PROFILE HEADER -->
+                <div class="border-b border-slate-100 px-4 py-4">
+                    <div class="flex items-center gap-3">
+                        <!-- AVATAR -->
+                        <div
+                            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-900 text-sm font-medium text-white"
+                        >
+                            K
+                        </div>
 
-            <div id="profileDropdown" class="profile-dropdown hidden">
-                <div class="profile-header">
-                    <h4>Kenn Mehares</h4>
+                        <!-- USER INFORMATION -->
+                        <div class="min-w-0">
+                            <p
+                                class="truncate text-sm font-medium text-slate-950"
+                            >
+                                Kenn Mehares
+                            </p>
 
-                    <p>kenn@gmail.com</p>
+                            <p
+                                class="mt-0.5 truncate text-xs text-slate-500"
+                            >
+                                kenn@gmail.com
+                            </p>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="profile-links">
-                    <a href="#" class="topbar-link">
-                        <i data-lucide="user-cog"></i>
+                <!-- ===================================== -->
+                <!-- PROFILE LINKS -->
+                <!-- ===================================== -->
+                <div class="p-2">
+                    <a
+                        href="#"
+                        class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+                    >
+                        <i
+                            data-lucide="user-cog"
+                            class="h-4 w-4 text-slate-400"
+                        ></i>
 
-                        Profile Settings
+                        Profile settings
                     </a>
 
-                    <a href="#" class="topbar-link">
-                        <i data-lucide="shield-check"></i>
+                    <a
+                        href="#"
+                        class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+                    >
+                        <i
+                            data-lucide="shield-check"
+                            class="h-4 w-4 text-slate-400"
+                        ></i>
 
-                        Security Settings
+                        Security settings
                     </a>
                 </div>
 
-                <div class="logout-area">
-                    <form method="POST" action="{{ route('logout') }}">
+                <!-- ===================================== -->
+                <!-- LOGOUT -->
+                <!-- ===================================== -->
+                <div class="border-t border-slate-100 p-2">
+                    <form
+                        method="POST"
+                        action="{{ route('logout') }}"
+                    >
                         @csrf
 
-                        <button type="submit" class="logout-btn">
-                            <i data-lucide="log-out"></i>
+                        <button
+                            type="submit"
+                            class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-rose-50 hover:text-rose-600"
+                        >
+                            <i
+                                data-lucide="log-out"
+                                class="h-4 w-4"
+                            ></i>
 
-                            Logout
+                            Log out
                         </button>
                     </form>
                 </div>

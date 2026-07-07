@@ -1,14 +1,17 @@
 <div id="sidebar">
-    <div class="sidebar-content">
-        <div class="sidebar-header">
-            <div class="logo-icon">
-                <img src="{{ asset('image/STI.png') }}" alt="" />
-            </div>
-            <div>
-                <h2>PRISM</h2>
-                <span>Maintenance System</span>
-            </div>
+
+    <div class="sidebar-header p-5">
+        <div class="logo-icon">
+            <img src="{{ asset('image/STI.png') }}" alt="" />
         </div>
+        <div>
+            <h2>PRISM</h2>
+            <span>Maintenance System</span>
+        </div>
+    </div>
+
+    <div class="sidebar-content">
+        
 
         <div class="sidebar-search">
             <div class="sidebar-dropdown">
@@ -23,7 +26,7 @@
                         Dashboard
                     </div>
                     <div class="dropdown-item" data-target="reports-section">
-                        Reports
+                        Reports & Reporters
                     </div>
                     <div
                         class="dropdown-item"
@@ -40,9 +43,9 @@
                     >
                         Maintenance
                     </div>
-                    <div class="dropdown-item" data-target="users-section">
+                    <!--<div class="dropdown-item" data-target="users-section">
                         Users
-                    </div>
+                    </div>-->
                 </div>
             </div>
         </div>
@@ -87,13 +90,21 @@
             <span>Dashboard</span>
         </a>
 
-        <div class="menu-title" id="reports-section">REPORTS</div>
+        <div class="menu-title" id="reports-section">REPORTS & REPORTERS</div>
         <a
             href="/maintenance/reports"
             class="menu-item {{ request()->is('maintenance/reports') ? 'active' : '' }}"
         >
             <i class="h-5 w-5" data-lucide="file-text"></i>
             <span>Reports</span>
+        </a>
+
+        <a
+            href="/maintenance/reporters"
+            class="menu-item {{ request()->is('maintenance/reporters*') ? 'active' : '' }}"
+        >
+            <i class="h-5 w-5" data-lucide="users"></i>
+            <span>Reporters</span>
         </a>
 
         <div class="menu-title" id="infrastructure-section">INFRASTRUCTURE</div>
@@ -151,23 +162,23 @@
             <span>Disposal</span>
         </a>
 
-        <div class="menu-title" id="users-section">USERS</div>
+        <!--<div class="menu-title" id="users-section">USERS</div>
         <a
             href="/maintenance/reporters"
             class="menu-item {{ request()->is('maintenance/reporters*') ? 'active' : '' }}"
         >
             <i class="h-5 w-5" data-lucide="users"></i>
             <span>Reporters</span>
-        </a>
+        </a>-->
     </div>
 
-    <div class="user-card">
+    <!--<div class="user-card">
         <div class="avatar">AV</div>
         <div>
             <h4>Aljon Vega</h4>
             <p>Maintenance Personnel</p>
         </div>
-    </div>
+    </div>-->
 </div>
 
 <style>
@@ -193,6 +204,7 @@
         overflow-x: hidden;
         padding: 20px;
     }
+    
 
     /* ======================================
    SCROLLBAR
@@ -215,7 +227,7 @@
         display: flex;
         align-items: center;
         gap: 14px;
-        margin-bottom: 32px;
+        /*margin-bottom: 32px;*/
     }
     .logo-icon {
         width: 50px;
