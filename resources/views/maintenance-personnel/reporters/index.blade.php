@@ -15,173 +15,374 @@
         <button
             type="button"
             onclick="openCreateModal()"
-            class="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-slate-800"
+            class="inline-flex items-center justify-center gap-2 rounded-2xl bg-[rgba(0,55,199,0.85)] px-5 py-3 text-sm font-semibold font-sans-serif text-white shadow-lg shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-[rgba(0,44,155,0.85)]"
         >
             <i data-lucide="plus" class="h-4 w-4"></i>
             Add Reporter
         </button>
     </div>
 
+    {{-- ===================================================== --}}
+    {{-- REPORTER DASHBOARD CARDS --}}
+    {{-- USES DATA FROM reporterDashboardData() --}}
+    {{-- ===================================================== --}}
+
+    @php
+
+        // =====================================================
+        // BUILD REPORTER GRAPH POINTS
+        // =====================================================
+
+        $reporterTrendCounts = collect($reporterMonthlyTrend)
+            ->pluck('count');
+
+
+        $reporterTrendMax = max(
+            1,
+            $reporterTrendCounts->max() ?? 0
+        );
+
+
+        $reporterTrendTotalPoints =
+            max(
+                1,
+                $reporterTrendCounts->count() - 1
+            );
+
+
+        $reporterTrendPoints = collect($reporterMonthlyTrend)
+
+            ->values()
+
+            ->map(function ($item, $index) use (
+                $reporterTrendMax,
+                $reporterTrendTotalPoints
+            ) {
+
+                // =================================================
+                // SVG X POSITION
+                // =================================================
+
+                $x =
+                    ($index / $reporterTrendTotalPoints)
+                    * 300;
+
+
+                // =================================================
+                // SVG Y POSITION
+                //
+                // HIGHER COUNT = HIGHER POINT ON GRAPH
+                // =================================================
+
+                $y =
+                    90
+                    - (
+                        ($item['count'] / $reporterTrendMax)
+                        * 70
+                    );
+
+
+                return
+                    round($x, 2)
+                    . ','
+                    . round($y, 2);
+
+            })
+
+            ->implode(' ');
+
+
+        // =====================================================
+        // GRAPH AREA POINTS
+        // =====================================================
+
+        $reporterTrendAreaPoints =
+            $reporterTrendPoints
+            . ' 300,100 0,100';
+
+    @endphp
+
+
     <div
-        class="overflow-hidden rounded-lg mt-6 mb-6 border-t border-b border-slate-300 bg-gray-100 shadow-sm"
+        class="mb-6 mt-6 overflow-hidden rounded-lg border-y border-slate-300 bg-gray-100 shadow-sm"
     >
         <div
-            class="grid grid-cols-1 divide-y divide-slate-200 md:grid-cols-2 md:divide-y-0 xl:grid-cols-[380px_1fr_1fr_1fr] "
+            class="grid grid-cols-1 divide-y divide-slate-200 md:grid-cols-2 md:divide-y-0 xl:grid-cols-[380px_1fr_1fr_1fr]"
         >
-            <!-- Total Equipment -->
+
+            {{-- ================================================= --}}
+            {{-- TOTAL REPORTERS --}}
+            {{-- ================================================= --}}
+
             <div class="flex items-center justify-between px-8 py-6">
 
-                <!-- Left Content -->
+                {{-- LEFT CONTENT --}}
+
                 <div class="flex flex-col">
+
                     <p class="text-sm font-medium text-slate-500">
                         Total Reporters
                     </p>
 
+
                     <h2 class="mt-2 text-5xl font-medium text-slate-900">
-                        {{ $reporters->count() }}
+
+                        {{ number_format($totalReporters) }}
+
                     </h2>
 
-                    <p class="mt-3 text-sm">
-                        <span class="font-semibold text-emerald-500">
-                            +12.45%
-                        </span>
 
-                        <span class="text-slate-500">
-                            From last month
-                        </span>
+                    <p class="mt-3 text-sm">
+
+                        {{-- ===================================== --}}
+                        {{-- PREVIOUS MONTH WAS ZERO --}}
+                        {{-- CURRENT MONTH HAS REPORTERS --}}
+                        {{-- ===================================== --}}
+
+                        @if (is_null($reporterMonthlyPercentage))
+
+                            <span class="font-semibold text-emerald-500">
+                                New activity
+                            </span>
+
+                            <span class="text-slate-500">
+                                This month
+                            </span>
+
+
+                        {{-- ===================================== --}}
+                        {{-- NORMAL PERCENTAGE --}}
+                        {{-- ===================================== --}}
+
+                        @else
+
+                            <span
+                                class="font-semibold
+                                {{
+                                    $reporterMonthlyPercentage > 0
+                                        ? 'text-emerald-500'
+                                        : (
+                                            $reporterMonthlyPercentage < 0
+                                                ? 'text-red-500'
+                                                : 'text-slate-500'
+                                        )
+                                }}"
+                            >
+
+                                {{
+                                    $reporterMonthlyPercentage > 0
+                                        ? '+'
+                                        : ''
+                                }}
+
+                                {{
+                                    number_format(
+                                        $reporterMonthlyPercentage,
+                                        2
+                                    )
+                                }}%
+
+                            </span>
+
+
+                            <span class="text-slate-500">
+                                From last month
+                            </span>
+
+                        @endif
+
                     </p>
+
                 </div>
 
-                <!-- Right Graph -->
+
+                {{-- ================================================= --}}
+                {{-- REAL 12 MONTH REPORTER GRAPH --}}
+                {{-- ================================================= --}}
+
                 <div class="ml-6 h-20 w-40 shrink-0">
+
                     <svg
                         viewBox="0 0 300 100"
                         class="h-full w-full"
                         fill="none"
+                        preserveAspectRatio="none"
                     >
-                        <path
-                            d="M0 62
-                            L35 28
-                            L62 58
-                            L82 52
-                            L112 82
-                            L162 82
-                            L200 42
-                            L232 64
-                            L270 64
-                            L300 18"
+
+                        {{-- ========================================= --}}
+                        {{-- GRAPH AREA --}}
+                        {{-- ========================================= --}}
+
+                        <polygon
+                            points="{{ $reporterTrendAreaPoints }}"
+                            fill="#3b82f6"
+                            fill-opacity=".08"
+                        />
+
+
+                        {{-- ========================================= --}}
+                        {{-- GRAPH LINE --}}
+                        {{-- ========================================= --}}
+
+                        <polyline
+                            points="{{ $reporterTrendPoints }}"
                             stroke="#3b82f6"
                             stroke-width="2.5"
                             stroke-linecap="round"
                             stroke-linejoin="round"
+                            fill="none"
                         />
 
-                        <path
-                            d="M0 62
-                            L35 28
-                            L62 58
-                            L82 52
-                            L112 82
-                            L162 82
-                            L200 42
-                            L232 64
-                            L270 64
-                            L300 18
-                            L300 100
-                            L0 100 Z"
-                            fill="#3b82f6"
-                            fill-opacity=".08"
-                        />
                     </svg>
+
                 </div>
 
             </div>
 
-            <!-- Active -->
-            <div class="relative flex flex-col justify-between px-8 py-7">
+
+            {{-- ================================================= --}}
+            {{-- WITH EMAIL --}}
+            {{-- ================================================= --}}
+
+            <div
+                class="relative flex flex-col justify-between px-8 py-7"
+            >
 
                 <span
                     class="absolute left-0 top-8 hidden h-[68%] border-l border-slate-200 xl:block"
                 ></span>
+
 
                 <p class="text-md font-medium text-slate-600">
                     With Email
                 </p>
 
+
                 <h2 class="text-5xl font-medium text-slate-900">
-                    {{
-                        $reporters
-                            ->whereNotNull("reporter_email_address")
-                            ->count()
-                    }}
+
+                    {{ number_format($reportersWithEmail) }}
+
                 </h2>
 
+
                 <p class="text-base">
-                    <span class="font-semibold text-emerald-500">
-                        +8.32%
+
+                    <span class="font-semibold text-slate-900">
+
+                        {{
+                            number_format(
+                                $emailCoveragePercentage,
+                                2
+                            )
+                        }}%
+
                     </span>
+
 
                     <span class="text-slate-500">
-                        From last month
+                        of all reporters
                     </span>
+
                 </p>
+
             </div>
 
-            <!-- Under Maintenance -->
-            <div class="relative flex flex-col justify-between px-8 py-7">
+
+            {{-- ================================================= --}}
+            {{-- WITH CONTACT --}}
+            {{-- ================================================= --}}
+
+            <div
+                class="relative flex flex-col justify-between px-8 py-7"
+            >
 
                 <span
                     class="absolute left-0 top-8 hidden h-[68%] border-l border-slate-200 xl:block"
                 ></span>
+
 
                 <p class="text-md font-medium text-slate-600">
                     With Contact
                 </p>
 
+
                 <h2 class="text-5xl font-medium text-slate-900">
-                    {{
-                        $reporters
-                            ->whereNotNull("reporter_contact_number")
-                            ->count()
-                    }}
+
+                    {{ number_format($reportersWithContact) }}
+
                 </h2>
 
+
                 <p class="text-base">
-                    <span class="font-semibold text-red-500">
-                        -4.67%
+
+                    <span class="font-semibold text-slate-900">
+
+                        {{
+                            number_format(
+                                $contactCoveragePercentage,
+                                2
+                            )
+                        }}%
+
                     </span>
+
 
                     <span class="text-slate-500">
-                        From last month
+                        of all reporters
                     </span>
+
                 </p>
+
             </div>
 
-            <!-- Disposed -->
-            <div class="relative flex flex-col justify-between px-8 py-7">
+
+            {{-- ================================================= --}}
+            {{-- NEW THIS MONTH --}}
+            {{-- ================================================= --}}
+
+            <div
+                class="relative flex flex-col justify-between px-8 py-7"
+            >
 
                 <span
                     class="absolute left-0 top-8 hidden h-[68%] border-l border-slate-200 xl:block"
                 ></span>
 
+
                 <p class="text-md font-medium text-slate-600">
-                    Registered
+                    New This Month
                 </p>
 
+
                 <h2 class="text-5xl font-medium text-slate-900">
-                    {{ $reporters->count() }}
+
+                    {{ number_format($currentMonthReporters) }}
+
                 </h2>
 
+
+                {{-- ===================================================== --}}
+                {{-- PREVIOUS MONTH COMPARISON --}}
+                {{-- ===================================================== --}}
+
                 <p class="text-base">
-                    <span class="font-semibold text-emerald-500">
-                        +2.15%
+
+                    <span class="font-semibold text-slate-900">
+
+                        {{ number_format($previousMonthReporters) }}
+
                     </span>
 
                     <span class="text-slate-500">
-                        From last month
+
+                        registered last month
+
                     </span>
+
                 </p>
+
             </div>
+
         </div>
     </div>
 
@@ -296,25 +497,37 @@
                         </h2>
 
                         <p class="mt-0.5 text-xs text-slate-400">
-                            {{ $reporters->count() }}
+
+                            {{ $reporters->total() }}
+
                             {{
-                                $reporters->count() === 1
+                                $reporters->total() === 1
                                     ? "registered reporter"
                                     : "registered reporters"
                             }}
+
                         </p>
                     </div>
 
                 </div>
 
 
+                {{-- ===================================================== --}}
                 {{-- SEARCH + STATUS FILTER --}}
-                <div
+                {{-- SERVER SIDE SEARCH AND FILTERING --}}
+                {{-- ===================================================== --}}
+
+                <form
+                    method="GET"
+                    action="{{ url()->current() }}"
                     class="flex w-full flex-col gap-2
                         sm:flex-row lg:w-auto lg:items-center"
                 >
 
+                    {{-- ================================================= --}}
                     {{-- SEARCH --}}
+                    {{-- ================================================= --}}
+
                     <div class="relative w-full sm:w-[280px]">
 
                         <i
@@ -326,7 +539,8 @@
 
                         <input
                             type="search"
-                            id="searchInput"
+                            name="search"
+                            value="{{ request('search') }}"
                             placeholder="Search reporters..."
                             class="h-9 w-full rounded-lg border border-slate-200
                                 bg-white pl-9 pr-3 text-xs font-medium
@@ -338,7 +552,10 @@
                     </div>
 
 
+                    {{-- ================================================= --}}
                     {{-- STATUS FILTER --}}
+                    {{-- ================================================= --}}
+
                     <div class="relative">
 
                         <i
@@ -349,27 +566,34 @@
                         ></i>
 
                         <select
-                            id="statusFilter"
+                            name="status"
+                            onchange="this.form.submit()"
                             class="h-9 w-full appearance-none rounded-lg
                                 border border-slate-200 bg-white
                                 pl-9 pr-9 text-xs font-medium
                                 text-slate-600 outline-none transition
                                 focus:border-slate-400 sm:w-[150px]"
                         >
-                            <option value="all">
+
+                            <option value="">
                                 All statuses
                             </option>
 
-                            <option value="active">
+                            <option
+                                value="Active"
+                                {{ request('status') === 'Active' ? 'selected' : '' }}
+                            >
                                 Active
                             </option>
 
-                            <option value="inactive">
+                            <option
+                                value="Inactive"
+                                {{ request('status') === 'Inactive' ? 'selected' : '' }}
+                            >
                                 Inactive
                             </option>
 
                         </select>
-
 
                         <i
                             data-lucide="chevron-down"
@@ -380,7 +604,42 @@
 
                     </div>
 
-                </div>
+
+                    {{-- ================================================= --}}
+                    {{-- SEARCH BUTTON --}}
+                    {{-- ================================================= --}}
+
+                    <button
+                        type="submit"
+                        class="inline-flex h-9 items-center justify-center
+                            rounded-lg bg-slate-900 px-4
+                            text-xs font-semibold text-white
+                            transition hover:bg-slate-700"
+                    >
+                        Search
+                    </button>
+
+
+                    {{-- ================================================= --}}
+                    {{-- CLEAR FILTERS --}}
+                    {{-- ================================================= --}}
+
+                    @if (request()->filled('search') || request()->filled('status'))
+
+                        <a
+                            href="{{ url()->current() }}"
+                            class="inline-flex h-9 items-center justify-center
+                                rounded-lg border border-slate-200
+                                bg-white px-3 text-xs font-medium
+                                text-slate-600 transition
+                                hover:bg-slate-50 hover:text-slate-900"
+                        >
+                            Clear
+                        </a>
+
+                    @endif
+
+                </form>
 
             </div>
 
@@ -401,11 +660,11 @@
                     <thead class="border-b border-slate-200 bg-slate-50/70">
 
                         <tr
-                            class="text-[10px] font-semibold uppercase
-                                tracking-[0.08em] text-slate-400"
+                            class="text-[12px] font-semibold uppercase
+                                tracking-[0.08em] text-black"
                         >
                             <th class="px-5 py-3">
-                                Employee
+                                Employee ID
                             </th>
 
                             <th class="px-5 py-3">
@@ -420,11 +679,11 @@
                                 Contact
                             </th>
 
-                            <th class="px-5 py-3">
+                            <th class="px-5 py-3 ">
                                 Status
                             </th>
 
-                            <th class="w-16 px-5 py-3 text-right">
+                            <th class="w-16 px-5 py-3 text-center">
                                 Actions
                             </th>
                         </tr>
@@ -479,8 +738,8 @@
                                 <td class="px-5 py-4">
 
                                     <span
-                                        class="font-mono text-xs font-medium
-                                            tracking-wide text-slate-500"
+                                        class="font-mono text-sm font-medium
+                                            tracking-wider text-black"
                                     >
                                         {{ $reporter->reporter_employee_id }}
                                     </span>
@@ -686,7 +945,7 @@
                                                 '{{ $reporter->reporter_contact_number }}'
                                             )"
 
-                                            class="flex h-9 w-9 items-center justify-center rounded-lg bg-[rgba(0,55,199,0.85)] text-white transition hover:bg-[rgba(0,44,155,0.85)]"
+                                            class="flex h-9 w-9 items-center justify-center rounded-lg bg-[#FFF200] text-black transition hover:bg-[#E6E600]"
 
                                             title="Edit reporter"
 
@@ -736,47 +995,112 @@
 
                         @empty
 
-                            {{-- ========================================= --}}
-                            {{-- DATABASE EMPTY STATE --}}
-                            {{-- ========================================= --}}
-
                             <tr>
 
                                 <td
                                     colspan="6"
-                                    class="px-5 py-16 text-center"
+                                    class="px-6 py-16 text-center"
                                 >
 
-                                    <div class="mx-auto max-w-xs">
+                                    {{-- ===================================================== --}}
+                                    {{-- EMPTY STATE --}}
+                                    {{-- ===================================================== --}}
+
+                                    <div class="mx-auto flex max-w-sm flex-col items-center">
+
+                                        {{-- ================================================= --}}
+                                        {{-- ICON --}}
+                                        {{-- ================================================= --}}
 
                                         <div
-                                            class="mx-auto flex h-11 w-11
-                                                items-center justify-center
-                                                rounded-xl bg-slate-100
-                                                text-slate-400"
+                                            class="flex h-12 w-12 items-center justify-center
+                                                rounded-2xl border border-slate-200
+                                                bg-slate-50 text-slate-400"
                                         >
                                             <i
-                                                data-lucide="users"
+                                                data-lucide="{{
+                                                    request()->filled('search')
+                                                    || request()->filled('status')
+                                                        ? 'search-x'
+                                                        : 'users'
+                                                }}"
                                                 class="h-5 w-5"
                                             ></i>
                                         </div>
 
 
-                                        <h3
-                                            class="mt-3 text-sm font-semibold
-                                                text-slate-700"
-                                        >
-                                            No reporters found
+                                        {{-- ================================================= --}}
+                                        {{-- TITLE --}}
+                                        {{-- ================================================= --}}
+
+                                        <h3 class="mt-4 text-sm font-semibold text-slate-800">
+
+                                            {{
+                                                request()->filled('search')
+                                                || request()->filled('status')
+
+                                                    ? 'No matching reporters'
+
+                                                    : 'No reporters yet'
+                                            }}
+
                                         </h3>
 
 
+                                        {{-- ================================================= --}}
+                                        {{-- DESCRIPTION --}}
+                                        {{-- ================================================= --}}
+
                                         <p
-                                            class="mt-1 text-xs leading-5
+                                            class="mt-1.5 max-w-xs text-xs leading-5
                                                 text-slate-400"
                                         >
-                                            Reporter accounts will appear here
-                                            after they are added.
+
+                                            {{
+                                                request()->filled('search')
+                                                || request()->filled('status')
+
+                                                    ? 'No reporters match your current search or status filter.'
+
+                                                    : 'Reporter accounts added to the directory will appear here.'
+                                            }}
+
                                         </p>
+
+
+                                        {{-- ================================================= --}}
+                                        {{-- CLEAR FILTERS --}}
+                                        {{-- ONLY SHOW WHEN SEARCHING OR FILTERING --}}
+                                        {{-- ================================================= --}}
+
+                                        @if (
+                                            request()->filled('search')
+                                            || request()->filled('status')
+                                        )
+
+                                            <a
+                                                href="{{ url()->current() }}"
+
+                                                class="mt-5 inline-flex h-9 items-center gap-2
+                                                    rounded-lg border border-slate-200
+                                                    bg-white px-3.5
+                                                    text-xs font-semibold text-slate-600
+                                                    shadow-sm transition
+                                                    hover:border-slate-300
+                                                    hover:bg-slate-50
+                                                    hover:text-slate-900"
+                                            >
+
+                                                <i
+                                                    data-lucide="rotate-ccw"
+                                                    class="h-3.5 w-3.5"
+                                                ></i>
+
+                                                Clear filters
+
+                                            </a>
+
+                                        @endif
 
                                     </div>
 
@@ -792,44 +1116,56 @@
 
             </div>
 
+            
+
+
+            
 
             {{-- ===================================================== --}}
-            {{-- FILTER EMPTY STATE --}}
+            {{-- PAGINATION --}}
+            {{-- ADD HERE --}}
             {{-- ===================================================== --}}
 
-            <div
-                id="reporterFilterEmptyState"
-                class="hidden px-5 py-16 text-center"
-            >
+            @if ($reporters->hasPages())
 
-                <div class="mx-auto max-w-xs">
+                <div
+                    class="flex flex-col gap-3 border-t border-slate-200
+                        px-5 py-4 sm:flex-row sm:items-center
+                        sm:justify-between"
+                >
 
-                    <div
-                        class="mx-auto flex h-11 w-11 items-center
-                            justify-center rounded-xl bg-slate-100
-                            text-slate-400"
-                    >
-                        <i
-                            data-lucide="search-x"
-                            class="h-5 w-5"
-                        ></i>
-                    </div>
+                    <p class="text-xs text-slate-500">
 
+                        Showing
 
-                    <h3
-                        class="mt-3 text-sm font-semibold text-slate-700"
-                    >
-                        No matching reporters
-                    </h3>
+                        <span class="font-semibold text-slate-700">
+                            {{ $reporters->firstItem() }}
+                        </span>
 
+                        to
 
-                    <p class="mt-1 text-xs text-slate-400">
-                        Try changing your search or status filter.
+                        <span class="font-semibold text-slate-700">
+                            {{ $reporters->lastItem() }}
+                        </span>
+
+                        of
+
+                        <span class="font-semibold text-slate-700">
+                            {{ $reporters->total() }}
+                        </span>
+
+                        reporters
+
                     </p>
+
+
+                    <div>
+                        {{ $reporters->links() }}
+                    </div>
 
                 </div>
 
-            </div>
+            @endif
 
         </section>
     </div>
@@ -950,7 +1286,7 @@
                         id="email"
                         name="email"
                         type="email"
-                        placeholder="joseph.diaz@sti.edu.ph"
+                        placeholder="joseph.diaz@gmail.com"
                         class="h-11 w-full rounded-lg border border-slate-200 bg-white px-3.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
                     />
                 </div>
@@ -1000,7 +1336,7 @@
 
                 <button
                     type="submit"
-                    class="h-10 rounded-lg bg-slate-800 px-5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-700 active:bg-slate-800"
+                    class="h-10 rounded-lg bg-[rgba(0,55,199,0.85)] px-5 text-sm font-medium text-white shadow-sm transition hover:bg-[rgba(0,44,155,0.85)] active:bg-[rgba(0,33,111,0.85)]"
                 >
                     Add Reporter
                 </button>
@@ -1023,7 +1359,7 @@
             <!-- ===================================== -->
             <!-- MODAL HEADER -->
             <!-- ===================================== -->
-            <div class="flex items-start justify-between gap-6 px-6 pb-5 pt-6">
+            <div class="flex items-start justify-between gap-6 px-6 pb-5 pt-6 border-b border-dashed border-slate-500">
                 <div>
                     <p class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400">
                         Reporter Profile
@@ -1054,6 +1390,8 @@
                     class="divide-y divide-slate-100 text-sm"
                 ></div>
             </div>
+
+            <div class="border-t border-dashed border-slate-500"></div>
 
             <!-- ===================================== -->
             <!-- MODAL FOOTER -->
@@ -1093,7 +1431,7 @@
             <!-- ===================================== -->
             <!-- MODAL HEADER -->
             <!-- ===================================== -->
-            <div class="flex items-start justify-between gap-6 px-6 pb-5 pt-6">
+            <div class="flex items-start justify-between gap-6 px-6 pb-5 pt-6 border-b border-dashed border-slate-500">
                 <div>
                     <p class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400">
                         Reporter Profile
@@ -1205,6 +1543,8 @@
                 </div>
             </div>
 
+            <div class="border-t border-dashed border-slate-500"></div>
+
             <!-- ===================================== -->
             <!-- MODAL FOOTER -->
             <!-- ===================================== -->
@@ -1219,7 +1559,7 @@
 
                 <button
                     type="submit"
-                    class="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-slate-200 active:bg-black"
+                    class="rounded-lg bg-[rgba(0,55,199,0.85)] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[rgba(0,44,155,0.85)] focus:outline-none focus:ring-4 focus:ring-slate-200 active:bg-black"
                 >
                     Save changes
                 </button>
@@ -1355,7 +1695,7 @@
                         Employee ID
                     </span>
 
-                    <span class="rounded-md bg-slate-100 px-2 py-1 font-mono text-xs font-medium text-slate-700">
+                    <span class="rounded-md bg-slate-100 px-2 py-1 font-mono text-sm font-medium text-slate-700">
                         ${employee || "—"}
                     </span>
                 </div>
@@ -1424,20 +1764,7 @@
             deleteModal.classList.add("flex");
         }
 
-        document
-            .getElementById("searchInput")
-            .addEventListener("keyup", function () {
-                let value = this.value.toLowerCase();
-                document
-                    .querySelectorAll(".reporter-row")
-                    .forEach(function (row) {
-                        row.style.display = row.innerText
-                            .toLowerCase()
-                            .includes(value)
-                            ? ""
-                            : "none";
-                    });
-            });
+        
     </script>
 
 @endsection

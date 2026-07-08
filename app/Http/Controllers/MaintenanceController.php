@@ -272,18 +272,368 @@ class MaintenanceController extends Controller
             );
     }
 
+
+    // =====================================================
+    // REUSABLE EQUIPMENT DASHBOARD DATA
+    // USED BY ALL REPORT PAGES
+    // =====================================================
+
+    // =====================================================
+    // REUSABLE REPORT DASHBOARD DATA
+    // USED BY ALL REPORT PAGES
+    // =====================================================
+
+    private function reportDashboardData()
+    {
+        // =====================================================
+        // TOTAL REPORTS
+        // =====================================================
+
+        $totalReports = DB::table('reports_table')
+            ->count();
+
+
+        // =====================================================
+        // PENDING REPORTS
+        // =====================================================
+
+        $pendingReports = DB::table('reports_table')
+
+            ->where(
+                'report_current_status',
+                'Pending'
+            )
+
+            ->count();
+
+
+        // =====================================================
+        // PROCESSING REPORTS
+        // =====================================================
+
+        $processingReports = DB::table('reports_table')
+
+            ->where(
+                'report_current_status',
+                'Processing'
+            )
+
+            ->count();
+
+
+        // =====================================================
+        // RESOLVED REPORTS
+        // =====================================================
+
+        $resolvedReports = DB::table('reports_table')
+
+            ->where(
+                'report_current_status',
+                'Resolved'
+            )
+
+            ->count();
+
+        // =====================================================
+        // REPORT STATUS MONTHLY PERCENTAGE HELPER
+        // =====================================================
+
+        $calculateStatusMonthlyPercentage = function ($status) {
+
+            // =====================================================
+            // CURRENT MONTH COUNT
+            // =====================================================
+
+            $currentMonthCount = DB::table('reports_table')
+
+                ->where(
+                    'report_current_status',
+                    $status
+                )
+
+                ->whereBetween(
+                    'report_submitted_at',
+                    [
+                        now()->copy()->startOfMonth(),
+                        now()->copy()->endOfMonth(),
+                    ]
+                )
+
+                ->count();
+
+
+            // =====================================================
+            // PREVIOUS MONTH COUNT
+            // =====================================================
+
+            $previousMonthCount = DB::table('reports_table')
+
+                ->where(
+                    'report_current_status',
+                    $status
+                )
+
+                ->whereBetween(
+                    'report_submitted_at',
+                    [
+                        now()
+                            ->copy()
+                            ->subMonthNoOverflow()
+                            ->startOfMonth(),
+
+                        now()
+                            ->copy()
+                            ->subMonthNoOverflow()
+                            ->endOfMonth(),
+                    ]
+                )
+
+                ->count();
+
+
+            // =====================================================
+            // CALCULATE PERCENTAGE CHANGE
+            // =====================================================
+
+            if ($previousMonthCount > 0) {
+
+                return
+                    (
+                        (
+                            $currentMonthCount
+                            - $previousMonthCount
+                        )
+                        / $previousMonthCount
+                    )
+                    * 100;
+
+            }
+
+
+            // =====================================================
+            // PREVIOUS MONTH = 0
+            // CURRENT MONTH HAS RECORDS
+            // =====================================================
+
+            if ($currentMonthCount > 0) {
+
+                return null;
+
+            }
+
+
+            // =====================================================
+            // BOTH MONTHS = 0
+            // =====================================================
+
+            return 0;
+        };
+
+
+        // =====================================================
+        // CALCULATE EACH STATUS PERCENTAGE
+        // =====================================================
+
+        $pendingMonthlyPercentage =
+            $calculateStatusMonthlyPercentage('Pending');
+
+
+        $processingMonthlyPercentage =
+            $calculateStatusMonthlyPercentage('Processing');
+
+
+        $resolvedMonthlyPercentage =
+            $calculateStatusMonthlyPercentage('Resolved');
+
+
+        // =====================================================
+        // CURRENT MONTH REPORTS
+        // =====================================================
+
+        $currentMonthReports = DB::table('reports_table')
+
+            ->whereBetween(
+                'report_submitted_at',
+                [
+                    now()->copy()->startOfMonth(),
+                    now()->copy()->endOfMonth(),
+                ]
+            )
+
+            ->count();
+
+
+        // =====================================================
+        // PREVIOUS MONTH REPORTS
+        // =====================================================
+
+        $previousMonthReports = DB::table('reports_table')
+
+            ->whereBetween(
+                'report_submitted_at',
+                [
+                    now()
+                        ->copy()
+                        ->subMonthNoOverflow()
+                        ->startOfMonth(),
+
+                    now()
+                        ->copy()
+                        ->subMonthNoOverflow()
+                        ->endOfMonth(),
+                ]
+            )
+
+            ->count();
+
+
+        // =====================================================
+        // REPORT MONTHLY PERCENTAGE CHANGE
+        // =====================================================
+
+        if ($previousMonthReports > 0) {
+
+            $reportMonthlyPercentage =
+                (
+                    (
+                        $currentMonthReports
+                        - $previousMonthReports
+                    )
+                    / $previousMonthReports
+                )
+                * 100;
+
+        } elseif ($currentMonthReports > 0) {
+
+            $reportMonthlyPercentage = null;
+
+        } else {
+
+            $reportMonthlyPercentage = 0;
+
+        }
+
+
+        // =====================================================
+        // REPORTS PER MONTH
+        // LAST 12 MONTHS
+        // =====================================================
+
+        $monthlyReportRows = DB::table('reports_table')
+
+            ->selectRaw(
+                '
+                YEAR(report_submitted_at) AS report_year,
+                MONTH(report_submitted_at) AS report_month,
+                COUNT(*) AS report_count
+                '
+            )
+
+            ->where(
+                'report_submitted_at',
+                '>=',
+                now()
+                    ->copy()
+                    ->subMonths(11)
+                    ->startOfMonth()
+            )
+
+            ->groupByRaw(
+                '
+                YEAR(report_submitted_at),
+                MONTH(report_submitted_at)
+                '
+            )
+
+            ->orderByRaw(
+                '
+                YEAR(report_submitted_at),
+                MONTH(report_submitted_at)
+                '
+            )
+
+            ->get()
+
+            ->keyBy(function ($row) {
+
+                return
+                    $row->report_year
+                    . '-'
+                    . str_pad(
+                        $row->report_month,
+                        2,
+                        '0',
+                        STR_PAD_LEFT
+                    );
+
+            });
+
+
+        // =====================================================
+        // BUILD ALL 12 MONTHS
+        // FILL MISSING MONTHS WITH ZERO
+        // =====================================================
+
+        $reportMonthlyTrend = collect();
+
+
+        for ($i = 11; $i >= 0; $i--) {
+
+            $month = now()
+                ->copy()
+                ->subMonths($i)
+                ->startOfMonth();
+
+
+            $key = $month->format('Y-m');
+
+
+            $reportMonthlyTrend->push([
+
+                'month' =>
+                    $month->format('M'),
+
+                'count' =>
+                    (int) (
+                        $monthlyReportRows
+                            ->get($key)
+                            ->report_count
+                        ?? 0
+                    ),
+
+            ]);
+
+        }
+
+
+        // =====================================================
+        // RETURN REPORT DASHBOARD VARIABLES
+        // =====================================================
+
+        return compact(
+            'totalReports',
+            'pendingReports',
+            'processingReports',
+            'resolvedReports',
+            'reportMonthlyPercentage',
+            'reportMonthlyTrend',
+            'pendingMonthlyPercentage',
+
+            'processingMonthlyPercentage',
+
+            'resolvedMonthlyPercentage'
+        );
+    }
+
+    
+
     public function allReports()
     {
         $reports = $this->reportsQuery()
-
             ->paginate(10)
-
             ->withQueryString();
 
-        return view(
-            'maintenance-personnel.reports.all-reports',
-            compact('reports')
-        );
+        return $this->reportsView($reports);
     }
 
     /*
@@ -300,10 +650,7 @@ class MaintenanceController extends Controller
 
             ->withQueryString();
 
-        return view(
-            'maintenance-personnel.reports.all-reports',
-            compact('reports')
-        );
+        return $this->reportsView($reports);
     }
 
     /*
@@ -325,9 +672,58 @@ class MaintenanceController extends Controller
 
             ->withQueryString();
 
+        return $this->reportsView($reports);
+    }
+
+    // =====================================================
+    // TODAY'S REPORTS
+    // =====================================================
+
+    public function todayReports()
+    {
+        // =====================================================
+        // GET REPORTS SUBMITTED TODAY
+        // =====================================================
+
+        $reports = $this->reportsQuery()
+
+            ->whereDate(
+                'reports_table.report_submitted_at',
+                today()
+            )
+
+            ->paginate(10)
+
+            ->withQueryString();
+
+
+        // =====================================================
+        // USE YOUR EXISTING REPORTS PAGE
+        // =====================================================
+
+        return $this->reportsView($reports);
+    }
+
+    // =====================================================
+    // RETURN REPORTS PAGE WITH SHARED DASHBOARD DATA
+    // =====================================================
+
+    private function reportsView($reports)
+    {
         return view(
             'maintenance-personnel.reports.all-reports',
-            compact('reports')
+
+            array_merge(
+                [
+                    'reports' => $reports,
+                ],
+
+                // =====================================================
+                // ADD SHARED REPORT DASHBOARD DATA HERE
+                // =====================================================
+
+                $this->reportDashboardData()
+            )
         );
     }
 
@@ -350,10 +746,7 @@ class MaintenanceController extends Controller
 
             ->withQueryString();
 
-        return view(
-            'maintenance-personnel.reports.all-reports',
-            compact('reports')
-        );
+        return $this->reportsView($reports);
     }
 
     /*
@@ -375,10 +768,7 @@ class MaintenanceController extends Controller
 
             ->withQueryString();
 
-        return view(
-            'maintenance-personnel.reports.all-reports',
-            compact('reports')
-        );
+        return $this->reportsView($reports);
     }
 
     /*
@@ -400,10 +790,7 @@ class MaintenanceController extends Controller
 
             ->withQueryString();
 
-        return view(
-            'maintenance-personnel.reports.all-reports',
-            compact('reports')
-        );
+        return $this->reportsView($reports);
     }
 
     /*
@@ -425,10 +812,7 @@ class MaintenanceController extends Controller
 
             ->withQueryString();
 
-        return view(
-            'maintenance-personnel.reports.all-reports',
-            compact('reports')
-        );
+        return $this->reportsView($reports);
     }
 
     /*
@@ -450,10 +834,7 @@ class MaintenanceController extends Controller
 
             ->withQueryString();
 
-        return view(
-            'maintenance-personnel.reports.all-reports',
-            compact('reports')
-        );
+        return $this->reportsView($reports);
     }
 
     /*
@@ -668,6 +1049,8 @@ class MaintenanceController extends Controller
                 'Report assigned successfully.'
             );
     }
+
+
 
     public function updateStatusPage($id)
     {
@@ -926,64 +1309,323 @@ class MaintenanceController extends Controller
         $categories = DB::table(
             'equipment_categories_table'
         )
-        ->orderBy(
-            'equipment_category_name'
-        )
-        ->get();
+            ->orderBy(
+                'equipment_category_name'
+            )
+            ->get();
+
 
         $rooms = DB::table(
             'rooms_table'
         )
-        ->orderBy(
-            'room_name'
-        )
-        ->get();
+            ->orderBy(
+                'room_name'
+            )
+            ->get();
 
-        /*
-        |--------------------------------------------------------------------------
-        | DASHBOARD COUNTS
-        |--------------------------------------------------------------------------
-        */
 
-        $totalEquipment = DB::table(
-            'equipment_table'
-        )->count();
+        // =====================================================
+        // TOTAL EQUIPMENT
+        // =====================================================
 
-        $activeEquipment = DB::table(
-            'equipment_table'
-        )
-        ->where(
-            'equipment_inventory_status',
-            'Active'
-        )
-        ->count();
+        $totalEquipment =
+            DB::table('equipment_table')
+                ->count();
 
-        $underMaintenanceEquipment = DB::table(
-            'equipment_table'
-        )
-        ->where(
-            'equipment_inventory_status',
-            'Under Maintenance'
-        )
-        ->count();
 
-        $borrowedEquipment = DB::table(
-            'equipment_table'
-        )
-        ->where(
-            'equipment_inventory_status',
-            'Borrowed'
-        )
-        ->count();
+        // =====================================================
+        // ACTIVE EQUIPMENT
+        // =====================================================
 
-        $disposedEquipment = DB::table(
-            'equipment_table'
-        )
-        ->where(
-            'equipment_inventory_status',
-            'Disposed'
-        )
-        ->count();
+        $activeEquipment =
+            DB::table('equipment_table')
+
+                ->where(
+                    'equipment_inventory_status',
+                    'Active'
+                )
+
+                ->count();
+
+
+        // =====================================================
+        // UNDER MAINTENANCE EQUIPMENT
+        // =====================================================
+
+        $underMaintenanceEquipment =
+            DB::table('equipment_table')
+
+                ->where(
+                    'equipment_inventory_status',
+                    'Under Maintenance'
+                )
+
+                ->count();
+
+
+        // =====================================================
+        // BORROWED EQUIPMENT
+        // =====================================================
+
+        $borrowedEquipment =
+            DB::table('equipment_table')
+
+                ->where(
+                    'equipment_inventory_status',
+                    'Borrowed'
+                )
+
+                ->count();
+
+
+        // =====================================================
+        // DISPOSED EQUIPMENT
+        // =====================================================
+
+        $disposedEquipment =
+            DB::table('equipment_table')
+
+                ->where(
+                    'equipment_inventory_status',
+                    'Disposed'
+                )
+
+                ->count();
+
+
+        // =====================================================
+        // CURRENT MONTH EQUIPMENT REGISTRATIONS
+        // =====================================================
+
+        $currentMonthEquipment =
+            DB::table('equipment_table')
+
+                ->whereBetween(
+                    'equipment_created_at',
+                    [
+                        now()
+                            ->copy()
+                            ->startOfMonth(),
+
+                        now()
+                            ->copy()
+                            ->endOfMonth(),
+                    ]
+                )
+
+                ->count();
+
+
+        // =====================================================
+        // PREVIOUS MONTH EQUIPMENT REGISTRATIONS
+        // =====================================================
+
+        $previousMonthEquipment =
+            DB::table('equipment_table')
+
+                ->whereBetween(
+                    'equipment_created_at',
+                    [
+                        now()
+                            ->copy()
+                            ->subMonthNoOverflow()
+                            ->startOfMonth(),
+
+                        now()
+                            ->copy()
+                            ->subMonthNoOverflow()
+                            ->endOfMonth(),
+                    ]
+                )
+
+                ->count();
+
+
+        // =====================================================
+        // EQUIPMENT MONTHLY PERCENTAGE CHANGE
+        // =====================================================
+
+        if ($previousMonthEquipment > 0) {
+
+            $equipmentMonthlyPercentage =
+                (
+                    (
+                        $currentMonthEquipment
+                        - $previousMonthEquipment
+                    )
+                    / $previousMonthEquipment
+                )
+                * 100;
+
+        } elseif ($currentMonthEquipment > 0) {
+
+            // =====================================================
+            // PREVIOUS MONTH = 0
+            // CURRENT MONTH HAS EQUIPMENT
+            // =====================================================
+
+            $equipmentMonthlyPercentage = null;
+
+        } else {
+
+            // =====================================================
+            // BOTH MONTHS = 0
+            // =====================================================
+
+            $equipmentMonthlyPercentage = 0;
+
+        }
+
+
+        // =====================================================
+        // ACTIVE EQUIPMENT PERCENTAGE
+        // PERCENTAGE OF ALL EQUIPMENT
+        // =====================================================
+
+        $activeEquipmentPercentage =
+            $totalEquipment > 0
+
+                ? (
+                    $activeEquipment
+                    / $totalEquipment
+                ) * 100
+
+                : 0;
+
+
+        // =====================================================
+        // UNDER MAINTENANCE EQUIPMENT PERCENTAGE
+        // PERCENTAGE OF ALL EQUIPMENT
+        // =====================================================
+
+        $underMaintenanceEquipmentPercentage =
+            $totalEquipment > 0
+
+                ? (
+                    $underMaintenanceEquipment
+                    / $totalEquipment
+                ) * 100
+
+                : 0;
+
+
+        // =====================================================
+        // DISPOSED EQUIPMENT PERCENTAGE
+        // PERCENTAGE OF ALL EQUIPMENT
+        // =====================================================
+
+        $disposedEquipmentPercentage =
+            $totalEquipment > 0
+
+                ? (
+                    $disposedEquipment
+                    / $totalEquipment
+                ) * 100
+
+                : 0;
+
+
+        // =====================================================
+        // EQUIPMENT REGISTERED PER MONTH
+        // LAST 12 MONTHS
+        // =====================================================
+
+        $monthlyEquipmentRows =
+            DB::table('equipment_table')
+
+                ->selectRaw(
+                    '
+                    YEAR(equipment_created_at)
+                        AS equipment_year,
+
+                    MONTH(equipment_created_at)
+                        AS equipment_month,
+
+                    COUNT(*)
+                        AS equipment_count
+                    '
+                )
+
+                ->whereNotNull(
+                    'equipment_created_at'
+                )
+
+                ->where(
+                    'equipment_created_at',
+                    '>=',
+                    now()
+                        ->copy()
+                        ->subMonths(11)
+                        ->startOfMonth()
+                )
+
+                ->groupByRaw(
+                    '
+                    YEAR(equipment_created_at),
+                    MONTH(equipment_created_at)
+                    '
+                )
+
+                ->orderByRaw(
+                    '
+                    YEAR(equipment_created_at),
+                    MONTH(equipment_created_at)
+                    '
+                )
+
+                ->get()
+
+                ->keyBy(function ($row) {
+
+                    return
+                        $row->equipment_year
+                        . '-'
+                        . str_pad(
+                            $row->equipment_month,
+                            2,
+                            '0',
+                            STR_PAD_LEFT
+                        );
+
+                });
+
+
+        // =====================================================
+        // BUILD COMPLETE 12 MONTH EQUIPMENT TREND
+        // FILL MISSING MONTHS WITH ZERO
+        // =====================================================
+
+        $equipmentMonthlyTrend = collect();
+
+
+        for ($i = 11; $i >= 0; $i--) {
+
+            $month = now()
+                ->copy()
+                ->subMonths($i)
+                ->startOfMonth();
+
+
+            $key = $month->format('Y-m');
+
+
+            $equipmentMonthlyTrend->push([
+
+                'month' =>
+                    $month->format('M'),
+
+                'count' =>
+                    (int) (
+                        $monthlyEquipmentRows
+                            ->get($key)
+                            ->equipment_count
+                        ?? 0
+                    ),
+
+            ]);
+
+        }
+
 
         /*
         |--------------------------------------------------------------------------
@@ -1016,6 +1658,7 @@ class MaintenanceController extends Controller
                 'rooms_table.room_name'
 
             );
+
 
         /*
         |--------------------------------------------------------------------------
@@ -1052,7 +1695,9 @@ class MaintenanceController extends Controller
                 );
 
             });
+
         }
+
 
         /*
         |--------------------------------------------------------------------------
@@ -1066,7 +1711,9 @@ class MaintenanceController extends Controller
                 'equipment_table.equipment_category_id',
                 $request->category
             );
+
         }
+
 
         /*
         |--------------------------------------------------------------------------
@@ -1080,7 +1727,9 @@ class MaintenanceController extends Controller
                 'equipment_table.equipment_room_id',
                 $request->room
             );
+
         }
+
 
         /*
         |--------------------------------------------------------------------------
@@ -1094,7 +1743,9 @@ class MaintenanceController extends Controller
                 'equipment_table.equipment_inventory_status',
                 $request->status
             );
+
         }
+
 
         /*
         |--------------------------------------------------------------------------
@@ -1113,6 +1764,7 @@ class MaintenanceController extends Controller
 
             ->withQueryString();
 
+
         /*
         |--------------------------------------------------------------------------
         | RETURN VIEW
@@ -1121,15 +1773,43 @@ class MaintenanceController extends Controller
 
         return view(
             'maintenance-personnel.equipment.index',
+
             compact(
                 'equipment',
                 'categories',
                 'rooms',
+
+                // =====================================================
+                // EQUIPMENT DASHBOARD COUNTS
+                // =====================================================
+
                 'totalEquipment',
                 'activeEquipment',
                 'underMaintenanceEquipment',
                 'borrowedEquipment',
-                'disposedEquipment'
+                'disposedEquipment',
+
+                // =====================================================
+                // EQUIPMENT MONTHLY DATA
+                // =====================================================
+
+                'currentMonthEquipment',
+                'previousMonthEquipment',
+                'equipmentMonthlyPercentage',
+
+                // =====================================================
+                // EQUIPMENT STATUS PERCENTAGES
+                // =====================================================
+
+                'activeEquipmentPercentage',
+                'underMaintenanceEquipmentPercentage',
+                'disposedEquipmentPercentage',
+
+                // =====================================================
+                // EQUIPMENT 12 MONTH TREND
+                // =====================================================
+
+                'equipmentMonthlyTrend'
             )
         );
     }
@@ -1282,7 +1962,10 @@ class MaintenanceController extends Controller
                     => $request->equipment_warranty_expiration,
 
                 'equipment_is_borrowable'
-                    => $request->has('equipment_is_borrowable')
+                    => $request->has('equipment_is_borrowable'),
+
+                'equipment_created_at'
+                    => now()
 
             ]);
 
@@ -1361,16 +2044,16 @@ class MaintenanceController extends Controller
 
     public function equipmentTransferHistory(Request $request)
     {
-        /*
-        |--------------------------------------------------------------------------
-        | ROOMS FOR TRANSFER MODAL
-        |--------------------------------------------------------------------------
-        */
+        // =====================================================
+        // ROOMS FOR TRANSFER MODAL
+        // =====================================================
 
         $rooms = DB::table('rooms_table')
+
             ->when(
                 Schema::hasColumn('rooms_table', 'room_is_archived'),
-                fn ($query) => $query->where('room_is_archived', false)
+                fn ($query) =>
+                    $query->where('room_is_archived', false)
             )
 
             ->orderBy(
@@ -1380,11 +2063,10 @@ class MaintenanceController extends Controller
 
             ->get();
 
-        /*
-        |--------------------------------------------------------------------------
-        | EQUIPMENT LIST
-        |--------------------------------------------------------------------------
-        */
+
+        // =====================================================
+        // EQUIPMENT LIST
+        // =====================================================
 
         $equipment = DB::table('equipment_table')
 
@@ -1403,13 +2085,9 @@ class MaintenanceController extends Controller
             )
 
             ->select(
-
                 'equipment_table.*',
-
                 'equipment_categories_table.equipment_category_name',
-
                 'rooms_table.room_name'
-
             )
 
             ->orderBy(
@@ -1417,19 +2095,301 @@ class MaintenanceController extends Controller
                 'asc'
             )
 
-            ->get();
+            ->paginate(10)
 
-        /*
-        |--------------------------------------------------------------------------
-        | RETURN VIEW
-        |--------------------------------------------------------------------------
-        */
+            ->withQueryString();
+
+
+        // =====================================================
+        // ADD TRANSFER DASHBOARD DATA HERE
+        // =====================================================
+
+
+        // =====================================================
+        // TOTAL TRANSFER RECORDS
+        // =====================================================
+
+        $totalTransferRecords =
+            DB::table('equipment_transfer_history_table')
+                ->count();
+
+
+        // =====================================================
+        // CURRENT MONTH TRANSFERS
+        // =====================================================
+
+        $currentMonthTransfers =
+            DB::table('equipment_transfer_history_table')
+
+                ->whereBetween(
+                    'created_at',
+                    [
+                        now()->copy()->startOfMonth(),
+                        now()->copy()->endOfMonth(),
+                    ]
+                )
+
+                ->count();
+
+
+        // =====================================================
+        // PREVIOUS MONTH TRANSFERS
+        // =====================================================
+
+        $previousMonthTransfers =
+            DB::table('equipment_transfer_history_table')
+
+                ->whereBetween(
+                    'created_at',
+                    [
+                        now()
+                            ->copy()
+                            ->subMonthNoOverflow()
+                            ->startOfMonth(),
+
+                        now()
+                            ->copy()
+                            ->subMonthNoOverflow()
+                            ->endOfMonth(),
+                    ]
+                )
+
+                ->count();
+
+
+        // =====================================================
+        // MONTHLY PERCENTAGE CHANGE
+        // =====================================================
+
+        if ($previousMonthTransfers > 0) {
+
+            $transferMonthlyPercentage =
+                (
+                    (
+                        $currentMonthTransfers
+                        - $previousMonthTransfers
+                    )
+                    / $previousMonthTransfers
+                )
+                * 100;
+
+        } elseif ($currentMonthTransfers > 0) {
+
+            $transferMonthlyPercentage = null;
+
+        } else {
+
+            $transferMonthlyPercentage = 0;
+
+        }
+
+
+        // =====================================================
+        // UNIQUE EQUIPMENT TRANSFERRED
+        // =====================================================
+
+        $equipmentTransferred =
+            DB::table('equipment_transfer_history_table')
+
+                ->distinct()
+
+                ->count('equipment_id');
+
+
+        // =====================================================
+        // UNIQUE DESTINATION ROOMS INVOLVED
+        // =====================================================
+
+        $roomsInvolved =
+            DB::table('equipment_transfer_history_table')
+
+                ->whereNotNull('to_room_id')
+
+                ->distinct()
+
+                ->count('to_room_id');
+
+
+        // =====================================================
+        // TOTAL EQUIPMENT
+        // USED TO CALCULATE TRANSFER COVERAGE
+        // =====================================================
+
+        $totalEquipment =
+            DB::table('equipment_table')
+                ->count();
+
+
+        // =====================================================
+        // EQUIPMENT TRANSFERRED PERCENTAGE
+        // PERCENTAGE OF ALL EQUIPMENT THAT HAS TRANSFER HISTORY
+        // =====================================================
+
+        $equipmentTransferredPercentage =
+            $totalEquipment > 0
+
+                ? (
+                    $equipmentTransferred
+                    / $totalEquipment
+                ) * 100
+
+                : 0;
+
+
+        // =====================================================
+        // TOTAL ROOMS
+        // USED TO CALCULATE ROOM TRANSFER COVERAGE
+        // =====================================================
+
+        $totalRooms =
+            DB::table('rooms_table')
+
+                ->when(
+                    Schema::hasColumn('rooms_table', 'room_is_archived'),
+                    fn ($query) =>
+                        $query->where('room_is_archived', false)
+                )
+
+                ->count();
+
+
+        // =====================================================
+        // ROOMS INVOLVED PERCENTAGE
+        // PERCENTAGE OF ALL ROOMS USED AS TRANSFER DESTINATIONS
+        // =====================================================
+
+        $roomsInvolvedPercentage =
+            $totalRooms > 0
+
+                ? (
+                    $roomsInvolved
+                    / $totalRooms
+                ) * 100
+
+                : 0;
+
+
+        // =====================================================
+        // TRANSFERS PER MONTH
+        // LAST 12 MONTHS
+        // =====================================================
+
+        $monthlyTransferRows =
+            DB::table('equipment_transfer_history_table')
+
+                ->selectRaw(
+                    '
+                    YEAR(created_at) AS transfer_year,
+                    MONTH(created_at) AS transfer_month,
+                    COUNT(*) AS transfer_count
+                    '
+                )
+
+                ->where(
+                    'created_at',
+                    '>=',
+                    now()
+                        ->copy()
+                        ->subMonths(11)
+                        ->startOfMonth()
+                )
+
+                ->groupByRaw(
+                    '
+                    YEAR(created_at),
+                    MONTH(created_at)
+                    '
+                )
+
+                ->orderByRaw(
+                    '
+                    YEAR(created_at),
+                    MONTH(created_at)
+                    '
+                )
+
+                ->get()
+
+                ->keyBy(function ($row) {
+
+                    return
+                        $row->transfer_year
+                        . '-'
+                        . str_pad(
+                            $row->transfer_month,
+                            2,
+                            '0',
+                            STR_PAD_LEFT
+                        );
+
+                });
+
+
+        // =====================================================
+        // BUILD COMPLETE 12 MONTH TREND
+        // =====================================================
+
+        $transferMonthlyTrend = collect();
+
+
+        for ($i = 11; $i >= 0; $i--) {
+
+            $month = now()
+                ->copy()
+                ->subMonths($i)
+                ->startOfMonth();
+
+
+            $key = $month->format('Y-m');
+
+
+            $transferMonthlyTrend->push([
+
+                'month' =>
+                    $month->format('M'),
+
+                'count' =>
+                    (int) (
+                        $monthlyTransferRows
+                            ->get($key)
+                            ->transfer_count
+                        ?? 0
+                    ),
+
+            ]);
+
+        }
+
+
+        // =====================================================
+        // RETURN VIEW
+        // =====================================================
 
         return view(
             'maintenance-personnel.equipment.transfer-equipment',
+
             compact(
                 'equipment',
-                'rooms'
+                'rooms',
+
+                // =================================================
+                // TRANSFER DASHBOARD VARIABLES
+                // =================================================
+
+                'totalTransferRecords',
+                'currentMonthTransfers',
+                'previousMonthTransfers',
+                'transferMonthlyPercentage',
+
+                'equipmentTransferred',
+                'totalEquipment',
+                'equipmentTransferredPercentage',
+
+                'roomsInvolved',
+                'totalRooms',
+                'roomsInvolvedPercentage',
+
+                'transferMonthlyTrend'
             )
         );
     }
@@ -1573,9 +2533,18 @@ class MaintenanceController extends Controller
         return back();
     }
 
+    // =====================================================
+    // GET EQUIPMENT TRANSFER HISTORY
+    // =====================================================
+
     public function getTransferHistory($id)
     {
-        return DB::table(
+
+        // =====================================================
+        // GET TRANSFER RECORDS
+        // =====================================================
+
+        $history = DB::table(
             'equipment_transfer_history_table'
         )
 
@@ -1599,18 +2568,46 @@ class MaintenanceController extends Controller
         )
 
         ->select(
-            'equipment_transfer_history_table.*',
+
+            'equipment_transfer_history_table.transfer_id',
+
+            'equipment_transfer_history_table.equipment_id',
+
+            'equipment_transfer_history_table.from_room_id',
+
+            'equipment_transfer_history_table.to_room_id',
+
+            'equipment_transfer_history_table.remarks',
+
+            'equipment_transfer_history_table.created_at',
+
             'from_room.room_name as from_room_name',
+
             'to_room.room_name as to_room_name'
+
         )
 
         ->orderBy(
-            'created_at',
+            'equipment_transfer_history_table.created_at',
             'desc'
         )
 
         ->get();
+
+
+        // =====================================================
+        // RETURN JSON RESPONSE
+        // =====================================================
+
+        return response()->json($history);
+
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | QR CODE TOOLS E - 2.1
+    |--------------------------------------------------------------------------
+    */
 
     /*
     |--------------------------------------------------------------------------
@@ -1620,6 +2617,10 @@ class MaintenanceController extends Controller
 
     public function qrTools()
     {
+        // =====================================================
+        // GET EQUIPMENT LIST
+        // =====================================================
+
         $equipment = DB::table('equipment_table')
 
             ->leftJoin(
@@ -1639,11 +2640,111 @@ class MaintenanceController extends Controller
                 'asc'
             )
 
-            ->get();
+            ->paginate(10)
+
+            ->withQueryString();
+
+
+        // =====================================================
+        // ADD QR DASHBOARD DATA HERE
+        // =====================================================
+
+
+        // =====================================================
+        // TOTAL EQUIPMENT
+        // =====================================================
+
+        $totalQrEquipment = DB::table('equipment_table')
+            ->count();
+
+
+        // =====================================================
+        // GENERATED QR CODES
+        // =====================================================
+
+        $generatedQrCodes = DB::table('equipment_table')
+
+            ->whereNotNull(
+                'equipment_qr_code'
+            )
+
+            ->where(
+                'equipment_qr_code',
+                '!=',
+                ''
+            )
+
+            ->count();
+
+
+        // =====================================================
+        // NOT GENERATED QR CODES
+        // =====================================================
+
+        $notGeneratedQrCodes =
+            $totalQrEquipment
+            - $generatedQrCodes;
+
+
+        // =====================================================
+        // GENERATED QR PERCENTAGE
+        // =====================================================
+
+        $generatedQrPercentage =
+            $totalQrEquipment > 0
+
+                ? (
+                    $generatedQrCodes
+                    / $totalQrEquipment
+                ) * 100
+
+                : 0;
+
+
+        // =====================================================
+        // NOT GENERATED QR PERCENTAGE
+        // =====================================================
+
+        $notGeneratedQrPercentage =
+            $totalQrEquipment > 0
+
+                ? (
+                    $notGeneratedQrCodes
+                    / $totalQrEquipment
+                ) * 100
+
+                : 0;
+
+
+        // =====================================================
+        // TOTAL QR SCANS
+        // =====================================================
+
+        $totalQrScans = DB::table('qr_code_logs_table')
+            ->count();
+
+
+        // =====================================================
+        // RETURN QR TOOLS PAGE
+        // =====================================================
 
         return view(
             'maintenance-personnel.equipment.qr-code-generator',
-            compact('equipment')
+
+            compact(
+                'equipment',
+
+                // =================================================
+                // ADD QR DASHBOARD VARIABLES HERE
+                // =================================================
+
+                'totalQrEquipment',
+                'generatedQrCodes',
+                'notGeneratedQrCodes',
+                'generatedQrPercentage',
+                'notGeneratedQrPercentage',
+                'totalQrScans'
+            )
         );
     }
 
@@ -1884,6 +2985,38 @@ class MaintenanceController extends Controller
 
     public function borrowing()
     {
+        // =====================================================
+        // UPDATE OVERDUE BORROWING RECORDS
+        // =====================================================
+
+        DB::table('borrowing_records_table')
+
+            ->where(
+                'borrowing_status',
+                'Borrowed'
+            )
+
+            ->whereNotNull(
+                'borrowing_expected_return_date'
+            )
+
+            ->whereDate(
+                'borrowing_expected_return_date',
+                '<',
+                today()
+            )
+
+            ->update([
+
+                'borrowing_status' => 'Overdue',
+
+            ]);
+
+
+        // =====================================================
+        // GET BORROWING RECORDS
+        // =====================================================
+
         $borrowings = DB::table('borrowing_records_table')
 
             ->leftJoin(
@@ -1903,45 +3036,14 @@ class MaintenanceController extends Controller
                 'desc'
             )
 
-            ->get();
+            ->paginate(10)
 
-        foreach($borrowings as $record){
+            ->withQueryString();
 
-            if(
 
-                $record->borrowing_status === 'Borrowed'
-
-                &&
-
-                $record->borrowing_expected_return_date
-
-                &&
-
-                now()->toDateString() >
-                $record->borrowing_expected_return_date
-
-            ){
-
-                DB::table(
-                    'borrowing_records_table'
-                )
-
-                ->where(
-                    'borrowing_record_id',
-                    $record->borrowing_record_id
-                )
-
-                ->update([
-
-                    'borrowing_status'
-                        => 'Overdue'
-
-                ]);
-
-                $record->borrowing_status
-                    = 'Overdue';
-            }
-        }
+        // =====================================================
+        // GET AVAILABLE BORROWABLE EQUIPMENT
+        // =====================================================
 
         $equipment = DB::table('equipment_table')
 
@@ -1962,9 +3064,304 @@ class MaintenanceController extends Controller
 
             ->get();
 
+
+        // =====================================================
+        // TOTAL BORROWING RECORDS
+        // =====================================================
+
+        $totalBorrowingRecords =
+            DB::table('borrowing_records_table')
+                ->count();
+
+
+        // =====================================================
+        // ON LOAN
+        //
+        // BORROWED + OVERDUE ARE BOTH STILL OUT
+        // =====================================================
+
+        $onLoanBorrowings =
+            DB::table('borrowing_records_table')
+
+                ->whereIn(
+                    'borrowing_status',
+                    [
+                        'Borrowed',
+                        'Overdue',
+                    ]
+                )
+
+                ->count();
+
+
+        // =====================================================
+        // RETURNED
+        // =====================================================
+
+        $returnedBorrowings =
+            DB::table('borrowing_records_table')
+
+                ->where(
+                    'borrowing_status',
+                    'Returned'
+                )
+
+                ->count();
+
+
+        // =====================================================
+        // OVERDUE
+        // =====================================================
+
+        $overdueBorrowings =
+            DB::table('borrowing_records_table')
+
+                ->where(
+                    'borrowing_status',
+                    'Overdue'
+                )
+
+                ->count();
+
+
+        // =====================================================
+        // CURRENT MONTH BORROWING RECORDS
+        // =====================================================
+
+        $currentMonthBorrowings =
+            DB::table('borrowing_records_table')
+
+                ->whereBetween(
+                    'borrowing_created_at',
+                    [
+                        now()->copy()->startOfMonth(),
+                        now()->copy()->endOfMonth(),
+                    ]
+                )
+
+                ->count();
+
+
+        // =====================================================
+        // PREVIOUS MONTH BORROWING RECORDS
+        // =====================================================
+
+        $previousMonthBorrowings =
+            DB::table('borrowing_records_table')
+
+                ->whereBetween(
+                    'borrowing_created_at',
+                    [
+                        now()
+                            ->copy()
+                            ->subMonthNoOverflow()
+                            ->startOfMonth(),
+
+                        now()
+                            ->copy()
+                            ->subMonthNoOverflow()
+                            ->endOfMonth(),
+                    ]
+                )
+
+                ->count();
+
+
+        // =====================================================
+        // MONTHLY PERCENTAGE CHANGE
+        // =====================================================
+
+        if ($previousMonthBorrowings > 0) {
+
+            $borrowingMonthlyPercentage =
+                (
+                    (
+                        $currentMonthBorrowings
+                        - $previousMonthBorrowings
+                    )
+                    / $previousMonthBorrowings
+                )
+                * 100;
+
+        } elseif ($currentMonthBorrowings > 0) {
+
+            $borrowingMonthlyPercentage = null;
+
+        } else {
+
+            $borrowingMonthlyPercentage = 0;
+
+        }
+
+
+        // =====================================================
+        // ON LOAN PERCENTAGE
+        // =====================================================
+
+        $onLoanPercentage =
+            $totalBorrowingRecords > 0
+
+                ? (
+                    $onLoanBorrowings
+                    / $totalBorrowingRecords
+                ) * 100
+
+                : 0;
+
+
+        // =====================================================
+        // RETURNED PERCENTAGE
+        // =====================================================
+
+        $returnedPercentage =
+            $totalBorrowingRecords > 0
+
+                ? (
+                    $returnedBorrowings
+                    / $totalBorrowingRecords
+                ) * 100
+
+                : 0;
+
+
+        // =====================================================
+        // OVERDUE PERCENTAGE
+        // =====================================================
+
+        $overduePercentage =
+            $totalBorrowingRecords > 0
+
+                ? (
+                    $overdueBorrowings
+                    / $totalBorrowingRecords
+                ) * 100
+
+                : 0;
+
+
+        // =====================================================
+        // BORROWING RECORDS PER MONTH
+        // LAST 12 MONTHS
+        // =====================================================
+
+        $monthlyBorrowingRows =
+            DB::table('borrowing_records_table')
+
+                ->selectRaw(
+                    '
+                    YEAR(borrowing_created_at) AS borrowing_year,
+                    MONTH(borrowing_created_at) AS borrowing_month,
+                    COUNT(*) AS borrowing_count
+                    '
+                )
+
+                ->where(
+                    'borrowing_created_at',
+                    '>=',
+                    now()
+                        ->copy()
+                        ->subMonths(11)
+                        ->startOfMonth()
+                )
+
+                ->groupByRaw(
+                    '
+                    YEAR(borrowing_created_at),
+                    MONTH(borrowing_created_at)
+                    '
+                )
+
+                ->orderByRaw(
+                    '
+                    YEAR(borrowing_created_at),
+                    MONTH(borrowing_created_at)
+                    '
+                )
+
+                ->get()
+
+                ->keyBy(function ($row) {
+
+                    return
+                        $row->borrowing_year
+                        . '-'
+                        . str_pad(
+                            $row->borrowing_month,
+                            2,
+                            '0',
+                            STR_PAD_LEFT
+                        );
+
+                });
+
+
+        // =====================================================
+        // BUILD COMPLETE 12 MONTH TREND
+        // =====================================================
+
+        $borrowingMonthlyTrend = collect();
+
+
+        for ($i = 11; $i >= 0; $i--) {
+
+            $month = now()
+                ->copy()
+                ->subMonths($i)
+                ->startOfMonth();
+
+
+            $key = $month->format('Y-m');
+
+
+            $borrowingMonthlyTrend->push([
+
+                'month' =>
+                    $month->format('M'),
+
+                'count' =>
+                    (int) (
+                        $monthlyBorrowingRows
+                            ->get($key)
+                            ->borrowing_count
+                        ?? 0
+                    ),
+
+            ]);
+
+        }
+
+
+        // =====================================================
+        // RETURN BORROWING PAGE
+        // =====================================================
+
         return view(
             'maintenance-personnel.borrowing.index',
-            compact('borrowings', 'equipment')
+
+            compact(
+                'borrowings',
+                'equipment',
+
+                // =================================================
+                // BORROWING DASHBOARD VARIABLES
+                // =================================================
+
+                'totalBorrowingRecords',
+                'currentMonthBorrowings',
+                'previousMonthBorrowings',
+                'borrowingMonthlyPercentage',
+
+                'onLoanBorrowings',
+                'onLoanPercentage',
+
+                'returnedBorrowings',
+                'returnedPercentage',
+
+                'overdueBorrowings',
+                'overduePercentage',
+
+                'borrowingMonthlyTrend'
+            )
         );
     }
 
@@ -2448,7 +3845,40 @@ class MaintenanceController extends Controller
 
     public function schedules()
     {
-        $schedules = DB::table('maintenance_schedules_table')
+        // =====================================================
+        // UPDATE EXPIRED ACTIVE SCHEDULES TO OVERDUE
+        // =====================================================
+
+        DB::table('maintenance_schedules_table')
+
+            ->where(
+                'maintenance_schedule_status',
+                'Active'
+            )
+
+            ->whereNotNull(
+                'maintenance_schedule_next_date'
+            )
+
+            ->whereDate(
+                'maintenance_schedule_next_date',
+                '<',
+                today()
+            )
+
+            ->update([
+
+                'maintenance_schedule_status' => 'Overdue',
+
+            ]);
+
+
+        // =====================================================
+        // BASE MAINTENANCE SCHEDULE QUERY
+        // USED BY TABLE AND CALENDAR
+        // =====================================================
+
+        $schedulesQuery = DB::table('maintenance_schedules_table')
 
             ->leftJoin(
                 'equipment_table',
@@ -2468,14 +3898,44 @@ class MaintenanceController extends Controller
                 'maintenance_schedules_table.*',
                 'equipment_table.equipment_name',
                 'rooms_table.room_name'
-            )
+            );
+
+
+        // =====================================================
+        // ALL SCHEDULES FOR CALENDAR
+        // DO NOT PAGINATE THIS
+        // =====================================================
+
+        $calendarSchedulesData = (clone $schedulesQuery)
 
             ->orderBy(
-                'maintenance_schedule_next_date',
+                'maintenance_schedules_table.maintenance_schedule_next_date',
                 'asc'
             )
 
             ->get();
+
+
+        // =====================================================
+        // PAGINATED SCHEDULES FOR TABLE
+        // SHOW 10 RECORDS PER PAGE
+        // =====================================================
+
+        $schedules = (clone $schedulesQuery)
+
+            ->orderBy(
+                'maintenance_schedules_table.maintenance_schedule_next_date',
+                'asc'
+            )
+
+            ->paginate(10)
+
+            ->withQueryString();
+
+
+        // =====================================================
+        // GET ACTIVE EQUIPMENT FOR CREATE SCHEDULE MODAL
+        // =====================================================
 
         $equipment = DB::table('equipment_table')
 
@@ -2502,12 +3962,405 @@ class MaintenanceController extends Controller
 
             ->get();
 
+
+        // =====================================================
+        // ADD SCHEDULE DASHBOARD DATA HERE
+        // =====================================================
+
+
+        // =====================================================
+        // TOTAL SCHEDULES
+        // =====================================================
+
+        $totalSchedules =
+            DB::table('maintenance_schedules_table')
+                ->count();
+
+
+        // =====================================================
+        // UPCOMING MAINTENANCE
+        //
+        // ACTIVE SCHEDULES DUE AFTER TODAY
+        // =====================================================
+
+        $upcomingMaintenance =
+            DB::table('maintenance_schedules_table')
+
+                ->where(
+                    'maintenance_schedule_status',
+                    'Active'
+                )
+
+                ->whereNotNull(
+                    'maintenance_schedule_next_date'
+                )
+
+                ->whereDate(
+                    'maintenance_schedule_next_date',
+                    '>',
+                    today()
+                )
+
+                ->count();
+
+
+        // =====================================================
+        // COMPLETED MAINTENANCE
+        // =====================================================
+
+        $completedMaintenance =
+            DB::table('maintenance_schedules_table')
+
+                ->where(
+                    'maintenance_schedule_status',
+                    'Completed'
+                )
+
+                ->count();
+
+
+        // =====================================================
+        // OVERDUE MAINTENANCE
+        // =====================================================
+
+        $overdueMaintenance =
+            DB::table('maintenance_schedules_table')
+
+                ->where(
+                    'maintenance_schedule_status',
+                    'Overdue'
+                )
+
+                ->count();
+
+
+        // =====================================================
+        // OUTSTANDING SCHEDULES
+        //
+        // ACTIVE + OVERDUE
+        // =====================================================
+
+        $outstandingSchedules =
+            DB::table('maintenance_schedules_table')
+
+                ->whereIn(
+                    'maintenance_schedule_status',
+                    [
+                        'Active',
+                        'Overdue',
+                    ]
+                )
+
+                ->count();
+
+
+        // =====================================================
+        // CURRENT MONTH CREATED SCHEDULES
+        // =====================================================
+
+        $currentMonthSchedules =
+            DB::table('maintenance_schedules_table')
+
+                ->whereBetween(
+                    'maintenance_schedule_created_at',
+                    [
+                        now()->copy()->startOfMonth(),
+                        now()->copy()->endOfMonth(),
+                    ]
+                )
+
+                ->count();
+
+
+        // =====================================================
+        // PREVIOUS MONTH CREATED SCHEDULES
+        // =====================================================
+
+        $previousMonthSchedules =
+            DB::table('maintenance_schedules_table')
+
+                ->whereBetween(
+                    'maintenance_schedule_created_at',
+                    [
+                        now()
+                            ->copy()
+                            ->subMonthNoOverflow()
+                            ->startOfMonth(),
+
+                        now()
+                            ->copy()
+                            ->subMonthNoOverflow()
+                            ->endOfMonth(),
+                    ]
+                )
+
+                ->count();
+
+
+        // =====================================================
+        // MONTHLY PERCENTAGE CHANGE
+        // =====================================================
+
+        if ($previousMonthSchedules > 0) {
+
+            $scheduleMonthlyPercentage =
+                (
+                    (
+                        $currentMonthSchedules
+                        - $previousMonthSchedules
+                    )
+                    / $previousMonthSchedules
+                )
+                * 100;
+
+        } elseif ($currentMonthSchedules > 0) {
+
+            $scheduleMonthlyPercentage = null;
+
+        } else {
+
+            $scheduleMonthlyPercentage = 0;
+
+        }
+
+
+        // =====================================================
+        // UPCOMING PERCENTAGE
+        // =====================================================
+
+        $upcomingMaintenancePercentage =
+            $outstandingSchedules > 0
+
+                ? (
+                    $upcomingMaintenance
+                    / $outstandingSchedules
+                ) * 100
+
+                : 0;
+
+
+        // =====================================================
+        // COMPLETED PERCENTAGE
+        // =====================================================
+
+        $completedMaintenancePercentage =
+            $totalSchedules > 0
+
+                ? (
+                    $completedMaintenance
+                    / $totalSchedules
+                ) * 100
+
+                : 0;
+
+
+        // =====================================================
+        // OVERDUE PERCENTAGE
+        // =====================================================
+
+        $overdueMaintenancePercentage =
+            $outstandingSchedules > 0
+
+                ? (
+                    $overdueMaintenance
+                    / $outstandingSchedules
+                ) * 100
+
+                : 0;
+
+
+        // =====================================================
+        // SCHEDULES CREATED PER MONTH
+        // LAST 12 MONTHS
+        // =====================================================
+
+        $monthlyScheduleRows =
+            DB::table('maintenance_schedules_table')
+
+                ->selectRaw(
+                    '
+                    YEAR(maintenance_schedule_created_at)
+                        AS schedule_year,
+
+                    MONTH(maintenance_schedule_created_at)
+                        AS schedule_month,
+
+                    COUNT(*)
+                        AS schedule_count
+                    '
+                )
+
+                ->where(
+                    'maintenance_schedule_created_at',
+                    '>=',
+                    now()
+                        ->copy()
+                        ->subMonths(11)
+                        ->startOfMonth()
+                )
+
+                ->groupByRaw(
+                    '
+                    YEAR(maintenance_schedule_created_at),
+                    MONTH(maintenance_schedule_created_at)
+                    '
+                )
+
+                ->orderByRaw(
+                    '
+                    YEAR(maintenance_schedule_created_at),
+                    MONTH(maintenance_schedule_created_at)
+                    '
+                )
+
+                ->get()
+
+                ->keyBy(function ($row) {
+
+                    return
+                        $row->schedule_year
+                        . '-'
+                        . str_pad(
+                            $row->schedule_month,
+                            2,
+                            '0',
+                            STR_PAD_LEFT
+                        );
+
+                });
+
+
+        // =====================================================
+        // BUILD COMPLETE 12 MONTH TREND
+        // =====================================================
+
+        $scheduleMonthlyTrend = collect();
+
+
+        for ($i = 11; $i >= 0; $i--) {
+
+            $month = now()
+                ->copy()
+                ->subMonths($i)
+                ->startOfMonth();
+
+
+            $key = $month->format('Y-m');
+
+
+            $scheduleMonthlyTrend->push([
+
+                'month' =>
+                    $month->format('M'),
+
+                'count' =>
+                    (int) (
+                        $monthlyScheduleRows
+                            ->get($key)
+                            ->schedule_count
+                        ?? 0
+                    ),
+
+            ]);
+
+        }
+
+
+        // =====================================================
+        // RETURN VIEW
+        // =====================================================
+
         return view(
             'maintenance-personnel.maintenance-schedules.index',
+
             compact(
                 'schedules',
-                'equipment'
+                'equipment',
+
+                // =================================================
+                // SCHEDULE DASHBOARD VARIABLES
+                // =================================================
+                'calendarSchedulesData',
+
+                'totalSchedules',
+                'currentMonthSchedules',
+                'previousMonthSchedules',
+                'scheduleMonthlyPercentage',
+
+                'upcomingMaintenance',
+                'upcomingMaintenancePercentage',
+
+                'completedMaintenance',
+                'completedMaintenancePercentage',
+
+                'overdueMaintenance',
+                'overdueMaintenancePercentage',
+
+                'outstandingSchedules',
+
+                'scheduleMonthlyTrend'
             )
+        );
+    }
+
+    // =====================================================
+    // TODAY'S MAINTENANCE SCHEDULES
+    // =====================================================
+
+    public function todaySchedules()
+    {
+        // =====================================================
+        // GET SCHEDULES DUE TODAY
+        // =====================================================
+
+        $schedules = DB::table('maintenance_schedules_table')
+
+            ->leftJoin(
+                'equipment_table',
+                'maintenance_schedules_table.maintenance_schedule_equipment_id',
+                '=',
+                'equipment_table.equipment_id'
+            )
+
+            ->leftJoin(
+                'rooms_table',
+                'equipment_table.equipment_room_id',
+                '=',
+                'rooms_table.room_id'
+            )
+
+            ->whereDate(
+                'maintenance_schedules_table.maintenance_schedule_next_date',
+                today()
+            )
+
+            ->select(
+
+                'maintenance_schedules_table.*',
+
+                'equipment_table.equipment_name',
+
+                'equipment_table.equipment_inventory_status',
+
+                'rooms_table.room_name'
+
+            )
+
+            ->orderBy(
+                'maintenance_schedules_table.maintenance_schedule_next_date',
+                'asc'
+            )
+
+            ->get();
+
+
+        // =====================================================
+        // RETURN TODAY'S SCHEDULE PAGE
+        // =====================================================
+
+        return view(
+            'maintenance-personnel.schedules.today',
+            compact('schedules')
         );
     }
 
@@ -2757,6 +4610,10 @@ class MaintenanceController extends Controller
 
     public function disposal()
     {
+        // =====================================================
+        // GET DISPOSAL RECORDS
+        // =====================================================
+
         $disposals = DB::table('disposal_records_table')
 
             ->leftJoin(
@@ -2774,15 +4631,10 @@ class MaintenanceController extends Controller
             )
 
             ->select(
-
                 'disposal_records_table.*',
-
                 'equipment_table.equipment_name',
-
                 'equipment_table.equipment_condition_status',
-
                 'equipment_categories_table.equipment_category_name'
-
             )
 
             ->orderBy(
@@ -2790,7 +4642,14 @@ class MaintenanceController extends Controller
                 'desc'
             )
 
-            ->get();
+            ->paginate(10)
+
+            ->withQueryString();
+
+
+        // =====================================================
+        // GET EQUIPMENT AVAILABLE FOR DISPOSAL
+        // =====================================================
 
         $equipment = DB::table('equipment_table')
 
@@ -2808,11 +4667,8 @@ class MaintenanceController extends Controller
             )
 
             ->select(
-
                 'equipment_table.*',
-
                 'equipment_categories_table.equipment_category_name'
-
             )
 
             ->orderBy(
@@ -2821,11 +4677,291 @@ class MaintenanceController extends Controller
 
             ->get();
 
+
+        // =====================================================
+        // ADD DISPOSAL DASHBOARD DATA HERE
+        // =====================================================
+
+
+        // =====================================================
+        // TOTAL DISPOSAL RECORDS
+        // =====================================================
+
+        $totalDisposalRecords =
+            DB::table('disposal_records_table')
+                ->count();
+
+
+        // =====================================================
+        // DAMAGED DISPOSALS
+        //
+        // DISPOSAL RECORDS WHOSE EQUIPMENT CONDITION
+        // IS CURRENTLY DAMAGED
+        // =====================================================
+
+        $damagedDisposals =
+            DB::table('disposal_records_table')
+
+                ->join(
+                    'equipment_table',
+                    'disposal_records_table.disposal_equipment_id',
+                    '=',
+                    'equipment_table.equipment_id'
+                )
+
+                ->where(
+                    'equipment_table.equipment_condition_status',
+                    'Damaged'
+                )
+
+                ->count();
+
+
+        // =====================================================
+        // CURRENTLY DISPOSED EQUIPMENT
+        // =====================================================
+
+        $disposedEquipment =
+            DB::table('equipment_table')
+
+                ->where(
+                    'equipment_inventory_status',
+                    'Disposed'
+                )
+
+                ->count();
+
+
+        // =====================================================
+        // TOTAL EQUIPMENT
+        // =====================================================
+
+        $totalEquipment =
+            DB::table('equipment_table')
+                ->count();
+
+
+        // =====================================================
+        // CURRENT MONTH DISPOSALS
+        // =====================================================
+
+        $currentMonthDisposals =
+            DB::table('disposal_records_table')
+
+                ->whereBetween(
+                    'disposal_disposed_at',
+                    [
+                        now()->copy()->startOfMonth(),
+                        now()->copy()->endOfMonth(),
+                    ]
+                )
+
+                ->count();
+
+
+        // =====================================================
+        // PREVIOUS MONTH DISPOSALS
+        // =====================================================
+
+        $previousMonthDisposals =
+            DB::table('disposal_records_table')
+
+                ->whereBetween(
+                    'disposal_disposed_at',
+                    [
+                        now()
+                            ->copy()
+                            ->subMonthNoOverflow()
+                            ->startOfMonth(),
+
+                        now()
+                            ->copy()
+                            ->subMonthNoOverflow()
+                            ->endOfMonth(),
+                    ]
+                )
+
+                ->count();
+
+
+        // =====================================================
+        // MONTHLY PERCENTAGE CHANGE
+        // =====================================================
+
+        if ($previousMonthDisposals > 0) {
+
+            $disposalMonthlyPercentage =
+                (
+                    (
+                        $currentMonthDisposals
+                        - $previousMonthDisposals
+                    )
+                    / $previousMonthDisposals
+                )
+                * 100;
+
+        } elseif ($currentMonthDisposals > 0) {
+
+            $disposalMonthlyPercentage = null;
+
+        } else {
+
+            $disposalMonthlyPercentage = 0;
+
+        }
+
+
+        // =====================================================
+        // DAMAGED DISPOSAL PERCENTAGE
+        // =====================================================
+
+        $damagedDisposalsPercentage =
+            $totalDisposalRecords > 0
+
+                ? (
+                    $damagedDisposals
+                    / $totalDisposalRecords
+                ) * 100
+
+                : 0;
+
+
+        // =====================================================
+        // DISPOSED EQUIPMENT PERCENTAGE
+        // =====================================================
+
+        $disposedEquipmentPercentage =
+            $totalEquipment > 0
+
+                ? (
+                    $disposedEquipment
+                    / $totalEquipment
+                ) * 100
+
+                : 0;
+
+
+        // =====================================================
+        // DISPOSALS PER MONTH
+        // LAST 12 MONTHS
+        // =====================================================
+
+        $monthlyDisposalRows =
+            DB::table('disposal_records_table')
+
+                ->selectRaw(
+                    '
+                    YEAR(disposal_disposed_at) AS disposal_year,
+                    MONTH(disposal_disposed_at) AS disposal_month,
+                    COUNT(*) AS disposal_count
+                    '
+                )
+
+                ->where(
+                    'disposal_disposed_at',
+                    '>=',
+                    now()
+                        ->copy()
+                        ->subMonths(11)
+                        ->startOfMonth()
+                )
+
+                ->groupByRaw(
+                    '
+                    YEAR(disposal_disposed_at),
+                    MONTH(disposal_disposed_at)
+                    '
+                )
+
+                ->orderByRaw(
+                    '
+                    YEAR(disposal_disposed_at),
+                    MONTH(disposal_disposed_at)
+                    '
+                )
+
+                ->get()
+
+                ->keyBy(function ($row) {
+
+                    return
+                        $row->disposal_year
+                        . '-'
+                        . str_pad(
+                            $row->disposal_month,
+                            2,
+                            '0',
+                            STR_PAD_LEFT
+                        );
+
+                });
+
+
+        // =====================================================
+        // BUILD COMPLETE 12 MONTH TREND
+        // =====================================================
+
+        $disposalMonthlyTrend = collect();
+
+
+        for ($i = 11; $i >= 0; $i--) {
+
+            $month = now()
+                ->copy()
+                ->subMonths($i)
+                ->startOfMonth();
+
+
+            $key = $month->format('Y-m');
+
+
+            $disposalMonthlyTrend->push([
+
+                'month' =>
+                    $month->format('M'),
+
+                'count' =>
+                    (int) (
+                        $monthlyDisposalRows
+                            ->get($key)
+                            ->disposal_count
+                        ?? 0
+                    ),
+
+            ]);
+
+        }
+
+
+        // =====================================================
+        // RETURN DISPOSAL PAGE
+        // =====================================================
+
         return view(
             'maintenance-personnel.disposal.index',
+
             compact(
                 'disposals',
-                'equipment'
+                'equipment',
+
+                // =================================================
+                // DISPOSAL DASHBOARD VARIABLES
+                // =================================================
+
+                'totalDisposalRecords',
+
+                'damagedDisposals',
+                'damagedDisposalsPercentage',
+
+                'disposedEquipment',
+                'totalEquipment',
+                'disposedEquipmentPercentage',
+
+                'currentMonthDisposals',
+                'previousMonthDisposals',
+                'disposalMonthlyPercentage',
+
+                'disposalMonthlyTrend'
             )
         );
     }
@@ -2914,20 +5050,359 @@ class MaintenanceController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    public function reporters()
+
+    // =====================================================
+    // REUSABLE REPORTER DASHBOARD DATA
+    // ADD DIRECTLY ABOVE reporters()
+    // =====================================================
+
+    private function reporterDashboardData()
     {
-        $reporters = DB::table('reporters_table')
+        // =====================================================
+        // TOTAL REPORTERS
+        // =====================================================
+
+        $totalReporters = DB::table('reporters_table')
+            ->count();
+
+
+        // =====================================================
+        // REPORTERS WITH EMAIL
+        // =====================================================
+
+        $reportersWithEmail = DB::table('reporters_table')
+
+            ->whereNotNull(
+                'reporter_email_address'
+            )
+
+            ->where(
+                'reporter_email_address',
+                '!=',
+                ''
+            )
+
+            ->count();
+
+
+        // =====================================================
+        // REPORTERS WITH CONTACT
+        // =====================================================
+
+        $reportersWithContact = DB::table('reporters_table')
+
+            ->whereNotNull(
+                'reporter_contact_number'
+            )
+
+            ->where(
+                'reporter_contact_number',
+                '!=',
+                ''
+            )
+
+            ->count();
+
+
+        // =====================================================
+        // CURRENT MONTH REPORTERS
+        // =====================================================
+
+        $currentMonthReporters = DB::table('reporters_table')
+
+            ->whereBetween(
+                'reporter_created_at',
+                [
+                    now()->copy()->startOfMonth(),
+                    now()->copy()->endOfMonth(),
+                ]
+            )
+
+            ->count();
+
+
+        // =====================================================
+        // PREVIOUS MONTH REPORTERS
+        // =====================================================
+
+        $previousMonthReporters = DB::table('reporters_table')
+
+            ->whereBetween(
+                'reporter_created_at',
+                [
+                    now()
+                        ->copy()
+                        ->subMonthNoOverflow()
+                        ->startOfMonth(),
+
+                    now()
+                        ->copy()
+                        ->subMonthNoOverflow()
+                        ->endOfMonth(),
+                ]
+            )
+
+            ->count();
+
+
+        // =====================================================
+        // MONTHLY PERCENTAGE CHANGE
+        // =====================================================
+
+        if ($previousMonthReporters > 0) {
+
+            $reporterMonthlyPercentage =
+                (
+                    (
+                        $currentMonthReporters
+                        - $previousMonthReporters
+                    )
+                    / $previousMonthReporters
+                )
+                * 100;
+
+        } elseif ($currentMonthReporters > 0) {
+
+            $reporterMonthlyPercentage = null;
+
+        } else {
+
+            $reporterMonthlyPercentage = 0;
+
+        }
+
+
+        // =====================================================
+        // EMAIL COVERAGE PERCENTAGE
+        // =====================================================
+
+        $emailCoveragePercentage =
+            $totalReporters > 0
+                ? ($reportersWithEmail / $totalReporters) * 100
+                : 0;
+
+
+        // =====================================================
+        // CONTACT COVERAGE PERCENTAGE
+        // =====================================================
+
+        $contactCoveragePercentage =
+            $totalReporters > 0
+                ? ($reportersWithContact / $totalReporters) * 100
+                : 0;
+
+
+        // =====================================================
+        // REPORTERS PER MONTH
+        // LAST 12 MONTHS
+        // =====================================================
+
+        $monthlyReporterRows = DB::table('reporters_table')
+
+            ->selectRaw(
+                '
+                YEAR(reporter_created_at) AS reporter_year,
+                MONTH(reporter_created_at) AS reporter_month,
+                COUNT(*) AS reporter_count
+                '
+            )
+
+            ->where(
+                'reporter_created_at',
+                '>=',
+                now()
+                    ->copy()
+                    ->subMonths(11)
+                    ->startOfMonth()
+            )
+
+            ->groupByRaw(
+                '
+                YEAR(reporter_created_at),
+                MONTH(reporter_created_at)
+                '
+            )
+
+            ->orderByRaw(
+                '
+                YEAR(reporter_created_at),
+                MONTH(reporter_created_at)
+                '
+            )
+
+            ->get()
+
+            ->keyBy(function ($row) {
+
+                return
+                    $row->reporter_year
+                    . '-'
+                    . str_pad(
+                        $row->reporter_month,
+                        2,
+                        '0',
+                        STR_PAD_LEFT
+                    );
+
+            });
+
+
+        // =====================================================
+        // BUILD COMPLETE 12 MONTH TREND
+        // =====================================================
+
+        $reporterMonthlyTrend = collect();
+
+
+        for ($i = 11; $i >= 0; $i--) {
+
+            $month = now()
+                ->copy()
+                ->subMonths($i)
+                ->startOfMonth();
+
+
+            $key = $month->format('Y-m');
+
+
+            $reporterMonthlyTrend->push([
+
+                'month' =>
+                    $month->format('M'),
+
+                'count' =>
+                    (int) (
+                        $monthlyReporterRows
+                            ->get($key)
+                            ->reporter_count
+                        ?? 0
+                    ),
+
+            ]);
+
+        }
+
+
+        // =====================================================
+        // RETURN ALL REPORTER DASHBOARD VARIABLES
+        // =====================================================
+
+        return compact(
+            'totalReporters',
+            'reportersWithEmail',
+            'reportersWithContact',
+            'currentMonthReporters',
+            'previousMonthReporters',
+            'reporterMonthlyPercentage',
+            'emailCoveragePercentage',
+            'contactCoveragePercentage',
+            'reporterMonthlyTrend'
+        );
+    }
+
+
+    // =====================================================
+    // REPORTERS PAGE
+    // REPLACE YOUR CURRENT reporters() METHOD WITH THIS
+    // =====================================================
+
+   public function reporters(Request $request)
+    {
+        // =====================================================
+        // REPORTER QUERY
+        // ADD SEARCH AND FILTERS TO THIS QUERY
+        // =====================================================
+
+        $query = DB::table('reporters_table');
+
+
+        // =====================================================
+        // SEARCH
+        // SEARCHES THE ENTIRE DATABASE BEFORE PAGINATION
+        // =====================================================
+
+        if ($request->filled('search')) {
+
+            $query->where(function ($q) use ($request) {
+
+                $q->where(
+                    'reporter_employee_id',
+                    'LIKE',
+                    '%' . $request->search . '%'
+                )
+
+                ->orWhere(
+                    'reporter_full_name',
+                    'LIKE',
+                    '%' . $request->search . '%'
+                )
+
+                ->orWhere(
+                    'reporter_email_address',
+                    'LIKE',
+                    '%' . $request->search . '%'
+                )
+
+                ->orWhere(
+                    'reporter_contact_number',
+                    'LIKE',
+                    '%' . $request->search . '%'
+                );
+
+            });
+
+        }
+
+
+        // =====================================================
+        // STATUS FILTER
+        // =====================================================
+
+        if ($request->filled('status')) {
+
+            $query->where(
+                'reporter_status',
+                $request->status
+            );
+
+        }
+
+
+        // =====================================================
+        // PAGINATION
+        // EXECUTE THE FINISHED QUERY HERE
+        // =====================================================
+
+        $reporters = $query
 
             ->orderBy(
                 'reporter_full_name',
                 'asc'
             )
 
-            ->get();
+            ->paginate(10)
+
+            ->withQueryString();
+
+
+        // =====================================================
+        // RETURN REPORTERS PAGE
+        // =====================================================
 
         return view(
             'maintenance-personnel.reporters.index',
-            compact('reporters')
+
+            array_merge(
+                [
+                    'reporters' => $reporters,
+                ],
+
+                // =================================================
+                // KEEP YOUR EXISTING REPORTER DASHBOARD DATA
+                // =================================================
+
+                $this->reporterDashboardData()
+            )
         );
     }
 
@@ -3024,5 +5499,689 @@ class MaintenanceController extends Controller
             'success',
             'Reporter deleted successfully.'
         );
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    // =====================================================
+    // ALERTS AND ACTIVITY CENTER
+    // =====================================================
+
+    // =====================================================
+    // ALERTS AND ACTIVITY CENTER
+    // =====================================================
+
+    public function notifications(Request $request)
+    {
+        // =====================================================
+        // CURRENT USER
+        // =====================================================
+
+        $userId = Auth::id();
+
+
+        // =====================================================
+        // FILTER VALUES
+        // =====================================================
+
+        $period =
+            $request->get('period', 'today');
+
+        $category =
+            $request->get('category', 'all');
+
+
+        // =====================================================
+        // ALLOWED FILTERS
+        // =====================================================
+
+        $allowedPeriods = [
+            'today',
+            'week',
+            'month',
+            'year',
+        ];
+
+        $allowedCategories = [
+            'all',
+            'Reports',
+            'Maintenance',
+            'Equipment',
+        ];
+
+
+        if (!in_array($period, $allowedPeriods, true)) {
+            $period = 'today';
+        }
+
+
+        if (!in_array($category, $allowedCategories, true)) {
+            $category = 'all';
+        }
+
+
+        // =====================================================
+        // REUSABLE BASE QUERY
+        // =====================================================
+
+        $notificationQuery = function () use ($userId) {
+
+            // =====================================================
+            // BASE QUERY
+            // =====================================================
+
+            $query = DB::table('notifications_table')
+
+
+                // =====================================================
+                // CURRENT USER READ RECEIPT
+                // =====================================================
+
+                ->leftJoin(
+                    'notification_reads_table',
+                    function ($join) use ($userId) {
+
+                        $join->on(
+                            'notifications_table.notification_id',
+                            '=',
+                            'notification_reads_table.notification_id'
+                        );
+
+                        $join->where(
+                            'notification_reads_table.user_id',
+                            '=',
+                            $userId
+                        );
+
+                    }
+                );
+
+
+            // =====================================================
+            // APPLY ACCESS RULES
+            // =====================================================
+
+            return $this->applyMaintenanceNotificationAccess(
+                $query,
+                $userId
+            );
+        };
+
+
+        // =====================================================
+        // MAIN QUERY
+        // =====================================================
+
+        $query = $notificationQuery();
+
+
+        // =====================================================
+        // PERIOD FILTER
+        // =====================================================
+
+        switch ($period) {
+
+            case 'week':
+
+                $query->whereBetween(
+                    'notifications_table.notification_created_at',
+                    [
+                        now()->startOfWeek(),
+                        now()->endOfWeek(),
+                    ]
+                );
+
+                break;
+
+
+            case 'month':
+
+                $query
+                    ->whereYear(
+                        'notifications_table.notification_created_at',
+                        now()->year
+                    )
+
+                    ->whereMonth(
+                        'notifications_table.notification_created_at',
+                        now()->month
+                    );
+
+                break;
+
+
+            case 'year':
+
+                $query->whereYear(
+                    'notifications_table.notification_created_at',
+                    now()->year
+                );
+
+                break;
+
+
+            default:
+
+                $query->whereDate(
+                    'notifications_table.notification_created_at',
+                    today()
+                );
+
+                break;
+
+        }
+
+
+        // =====================================================
+        // CATEGORY FILTER
+        // =====================================================
+
+        if ($category !== 'all') {
+
+            $query->where(
+                'notifications_table.notification_category',
+                $category
+            );
+
+        }
+
+
+        // =====================================================
+        // GET NOTIFICATIONS
+        //
+        // is_read = 1 IF CURRENT USER HAS A READ RECORD
+        // =====================================================
+
+        $notifications = $query
+
+            ->select(
+                'notifications_table.*'
+            )
+
+            ->selectRaw(
+                'CASE
+                    WHEN notification_reads_table.notification_read_id IS NULL
+                    THEN 0
+                    ELSE 1
+                END AS is_read'
+            )
+
+            ->orderByDesc(
+                'notifications_table.notification_created_at'
+            )
+
+            ->paginate(15)
+
+            ->withQueryString();
+
+
+        // =====================================================
+        // COUNT QUERY WITHOUT JOIN
+        // =====================================================
+
+        $countQuery = function () use ($userId) {
+
+            // =====================================================
+            // BASE QUERY
+            // =====================================================
+
+            $query =
+                DB::table('notifications_table');
+
+
+            // =====================================================
+            // APPLY ACCESS RULES
+            // =====================================================
+
+            return $this->applyMaintenanceNotificationAccess(
+                $query,
+                $userId
+            );
+        };
+
+
+        // =====================================================
+        // PERIOD COUNTS
+        // =====================================================
+
+        $todayCount = $countQuery()
+
+            ->whereDate(
+                'notification_created_at',
+                today()
+            )
+
+            ->count();
+
+
+        $weekCount = $countQuery()
+
+            ->whereBetween(
+                'notification_created_at',
+                [
+                    now()->startOfWeek(),
+                    now()->endOfWeek(),
+                ]
+            )
+
+            ->count();
+
+
+        $monthCount = $countQuery()
+
+            ->whereYear(
+                'notification_created_at',
+                now()->year
+            )
+
+            ->whereMonth(
+                'notification_created_at',
+                now()->month
+            )
+
+            ->count();
+
+
+        $yearCount = $countQuery()
+
+            ->whereYear(
+                'notification_created_at',
+                now()->year
+            )
+
+            ->count();
+
+
+        // =====================================================
+        // UNREAD COUNT FOR CURRENT USER
+        // =====================================================
+
+        $unreadCount = $countQuery()
+
+            ->whereNotExists(function ($query) use ($userId) {
+
+                $query
+                    ->select(DB::raw(1))
+
+                    ->from('notification_reads_table')
+
+                    ->whereColumn(
+                        'notification_reads_table.notification_id',
+                        'notifications_table.notification_id'
+                    )
+
+                    ->where(
+                        'notification_reads_table.user_id',
+                        $userId
+                    );
+
+            })
+
+            ->count();
+
+
+        // =====================================================
+        // RETURN PAGE
+        // =====================================================
+
+        return view(
+            'maintenance-personnel.notifications.index',
+            compact(
+                'notifications',
+                'period',
+                'category',
+                'todayCount',
+                'weekCount',
+                'monthCount',
+                'yearCount',
+                'unreadCount'
+            )
+        );
+    }
+
+    // =====================================================
+    // OPEN NOTIFICATION
+    // =====================================================
+
+    // =====================================================
+    // OPEN NOTIFICATION
+    // =====================================================
+
+    // =====================================================
+    // OPEN NOTIFICATION
+    // =====================================================
+
+    public function openNotification($id)
+    {
+        // =====================================================
+        // CURRENT USER
+        // =====================================================
+
+        $userId = Auth::id();
+
+
+        // =====================================================
+        // STOP IF USER IS NOT AUTHENTICATED
+        // =====================================================
+
+        if (!$userId) {
+            abort(401);
+        }
+
+
+        // =====================================================
+        // BASE NOTIFICATION QUERY
+        // =====================================================
+
+        $query = DB::table('notifications_table')
+
+            ->where(
+                'notifications_table.notification_id',
+                $id
+            );
+
+
+        // =====================================================
+        // APPLY MAINTENANCE NOTIFICATION ACCESS RULES
+        // =====================================================
+
+        $notification =
+            $this->applyMaintenanceNotificationAccess(
+                $query,
+                $userId
+            )
+            ->first();
+
+
+        // =====================================================
+        // NOTIFICATION DOES NOT EXIST
+        // OR USER CANNOT ACCESS IT
+        // =====================================================
+
+        if (!$notification) {
+            abort(404);
+        }
+
+
+        // =====================================================
+        // CREATE READ RECEIPT
+        //
+        // UNIQUE CONSTRAINT ON:
+        // notification_id + user_id
+        //
+        // PREVENTS DUPLICATE READ RECEIPTS
+        // =====================================================
+
+        DB::table('notification_reads_table')
+
+            ->insertOrIgnore([
+
+                'notification_id' =>
+                    $notification->notification_id,
+
+                'user_id' =>
+                    $userId,
+
+                'notification_read_at' =>
+                    now(),
+
+            ]);
+
+
+        // =====================================================
+        // GET DESTINATION URL
+        // =====================================================
+
+        $destination =
+            $notification->notification_url;
+
+
+        // =====================================================
+        // NO DESTINATION URL
+        // RETURN TO NOTIFICATIONS PAGE
+        // =====================================================
+
+        if (!$destination) {
+
+            return redirect(
+                '/maintenance/notifications'
+            );
+
+        }
+
+
+        // =====================================================
+        // SECURITY CHECK
+        //
+        // ONLY ALLOW INTERNAL MAINTENANCE ROUTES
+        // =====================================================
+
+        if (!str_starts_with(
+            $destination,
+            '/maintenance/'
+        )) {
+
+            return redirect(
+                '/maintenance/notifications'
+            );
+
+        }
+
+
+        // =====================================================
+        // REDIRECT TO RELATED RECORD
+        // =====================================================
+
+        return redirect($destination);
+    }
+
+
+    // =====================================================
+    // MARK ALL ACCESSIBLE NOTIFICATIONS AS READ
+    // =====================================================
+
+    public function markAllNotificationsAsRead()
+    {
+        // =====================================================
+        // CURRENT USER
+        // =====================================================
+
+        $userId = Auth::id();
+
+
+        // =====================================================
+        // STOP IF USER IS NOT AUTHENTICATED
+        // =====================================================
+
+        if (!$userId) {
+            abort(401);
+        }
+
+
+        // =====================================================
+        // BASE NOTIFICATION QUERY
+        // =====================================================
+
+        $query =
+            DB::table('notifications_table');
+
+
+        // =====================================================
+        // APPLY SAME ACCESS RULES USED BY:
+        //
+        // notifications()
+        // openNotification()
+        // =====================================================
+
+        $query =
+            $this->applyMaintenanceNotificationAccess(
+                $query,
+                $userId
+            );
+
+
+        // =====================================================
+        // GET ONLY ACCESSIBLE UNREAD NOTIFICATION IDS
+        // =====================================================
+
+        $notificationIds = $query
+
+            ->whereNotExists(function ($query) use ($userId) {
+
+                // =====================================================
+                // CHECK IF CURRENT USER ALREADY HAS READ RECEIPT
+                // =====================================================
+
+                $query
+                    ->select(DB::raw(1))
+
+                    ->from('notification_reads_table')
+
+                    ->whereColumn(
+                        'notification_reads_table.notification_id',
+                        'notifications_table.notification_id'
+                    )
+
+                    ->where(
+                        'notification_reads_table.user_id',
+                        $userId
+                    );
+
+            })
+
+
+            // =====================================================
+            // GET NOTIFICATION IDS ONLY
+            // =====================================================
+
+            ->pluck(
+                'notifications_table.notification_id'
+            );
+
+
+        // =====================================================
+        // NOTHING TO MARK AS READ
+        // =====================================================
+
+        if ($notificationIds->isEmpty()) {
+
+            return back()->with(
+                'success',
+                'All notifications are already read.'
+            );
+
+        }
+
+
+        // =====================================================
+        // CURRENT TIMESTAMP
+        // =====================================================
+
+        $now = now();
+
+
+        // =====================================================
+        // BUILD READ RECEIPT ROWS
+        // =====================================================
+
+        $readRows = $notificationIds
+
+            ->map(function ($notificationId) use (
+                $userId,
+                $now
+            ) {
+
+                return [
+
+                    'notification_id' =>
+                        $notificationId,
+
+                    'user_id' =>
+                        $userId,
+
+                    'notification_read_at' =>
+                        $now,
+
+                ];
+
+            })
+
+            ->all();
+
+
+        // =====================================================
+        // INSERT READ RECEIPTS
+        //
+        // insertOrIgnore() IS AN EXTRA SAFETY CHECK
+        // IF THE UNIQUE CONSTRAINT ALREADY EXISTS
+        // =====================================================
+
+        DB::table('notification_reads_table')
+
+            ->insertOrIgnore($readRows);
+
+
+        // =====================================================
+        // RETURN TO NOTIFICATIONS PAGE
+        // =====================================================
+
+        return back()->with(
+            'success',
+            'All notifications marked as read.'
+        );
+    }
+
+    private function applyMaintenanceNotificationAccess(
+        $query,
+        $userId
+    )
+    {
+        return $query->where(function ($query) use ($userId) {
+
+            // =====================================================
+            // PERSONAL NOTIFICATION
+            // =====================================================
+
+            $query->where(
+                'notifications_table.notification_user_id',
+                $userId
+            )
+
+
+            // =====================================================
+            // OR MAINTENANCE PERSONNEL BROADCAST
+            // =====================================================
+
+            ->orWhere(function ($query) {
+
+                $query
+                    ->whereNull(
+                        'notifications_table.notification_user_id'
+                    )
+
+                    ->where(
+                        'notifications_table.notification_target_role',
+                        'Maintenance Personnel'
+                    );
+
+            });
+
+        });
     }
 }

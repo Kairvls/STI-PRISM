@@ -19,7 +19,7 @@
             <button
                 type="button"
                 onclick="openAddEquipmentModal()"
-                class="inline-flex items-center gap-2 rounded-xl bg-[rgba(0,55,199,0.85)] px-4 py-3 font-semibold text-sm text-white transition hover:bg-[rgba(0,44,155,0.85)]"
+                class="inline-flex items-center gap-2 rounded-xl bg-[rgba(0,55,199,0.85)] px-4 py-3 font-semibold font-sans-serif text-sm text-white transition hover:bg-[rgba(0,44,155,0.85)]"
             >
                 <i data-lucide="plus" class="w-4 h-4"></i>
 
@@ -31,173 +31,404 @@
         <!-- ========================================================= -->
         <!-- DASHBOARD STATS -->
         <!-- ========================================================= -->
+        {{-- ===================================================== --}}
+        {{-- EQUIPMENT INVENTORY DASHBOARD --}}
+        {{-- ===================================================== --}}
+
         <div
-            class="overflow-hidden rounded-lg border-t border-b border-slate-300 bg-gray-100 shadow-sm"
+            class="overflow-hidden rounded-lg border-y border-slate-300 bg-gray-100 shadow-sm"
         >
             <div
-                class="grid grid-cols-1 divide-y divide-slate-200 md:grid-cols-2 md:divide-y-0 xl:grid-cols-[380px_1fr_1fr_1fr] "
+                class="grid grid-cols-1 divide-y divide-slate-200
+                    md:grid-cols-2 md:divide-y-0
+                    xl:grid-cols-[380px_1fr_1fr_1fr]"
             >
-                <!-- Total Equipment -->
+
+                {{-- ===================================================== --}}
+                {{-- TOTAL EQUIPMENT --}}
+                {{-- ===================================================== --}}
+
                 <div class="flex items-center justify-between px-8 py-6">
 
-                    <!-- Left Content -->
+                    {{-- ================================================= --}}
+                    {{-- LEFT CONTENT --}}
+                    {{-- ================================================= --}}
+
                     <div class="flex flex-col">
+
                         <p class="text-sm font-medium text-slate-500">
                             Total Equipment
                         </p>
 
+
                         <h2 class="mt-2 text-5xl font-medium text-slate-900">
-                            {{ $equipment->total() }}
+
+                            {{ number_format($totalEquipment) }}
+
                         </h2>
 
+
+                        {{-- ================================================= --}}
+                        {{-- MONTHLY REGISTRATION PERCENTAGE CHANGE --}}
+                        {{-- ================================================= --}}
+
                         <p class="mt-3 text-sm">
-                            <span class="font-semibold text-emerald-500">
-                                +12.45%
-                            </span>
+
+                            @if ($equipmentMonthlyPercentage === null)
+
+                                {{-- ============================================= --}}
+                                {{-- PREVIOUS MONTH = 0 --}}
+                                {{-- CURRENT MONTH HAS NEW EQUIPMENT --}}
+                                {{-- ============================================= --}}
+
+                                <span class="font-semibold text-emerald-600">
+                                    New activity
+                                </span>
+
+                            @else
+
+                                <span
+                                    class="font-semibold
+                                        {{
+                                            $equipmentMonthlyPercentage > 0
+                                                ? 'text-emerald-600'
+                                                : (
+                                                    $equipmentMonthlyPercentage < 0
+                                                        ? 'text-red-600'
+                                                        : 'text-slate-500'
+                                                )
+                                        }}"
+                                >
+
+                                    {{
+                                        $equipmentMonthlyPercentage > 0
+                                            ? '+'
+                                            : ''
+                                    }}{{ number_format($equipmentMonthlyPercentage, 2) }}%
+
+                                </span>
+
+                            @endif
+
 
                             <span class="text-slate-500">
                                 From last month
                             </span>
+
                         </p>
+
                     </div>
 
-                    <!-- Right Graph -->
+
+                    {{-- ===================================================== --}}
+                    {{-- REAL 12 MONTH EQUIPMENT REGISTRATION TREND --}}
+                    {{-- ===================================================== --}}
+
+                    @php
+
+                        // =====================================================
+                        // GET REAL MONTHLY REGISTRATION COUNTS
+                        // =====================================================
+
+                        $equipmentTrendCounts =
+                            $equipmentMonthlyTrend->pluck('count');
+
+
+                        // =====================================================
+                        // GRAPH DIMENSIONS
+                        // =====================================================
+
+                        $equipmentGraphWidth = 300;
+
+                        $equipmentGraphHeight = 100;
+
+                        $equipmentGraphTopPadding = 10;
+
+                        $equipmentGraphBottomPadding = 10;
+
+
+                        // =====================================================
+                        // HIGHEST MONTHLY REGISTRATION COUNT
+                        // =====================================================
+
+                        $maxEquipmentTrendCount =
+                            max(
+                                1,
+                                $equipmentTrendCounts->max()
+                            );
+
+
+                        // =====================================================
+                        // NUMBER OF GRAPH POINTS
+                        // =====================================================
+
+                        $equipmentTrendPointCount =
+                            max(
+                                1,
+                                $equipmentMonthlyTrend->count() - 1
+                            );
+
+
+                        // =====================================================
+                        // BUILD LINE GRAPH POINTS
+                        // =====================================================
+
+                        $equipmentTrendPoints =
+                            $equipmentMonthlyTrend
+
+                                ->values()
+
+                                ->map(function (
+                                    $item,
+                                    $index
+                                ) use (
+                                    $equipmentGraphWidth,
+                                    $equipmentGraphHeight,
+                                    $equipmentGraphTopPadding,
+                                    $equipmentGraphBottomPadding,
+                                    $maxEquipmentTrendCount,
+                                    $equipmentTrendPointCount
+                                ) {
+
+                                    // =========================================
+                                    // X POSITION
+                                    // =========================================
+
+                                    $x =
+                                        (
+                                            $index
+                                            / $equipmentTrendPointCount
+                                        )
+                                        * $equipmentGraphWidth;
+
+
+                                    // =========================================
+                                    // AVAILABLE GRAPH HEIGHT
+                                    // =========================================
+
+                                    $usableHeight =
+                                        $equipmentGraphHeight
+                                        - $equipmentGraphTopPadding
+                                        - $equipmentGraphBottomPadding;
+
+
+                                    // =========================================
+                                    // Y POSITION
+                                    // =========================================
+
+                                    $y =
+                                        $equipmentGraphHeight
+                                        - $equipmentGraphBottomPadding
+                                        - (
+                                            (
+                                                $item['count']
+                                                / $maxEquipmentTrendCount
+                                            )
+                                            * $usableHeight
+                                        );
+
+
+                                    return
+                                        round($x, 2)
+                                        . ','
+                                        . round($y, 2);
+
+                                })
+
+                                ->implode(' ');
+
+
+                        // =====================================================
+                        // BUILD AREA GRAPH POINTS
+                        // =====================================================
+
+                        $equipmentTrendAreaPoints =
+                            '0,100 '
+                            . $equipmentTrendPoints
+                            . ' 300,100';
+
+                    @endphp
+
+
                     <div class="ml-6 h-20 w-40 shrink-0">
+
                         <svg
                             viewBox="0 0 300 100"
                             class="h-full w-full"
                             fill="none"
+                            aria-label="Equipment registrations over the last 12 months"
                         >
-                            <path
-                                d="M0 62
-                                L35 28
-                                L62 58
-                                L82 52
-                                L112 82
-                                L162 82
-                                L200 42
-                                L232 64
-                                L270 64
-                                L300 18"
-                                stroke="#3b82f6"
+
+                            {{-- ================================================= --}}
+                            {{-- GRAPH AREA --}}
+                            {{-- ================================================= --}}
+
+                            <polygon
+                                points="{{ $equipmentTrendAreaPoints }}"
+                                fill="currentColor"
+                                fill-opacity=".08"
+                                class="text-slate-900"
+                            />
+
+
+                            {{-- ================================================= --}}
+                            {{-- GRAPH LINE --}}
+                            {{-- ================================================= --}}
+
+                            <polyline
+                                points="{{ $equipmentTrendPoints }}"
+                                fill="none"
+                                stroke="currentColor"
                                 stroke-width="2.5"
                                 stroke-linecap="round"
                                 stroke-linejoin="round"
+                                class="text-slate-900"
                             />
 
-                            <path
-                                d="M0 62
-                                L35 28
-                                L62 58
-                                L82 52
-                                L112 82
-                                L162 82
-                                L200 42
-                                L232 64
-                                L270 64
-                                L300 18
-                                L300 100
-                                L0 100 Z"
-                                fill="#3b82f6"
-                                fill-opacity=".08"
-                            />
                         </svg>
+
                     </div>
 
                 </div>
 
-                <!-- Active -->
+
+                {{-- ===================================================== --}}
+                {{-- ACTIVE EQUIPMENT --}}
+                {{-- ===================================================== --}}
+
                 <div class="relative flex flex-col justify-between px-8 py-7">
 
                     <span
-                        class="absolute left-0 top-8 hidden h-[68%] border-l border-slate-200 xl:block"
+                        class="absolute left-0 top-8 hidden h-[68%]
+                            border-l border-slate-200 xl:block"
                     ></span>
+
 
                     <p class="text-md font-medium text-slate-600">
                         Active
                     </p>
 
+
                     <h2 class="text-5xl font-medium text-slate-900">
-                        {{
-                            $equipment
-                                ->where("equipment_inventory_status", "Active")
-                                ->count()
-                        }}
+
+                        {{ number_format($activeEquipment) }}
+
                     </h2>
 
+
                     <p class="text-base">
-                        <span class="font-semibold text-emerald-500">
-                            +8.32%
+
+                        <span class="font-semibold text-emerald-600">
+
+                            {{
+                                number_format(
+                                    $activeEquipmentPercentage,
+                                    2
+                                )
+                            }}%
+
                         </span>
 
                         <span class="text-slate-500">
-                            From last month
+                            of all equipment
                         </span>
+
                     </p>
+
                 </div>
 
-                <!-- Under Maintenance -->
+
+                {{-- ===================================================== --}}
+                {{-- UNDER MAINTENANCE EQUIPMENT --}}
+                {{-- ===================================================== --}}
+
                 <div class="relative flex flex-col justify-between px-8 py-7">
 
                     <span
-                        class="absolute left-0 top-8 hidden h-[68%] border-l border-slate-200 xl:block"
+                        class="absolute left-0 top-8 hidden h-[68%]
+                            border-l border-slate-200 xl:block"
                     ></span>
+
 
                     <p class="text-md font-medium text-slate-600">
                         Under Maintenance
                     </p>
 
+
                     <h2 class="text-5xl font-medium text-slate-900">
-                        {{
-                            $equipment
-                                ->where(
-                                    "equipment_inventory_status",
-                                    "Under Maintenance",
-                                )
-                                ->count()
-                        }}
+
+                        {{ number_format($underMaintenanceEquipment) }}
+
                     </h2>
 
+
                     <p class="text-base">
-                        <span class="font-semibold text-red-500">
-                            -4.67%
+
+                        <span class="font-semibold text-amber-600">
+
+                            {{
+                                number_format(
+                                    $underMaintenanceEquipmentPercentage,
+                                    2
+                                )
+                            }}%
+
                         </span>
 
                         <span class="text-slate-500">
-                            From last month
+                            of all equipment
                         </span>
+
                     </p>
+
                 </div>
 
-                <!-- Disposed -->
+
+                {{-- ===================================================== --}}
+                {{-- DISPOSED EQUIPMENT --}}
+                {{-- ===================================================== --}}
+
                 <div class="relative flex flex-col justify-between px-8 py-7">
 
                     <span
-                        class="absolute left-0 top-8 hidden h-[68%] border-l border-slate-200 xl:block"
+                        class="absolute left-0 top-8 hidden h-[68%]
+                            border-l border-slate-200 xl:block"
                     ></span>
+
 
                     <p class="text-md font-medium text-slate-600">
                         Disposed
                     </p>
 
+
                     <h2 class="text-5xl font-medium text-slate-900">
-                        {{
-                            $equipment
-                                ->where("equipment_inventory_status", "Disposed")
-                                ->count()
-                        }}
+
+                        {{ number_format($disposedEquipment) }}
+
                     </h2>
 
+
                     <p class="text-base">
-                        <span class="font-semibold text-emerald-500">
-                            +2.15%
+
+                        <span class="font-semibold text-slate-600">
+
+                            {{
+                                number_format(
+                                    $disposedEquipmentPercentage,
+                                    2
+                                )
+                            }}%
+
                         </span>
 
                         <span class="text-slate-500">
-                            From last month
+                            of all equipment
                         </span>
+
                     </p>
+
                 </div>
+
             </div>
         </div>
 
@@ -350,43 +581,128 @@
                 <div
                     class="flex flex-col gap-4 border-b border-slate-200 bg-white px-5 py-4 lg:flex-row lg:items-center lg:justify-between"
                 >
-                    <!-- LEFT -->
+                    <!-- ========================================================= -->
+                    <!-- LEFT STATUS FILTERS -->
+                    <!-- REPLACE YOUR CURRENT ALL / ACTIVE / MAINTENANCE BUTTONS -->
+                    <!-- ========================================================= -->
+
                     <div class="flex items-center gap-2 overflow-x-auto whitespace-nowrap">
 
-                        <button
-                            class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white"
+                        {{-- ===================================================== --}}
+                        {{-- ALL EQUIPMENT --}}
+                        {{-- REMOVES STATUS AND RESETS PAGINATION --}}
+                        {{-- ===================================================== --}}
+
+                        <a
+                            href="{{ request()->fullUrlWithQuery([
+                                'status' => null,
+                                'page' => null,
+                            ]) }}"
+
+                            class="rounded-lg px-3 py-2 text-sm transition
+                                {{
+                                    !request()->filled('status')
+                                        ? 'bg-slate-900 font-medium text-white'
+                                        : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                                }}"
                         >
                             All
-                        </button>
+                        </a>
 
-                        <button
-                            class="rounded-lg px-3 py-2 text-sm text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+
+                        {{-- ===================================================== --}}
+                        {{-- ACTIVE EQUIPMENT --}}
+                        {{-- ===================================================== --}}
+
+                        <a
+                            href="{{ request()->fullUrlWithQuery([
+                                'status' => 'Active',
+                                'page' => null,
+                            ]) }}"
+
+                            class="rounded-lg px-3 py-2 text-sm transition
+                                {{
+                                    request('status') === 'Active'
+                                        ? 'bg-slate-900 font-medium text-white'
+                                        : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                                }}"
                         >
                             Active
-                        </button>
+                        </a>
 
-                        <button
-                            class="rounded-lg px-3 py-2 text-sm text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+
+                        {{-- ===================================================== --}}
+                        {{-- UNDER MAINTENANCE EQUIPMENT --}}
+                        {{-- IMPORTANT: VALUE MUST MATCH DATABASE STATUS --}}
+                        {{-- ===================================================== --}}
+
+                        <a
+                            href="{{ request()->fullUrlWithQuery([
+                                'status' => 'Under Maintenance',
+                                'page' => null,
+                            ]) }}"
+
+                            class="rounded-lg px-3 py-2 text-sm transition
+                                {{
+                                    request('status') === 'Under Maintenance'
+                                        ? 'bg-slate-900 font-medium text-white'
+                                        : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                                }}"
                         >
                             Maintenance
-                        </button>
+                        </a>
 
-                        <button
-                            class="rounded-lg px-3 py-2 text-sm text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+
+                        {{-- ===================================================== --}}
+                        {{-- BORROWED EQUIPMENT --}}
+                        {{-- ===================================================== --}}
+
+                        <a
+                            href="{{ request()->fullUrlWithQuery([
+                                'status' => 'Borrowed',
+                                'page' => null,
+                            ]) }}"
+
+                            class="rounded-lg px-3 py-2 text-sm transition
+                                {{
+                                    request('status') === 'Borrowed'
+                                        ? 'bg-slate-900 font-medium text-white'
+                                        : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                                }}"
                         >
                             Borrowed
-                        </button>
+                        </a>
 
-                        <button
-                            class="rounded-lg px-3 py-2 text-sm text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
+
+                        {{-- ===================================================== --}}
+                        {{-- DISPOSED EQUIPMENT --}}
+                        {{-- ===================================================== --}}
+
+                        <a
+                            href="{{ request()->fullUrlWithQuery([
+                                'status' => 'Disposed',
+                                'page' => null,
+                            ]) }}"
+
+                            class="rounded-lg px-3 py-2 text-sm transition
+                                {{
+                                    request('status') === 'Disposed'
+                                        ? 'bg-slate-900 font-medium text-white'
+                                        : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                                }}"
                         >
                             Disposed
-                        </button>
+                        </a>
 
                     </div>
 
                     <!-- RIGHT -->
                     <form method="GET">
+                        <input
+                            type="hidden"
+                            name="status"
+                            value="{{ request('status') }}"
+                        >
                         <div class="flex flex-wrap items-center gap-2">
 
                             <!-- Search -->
@@ -406,12 +722,12 @@
                                 >
                             </div>
 
-                            <!-- Category 
+                            <!-- Category -->
                             <select
                                 name="category"
                                 class="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm"
                             >
-                                <option value="">Category</option>
+                                <option value="">All Category</option>
 
                                 @foreach ($categories as $category)
                                     <option
@@ -426,7 +742,7 @@
                                         {{ $category->equipment_category_name }}
                                     </option>
                                 @endforeach
-                            </select>-->
+                            </select>
 
                             <!-- Room 
                             <select
@@ -449,7 +765,7 @@
                                 @endforeach
                             </select>-->
 
-                            <!-- Status -->
+                            <!-- Status 
                             <select
                                 name="status"
                                 class="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm"
@@ -461,13 +777,13 @@
                                 <option value="Borrowed">Borrowed</option>
                                 <option value="For Replacement">For Replacement</option>
                                 <option value="Disposed">Disposed</option>
-                            </select>
+                            </select> -->
 
                             <button
                                 type="submit"
-                                class="inline-flex h-10 items-center rounded-xl bg-[rgba(0,55,199,0.85)] px-4 text-sm font-semibold text-white transition hover:bg-[rgba(0,44,155,0.85)]"
+                                class="inline-flex h-9 items-center rounded-lg bg-[rgba(0,55,199,0.85)] px-3 text-xs font-semibold font-sans-serif text-white transition hover:bg-[rgba(0,44,155,0.85)]"
                             >
-                                Apply
+                                Search
                             </button>
 
                         </div>
@@ -477,35 +793,35 @@
                 <table class="w-full">
                     <thead class="border-b border-slate-200 bg-slate-50/80">
                         <tr>
-                            <th class="px-6 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                            <th class="px-6 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black">
                                 Equipment
                             </th>
 
-                            <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                            <th class="px-4 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black">
                                 Brand
                             </th>
 
-                            <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                            <th class="px-4 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black">
                                 Category
                             </th>
 
-                            <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                            <th class="px-4 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black">
                                 Room
                             </th>
 
-                            <th class="px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                            <th class="px-4 py-3 text-center text-[12px] font-bold uppercase tracking-wider text-black">
                                 Qty
                             </th>
 
-                            <th class="px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                            <th class="px-4 py-3 text-center text-[12px] font-bold uppercase tracking-wider text-black">
                                 Condition
                             </th>
 
-                            <th class="px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                            <th class="px-4 py-3 text-center text-[12px] font-bold uppercase tracking-wider text-black">
                                 Status
                             </th>
 
-                            <th class="w-32 px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                            <th class="w-32 px-4 py-3 text-center text-[12px] font-bold uppercase tracking-wider text-black">
                                 Actions
                             </th>
                         </tr>
@@ -640,7 +956,7 @@
                                                 '{{ $item->equipment_inventory_status }}'
 
                                             )"
-                                            class="flex h-9 w-9 items-center justify-center rounded-lg bg-[rgba(0,55,199,0.85)] text-white transition hover:bg-[rgba(0,44,155,0.85)]"
+                                            class="flex h-9 w-9 items-center justify-center rounded-lg bg-[#FFF200] text-black transition hover:bg-[#E6E600]"
                                         >
                                             <i data-lucide="edit-3" class="h-4 w-4"></i>
                                         </button>
@@ -650,23 +966,189 @@
                             </tr>
 
                         @empty
+
                             <tr>
+
                                 <td
                                     colspan="9"
-                                    class="p-10 text-center text-slate-500"
+                                    class="px-6 py-16 text-center"
                                 >
-                                    No equipment found.
+
+                                    {{-- ===================================================== --}}
+                                    {{-- EMPTY STATE --}}
+                                    {{-- ===================================================== --}}
+
+                                    <div class="mx-auto flex max-w-sm flex-col items-center">
+
+                                        {{-- ================================================= --}}
+                                        {{-- ICON --}}
+                                        {{-- ================================================= --}}
+
+                                        <div
+                                            class="flex h-12 w-12 items-center justify-center
+                                                rounded-2xl border border-slate-200
+                                                bg-slate-50 text-slate-400"
+                                        >
+                                            <i
+                                                data-lucide="{{
+                                                    request()->filled('search')
+                                                    || request()->filled('category')
+                                                    || request()->filled('status')
+                                                        ? 'search-x'
+                                                        : 'package-open'
+                                                }}"
+                                                class="h-5 w-5"
+                                            ></i>
+                                        </div>
+
+
+                                        {{-- ================================================= --}}
+                                        {{-- TITLE --}}
+                                        {{-- ================================================= --}}
+
+                                        <h3 class="mt-4 text-sm font-semibold text-slate-800">
+
+                                            {{
+                                                request()->filled('search')
+                                                || request()->filled('category')
+                                                || request()->filled('status')
+
+                                                    ? 'No matching equipment'
+
+                                                    : 'No equipment yet'
+                                            }}
+
+                                        </h3>
+
+
+                                        {{-- ================================================= --}}
+                                        {{-- DESCRIPTION --}}
+                                        {{-- ================================================= --}}
+
+                                        <p
+                                            class="mt-1.5 max-w-xs text-xs leading-5
+                                                text-slate-400"
+                                        >
+
+                                            {{
+                                                request()->filled('search')
+                                                || request()->filled('category')
+                                                || request()->filled('status')
+
+                                                    ? 'No equipment matches your current search or filters. Try adjusting them.'
+
+                                                    : 'Equipment added to the inventory will appear here.'
+                                            }}
+
+                                        </p>
+
+
+                                        {{-- ================================================= --}}
+                                        {{-- CLEAR FILTERS --}}
+                                        {{-- ONLY SHOW WHEN FILTERING --}}
+                                        {{-- ================================================= --}}
+
+                                        @if (
+                                            request()->filled('search')
+                                            || request()->filled('category')
+                                            || request()->filled('status')
+                                        )
+
+                                            <a
+                                                href="{{ url()->current() }}"
+
+                                                class="mt-5 inline-flex h-9 items-center gap-2
+                                                    rounded-lg border border-slate-200
+                                                    bg-white px-3.5
+                                                    text-xs font-semibold text-slate-600
+                                                    shadow-sm transition
+                                                    hover:border-slate-300
+                                                    hover:bg-slate-50
+                                                    hover:text-slate-900"
+                                            >
+
+                                                <i
+                                                    data-lucide="rotate-ccw"
+                                                    class="h-3.5 w-3.5"
+                                                ></i>
+
+                                                Clear filters
+
+                                            </a>
+
+                                        @endif
+
+                                    </div>
+
                                 </td>
+
                             </tr>
 
                         @endforelse
                     </tbody>
                 </table>
             </div>
+
+            {{-- ===================================================== --}}
+            {{-- PAGINATION --}}
+            {{-- PLACE INSIDE EQUIPMENT TABLE CARD --}}
+            {{-- DIRECTLY BELOW TABLE CONTAINER --}}
+            {{-- ===================================================== --}}
+
+            @if ($equipment->hasPages())
+
+                <div
+                    class="flex flex-col gap-3
+                        border-t border-slate-200
+                        px-5 py-4
+                        sm:flex-row
+                        sm:items-center
+                        sm:justify-between"
+                >
+
+                    {{-- ================================================= --}}
+                    {{-- PAGINATION INFORMATION --}}
+                    {{-- ================================================= --}}
+
+                    <p class="text-xs text-slate-500">
+
+                        Showing
+
+                        <span class="font-semibold text-slate-700">
+                            {{ $equipment->firstItem() }}
+                        </span>
+
+                        to
+
+                        <span class="font-semibold text-slate-700">
+                            {{ $equipment->lastItem() }}
+                        </span>
+
+                        of
+
+                        <span class="font-semibold text-slate-700">
+                            {{ $equipment->total() }}
+                        </span>
+
+                        equipment
+
+                    </p>
+
+
+                    {{-- ================================================= --}}
+                    {{-- PAGINATION LINKS --}}
+                    {{-- ================================================= --}}
+
+                    <div>
+                        {{ $equipment->links() }}
+                    </div>
+
+                </div>
+
+            @endif
         </div>
 
-        <!-- PAGINATION -->
-        <div>{{ $equipment->links() }}</div>
+        
     </div>
 
     <!-- VIEW EQUIPMENT MODAL -->
@@ -676,7 +1158,7 @@
     <!-- ========================================================= -->
     <div
         id="viewEquipmentModal"
-        class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/40 p-3 backdrop-blur-sm sm:p-5"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]"
     >
         <!-- MODAL CONTAINER -->
         <div
@@ -686,11 +1168,17 @@
             <!-- HEADER -->
             <!-- ================================================= -->
             <div
-                class="flex shrink-0 items-center justify-between px-5 pb-3 pt-5 sm:px-7 sm:pt-6"
+                class="flex shrink-0 items-center justify-between px-5 pb-3 pt-5 sm:px-7 sm:pt-6 border-b border-dashed border-slate-500"
             >
-                <h2 class="text-base font-bold text-slate-900">
-                    Equipment Details
-                </h2>
+                <div class="block">
+                    <h2 class="text-base font-bold text-slate-900">
+                        Equipment Details
+                    </h2>
+
+                    <p class="mb-2 mt-1 text-xs font-medium text-slate-500">
+                        Complete inventory, location, and equipment information.
+                    </p>
+                </div>
 
                 <button
                     type="button"
@@ -705,12 +1193,12 @@
             <!-- ================================================= -->
             <!-- SCROLLABLE CONTENT -->
             <!-- ================================================= -->
-            <div class="min-h-0 flex-1 overflow-y-auto px-5 pb-5 sm:px-7">
+            <div class="min-h-0 flex-1 overflow-y-auto px-5 pb-5 pt-5 sm:px-7">
 
                 <!-- SECTION LABEL -->
-                <p class="mb-3 text-xs font-medium text-slate-500">
+                <!--<p class="mb-3 text-xs font-medium text-slate-500">
                     Complete inventory, location, and equipment information.
-                </p>
+                </p>-->
 
                 <!-- ================================================= -->
                 <!-- MAIN INFORMATION PANEL -->
@@ -894,6 +1382,8 @@
                 </div>
             </div>
 
+            <div class="border-t border-dashed border-slate-500"></div>
+
             <!-- ================================================= -->
             <!-- FOOTER -->
             <!-- ================================================= -->
@@ -903,7 +1393,7 @@
                 <button
                     type="button"
                     onclick="closeEquipmentModal()"
-                    class="rounded-lg bg-slate-950 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+                    class="rounded-lg px-3.5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
                 >
                     Close
                 </button>
@@ -924,7 +1414,7 @@
     <!-- ADD EQUIPMENT MODAL -->
     <!-- ===================================== -->
     <div
-        class="flex max-h-[80vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
+        class="flex max-h-[70vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
     >
         <!-- ===================================== -->
         <!-- MODAL HEADER -->
@@ -1275,7 +1765,7 @@
 
                     <button
                         type="submit"
-                        class="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-slate-200 active:bg-black"
+                        class="rounded-lg bg-[rgba(0,55,199,0.85)] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[rgba(0,44,155,0.85)] focus:outline-none focus:ring-4 focus:ring-slate-200 active:bg-black"
                     >
                         Add equipment
                     </button>
@@ -1297,7 +1787,7 @@
     <!-- EDIT EQUIPMENT MODAL -->
     <!-- ===================================== -->
     <div
-        class="flex max-h-[80vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
+        class="flex max-h-[70vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
     >
         <!-- ===================================== -->
         <!-- MODAL HEADER -->
@@ -1678,7 +2168,7 @@
 
                     <button
                         type="submit"
-                        class="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-slate-200 active:bg-black"
+                        class="rounded-lg bg-[rgba(0,55,199,0.85)] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[rgba(0,44,155,0.85)] focus:outline-none focus:ring-4 focus:ring-slate-200 active:bg-black"
                     >
                         Save changes
                     </button>

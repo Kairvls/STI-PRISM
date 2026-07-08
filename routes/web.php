@@ -100,11 +100,14 @@ Route::middleware('auth')->group(function () {
 
 });
 
-/*
-|--------------------------------------------------------------------------
-| ADMIN
-|--------------------------------------------------------------------------
-*/
+
+
+
+
+
+// =====================================================
+// PUT HERE THE ADMIN ROUTES BELOW
+// =====================================================
 
 Route::middleware(['auth', 'admin'])->group(function () {
 
@@ -137,6 +140,11 @@ Route::middleware(['auth', 'admin'])->group(function () {
 
 });
 
+
+
+
+
+
 /*
 |--------------------------------------------------------------------------
 | LOGOUT
@@ -153,11 +161,15 @@ Route::post('/logout',
 |--------------------------------------------------------------------------
 */
 
-/*
-|--------------------------------------------------------------------------
-| MAINTENANCE PERSONNEL
-|--------------------------------------------------------------------------
-*/
+
+
+
+
+
+
+// =====================================================
+// PUT HERE THE MAINTENANCE PERSONNEL ROUTES BELOW
+// =====================================================
 
 Route::middleware(['auth'])->group(function () {
 
@@ -321,6 +333,15 @@ Route::middleware(['auth'])->group(function () {
 Route::get(
     '/maintenance/reports/details/{id}',
     [MaintenanceController::class, 'reportDetails']
+);
+
+// =====================================================
+// TODAY'S REPORTS
+// =====================================================
+
+Route::get(
+    '/maintenance/reports/today',
+    [MaintenanceController::class, 'todayReports']
 );
 
 
@@ -659,6 +680,15 @@ Route::get(
     [MaintenanceController::class, 'roomDetails']
 );*/
 
+// =====================================================
+// TODAY'S MAINTENANCE SCHEDULES
+// =====================================================
+
+Route::get(
+    '/maintenance/schedules/today',
+    [MaintenanceController::class, 'todaySchedules']
+);
+
 
 /*
 |--------------------------------------------------------------------------
@@ -757,4 +787,138 @@ Route::post(
     '/maintenance/reporters/delete',
     [MaintenanceController::class, 'deleteReporter']
 );
+
+
+
+// =====================================================
+// NOTIFICATIONS PAGE
+// =====================================================
+
+Route::get(
+    '/maintenance/notifications',
+    [MaintenanceController::class, 'notifications']
+);
+
+
+// =====================================================
+// MARK ALL AS READ
+// KEEP STATIC ROUTE BEFORE DYNAMIC ROUTES
+// =====================================================
+
+Route::post(
+    '/maintenance/notifications/mark-all-read',
+    [MaintenanceController::class, 'markAllNotificationsAsRead']
+);
+
+
+// =====================================================
+// OPEN SINGLE NOTIFICATION
+// =====================================================
+
+Route::get(
+    '/maintenance/notifications/{id}/open',
+    [MaintenanceController::class, 'openNotification']
+);
+
+Route::middleware([
+    'auth',
+    'maintenance',
+])->prefix('maintenance')->group(function () {
+
+    // =====================================================
+    // DASHBOARD
+    // =====================================================
+
+    Route::get(
+        '/dashboard',
+        [MaintenanceController::class, 'dashboard']
+    );
+
+
+    // =====================================================
+    // NOTIFICATIONS PAGE
+    // =====================================================
+
+    Route::get(
+        '/notifications',
+        [MaintenanceController::class, 'notifications']
+    );
+
+
+    // =====================================================
+    // MARK ALL NOTIFICATIONS AS READ
+    // =====================================================
+
+    Route::post(
+        '/notifications/mark-all-read',
+        [
+            MaintenanceController::class,
+            'markAllNotificationsAsRead'
+        ]
+    );
+
+
+    // =====================================================
+    // OPEN NOTIFICATION
+    // =====================================================
+
+    Route::get(
+        '/notifications/{id}/open',
+        [
+            MaintenanceController::class,
+            'openNotification'
+        ]
+    );
+
+
+    // =====================================================
+    // PUT ALL OTHER MAINTENANCE ROUTES HERE
+    // =====================================================
+
+});
+
+
+
+
+
+
+
+
+
+
+
+// =====================================================
+// PUT HERE THE PURCHASER ROUTES BELOW
+// =====================================================
+
+
+
+
+
+
+
+
+// =====================================================
+// PUT HERE THE PRESIDENT ROUTES BELOW
+// =====================================================
+
+
+
+
+
+
+// =====================================================
+// PUT HERE THE ACCOUNTING ROUTES BELOW
+// =====================================================
+
+
+
+
+
+
+// =====================================================
+// PUT HERE THE RECEIVING ROUTES BELOW
+// =====================================================
+
+
 require __DIR__.'/auth.php';

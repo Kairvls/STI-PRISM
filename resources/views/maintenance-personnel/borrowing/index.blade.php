@@ -25,81 +25,152 @@
     </div>
 
     <div
-        class="overflow-hidden mt-6 mb-6 rounded-lg border-t border-b border-slate-300 bg-gray-100 shadow-sm"
+        class="mb-6 mt-6 overflow-hidden rounded-lg border-t border-b border-slate-300 bg-gray-100 shadow-sm"
     >
         <div
-            class="grid grid-cols-1 divide-y divide-slate-200 md:grid-cols-2 md:divide-y-0 xl:grid-cols-[380px_1fr_1fr_1fr] "
+            class="grid grid-cols-1 divide-y divide-slate-200 md:grid-cols-2 md:divide-y-0 xl:grid-cols-[380px_1fr_1fr_1fr]"
         >
-            <!-- Total Equipment -->
+
+            {{-- ===================================================== --}}
+            {{-- TOTAL BORROWING RECORDS --}}
+            {{-- ===================================================== --}}
+
             <div class="flex items-center justify-between px-8 py-6">
 
-                <!-- Left Content -->
                 <div class="flex flex-col">
+
                     <p class="text-sm font-medium text-slate-500">
-                        Total Equipment
+                        Total Borrowing Records
                     </p>
 
                     <h2 class="mt-2 text-5xl font-medium text-slate-900">
-                        6,500
+                        {{ number_format($totalBorrowingRecords) }}
                     </h2>
 
+
+                    {{-- ================================================= --}}
+                    {{-- MONTHLY PERCENTAGE CHANGE --}}
+                    {{-- ================================================= --}}
+
                     <p class="mt-3 text-sm">
-                        <span class="font-semibold text-emerald-500">
-                            +12.45%
-                        </span>
+
+                        @if ($borrowingMonthlyPercentage === null)
+
+                            <span class="font-semibold text-emerald-500">
+                                New activity
+                            </span>
+
+                        @else
+
+                            <span
+                                class="font-semibold
+                                    {{
+                                        $borrowingMonthlyPercentage > 0
+                                            ? 'text-emerald-500'
+                                            : (
+                                                $borrowingMonthlyPercentage < 0
+                                                    ? 'text-red-500'
+                                                    : 'text-slate-500'
+                                            )
+                                    }}"
+                            >
+                                {{
+                                    $borrowingMonthlyPercentage > 0
+                                        ? '+'
+                                        : ''
+                                }}{{ number_format($borrowingMonthlyPercentage, 2) }}%
+                            </span>
+
+                        @endif
 
                         <span class="text-slate-500">
                             From last month
                         </span>
+
                     </p>
+
                 </div>
 
-                <!-- Right Graph -->
+
+                {{-- ===================================================== --}}
+                {{-- REAL 12 MONTH GRAPH --}}
+                {{-- ===================================================== --}}
+
                 <div class="ml-6 h-20 w-40 shrink-0">
+
                     <svg
                         viewBox="0 0 300 100"
                         class="h-full w-full"
                         fill="none"
                     >
-                        <path
-                            d="M0 62
-                            L35 28
-                            L62 58
-                            L82 52
-                            L112 82
-                            L162 82
-                            L200 42
-                            L232 64
-                            L270 64
-                            L300 18"
+
+                        @php
+
+                            $borrowingCounts =
+                                $borrowingMonthlyTrend->pluck('count');
+
+                            $maxBorrowingCount =
+                                max(
+                                    1,
+                                    $borrowingCounts->max()
+                                );
+
+                            $borrowingPointCount =
+                                max(
+                                    1,
+                                    $borrowingMonthlyTrend->count() - 1
+                                );
+
+                            $borrowingPoints =
+                                $borrowingMonthlyTrend
+                                    ->values()
+                                    ->map(function ($item, $index) use (
+                                        $maxBorrowingCount,
+                                        $borrowingPointCount
+                                    ) {
+
+                                        $x =
+                                            ($index / $borrowingPointCount)
+                                            * 300;
+
+                                        $y =
+                                            90
+                                            - (
+                                                ($item['count'] / $maxBorrowingCount)
+                                                * 75
+                                            );
+
+                                        return
+                                            round($x, 2)
+                                            . ','
+                                            . round($y, 2);
+
+                                    })
+                                    ->implode(' ');
+
+                        @endphp
+
+
+                        <polyline
+                            points="{{ $borrowingPoints }}"
+                            fill="none"
                             stroke="#3b82f6"
                             stroke-width="2.5"
                             stroke-linecap="round"
                             stroke-linejoin="round"
                         />
 
-                        <path
-                            d="M0 62
-                            L35 28
-                            L62 58
-                            L82 52
-                            L112 82
-                            L162 82
-                            L200 42
-                            L232 64
-                            L270 64
-                            L300 18
-                            L300 100
-                            L0 100 Z"
-                            fill="#3b82f6"
-                            fill-opacity=".08"
-                        />
                     </svg>
+
                 </div>
 
             </div>
 
-            <!-- Active -->
+
+            {{-- ===================================================== --}}
+            {{-- ON LOAN --}}
+            {{-- ===================================================== --}}
+
             <div class="relative flex flex-col justify-between px-8 py-7">
 
                 <span
@@ -107,25 +178,32 @@
                 ></span>
 
                 <p class="text-md font-medium text-slate-600">
-                    Active
+                    On Loan
                 </p>
 
                 <h2 class="text-5xl font-medium text-slate-900">
-                    293
+                    {{ number_format($onLoanBorrowings) }}
                 </h2>
 
                 <p class="text-base">
-                    <span class="font-semibold text-emerald-500">
-                        +8.32%
+
+                    <span class="font-semibold text-slate-900">
+                        {{ number_format($onLoanPercentage, 2) }}%
                     </span>
 
                     <span class="text-slate-500">
-                        From last month
+                        of all borrowing records
                     </span>
+
                 </p>
+
             </div>
 
-            <!-- Under Maintenance -->
+
+            {{-- ===================================================== --}}
+            {{-- RETURNED --}}
+            {{-- ===================================================== --}}
+
             <div class="relative flex flex-col justify-between px-8 py-7">
 
                 <span
@@ -133,25 +211,32 @@
                 ></span>
 
                 <p class="text-md font-medium text-slate-600">
-                    Under Maintenance
+                    Returned
                 </p>
 
                 <h2 class="text-5xl font-medium text-slate-900">
-                    6
+                    {{ number_format($returnedBorrowings) }}
                 </h2>
 
                 <p class="text-base">
-                    <span class="font-semibold text-red-500">
-                        -4.67%
+
+                    <span class="font-semibold text-slate-900">
+                        {{ number_format($returnedPercentage, 2) }}%
                     </span>
 
                     <span class="text-slate-500">
-                        From last month
+                        of all borrowing records
                     </span>
+
                 </p>
+
             </div>
 
-            <!-- Disposed -->
+
+            {{-- ===================================================== --}}
+            {{-- OVERDUE --}}
+            {{-- ===================================================== --}}
+
             <div class="relative flex flex-col justify-between px-8 py-7">
 
                 <span
@@ -159,23 +244,34 @@
                 ></span>
 
                 <p class="text-md font-medium text-slate-600">
-                    Disposed
+                    Overdue
                 </p>
 
                 <h2 class="text-5xl font-medium text-slate-900">
-                    12
+                    {{ number_format($overdueBorrowings) }}
                 </h2>
 
                 <p class="text-base">
-                    <span class="font-semibold text-emerald-500">
-                        +2.15%
+
+                    <span
+                        class="font-semibold
+                            {{
+                                $overduePercentage > 0
+                                    ? 'text-red-500'
+                                    : 'text-slate-500'
+                            }}"
+                    >
+                        {{ number_format($overduePercentage, 2) }}%
                     </span>
 
                     <span class="text-slate-500">
-                        From last month
+                        of all borrowing records
                     </span>
+
                 </p>
+
             </div>
+
         </div>
     </div>
 
@@ -246,7 +342,7 @@
                         class="h-3.5 w-3.5"
                     ></i>
 
-                    {{ $borrowings->count() }} total
+                    {{ $borrowings->total() }} total
 
                 </div>
 
@@ -689,46 +785,58 @@
 
                         @empty
 
-                            {{-- ========================================= --}}
-                            {{-- EMPTY STATE --}}
-                            {{-- ========================================= --}}
-
                             <tr>
 
                                 <td
                                     colspan="8"
-                                    class="px-5 py-16 text-center"
+                                    class="px-6 py-16 text-center"
                                 >
 
-                                    <div class="mx-auto max-w-xs">
+                                    {{-- ===================================================== --}}
+                                    {{-- EMPTY STATE --}}
+                                    {{-- ===================================================== --}}
+
+                                    <div class="mx-auto flex max-w-sm flex-col items-center">
+
+                                        {{-- ================================================= --}}
+                                        {{-- ICON --}}
+                                        {{-- ================================================= --}}
 
                                         <div
-                                            class="mx-auto flex h-11 w-11
-                                                items-center justify-center
-                                                rounded-xl bg-slate-100
-                                                text-slate-400"
+                                            class="flex h-12 w-12 items-center justify-center
+                                                rounded-2xl border border-slate-200
+                                                bg-slate-50 text-slate-400"
                                         >
                                             <i
-                                                data-lucide="package-search"
+                                                data-lucide="clipboard-list"
                                                 class="h-5 w-5"
                                             ></i>
                                         </div>
 
 
-                                        <h3
-                                            class="mt-3 text-sm font-semibold
-                                                text-slate-700"
-                                        >
-                                            No borrowing records
+                                        {{-- ================================================= --}}
+                                        {{-- TITLE --}}
+                                        {{-- ================================================= --}}
+
+                                        <h3 class="mt-4 text-sm font-semibold text-slate-800">
+
+                                            No borrowing records yet
+
                                         </h3>
 
 
+                                        {{-- ================================================= --}}
+                                        {{-- DESCRIPTION --}}
+                                        {{-- ================================================= --}}
+
                                         <p
-                                            class="mt-1 text-xs leading-5
+                                            class="mt-1.5 max-w-xs text-xs leading-5
                                                 text-slate-400"
                                         >
-                                            Equipment borrowing activity will
-                                            appear here after a record is created.
+
+                                            Borrowing activity will appear here after
+                                            equipment has been issued to a borrower.
+
                                         </p>
 
                                     </div>
@@ -744,6 +852,61 @@
                 </table>
 
             </div>
+
+            {{-- ===================================================== --}}
+            {{-- PAGINATION --}}
+            {{-- ADD AFTER THE TABLE CONTAINER --}}
+            {{-- KEEP INSIDE THE BORROWING RECORDS SECTION --}}
+            {{-- ===================================================== --}}
+
+            @if ($borrowings->hasPages())
+
+                <div
+                    class="flex flex-col gap-3 border-t border-slate-200
+                        px-5 py-4
+                        sm:flex-row sm:items-center sm:justify-between"
+                >
+
+                    {{-- ================================================= --}}
+                    {{-- PAGINATION INFORMATION --}}
+                    {{-- ================================================= --}}
+
+                    <p class="text-xs text-slate-500">
+
+                        Showing
+
+                        <span class="font-semibold text-slate-700">
+                            {{ $borrowings->firstItem() }}
+                        </span>
+
+                        to
+
+                        <span class="font-semibold text-slate-700">
+                            {{ $borrowings->lastItem() }}
+                        </span>
+
+                        of
+
+                        <span class="font-semibold text-slate-700">
+                            {{ $borrowings->total() }}
+                        </span>
+
+                        borrowing records
+
+                    </p>
+
+
+                    {{-- ================================================= --}}
+                    {{-- PAGINATION LINKS --}}
+                    {{-- ================================================= --}}
+
+                    <div>
+                        {{ $borrowings->links() }}
+                    </div>
+
+                </div>
+
+            @endif
 
         </section>
     </div>
@@ -766,7 +929,7 @@
         <!-- MODAL HEADER -->
         <!-- ===================================== -->
         <div
-            class="flex shrink-0 items-start justify-between gap-6 px-6 pb-5 pt-6"
+            class="flex shrink-0 items-start justify-between gap-6 px-6 pb-5 pt-6 border-b border-dashed border-slate-500"
         >
             <div>
                 <p
@@ -1142,6 +1305,8 @@
                 </div>
             </div>
 
+            <div class="border-t border-dashed border-slate-500"></div>
+
             <!-- ===================================== -->
             <!-- MODAL FOOTER -->
             <!-- ===================================== -->
@@ -1158,7 +1323,7 @@
 
                 <button
                     type="submit"
-                    class="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-slate-200 active:bg-black"
+                    class="rounded-lg bg-[rgba(0,55,199,0.85)] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[rgba(0,44,155,0.85)] focus:outline-none focus:ring-4 focus:ring-slate-200 active:bg-black"
                 >
                     Create borrowing record
                 </button>
@@ -1185,7 +1350,7 @@
         <!-- MODAL HEADER -->
         <!-- ===================================== -->
         <div
-            class="flex shrink-0 items-start justify-between gap-6 px-6 pb-5 pt-6"
+            class="flex shrink-0 items-start justify-between gap-6 px-6 pb-5 pt-6 border-b border-dashed border-slate-500"
         >
             <div>
                 <p
@@ -1224,6 +1389,8 @@
             ></div>
         </div>
 
+        <div class="border-t border-dashed border-slate-500"></div>
+
         <!-- ===================================== -->
         <!-- MODAL FOOTER -->
         <!-- ===================================== -->
@@ -1258,7 +1425,7 @@
         <!-- ===================================== -->
         <!-- MODAL HEADER -->
         <!-- ===================================== -->
-        <div class="flex items-start justify-between gap-6 px-6 pb-5 pt-6">
+        <div class="flex items-start justify-between gap-6 px-6 pb-5 pt-6 border-b border-dashed border-slate-500">
             <div>
                 <p
                     class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400"
@@ -1385,6 +1552,8 @@
                     </div>
                 </div>
             </div>
+
+            <div class="border-t border-dashed border-slate-500"></div>
 
             <!-- ===================================== -->
             <!-- MODAL FOOTER -->

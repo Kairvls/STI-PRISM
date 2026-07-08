@@ -10,158 +10,351 @@
             <p class="text-slate-500">Generate and manage equipment QR codes.</p>
         </div>
 
+        {{-- ===================================================== --}}
+        {{-- QR TOOLS DASHBOARD --}}
+        {{-- ===================================================== --}}
+
         <div
-            class="overflow-hidden mt-6 mb-6 rounded-lg border-t border-b border-slate-300 bg-gray-100 shadow-sm"
+            class="mb-6 mt-6 overflow-hidden rounded-lg border-y border-slate-300 bg-gray-100 shadow-sm"
         >
             <div
-                class="grid grid-cols-1 divide-y divide-slate-200 md:grid-cols-2 md:divide-y-0 xl:grid-cols-[380px_1fr_1fr_1fr] "
+                class="grid grid-cols-1 divide-y divide-slate-200
+                    md:grid-cols-2 md:divide-y-0
+                    xl:grid-cols-[380px_1fr_1fr_1fr]"
             >
-                <!-- Total Equipment -->
+
+                {{-- ================================================= --}}
+                {{-- TOTAL EQUIPMENT --}}
+                {{-- ================================================= --}}
+
                 <div class="flex items-center justify-between px-8 py-6">
 
-                    <!-- Left Content -->
                     <div class="flex flex-col">
+
                         <p class="text-sm font-medium text-slate-500">
                             Total Equipment
                         </p>
 
+
                         <h2 class="mt-2 text-5xl font-medium text-slate-900">
-                            800
+
+                            {{ number_format($totalQrEquipment) }}
+
                         </h2>
 
+
                         <p class="mt-3 text-sm">
-                            <span class="font-semibold text-emerald-500">
-                                +12.45%
+
+                            <span class="font-semibold text-slate-900">
+
+                                {{ number_format($generatedQrCodes) }}
+
                             </span>
 
                             <span class="text-slate-500">
-                                From last month
+                                QR codes generated
                             </span>
+
                         </p>
+
                     </div>
 
-                    <!-- Right Graph -->
+
+                    {{-- ================================================= --}}
+                    {{-- REAL QR COVERAGE GRAPH --}}
+                    {{-- GENERATED VS NOT GENERATED --}}
+                    {{-- ================================================= --}}
+
+                    @php
+
+                        // =================================================
+                        // QR STATUS COUNTS
+                        // =================================================
+
+                        $qrStatusCounts = collect([
+
+                            $generatedQrCodes,
+
+                            $notGeneratedQrCodes,
+
+                        ]);
+
+
+                        // =================================================
+                        // GRAPH SETTINGS
+                        // =================================================
+
+                        $graphWidth = 300;
+
+                        $graphHeight = 100;
+
+                        $graphTopPadding = 10;
+
+                        $graphBottomPadding = 10;
+
+
+                        // =================================================
+                        // MAXIMUM VALUE
+                        // =================================================
+
+                        $maxQrStatusCount =
+                            max(
+                                1,
+                                $qrStatusCounts->max()
+                            );
+
+
+                        // =================================================
+                        // NUMBER OF POINTS
+                        // =================================================
+
+                        $qrPointCount =
+                            $qrStatusCounts->count();
+
+
+                        // =================================================
+                        // BUILD GRAPH POINTS
+                        // =================================================
+
+                        $qrGraphPoints =
+                            $qrStatusCounts
+
+                                ->values()
+
+                                ->map(function (
+                                    $count,
+                                    $index
+                                ) use (
+                                    $graphWidth,
+                                    $graphHeight,
+                                    $graphTopPadding,
+                                    $graphBottomPadding,
+                                    $maxQrStatusCount,
+                                    $qrPointCount
+                                ) {
+
+                                    $x =
+                                        $qrPointCount > 1
+
+                                            ? (
+                                                $index
+                                                / ($qrPointCount - 1)
+                                            )
+                                            * $graphWidth
+
+                                            : $graphWidth / 2;
+
+
+                                    $usableHeight =
+                                        $graphHeight
+                                        - $graphTopPadding
+                                        - $graphBottomPadding;
+
+
+                                    $y =
+                                        $graphHeight
+                                        - $graphBottomPadding
+                                        - (
+                                            ($count / $maxQrStatusCount)
+                                            * $usableHeight
+                                        );
+
+
+                                    return
+                                        round($x, 2)
+                                        . ','
+                                        . round($y, 2);
+
+                                })
+
+                                ->implode(' ');
+
+
+                        // =================================================
+                        // BUILD AREA POINTS
+                        // =================================================
+
+                        $qrGraphAreaPoints =
+                            '0,100 '
+                            . $qrGraphPoints
+                            . ' 300,100';
+
+                    @endphp
+
+
                     <div class="ml-6 h-20 w-40 shrink-0">
+
                         <svg
                             viewBox="0 0 300 100"
                             class="h-full w-full"
                             fill="none"
+                            aria-label="QR code generation coverage"
                         >
-                            <path
-                                d="M0 62
-                                L35 28
-                                L62 58
-                                L82 52
-                                L112 82
-                                L162 82
-                                L200 42
-                                L232 64
-                                L270 64
-                                L300 18"
-                                stroke="#3b82f6"
+
+                            <polygon
+                                points="{{ $qrGraphAreaPoints }}"
+                                fill="currentColor"
+                                fill-opacity=".08"
+                                class="text-slate-900"
+                            />
+
+
+                            <polyline
+                                points="{{ $qrGraphPoints }}"
+                                fill="none"
+                                stroke="currentColor"
                                 stroke-width="2.5"
                                 stroke-linecap="round"
                                 stroke-linejoin="round"
+                                class="text-slate-900"
                             />
 
-                            <path
-                                d="M0 62
-                                L35 28
-                                L62 58
-                                L82 52
-                                L112 82
-                                L162 82
-                                L200 42
-                                L232 64
-                                L270 64
-                                L300 18
-                                L300 100
-                                L0 100 Z"
-                                fill="#3b82f6"
-                                fill-opacity=".08"
-                            />
                         </svg>
+
                     </div>
 
                 </div>
 
-                <!-- Active -->
+
+                {{-- ================================================= --}}
+                {{-- GENERATED --}}
+                {{-- ================================================= --}}
+
                 <div class="relative flex flex-col justify-between px-8 py-7">
 
                     <span
-                        class="absolute left-0 top-8 hidden h-[68%] border-l border-slate-200 xl:block"
+                        class="absolute left-0 top-8 hidden h-[68%]
+                            border-l border-slate-200 xl:block"
                     ></span>
 
+
                     <p class="text-md font-medium text-slate-600">
-                        Active
+                        Generated
                     </p>
 
+
                     <h2 class="text-5xl font-medium text-slate-900">
-                        330
+
+                        {{ number_format($generatedQrCodes) }}
+
                     </h2>
 
+
                     <p class="text-base">
-                        <span class="font-semibold text-emerald-500">
-                            +8.32%
+
+                        <span class="font-semibold text-emerald-600">
+
+                            {{
+                                number_format(
+                                    $generatedQrPercentage,
+                                    2
+                                )
+                            }}%
+
                         </span>
 
                         <span class="text-slate-500">
-                            From last month
+                            of all equipment
                         </span>
+
                     </p>
+
                 </div>
 
-                <!-- Under Maintenance -->
+
+                {{-- ================================================= --}}
+                {{-- NOT GENERATED --}}
+                {{-- ================================================= --}}
+
                 <div class="relative flex flex-col justify-between px-8 py-7">
 
                     <span
-                        class="absolute left-0 top-8 hidden h-[68%] border-l border-slate-200 xl:block"
+                        class="absolute left-0 top-8 hidden h-[68%]
+                            border-l border-slate-200 xl:block"
                     ></span>
 
+
                     <p class="text-md font-medium text-slate-600">
-                        Under Maintenance
+                        Not Generated
                     </p>
 
+
                     <h2 class="text-5xl font-medium text-slate-900">
-                        8
+
+                        {{ number_format($notGeneratedQrCodes) }}
+
                     </h2>
 
+
                     <p class="text-base">
-                        <span class="font-semibold text-red-500">
-                            -4.67%
+
+                        <span
+                            class="font-semibold
+                            {{
+                                $notGeneratedQrCodes > 0
+                                    ? 'text-amber-600'
+                                    : 'text-emerald-600'
+                            }}"
+                        >
+
+                            {{
+                                number_format(
+                                    $notGeneratedQrPercentage,
+                                    2
+                                )
+                            }}%
+
                         </span>
 
                         <span class="text-slate-500">
-                            From last month
+                            of all equipment
                         </span>
+
                     </p>
+
                 </div>
 
-                <!-- Disposed -->
+
+                {{-- ================================================= --}}
+                {{-- TOTAL QR SCANS --}}
+                {{-- ================================================= --}}
+
                 <div class="relative flex flex-col justify-between px-8 py-7">
 
                     <span
-                        class="absolute left-0 top-8 hidden h-[68%] border-l border-slate-200 xl:block"
+                        class="absolute left-0 top-8 hidden h-[68%]
+                            border-l border-slate-200 xl:block"
                     ></span>
 
+
                     <p class="text-md font-medium text-slate-600">
-                        Disposed
+                        Total QR Scans
                     </p>
 
+
                     <h2 class="text-5xl font-medium text-slate-900">
-                        23
+
+                        {{ number_format($totalQrScans) }}
+
                     </h2>
 
+
                     <p class="text-base">
-                        <span class="font-semibold text-emerald-500">
-                            +2.15%
+
+                        <span class="font-semibold text-slate-900">
+
+                            {{ number_format($totalQrScans) }}
+
                         </span>
 
                         <span class="text-slate-500">
-                            From last month
+                            recorded scan events
                         </span>
+
                     </p>
+
                 </div>
+
             </div>
         </div>
 
@@ -218,7 +411,7 @@
                         class="h-3.5 w-3.5"
                     ></i>
 
-                    {{ $equipment->count() }} total
+                    {{ $equipment->total() }} total
                 </div>
 
             </div>
@@ -240,8 +433,8 @@
                     <thead class="border-b border-slate-200 bg-slate-50/70">
 
                         <tr
-                            class="text-[10px] font-semibold uppercase
-                                tracking-[0.08em] text-slate-400"
+                            class="text-[12px] font-semibold uppercase
+                                tracking-[0.08em] text-black"
                         >
 
                             <th class="px-5 py-3">
@@ -256,7 +449,7 @@
                                 QR Code
                             </th>
 
-                            <th class="w-16 px-5 py-3 text-right">
+                            <th class="px-5 py-3 text-center">
                                 Actions
                             </th>
 
@@ -386,7 +579,7 @@
 
                                                 <div
                                                     class="flex items-center gap-1.5
-                                                        text-[11px] font-medium
+                                                        text-[12px] font-medium
                                                         text-emerald-700"
                                                 >
                                                     <span
@@ -402,7 +595,7 @@
                                                 <p
                                                     class="mt-1 max-w-[260px]
                                                         truncate font-mono
-                                                        text-[10px]
+                                                        text-[11px]
                                                         text-slate-400"
                                                     title="{{ $item->equipment_qr_code }}"
                                                 >
@@ -436,7 +629,7 @@
 
                                                 <div
                                                     class="flex items-center gap-1.5
-                                                        text-[11px] font-medium
+                                                        text-[12px] font-medium
                                                         text-slate-500"
                                                 >
                                                     <span
@@ -450,7 +643,7 @@
 
 
                                                 <p
-                                                    class="mt-1 text-[10px]
+                                                    class="mt-1 text-[11px]
                                                         text-slate-400"
                                                 >
                                                     Generate a QR code to continue
@@ -470,7 +663,7 @@
                                 {{-- ACTIONS --}}
                                 {{-- ===================================== --}}
 
-                                <td class="px-5 py-4 text-right">
+                                <td class="px-5 py-4 text-center">
 
                                     <div
                                         class="relative inline-block"
@@ -697,24 +890,27 @@
 
                         @empty
 
-                            {{-- ========================================= --}}
-                            {{-- EMPTY STATE --}}
-                            {{-- ========================================= --}}
-
                             <tr>
 
                                 <td
                                     colspan="4"
-                                    class="px-5 py-16 text-center"
+                                    class="px-6 py-16 text-center"
                                 >
 
-                                    <div class="mx-auto max-w-xs">
+                                    {{-- ===================================================== --}}
+                                    {{-- EMPTY STATE --}}
+                                    {{-- ===================================================== --}}
+
+                                    <div class="mx-auto flex max-w-sm flex-col items-center">
+
+                                        {{-- ================================================= --}}
+                                        {{-- ICON --}}
+                                        {{-- ================================================= --}}
 
                                         <div
-                                            class="mx-auto flex h-11 w-11
-                                                items-center justify-center
-                                                rounded-xl bg-slate-100
-                                                text-slate-400"
+                                            class="flex h-12 w-12 items-center justify-center
+                                                rounded-2xl border border-slate-200
+                                                bg-slate-50 text-slate-400"
                                         >
                                             <i
                                                 data-lucide="qr-code"
@@ -723,20 +919,29 @@
                                         </div>
 
 
-                                        <h3
-                                            class="mt-3 text-sm font-semibold
-                                                text-slate-700"
-                                        >
+                                        {{-- ================================================= --}}
+                                        {{-- TITLE --}}
+                                        {{-- ================================================= --}}
+
+                                        <h3 class="mt-4 text-sm font-semibold text-slate-800">
+
                                             No equipment available
+
                                         </h3>
 
 
+                                        {{-- ================================================= --}}
+                                        {{-- DESCRIPTION --}}
+                                        {{-- ================================================= --}}
+
                                         <p
-                                            class="mt-1 text-xs leading-5
+                                            class="mt-1.5 max-w-xs text-xs leading-5
                                                 text-slate-400"
                                         >
-                                            Equipment records will appear here
-                                            when they are added to the inventory.
+
+                                            Equipment added to the inventory will appear here
+                                            when QR code management becomes available.
+
                                         </p>
 
                                     </div>
@@ -752,6 +957,61 @@
                 </table>
 
             </div>
+
+            {{-- ===================================================== --}}
+        {{-- PAGINATION --}}
+        {{-- PLACE AFTER TABLE CONTAINER --}}
+        {{-- KEEP INSIDE EQUIPMENT QR CODE SECTION --}}
+        {{-- ===================================================== --}}
+
+        @if ($equipment->hasPages())
+
+            <div
+                class="flex flex-col gap-3 border-t border-slate-200
+                    px-5 py-4 sm:flex-row sm:items-center
+                    sm:justify-between"
+            >
+
+                {{-- ================================================= --}}
+                {{-- PAGINATION INFORMATION --}}
+                {{-- ================================================= --}}
+
+                <p class="text-xs text-slate-500">
+
+                    Showing
+
+                    <span class="font-semibold text-slate-700">
+                        {{ $equipment->firstItem() }}
+                    </span>
+
+                    to
+
+                    <span class="font-semibold text-slate-700">
+                        {{ $equipment->lastItem() }}
+                    </span>
+
+                    of
+
+                    <span class="font-semibold text-slate-700">
+                        {{ $equipment->total() }}
+                    </span>
+
+                    equipment
+
+                </p>
+
+
+                {{-- ================================================= --}}
+                {{-- PAGINATION LINKS --}}
+                {{-- ================================================= --}}
+
+                <div>
+                    {{ $equipment->links() }}
+                </div>
+
+            </div>
+
+        @endif
 
         </section>
     </div>

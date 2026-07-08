@@ -22,12 +22,12 @@
                     </div>
                 </div>
                 <div id="dropdownMenu" class="dropdown-menu">
-                    <div class="dropdown-item" data-target="dashboard-section">
+                    <!--<div class="dropdown-item" data-target="dashboard-section">
                         Dashboard
-                    </div>
-                    <div class="dropdown-item" data-target="reports-section">
+                    </div>-->
+                    <!--<div class="dropdown-item" data-target="reports-section">
                         Reports & Reporters
-                    </div>
+                    </div>-->
                     <div
                         class="dropdown-item"
                         data-target="infrastructure-section"
@@ -51,34 +51,66 @@
         </div>
 
         <div class="quick-actions">
+
+            {{-- ===================================== --}}
+            {{-- URGENT REPORTS --}}
+            {{-- ===================================== --}}
+
             <a
                 href="/maintenance/reports/urgent"
-                class="quick-card {{ request()->is('maintenance/reports/urgent*') ? 'active' : '' }}"
+                class="quick-card
+                    {{ request()->is('maintenance/reports/urgent*') ? 'active' : '' }}"
             >
                 <i data-lucide="triangle-alert"></i>
-                <span>Urgent Report</span>
+
+                <span>Urgent Reports</span>
             </a>
-            <a
-                href="/maintenance/schedules/today"
-                class="quick-card {{ request()->is('maintenance/schedules/today*') ? 'active' : '' }}"
-            >
-                <i data-lucide="calendar-days"></i>
-                <span>Today's Report</span>
-            </a>
-            <a
-                href="/maintenance/qr-scanner"
-                class="quick-card {{ request()->is('maintenance/qr-scanner*') ? 'active' : '' }}"
-            >
-                <i data-lucide="scan-line"></i>
-                <span>Generate QR</span>
-            </a>
+
+
+            {{-- ===================================== --}}
+            {{-- ALERTS AND ACTIVITY --}}
+            {{-- ===================================== --}}
+
             <a
                 href="/maintenance/notifications"
-                class="quick-card {{ request()->is('maintenance/notifications*') ? 'active' : '' }}"
+                class="quick-card
+                    {{ request()->is('maintenance/notifications*') ? 'active' : '' }}"
             >
-                <i data-lucide="bell"></i>
+                <i data-lucide="bell-ring"></i>
+
                 <span>Alerts</span>
             </a>
+
+
+            {{-- ===================================== --}}
+            {{-- QR CODE TOOLS --}}
+            {{-- ===================================== --}}
+
+            <a
+                href="/maintenance/equipment/qr-tools"
+                class="quick-card
+                    {{ request()->is('maintenance/equipment/qr-tools*') ? 'active' : '' }}"
+            >
+                <i data-lucide="qr-code"></i>
+
+                <span>Generate QR</span>
+            </a>
+
+
+            {{-- ===================================== --}}
+            {{-- TODAY'S REPORTS --}}
+            {{-- ===================================== --}}
+
+            <a
+                href="/maintenance/reports/today"
+                class="quick-card
+                    {{ request()->is('maintenance/reports/today*') ? 'active' : '' }}"
+            >
+                <i data-lucide="calendar-check"></i>
+
+                <span>Today's Reports</span>
+            </a>
+
         </div>
 
         <div class="menu-title" id="dashboard-section">DASHBOARD</div>
@@ -101,7 +133,7 @@
 
         <a
             href="/maintenance/reporters"
-            class="menu-item {{ request()->is('maintenance/reporters*') ? 'active' : '' }}"
+            class="menu-item {{ request()->is('maintenance/reporters*') ? 'active' : '' }} mt-2"
         >
             <i class="h-5 w-5" data-lucide="users"></i>
             <span>Reporters</span>
@@ -126,21 +158,21 @@
         </a>
         <a
             href="/maintenance/equipment/qr-tools"
-            class="menu-item {{ request()->is('maintenance/equipment/qr-tools*') ? 'active' : '' }}"
+            class="menu-item {{ request()->is('maintenance/equipment/qr-tools*') ? 'active' : '' }} mt-1"
         >
             <i class="h-5 w-5" data-lucide="qr-code"></i>
             <span>QR Code Tools</span>
         </a>
         <a
             href="/maintenance/equipment/transfer"
-            class="menu-item {{ request()->is('maintenance/equipment/transfer*') ? 'active' : '' }}"
+            class="menu-item {{ request()->is('maintenance/equipment/transfer*') ? 'active' : '' }} mt-1"
         >
             <i class="h-5 w-5" data-lucide="move"></i>
             <span>Transfer & History</span>
         </a>
         <a
             href="/maintenance/borrowing"
-            class="menu-item {{ request()->is('maintenance/borrowing*') ? 'active' : '' }}"
+            class="menu-item {{ request()->is('maintenance/borrowing*') ? 'active' : '' }} mt-1"
         >
             <i class="h-5 w-5" data-lucide="clipboard-check"></i>
             <span>Borrowing</span>
@@ -156,7 +188,7 @@
         </a>
         <a
             href="/maintenance/disposal"
-            class="menu-item {{ request()->is('maintenance/disposal*') ? 'active' : '' }}"
+            class="menu-item {{ request()->is('maintenance/disposal*') ? 'active' : '' }} mt-1"
         >
             <i class="h-5 w-5" data-lucide="trash-2"></i>
             <span>Disposal</span>
@@ -454,37 +486,314 @@
 </style>
 
 <script>
-    const trigger = document.getElementById("dropdownTrigger");
-    const menu = document.getElementById("dropdownMenu");
-    const selected = document.getElementById("selectedSection");
+    // =====================================================
+    // SIDEBAR ELEMENTS
+    // =====================================================
 
-    trigger.addEventListener("click", () => {
-        menu.style.display = menu.style.display === "block" ? "none" : "block";
-    });
+    const trigger =
+        document.getElementById("dropdownTrigger");
 
-    document.querySelectorAll(".dropdown-item").forEach((item) => {
-        item.addEventListener("click", () => {
-            selected.textContent = item.textContent;
-            const target = document.getElementById(item.dataset.target);
+    const menu =
+        document.getElementById("dropdownMenu");
 
-            if (target) {
-                document.querySelector(".sidebar-content").scrollTo({
-                    top: target.offsetTop - 20,
-                    behavior: "smooth",
-                });
+    const selected =
+        document.getElementById("selectedSection");
 
-                target.classList.add("section-highlight");
-                setTimeout(() => {
-                    target.classList.remove("section-highlight");
-                }, 2000);
-            }
-            menu.style.display = "none";
+    const sidebarContent =
+        document.querySelector(".sidebar-content");
+
+
+    // =====================================================
+    // SIDEBAR STORAGE KEY
+    // =====================================================
+
+    const sidebarScrollKey =
+        "maintenanceSidebarScrollPosition";
+
+
+    // =====================================================
+    // SEARCH DROPDOWN OPEN / CLOSE
+    // =====================================================
+
+    if (trigger && menu) {
+
+        trigger.addEventListener("click", () => {
+
+            menu.style.display =
+                menu.style.display === "block"
+                    ? "none"
+                    : "block";
+
         });
+
+    }
+
+
+    // =====================================================
+    // SEARCH DROPDOWN SECTION NAVIGATION
+    // =====================================================
+
+    document
+        .querySelectorAll(".dropdown-item")
+        .forEach((item) => {
+
+            item.addEventListener("click", () => {
+
+                // =====================================================
+                // UPDATE SEARCH LABEL
+                // =====================================================
+
+                if (selected) {
+
+                    selected.textContent =
+                        item.textContent.trim();
+
+                }
+
+
+                // =====================================================
+                // GET TARGET SECTION
+                // =====================================================
+
+                const target =
+                    document.getElementById(
+                        item.dataset.target
+                    );
+
+
+                if (target && sidebarContent) {
+
+                    // =====================================================
+                    // GET SEARCH AREA HEIGHT
+                    // =====================================================
+
+                    const searchArea =
+                        document.querySelector(
+                            ".sidebar-search"
+                        );
+
+                    const searchHeight =
+                        searchArea?.offsetHeight ?? 0;
+
+
+                    // =====================================================
+                    // SCROLL TO SELECTED SECTION
+                    // =====================================================
+
+                    sidebarContent.scrollTo({
+
+                        top:
+                            target.offsetTop
+                            - searchHeight
+                            - 20,
+
+                        behavior: "smooth",
+
+                    });
+
+
+                    // =====================================================
+                    // HIGHLIGHT SELECTED SECTION
+                    // =====================================================
+
+                    target.classList.add(
+                        "section-highlight"
+                    );
+
+
+                    setTimeout(() => {
+
+                        target.classList.remove(
+                            "section-highlight"
+                        );
+
+                    }, 2000);
+
+                }
+
+
+                // =====================================================
+                // CLOSE SEARCH DROPDOWN
+                // =====================================================
+
+                if (menu) {
+
+                    menu.style.display = "none";
+
+                }
+
+            });
+
+        });
+
+
+    // =====================================================
+    // CLOSE SEARCH DROPDOWN WHEN CLICKING OUTSIDE
+    // =====================================================
+
+    document.addEventListener("click", (event) => {
+
+        if (!trigger || !menu) {
+            return;
+        }
+
+
+        if (
+            !trigger.contains(event.target) &&
+            !menu.contains(event.target)
+        ) {
+
+            menu.style.display = "none";
+
+        }
+
     });
 
-    document.addEventListener("click", (e) => {
-        if (!trigger.contains(e.target) && !menu.contains(e.target)) {
-            menu.style.display = "none";
+
+    // =====================================================
+    // SAVE SIDEBAR SCROLL POSITION
+    // =====================================================
+
+    if (sidebarContent) {
+
+        sidebarContent.addEventListener("scroll", () => {
+
+            sessionStorage.setItem(
+
+                sidebarScrollKey,
+
+                sidebarContent.scrollTop
+
+            );
+
+        });
+
+    }
+
+
+    // =====================================================
+    // RESTORE SIDEBAR POSITION AFTER PAGE LOAD
+    // =====================================================
+
+    window.addEventListener("DOMContentLoaded", () => {
+
+        if (!sidebarContent) {
+            return;
         }
+
+
+        // =====================================================
+        // GET PREVIOUS SCROLL POSITION
+        // =====================================================
+
+        const savedScrollPosition =
+            sessionStorage.getItem(
+                sidebarScrollKey
+            );
+
+
+        // =====================================================
+        // RESTORE PREVIOUS POSITION
+        // =====================================================
+
+        if (savedScrollPosition !== null) {
+
+            sidebarContent.scrollTop =
+                Number(savedScrollPosition);
+
+        }
+
+
+        // =====================================================
+        // GET ACTIVE MENU ITEM
+        // =====================================================
+
+        const activeMenuItem =
+            document.querySelector(
+                ".menu-item.active"
+            );
+
+
+        if (!activeMenuItem) {
+            return;
+        }
+
+
+        // =====================================================
+        // WAIT UNTIL BROWSER FINISHES LAYOUT
+        // =====================================================
+
+        requestAnimationFrame(() => {
+
+            // =====================================================
+            // GET CURRENT POSITIONS
+            // =====================================================
+
+            const sidebarRect =
+                sidebarContent.getBoundingClientRect();
+
+            const itemRect =
+                activeMenuItem.getBoundingClientRect();
+
+
+            // =====================================================
+            // SAFE VISIBLE AREA
+            // =====================================================
+
+            const topPadding = 20;
+
+            const bottomPadding = 20;
+
+
+            // =====================================================
+            // ACTIVE ITEM IS ABOVE VISIBLE AREA
+            // =====================================================
+
+            if (
+                itemRect.top <
+                sidebarRect.top + topPadding
+            ) {
+
+                sidebarContent.scrollTop -=
+
+                    sidebarRect.top
+                    + topPadding
+                    - itemRect.top;
+
+            }
+
+
+            // =====================================================
+            // ACTIVE ITEM IS BELOW VISIBLE AREA
+            // =====================================================
+
+            else if (
+                itemRect.bottom >
+                sidebarRect.bottom - bottomPadding
+            ) {
+
+                sidebarContent.scrollTop +=
+
+                    itemRect.bottom
+                    - sidebarRect.bottom
+                    + bottomPadding;
+
+            }
+
+
+            // =====================================================
+            // SAVE FINAL POSITION
+            // =====================================================
+
+            sessionStorage.setItem(
+
+                sidebarScrollKey,
+
+                sidebarContent.scrollTop
+
+            );
+
+        });
+
     });
 </script>

@@ -6,13 +6,13 @@
     <!-- SCHEDULE MAINTENANCE MODAL -->
     <!-- ===================================== -->
     <div
-        class="flex max-h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
+        class="flex max-h-[70vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
     >
         <!-- ===================================== -->
         <!-- MODAL HEADER -->
         <!-- ===================================== -->
         <div
-            class="flex shrink-0 items-start justify-between gap-6 px-6 pb-5 pt-6"
+            class="flex shrink-0 items-start justify-between gap-6 px-6 pb-5 pt-6 border-b border-dashed border-slate-500"
         >
             <div class="min-w-0">
                 <p
@@ -197,6 +197,8 @@
                 </div>
             </div>
 
+            <div class="border-t border-dashed border-slate-500"></div>
+
             <!-- ===================================== -->
             <!-- MODAL FOOTER -->
             <!-- ===================================== -->
@@ -213,7 +215,7 @@
 
                 <button
                     type="submit"
-                    class="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-slate-200 active:bg-black"
+                    class="rounded-lg bg-[rgba(0,55,199,0.85)] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[rgba(0,44,155,0.85)] focus:outline-none focus:ring-4 focus:ring-slate-200 active:bg-black"
                 >
                     Create schedule
                 </button>
@@ -236,7 +238,7 @@
         <!-- MODAL HEADER -->
         <!-- ===================================== -->
         <div
-            class="flex shrink-0 items-start justify-between gap-6 px-6 pb-5 pt-6"
+            class="flex shrink-0 items-start justify-between gap-6 px-6 pb-5 pt-6 border-b border-dashed border-slate-500"
         >
             <div>
                 <p
@@ -275,6 +277,8 @@
             ></div>
         </div>
 
+        <div class="border-t border-dashed border-slate-500"></div>
+
         <!-- ===================================== -->
         <!-- MODAL FOOTER -->
         <!-- ===================================== -->
@@ -306,7 +310,7 @@
         <!-- MODAL HEADER -->
         <!-- ===================================== -->
         <div
-            class="flex shrink-0 items-start justify-between gap-6 px-6 pb-5 pt-6"
+            class="flex shrink-0 items-start justify-between gap-6 px-6 pb-5 pt-6 border-b border-dashed border-slate-500"
         >
             <div class="min-w-0">
                 <p
@@ -490,6 +494,8 @@
                 </div>
             </div>
 
+            <div class="border-t border-dashed border-slate-500"></div>
+
             <!-- ===================================== -->
             <!-- MODAL FOOTER -->
             <!-- ===================================== -->
@@ -506,7 +512,7 @@
 
                 <button
                     type="submit"
-                    class="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-slate-200 active:bg-black"
+                    class="rounded-lg bg-[rgba(0,55,199,0.85)] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[rgba(0,44,155,0.85)] focus:outline-none focus:ring-4 focus:ring-slate-200 active:bg-black"
                 >
                     Complete maintenance
                 </button>

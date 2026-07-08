@@ -38,73 +38,312 @@
         <!-- Total Equipment -->
         <div class="flex items-center justify-between px-8 py-6">
 
-            <!-- Left Content -->
+            <!-- Total Reports -->
             <div class="flex flex-col">
                 <p class="text-sm font-medium text-slate-500">
-                    Total Equipment
+                    Total Reports
                 </p>
 
                 <h2 class="mt-2 text-5xl font-medium text-slate-900">
-                    630
+                    {{ number_format($totalReports) }}
                 </h2>
 
                 <p class="mt-3 text-sm">
+                    {{-- ===================================================== --}}
+                    {{-- REAL REPORT MONTHLY PERCENTAGE --}}
+                    {{-- ===================================================== --}}
+
+                    @if (is_null($reportMonthlyPercentage))
+
+                        <span class="font-semibold text-emerald-500">
+                            New this month
+                        </span>
+
+                    @else
+
+                        <span
+                            class="font-semibold
+                            {{
+                                $reportMonthlyPercentage > 0
+                                    ? 'text-emerald-500'
+                                    : (
+                                        $reportMonthlyPercentage < 0
+                                            ? 'text-red-500'
+                                            : 'text-slate-500'
+                                    )
+                            }}"
+                        >
+                            {{
+                                $reportMonthlyPercentage > 0
+                                    ? '+'
+                                    : ''
+                            }}
+
+                            {{
+                                number_format(
+                                    $reportMonthlyPercentage,
+                                    2
+                                )
+                            }}%
+                        </span>
+
+                        <span class="text-slate-500">
+                            From last month
+                        </span>
+
+                    @endif
+                </p>
+            </div>
+
+            <!-- Right Graph -->
+            {{-- ===================================================== --}}
+            {{-- REAL 12 MONTH REPORT TREND --}}
+            {{-- ===================================================== --}}
+
+            @php
+
+                // =====================================================
+                // GET COUNTS
+                // =====================================================
+
+                $trendCounts =
+                    $reportMonthlyTrend
+                        ->pluck('count');
+
+
+                // =====================================================
+                // GRAPH SIZE
+                // =====================================================
+
+                $graphWidth = 300;
+
+                $graphHeight = 100;
+
+                $graphTopPadding = 10;
+
+                $graphBottomPadding = 10;
+
+
+                // =====================================================
+                // MAX VALUE
+                //
+                // AT LEAST 1 TO PREVENT DIVISION BY ZERO
+                // =====================================================
+
+                $maxTrendCount =
+                    max(
+                        1,
+                        $trendCounts->max()
+                    );
+
+
+                // =====================================================
+                // NUMBER OF POINTS
+                // =====================================================
+
+                $pointCount =
+                    $trendCounts->count();
+
+
+                // =====================================================
+                // BUILD SVG POINTS
+                // =====================================================
+
+                $graphPoints =
+                    $trendCounts
+
+                        ->values()
+
+                        ->map(function (
+                            $count,
+                            $index
+                        ) use (
+                            $graphWidth,
+                            $graphHeight,
+                            $graphTopPadding,
+                            $graphBottomPadding,
+                            $maxTrendCount,
+                            $pointCount
+                        ) {
+
+                            // =========================================
+                            // X POSITION
+                            // =========================================
+
+                            $x =
+                                $pointCount > 1
+
+                                    ? (
+                                        $index
+                                        / ($pointCount - 1)
+                                    )
+                                    * $graphWidth
+
+                                    : $graphWidth / 2;
+
+
+                            // =========================================
+                            // AVAILABLE GRAPH HEIGHT
+                            // =========================================
+
+                            $usableHeight =
+                                $graphHeight
+                                - $graphTopPadding
+                                - $graphBottomPadding;
+
+
+                            // =========================================
+                            // Y POSITION
+                            //
+                            // SVG Y AXIS RUNS FROM TOP TO BOTTOM
+                            // =================================================
+
+                            $y =
+                                $graphHeight
+                                - $graphBottomPadding
+                                - (
+                                    ($count / $maxTrendCount)
+                                    * $usableHeight
+                                );
+
+
+                            return
+                                round($x, 2)
+                                . ','
+                                . round($y, 2);
+
+                        })
+
+                        ->implode(' ');
+
+
+                // =====================================================
+                // BUILD AREA POINTS
+                // =====================================================
+
+                $areaPoints =
+                    '0,100 '
+                    . $graphPoints
+                    . ' 300,100';
+
+            @endphp
+
+
+            <div class="ml-6 h-20 w-40 shrink-0">
+
+                <svg
+                    viewBox="0 0 300 100"
+                    class="h-full w-full"
+                    fill="none"
+                    aria-label="Equipment added during the last 12 months"
+                >
+
+                    {{-- ================================================= --}}
+                    {{-- AREA FILL --}}
+                    {{-- ================================================= --}}
+
+                    <polygon
+                        points="{{ $areaPoints }}"
+
+                        fill="currentColor"
+
+                        fill-opacity=".08"
+
+                        class="text-slate-900"
+                    />
+
+
+                    {{-- ================================================= --}}
+                    {{-- TREND LINE --}}
+                    {{-- ================================================= --}}
+
+                    <polyline
+                        points="{{ $graphPoints }}"
+
+                        fill="none"
+
+                        stroke="currentColor"
+
+                        stroke-width="2.5"
+
+                        stroke-linecap="round"
+
+                        stroke-linejoin="round"
+
+                        class="text-slate-900"
+                    />
+
+                </svg>
+
+            </div>
+
+        </div>
+
+        <!-- Pending -->
+        <div class="relative flex flex-col justify-between px-8 py-7">
+
+            <span
+                class="absolute left-0 top-8 hidden h-[68%] border-l border-slate-200 xl:block"
+            ></span>
+
+            <p class="text-md font-medium text-slate-600">
+                Pending
+            </p>
+
+            <h2 class="text-5xl font-medium text-slate-900">
+                {{ number_format($pendingReports) }}
+            </h2>
+
+            {{-- ===================================================== --}}
+            {{-- PENDING MONTHLY CHANGE --}}
+            {{-- ===================================================== --}}
+
+            <p class="text-base">
+
+                @if (is_null($pendingMonthlyPercentage))
+
                     <span class="font-semibold text-emerald-500">
-                        +12.45%
+                        New this month
+                    </span>
+
+                @else
+
+                    <span
+                        class="font-semibold
+                        {{
+                            $pendingMonthlyPercentage > 0
+                                ? 'text-red-500'
+                                : (
+                                    $pendingMonthlyPercentage < 0
+                                        ? 'text-emerald-500'
+                                        : 'text-slate-500'
+                                )
+                        }}"
+                    >
+                        {{
+                            $pendingMonthlyPercentage > 0
+                                ? '+'
+                                : ''
+                        }}
+
+                        {{
+                            number_format(
+                                $pendingMonthlyPercentage,
+                                2
+                            )
+                        }}%
                     </span>
 
                     <span class="text-slate-500">
                         From last month
                     </span>
-                </p>
-            </div>
 
-            <!-- Right Graph -->
-            <div class="ml-6 h-20 w-40 shrink-0">
-                <svg
-                    viewBox="0 0 300 100"
-                    class="h-full w-full"
-                    fill="none"
-                >
-                    <path
-                        d="M0 62
-                        L35 28
-                        L62 58
-                        L82 52
-                        L112 82
-                        L162 82
-                        L200 42
-                        L232 64
-                        L270 64
-                        L300 18"
-                        stroke="#3b82f6"
-                        stroke-width="2.5"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                    />
+                @endif
 
-                    <path
-                        d="M0 62
-                        L35 28
-                        L62 58
-                        L82 52
-                        L112 82
-                        L162 82
-                        L200 42
-                        L232 64
-                        L270 64
-                        L300 18
-                        L300 100
-                        L0 100 Z"
-                        fill="#3b82f6"
-                        fill-opacity=".08"
-                    />
-                </svg>
-            </div>
-
+            </p>
         </div>
 
-        <!-- Active -->
+        <!-- Processing -->
         <div class="relative flex flex-col justify-between px-8 py-7">
 
             <span
@@ -112,25 +351,63 @@
             ></span>
 
             <p class="text-md font-medium text-slate-600">
-                Active
+                Processing
             </p>
 
             <h2 class="text-5xl font-medium text-slate-900">
-                1,250
+                {{ number_format($processingReports) }}
             </h2>
 
-            <p class="text-base">
-                <span class="font-semibold text-emerald-500">
-                    +8.32%
-                </span>
+            {{-- ===================================================== --}}
+            {{-- PROCESSING MONTHLY CHANGE --}}
+            {{-- ===================================================== --}}
 
-                <span class="text-slate-500">
-                    From last month
-                </span>
+            <p class="text-base">
+
+                @if (is_null($processingMonthlyPercentage))
+
+                    <span class="font-semibold text-amber-500">
+                        New this month
+                    </span>
+
+                @else
+
+                    <span
+                        class="font-semibold
+                        {{
+                            $processingMonthlyPercentage > 0
+                                ? 'text-amber-500'
+                                : (
+                                    $processingMonthlyPercentage < 0
+                                        ? 'text-emerald-500'
+                                        : 'text-slate-500'
+                                )
+                        }}"
+                    >
+                        {{
+                            $processingMonthlyPercentage > 0
+                                ? '+'
+                                : ''
+                        }}
+
+                        {{
+                            number_format(
+                                $processingMonthlyPercentage,
+                                2
+                            )
+                        }}%
+                    </span>
+
+                    <span class="text-slate-500">
+                        From last month
+                    </span>
+
+                @endif
+
             </p>
         </div>
 
-        <!-- Under Maintenance -->
+        <!-- Resolved -->
         <div class="relative flex flex-col justify-between px-8 py-7">
 
             <span
@@ -138,47 +415,59 @@
             ></span>
 
             <p class="text-md font-medium text-slate-600">
-                Under Maintenance
+                Resolved
             </p>
 
             <h2 class="text-5xl font-medium text-slate-900">
-                5
+                {{ number_format($resolvedReports) }}
             </h2>
 
-            <p class="text-base">
-                <span class="font-semibold text-red-500">
-                    -4.67%
-                </span>
-
-                <span class="text-slate-500">
-                    From last month
-                </span>
-            </p>
-        </div>
-
-        <!-- Disposed -->
-        <div class="relative flex flex-col justify-between px-8 py-7">
-
-            <span
-                class="absolute left-0 top-8 hidden h-[68%] border-l border-slate-200 xl:block"
-            ></span>
-
-            <p class="text-md font-medium text-slate-600">
-                Disposed
-            </p>
-
-            <h2 class="text-5xl font-medium text-slate-900">
-                10
-            </h2>
+            {{-- ===================================================== --}}
+            {{-- RESOLVED MONTHLY CHANGE --}}
+            {{-- ===================================================== --}}
 
             <p class="text-base">
-                <span class="font-semibold text-emerald-500">
-                    +2.15%
-                </span>
 
-                <span class="text-slate-500">
-                    From last month
-                </span>
+                @if (is_null($resolvedMonthlyPercentage))
+
+                    <span class="font-semibold text-emerald-500">
+                        New this month
+                    </span>
+
+                @else
+
+                    <span
+                        class="font-semibold
+                        {{
+                            $resolvedMonthlyPercentage > 0
+                                ? 'text-emerald-500'
+                                : (
+                                    $resolvedMonthlyPercentage < 0
+                                        ? 'text-red-500'
+                                        : 'text-slate-500'
+                                )
+                        }}"
+                    >
+                        {{
+                            $resolvedMonthlyPercentage > 0
+                                ? '+'
+                                : ''
+                        }}
+
+                        {{
+                            number_format(
+                                $resolvedMonthlyPercentage,
+                                2
+                            )
+                        }}%
+                    </span>
+
+                    <span class="text-slate-500">
+                        From last month
+                    </span>
+
+                @endif
+
             </p>
         </div>
     </div>
@@ -816,7 +1105,7 @@
                                     @csrf
 
                                     <button
-                                        class="inline-flex h-8 items-center gap-2 rounded-lg bg-slate-900 px-3 text-xs  text-white shadow-sm transition-all hover:bg-slate-800 active:scale-95"
+                                        class="inline-flex h-8 items-center gap-2 rounded-lg bg-[rgba(0,55,199,0.85)] px-3 text-xs  text-white shadow-sm transition-all hover:bg-[rgba(0,44,155,0.85)] active:scale-95"
                                     >
                                         <i
                                             data-lucide="archive"
@@ -834,7 +1123,7 @@
                                 >
                                     @csrf
 
-                                    <button class="flex items-center gap-1.5 h-8 rounded-lg border border-[rgba(0,55,199,0.4)] bg-[rgba(0,55,199,0.85)] px-3 text-xs text-[#f0f2f8] transition hover:bg-[rgba(0,55,199,1)]">
+                                    <button class="flex items-center gap-1.5 h-8 rounded-lg border bg-emerald-100 px-3 text-xs text-emerald-700 transition hover:bg-emerald-200">
                                     <i data-lucide="archive-restore" class="h-3.5 w-3.5"></i>
                                     <span>Restore</span>
                                     </button>
@@ -847,22 +1136,109 @@
             </div>
 
         @empty
+
             <div
-                class="col-span-full flex flex-col items-center justify-center gap-3 py-20 text-center"
+                class="col-span-full flex min-h-[320px]
+                    items-center justify-center px-6 py-16"
             >
-                <div
-                    class="flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-100"
-                >
-                    <i
-                        data-lucide="file-search"
-                        class="h-6 w-6 text-gray-400"
-                    ></i>
+
+                {{-- ===================================================== --}}
+                {{-- EMPTY STATE --}}
+                {{-- CARD VIEW --}}
+                {{-- ===================================================== --}}
+
+                <div class="flex max-w-sm flex-col items-center text-center">
+
+                    <div
+                        class="flex h-12 w-12 items-center justify-center
+                            rounded-2xl border border-slate-200
+                            bg-slate-50 text-slate-400"
+                    >
+                        <i
+                            data-lucide="{{
+                                request()->filled('search')
+                                || request()->filled('status')
+                                || request()->filled('urgency')
+                                    ? 'search-x'
+                                    : 'clipboard-list'
+                            }}"
+                            class="h-5 w-5"
+                        ></i>
+                    </div>
+
+
+                    <h3 class="mt-4 text-sm font-semibold text-slate-800">
+
+                        {{
+                            request()->filled('search')
+                            || request()->filled('status')
+                            || request()->filled('urgency')
+
+                                ? 'No matching reports'
+
+                                : (
+                                    request('archive')
+                                        ? 'Archive is empty'
+                                        : 'No reports yet'
+                                )
+                        }}
+
+                    </h3>
+
+
+                    <p class="mt-1.5 max-w-xs text-xs leading-5 text-slate-400">
+
+                        {{
+                            request()->filled('search')
+                            || request()->filled('status')
+                            || request()->filled('urgency')
+
+                                ? 'No maintenance reports match your current search or filters.'
+
+                                : (
+                                    request('archive')
+                                        ? 'Archived maintenance reports will appear here.'
+                                        : 'Submitted maintenance reports will appear here.'
+                                )
+                        }}
+
+                    </p>
+
+
+                    @if (
+                        request()->filled('search')
+                        || request()->filled('status')
+                        || request()->filled('urgency')
+                    )
+
+                        <a
+                            href="{{ request()->url() }}?archive={{ request('archive', 0) }}"
+
+                            class="mt-5 inline-flex h-9 items-center gap-2
+                                rounded-lg border border-slate-200
+                                bg-white px-3.5
+                                text-xs font-semibold text-slate-600
+                                shadow-sm transition
+                                hover:border-slate-300
+                                hover:bg-slate-50
+                                hover:text-slate-900"
+                        >
+
+                            <i
+                                data-lucide="rotate-ccw"
+                                class="h-3.5 w-3.5"
+                            ></i>
+
+                            Clear filters
+
+                        </a>
+
+                    @endif
+
                 </div>
-                <div>
-                    <p class="font-semibold text-gray-700">No Reports Found</p>
-                    <p class="mt-1 text-sm text-gray-400">No maintenance reports match the current filters.</p>
-                </div>
+
             </div>
+
         @endforelse
     </div>
 
@@ -872,17 +1248,17 @@
             <thead>
                 <tr class="border-b border-gray-100">
                     <th
-                        class="bg-gray-50 px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-400"
+                        class="bg-gray-50 px-5 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black"
                     >
                         Report ID
                     </th>
                     <th
-                        class="bg-gray-50 px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-400"
+                        class="bg-gray-50 px-5 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black"
                     >
                         Reporter
                     </th>
                     <th
-                        class="bg-gray-50 px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-400"
+                        class="bg-gray-50 px-5 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black"
                     >
                         Room & Equipment
                     </th>
@@ -892,22 +1268,22 @@
                         Equipment
                     </th>-->
                     <th
-                        class="bg-gray-50 px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-400"
+                        class="bg-gray-50 px-5 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black"
                     >
                         Urgency
                     </th>
                     <th
-                        class="bg-gray-50 px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-400"
+                        class="bg-gray-50 px-5 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black"
                     >
                         Status
                     </th>
                     <th
-                        class="bg-gray-50 px-5 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-400"
+                        class="bg-gray-50 px-5 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black"
                     >
                         Date Submitted
                     </th>
                     <th
-                        class="bg-gray-50 px-5 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-gray-400"
+                        class="bg-gray-50 px-5 py-3 text-center text-[12px] font-bold uppercase tracking-wider text-black"
                     >
                         Actions
                     </th>
@@ -954,8 +1330,8 @@
                     <tr
                         class="border-b border-gray-100 hover:bg-yellow-50/30 transition {{ $rowBg }}"
                     >
-                        <td class="px-5 py-4 text-sm font-bold text-gray-900">
-                            #{{ $report->report_id }}
+                        <td class="px-5 py-4 text-sm font-semibold text-gray-500">
+                            No.{{ $report->report_id }}
                         </td>
                         <td class="px-5 py-4">
                             <div>
@@ -1015,7 +1391,7 @@
                                 {{ $currentStatus }}
                             </span>
                         </td>
-                        <td class="px-5 py-4 text-xs text-gray-400">
+                        <td class="px-5 py-4 text-[12px] text-gray-600">
                             {{
                                 \Carbon\Carbon::parse(
                                     $report->report_submitted_at,
@@ -1043,7 +1419,7 @@
                                         type="button"
                                         title="Update Report"
                                         onclick="openReportModal('update-modal-{{ $report->report_id }}')"
-                                        class="flex h-9 w-9 items-center justify-center rounded-lg bg-[rgba(0,55,199,0.85)] text-white transition hover:bg-[rgba(0,44,155,0.85)]"
+                                        class="flex h-9 w-9 items-center justify-center rounded-lg bg-[#FFF200] text-black transition hover:bg-[#E6E600]"
                                     >
                                         <i
                                             data-lucide="edit-3"
@@ -1064,7 +1440,7 @@
 
                                         <button
                                             title="Archive Report"
-                                            class="inline-flex h-9 items-center gap-2 rounded-lg bg-slate-900 px-3 text-xs  text-white shadow-sm transition-all hover:bg-slate-800 active:scale-95"
+                                            class="inline-flex h-9 items-center gap-2 rounded-lg bg-[rgba(0,55,199,0.85)] px-3 text-xs  text-white shadow-sm transition-all hover:bg-[rgba(0,44,155,0.85)] active:scale-95"
                                         >
                                             <i
                                                 data-lucide="archive"
@@ -1081,7 +1457,7 @@
                                     >
                                         @csrf
 
-                                        <button title="Restore Report" class="flex items-center gap-1.5 h-9 rounded-lg border border-[rgba(0,55,199,0.4)] bg-[rgba(0,55,199,0.85)] px-3 text-xs text-[#f0f2f8] transition hover:bg-[rgba(0,55,199,1)]">
+                                        <button title="Restore Report" class="flex items-center gap-1.5 h-9 rounded-lg bg-emerald-100 px-3 text-xs text-emerald-700 transition hover:bg-emerald-200">
                                         <i data-lucide="archive-restore" class="h-3.5 w-3.5"></i>
                                         
                                         </button>
@@ -1092,26 +1468,133 @@
                         </td>
                     </tr>
                 @empty
+
                     <tr>
-                        <td colspan="8" class="py-20">
-                            <div
-                                class="flex flex-col items-center justify-center gap-3 text-center"
-                            >
+
+                        <td
+                            colspan="7"
+                            class="px-6 py-16 text-center"
+                        >
+
+                            {{-- ===================================================== --}}
+                            {{-- EMPTY STATE --}}
+                            {{-- TABLE VIEW --}}
+                            {{-- ===================================================== --}}
+
+                            <div class="mx-auto flex max-w-sm flex-col items-center">
+
+                                {{-- ================================================= --}}
+                                {{-- ICON --}}
+                                {{-- ================================================= --}}
+
                                 <div
-                                    class="flex h-14 w-14 items-center justify-center rounded-2xl bg-gray-100"
+                                    class="flex h-12 w-12 items-center justify-center
+                                        rounded-2xl border border-slate-200
+                                        bg-slate-50 text-slate-400"
                                 >
                                     <i
-                                        data-lucide="file-search"
-                                        class="h-6 w-6 text-gray-400"
+                                        data-lucide="{{
+                                            request()->filled('search')
+                                            || request()->filled('status')
+                                            || request()->filled('urgency')
+                                                ? 'search-x'
+                                                : 'clipboard-list'
+                                        }}"
+                                        class="h-5 w-5"
                                     ></i>
                                 </div>
-                                <div>
-                                    <p class="font-semibold text-gray-700">No Reports Found</p>
-                                    <p class="mt-1 text-sm text-gray-400">No maintenance reports match the current filters.</p>
-                                </div>
+
+
+                                {{-- ================================================= --}}
+                                {{-- TITLE --}}
+                                {{-- ================================================= --}}
+
+                                <h3 class="mt-4 text-sm font-semibold text-slate-800">
+
+                                    {{
+                                        request()->filled('search')
+                                        || request()->filled('status')
+                                        || request()->filled('urgency')
+
+                                            ? 'No matching reports'
+
+                                            : (
+                                                request('archive')
+                                                    ? 'Archive is empty'
+                                                    : 'No reports yet'
+                                            )
+                                    }}
+
+                                </h3>
+
+
+                                {{-- ================================================= --}}
+                                {{-- DESCRIPTION --}}
+                                {{-- ================================================= --}}
+
+                                <p
+                                    class="mt-1.5 max-w-xs text-xs leading-5
+                                        text-slate-400"
+                                >
+
+                                    {{
+                                        request()->filled('search')
+                                        || request()->filled('status')
+                                        || request()->filled('urgency')
+
+                                            ? 'No maintenance reports match your current search or filters.'
+
+                                            : (
+                                                request('archive')
+                                                    ? 'Archived maintenance reports will appear here.'
+                                                    : 'Submitted maintenance reports will appear here.'
+                                            )
+                                    }}
+
+                                </p>
+
+
+                                {{-- ================================================= --}}
+                                {{-- CLEAR FILTERS --}}
+                                {{-- ONLY SHOW WHEN SEARCHING OR FILTERING --}}
+                                {{-- ================================================= --}}
+
+                                @if (
+                                    request()->filled('search')
+                                    || request()->filled('status')
+                                    || request()->filled('urgency')
+                                )
+
+                                    <a
+                                        href="{{ request()->url() }}?archive={{ request('archive', 0) }}"
+
+                                        class="mt-5 inline-flex h-9 items-center gap-2
+                                            rounded-lg border border-slate-200
+                                            bg-white px-3.5
+                                            text-xs font-semibold text-slate-600
+                                            shadow-sm transition
+                                            hover:border-slate-300
+                                            hover:bg-slate-50
+                                            hover:text-slate-900"
+                                    >
+
+                                        <i
+                                            data-lucide="rotate-ccw"
+                                            class="h-3.5 w-3.5"
+                                        ></i>
+
+                                        Clear filters
+
+                                    </a>
+
+                                @endif
+
                             </div>
+
                         </td>
+
                     </tr>
+
                 @endforelse
             </tbody>
         </table>
@@ -1565,7 +2048,7 @@
             <!-- MODAL HEADER -->
             <!-- ===================================== -->
             <div
-                class="flex shrink-0 items-start justify-between gap-6 px-6 pb-5 pt-6"
+                class="flex shrink-0 items-start justify-between gap-6 px-6 pb-5 pt-6 border-b border-dashed border-slate-500"
             >
                 <div class="min-w-0">
                     <div class="flex flex-wrap items-center gap-2">
@@ -1898,6 +2381,8 @@
                     </div>
                 </div>
 
+                <div class="border-t border-dashed border-slate-500"></div>
+
                 <!-- ===================================== -->
                 <!-- MODAL FOOTER -->
                 <!-- ===================================== -->
@@ -1914,7 +2399,7 @@
 
                     <button
                         type="submit"
-                        class="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-slate-200 active:bg-black"
+                        class="rounded-lg bg-[rgba(0,55,199,0.85)] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[rgba(0,44,155,0.85)] focus:outline-none focus:ring-4 focus:ring-slate-200 active:bg-[rgba(0,33,111,0.85)]"
                     >
                         Update status
                     </button>

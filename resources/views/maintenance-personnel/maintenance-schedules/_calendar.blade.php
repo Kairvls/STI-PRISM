@@ -18,24 +18,57 @@
         return $schedule->maintenance_schedule_status ?? "Active";
     };
 
-    $calendarSchedules = $schedules
-        ->filter(fn($schedule) => !empty($schedule->maintenance_schedule_next_date))
+    // =====================================================
+    // BUILD CALENDAR DATA FROM ALL SCHEDULES
+    // DO NOT USE PAGINATED TABLE DATA HERE
+    // =====================================================
+
+    $calendarSchedules = $calendarSchedulesData
+
+        ->filter(
+            fn($schedule) =>
+                !empty(
+                    $schedule->maintenance_schedule_next_date
+                )
+        )
+
         ->map(
             fn($schedule) => [
-                "id" => (int) $schedule->maintenance_schedule_id,
-                "equipment" => $schedule->equipment_name ?? "Unassigned equipment",
-                "room" => $schedule->room_name ?? "No room assigned",
+
+                "id" =>
+                    (int) $schedule->maintenance_schedule_id,
+
+                "equipment" =>
+                    $schedule->equipment_name
+                    ?? "Unassigned equipment",
+
+                "room" =>
+                    $schedule->room_name
+                    ?? "No room assigned",
+
                 "title" =>
-                    $schedule->maintenance_schedule_title ?? "Maintenance Schedule",
+                    $schedule->maintenance_schedule_title
+                    ?? "Maintenance Schedule",
+
                 "frequency" =>
-                    $schedule->maintenance_schedule_frequency ?? "Not set",
-                "date" => Carbon::parse(
-                    $schedule->maintenance_schedule_next_date,
-                )->format("Y-m-d"),
-                "status" => $effectiveStatus($schedule),
-                "description" => $schedule->maintenance_schedule_description ?? "",
-            ],
+                    $schedule->maintenance_schedule_frequency
+                    ?? "Not set",
+
+                "date" =>
+                    Carbon::parse(
+                        $schedule->maintenance_schedule_next_date
+                    )->format("Y-m-d"),
+
+                "status" =>
+                    $effectiveStatus($schedule),
+
+                "description" =>
+                    $schedule->maintenance_schedule_description
+                    ?? "",
+
+            ]
         )
+
         ->values();
 @endphp
 
@@ -65,7 +98,7 @@
         <button
             type="button"
             onclick="openScheduleModal()"
-            class="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-slate-800"
+            class="inline-flex items-center justify-center gap-2 rounded-2xl bg-[rgba(0,55,199,0.85)] px-5 py-3 text-sm font-semibold font-sans-serif text-white shadow-lg shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-[rgba(0,44,155,0.85)]"
         >
             <i data-lucide="plus" class="h-4 w-4"></i>
             Schedule Maintenance
@@ -73,159 +106,912 @@
     </div>
 
     <div
-        class="overflow-hidden rounded-lg border-t border-b border-slate-300 bg-gray-100 shadow-sm"
+        class="overflow-hidden rounded-lg border-y border-slate-300 bg-gray-100 shadow-sm"
     >
         <div
-            class="grid grid-cols-1 divide-y divide-slate-200 md:grid-cols-2 md:divide-y-0 xl:grid-cols-[380px_1fr_1fr_1fr] "
+            class="grid grid-cols-1 divide-y divide-slate-200
+                md:grid-cols-2 md:divide-y-0
+                xl:grid-cols-[380px_1fr_1fr_1fr]"
         >
-            <!-- Total Equipment -->
+
+            {{-- ===================================================== --}}
+            {{-- TOTAL SCHEDULES --}}
+            {{-- ===================================================== --}}
+
             <div class="flex items-center justify-between px-8 py-6">
 
-                <!-- Left Content -->
                 <div class="flex flex-col">
+
                     <p class="text-sm font-medium text-slate-500">
-                        Total Equipment
+                        Total Schedules
                     </p>
 
                     <h2 class="mt-2 text-5xl font-medium text-slate-900">
-                        360
+                        {{ number_format($totalSchedules) }}
                     </h2>
 
                     <p class="mt-3 text-sm">
-                        <span class="font-semibold text-emerald-500">
-                            +12.45%
-                        </span>
+
+                        @if ($scheduleMonthlyPercentage === null)
+
+                            <span class="font-semibold text-emerald-500">
+                                New activity
+                            </span>
+
+                        @else
+
+                            <span
+                                class="font-semibold
+                                {{
+                                    $scheduleMonthlyPercentage > 0
+                                        ? 'text-emerald-500'
+                                        : (
+                                            $scheduleMonthlyPercentage < 0
+                                                ? 'text-red-500'
+                                                : 'text-slate-500'
+                                        )
+                                }}"
+                            >
+                                {{
+                                    $scheduleMonthlyPercentage > 0
+                                        ? '+'
+                                        : ''
+                                }}{{ number_format($scheduleMonthlyPercentage, 2) }}%
+                            </span>
+
+                        @endif
 
                         <span class="text-slate-500">
                             From last month
                         </span>
+
                     </p>
+
                 </div>
 
-                <!-- Right Graph -->
+
+                {{-- ===================================================== --}}
+                {{-- REAL 12 MONTH TREND GRAPH --}}
+                {{-- ===================================================== --}}
+
+                @php
+
+                    $scheduleCounts =
+                        $scheduleMonthlyTrend->pluck('count');
+
+                    $maxScheduleCount =
+                        max(
+                            1,
+                            $scheduleCounts->max()
+                        );
+
+                    $schedulePointCount =
+                        max(
+                            1,
+                            $scheduleMonthlyTrend->count() - 1
+                        );
+
+                    $schedulePoints =
+                        $scheduleMonthlyTrend
+                            ->values()
+                            ->map(function ($item, $index) use (
+                                $maxScheduleCount,
+                                $schedulePointCount
+                            ) {
+
+                                $x =
+                                    ($index / $schedulePointCount)
+                                    * 300;
+
+                                $y =
+                                    90
+                                    - (
+                                        ($item['count'] / $maxScheduleCount)
+                                        * 75
+                                    );
+
+                                return
+                                    round($x, 2)
+                                    . ','
+                                    . round($y, 2);
+
+                            })
+                            ->implode(' ');
+
+                    $scheduleAreaPoints =
+                        '0,100 '
+                        . $schedulePoints
+                        . ' 300,100';
+
+                @endphp
+
+
                 <div class="ml-6 h-20 w-40 shrink-0">
+
                     <svg
                         viewBox="0 0 300 100"
                         class="h-full w-full"
                         fill="none"
                     >
-                        <path
-                            d="M0 62
-                            L35 28
-                            L62 58
-                            L82 52
-                            L112 82
-                            L162 82
-                            L200 42
-                            L232 64
-                            L270 64
-                            L300 18"
+
+                        <polygon
+                            points="{{ $scheduleAreaPoints }}"
+                            fill="#3b82f6"
+                            fill-opacity=".08"
+                        />
+
+                        <polyline
+                            points="{{ $schedulePoints }}"
+                            fill="none"
                             stroke="#3b82f6"
                             stroke-width="2.5"
                             stroke-linecap="round"
                             stroke-linejoin="round"
                         />
 
-                        <path
-                            d="M0 62
-                            L35 28
-                            L62 58
-                            L82 52
-                            L112 82
-                            L162 82
-                            L200 42
-                            L232 64
-                            L270 64
-                            L300 18
-                            L300 100
-                            L0 100 Z"
-                            fill="#3b82f6"
-                            fill-opacity=".08"
-                        />
                     </svg>
+
                 </div>
 
             </div>
 
-            <!-- Active -->
+
+            {{-- ===================================================== --}}
+            {{-- UPCOMING MAINTENANCE --}}
+            {{-- ===================================================== --}}
+
             <div class="relative flex flex-col justify-between px-8 py-7">
 
                 <span
-                    class="absolute left-0 top-8 hidden h-[68%] border-l border-slate-200 xl:block"
+                    class="absolute left-0 top-8 hidden h-[68%]
+                        border-l border-slate-200 xl:block"
                 ></span>
 
                 <p class="text-md font-medium text-slate-600">
-                    Active
+                    Upcoming Maintenance
                 </p>
 
                 <h2 class="text-5xl font-medium text-slate-900">
-                    980
+                    {{ number_format($upcomingMaintenance) }}
                 </h2>
 
                 <p class="text-base">
-                    <span class="font-semibold text-emerald-500">
-                        +8.32%
+
+                    <span class="font-semibold text-slate-900">
+                        {{ number_format($upcomingMaintenancePercentage, 2) }}%
                     </span>
 
                     <span class="text-slate-500">
-                        From last month
+                        of outstanding schedules
                     </span>
+
                 </p>
+
             </div>
 
-            <!-- Under Maintenance -->
+
+            {{-- ===================================================== --}}
+            {{-- COMPLETED MAINTENANCE --}}
+            {{-- ===================================================== --}}
+
             <div class="relative flex flex-col justify-between px-8 py-7">
 
                 <span
-                    class="absolute left-0 top-8 hidden h-[68%] border-l border-slate-200 xl:block"
+                    class="absolute left-0 top-8 hidden h-[68%]
+                        border-l border-slate-200 xl:block"
                 ></span>
 
                 <p class="text-md font-medium text-slate-600">
-                    Under Maintenance
+                    Completed Maintenance
                 </p>
 
                 <h2 class="text-5xl font-medium text-slate-900">
-                    120
+                    {{ number_format($completedMaintenance) }}
                 </h2>
 
                 <p class="text-base">
-                    <span class="font-semibold text-red-500">
-                        -4.67%
+
+                    <span class="font-semibold text-slate-900">
+                        {{ number_format($completedMaintenancePercentage, 2) }}%
                     </span>
 
                     <span class="text-slate-500">
-                        From last month
+                        of all schedules
                     </span>
+
                 </p>
+
             </div>
 
-            <!-- Disposed -->
+
+            {{-- ===================================================== --}}
+            {{-- OVERDUE MAINTENANCE --}}
+            {{-- ===================================================== --}}
+
             <div class="relative flex flex-col justify-between px-8 py-7">
 
                 <span
-                    class="absolute left-0 top-8 hidden h-[68%] border-l border-slate-200 xl:block"
+                    class="absolute left-0 top-8 hidden h-[68%]
+                        border-l border-slate-200 xl:block"
                 ></span>
 
                 <p class="text-md font-medium text-slate-600">
-                    Disposed
+                    Overdue Maintenance
                 </p>
 
                 <h2 class="text-5xl font-medium text-slate-900">
-                    230
+                    {{ number_format($overdueMaintenance) }}
                 </h2>
 
                 <p class="text-base">
-                    <span class="font-semibold text-emerald-500">
-                        +2.15%
+
+                    <span
+                        class="font-semibold
+                        {{
+                            $overdueMaintenancePercentage > 0
+                                ? 'text-red-500'
+                                : 'text-slate-500'
+                        }}"
+                    >
+                        {{ number_format($overdueMaintenancePercentage, 2) }}%
                     </span>
 
                     <span class="text-slate-500">
-                        From last month
+                        of outstanding schedules
                     </span>
+
                 </p>
+
             </div>
+
         </div>
     </div>
+
+    {{-- ========================================================= --}}
+    {{-- SCHEDULE LIST --}}
+    {{-- ========================================================= --}}
+
+    <section
+        class="overflow-hidden rounded-2xl border border-slate-200 bg-white"
+    >
+        {{-- ===================================================== --}}
+        {{-- HEADER --}}
+        {{-- ===================================================== --}}
+
+        <div
+            class="flex flex-col gap-4 border-b border-slate-200 px-5 py-4
+                sm:flex-row sm:items-center sm:justify-between"
+        >
+            <div class="flex items-center gap-3">
+
+                {{-- HEADER ICON --}}
+                <div
+                    class="flex h-9 w-9 shrink-0 items-center justify-center
+                        rounded-lg bg-slate-100 text-slate-600"
+                >
+                    <i data-lucide="list-checks" class="h-4 w-4"></i>
+                </div>
+
+                {{-- HEADER TEXT --}}
+                <div>
+                    <h2 class="text-sm font-semibold text-slate-900">
+                        Schedule List
+                    </h2>
+
+                    <p class="mt-0.5 text-xs text-slate-400">
+                        {{ $schedules->total() }}
+                        saved maintenance
+                        {{
+                            $schedules->total() === 1
+                                ? "schedule"
+                                : "schedules"
+                        }}
+                    </p>
+                </div>
+
+            </div>
+
+
+            {{-- TOTAL COUNT --}}
+            <div
+                class="inline-flex w-fit items-center gap-2 rounded-lg
+                    border border-slate-200 bg-slate-50
+                    px-3 py-2 text-xs font-medium text-slate-500"
+            >
+                <i data-lucide="calendar-range" class="h-3.5 w-3.5"></i>
+
+                {{ $schedules->total() }} total
+            </div>
+
+        </div>
+
+
+        {{-- ===================================================== --}}
+        {{-- TABLE --}}
+        {{-- ===================================================== --}}
+
+        <div class="overflow-x-auto">
+
+            <table class="w-full min-w-[1050px] text-left">
+
+                {{-- ================================================= --}}
+                {{-- TABLE HEADER --}}
+                {{-- ================================================= --}}
+
+                <thead
+                    class="border-b border-slate-200 bg-slate-50/70"
+                >
+                    <tr
+                        class="text-[12px] font-semibold uppercase
+                            tracking-[0.08em] text-black"
+                    >
+                        <th class="px-5 py-3">
+                            Equipment
+                        </th>
+
+                        <th class="px-5 py-3">
+                            Maintenance
+                        </th>
+
+                        <th class="px-5 py-3">
+                            Frequency
+                        </th>
+
+                        <th class="px-5 py-3">
+                            Next Date
+                        </th>
+
+                        <th class="px-5 py-3">
+                            Last Date
+                        </th>
+
+                        <th class="px-5 py-3">
+                            Status
+                        </th>
+
+                        <th class="w-16 px-5 py-3 text-center">
+                            Actions
+                        </th>
+                    </tr>
+                </thead>
+
+
+                {{-- ================================================= --}}
+                {{-- TABLE BODY --}}
+                {{-- ================================================= --}}
+
+                <tbody class="divide-y divide-slate-100">
+
+                    @forelse ($schedules as $schedule)
+
+                        @php
+                            $rowStatus = $effectiveStatus($schedule);
+
+                            $statusClass = match ($rowStatus) {
+                                "Completed" =>
+                                    "bg-emerald-50 text-emerald-700 ring-emerald-200",
+
+                                "Overdue" =>
+                                    "bg-red-50 text-red-700 ring-red-200",
+
+                                default =>
+                                    "bg-blue-50 text-blue-700 ring-blue-200",
+                            };
+
+                            $statusDotClass = match ($rowStatus) {
+                                "Completed" => "bg-emerald-500",
+
+                                "Overdue" => "bg-red-500",
+
+                                default => "bg-blue-500",
+                            };
+                        @endphp
+
+
+                        <tr
+                            class="group transition-colors
+                                hover:bg-slate-50/70"
+                        >
+
+                            {{-- ===================================== --}}
+                            {{-- EQUIPMENT --}}
+                            {{-- ===================================== --}}
+
+                            <td class="px-5 py-4">
+
+                                <div class="flex items-center gap-3">
+
+                                    {{-- EQUIPMENT ICON --}}
+                                    <div
+                                        class="flex h-9 w-9 shrink-0
+                                            items-center justify-center
+                                            rounded-lg border border-slate-200
+                                            bg-white text-slate-400"
+                                    >
+                                        <i
+                                            data-lucide="wrench"
+                                            class="h-4 w-4"
+                                        ></i>
+                                    </div>
+
+
+                                    {{-- EQUIPMENT INFORMATION --}}
+                                    <div class="min-w-0">
+
+                                        <p
+                                            class="max-w-[220px] truncate
+                                                text-sm font-semibold
+                                                text-slate-800"
+                                        >
+                                            {{
+                                                $schedule->equipment_name
+                                                    ?? "Unassigned equipment"
+                                            }}
+                                        </p>
+
+
+                                        <div
+                                            class="mt-1 flex items-center gap-1
+                                                text-[11px] text-slate-400"
+                                        >
+                                            <i
+                                                data-lucide="map-pin"
+                                                class="h-3 w-3"
+                                            ></i>
+
+                                            <span class="max-w-[190px] truncate">
+                                                {{
+                                                    $schedule->room_name
+                                                        ?? "No room assigned"
+                                                }}
+                                            </span>
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+                            </td>
+
+
+                            {{-- ===================================== --}}
+                            {{-- MAINTENANCE TITLE --}}
+                            {{-- ===================================== --}}
+
+                            <td class="px-5 py-4">
+
+                                <p
+                                    class="max-w-[230px] truncate
+                                        text-sm font-medium text-slate-700"
+                                    title="{{ $schedule->maintenance_schedule_title }}"
+                                >
+                                    {{
+                                        $schedule->maintenance_schedule_title
+                                    }}
+                                </p>
+
+                            </td>
+
+
+                            {{-- ===================================== --}}
+                            {{-- FREQUENCY --}}
+                            {{-- ===================================== --}}
+
+                            <td class="px-5 py-4">
+
+                                <span
+                                    class="inline-flex rounded-md
+                                        bg-slate-100 px-2 py-1
+                                        text-[11px] font-medium
+                                        text-slate-600"
+                                >
+                                    {{
+                                        $schedule->maintenance_schedule_frequency
+                                    }}
+                                </span>
+
+                            </td>
+
+
+                            {{-- ===================================== --}}
+                            {{-- NEXT DATE --}}
+                            {{-- ===================================== --}}
+
+                            <td class="px-5 py-4">
+
+                                <div class="flex items-center gap-2">
+
+                                    <i
+                                        data-lucide="calendar-clock"
+                                        class="h-3.5 w-3.5 text-slate-400"
+                                    ></i>
+
+                                    <span
+                                        class="whitespace-nowrap
+                                            text-xs font-medium text-slate-700"
+                                    >
+                                        {{
+                                            $schedule->maintenance_schedule_next_date
+                                                ? Carbon::parse(
+                                                    $schedule->maintenance_schedule_next_date
+                                                )->format("M d, Y")
+                                                : "-"
+                                        }}
+                                    </span>
+
+                                </div>
+
+                            </td>
+
+
+                            {{-- ===================================== --}}
+                            {{-- LAST DATE --}}
+                            {{-- ===================================== --}}
+
+                            <td class="px-5 py-4">
+
+                                <span
+                                    class="whitespace-nowrap
+                                        text-xs text-slate-500"
+                                >
+                                    {{
+                                        $schedule->maintenance_schedule_last_date
+                                            ? Carbon::parse(
+                                                $schedule->maintenance_schedule_last_date
+                                            )->format("M d, Y")
+                                            : "Never"
+                                    }}
+                                </span>
+
+                            </td>
+
+
+                            {{-- ===================================== --}}
+                            {{-- STATUS --}}
+                            {{-- ===================================== --}}
+
+                            <td class="px-5 py-4">
+
+                                <span
+                                    class="inline-flex items-center gap-1.5
+                                        rounded-full px-2.5 py-1
+                                        text-[11px] font-medium
+                                        ring-1 ring-inset
+                                        {{ $statusClass }}"
+                                >
+                                    <span
+                                        class="h-1.5 w-1.5 rounded-full
+                                            {{ $statusDotClass }}"
+                                    ></span>
+
+                                    {{ $rowStatus }}
+
+                                </span>
+
+                            </td>
+
+
+                            {{-- ===================================== --}}
+                            {{-- ACTION MENU --}}
+                            {{-- ===================================== --}}
+
+                            <td class="px-5 py-4 text-center">
+
+                                <div
+                                    class="relative inline-block"
+                                    x-data="{ open: false }"
+                                >
+
+                                    {{-- MENU BUTTON --}}
+                                    <button
+                                        type="button"
+                                        @click="open = !open"
+                                        @click.outside="open = false"
+                                        class="flex h-8 w-8 items-center
+                                            justify-center rounded-lg
+                                            text-slate-400 transition
+                                            hover:bg-slate-200/70
+                                            hover:text-slate-700"
+                                    >
+                                        <i
+                                            data-lucide="ellipsis"
+                                            class="h-4 w-4"
+                                        ></i>
+                                    </button>
+
+
+                                    {{-- DROPDOWN --}}
+                                    <div
+                                        x-cloak
+                                        x-show="open"
+                                        x-transition.origin.top.right
+                                        class="absolute right-0 top-10 z-50
+                                            w-44 overflow-hidden rounded-xl
+                                            border border-slate-200 bg-white
+                                            p-1.5 text-left
+                                            shadow-lg shadow-slate-900/10"
+                                    >
+
+                                        {{-- VIEW --}}
+                                        <button
+                                            type="button"
+                                            @click="
+                                                open = false;
+                                                viewScheduleById(
+                                                    {{ (int) $schedule->maintenance_schedule_id }}
+                                                );
+                                            "
+                                            class="flex w-full items-center gap-2.5
+                                                rounded-lg px-3 py-2
+                                                text-xs font-medium text-slate-600
+                                                transition
+                                                hover:bg-slate-50
+                                                hover:text-slate-900"
+                                        >
+                                            <i
+                                                data-lucide="eye"
+                                                class="h-3.5 w-3.5"
+                                            ></i>
+
+                                            View details
+                                        </button>
+
+
+                                        {{-- COMPLETE --}}
+                                        <button
+                                            type="button"
+                                            @click="
+                                                open = false;
+                                                openCompleteModal(
+                                                    {{ (int) $schedule->maintenance_schedule_id }},
+                                                    @js(
+                                                        $schedule->equipment_name
+                                                            ?? "Unassigned equipment"
+                                                    )
+                                                );
+                                            "
+                                            class="flex w-full items-center gap-2.5
+                                                rounded-lg px-3 py-2
+                                                text-xs font-medium text-slate-600
+                                                transition
+                                                hover:bg-slate-50
+                                                hover:text-slate-900"
+                                        >
+                                            <i
+                                                data-lucide="circle-check"
+                                                class="h-3.5 w-3.5"
+                                            ></i>
+
+                                            Mark complete
+                                        </button>
+
+
+                                        {{-- RESCHEDULE --}}
+                                        <button
+                                            type="button"
+                                            @click="
+                                                open = false;
+                                                openRescheduleModal(
+                                                    {{ (int) $schedule->maintenance_schedule_id }},
+                                                    @js(
+                                                        $schedule->equipment_name
+                                                            ?? "Unassigned equipment"
+                                                    )
+                                                );
+                                            "
+                                            class="flex w-full items-center gap-2.5
+                                                rounded-lg px-3 py-2
+                                                text-xs font-medium text-slate-600
+                                                transition
+                                                hover:bg-slate-50
+                                                hover:text-slate-900"
+                                        >
+                                            <i
+                                                data-lucide="calendar-sync"
+                                                class="h-3.5 w-3.5"
+                                            ></i>
+
+                                            Reschedule
+                                        </button>
+
+
+                                        <div
+                                            class="my-1 border-t border-slate-100"
+                                        ></div>
+
+
+                                        {{-- DELETE --}}
+                                        <button
+                                            type="button"
+                                            @click="
+                                                open = false;
+                                                openDeleteModal(
+                                                    {{ (int) $schedule->maintenance_schedule_id }},
+                                                    @js(
+                                                        $schedule->maintenance_schedule_title
+                                                            ?? "this schedule"
+                                                    )
+                                                );
+                                            "
+                                            class="flex w-full items-center gap-2.5
+                                                rounded-lg px-3 py-2
+                                                text-xs font-medium text-red-600
+                                                transition
+                                                hover:bg-red-50"
+                                        >
+                                            <i
+                                                data-lucide="trash-2"
+                                                class="h-3.5 w-3.5"
+                                            ></i>
+
+                                            Delete schedule
+                                        </button>
+
+                                    </div>
+
+                                </div>
+
+                            </td>
+
+                        </tr>
+
+
+                    @empty
+
+                        <tr>
+
+                            <td
+                                colspan="7"
+                                class="px-6 py-16 text-center"
+                            >
+
+                                {{-- ===================================================== --}}
+                                {{-- EMPTY STATE --}}
+                                {{-- ===================================================== --}}
+
+                                <div class="mx-auto flex max-w-sm flex-col items-center">
+
+                                    {{-- ================================================= --}}
+                                    {{-- ICON --}}
+                                    {{-- ================================================= --}}
+
+                                    <div
+                                        class="flex h-12 w-12 items-center justify-center
+                                            rounded-2xl border border-slate-200
+                                            bg-slate-50 text-slate-400"
+                                    >
+                                        <i
+                                            data-lucide="calendar-plus"
+                                            class="h-5 w-5"
+                                        ></i>
+                                    </div>
+
+
+                                    {{-- ================================================= --}}
+                                    {{-- TITLE --}}
+                                    {{-- ================================================= --}}
+
+                                    <h3 class="mt-4 text-sm font-semibold text-slate-800">
+
+                                        No maintenance schedules yet
+
+                                    </h3>
+
+
+                                    {{-- ================================================= --}}
+                                    {{-- DESCRIPTION --}}
+                                    {{-- ================================================= --}}
+
+                                    <p
+                                        class="mt-1.5 max-w-xs text-xs leading-5
+                                            text-slate-400"
+                                    >
+
+                                        Create a maintenance schedule to track upcoming
+                                        preventive maintenance for your equipment.
+
+                                    </p>
+
+
+                                    {{-- ================================================= --}}
+                                    {{-- CREATE SCHEDULE BUTTON --}}
+                                    {{-- ================================================= --}}
+
+                                    <button
+                                        type="button"
+                                        onclick="openScheduleModal()"
+
+                                        class="mt-5 inline-flex h-9 items-center gap-2
+                                            rounded-lg border border-slate-200
+                                            bg-white px-3.5
+                                            text-xs font-semibold text-slate-600
+                                            shadow-sm transition
+                                            hover:border-slate-300
+                                            hover:bg-slate-50
+                                            hover:text-slate-900"
+                                    >
+
+                                        <i
+                                            data-lucide="plus"
+                                            class="h-3.5 w-3.5"
+                                        ></i>
+
+                                        Create schedule
+
+                                    </button>
+
+                                </div>
+
+                            </td>
+
+                        </tr>
+
+                    @endforelse
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+        {{-- ===================================================== --}}
+        {{-- PAGINATION --}}
+        {{-- ADD BELOW THE TABLE CONTAINER --}}
+        {{-- ===================================================== --}}
+
+        @if ($schedules->hasPages())
+
+            <div
+                class="flex flex-col gap-3
+                    border-t border-slate-200
+                    px-5 py-4
+                    sm:flex-row
+                    sm:items-center
+                    sm:justify-between"
+            >
+
+                {{-- ================================================= --}}
+                {{-- PAGINATION INFORMATION --}}
+                {{-- ================================================= --}}
+
+                <p class="text-xs text-slate-500">
+
+                    Showing
+
+                    <span class="font-semibold text-slate-700">
+                        {{ $schedules->firstItem() }}
+                    </span>
+
+                    to
+
+                    <span class="font-semibold text-slate-700">
+                        {{ $schedules->lastItem() }}
+                    </span>
+
+                    of
+
+                    <span class="font-semibold text-slate-700">
+                        {{ $schedules->total() }}
+                    </span>
+
+                    maintenance schedules
+
+                </p>
+
+
+                {{-- ================================================= --}}
+                {{-- PAGINATION LINKS --}}
+                {{-- ================================================= --}}
+
+                <div>
+                    {{ $schedules->links() }}
+                </div>
+
+            </div>
+
+        @endif
+
+    </section>
 
     {{-- ========================================================= --}}
     {{-- MINIMALIST MAINTENANCE CALENDAR --}}
@@ -510,575 +1296,7 @@
 
     </section>
 
-    {{-- ========================================================= --}}
-    {{-- SCHEDULE LIST --}}
-    {{-- ========================================================= --}}
-
-    <section
-        class="overflow-hidden rounded-2xl border border-slate-200 bg-white"
-    >
-        {{-- ===================================================== --}}
-        {{-- HEADER --}}
-        {{-- ===================================================== --}}
-
-        <div
-            class="flex flex-col gap-4 border-b border-slate-200 px-5 py-4
-                sm:flex-row sm:items-center sm:justify-between"
-        >
-            <div class="flex items-center gap-3">
-
-                {{-- HEADER ICON --}}
-                <div
-                    class="flex h-9 w-9 shrink-0 items-center justify-center
-                        rounded-lg bg-slate-100 text-slate-600"
-                >
-                    <i data-lucide="list-checks" class="h-4 w-4"></i>
-                </div>
-
-                {{-- HEADER TEXT --}}
-                <div>
-                    <h2 class="text-sm font-semibold text-slate-900">
-                        Schedule List
-                    </h2>
-
-                    <p class="mt-0.5 text-xs text-slate-400">
-                        {{ $schedules->count() }}
-                        saved maintenance
-                        {{
-                            $schedules->count() === 1
-                                ? "schedule"
-                                : "schedules"
-                        }}
-                    </p>
-                </div>
-
-            </div>
-
-
-            {{-- TOTAL COUNT --}}
-            <div
-                class="inline-flex w-fit items-center gap-2 rounded-lg
-                    border border-slate-200 bg-slate-50
-                    px-3 py-2 text-xs font-medium text-slate-500"
-            >
-                <i data-lucide="calendar-range" class="h-3.5 w-3.5"></i>
-
-                {{ $schedules->count() }} total
-            </div>
-
-        </div>
-
-
-        {{-- ===================================================== --}}
-        {{-- TABLE --}}
-        {{-- ===================================================== --}}
-
-        <div class="overflow-x-auto">
-
-            <table class="w-full min-w-[1050px] text-left">
-
-                {{-- ================================================= --}}
-                {{-- TABLE HEADER --}}
-                {{-- ================================================= --}}
-
-                <thead
-                    class="border-b border-slate-200 bg-slate-50/70"
-                >
-                    <tr
-                        class="text-[10px] font-semibold uppercase
-                            tracking-[0.08em] text-slate-400"
-                    >
-                        <th class="px-5 py-3">
-                            Equipment
-                        </th>
-
-                        <th class="px-5 py-3">
-                            Maintenance
-                        </th>
-
-                        <th class="px-5 py-3">
-                            Frequency
-                        </th>
-
-                        <th class="px-5 py-3">
-                            Next Date
-                        </th>
-
-                        <th class="px-5 py-3">
-                            Last Date
-                        </th>
-
-                        <th class="px-5 py-3">
-                            Status
-                        </th>
-
-                        <th class="w-16 px-5 py-3 text-right">
-                            Actions
-                        </th>
-                    </tr>
-                </thead>
-
-
-                {{-- ================================================= --}}
-                {{-- TABLE BODY --}}
-                {{-- ================================================= --}}
-
-                <tbody class="divide-y divide-slate-100">
-
-                    @forelse ($schedules as $schedule)
-
-                        @php
-                            $rowStatus = $effectiveStatus($schedule);
-
-                            $statusClass = match ($rowStatus) {
-                                "Completed" =>
-                                    "bg-emerald-50 text-emerald-700 ring-emerald-200",
-
-                                "Overdue" =>
-                                    "bg-red-50 text-red-700 ring-red-200",
-
-                                default =>
-                                    "bg-blue-50 text-blue-700 ring-blue-200",
-                            };
-
-                            $statusDotClass = match ($rowStatus) {
-                                "Completed" => "bg-emerald-500",
-
-                                "Overdue" => "bg-red-500",
-
-                                default => "bg-blue-500",
-                            };
-                        @endphp
-
-
-                        <tr
-                            class="group transition-colors
-                                hover:bg-slate-50/70"
-                        >
-
-                            {{-- ===================================== --}}
-                            {{-- EQUIPMENT --}}
-                            {{-- ===================================== --}}
-
-                            <td class="px-5 py-4">
-
-                                <div class="flex items-center gap-3">
-
-                                    {{-- EQUIPMENT ICON --}}
-                                    <div
-                                        class="flex h-9 w-9 shrink-0
-                                            items-center justify-center
-                                            rounded-lg border border-slate-200
-                                            bg-white text-slate-400"
-                                    >
-                                        <i
-                                            data-lucide="wrench"
-                                            class="h-4 w-4"
-                                        ></i>
-                                    </div>
-
-
-                                    {{-- EQUIPMENT INFORMATION --}}
-                                    <div class="min-w-0">
-
-                                        <p
-                                            class="max-w-[220px] truncate
-                                                text-sm font-semibold
-                                                text-slate-800"
-                                        >
-                                            {{
-                                                $schedule->equipment_name
-                                                    ?? "Unassigned equipment"
-                                            }}
-                                        </p>
-
-
-                                        <div
-                                            class="mt-1 flex items-center gap-1
-                                                text-[11px] text-slate-400"
-                                        >
-                                            <i
-                                                data-lucide="map-pin"
-                                                class="h-3 w-3"
-                                            ></i>
-
-                                            <span class="max-w-[190px] truncate">
-                                                {{
-                                                    $schedule->room_name
-                                                        ?? "No room assigned"
-                                                }}
-                                            </span>
-                                        </div>
-
-                                    </div>
-
-                                </div>
-
-                            </td>
-
-
-                            {{-- ===================================== --}}
-                            {{-- MAINTENANCE TITLE --}}
-                            {{-- ===================================== --}}
-
-                            <td class="px-5 py-4">
-
-                                <p
-                                    class="max-w-[230px] truncate
-                                        text-sm font-medium text-slate-700"
-                                    title="{{ $schedule->maintenance_schedule_title }}"
-                                >
-                                    {{
-                                        $schedule->maintenance_schedule_title
-                                    }}
-                                </p>
-
-                            </td>
-
-
-                            {{-- ===================================== --}}
-                            {{-- FREQUENCY --}}
-                            {{-- ===================================== --}}
-
-                            <td class="px-5 py-4">
-
-                                <span
-                                    class="inline-flex rounded-md
-                                        bg-slate-100 px-2 py-1
-                                        text-[11px] font-medium
-                                        text-slate-600"
-                                >
-                                    {{
-                                        $schedule->maintenance_schedule_frequency
-                                    }}
-                                </span>
-
-                            </td>
-
-
-                            {{-- ===================================== --}}
-                            {{-- NEXT DATE --}}
-                            {{-- ===================================== --}}
-
-                            <td class="px-5 py-4">
-
-                                <div class="flex items-center gap-2">
-
-                                    <i
-                                        data-lucide="calendar-clock"
-                                        class="h-3.5 w-3.5 text-slate-400"
-                                    ></i>
-
-                                    <span
-                                        class="whitespace-nowrap
-                                            text-xs font-medium text-slate-700"
-                                    >
-                                        {{
-                                            $schedule->maintenance_schedule_next_date
-                                                ? Carbon::parse(
-                                                    $schedule->maintenance_schedule_next_date
-                                                )->format("M d, Y")
-                                                : "-"
-                                        }}
-                                    </span>
-
-                                </div>
-
-                            </td>
-
-
-                            {{-- ===================================== --}}
-                            {{-- LAST DATE --}}
-                            {{-- ===================================== --}}
-
-                            <td class="px-5 py-4">
-
-                                <span
-                                    class="whitespace-nowrap
-                                        text-xs text-slate-500"
-                                >
-                                    {{
-                                        $schedule->maintenance_schedule_last_date
-                                            ? Carbon::parse(
-                                                $schedule->maintenance_schedule_last_date
-                                            )->format("M d, Y")
-                                            : "Never"
-                                    }}
-                                </span>
-
-                            </td>
-
-
-                            {{-- ===================================== --}}
-                            {{-- STATUS --}}
-                            {{-- ===================================== --}}
-
-                            <td class="px-5 py-4">
-
-                                <span
-                                    class="inline-flex items-center gap-1.5
-                                        rounded-full px-2.5 py-1
-                                        text-[11px] font-medium
-                                        ring-1 ring-inset
-                                        {{ $statusClass }}"
-                                >
-                                    <span
-                                        class="h-1.5 w-1.5 rounded-full
-                                            {{ $statusDotClass }}"
-                                    ></span>
-
-                                    {{ $rowStatus }}
-
-                                </span>
-
-                            </td>
-
-
-                            {{-- ===================================== --}}
-                            {{-- ACTION MENU --}}
-                            {{-- ===================================== --}}
-
-                            <td class="px-5 py-4 text-right">
-
-                                <div
-                                    class="relative inline-block"
-                                    x-data="{ open: false }"
-                                >
-
-                                    {{-- MENU BUTTON --}}
-                                    <button
-                                        type="button"
-                                        @click="open = !open"
-                                        @click.outside="open = false"
-                                        class="flex h-8 w-8 items-center
-                                            justify-center rounded-lg
-                                            text-slate-400 transition
-                                            hover:bg-slate-200/70
-                                            hover:text-slate-700"
-                                    >
-                                        <i
-                                            data-lucide="ellipsis"
-                                            class="h-4 w-4"
-                                        ></i>
-                                    </button>
-
-
-                                    {{-- DROPDOWN --}}
-                                    <div
-                                        x-cloak
-                                        x-show="open"
-                                        x-transition.origin.top.right
-                                        class="absolute right-0 top-10 z-50
-                                            w-44 overflow-hidden rounded-xl
-                                            border border-slate-200 bg-white
-                                            p-1.5 text-left
-                                            shadow-lg shadow-slate-900/10"
-                                    >
-
-                                        {{-- VIEW --}}
-                                        <button
-                                            type="button"
-                                            @click="
-                                                open = false;
-                                                viewScheduleById(
-                                                    {{ (int) $schedule->maintenance_schedule_id }}
-                                                );
-                                            "
-                                            class="flex w-full items-center gap-2.5
-                                                rounded-lg px-3 py-2
-                                                text-xs font-medium text-slate-600
-                                                transition
-                                                hover:bg-slate-50
-                                                hover:text-slate-900"
-                                        >
-                                            <i
-                                                data-lucide="eye"
-                                                class="h-3.5 w-3.5"
-                                            ></i>
-
-                                            View details
-                                        </button>
-
-
-                                        {{-- COMPLETE --}}
-                                        <button
-                                            type="button"
-                                            @click="
-                                                open = false;
-                                                openCompleteModal(
-                                                    {{ (int) $schedule->maintenance_schedule_id }},
-                                                    @js(
-                                                        $schedule->equipment_name
-                                                            ?? "Unassigned equipment"
-                                                    )
-                                                );
-                                            "
-                                            class="flex w-full items-center gap-2.5
-                                                rounded-lg px-3 py-2
-                                                text-xs font-medium text-slate-600
-                                                transition
-                                                hover:bg-slate-50
-                                                hover:text-slate-900"
-                                        >
-                                            <i
-                                                data-lucide="circle-check"
-                                                class="h-3.5 w-3.5"
-                                            ></i>
-
-                                            Mark complete
-                                        </button>
-
-
-                                        {{-- RESCHEDULE --}}
-                                        <button
-                                            type="button"
-                                            @click="
-                                                open = false;
-                                                openRescheduleModal(
-                                                    {{ (int) $schedule->maintenance_schedule_id }},
-                                                    @js(
-                                                        $schedule->equipment_name
-                                                            ?? "Unassigned equipment"
-                                                    )
-                                                );
-                                            "
-                                            class="flex w-full items-center gap-2.5
-                                                rounded-lg px-3 py-2
-                                                text-xs font-medium text-slate-600
-                                                transition
-                                                hover:bg-slate-50
-                                                hover:text-slate-900"
-                                        >
-                                            <i
-                                                data-lucide="calendar-sync"
-                                                class="h-3.5 w-3.5"
-                                            ></i>
-
-                                            Reschedule
-                                        </button>
-
-
-                                        <div
-                                            class="my-1 border-t border-slate-100"
-                                        ></div>
-
-
-                                        {{-- DELETE --}}
-                                        <button
-                                            type="button"
-                                            @click="
-                                                open = false;
-                                                openDeleteModal(
-                                                    {{ (int) $schedule->maintenance_schedule_id }},
-                                                    @js(
-                                                        $schedule->maintenance_schedule_title
-                                                            ?? "this schedule"
-                                                    )
-                                                );
-                                            "
-                                            class="flex w-full items-center gap-2.5
-                                                rounded-lg px-3 py-2
-                                                text-xs font-medium text-red-600
-                                                transition
-                                                hover:bg-red-50"
-                                        >
-                                            <i
-                                                data-lucide="trash-2"
-                                                class="h-3.5 w-3.5"
-                                            ></i>
-
-                                            Delete schedule
-                                        </button>
-
-                                    </div>
-
-                                </div>
-
-                            </td>
-
-                        </tr>
-
-
-                    @empty
-
-                        {{-- ========================================= --}}
-                        {{-- EMPTY STATE --}}
-                        {{-- ========================================= --}}
-
-                        <tr>
-
-                            <td
-                                colspan="7"
-                                class="px-5 py-16 text-center"
-                            >
-
-                                <div class="mx-auto max-w-xs">
-
-                                    <div
-                                        class="mx-auto flex h-11 w-11
-                                            items-center justify-center
-                                            rounded-xl bg-slate-100
-                                            text-slate-400"
-                                    >
-                                        <i
-                                            data-lucide="calendar-x"
-                                            class="h-5 w-5"
-                                        ></i>
-                                    </div>
-
-
-                                    <h3
-                                        class="mt-3 text-sm font-semibold
-                                            text-slate-700"
-                                    >
-                                        No maintenance schedules
-                                    </h3>
-
-
-                                    <p
-                                        class="mt-1 text-xs leading-5
-                                            text-slate-400"
-                                    >
-                                        Scheduled maintenance records will
-                                        appear here after you create one.
-                                    </p>
-
-
-                                    <button
-                                        type="button"
-                                        onclick="openScheduleModal()"
-                                        class="mt-4 inline-flex items-center
-                                            gap-1.5 rounded-lg
-                                            border border-slate-200
-                                            bg-white px-3 py-2
-                                            text-xs font-medium text-slate-600
-                                            transition
-                                            hover:bg-slate-50
-                                            hover:text-slate-900"
-                                    >
-                                        <i
-                                            data-lucide="plus"
-                                            class="h-3.5 w-3.5"
-                                        ></i>
-
-                                        Create schedule
-                                    </button>
-
-                                </div>
-
-                            </td>
-
-                        </tr>
-
-                    @endforelse
-
-                </tbody>
-
-            </table>
-
-        </div>
-
-    </section>
+    
 </div>
 
 <div

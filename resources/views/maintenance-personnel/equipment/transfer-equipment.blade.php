@@ -13,158 +13,378 @@
             <p class="mt-1 text-slate-500">Track equipment movements and maintenance history.</p>
         </div>
 
+        {{-- ===================================================== --}}
+        {{-- TRANSFER DASHBOARD --}}
+        {{-- ===================================================== --}}
+
         <div
-            class="overflow-hidden mt-6 mb-6 rounded-lg border-t border-b border-slate-300 bg-gray-100 shadow-sm"
+            class="mb-6 mt-6 overflow-hidden rounded-lg border-y border-slate-300 bg-gray-100 shadow-sm"
         >
             <div
-                class="grid grid-cols-1 divide-y divide-slate-200 md:grid-cols-2 md:divide-y-0 xl:grid-cols-[380px_1fr_1fr_1fr] "
+                class="grid grid-cols-1 divide-y divide-slate-200
+                    md:grid-cols-2 md:divide-y-0
+                    xl:grid-cols-[380px_1fr_1fr_1fr]"
             >
-                <!-- Total Equipment -->
+
+                {{-- ===================================================== --}}
+                {{-- TOTAL TRANSFER RECORDS --}}
+                {{-- ===================================================== --}}
+
                 <div class="flex items-center justify-between px-8 py-6">
 
-                    <!-- Left Content -->
                     <div class="flex flex-col">
+
                         <p class="text-sm font-medium text-slate-500">
-                            Total Equipment
+                            Total Transfer Records
                         </p>
 
                         <h2 class="mt-2 text-5xl font-medium text-slate-900">
-                            800
+                            {{ number_format($totalTransferRecords) }}
                         </h2>
 
+
+                        {{-- ================================================= --}}
+                        {{-- MONTHLY PERCENTAGE CHANGE --}}
+                        {{-- ================================================= --}}
+
                         <p class="mt-3 text-sm">
-                            <span class="font-semibold text-emerald-500">
-                                +12.45%
-                            </span>
+
+                            @if ($transferMonthlyPercentage === null)
+
+                                <span class="font-semibold text-emerald-500">
+                                    New activity
+                                </span>
+
+                            @else
+
+                                <span
+                                    class="font-semibold
+                                    {{
+                                        $transferMonthlyPercentage > 0
+                                            ? 'text-emerald-500'
+                                            : (
+                                                $transferMonthlyPercentage < 0
+                                                    ? 'text-red-500'
+                                                    : 'text-slate-500'
+                                            )
+                                    }}"
+                                >
+
+                                    {{
+                                        $transferMonthlyPercentage > 0
+                                            ? '+'
+                                            : ''
+                                    }}
+
+                                    {{ number_format($transferMonthlyPercentage, 2) }}%
+
+                                </span>
+
+                            @endif
+
 
                             <span class="text-slate-500">
                                 From last month
                             </span>
+
                         </p>
+
                     </div>
 
-                    <!-- Right Graph -->
+
+                    {{-- ===================================================== --}}
+                    {{-- REAL 12 MONTH TRANSFER TREND GRAPH --}}
+                    {{-- ===================================================== --}}
+
+                    @php
+
+                        // =====================================================
+                        // GET MONTHLY TRANSFER COUNTS
+                        // =====================================================
+
+                        $transferCounts =
+                            $transferMonthlyTrend->pluck('count');
+
+
+                        // =====================================================
+                        // GET MAXIMUM COUNT
+                        // =====================================================
+
+                        $maxTransferCount =
+                            max(
+                                1,
+                                $transferCounts->max()
+                            );
+
+
+                        // =====================================================
+                        // NUMBER OF GRAPH INTERVALS
+                        // =====================================================
+
+                        $transferPointCount =
+                            max(
+                                1,
+                                $transferMonthlyTrend->count() - 1
+                            );
+
+
+                        // =====================================================
+                        // BUILD LINE GRAPH POINTS
+                        // =====================================================
+
+                        $transferPoints =
+                            $transferMonthlyTrend
+
+                                ->values()
+
+                                ->map(function ($item, $index) use (
+                                    $maxTransferCount,
+                                    $transferPointCount
+                                ) {
+
+                                    $x =
+                                        (
+                                            $index
+                                            / $transferPointCount
+                                        )
+                                        * 300;
+
+
+                                    $y =
+                                        90
+                                        - (
+                                            (
+                                                $item['count']
+                                                / $maxTransferCount
+                                            )
+                                            * 75
+                                        );
+
+
+                                    return
+                                        round($x, 2)
+                                        . ','
+                                        . round($y, 2);
+
+                                })
+
+                                ->implode(' ');
+
+
+                        // =====================================================
+                        // BUILD AREA GRAPH POINTS
+                        // =====================================================
+
+                        $transferAreaPoints =
+                            '0,100 '
+                            . $transferPoints
+                            . ' 300,100';
+
+                    @endphp
+
+
                     <div class="ml-6 h-20 w-40 shrink-0">
+
                         <svg
                             viewBox="0 0 300 100"
                             class="h-full w-full"
                             fill="none"
+                            aria-label="Transfer activity over the last 12 months"
                         >
-                            <path
-                                d="M0 62
-                                L35 28
-                                L62 58
-                                L82 52
-                                L112 82
-                                L162 82
-                                L200 42
-                                L232 64
-                                L270 64
-                                L300 18"
+
+                            {{-- ================================================= --}}
+                            {{-- GRAPH AREA --}}
+                            {{-- ================================================= --}}
+
+                            <polygon
+                                points="{{ $transferAreaPoints }}"
+                                fill="#3b82f6"
+                                fill-opacity=".08"
+                            />
+
+
+                            {{-- ================================================= --}}
+                            {{-- GRAPH LINE --}}
+                            {{-- ================================================= --}}
+
+                            <polyline
+                                points="{{ $transferPoints }}"
+                                fill="none"
                                 stroke="#3b82f6"
                                 stroke-width="2.5"
                                 stroke-linecap="round"
                                 stroke-linejoin="round"
                             />
 
-                            <path
-                                d="M0 62
-                                L35 28
-                                L62 58
-                                L82 52
-                                L112 82
-                                L162 82
-                                L200 42
-                                L232 64
-                                L270 64
-                                L300 18
-                                L300 100
-                                L0 100 Z"
-                                fill="#3b82f6"
-                                fill-opacity=".08"
-                            />
                         </svg>
+
                     </div>
 
                 </div>
 
-                <!-- Active -->
+
+                {{-- ===================================================== --}}
+                {{-- TRANSFERRED THIS MONTH --}}
+                {{-- ===================================================== --}}
+
                 <div class="relative flex flex-col justify-between px-8 py-7">
 
                     <span
-                        class="absolute left-0 top-8 hidden h-[68%] border-l border-slate-200 xl:block"
+                        class="absolute left-0 top-8 hidden h-[68%]
+                            border-l border-slate-200 xl:block"
                     ></span>
 
+
                     <p class="text-md font-medium text-slate-600">
-                        Active
+                        Transferred This Month
                     </p>
 
+
                     <h2 class="text-5xl font-medium text-slate-900">
-                        330
+                        {{ number_format($currentMonthTransfers) }}
                     </h2>
 
+
+                    {{-- ================================================= --}}
+                    {{-- MONTHLY PERCENTAGE CHANGE --}}
+                    {{-- ================================================= --}}
+
                     <p class="text-base">
+
+                        @if ($transferMonthlyPercentage === null)
+
+                            <span class="font-semibold text-emerald-500">
+                                New activity
+                            </span>
+
+                        @else
+
+                            <span
+                                class="font-semibold
+                                {{
+                                    $transferMonthlyPercentage > 0
+                                        ? 'text-emerald-500'
+                                        : (
+                                            $transferMonthlyPercentage < 0
+                                                ? 'text-red-500'
+                                                : 'text-slate-500'
+                                        )
+                                }}"
+                            >
+
+                                {{
+                                    $transferMonthlyPercentage > 0
+                                        ? '+'
+                                        : ''
+                                }}
+
+                                {{ number_format($transferMonthlyPercentage, 2) }}%
+
+                            </span>
+
+                        @endif
+
+
+                        <span class="text-slate-500">
+                            From last month
+                        </span>
+
+                    </p>
+
+                </div>
+
+
+                {{-- ===================================================== --}}
+                {{-- EQUIPMENT TRANSFERRED --}}
+                {{-- ===================================================== --}}
+
+                
+
+
+                <div class="relative flex flex-col justify-between px-8 py-7">
+
+                    <span
+                        class="absolute left-0 top-8 hidden h-[68%]
+                            border-l border-slate-200 xl:block"
+                    ></span>
+
+
+                    <p class="text-md font-medium text-slate-600">
+                        Equipment Transferred
+                    </p>
+
+
+                    <h2 class="text-5xl font-medium text-slate-900">
+                        {{ number_format($equipmentTransferred) }}
+                    </h2>
+
+
+                    {{-- ===================================================== --}}
+                    {{-- EQUIPMENT TRANSFERRED PERCENTAGE --}}
+                    {{-- ===================================================== --}}
+
+                    <p class="text-base">
+
                         <span class="font-semibold text-emerald-500">
-                            +8.32%
+
+                            {{ number_format($equipmentTransferredPercentage, 2) }}%
+
                         </span>
 
                         <span class="text-slate-500">
-                            From last month
+                            of all equipment
                         </span>
+
                     </p>
+
                 </div>
 
-                <!-- Under Maintenance -->
+
+                {{-- ===================================================== --}}
+                {{-- ROOMS INVOLVED --}}
+                {{-- ===================================================== --}}
+
+                
+
+
                 <div class="relative flex flex-col justify-between px-8 py-7">
 
                     <span
-                        class="absolute left-0 top-8 hidden h-[68%] border-l border-slate-200 xl:block"
+                        class="absolute left-0 top-8 hidden h-[68%]
+                            border-l border-slate-200 xl:block"
                     ></span>
 
-                    <p class="text-md font-medium text-slate-600">
-                        Under Maintenance
-                    </p>
-
-                    <h2 class="text-5xl font-medium text-slate-900">
-                        8
-                    </h2>
-
-                    <p class="text-base">
-                        <span class="font-semibold text-red-500">
-                            -4.67%
-                        </span>
-
-                        <span class="text-slate-500">
-                            From last month
-                        </span>
-                    </p>
-                </div>
-
-                <!-- Disposed -->
-                <div class="relative flex flex-col justify-between px-8 py-7">
-
-                    <span
-                        class="absolute left-0 top-8 hidden h-[68%] border-l border-slate-200 xl:block"
-                    ></span>
 
                     <p class="text-md font-medium text-slate-600">
-                        Disposed
+                        Rooms Involved
                     </p>
 
+
                     <h2 class="text-5xl font-medium text-slate-900">
-                        23
+                        {{ number_format($roomsInvolved) }}
                     </h2>
 
+
+                    {{-- ===================================================== --}}
+                    {{-- ROOMS INVOLVED PERCENTAGE --}}
+                    {{-- ===================================================== --}}
+
                     <p class="text-base">
+
                         <span class="font-semibold text-emerald-500">
-                            +2.15%
+
+                            {{ number_format($roomsInvolvedPercentage, 2) }}%
+
                         </span>
 
                         <span class="text-slate-500">
-                            From last month
+                            of all rooms
                         </span>
+
                     </p>
+
                 </div>
+
             </div>
         </div>
 
@@ -218,7 +438,7 @@
                 >
                     <i data-lucide="package" class="h-3.5 w-3.5"></i>
 
-                    {{ $equipment->count() }} total
+                    {{ $equipment->total() }} total
                 </div>
 
             </div>
@@ -240,8 +460,8 @@
                     <thead class="border-b border-slate-200 bg-slate-50/70">
 
                         <tr
-                            class="text-[10px] font-semibold uppercase
-                                tracking-[0.08em] text-slate-400"
+                            class="text-[12px] font-semibold uppercase
+                                tracking-[0.08em] text-black"
                         >
 
                             <th class="px-5 py-3">
@@ -260,7 +480,7 @@
                                 Status
                             </th>
 
-                            <th class="w-16 px-5 py-3 text-right">
+                            <th class="w-16 px-5 py-3 text-center">
                                 Actions
                             </th>
 
@@ -482,7 +702,7 @@
                                 {{-- ACTIONS --}}
                                 {{-- ===================================== --}}
 
-                                <td class="px-5 py-4 text-right">
+                                <td class="px-5 py-4 text-center">
 
                                     <div
                                         class="relative inline-block"
@@ -680,24 +900,27 @@
 
                         @empty
 
-                            {{-- ========================================= --}}
-                            {{-- EMPTY STATE --}}
-                            {{-- ========================================= --}}
-
                             <tr>
 
                                 <td
                                     colspan="5"
-                                    class="px-5 py-16 text-center"
+                                    class="px-6 py-16 text-center"
                                 >
 
-                                    <div class="mx-auto max-w-xs">
+                                    {{-- ===================================================== --}}
+                                    {{-- EMPTY STATE --}}
+                                    {{-- ===================================================== --}}
+
+                                    <div class="mx-auto flex max-w-sm flex-col items-center">
+
+                                        {{-- ================================================= --}}
+                                        {{-- ICON --}}
+                                        {{-- ================================================= --}}
 
                                         <div
-                                            class="mx-auto flex h-11 w-11
-                                                items-center justify-center
-                                                rounded-xl bg-slate-100
-                                                text-slate-400"
+                                            class="flex h-12 w-12 items-center justify-center
+                                                rounded-2xl border border-slate-200
+                                                bg-slate-50 text-slate-400"
                                         >
                                             <i
                                                 data-lucide="package-search"
@@ -706,20 +929,29 @@
                                         </div>
 
 
-                                        <h3
-                                            class="mt-3 text-sm font-semibold
-                                                text-slate-700"
-                                        >
-                                            No equipment found
+                                        {{-- ================================================= --}}
+                                        {{-- TITLE --}}
+                                        {{-- ================================================= --}}
+
+                                        <h3 class="mt-4 text-sm font-semibold text-slate-800">
+
+                                            No equipment available
+
                                         </h3>
 
 
+                                        {{-- ================================================= --}}
+                                        {{-- DESCRIPTION --}}
+                                        {{-- ================================================= --}}
+
                                         <p
-                                            class="mt-1 text-xs leading-5
+                                            class="mt-1.5 max-w-xs text-xs leading-5
                                                 text-slate-400"
                                         >
-                                            Equipment records will appear here
-                                            when they are added to the inventory.
+
+                                            Equipment added to the inventory will appear here
+                                            for transfer and maintenance management.
+
                                         </p>
 
                                     </div>
@@ -735,6 +967,61 @@
                 </table>
 
             </div>
+
+            {{-- ===================================================== --}}
+            {{-- PAGINATION --}}
+            {{-- PLACE BELOW THE TABLE --}}
+            {{-- KEEP INSIDE THE EQUIPMENT MANAGEMENT SECTION --}}
+            {{-- ===================================================== --}}
+
+            @if ($equipment->hasPages())
+
+                <div
+                    class="flex flex-col gap-3 border-t border-slate-200
+                        px-5 py-4
+                        sm:flex-row sm:items-center sm:justify-between"
+                >
+
+                    {{-- ================================================= --}}
+                    {{-- PAGINATION INFORMATION --}}
+                    {{-- ================================================= --}}
+
+                    <p class="text-xs text-slate-500">
+
+                        Showing
+
+                        <span class="font-semibold text-slate-700">
+                            {{ $equipment->firstItem() }}
+                        </span>
+
+                        to
+
+                        <span class="font-semibold text-slate-700">
+                            {{ $equipment->lastItem() }}
+                        </span>
+
+                        of
+
+                        <span class="font-semibold text-slate-700">
+                            {{ $equipment->total() }}
+                        </span>
+
+                        equipment
+
+                    </p>
+
+
+                    {{-- ================================================= --}}
+                    {{-- LARAVEL PAGINATION LINKS --}}
+                    {{-- ================================================= --}}
+
+                    <div>
+                        {{ $equipment->links() }}
+                    </div>
+
+                </div>
+
+            @endif
 
         </section>
     </div>
@@ -756,7 +1043,7 @@
         <!-- ===================================== -->
         <!-- MODAL HEADER -->
         <!-- ===================================== -->
-        <div class="flex items-start justify-between gap-6 px-6 pb-5 pt-6">
+        <div class="flex items-start justify-between gap-6 px-6 pb-5 pt-6 border-b border-dashed border-slate-500">
             <div>
                 <p
                     class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400"
@@ -892,6 +1179,8 @@
                 </div>
             </div>
 
+            <div class="border-t border-dashed border-slate-500"></div>
+
             <!-- ===================================== -->
             <!-- MODAL FOOTER -->
             <!-- ===================================== -->
@@ -906,7 +1195,7 @@
 
                 <button
                     type="submit"
-                    class="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-slate-200 active:bg-black"
+                    class="rounded-lg bg-[rgba(0,55,199,0.85)] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[rgba(0,44,155,0.85)] focus:outline-none focus:ring-4 focus:ring-slate-200 active:bg-black"
                 >
                     Transfer equipment
                 </button>
@@ -1028,13 +1317,13 @@
     <!-- ADD MAINTENANCE RECORD MODAL -->
     <!-- ===================================== -->
     <div
-        class="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
+        class="flex max-h-[70vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
     >
         <!-- ===================================== -->
         <!-- MODAL HEADER -->
         <!-- ===================================== -->
         <div
-            class="flex shrink-0 items-start justify-between gap-6 px-6 pb-5 pt-6"
+            class="flex shrink-0 items-start justify-between gap-6 px-6 pb-5 pt-6 border-b border-dashed border-slate-500"
         >
             <div class="min-w-0">
                 <p
@@ -1230,6 +1519,8 @@
                 </div>
             </div>
 
+            <div class="border-t border-dashed border-slate-500"></div>
+
             <!-- ===================================== -->
             <!-- MODAL FOOTER -->
             <!-- ===================================== -->
@@ -1246,12 +1537,118 @@
 
                 <button
                     type="submit"
-                    class="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-slate-200 active:bg-black"
+                    class="rounded-lg bg-[rgba(0,55,199,0.85)] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[rgba(0,44,155,0.85)] focus:outline-none focus:ring-4 focus:ring-slate-200 active:bg-black"
                 >
                     Save record
                 </button>
             </div>
         </form>
+    </div>
+</div>
+
+{{-- ===================================================== --}}
+{{-- TRANSFER HISTORY MODAL --}}
+{{-- ===================================================== --}}
+
+<div
+    id="transferHistoryModal"
+    class="fixed inset-0 z-50 hidden items-center justify-center
+        bg-black/30 p-4 backdrop-blur-[2px]"
+>
+    <div
+        class="flex max-h-[85vh] w-full max-w-4xl flex-col
+            overflow-hidden rounded-2xl border border-black/5
+            bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
+    >
+
+        {{-- ===================================== --}}
+        {{-- MODAL HEADER --}}
+        {{-- ===================================== --}}
+
+        <div
+            class="flex shrink-0 items-start justify-between gap-6
+                border-b border-dashed border-slate-500
+                px-6 pb-5 pt-6"
+        >
+            <div class="min-w-0">
+
+                <p
+                    class="text-[11px] font-medium uppercase
+                        tracking-[0.16em] text-slate-400"
+                >
+                    Equipment Movement Records
+                </p>
+
+                <h2
+                    id="transferHistoryEquipmentName"
+                    class="mt-1.5 truncate text-lg font-semibold
+                        tracking-tight text-slate-950"
+                >
+                    Transfer logs
+                </h2>
+
+            </div>
+
+
+            <button
+                type="button"
+                onclick="closeTransferHistory()"
+
+                class="flex h-8 w-8 shrink-0 items-center
+                    justify-center rounded-full text-slate-400
+                    transition hover:bg-slate-100
+                    hover:text-slate-900"
+
+                aria-label="Close modal"
+            >
+                <i data-lucide="x" class="h-4 w-4"></i>
+            </button>
+
+        </div>
+
+
+        {{-- ===================================== --}}
+        {{-- MODAL CONTENT --}}
+        {{-- ===================================== --}}
+
+        <div class="min-h-0 flex-1 overflow-y-auto">
+
+            <div
+                id="transferHistoryContent"
+                class="p-6"
+            >
+
+                {{-- CONTENT LOADED USING JAVASCRIPT --}}
+
+            </div>
+
+        </div>
+
+
+        {{-- ===================================== --}}
+        {{-- MODAL FOOTER --}}
+        {{-- ===================================== --}}
+
+        <div
+            class="flex shrink-0 items-center justify-end
+                border-t border-dashed border-slate-500
+                px-6 py-4"
+        >
+
+            <button
+                type="button"
+                onclick="closeTransferHistory()"
+
+                class="rounded-lg px-3.5 py-2.5
+                    text-sm font-medium text-slate-600
+                    transition hover:bg-slate-100
+                    hover:text-slate-950"
+            >
+                Close
+            </button>
+
+        </div>
+
     </div>
 </div>
 
@@ -1404,6 +1801,305 @@
             document
                 .getElementById("maintenanceModal")
                 .classList.remove("flex");
+        }
+
+        // =====================================================
+        // TRANSFER HISTORY
+        // =====================================================
+
+        async function openTransferHistory(id, name) {
+
+            // =====================================
+            // GET MODAL ELEMENTS
+            // =====================================
+
+            const modal =
+                document.getElementById("transferHistoryModal");
+
+            const title =
+                document.getElementById("transferHistoryEquipmentName");
+
+            const content =
+                document.getElementById("transferHistoryContent");
+
+
+            // =====================================
+            // SET EQUIPMENT NAME
+            // =====================================
+
+            title.innerText = name + " Transfer Logs";
+
+
+            // =====================================
+            // SHOW LOADING STATE
+            // =====================================
+
+            content.innerHTML = `
+                <div
+                    class="flex min-h-[280px]
+                        items-center justify-center
+                        text-sm text-slate-500"
+                >
+                    Loading transfer logs...
+                </div>
+            `;
+
+
+            // =====================================
+            // OPEN MODAL
+            // =====================================
+
+            modal.classList.remove("hidden");
+
+            modal.classList.add("flex");
+
+
+            // =====================================
+            // FETCH TRANSFER LOGS
+            // =====================================
+
+            try {
+
+                const response = await fetch(
+                    "/maintenance/equipment/transfers/" + id
+                );
+
+                // =====================================
+                // CHECK HTTP RESPONSE
+                // =====================================
+
+                if (!response.ok) {
+
+                    throw new Error(
+                        "HTTP error: " + response.status
+                    );
+
+                }
+
+
+                const data = await response.json();
+
+
+                // =====================================
+                // EMPTY STATE
+                // =====================================
+
+                if (data.length === 0) {
+
+                    content.innerHTML = `
+
+                        <div
+                            class="flex min-h-[280px]
+                                flex-col items-center
+                                justify-center text-center"
+                        >
+
+                            <div
+                                class="flex h-10 w-10
+                                    items-center justify-center
+                                    rounded-full bg-slate-100
+                                    text-slate-400"
+                            >
+                                <i
+                                    data-lucide="route"
+                                    class="h-4 w-4"
+                                ></i>
+                            </div>
+
+
+                            <h3
+                                class="mt-4 text-sm font-medium
+                                    text-slate-900"
+                            >
+                                No transfer logs
+                            </h3>
+
+
+                            <p
+                                class="mt-1.5 max-w-xs
+                                    text-sm leading-6
+                                    text-slate-500"
+                            >
+                                Transfer records for this equipment
+                                will appear here.
+                            </p>
+
+                        </div>
+                    `;
+
+
+                    // =====================================
+                    // REFRESH LUCIDE ICONS
+                    // =====================================
+
+                    if (window.lucide) {
+                        lucide.createIcons();
+                    }
+
+
+                    return;
+
+                }
+
+
+                // =====================================
+                // BUILD TRANSFER LOGS
+                // =====================================
+
+                let html = `
+                    <div class="space-y-3">
+                `;
+
+
+                data.forEach((item) => {
+
+                    html += `
+
+                        <div
+                            class="rounded-xl border
+                                border-slate-200 bg-white p-4"
+                        >
+
+                            <div
+                                class="flex items-start
+                                    justify-between gap-6"
+                            >
+
+                                <div class="min-w-0">
+
+                                    <p
+                                        class="text-sm font-semibold
+                                            text-slate-900"
+                                    >
+                                        ${item.from_room_name ?? "No previous room"}
+
+                                        <span
+                                            class="mx-2 text-slate-400"
+                                        >
+                                            →
+                                        </span>
+
+                                        ${item.to_room_name ?? "Unknown room"}
+                                    </p>
+
+
+                                    <p
+                                        class="mt-1 text-xs
+                                            text-slate-400"
+                                    >
+                                        ${item.created_at ?? ""}
+                                    </p>
+
+                                </div>
+
+                            </div>
+
+
+                            ${
+                                item.remarks
+                                    ? `
+                                        <div
+                                            class="mt-4 border-t
+                                                border-slate-100 pt-4"
+                                        >
+
+                                            <p
+                                                class="text-xs font-medium
+                                                    text-slate-500"
+                                            >
+                                                Remarks
+                                            </p>
+
+                                            <p
+                                                class="mt-1 text-sm
+                                                    leading-6 text-slate-700"
+                                            >
+                                                ${item.remarks}
+                                            </p>
+
+                                        </div>
+                                    `
+                                    : ""
+                            }
+
+                        </div>
+
+                    `;
+
+                });
+
+
+                html += `
+                    </div>
+                `;
+
+
+                content.innerHTML = html;
+
+
+                // =====================================
+                // REFRESH LUCIDE ICONS
+                // =====================================
+
+                if (window.lucide) {
+                    lucide.createIcons();
+                }
+
+
+            } catch (error) {
+
+                console.error(
+                    "Transfer history error:",
+                    error
+                );
+
+
+                content.innerHTML = `
+
+                    <div
+                        class="flex min-h-[280px]
+                            flex-col items-center
+                            justify-center text-center"
+                    >
+
+                        <h3
+                            class="text-sm font-medium
+                                text-red-600"
+                        >
+                            Failed to load transfer logs
+                        </h3>
+
+
+                        <p
+                            class="mt-1 text-sm
+                                text-slate-500"
+                        >
+                            Check your Laravel route,
+                            controller, and browser console.
+                        </p>
+
+                    </div>
+
+                `;
+
+            }
+
+        }
+
+
+        // =====================================================
+        // CLOSE TRANSFER HISTORY
+        // =====================================================
+
+        function closeTransferHistory() {
+
+            const modal =
+                document.getElementById("transferHistoryModal");
+
+            modal.classList.add("hidden");
+
+            modal.classList.remove("flex");
+
         }
     </script>
 
