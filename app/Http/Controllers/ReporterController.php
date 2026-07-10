@@ -532,18 +532,50 @@ class ReporterController extends Controller
     |--------------------------------------------------------------------------
     */
 
+    // =====================================================
+    // GET REPORTER INFORMATION
+    // CHECK IF REPORTER EXISTS AND RETURN ACCOUNT STATUS
+    // =====================================================
+
     public function getReporter($employeeId)
     {
-        $reporter = DB::table('reporters_table')
+        // =====================================================
+        // FIND REPORTER HERE
+        // =====================================================
 
+        $reporter = DB::table('reporters_table')
             ->where(
                 'reporter_employee_id',
                 $employeeId
             )
-
             ->first();
 
-        return response()->json($reporter);
+
+        // =====================================================
+        // REPORTER DOES NOT EXIST
+        // =====================================================
+
+        if (!$reporter) {
+
+            return response()->json(null);
+
+        }
+
+
+        // =====================================================
+        // RETURN REPORTER INFORMATION HERE
+        // INCLUDING REPORTER STATUS
+        // =====================================================
+
+        return response()->json([
+
+            'reporter_full_name'
+                => $reporter->reporter_full_name,
+
+            'reporter_status'
+                => $reporter->reporter_status,
+
+        ]);
     }
     // REPORTCONTROLLER.PHP
 

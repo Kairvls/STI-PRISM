@@ -157,6 +157,14 @@
             <span>Inventory & Status</span>
         </a>
         <a
+            href="/maintenance/equipment/categories"
+            class="menu-item {{ request()->is('maintenance/equipment/categories*') ? 'active' : '' }} mt-1"
+        >
+            <i class="h-5 w-5" data-lucide="tags"></i>
+
+            <span>Categories</span>
+        </a>
+        <a
             href="/maintenance/equipment/qr-tools"
             class="menu-item {{ request()->is('maintenance/equipment/qr-tools*') ? 'active' : '' }} mt-1"
         >

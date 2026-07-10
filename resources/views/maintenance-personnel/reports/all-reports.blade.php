@@ -1,10 +1,73 @@
 @extends ("layouts.maintenance-layout")
 
-@section ("title", "All Reports")
+@section(
+    "title",
+    request()->is("maintenance/reports/urgent")
+        ? "Urgent Reports"
+        : (
+            request()->is("maintenance/reports/today")
+                ? "Today's Reports"
+                : "All Reports"
+        )
+)
 
 @section ("content")
     @php
-        $isUrgentPage = request()->is("maintenance/reports/urgent");
+        // =====================================================
+        // CURRENT REPORT PAGE TYPE
+        // =====================================================
+
+        $isUrgentPage = request()->is('maintenance/reports/urgent');
+
+        $isTodayPage = request()->is('maintenance/reports/today');
+
+
+        // =====================================================
+        // LIVE PAGE TITLE
+        // =====================================================
+
+        $pageTitle = match (true) {
+
+            $isUrgentPage => 'Urgent Reports',
+
+            $isTodayPage => "Today's Reports",
+
+            default => 'Reports',
+
+        };
+
+
+        // =====================================================
+        // LIVE PAGE DESCRIPTION
+        // =====================================================
+
+        $pageDescription = match (true) {
+
+            $isUrgentPage =>
+                'View and manage urgent maintenance reports requiring immediate attention.',
+
+            $isTodayPage =>
+                'View and manage maintenance reports submitted today.',
+
+            default =>
+                'View and manage all maintenance reports.',
+
+        };
+
+
+        // =====================================================
+        // LIVE COUNT LABEL
+        // =====================================================
+
+        $countLabel = match (true) {
+
+            $isUrgentPage => 'Urgent Reports',
+
+            $isTodayPage => 'Reports Today',
+
+            default => 'On This Page',
+
+        };
     @endphp
 
     <div
@@ -31,34 +94,54 @@
                 </span>
             </nav>-->
 
+            {{-- ===================================================== --}}
+            {{-- LIVE PAGE TITLE --}}
+            {{-- ===================================================== --}}
+
             <h1
-                class="flex items-center gap-3 text-4xl font-extrabold tracking-tight text-gray-900"
+                class="flex items-center gap-3
+                    text-4xl font-extrabold
+                    tracking-tight text-gray-900"
             >
-                {{
-                    $isUrgentPage
-                        ? "Urgent Reports"
-                        : "Reports"
-                }}
+
+                {{ $pageTitle }}
+
+
+                {{-- ================================================= --}}
+                {{-- URGENT PAGE PRIORITY BADGE --}}
+                {{-- ================================================= --}}
 
                 @if ($isUrgentPage)
+
                     <span
-                        class="inline-flex items-center gap-1 rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-red-700"
+                        class="inline-flex items-center gap-1
+                            rounded-full border border-red-200
+                            bg-red-50 px-2.5 py-1
+                            text-xs font-bold uppercase
+                            tracking-wider text-red-700"
                     >
+
                         <span
-                            class="h-2 w-2 animate-pulse rounded-full bg-red-500"
+                            class="h-2 w-2 animate-pulse
+                                rounded-full bg-red-500"
                         ></span>
+
                         Priority
+
                     </span>
+
                 @endif
+
             </h1>
 
+            {{-- ===================================================== --}}
+            {{-- LIVE PAGE DESCRIPTION --}}
+            {{-- ===================================================== --}}
+
             <p class="mt-1 text-gray-500">
-                @if ($isUrgentPage)
-                    View and manage urgent maintenance reports requiring
-                    immediate attention.
-                @else
-                    View and manage all maintenance reports.
-                @endif
+
+                {{ $pageDescription }}
+
             </p>
         </div>
 
@@ -71,10 +154,17 @@
                     class="w-2 h-2 rounded-full {{ $isUrgentPage ? 'bg-red-500' : 'bg-emerald-500' }} animate-pulse"
                 ></span>
 
+                {{-- ===================================================== --}}
+                {{-- LIVE COUNT LABEL --}}
+                {{-- ===================================================== --}}
+
                 <span
-                    class="text-xs font-bold uppercase tracking-wider text-gray-400"
+                    class="text-xs font-bold uppercase
+                        tracking-wider text-gray-400"
                 >
-                    On This Page
+
+                    {{ $countLabel }}
+
                 </span>
 
                 <span

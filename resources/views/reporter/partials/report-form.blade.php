@@ -234,6 +234,37 @@
         scrollbar-width: none;
     }
 
+    /* =====================================================
+    LEFT PANEL VISIBLE SCROLLBAR
+    ===================================================== */
+
+    .report-form-scroll {
+        overflow-y: auto;
+
+        /* Firefox */
+        scrollbar-width: thin;
+        scrollbar-color: #cbd5e1 #f8fafc;
+    }
+
+    /* Chrome, Edge, Safari */
+    .report-form-scroll::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .report-form-scroll::-webkit-scrollbar-track {
+        background: #f8fafc;
+    }
+
+    .report-form-scroll::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 999px;
+        border: 2px solid #f8fafc;
+    }
+
+    .report-form-scroll::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+    }
+
     /* ── MOBILE MODAL ALIGN ── */
     @media (max-width: 640px) {
         #reportModal {
@@ -277,6 +308,101 @@
     .issue-btn:active {
         transform: scale(0.96);
     }
+
+    /* =====================================================
+    SUBMITTING REPORT POPUP
+    ===================================================== */
+
+    .modern-submitting-popup {
+        border: 1px solid #e5e7eb !important;
+
+        border-radius: 16px !important;
+
+        box-shadow:
+            0 24px 60px rgba(15, 23, 42, 0.12) !important;
+    }
+
+
+    /* =====================================================
+    TITLE
+    ===================================================== */
+
+    .modern-submitting-title {
+        padding: 0 !important;
+
+        margin: 0 !important;
+
+        font-family: 'Poppins', sans-serif !important;
+
+        font-size: 1.25rem !important;
+
+        font-weight: 700 !important;
+
+        letter-spacing: -0.025em !important;
+
+        color: #111827 !important;
+    }
+
+
+    /* =====================================================
+    MESSAGE
+    ===================================================== */
+
+    .modern-submitting-content {
+        padding: 0 !important;
+
+        margin: 0.65rem 0 0 !important;
+
+        font-family: 'Inter', sans-serif !important;
+
+        font-size: 0.9rem !important;
+
+        line-height: 1.6 !important;
+
+        color: #6b7280 !important;
+    }
+
+    .swal-submitting-message {
+        max-width: 320px;
+
+        margin: 0 auto;
+    }
+
+
+    /* =====================================================
+    LOADING SPINNER
+    ===================================================== */
+
+    .modern-submitting-loader {
+        width: 34px !important;
+
+        height: 34px !important;
+
+        margin: 1.25rem auto 0 !important;
+
+        border-width: 3px !important;
+
+        border-color:
+            #e2e8f0
+            #e2e8f0
+            #111827
+            #111827 !important;
+    }
+
+
+    /* =====================================================
+    MOBILE
+    ===================================================== */
+
+    @media (max-width: 480px) {
+
+        .modern-submitting-popup {
+            width: calc(100% - 32px) !important;
+
+            padding: 1.5rem !important;
+        }
+
+    }
 </style>
 
 <form
@@ -297,11 +423,34 @@
                 font-family: &quot;Inter&quot;, sans-serif;
             "
         >
-            <div class="grid grid-cols-1 lg:min-h-[580px] lg:grid-cols-12">
+            <div
+                class="
+                    grid
+                    grid-cols-1
+
+                    lg:h-[600px]
+                    lg:max-h-[calc(100vh-48px)]
+                    lg:grid-cols-12
+                "
+            >
                 {{-- ══════════════════ LEFT PANEL ══════════════════ --}}
                 <div
-                    class="flex flex-col justify-center bg-white p-6 sm:p-7 lg:col-span-8 lg:p-9"
-                    style="border-right: 1px solid rgba(255, 255, 255, 0.07)"
+                    class="
+                        report-form-scroll
+                        min-h-0
+                        overflow-y-auto
+                        bg-white
+                        p-6
+                        sm:p-7
+
+                        lg:col-span-8
+                        lg:h-full
+                        lg:p-9
+                    "
+                    style="
+                        border-right: 1px solid rgba(255, 255, 255, 0.07);
+                        scrollbar-gutter: stable;
+                    "
                 >
                     {{-- HEADER --}}
                     <div class="mb-7 flex items-center gap-4">
@@ -420,6 +569,49 @@
                                 font-size: 1rem;
                             "
                         ></p>
+                    </div>
+
+                    {{-- ===================================================== --}}
+                    {{-- INACTIVE REPORTER WARNING --}}
+                    {{-- SHOWS WHEN REPORTER CANNOT SUBMIT REPORTS --}}
+                    {{-- ===================================================== --}}
+
+                    <div
+                        id="inactiveReporterBox"
+                        class="mb-5 hidden rounded-2xl border border-red-200 bg-red-50 p-4"
+                    >
+                        <div class="flex items-start gap-3">
+
+                            <div
+                                class="flex h-10 w-10 shrink-0 items-center
+                                    justify-center rounded-xl
+                                    bg-red-100 text-red-600"
+                            >
+                                <i
+                                    data-lucide="user-x"
+                                    class="h-5 w-5"
+                                ></i>
+                            </div>
+
+                            <div class="min-w-0">
+
+                                <p class="text-sm font-bold text-red-800">
+                                    Reporting Access Disabled
+                                </p>
+
+                                <p class="mt-1 text-sm leading-5 text-red-600">
+                                    This reporter account is inactive and cannot
+                                    submit maintenance reports.
+                                </p>
+
+                                <p class="mt-2 text-xs text-red-500">
+                                    Please contact the maintenance office if you
+                                    believe this is a mistake.
+                                </p>
+
+                            </div>
+
+                        </div>
                     </div>
 
                     {{-- LOCATION + EQUIPMENT --}}
@@ -609,19 +801,29 @@
 
                     <!-- PROBLEM DESCRIPTION WRAPPER -->
                     <div style="margin-top: 4px">
-                        <label
-                            class="rf-label"
-                            style="margin-top: 12px; margin-bottom: 8px"
+                        <div
+                            class="mb-2 flex items-center justify-between gap-4"
                         >
-                            Additional Details
-                        </label>
+                            <label
+                                class="rf-label"
+                                style="margin-top: 12px; margin-bottom: 8px"
+                            >
+                                Additional Details
+                            </label>
+
+                            <span class="text-xs text-slate-400">
+                                Optional
+                            </span>
+                        </div>
+
+                        
 
                         <div style="position: relative">
                             <textarea
                                 id="problemDescription"
                                 name="report_problem_description"
                                 rows="4"
-                                placeholder="(Optional) - Provide specific details or context about the issue here..."
+                                placeholder="[Optional] - Provide specific details or context about the issue here..."
                                 class="rf-input details-textarea"
                                 style="
                                     resize: vertical;
@@ -674,15 +876,32 @@
                 {{-- This is the single, correct closing tag for the LEFT PANEL grid column --}}
 
                 {{-- ══════════════════ RIGHT PANEL ══════════════════ --}}
+                <!-- RIGHT PANEL -->
+                <!-- SAME FIXED HEIGHT AS LEFT PANEL -->
+                <!-- ACTION BUTTONS STAY AT THE BOTTOM -->
+
                 <div
-                    class="flex flex-col gap-6 p-6 sm:p-7 lg:col-span-4"
+                    class="
+                        min-h-0
+                        overflow-y-auto
+
+                        flex
+                        flex-col
+                        gap-6
+
+                        p-6
+                        sm:p-7
+
+                        lg:col-span-4
+                        lg:h-full
+                    "
                     style="
                         background: rgba(255, 255, 255, 0.015);
                         border-top: 1px solid rgba(255, 255, 255, 0.07);
+                        scrollbar-gutter: stable;
                     "
-                    class="lg:border-top-0"
                 >
-                    {{-- CLOSE (desktop) --}}
+                                    {{-- CLOSE (desktop) --}}
                     <div class="hidden justify-end lg:flex">
                         <button
                             type="button"
@@ -872,6 +1091,7 @@
                     <div class="mt-auto flex flex-col gap-2 pt-2">
                         <button
                             type="submit"
+                            id="submitReportBtn"
                             class="flex w-full items-center justify-center gap-2 rounded-2xl py-4 font-bold transition"
                             style="
                                 background: linear-gradient(
@@ -1582,6 +1802,238 @@ toggleRoomBtn.addEventListener('click', function () {
             .forEach((btn) => btn.classList.remove("active"));
     }
 
+    // =====================================================
+    // LOCK OR UNLOCK REPORT FORM HERE
+    // EMPLOYEE ID AND CANCEL / CLOSE BUTTONS STAY USABLE
+    // =====================================================
+
+    function setReportFormLocked(locked) {
+
+        // =====================================================
+        // LOCATION
+        // =====================================================
+
+        const roomSelect =
+            document.getElementById("roomSelect");
+
+
+        // =====================================================
+        // EQUIPMENT
+        // =====================================================
+
+        const equipmentSelect =
+            document.getElementById("equipmentSelect");
+
+        const equipmentManualInput =
+            document.getElementById("equipmentManualInput");
+
+        const toggleEquipmentBtn =
+            document.getElementById("toggleEquipmentInput");
+
+
+        // =====================================================
+        // ADDITIONAL DETAILS
+        // =====================================================
+
+        const problemDescription =
+            document.getElementById("problemDescription");
+
+        const clearDescriptionBtn =
+            document.getElementById("clearDescriptionBtn");
+
+
+        // =====================================================
+        // PRIORITY RADIOS
+        // =====================================================
+
+        const priorityRadios =
+            document.querySelectorAll(
+                'input[name="report_urgency_level"]'
+            );
+
+
+        // =====================================================
+        // PROOF IMAGE
+        // =====================================================
+
+        const proofImageInput =
+            document.getElementById("proofImageInput");
+
+        const uploadZone =
+            document.getElementById("uploadZone");
+
+        const removeFileBtn =
+            document.getElementById("removeFileBtn");
+
+
+        // =====================================================
+        // SUGGESTED ISSUE CONTROLS
+        // =====================================================
+
+        const issueCarousel =
+            document.getElementById("issueCarousel");
+
+        const issueControls =
+            document.getElementById("issueControls");
+
+
+        // =====================================================
+        // SUBMIT BUTTON
+        // =====================================================
+
+        const submitReportBtn =
+            document.getElementById("submitReportBtn");
+
+
+        // =====================================================
+        // DISABLE NORMAL FORM INPUTS HERE
+        // =====================================================
+
+        roomSelect.disabled = locked;
+
+        equipmentSelect.disabled = locked;
+
+        equipmentManualInput.disabled = locked;
+
+        toggleEquipmentBtn.disabled = locked;
+
+        problemDescription.disabled = locked;
+
+        clearDescriptionBtn.disabled = locked;
+
+        proofImageInput.disabled = locked;
+
+        submitReportBtn.disabled = locked;
+
+
+        // =====================================================
+        // DISABLE PRIORITY RADIOS HERE
+        // =====================================================
+
+        priorityRadios.forEach(function (radio) {
+
+            radio.disabled = locked;
+
+        });
+
+
+        // =====================================================
+        // LOCK SUGGESTED ISSUE CAROUSEL HERE
+        // THIS BLOCKS CLICKING AND DRAGGING
+        // =====================================================
+
+        issueCarousel.style.pointerEvents =
+            locked ? "none" : "";
+
+        issueCarousel.style.opacity =
+            locked ? "0.45" : "1";
+
+
+        // =====================================================
+        // LOCK ISSUE CONTROL BUTTONS HERE
+        // LEFT, RIGHT, CLEAR
+        // =====================================================
+
+        issueControls.style.pointerEvents =
+            locked ? "none" : "";
+
+        issueControls.style.opacity =
+            locked ? "0.45" : "1";
+
+
+        // =====================================================
+        // LOCK UPLOAD ZONE HERE
+        // =====================================================
+
+        uploadZone.style.pointerEvents =
+            locked ? "none" : "";
+
+        uploadZone.style.opacity =
+            locked ? "0.45" : "1";
+
+
+        // =====================================================
+        // LOCK REMOVE FILE BUTTON HERE
+        // =====================================================
+
+        removeFileBtn.style.pointerEvents =
+            locked ? "none" : "";
+
+
+        // =====================================================
+        // DISABLED VISUAL STATE HERE
+        // =====================================================
+
+        const disabledElements = [
+
+            roomSelect,
+
+            equipmentSelect,
+
+            equipmentManualInput,
+
+            toggleEquipmentBtn,
+
+            problemDescription,
+
+        ];
+
+
+        disabledElements.forEach(function (element) {
+
+            if (!element) {
+                return;
+            }
+
+
+            if (locked) {
+
+                element.style.opacity = "0.55";
+
+                element.style.cursor = "not-allowed";
+
+            } else {
+
+                element.style.opacity = "";
+
+                element.style.cursor = "";
+
+            }
+
+        });
+
+
+        // =====================================================
+        // PRIORITY CARD VISUAL STATE HERE
+        // =====================================================
+
+        document
+            .querySelectorAll(".priority-card")
+            .forEach(function (card) {
+
+                card.style.pointerEvents =
+                    locked ? "none" : "";
+
+                card.style.opacity =
+                    locked ? "0.45" : "1";
+
+                card.style.cursor =
+                    locked ? "not-allowed" : "pointer";
+
+            });
+
+
+        // =====================================================
+        // SUBMIT BUTTON VISUAL STATE HERE
+        // =====================================================
+
+        submitReportBtn.style.opacity =
+            locked ? "0.45" : "1";
+
+        submitReportBtn.style.cursor =
+            locked ? "not-allowed" : "pointer";
+    }
+
     /* ─────────────────────────────────────────────────────────
    REPORT SUBMISSION INTELLIGENCE LAYER
 ───────────────────────────────────────────────────────── */
@@ -1659,50 +2111,146 @@ toggleRoomBtn.addEventListener('click', function () {
             }
         });
 
-        /* EMPLOYEE LIVE LOOKUP */
-        /* EMPLOYEE LIVE LOOKUP */
+        // =====================================================
+        // EMPLOYEE LIVE LOOKUP
+        // CHECK ACTIVE, INACTIVE, OR UNKNOWN REPORTER
+        // =====================================================
+
+        const inactiveReporterBox =
+            document.getElementById("inactiveReporterBox");
+
+        const submitReportBtn =
+            document.getElementById("submitReportBtn");
+
+
+        // =====================================================
+        // EMPLOYEE LIVE LOOKUP
+        // ONLY INACTIVE REPORTERS LOCK THE FORM
+        // =====================================================
+
         employeeInput.addEventListener("input", function () {
-            employeeError.style.display = "none";
 
             const id = this.value.trim();
 
-            /*
-        |--------------------------------------------------------------------------
-        | RESET IF TOO SHORT
-        |--------------------------------------------------------------------------
-        */
+
+            // =====================================================
+            // RESET CURRENT REPORTER STATE HERE
+            // =====================================================
+
+            reporterVerified = false;
+
+            reporterBox.classList.add("hidden");
+
+            inactiveReporterBox.classList.add("hidden");
+
+            employeeError.style.display = "none";
+
+
+            // =====================================================
+            // IMPORTANT
+            // KEEP FORM UNLOCKED BY DEFAULT
+            // =====================================================
+
+            setReportFormLocked(false);
+
+
+            // =====================================================
+            // EMPTY OR INCOMPLETE EMPLOYEE ID
+            // KEEP FORM UNLOCKED
+            // =====================================================
+
             if (id.length < 8) {
-                reporterVerified = false;
-
-                reporterBox.classList.add("hidden");
-
-                employeeError.style.display = "none";
 
                 return;
+
             }
 
-            /*
-        |--------------------------------------------------------------------------
-        | LOOKUP REPORTER
-        |--------------------------------------------------------------------------
-        */
+
+            // =====================================================
+            // LOOKUP REPORTER HERE
+            // =====================================================
+
             fetch(`/get-reporter/${id}`)
+
                 .then((response) => response.json())
 
                 .then((data) => {
-                    //console.log(data);
 
-                    /*
-                |--------------------------------------------------------------------------
-                | REPORTER FOUND
-                |--------------------------------------------------------------------------
-                */
-                    if (data && data.reporter_full_name) {
-                        reporterVerified = true;
 
-                        reporterBox.classList.remove("hidden");
+                    // =====================================================
+                    // REPORTER DOES NOT EXIST
+                    // KEEP FORM UNLOCKED
+                    // =====================================================
 
-                        document.getElementById("reporterName").innerHTML = `
+                    if (!data || !data.reporter_full_name) {
+
+                        reporterVerified = false;
+
+                        reporterBox.classList.add("hidden");
+
+                        inactiveReporterBox.classList.add("hidden");
+
+                        employeeError.innerText =
+                            "Employee ID not recognized.";
+
+                        employeeError.style.display = "block";
+
+
+                        // KEEP FORM UNLOCKED
+                        setReportFormLocked(false);
+
+                        return;
+
+                    }
+
+
+                    // =====================================================
+                    // REPORTER IS INACTIVE
+                    // THIS IS THE ONLY STATE THAT LOCKS THE FORM
+                    // =====================================================
+
+                    if (data.reporter_status !== "Active") {
+
+                        reporterVerified = false;
+
+                        reporterBox.classList.add("hidden");
+
+                        inactiveReporterBox.classList.remove("hidden");
+
+                        employeeError.style.display = "none";
+
+
+                        // LOCK FORM HERE
+                        setReportFormLocked(true);
+
+
+                        if (typeof lucide !== "undefined") {
+
+                            lucide.createIcons();
+
+                        }
+
+                        return;
+
+                    }
+
+
+                    // =====================================================
+                    // REPORTER IS ACTIVE
+                    // KEEP FORM UNLOCKED
+                    // =====================================================
+
+                    reporterVerified = true;
+
+                    reporterBox.classList.remove("hidden");
+
+                    inactiveReporterBox.classList.add("hidden");
+
+                    employeeError.style.display = "none";
+
+
+                    document.getElementById("reporterName").innerHTML = `
+
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
                             width="18"
@@ -1729,28 +2277,37 @@ toggleRoomBtn.addEventListener('click', function () {
                         </span>
                     `;
 
-                        employeeError.style.display = "none";
-                    } else {
-                        /*
-                |--------------------------------------------------------------------------
-                | REPORTER NOT FOUND
-                |--------------------------------------------------------------------------
-                */
-                        reporterVerified = false;
 
-                        reporterBox.classList.add("hidden");
+                    // KEEP FORM UNLOCKED
+                    setReportFormLocked(false);
 
-                        employeeError.style.display = "none";
-                    }
                 })
 
+
+                // =====================================================
+                // LOOKUP REQUEST FAILED
+                // KEEP FORM UNLOCKED
+                // =====================================================
+
                 .catch((error) => {
+
                     reporterVerified = false;
 
                     reporterBox.classList.add("hidden");
 
-                    employeeError.style.display = "none";
+                    inactiveReporterBox.classList.add("hidden");
+
+                    employeeError.innerText =
+                        "Unable to verify Employee ID.";
+
+                    employeeError.style.display = "block";
+
+
+                    // KEEP FORM UNLOCKED
+                    setReportFormLocked(false);
+
                 });
+
         });
 
         /* ROOM → EQUIPMENT FILTER */
@@ -2003,13 +2560,23 @@ toggleRoomBtn.addEventListener('click', function () {
         |--------------------------------------------------------------------------
         */
             Swal.fire({
-                title: "Submitting Report",
+
+                // =====================================================
+                // CONTENT
+                // =====================================================
+
+                title: 'Submitting report',
 
                 html: `
-                <div class="mt-2 text-sm">
-                    Processing maintenance report...
-                </div>
-            `,
+                    <div class="swal-submitting-message">
+                        Processing your maintenance report...
+                    </div>
+                `,
+
+
+                // =====================================================
+                // BEHAVIOR
+                // =====================================================
 
                 allowOutsideClick: false,
 
@@ -2017,26 +2584,51 @@ toggleRoomBtn.addEventListener('click', function () {
 
                 showConfirmButton: false,
 
-                background: "#0f1628",
 
-                color: "#f0f2f8",
+                // =====================================================
+                // APPEARANCE
+                // =====================================================
+
+                background: '#ffffff',
+
+                color: '#111827',
+
+                width: '420px',
+
+                padding: '1.75rem',
 
                 backdrop: `
-                rgba(0,0,0,0.65)
-                blur(6px)
-            `,
+                    rgba(15, 23, 42, 0.35)
+                `,
+
+
+                // =====================================================
+                // CUSTOM CLASSES
+                // =====================================================
+
+                customClass: {
+
+                    popup: 'modern-submitting-popup',
+
+                    title: 'modern-submitting-title',
+
+                    htmlContainer: 'modern-submitting-content',
+
+                    loader: 'modern-submitting-loader',
+
+                },
+
+
+                // =====================================================
+                // SHOW LOADING INDICATOR
+                // =====================================================
 
                 didOpen: () => {
-                    const popup = Swal.getPopup();
-
-                    popup.style.border = "1px solid rgba(255,255,255,0.08)";
-
-                    popup.style.borderRadius = "24px";
-
-                    popup.style.boxShadow = "0 32px 80px rgba(0,0,0,.55)";
 
                     Swal.showLoading();
+
                 },
+
             });
         });
 </script>

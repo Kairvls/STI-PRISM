@@ -29,6 +29,8 @@
     }
 </style>
 
+@if ($allReports ?? false)
+
 <div
     class="overflow-hidden rounded-lg border-t border-b border-slate-300 bg-gray-100 shadow-sm"
 >
@@ -472,6 +474,8 @@
         </div>
     </div>
 </div>
+
+@endif
 
 <div
     class="overflow-hidden rounded-2xl mt-6 border border-gray-200 bg-white shadow-sm"

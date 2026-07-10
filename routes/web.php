@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Auth\MicrosoftController;
 use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\InfrastructureController;
+use App\Http\Controllers\QRController;
 
 /*
 |--------------------------------------------------------------------------
@@ -374,6 +375,31 @@ Route::get(
 );
 
 
+// =====================================================
+// REPORTER STATUS MANAGEMENT
+// =====================================================
+
+Route::patch(
+    '/maintenance/reporters/{id}/deactivate',
+    [MaintenanceController::class, 'deactivateReporter']
+)->name('maintenance.reporters.deactivate');
+
+
+Route::patch(
+    '/maintenance/reporters/{id}/reactivate',
+    [MaintenanceController::class, 'reactivateReporter']
+)->name('maintenance.reporters.reactivate');
+
+// =====================================================
+// REPORTER HISTORY PAGE
+// =====================================================
+
+Route::get(
+    '/maintenance/reporters/{id}/history',
+    [MaintenanceController::class, 'reporterHistory']
+)->name('maintenance.reporters.history');
+
+
 /*
 |--------------------------------------------------------------------------
 | REPORTER VALIDATION
@@ -478,24 +504,76 @@ Route::get(
     [MaintenanceController::class, 'getTransferHistory']
 );
 
-Route::get(
-    '/maintenance/equipment/qr-tools',
-    [MaintenanceController::class, 'qrTools']
-);
 
-Route::post(
-    '/maintenance/equipment/qr/generate/{id}',
-    [MaintenanceController::class, 'generateQr']
-);
-
-Route::get(
-    '/maintenance/equipment/qr-image/{code}',
-    [MaintenanceController::class, 'qrImage']
-);
 
 Route::get(
     '/equipment/{qrCode}',
     [MaintenanceController::class, 'equipmentByQr']
+);
+
+
+
+// ==============================
+// QR ROUTES
+// ==============================
+
+Route::get(
+    '/maintenance/equipment/qr-tools',
+    [QRController::class, 'qrTools']
+);
+
+Route::post(
+    '/maintenance/equipment/qr/generate/{id}',
+    [QRController::class, 'generateQr']
+);
+
+Route::get(
+    '/maintenance/equipment/qr-image/{code}',
+    [QRController::class, 'qrImage']
+);
+
+Route::get(
+    '/maintenance/equipment/qr/{code}/pdf',
+    [QRController::class, 'downloadQrPdf']
+);
+
+Route::get(
+    '/maintenance/equipment/qr/{code}/png',
+    [QRController::class, 'downloadQrPng']
+);
+
+Route::get(
+    '/maintenance/equipment/qr/{code}/svg',
+    [QRController::class, 'downloadQrSvg']
+);
+
+Route::get(
+    '/maintenance/equipment/qr/{code}/print',
+    [QRController::class, 'printLabel']
+);
+
+// =====================================================
+// EQUIPMENT CATEGORY ROUTES
+// =====================================================
+
+Route::get(
+    '/maintenance/equipment/categories',
+    [MaintenanceController::class, 'equipmentCategories']
+);
+
+Route::post(
+    '/maintenance/equipment/categories',
+    [MaintenanceController::class, 'storeEquipmentCategory']
+);
+
+Route::put(
+    '/maintenance/equipment/categories/{id}',
+    [MaintenanceController::class, 'updateEquipmentCategory']
+);
+
+Route::delete(
+    '/maintenance/equipment/categories/{id}',
+    [MaintenanceController::class, 'deleteEquipmentCategory']
 );
 
 
@@ -774,9 +852,9 @@ Route::get(
 );
 
 Route::post(
-    '/maintenance/reporters/store',
-    [MaintenanceController::class, 'storeReporter']
-);
+    '/store-report',
+    [MaintenanceController::class, 'storeReport']
+)->name('reports.store');
 
 Route::post(
     '/maintenance/reporters/update',
@@ -787,6 +865,8 @@ Route::post(
     '/maintenance/reporters/delete',
     [MaintenanceController::class, 'deleteReporter']
 );
+
+
 
 
 

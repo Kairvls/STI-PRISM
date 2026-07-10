@@ -360,6 +360,293 @@
             </div>
 
 
+            {{-- ===================================================== --}}
+            {{-- SEARCH AND FILTER BAR --}}
+            {{-- ADD BETWEEN HEADER AND TABLE --}}
+            {{-- ===================================================== --}}
+
+            <form
+                method="GET"
+                action="{{ url()->current() }}"
+                class="border-b border-slate-200 px-5 py-4"
+            >
+
+                <div class="flex flex-col gap-3 xl:flex-row xl:items-center">
+
+                    {{-- ================================================= --}}
+                    {{-- SEARCH --}}
+                    {{-- ================================================= --}}
+
+                    <div class="relative min-w-0 flex-1">
+
+                        <i
+                            data-lucide="search"
+                            class="pointer-events-none absolute
+                                left-3 top-1/2 h-4 w-4
+                                -translate-y-1/2 text-slate-400"
+                        ></i>
+
+                        <input
+                            type="search"
+                            name="search"
+                            value="{{ request('search') }}"
+                            placeholder="Search equipment, category, reason, or disposal area..."
+
+                            class="h-10 w-full rounded-lg
+                                border border-slate-200
+                                bg-white pl-10 pr-3
+                                text-sm text-slate-700
+                                outline-none transition
+                                placeholder:text-slate-400
+                                focus:border-slate-400
+                                focus:ring-2 focus:ring-slate-100"
+                        >
+
+                    </div>
+
+
+                    {{-- ================================================= --}}
+                    {{-- CATEGORY FILTER --}}
+                    {{-- ================================================= --}}
+
+                    <div class="relative">
+
+                        <select
+                            name="category"
+
+                            class="h-10 min-w-[175px]
+                                appearance-none rounded-lg
+                                border border-slate-200
+                                bg-white pl-3 pr-9
+                                text-sm text-slate-600
+                                outline-none transition
+                                focus:border-slate-400
+                                focus:ring-2 focus:ring-slate-100"
+                        >
+
+                            <option value="">
+                                All Categories
+                            </option>
+
+                            @foreach ($categories as $category)
+
+                                <option
+                                    value="{{ $category->equipment_category_id }}"
+
+                                    @selected(
+                                        request('category')
+                                        == $category->equipment_category_id
+                                    )
+                                >
+                                    {{ $category->equipment_category_name }}
+                                </option>
+
+                            @endforeach
+
+                        </select>
+
+                        <i
+                            data-lucide="chevron-down"
+                            class="pointer-events-none absolute
+                                right-3 top-1/2 h-4 w-4
+                                -translate-y-1/2 text-slate-400"
+                        ></i>
+
+                    </div>
+
+
+                    {{-- ================================================= --}}
+                    {{-- CONDITION FILTER --}}
+                    {{-- ================================================= --}}
+
+                    <div class="relative">
+
+                        <select
+                            name="condition"
+
+                            class="h-10 min-w-[165px]
+                                appearance-none rounded-lg
+                                border border-slate-200
+                                bg-white pl-3 pr-9
+                                text-sm text-slate-600
+                                outline-none transition
+                                focus:border-slate-400
+                                focus:ring-2 focus:ring-slate-100"
+                        >
+
+                            <option value="">
+                                All Conditions
+                            </option>
+
+                            <option
+                                value="Good"
+                                @selected(request('condition') === 'Good')
+                            >
+                                Good
+                            </option>
+
+                            <option
+                                value="Fair"
+                                @selected(request('condition') === 'Fair')
+                            >
+                                Fair
+                            </option>
+
+                            <option
+                                value="Damaged"
+                                @selected(request('condition') === 'Damaged')
+                            >
+                                Damaged
+                            </option>
+
+                            <option
+                                value="Critical"
+                                @selected(request('condition') === 'Critical')
+                            >
+                                Critical
+                            </option>
+
+                        </select>
+
+                        <i
+                            data-lucide="chevron-down"
+                            class="pointer-events-none absolute
+                                right-3 top-1/2 h-4 w-4
+                                -translate-y-1/2 text-slate-400"
+                        ></i>
+
+                    </div>
+
+
+                    {{-- ================================================= --}}
+                    {{-- REASON FILTER --}}
+                    {{-- VALUES MATCH YOUR DISPOSE MODAL --}}
+                    {{-- ================================================= --}}
+
+                    <div class="relative">
+
+                        <select
+                            name="reason"
+
+                            class="h-10 min-w-[170px]
+                                appearance-none rounded-lg
+                                border border-slate-200
+                                bg-white pl-3 pr-9
+                                text-sm text-slate-600
+                                outline-none transition
+                                focus:border-slate-400
+                                focus:ring-2 focus:ring-slate-100"
+                        >
+
+                            <option value="">
+                                All Reasons
+                            </option>
+
+                            <option
+                                value="Beyond Repair"
+                                @selected(request('reason') === 'Beyond Repair')
+                            >
+                                Beyond repair
+                            </option>
+
+                            <option
+                                value="Obsolete"
+                                @selected(request('reason') === 'Obsolete')
+                            >
+                                Obsolete
+                            </option>
+
+                            <option
+                                value="Damaged"
+                                @selected(request('reason') === 'Damaged')
+                            >
+                                Damaged
+                            </option>
+
+                            <option
+                                value="Lost"
+                                @selected(request('reason') === 'Lost')
+                            >
+                                Lost
+                            </option>
+
+                        </select>
+
+                        <i
+                            data-lucide="chevron-down"
+                            class="pointer-events-none absolute
+                                right-3 top-1/2 h-4 w-4
+                                -translate-y-1/2 text-slate-400"
+                        ></i>
+
+                    </div>
+
+
+                    {{-- ================================================= --}}
+                    {{-- APPLY --}}
+                    {{-- ================================================= --}}
+
+                    <button
+                        type="submit"
+
+                        class="inline-flex h-10 items-center
+                            justify-center gap-2 rounded-lg
+                            bg-slate-950 px-4
+                            text-sm font-semibold text-white
+                            transition hover:bg-slate-800"
+                    >
+
+                        <i
+                            data-lucide="sliders-horizontal"
+                            class="h-4 w-4"
+                        ></i>
+
+                        Apply
+
+                    </button>
+
+
+                    {{-- ================================================= --}}
+                    {{-- CLEAR --}}
+                    {{-- ================================================= --}}
+
+                    @if (
+                        request()->filled('search')
+                        || request()->filled('category')
+                        || request()->filled('condition')
+                        || request()->filled('reason')
+                    )
+
+                        <a
+                            href="{{ url()->current() }}"
+
+                            class="inline-flex h-10 items-center
+                                justify-center gap-2 rounded-lg
+                                border border-slate-200
+                                bg-white px-4
+                                text-sm font-medium text-slate-600
+                                transition
+                                hover:border-slate-300
+                                hover:bg-slate-50
+                                hover:text-slate-900"
+                        >
+
+                            <i
+                                data-lucide="x"
+                                class="h-4 w-4"
+                            ></i>
+
+                            Clear
+
+                        </a>
+
+                    @endif
+
+                </div>
+
+            </form>
+
+
 
             {{-- ===================================================== --}}
             {{-- TABLE --}}
@@ -702,7 +989,6 @@
                                         <button
                                             type="button"
 
-                                            <button
                                             onclick="viewDisposal(
                                                 '{{ $record->equipment_name }}',
                                                 '{{ $record->equipment_category_name }}',
@@ -792,7 +1078,14 @@
                                                 bg-slate-50 text-slate-400"
                                         >
                                             <i
-                                                data-lucide="archive-x"
+                                                data-lucide="{{
+                                                    request()->filled('search')
+                                                    || request()->filled('category')
+                                                    || request()->filled('condition')
+                                                    || request()->filled('reason')
+                                                        ? 'search-x'
+                                                        : 'archive-x'
+                                                }}"
                                                 class="h-5 w-5"
                                             ></i>
                                         </div>
@@ -804,7 +1097,16 @@
 
                                         <h3 class="mt-4 text-sm font-semibold text-slate-800">
 
-                                            No disposal records yet
+                                            {{
+                                                request()->filled('search')
+                                                || request()->filled('category')
+                                                || request()->filled('condition')
+                                                || request()->filled('reason')
+
+                                                    ? 'No matching disposal records'
+
+                                                    : 'No disposal records yet'
+                                            }}
 
                                         </h3>
 
@@ -813,43 +1115,81 @@
                                         {{-- DESCRIPTION --}}
                                         {{-- ================================================= --}}
 
-                                        <p
-                                            class="mt-1.5 max-w-xs text-xs leading-5
-                                                text-slate-400"
-                                        >
+                                        <p class="mt-1.5 max-w-xs text-xs leading-5 text-slate-400">
 
-                                            Equipment moved to disposal will appear here
-                                            with its reason, location, and disposal date.
+                                            {{
+                                                request()->filled('search')
+                                                || request()->filled('category')
+                                                || request()->filled('condition')
+                                                || request()->filled('reason')
+
+                                                    ? 'No disposal records match your current search or filters.'
+
+                                                    : 'Equipment moved to disposal will appear here with its reason, location, and disposal date.'
+                                            }}
 
                                         </p>
 
 
                                         {{-- ================================================= --}}
-                                        {{-- DISPOSE EQUIPMENT BUTTON --}}
+                                        {{-- EMPTY STATE ACTION --}}
                                         {{-- ================================================= --}}
 
-                                        <button
-                                            type="button"
-                                            onclick="openDisposeModal()"
+                                        @if (
+                                            request()->filled('search')
+                                            || request()->filled('category')
+                                            || request()->filled('condition')
+                                            || request()->filled('reason')
+                                        )
 
-                                            class="mt-5 inline-flex h-9 items-center gap-2
-                                                rounded-lg border border-slate-200
-                                                bg-white px-3.5
-                                                text-xs font-semibold text-slate-600
-                                                shadow-sm transition
-                                                hover:border-slate-300
-                                                hover:bg-slate-50
-                                                hover:text-slate-900"
-                                        >
+                                            <a
+                                                href="{{ url()->current() }}"
 
-                                            <i
-                                                data-lucide="plus"
-                                                class="h-3.5 w-3.5"
-                                            ></i>
+                                                class="mt-5 inline-flex h-9 items-center gap-2
+                                                    rounded-lg border border-slate-200
+                                                    bg-white px-3.5
+                                                    text-xs font-semibold text-slate-600
+                                                    shadow-sm transition
+                                                    hover:border-slate-300
+                                                    hover:bg-slate-50
+                                                    hover:text-slate-900"
+                                            >
 
-                                            Dispose equipment
+                                                <i
+                                                    data-lucide="rotate-ccw"
+                                                    class="h-3.5 w-3.5"
+                                                ></i>
 
-                                        </button>
+                                                Clear filters
+
+                                            </a>
+
+                                        @else
+
+                                            <button
+                                                type="button"
+                                                onclick="openDisposeModal()"
+
+                                                class="mt-5 inline-flex h-9 items-center gap-2
+                                                    rounded-lg border border-slate-200
+                                                    bg-white px-3.5
+                                                    text-xs font-semibold text-slate-600
+                                                    shadow-sm transition
+                                                    hover:border-slate-300
+                                                    hover:bg-slate-50
+                                                    hover:text-slate-900"
+                                            >
+
+                                                <i
+                                                    data-lucide="plus"
+                                                    class="h-3.5 w-3.5"
+                                                ></i>
+
+                                                Dispose equipment
+
+                                            </button>
+
+                                        @endif
 
                                     </div>
 

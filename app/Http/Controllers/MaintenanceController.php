@@ -625,6 +625,9 @@ class MaintenanceController extends Controller
         );
     }
 
+
+    
+
     
 
     public function allReports()
@@ -1816,6 +1819,617 @@ class MaintenanceController extends Controller
 
     /*
     |--------------------------------------------------------------------------
+    | EQUIPMENT CATEGORIES
+    |--------------------------------------------------------------------------
+    */
+
+    public function equipmentCategories(Request $request)
+    {
+        // =====================================================
+        // BUILD CATEGORY QUERY
+        // =====================================================
+
+        $query = DB::table('equipment_categories_table')
+
+            ->leftJoin(
+                'equipment_table',
+                'equipment_categories_table.equipment_category_id',
+                '=',
+                'equipment_table.equipment_category_id'
+            )
+
+            ->select(
+                'equipment_categories_table.equipment_category_id',
+                'equipment_categories_table.equipment_category_name',
+
+                DB::raw(
+                    'COUNT(equipment_table.equipment_id) AS equipment_count'
+                )
+            )
+
+            ->groupBy(
+                'equipment_categories_table.equipment_category_id',
+                'equipment_categories_table.equipment_category_name'
+            );
+
+
+        // =====================================================
+        // SEARCH CATEGORY
+        // =====================================================
+
+        if ($request->filled('search')) {
+
+            $query->where(
+                'equipment_categories_table.equipment_category_name',
+                'LIKE',
+                '%' . $request->search . '%'
+            );
+
+        }
+
+
+        // =====================================================
+        // GET CATEGORY COUNTS
+        // =====================================================
+
+        $totalCategories =
+            DB::table('equipment_categories_table')
+                ->count();
+
+
+        $categoriesInUse =
+            DB::table('equipment_table')
+
+                ->whereNotNull('equipment_category_id')
+
+                ->distinct()
+
+                ->count('equipment_category_id');
+
+
+        $unusedCategories =
+            $totalCategories - $categoriesInUse;
+
+
+        $totalEquipment =
+            DB::table('equipment_table')
+                ->count();
+
+
+        // =====================================================
+        // PAGINATION
+        // =====================================================
+
+        $categories = $query
+
+            ->orderBy(
+                'equipment_categories_table.equipment_category_name',
+                'asc'
+            )
+
+            ->paginate(10)
+
+            ->withQueryString();
+
+        // =====================================================
+        // TOTAL CATEGORIES
+        // =====================================================
+
+        $totalCategories =
+            DB::table('equipment_categories_table')
+                ->count();
+
+
+        // =====================================================
+        // CATEGORIES CURRENTLY USED
+        // =====================================================
+
+        $categoriesInUse =
+            DB::table('equipment_categories_table')
+
+                ->join(
+                    'equipment_table',
+                    'equipment_categories_table.equipment_category_id',
+                    '=',
+                    'equipment_table.equipment_category_id'
+                )
+
+                ->distinct()
+
+                ->count(
+                    'equipment_categories_table.equipment_category_id'
+                );
+
+
+        // =====================================================
+        // UNUSED CATEGORIES
+        // =====================================================
+
+        $unusedCategories =
+            $totalCategories
+            - $categoriesInUse;
+
+
+        // =====================================================
+        // EQUIPMENT WITH CATEGORY
+        // =====================================================
+
+        $categorizedEquipment =
+            DB::table('equipment_table')
+
+                ->whereNotNull(
+                    'equipment_category_id'
+                )
+
+                ->count();
+
+
+        // =====================================================
+        // CATEGORY USAGE PERCENTAGES
+        // =====================================================
+
+        $categoriesInUsePercentage =
+            $totalCategories > 0
+
+                ? (
+                    $categoriesInUse
+                    / $totalCategories
+                ) * 100
+
+                : 0;
+
+
+        $unusedCategoriesPercentage =
+            $totalCategories > 0
+
+                ? (
+                    $unusedCategories
+                    / $totalCategories
+                ) * 100
+
+                : 0;
+
+
+        $totalEquipment =
+            DB::table('equipment_table')
+                ->count();
+
+
+        $categorizedEquipmentPercentage =
+            $totalEquipment > 0
+
+                ? (
+                    $categorizedEquipment
+                    / $totalEquipment
+                ) * 100
+
+                : 0;
+
+        // =====================================================
+        // CURRENT MONTH CATEGORY CREATION
+        // =====================================================
+
+        $currentMonthCategories =
+            DB::table('equipment_categories_table')
+
+                ->whereBetween(
+                    'equipment_category_created_at',
+                    [
+                        now()
+                            ->copy()
+                            ->startOfMonth(),
+
+                        now()
+                            ->copy()
+                            ->endOfMonth(),
+                    ]
+                )
+
+                ->count();
+
+
+        // =====================================================
+        // PREVIOUS MONTH CATEGORY CREATION
+        // =====================================================
+
+        $previousMonthCategories =
+            DB::table('equipment_categories_table')
+
+                ->whereBetween(
+                    'equipment_category_created_at',
+                    [
+                        now()
+                            ->copy()
+                            ->subMonthNoOverflow()
+                            ->startOfMonth(),
+
+                        now()
+                            ->copy()
+                            ->subMonthNoOverflow()
+                            ->endOfMonth(),
+                    ]
+                )
+
+                ->count();
+
+
+        // =====================================================
+        // CATEGORY MONTHLY PERCENTAGE CHANGE
+        // =====================================================
+
+        if ($previousMonthCategories > 0) {
+
+            $categoryMonthlyPercentage =
+                (
+                    (
+                        $currentMonthCategories
+                        - $previousMonthCategories
+                    )
+                    / $previousMonthCategories
+                )
+                * 100;
+
+        } elseif ($currentMonthCategories > 0) {
+
+            // =====================================================
+            // PREVIOUS MONTH = 0
+            // CURRENT MONTH HAS NEW CATEGORIES
+            // =====================================================
+
+            $categoryMonthlyPercentage = null;
+
+        } else {
+
+            // =====================================================
+            // BOTH MONTHS = 0
+            // =====================================================
+
+            $categoryMonthlyPercentage = 0;
+
+        }
+
+
+        // =====================================================
+        // CATEGORYS CREATED PER MONTH
+        // LAST 12 MONTHS
+        // =====================================================
+
+        $monthlyCategoryRows =
+            DB::table('equipment_categories_table')
+
+                ->selectRaw(
+                    '
+                    YEAR(equipment_category_created_at) AS category_year,
+                    MONTH(equipment_category_created_at) AS category_month,
+                    COUNT(*) AS category_count
+                    '
+                )
+
+                ->whereNotNull(
+                    'equipment_category_created_at'
+                )
+
+                ->where(
+                    'equipment_category_created_at',
+                    '>=',
+                    now()
+                        ->copy()
+                        ->subMonths(11)
+                        ->startOfMonth()
+                )
+
+                ->groupByRaw(
+                    '
+                    YEAR(equipment_category_created_at),
+                    MONTH(equipment_category_created_at)
+                    '
+                )
+
+                ->orderByRaw(
+                    '
+                    YEAR(equipment_category_created_at),
+                    MONTH(equipment_category_created_at)
+                    '
+                )
+
+                ->get()
+
+                ->keyBy(function ($row) {
+
+                    return
+                        $row->category_year
+                        . '-'
+                        . str_pad(
+                            $row->category_month,
+                            2,
+                            '0',
+                            STR_PAD_LEFT
+                        );
+
+                });
+
+
+        // =====================================================
+        // BUILD COMPLETE 12 MONTH CATEGORY TREND
+        // =====================================================
+
+        $categoryMonthlyTrend = collect();
+
+
+        for ($i = 11; $i >= 0; $i--) {
+
+            $month = now()
+                ->copy()
+                ->subMonths($i)
+                ->startOfMonth();
+
+
+            $key = $month->format('Y-m');
+
+
+            $categoryMonthlyTrend->push([
+
+                'month' =>
+                    $month->format('M'),
+
+                'count' =>
+                    (int) (
+                        $monthlyCategoryRows
+                            ->get($key)
+                            ->category_count
+                        ?? 0
+                    ),
+
+            ]);
+
+        }
+
+
+        // =====================================================
+        // RETURN CATEGORY PAGE
+        // =====================================================
+
+        return view(
+            'maintenance-personnel.equipment.categories',
+
+            compact(
+                'categories',
+
+                'totalCategories',
+                'categoriesInUse',
+                'unusedCategories',
+
+                'categorizedEquipment',
+                'totalEquipment',
+
+                'categoriesInUsePercentage',
+                'unusedCategoriesPercentage',
+                'categorizedEquipmentPercentage',
+
+                'categoryMonthlyPercentage',
+                'categoryMonthlyTrend'
+            )
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | STORE EQUIPMENT CATEGORY
+    |--------------------------------------------------------------------------
+    */
+
+    public function storeEquipmentCategory(Request $request)
+    {
+        // =====================================================
+        // VALIDATE CATEGORY
+        // =====================================================
+
+        $validated = $request->validate([
+
+            'equipment_category_name' =>
+                'required|string|max:255|unique:equipment_categories_table,equipment_category_name',
+
+        ]);
+
+
+        // =====================================================
+        // INSERT CATEGORY
+        // =====================================================
+
+        DB::table('equipment_categories_table')
+
+            ->insert([
+
+                'equipment_category_name' =>
+                    trim($validated['equipment_category_name']),
+
+                'equipment_category_created_at' =>
+                    now(),
+
+            ]);
+
+
+        // =====================================================
+        // RETURN TO CATEGORY PAGE
+        // =====================================================
+
+        return back()->with(
+            'success',
+            'Equipment category added successfully.'
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | UPDATE EQUIPMENT CATEGORY
+    |--------------------------------------------------------------------------
+    */
+
+    public function updateEquipmentCategory(
+        Request $request,
+        $id
+    )
+    {
+        // =====================================================
+        // CHECK CATEGORY EXISTS
+        // =====================================================
+
+        $category =
+            DB::table('equipment_categories_table')
+
+                ->where(
+                    'equipment_category_id',
+                    $id
+                )
+
+                ->first();
+
+
+        if (!$category) {
+
+            return back()->with(
+                'error',
+                'Equipment category not found.'
+            );
+
+        }
+
+
+        // =====================================================
+        // VALIDATE CATEGORY
+        // =====================================================
+
+        $validated = $request->validate([
+
+            'equipment_category_name' => [
+
+                'required',
+
+                'string',
+
+                'max:255',
+
+                'unique:equipment_categories_table,equipment_category_name,' .
+                    $id .
+                    ',equipment_category_id',
+
+            ],
+
+        ]);
+
+
+        // =====================================================
+        // UPDATE CATEGORY
+        // =====================================================
+
+        DB::table('equipment_categories_table')
+
+            ->where(
+                'equipment_category_id',
+                $id
+            )
+
+            ->update([
+
+                'equipment_category_name' =>
+                    trim($validated['equipment_category_name']),
+
+            ]);
+
+
+        return back()->with(
+            'success',
+            'Equipment category updated successfully.'
+        );
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | DELETE EQUIPMENT CATEGORY
+    |--------------------------------------------------------------------------
+    */
+
+    public function deleteEquipmentCategory($id)
+    {
+        // =====================================================
+        // CHECK CATEGORY EXISTS
+        // =====================================================
+
+        $category =
+            DB::table('equipment_categories_table')
+
+                ->where(
+                    'equipment_category_id',
+                    $id
+                )
+
+                ->first();
+
+
+        if (!$category) {
+
+            return back()->with(
+                'error',
+                'Equipment category not found.'
+            );
+
+        }
+
+
+        // =====================================================
+        // CHECK IF EQUIPMENT IS USING CATEGORY
+        // =====================================================
+
+        $equipmentCount =
+            DB::table('equipment_table')
+
+                ->where(
+                    'equipment_category_id',
+                    $id
+                )
+
+                ->count();
+
+
+        // =====================================================
+        // BLOCK DELETE WHEN CATEGORY IS IN USE
+        // =====================================================
+
+        if ($equipmentCount > 0) {
+
+            return back()->with(
+                'error',
+                'This category cannot be deleted because equipment is still assigned to it.'
+            );
+
+        }
+
+
+        // =====================================================
+        // DELETE CATEGORY
+        // =====================================================
+
+        DB::table('equipment_categories_table')
+
+            ->where(
+                'equipment_category_id',
+                $id
+            )
+
+            ->delete();
+
+
+        return back()->with(
+            'success',
+            'Equipment category deleted successfully.'
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | VIEW EQUIPMENT
     |--------------------------------------------------------------------------
     */
@@ -2026,7 +2640,10 @@ class MaintenanceController extends Controller
                     => $request->equipment_condition_status,
 
                 'equipment_inventory_status'
-                    => $request->equipment_inventory_status
+                    => $request->equipment_inventory_status,
+
+                'equipment_is_borrowable'
+                    => $request->has('equipment_is_borrowable'),
 
             ]);
 
@@ -2045,7 +2662,7 @@ class MaintenanceController extends Controller
     public function equipmentTransferHistory(Request $request)
     {
         // =====================================================
-        // ROOMS FOR TRANSFER MODAL
+        // ROOMS FOR FILTER AND TRANSFER MODAL
         // =====================================================
 
         $rooms = DB::table('rooms_table')
@@ -2065,10 +2682,25 @@ class MaintenanceController extends Controller
 
 
         // =====================================================
-        // EQUIPMENT LIST
+        // CATEGORIES FOR CATEGORY FILTER
         // =====================================================
 
-        $equipment = DB::table('equipment_table')
+        $categories = DB::table('equipment_categories_table')
+
+            ->orderBy(
+                'equipment_category_name',
+                'asc'
+            )
+
+            ->get();
+
+
+        // =====================================================
+        // BUILD EQUIPMENT QUERY
+        // APPLY FILTERS BEFORE PAGINATION
+        // =====================================================
+
+        $query = DB::table('equipment_table')
 
             ->leftJoin(
                 'equipment_categories_table',
@@ -2088,7 +2720,111 @@ class MaintenanceController extends Controller
                 'equipment_table.*',
                 'equipment_categories_table.equipment_category_name',
                 'rooms_table.room_name'
-            )
+            );
+
+
+        // =====================================================
+        // SEARCH FILTER
+        // =====================================================
+
+        if ($request->filled('search')) {
+
+            $query->where(function ($q) use ($request) {
+
+                $q->where(
+                    'equipment_table.equipment_name',
+                    'LIKE',
+                    '%' . $request->search . '%'
+                )
+
+                ->orWhere(
+                    'equipment_table.equipment_asset_tag',
+                    'LIKE',
+                    '%' . $request->search . '%'
+                )
+
+                ->orWhere(
+                    'equipment_table.equipment_brand_name',
+                    'LIKE',
+                    '%' . $request->search . '%'
+                )
+
+                ->orWhere(
+                    'equipment_table.equipment_model',
+                    'LIKE',
+                    '%' . $request->search . '%'
+                )
+
+                ->orWhere(
+                    'equipment_table.equipment_serial_number',
+                    'LIKE',
+                    '%' . $request->search . '%'
+                )
+
+                ->orWhere(
+                    'equipment_categories_table.equipment_category_name',
+                    'LIKE',
+                    '%' . $request->search . '%'
+                )
+
+                ->orWhere(
+                    'rooms_table.room_name',
+                    'LIKE',
+                    '%' . $request->search . '%'
+                );
+
+            });
+
+        }
+
+
+        // =====================================================
+        // CATEGORY FILTER
+        // =====================================================
+
+        if ($request->filled('category')) {
+
+            $query->where(
+                'equipment_table.equipment_category_id',
+                $request->category
+            );
+
+        }
+
+
+        // =====================================================
+        // ROOM FILTER
+        // =====================================================
+
+        if ($request->filled('room')) {
+
+            $query->where(
+                'equipment_table.equipment_room_id',
+                $request->room
+            );
+
+        }
+
+
+        // =====================================================
+        // STATUS FILTER
+        // =====================================================
+
+        if ($request->filled('status')) {
+
+            $query->where(
+                'equipment_table.equipment_inventory_status',
+                $request->status
+            );
+
+        }
+
+
+        // =====================================================
+        // PAGINATE FILTERED EQUIPMENT
+        // =====================================================
+
+        $equipment = $query
 
             ->orderBy(
                 'equipment_table.equipment_name',
@@ -2371,6 +3107,7 @@ class MaintenanceController extends Controller
             compact(
                 'equipment',
                 'rooms',
+                'categories',
 
                 // =================================================
                 // TRANSFER DASHBOARD VARIABLES
@@ -2615,215 +3352,7 @@ class MaintenanceController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    public function qrTools()
-    {
-        // =====================================================
-        // GET EQUIPMENT LIST
-        // =====================================================
-
-        $equipment = DB::table('equipment_table')
-
-            ->leftJoin(
-                'equipment_categories_table',
-                'equipment_table.equipment_category_id',
-                '=',
-                'equipment_categories_table.equipment_category_id'
-            )
-
-            ->select(
-                'equipment_table.*',
-                'equipment_categories_table.equipment_category_name'
-            )
-
-            ->orderBy(
-                'equipment_name',
-                'asc'
-            )
-
-            ->paginate(10)
-
-            ->withQueryString();
-
-
-        // =====================================================
-        // ADD QR DASHBOARD DATA HERE
-        // =====================================================
-
-
-        // =====================================================
-        // TOTAL EQUIPMENT
-        // =====================================================
-
-        $totalQrEquipment = DB::table('equipment_table')
-            ->count();
-
-
-        // =====================================================
-        // GENERATED QR CODES
-        // =====================================================
-
-        $generatedQrCodes = DB::table('equipment_table')
-
-            ->whereNotNull(
-                'equipment_qr_code'
-            )
-
-            ->where(
-                'equipment_qr_code',
-                '!=',
-                ''
-            )
-
-            ->count();
-
-
-        // =====================================================
-        // NOT GENERATED QR CODES
-        // =====================================================
-
-        $notGeneratedQrCodes =
-            $totalQrEquipment
-            - $generatedQrCodes;
-
-
-        // =====================================================
-        // GENERATED QR PERCENTAGE
-        // =====================================================
-
-        $generatedQrPercentage =
-            $totalQrEquipment > 0
-
-                ? (
-                    $generatedQrCodes
-                    / $totalQrEquipment
-                ) * 100
-
-                : 0;
-
-
-        // =====================================================
-        // NOT GENERATED QR PERCENTAGE
-        // =====================================================
-
-        $notGeneratedQrPercentage =
-            $totalQrEquipment > 0
-
-                ? (
-                    $notGeneratedQrCodes
-                    / $totalQrEquipment
-                ) * 100
-
-                : 0;
-
-
-        // =====================================================
-        // TOTAL QR SCANS
-        // =====================================================
-
-        $totalQrScans = DB::table('qr_code_logs_table')
-            ->count();
-
-
-        // =====================================================
-        // RETURN QR TOOLS PAGE
-        // =====================================================
-
-        return view(
-            'maintenance-personnel.equipment.qr-code-generator',
-
-            compact(
-                'equipment',
-
-                // =================================================
-                // ADD QR DASHBOARD VARIABLES HERE
-                // =================================================
-
-                'totalQrEquipment',
-                'generatedQrCodes',
-                'notGeneratedQrCodes',
-                'generatedQrPercentage',
-                'notGeneratedQrPercentage',
-                'totalQrScans'
-            )
-        );
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | GENERATE QR
-    |--------------------------------------------------------------------------
-    */
-
-    public function generateQr($id)
-    {
-        $equipment = DB::table('equipment_table')
-
-            ->where(
-                'equipment_id',
-                $id
-            )
-
-            ->first();
-
-        if (!$equipment) {
-
-            return back()->with(
-                'error',
-                'Equipment not found.'
-            );
-        }
-
-        $qrCode = 'QR-' . str_pad(
-            $equipment->equipment_id,
-            6,
-            '0',
-            STR_PAD_LEFT
-        );
-
-        DB::table('equipment_table')
-
-            ->where(
-                'equipment_id',
-                $id
-            )
-
-            ->update([
-
-                'equipment_qr_code' => $qrCode
-
-            ]);
-
-        return back()->with(
-            'success',
-            'QR generated successfully.'
-        );
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | QR IMAGE
-    |--------------------------------------------------------------------------
-    */
-
-    public function qrImage($code)
-    {
-        $url = url(
-            '/equipment/' . $code
-        );
-
-        return response(
-
-            QrCode::format('svg')
-                ->size(300)
-                ->generate($url)
-
-        )
-
-        ->header(
-            'Content-Type',
-            'image/svg+xml'
-        );
-    }
+    
 
     /*
     |--------------------------------------------------------------------------
@@ -2983,7 +3512,7 @@ class MaintenanceController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    public function borrowing()
+    public function borrowing(Request $request)
     {
         // =====================================================
         // UPDATE OVERDUE BORROWING RECORDS
@@ -3017,7 +3546,12 @@ class MaintenanceController extends Controller
         // GET BORROWING RECORDS
         // =====================================================
 
-        $borrowings = DB::table('borrowing_records_table')
+        // =====================================================
+        // BUILD BORROWING RECORDS QUERY
+        // SEARCH AND FILTERS ARE APPLIED BEFORE PAGINATION
+        // =====================================================
+
+        $query = DB::table('borrowing_records_table')
 
             ->leftJoin(
                 'equipment_table',
@@ -3029,10 +3563,69 @@ class MaintenanceController extends Controller
             ->select(
                 'borrowing_records_table.*',
                 'equipment_table.equipment_name'
-            )
+            );
+
+
+        // =====================================================
+        // SEARCH FILTER
+        // SEARCHES ALL BORROWING RECORDS
+        // =====================================================
+
+        if ($request->filled('search')) {
+
+            $query->where(function ($q) use ($request) {
+
+                $q->where(
+                    'equipment_table.equipment_name',
+                    'LIKE',
+                    '%' . $request->search . '%'
+                )
+
+                ->orWhere(
+                    'borrowing_records_table.borrowing_borrower_name',
+                    'LIKE',
+                    '%' . $request->search . '%'
+                )
+
+                ->orWhere(
+                    'borrowing_records_table.borrowing_borrower_department',
+                    'LIKE',
+                    '%' . $request->search . '%'
+                )
+
+                ->orWhere(
+                    'borrowing_records_table.borrowing_authorized_by',
+                    'LIKE',
+                    '%' . $request->search . '%'
+                );
+
+            });
+
+        }
+
+
+        // =====================================================
+        // STATUS FILTER
+        // =====================================================
+
+        if ($request->filled('status')) {
+
+            $query->where(
+                'borrowing_records_table.borrowing_status',
+                $request->status
+            );
+
+        }
+
+
+        // =====================================================
+        // PAGINATE FILTERED BORROWING RECORDS
+        // =====================================================
+
+        $borrowings = $query
 
             ->orderBy(
-                'borrowing_created_at',
+                'borrowing_records_table.borrowing_created_at',
                 'desc'
             )
 
@@ -3843,7 +4436,7 @@ class MaintenanceController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    public function schedules()
+    public function schedules(Request $request)
     {
         // =====================================================
         // UPDATE EXPIRED ACTIVE SCHEDULES TO OVERDUE
@@ -3917,11 +4510,84 @@ class MaintenanceController extends Controller
 
 
         // =====================================================
-        // PAGINATED SCHEDULES FOR TABLE
-        // SHOW 10 RECORDS PER PAGE
+        // BUILD TABLE QUERY
+        // FILTERS APPLY ONLY TO THE SCHEDULE LIST
+        // CALENDAR DATA REMAINS COMPLETE
         // =====================================================
 
-        $schedules = (clone $schedulesQuery)
+        $tableSchedulesQuery = clone $schedulesQuery;
+
+
+        // =====================================================
+        // SEARCH FILTER
+        // =====================================================
+
+        if ($request->filled('search')) {
+
+            $tableSchedulesQuery->where(function ($query) use ($request) {
+
+                $query->where(
+                    'equipment_table.equipment_name',
+                    'LIKE',
+                    '%' . $request->search . '%'
+                )
+
+                ->orWhere(
+                    'rooms_table.room_name',
+                    'LIKE',
+                    '%' . $request->search . '%'
+                )
+
+                ->orWhere(
+                    'maintenance_schedules_table.maintenance_schedule_title',
+                    'LIKE',
+                    '%' . $request->search . '%'
+                )
+
+                ->orWhere(
+                    'maintenance_schedules_table.maintenance_schedule_description',
+                    'LIKE',
+                    '%' . $request->search . '%'
+                );
+
+            });
+
+        }
+
+
+        // =====================================================
+        // FREQUENCY FILTER
+        // =====================================================
+
+        if ($request->filled('frequency')) {
+
+            $tableSchedulesQuery->where(
+                'maintenance_schedules_table.maintenance_schedule_frequency',
+                $request->frequency
+            );
+
+        }
+
+
+        // =====================================================
+        // STATUS FILTER
+        // =====================================================
+
+        if ($request->filled('status')) {
+
+            $tableSchedulesQuery->where(
+                'maintenance_schedules_table.maintenance_schedule_status',
+                $request->status
+            );
+
+        }
+
+
+        // =====================================================
+        // PAGINATE FILTERED SCHEDULES
+        // =====================================================
+
+        $schedules = $tableSchedulesQuery
 
             ->orderBy(
                 'maintenance_schedules_table.maintenance_schedule_next_date',
@@ -4608,13 +5274,14 @@ class MaintenanceController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    public function disposal()
+    public function disposal(Request $request)
     {
         // =====================================================
-        // GET DISPOSAL RECORDS
+        // BUILD DISPOSAL RECORDS QUERY
+        // SEARCH AND FILTERS APPLY BEFORE PAGINATION
         // =====================================================
 
-        $disposals = DB::table('disposal_records_table')
+        $query = DB::table('disposal_records_table')
 
             ->leftJoin(
                 'equipment_table',
@@ -4635,16 +5302,116 @@ class MaintenanceController extends Controller
                 'equipment_table.equipment_name',
                 'equipment_table.equipment_condition_status',
                 'equipment_categories_table.equipment_category_name'
-            )
+            );
+
+
+        // =====================================================
+        // SEARCH FILTER
+        // SEARCHES THE ENTIRE DISPOSAL RECORDS TABLE
+        // =====================================================
+
+        if ($request->filled('search')) {
+
+            $query->where(function ($q) use ($request) {
+
+                $q->where(
+                    'equipment_table.equipment_name',
+                    'LIKE',
+                    '%' . $request->search . '%'
+                )
+
+                ->orWhere(
+                    'equipment_categories_table.equipment_category_name',
+                    'LIKE',
+                    '%' . $request->search . '%'
+                )
+
+                ->orWhere(
+                    'disposal_records_table.disposal_reason',
+                    'LIKE',
+                    '%' . $request->search . '%'
+                )
+
+                ->orWhere(
+                    'disposal_records_table.disposal_area_location',
+                    'LIKE',
+                    '%' . $request->search . '%'
+                );
+
+            });
+
+        }
+
+
+        // =====================================================
+        // CATEGORY FILTER
+        // =====================================================
+
+        if ($request->filled('category')) {
+
+            $query->where(
+                'equipment_table.equipment_category_id',
+                $request->category
+            );
+
+        }
+
+
+        // =====================================================
+        // CONDITION FILTER
+        // =====================================================
+
+        if ($request->filled('condition')) {
+
+            $query->where(
+                'equipment_table.equipment_condition_status',
+                $request->condition
+            );
+
+        }
+
+
+        // =====================================================
+        // REASON FILTER
+        // =====================================================
+
+        if ($request->filled('reason')) {
+
+            $query->where(
+                'disposal_records_table.disposal_reason',
+                $request->reason
+            );
+
+        }
+
+
+        // =====================================================
+        // PAGINATE FILTERED DISPOSAL RECORDS
+        // =====================================================
+
+        $disposals = $query
 
             ->orderBy(
-                'disposal_disposed_at',
+                'disposal_records_table.disposal_disposed_at',
                 'desc'
             )
 
             ->paginate(10)
 
             ->withQueryString();
+
+        // =====================================================
+        // GET CATEGORIES FOR CATEGORY FILTER
+        // =====================================================
+
+        $categories = DB::table('equipment_categories_table')
+
+            ->orderBy(
+                'equipment_category_name',
+                'asc'
+            )
+
+            ->get();
 
 
         // =====================================================
@@ -4943,6 +5710,7 @@ class MaintenanceController extends Controller
             compact(
                 'disposals',
                 'equipment',
+                'categories',
 
                 // =================================================
                 // DISPOSAL DASHBOARD VARIABLES
@@ -5301,108 +6069,499 @@ class MaintenanceController extends Controller
     }
 
 
-    // =====================================================
-    // REPORTERS PAGE
-    // REPLACE YOUR CURRENT reporters() METHOD WITH THIS
-    // =====================================================
-
-   public function reporters(Request $request)
+    public function reporters(Request $request)
     {
         // =====================================================
-        // REPORTER QUERY
-        // ADD SEARCH AND FILTERS TO THIS QUERY
+        // REPORTER HISTORY MODE VARIABLES
         // =====================================================
 
-        $query = DB::table('reporters_table');
+        $historyReporter = null;
+
+        $reportHistory = null;
 
 
         // =====================================================
-        // SEARCH
-        // SEARCHES THE ENTIRE DATABASE BEFORE PAGINATION
+        // CHECK IF REPORTER HISTORY MODE IS ACTIVE
         // =====================================================
 
-        if ($request->filled('search')) {
+        if ($request->filled('history')) {
 
-            $query->where(function ($q) use ($request) {
+            // =================================================
+            // GET SELECTED REPORTER
+            // =================================================
 
-                $q->where(
-                    'reporter_employee_id',
-                    'LIKE',
-                    '%' . $request->search . '%'
+            $historyReporter = DB::table('reporters_table')
+
+                ->where(
+                    'reporter_id',
+                    $request->history
                 )
 
-                ->orWhere(
-                    'reporter_full_name',
-                    'LIKE',
-                    '%' . $request->search . '%'
+                ->first();
+
+
+            // =================================================
+            // REPORTER NOT FOUND
+            // =================================================
+
+            if (!$historyReporter) {
+
+                return redirect()
+
+                    ->to('/maintenance/reporters')
+
+                    ->with(
+                        'error',
+                        'Reporter not found.'
+                    );
+
+            }
+
+
+            // =================================================
+            // BUILD REPORTER HISTORY QUERY
+            // =================================================
+
+            $historyQuery = DB::table('reports_table')
+
+                ->leftJoin(
+                    'equipment_table',
+                    'reports_table.report_equipment_id',
+                    '=',
+                    'equipment_table.equipment_id'
                 )
 
-                ->orWhere(
-                    'reporter_email_address',
-                    'LIKE',
-                    '%' . $request->search . '%'
+                ->leftJoin(
+                    'rooms_table',
+                    'reports_table.report_room_id',
+                    '=',
+                    'rooms_table.room_id'
                 )
 
-                ->orWhere(
-                    'reporter_contact_number',
-                    'LIKE',
-                    '%' . $request->search . '%'
+                ->where(
+                    'reports_table.report_reporter_employee_id',
+                    $historyReporter->reporter_employee_id
+                )
+
+                ->select(
+
+                    'reports_table.*',
+
+                    'equipment_table.equipment_name',
+
+                    'rooms_table.room_name'
+
                 );
 
-            });
+
+            // =================================================
+            // REPORTER HISTORY SEARCH
+            // =================================================
+
+            if ($request->filled('history_search')) {
+
+                $historySearch = trim(
+                    $request->history_search
+                );
+
+
+                $historyQuery->where(
+
+                    function ($query) use ($historySearch) {
+
+                        $query
+
+                            // =================================
+                            // REPORT ID
+                            // =================================
+
+                            ->whereRaw(
+                                'CAST(reports_table.report_id AS CHAR) LIKE ?',
+                                ['%' . $historySearch . '%']
+                            )
+
+
+                            // =================================
+                            // EQUIPMENT NAME
+                            // =================================
+
+                            ->orWhere(
+                                'equipment_table.equipment_name',
+                                'LIKE',
+                                '%' . $historySearch . '%'
+                            )
+
+
+                            // =================================
+                            // UNLISTED EQUIPMENT NAME
+                            // =================================
+
+                            ->orWhere(
+                                'reports_table.report_unlisted_equipment_name',
+                                'LIKE',
+                                '%' . $historySearch . '%'
+                            )
+
+
+                            // =================================
+                            // SUGGESTED ISSUE
+                            // =================================
+
+                            ->orWhere(
+                                'reports_table.report_suggested_issue',
+                                'LIKE',
+                                '%' . $historySearch . '%'
+                            )
+
+
+                            // =================================
+                            // PROBLEM DESCRIPTION
+                            // =================================
+
+                            ->orWhere(
+                                'reports_table.report_problem_description',
+                                'LIKE',
+                                '%' . $historySearch . '%'
+                            )
+
+
+                            // =================================
+                            // ROOM NAME
+                            // =================================
+
+                            ->orWhere(
+                                'rooms_table.room_name',
+                                'LIKE',
+                                '%' . $historySearch . '%'
+                            );
+
+                    }
+
+                );
+
+            }
+
+
+            // =================================================
+            // REPORTER HISTORY STATUS FILTER
+            // =================================================
+
+            if (
+                $request->filled('history_status')
+
+                && in_array(
+
+                    $request->history_status,
+
+                    [
+                        'Pending',
+                        'Processing',
+                        'Resolved',
+                        'For Replacement',
+                        'Rejected',
+                    ],
+
+                    true
+
+                )
+            ) {
+
+                $historyQuery->where(
+
+                    'reports_table.report_current_status',
+
+                    $request->history_status
+
+                );
+
+            }
+
+
+            // =================================================
+            // PAGINATE REPORTER HISTORY
+            //
+            // USE A DIFFERENT PAGE PARAMETER FROM REPORTERS
+            // =================================================
+
+            $reportHistory = $historyQuery
+
+                ->orderBy(
+                    'reports_table.report_submitted_at',
+                    'desc'
+                )
+
+                ->paginate(
+                    10,
+                    ['*'],
+                    'history_page'
+                )
+
+                ->withQueryString();
+
+
+            // =================================================
+            // DO NOT RUN REPORTER DIRECTORY SEARCH OR PAGINATION
+            //
+            // HISTORY MODE ONLY NEEDS REPORTER HISTORY DATA
+            // =================================================
+
+            $reporters = null;
+
+        } else {
+
+            // =====================================================
+            // NORMAL REPORTER DIRECTORY QUERY
+            // =====================================================
+
+            $query = DB::table('reporters_table');
+
+
+            // =====================================================
+            // REPORTER SEARCH
+            // =====================================================
+
+            if ($request->filled('search')) {
+
+                $search = trim(
+                    $request->search
+                );
+
+
+                $query->where(
+
+                    function ($q) use ($search) {
+
+                        $q
+
+                            ->where(
+                                'reporter_employee_id',
+                                'LIKE',
+                                '%' . $search . '%'
+                            )
+
+                            ->orWhere(
+                                'reporter_full_name',
+                                'LIKE',
+                                '%' . $search . '%'
+                            )
+
+                            ->orWhere(
+                                'reporter_email_address',
+                                'LIKE',
+                                '%' . $search . '%'
+                            )
+
+                            ->orWhere(
+                                'reporter_contact_number',
+                                'LIKE',
+                                '%' . $search . '%'
+                            );
+
+                    }
+
+                );
+
+            }
+
+
+            // =====================================================
+            // REPORTER STATUS FILTER
+            // =====================================================
+
+            if (
+                $request->filled('status')
+
+                && in_array(
+
+                    $request->status,
+
+                    [
+                        'Active',
+                        'Inactive',
+                    ],
+
+                    true
+
+                )
+            ) {
+
+                $query->where(
+
+                    'reporter_status',
+
+                    $request->status
+
+                );
+
+            }
+
+
+            // =====================================================
+            // PAGINATE REPORTERS
+            // =====================================================
+
+            $reporters = $query
+
+                ->orderBy(
+                    'reporter_full_name',
+                    'asc'
+                )
+
+                ->paginate(
+                    10,
+                    ['*'],
+                    'page'
+                )
+
+                ->withQueryString();
 
         }
 
 
         // =====================================================
-        // STATUS FILTER
+        // RETURN SAME REPORTERS PAGE
         // =====================================================
 
-        if ($request->filled('status')) {
+        return view(
 
-            $query->where(
-                'reporter_status',
-                $request->status
+            'maintenance-personnel.reporters.index',
+
+            array_merge(
+
+                [
+                    'reporters' => $reporters,
+
+                    'historyReporter' => $historyReporter,
+
+                    'reportHistory' => $reportHistory,
+                ],
+
+                $this->reporterDashboardData()
+
+            )
+
+        );
+    }
+
+    // =====================================================
+    // DEACTIVATE REPORTER
+    // =====================================================
+
+    public function deactivateReporter($id)
+    {
+        // =====================================================
+        // FIND REPORTER
+        // =====================================================
+
+        $reporter = DB::table('reporters_table')
+            ->where('reporter_id', $id)
+            ->first();
+
+
+        if (!$reporter) {
+
+            return back()->with(
+                'error',
+                'Reporter not found.'
             );
 
         }
 
 
         // =====================================================
-        // PAGINATION
-        // EXECUTE THE FINISHED QUERY HERE
+        // PREVENT UNNECESSARY UPDATE
         // =====================================================
 
-        $reporters = $query
+        if ($reporter->reporter_status === 'Inactive') {
 
-            ->orderBy(
-                'reporter_full_name',
-                'asc'
-            )
+            return back()->with(
+                'error',
+                'Reporter is already inactive.'
+            );
 
-            ->paginate(10)
-
-            ->withQueryString();
+        }
 
 
         // =====================================================
-        // RETURN REPORTERS PAGE
+        // DEACTIVATE REPORTER
+        // RECORD REMAINS IN DATABASE
         // =====================================================
 
-        return view(
-            'maintenance-personnel.reporters.index',
+        DB::table('reporters_table')
 
-            array_merge(
-                [
-                    'reporters' => $reporters,
-                ],
+            ->where('reporter_id', $id)
 
-                // =================================================
-                // KEEP YOUR EXISTING REPORTER DASHBOARD DATA
-                // =================================================
+            ->update([
 
-                $this->reporterDashboardData()
-            )
+                'reporter_status' => 'Inactive',
+
+            ]);
+
+
+        return back()->with(
+            'success',
+            'Reporter deactivated successfully.'
+        );
+    }
+
+
+    // =====================================================
+    // REACTIVATE REPORTER
+    // =====================================================
+
+    public function reactivateReporter($id)
+    {
+        // =====================================================
+        // FIND REPORTER
+        // =====================================================
+
+        $reporter = DB::table('reporters_table')
+            ->where('reporter_id', $id)
+            ->first();
+
+
+        if (!$reporter) {
+
+            return back()->with(
+                'error',
+                'Reporter not found.'
+            );
+
+        }
+
+
+        // =====================================================
+        // PREVENT UNNECESSARY UPDATE
+        // =====================================================
+
+        if ($reporter->reporter_status === 'Active') {
+
+            return back()->with(
+                'error',
+                'Reporter is already active.'
+            );
+
+        }
+
+
+        // =====================================================
+        // REACTIVATE REPORTER
+        // =====================================================
+
+        DB::table('reporters_table')
+
+            ->where('reporter_id', $id)
+
+            ->update([
+
+                'reporter_status' => 'Active',
+
+            ]);
+
+
+        return back()->with(
+            'success',
+            'Reporter reactivated successfully.'
         );
     }
 
@@ -5412,32 +6571,167 @@ class MaintenanceController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    public function storeReporter(Request $request)
+    public function storeReport(Request $request)
     {
-        DB::table('reporters_table')
+        // =====================================================
+        // VALIDATE REPORT FORM
+        // =====================================================
 
+        $request->validate([
+            'report_reporter_employee_id' => 'required|string',
+            'report_room_id' => 'required|integer',
+            'report_equipment_id' => 'nullable|integer',
+            'report_equipment_manual' => 'nullable|string|max:255',
+            'report_suggested_issue' => 'nullable|string|max:255',
+            'report_problem_description' => 'nullable|string',
+            'report_urgency_level' => 'required|in:Urgent,Non-Urgent',
+            'report_uploaded_image' => 'nullable|image|max:5120',
+        ]);
+
+
+        // =====================================================
+        // FIND REPORTER
+        // =====================================================
+
+        $reporter = DB::table('reporters_table')
+
+            ->where(
+                'reporter_employee_id',
+                $request->report_reporter_employee_id
+            )
+
+            ->first();
+
+
+        // =====================================================
+        // REPORTER DOES NOT EXIST
+        // =====================================================
+
+        if (!$reporter) {
+
+            return back()
+
+                ->withErrors([
+                    'report_reporter_employee_id'
+                        => 'Employee ID not recognized.',
+                ])
+
+                ->withInput();
+        }
+
+
+        // =====================================================
+        // BLOCK INACTIVE REPORTER
+        // =====================================================
+
+        if ($reporter->reporter_status !== 'Active') {
+
+            return back()
+
+                ->withErrors([
+                    'report_reporter_employee_id'
+                        => 'Reporter account is inactive. You cannot submit reports.',
+                ])
+
+                ->withInput();
+        }
+
+
+        // =====================================================
+        // VALIDATE EQUIPMENT SELECTION
+        // MUST SELECT EQUIPMENT OR ENTER MANUALLY
+        // =====================================================
+
+        if (
+            !$request->filled('report_equipment_id')
+            && !$request->filled('report_equipment_manual')
+        ) {
+
+            return back()
+
+                ->withErrors([
+                    'report_equipment_id'
+                        => 'Please select or enter an equipment.',
+                ])
+
+                ->withInput();
+        }
+
+
+        // =====================================================
+        // UPLOAD REPORT IMAGE
+        // =====================================================
+
+        $imagePath = null;
+
+        if ($request->hasFile('report_uploaded_image')) {
+
+            $imagePath = $request
+                ->file('report_uploaded_image')
+                ->store(
+                    'report-images',
+                    'public'
+                );
+        }
+
+
+        // =====================================================
+        // INSERT REPORT
+        // ONLY ACTIVE REPORTERS CAN REACH THIS PART
+        // =====================================================
+
+        DB::table('reports_table')
             ->insert([
 
-                'reporter_employee_id'
-                    => $request->employee_id,
+                'report_reporter_employee_id'
+                    => $reporter->reporter_employee_id,
 
-                'reporter_full_name'
-                    => $request->full_name,
+                'report_room_id'
+                    => $request->report_room_id,
 
-                'reporter_email_address'
-                    => $request->email,
+                'report_equipment_id'
+                    => $request->report_equipment_id,
 
-                'reporter_contact_number'
-                    => $request->contact,
+                'report_unlisted_equipment_name'
+                    => $request->report_equipment_manual,
 
-                'reporter_created_at'
-                    => now()
+                'report_problem_description'
+                    => $request->report_problem_description,
+
+                'report_suggested_issue'
+                    => $request->report_suggested_issue,
+
+                'report_urgency_level'
+                    => $request->report_urgency_level,
+
+                'report_current_status'
+                    => 'Pending',
+
+                'report_uploaded_image'
+                    => $imagePath,
+
+                'report_is_overdue'
+                    => false,
+
+                'report_is_archived'
+                    => false,
+
+                'report_submitted_at'
+                    => now(),
+
+                'report_updated_at'
+                    => now(),
 
             ]);
 
+
+        // =====================================================
+        // RETURN SUCCESS
+        // =====================================================
+
         return back()->with(
             'success',
-            'Reporter added successfully.'
+            'Report submitted successfully.'
         );
     }
 
@@ -5498,6 +6792,304 @@ class MaintenanceController extends Controller
         return back()->with(
             'success',
             'Reporter deleted successfully.'
+        );
+    }
+
+
+    // =====================================================
+    // REPORTER HISTORY
+    // SHOWS ALL REPORTS SUBMITTED BY ONE REPORTER
+    // =====================================================
+
+    public function reporterHistory(
+        Request $request,
+        $id
+    )
+    {
+        // =====================================================
+        // GET REPORTER
+        // =====================================================
+
+        $reporter = DB::table('reporters_table')
+
+            ->where(
+                'reporter_id',
+                $id
+            )
+
+            ->first();
+
+
+        // =====================================================
+        // REPORTER NOT FOUND
+        // =====================================================
+
+        if (!$reporter) {
+
+            return redirect()
+
+                ->to('/maintenance/reporters')
+
+                ->with(
+                    'error',
+                    'Reporter not found.'
+                );
+
+        }
+
+
+        // =====================================================
+        // BUILD REPORT HISTORY QUERY
+        // ONLY REPORTS SUBMITTED BY THIS REPORTER
+        // =====================================================
+
+        $query = DB::table('reports_table')
+
+            ->leftJoin(
+                'equipment_table',
+                'reports_table.report_equipment_id',
+                '=',
+                'equipment_table.equipment_id'
+            )
+
+            ->leftJoin(
+                'rooms_table',
+                'reports_table.report_room_id',
+                '=',
+                'rooms_table.room_id'
+            )
+
+            ->where(
+                'reports_table.report_reporter_employee_id',
+                $reporter->reporter_employee_id
+            )
+
+            ->select(
+
+                'reports_table.*',
+
+                'equipment_table.equipment_name',
+
+                'rooms_table.room_name'
+
+            );
+
+
+        // =====================================================
+        // SEARCH
+        // SEARCHES ALL REPORTS OF THIS REPORTER
+        // =====================================================
+
+        if ($request->filled('search')) {
+
+            $query->where(function ($q) use ($request) {
+
+                $q->where(
+                    'reports_table.report_id',
+                    'LIKE',
+                    '%' . $request->search . '%'
+                )
+
+                ->orWhere(
+                    'reports_table.report_suggested_issue',
+                    'LIKE',
+                    '%' . $request->search . '%'
+                )
+
+                ->orWhere(
+                    'reports_table.report_problem_description',
+                    'LIKE',
+                    '%' . $request->search . '%'
+                )
+
+                ->orWhere(
+                    'reports_table.report_unlisted_equipment_name',
+                    'LIKE',
+                    '%' . $request->search . '%'
+                )
+
+                ->orWhere(
+                    'equipment_table.equipment_name',
+                    'LIKE',
+                    '%' . $request->search . '%'
+                )
+
+                ->orWhere(
+                    'rooms_table.room_name',
+                    'LIKE',
+                    '%' . $request->search . '%'
+                );
+
+            });
+
+        }
+
+
+        // =====================================================
+        // STATUS FILTER
+        // VALIDATE ALLOWED REPORT STATUSES
+        // =====================================================
+
+        if (
+            $request->filled('status')
+            && in_array(
+                $request->status,
+                [
+                    'Pending',
+                    'Processing',
+                    'Resolved',
+                    'For Replacement',
+                    'Rejected',
+                ],
+                true
+            )
+        ) {
+
+            $query->where(
+                'reports_table.report_current_status',
+                $request->status
+            );
+
+        }
+
+
+        // =====================================================
+        // PAGINATE FILTERED REPORT HISTORY
+        // =====================================================
+
+        $reports = $query
+
+            ->orderBy(
+                'reports_table.report_submitted_at',
+                'desc'
+            )
+
+            ->paginate(10)
+
+            ->withQueryString();
+
+
+        // =====================================================
+        // BASE QUERY FOR DASHBOARD COUNTS
+        // COUNTS ARE NOT AFFECTED BY SEARCH OR STATUS FILTER
+        // =====================================================
+
+        $reporterReportsQuery = DB::table('reports_table')
+
+            ->where(
+                'report_reporter_employee_id',
+                $reporter->reporter_employee_id
+            );
+
+
+        // =====================================================
+        // TOTAL REPORTS
+        // =====================================================
+
+        $totalReports =
+
+            (clone $reporterReportsQuery)
+
+                ->count();
+
+
+        // =====================================================
+        // PENDING REPORTS
+        // =====================================================
+
+        $pendingReports =
+
+            (clone $reporterReportsQuery)
+
+                ->where(
+                    'report_current_status',
+                    'Pending'
+                )
+
+                ->count();
+
+
+        // =====================================================
+        // PROCESSING REPORTS
+        // =====================================================
+
+        $processingReports =
+
+            (clone $reporterReportsQuery)
+
+                ->where(
+                    'report_current_status',
+                    'Processing'
+                )
+
+                ->count();
+
+
+        // =====================================================
+        // RESOLVED REPORTS
+        // =====================================================
+
+        $resolvedReports =
+
+            (clone $reporterReportsQuery)
+
+                ->where(
+                    'report_current_status',
+                    'Resolved'
+                )
+
+                ->count();
+
+
+        // =====================================================
+        // FOR REPLACEMENT REPORTS
+        // =====================================================
+
+        $replacementReports =
+
+            (clone $reporterReportsQuery)
+
+                ->where(
+                    'report_current_status',
+                    'For Replacement'
+                )
+
+                ->count();
+
+
+        // =====================================================
+        // REJECTED REPORTS
+        // =====================================================
+
+        $rejectedReports =
+
+            (clone $reporterReportsQuery)
+
+                ->where(
+                    'report_current_status',
+                    'Rejected'
+                )
+
+                ->count();
+
+
+        // =====================================================
+        // RETURN REPORTER HISTORY PAGE
+        // =====================================================
+
+        return view(
+            'maintenance-personnel.reporters.history',
+
+            compact(
+                'reporter',
+                'reports',
+                'totalReports',
+                'pendingReports',
+                'processingReports',
+                'resolvedReports',
+                'replacementReports',
+                'rejectedReports'
+            )
         );
     }
 

@@ -3,7 +3,7 @@
 @section ("content")
 
     <div
-        class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
+        class="flex flex-col gap-4 lg:flex-row mb-6 lg:items-center lg:justify-between"
     >
         <div>
             <h1 class="text-4xl font-black tracking-tight text-slate-950">
@@ -12,15 +12,28 @@
             <p class="mt-1 text-slate-500">Manage directory records and system contact profiles</p>
         </div>
 
-        <button
-            type="button"
-            onclick="openCreateModal()"
-            class="inline-flex items-center justify-center gap-2 rounded-2xl bg-[rgba(0,55,199,0.85)] px-5 py-3 text-sm font-semibold font-sans-serif text-white shadow-lg shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-[rgba(0,44,155,0.85)]"
-        >
-            <i data-lucide="plus" class="h-4 w-4"></i>
-            Add Reporter
-        </button>
+        @if (!$historyReporter)
+
+            <button
+                type="button"
+                onclick="openCreateModal()"
+                class="inline-flex items-center justify-center gap-2
+                    rounded-2xl bg-[rgba(0,55,199,0.85)]
+                    px-5 py-3 text-sm font-semibold
+                    text-white shadow-lg shadow-slate-900/10
+                    transition
+                    hover:-translate-y-0.5
+                    hover:bg-[rgba(0,44,155,0.85)]"
+            >
+                <i data-lucide="plus" class="h-4 w-4"></i>
+
+                Add Reporter
+            </button>
+
+        @endif
     </div>
+
+    @if (!$historyReporter)
 
     {{-- ===================================================== --}}
     {{-- REPORTER DASHBOARD CARDS --}}
@@ -104,7 +117,7 @@
 
 
     <div
-        class="mb-6 mt-6 overflow-hidden rounded-lg border-y border-slate-300 bg-gray-100 shadow-sm"
+        class="mb-6 overflow-hidden rounded-lg border-y border-slate-300 bg-gray-100 shadow-sm"
     >
         <div
             class="grid grid-cols-1 divide-y divide-slate-200 md:grid-cols-2 md:divide-y-0 xl:grid-cols-[380px_1fr_1fr_1fr]"
@@ -386,51 +399,9 @@
         </div>
     </div>
 
-        <!--<div class="mb-8 grid grid-cols-1 gap-4 md:grid-cols-4">
-            <div
-                class="rounded-2xl border border-blue-100 bg-blue-50/60 p-5 transition hover:shadow-md hover:shadow-blue-50"
-            >
-                <p class="mb-1 text-xs font-semibold uppercase tracking-wider text-blue-600">Total Reporters</p>
-                <h2 class="text-3xl font-black text-blue-900">
-                    {{ $reporters->count() }}
-                </h2>
-            </div>
+    @endif
 
-            <div
-                class="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-5 transition hover:shadow-md hover:shadow-emerald-50"
-            >
-                <p class="mb-1 text-xs font-semibold uppercase tracking-wider text-emerald-600">With Email</p>
-                <h2 class="text-3xl font-black text-emerald-900">
-                    {{
-                        $reporters
-                            ->whereNotNull("reporter_email_address")
-                            ->count()
-                    }}
-                </h2>
-            </div>
-
-            <div
-                class="rounded-2xl border border-purple-100 bg-purple-50/60 p-5 transition hover:shadow-md hover:shadow-purple-50"
-            >
-                <p class="mb-1 text-xs font-semibold uppercase tracking-wider text-purple-600">With Contact</p>
-                <h2 class="text-3xl font-black text-purple-900">
-                    {{
-                        $reporters
-                            ->whereNotNull("reporter_contact_number")
-                            ->count()
-                    }}
-                </h2>
-            </div>
-
-            <div
-                class="rounded-2xl border border-amber-100 bg-amber-50/60 p-5 transition hover:shadow-md hover:shadow-amber-50"
-            >
-                <p class="mb-1 text-xs font-semibold uppercase tracking-wider text-amber-600">Registered</p>
-                <h2 class="text-3xl font-black text-amber-900">
-                    {{ $reporters->count() }}
-                </h2>
-            </div>
-        </div>-->
+        
 
     <div class="rounded-3xl border border-slate-100 bg-white shadow-sm">
         @if (session("success"))
@@ -472,29 +443,818 @@
 
         <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
 
+            @if ($historyReporter)
+
+                {{-- ===================================================== --}}
+                {{-- REPORTER HISTORY TOOLBAR --}}
+                {{-- ===================================================== --}}
+
+                <div
+                    class="flex flex-col gap-4 border-b border-slate-200
+                        px-5 py-4 lg:flex-row lg:items-center
+                        lg:justify-between"
+                >
+
+                    {{-- ================================================= --}}
+                    {{-- LEFT SIDE --}}
+                    {{-- BACK BUTTON AND REPORTER INFO --}}
+                    {{-- ================================================= --}}
+
+                    <div class="flex min-w-0 items-center gap-3">
+
+                        <a
+                            href="{{ url()->current() }}"
+
+                            class="flex h-9 w-9 shrink-0
+                                items-center justify-center
+                                rounded-lg border border-slate-200
+                                bg-white text-slate-500
+                                transition
+                                hover:bg-slate-50
+                                hover:text-slate-900"
+
+                            title="Back to reporters"
+                            aria-label="Back to reporters"
+                        >
+                            <i
+                                data-lucide="arrow-left"
+                                class="h-4 w-4"
+                            ></i>
+                        </a>
+
+
+                        <div
+                            class="flex h-9 w-9 shrink-0
+                                items-center justify-center
+                                rounded-lg bg-slate-100
+                                text-slate-600"
+                        >
+                            <i
+                                data-lucide="history"
+                                class="h-4 w-4"
+                            ></i>
+                        </div>
+
+
+                        <div class="min-w-0">
+
+                            <h2
+                                class="truncate text-sm
+                                    font-semibold text-slate-900"
+                            >
+                                {{ $historyReporter->reporter_full_name }}
+                            </h2>
+
+
+                            <p class="mt-0.5 text-xs text-slate-400">
+
+                                {{ $historyReporter->reporter_employee_id }}
+
+                                <span class="mx-1">
+                                    ·
+                                </span>
+
+                                {{ $reportHistory->total() }}
+
+                                {{
+                                    $reportHistory->total() === 1
+                                        ? 'report'
+                                        : 'reports'
+                                }}
+
+                            </p>
+
+                        </div>
+
+                    </div>
+
+
+                    {{-- ================================================= --}}
+                    {{-- RIGHT SIDE --}}
+                    {{-- HISTORY SEARCH AND STATUS FILTER --}}
+                    {{-- ================================================= --}}
+
+                    <form
+                        method="GET"
+                        action="{{ url()->current() }}"
+
+                        class="flex w-full flex-col gap-2
+                            sm:flex-row lg:w-auto lg:items-center"
+                    >
+
+                        {{-- KEEP HISTORY MODE ACTIVE --}}
+
+                        <input
+                            type="hidden"
+                            name="history"
+                            value="{{ $historyReporter->reporter_id }}"
+                        >
+
+
+                        {{-- HISTORY SEARCH --}}
+
+                        <div class="relative w-full sm:w-[240px]">
+
+                            <i
+                                data-lucide="search"
+                                class="pointer-events-none absolute
+                                    left-3 top-1/2 h-4 w-4
+                                    -translate-y-1/2 text-slate-400"
+                            ></i>
+
+
+                            <input
+                                type="search"
+                                name="history_search"
+                                value="{{ request('history_search') }}"
+                                placeholder="Search history..."
+
+                                class="h-9 w-full rounded-lg
+                                    border border-slate-200
+                                    bg-white pl-9 pr-3
+                                    text-xs font-medium text-slate-700
+                                    outline-none transition
+                                    placeholder:text-slate-400
+                                    focus:border-slate-400"
+                            >
+
+                        </div>
+
+
+                        {{-- HISTORY STATUS --}}
+
+                        <div class="relative">
+
+                            <select
+                                name="history_status"
+                                class="h-9 min-w-[150px]
+                                    appearance-none rounded-lg
+                                    border border-slate-200
+                                    bg-white pl-3 pr-9
+                                    text-xs font-medium text-slate-600
+                                    outline-none transition
+                                    focus:border-slate-400"
+                            >
+                                <option value="">All Status</option>
+
+                                @foreach ([
+                                    'Pending',
+                                    'Processing',
+                                    'Resolved',
+                                    'For Replacement',
+                                    'Rejected',
+                                ] as $historyStatus)
+
+                                    <option
+                                        value="{{ $historyStatus }}"
+                                        @selected(
+                                            request('history_status') === $historyStatus
+                                        )
+                                    >
+                                        {{ $historyStatus }}
+                                    </option>
+
+                                @endforeach
+                            </select>
+
+
+                            <i
+                                data-lucide="chevron-down"
+                                class="pointer-events-none absolute
+                                    right-3 top-1/2 h-4 w-4
+                                    -translate-y-1/2 text-slate-400"
+                            ></i>
+
+                        </div>
+
+
+                        {{-- APPLY HISTORY FILTERS --}}
+
+                        <button
+                            type="submit"
+
+                            class="inline-flex h-9 shrink-0
+                                items-center justify-center gap-2
+                                rounded-lg bg-slate-950 px-4
+                                text-sm font-semibold text-white
+                                transition hover:bg-slate-800"
+                        >
+                            <i
+                                data-lucide="sliders-horizontal"
+                                class="h-4 w-4"
+                            ></i>
+
+                            Apply
+                        </button>
+
+
+                        {{-- CLEAR HISTORY FILTERS --}}
+
+                        @if (
+                            request()->filled('history_search')
+                            || request()->filled('history_status')
+                        )
+
+                            <a
+                                href="{{ request()->fullUrlWithQuery([
+                                    'history_search' => null,
+                                    'history_status' => null,
+                                    'history_page' => null,
+                                ]) }}"
+
+                                class="inline-flex h-9 w-9 shrink-0
+                                    items-center justify-center
+                                    rounded-lg border border-slate-200
+                                    bg-white text-slate-500
+                                    transition
+                                    hover:bg-slate-50
+                                    hover:text-slate-900"
+
+                                title="Clear history filters"
+                                aria-label="Clear history filters"
+                            >
+                                <i
+                                    data-lucide="x"
+                                    class="h-4 w-4"
+                                ></i>
+                            </a>
+
+                        @endif
+
+                    </form>
+
+                </div>
+
+                {{-- ===================================================== --}}
+                {{-- REPORTER HISTORY TABLE --}}
+                {{-- SHOWS REPORTS SUBMITTED BY SELECTED REPORTER --}}
+                {{-- ===================================================== --}}
+
+                <div class="overflow-x-auto">
+
+                    <table class="w-full min-w-[1050px] text-left">
+
+                        {{-- ================================================= --}}
+                        {{-- TABLE HEADER --}}
+                        {{-- ================================================= --}}
+
+                        <thead
+                            class="border-b border-slate-200
+                                bg-slate-50/70"
+                        >
+
+                            <tr
+                                class="text-[12px] font-semibold uppercase
+                                    tracking-[0.08em] text-black"
+                            >
+
+                                <th class="px-5 py-3">
+                                    Report
+                                </th>
+
+                                <th class="px-5 py-3">
+                                    Issue
+                                </th>
+
+                                <th class="px-5 py-3">
+                                    Equipment
+                                </th>
+
+                                <th class="px-5 py-3">
+                                    Room
+                                </th>
+
+                                <th class="px-5 py-3">
+                                    Urgency
+                                </th>
+
+                                <th class="px-5 py-3">
+                                    Status
+                                </th>
+
+                                <th class="px-5 py-3">
+                                    Submitted
+                                </th>
+
+                            </tr>
+
+                        </thead>
+
+
+                        {{-- ================================================= --}}
+                        {{-- TABLE BODY --}}
+                        {{-- ================================================= --}}
+
+                        <tbody class="divide-y divide-slate-100">
+
+                            @forelse ($reportHistory as $report)
+
+                                @php
+
+                                    // =================================================
+                                    // DISPLAY EQUIPMENT NAME
+                                    // USE UNLISTED EQUIPMENT AS FALLBACK
+                                    // =================================================
+
+                                    $historyEquipmentName =
+                                        $report->equipment_name
+                                        ?? $report->report_unlisted_equipment_name
+                                        ?? 'No equipment';
+
+
+                                    // =================================================
+                                    // REPORT STATUS CLASSES
+                                    // =================================================
+
+                                    $historyStatusClass = match (
+                                        $report->report_current_status
+                                    ) {
+
+                                        'Pending' =>
+                                            'bg-amber-50 text-amber-700 ring-amber-200',
+
+                                        'Processing' =>
+                                            'bg-blue-50 text-blue-700 ring-blue-200',
+
+                                        'Resolved' =>
+                                            'bg-emerald-50 text-emerald-700 ring-emerald-200',
+
+                                        'For Replacement' =>
+                                            'bg-violet-50 text-violet-700 ring-violet-200',
+
+                                        'Rejected' =>
+                                            'bg-rose-50 text-rose-700 ring-rose-200',
+
+                                        default =>
+                                            'bg-slate-100 text-slate-600 ring-slate-200',
+
+                                    };
+
+
+                                    // =================================================
+                                    // REPORT STATUS DOT CLASSES
+                                    // =================================================
+
+                                    $historyStatusDotClass = match (
+                                        $report->report_current_status
+                                    ) {
+
+                                        'Pending' =>
+                                            'bg-amber-500',
+
+                                        'Processing' =>
+                                            'bg-blue-500',
+
+                                        'Resolved' =>
+                                            'bg-emerald-500',
+
+                                        'For Replacement' =>
+                                            'bg-violet-500',
+
+                                        'Rejected' =>
+                                            'bg-rose-500',
+
+                                        default =>
+                                            'bg-slate-400',
+
+                                    };
+
+
+                                    // =================================================
+                                    // URGENCY CLASSES
+                                    // =================================================
+
+                                    $historyUrgencyClass =
+                                        $report->report_urgency_level === 'Urgent'
+
+                                            ? 'bg-rose-50 text-rose-700 ring-rose-200'
+
+                                            : 'bg-slate-100 text-slate-600 ring-slate-200';
+
+                                @endphp
+
+
+                                <tr
+                                    class="transition-colors
+                                        hover:bg-slate-50/70"
+                                >
+
+                                    {{-- ===================================== --}}
+                                    {{-- REPORT ID --}}
+                                    {{-- ===================================== --}}
+
+                                    <td class="px-5 py-4">
+
+                                        <span
+                                            class="font-mono text-sm
+                                                font-medium tracking-wider
+                                                text-slate-700"
+                                        >
+                                            #{{ $report->report_id }}
+                                        </span>
+
+                                    </td>
+
+
+                                    {{-- ===================================== --}}
+                                    {{-- ISSUE --}}
+                                    {{-- ===================================== --}}
+
+                                    <td class="px-5 py-4">
+
+                                        <div class="max-w-[260px]">
+
+                                            <p
+                                                class="truncate text-sm
+                                                    font-semibold text-slate-800"
+                                            >
+                                                {{
+                                                    $report->report_suggested_issue
+                                                    ?? 'Unspecified issue'
+                                                }}
+                                            </p>
+
+
+                                            <p
+                                                class="mt-1 truncate
+                                                    text-xs text-slate-400"
+                                                title="{{ $report->report_problem_description }}"
+                                            >
+                                                {{
+                                                    $report->report_problem_description
+                                                    ?? 'No description provided'
+                                                }}
+                                            </p>
+
+                                        </div>
+
+                                    </td>
+
+
+                                    {{-- ===================================== --}}
+                                    {{-- EQUIPMENT --}}
+                                    {{-- ===================================== --}}
+
+                                    <td class="px-5 py-4">
+
+                                        <div class="flex items-center gap-2">
+
+                                            <i
+                                                data-lucide="monitor-cog"
+                                                class="h-3.5 w-3.5 shrink-0
+                                                    text-slate-400"
+                                            ></i>
+
+
+                                            <span
+                                                class="max-w-[180px] truncate
+                                                    text-xs text-slate-600"
+                                                title="{{ $historyEquipmentName }}"
+                                            >
+                                                {{ $historyEquipmentName }}
+                                            </span>
+
+                                        </div>
+
+                                    </td>
+
+
+                                    {{-- ===================================== --}}
+                                    {{-- ROOM --}}
+                                    {{-- ===================================== --}}
+
+                                    <td class="px-5 py-4">
+
+                                        <div class="flex items-center gap-2">
+
+                                            <i
+                                                data-lucide="map-pin"
+                                                class="h-3.5 w-3.5 shrink-0
+                                                    text-slate-400"
+                                            ></i>
+
+
+                                            <span
+                                                class="max-w-[150px] truncate
+                                                    text-xs text-slate-600"
+                                            >
+                                                {{
+                                                    $report->room_name
+                                                    ?? 'No room'
+                                                }}
+                                            </span>
+
+                                        </div>
+
+                                    </td>
+
+
+                                    {{-- ===================================== --}}
+                                    {{-- URGENCY --}}
+                                    {{-- ===================================== --}}
+
+                                    <td class="px-5 py-4">
+
+                                        <span
+                                            class="inline-flex items-center
+                                                rounded-full px-2.5 py-1
+                                                text-[11px] font-medium
+                                                ring-1 ring-inset
+                                                {{ $historyUrgencyClass }}"
+                                        >
+                                            {{ $report->report_urgency_level }}
+                                        </span>
+
+                                    </td>
+
+
+                                    {{-- ===================================== --}}
+                                    {{-- STATUS --}}
+                                    {{-- ===================================== --}}
+
+                                    <td class="px-5 py-4">
+
+                                        <span
+                                            class="inline-flex items-center gap-1.5
+                                                whitespace-nowrap rounded-full
+                                                px-2.5 py-1
+                                                text-[11px] font-medium
+                                                ring-1 ring-inset
+                                                {{ $historyStatusClass }}"
+                                        >
+
+                                            <span
+                                                class="h-1.5 w-1.5 rounded-full
+                                                    {{ $historyStatusDotClass }}"
+                                            ></span>
+
+
+                                            {{ $report->report_current_status }}
+
+                                        </span>
+
+                                    </td>
+
+
+                                    {{-- ===================================== --}}
+                                    {{-- SUBMITTED DATE --}}
+                                    {{-- ===================================== --}}
+
+                                    <td class="px-5 py-4">
+
+                                        <div class="whitespace-nowrap">
+
+                                            <p
+                                                class="text-xs font-medium
+                                                    text-slate-700"
+                                            >
+                                                {{
+                                                    \Carbon\Carbon::parse(
+                                                        $report->report_submitted_at
+                                                    )->format('M d, Y')
+                                                }}
+                                            </p>
+
+
+                                            <p
+                                                class="mt-0.5 text-[11px]
+                                                    text-slate-400"
+                                            >
+                                                {{
+                                                    \Carbon\Carbon::parse(
+                                                        $report->report_submitted_at
+                                                    )->format('h:i A')
+                                                }}
+                                            </p>
+
+                                        </div>
+
+                                    </td>
+
+                                </tr>
+
+
+                            @empty
+
+                                {{-- ========================================= --}}
+                                {{-- EMPTY HISTORY STATE --}}
+                                {{-- ========================================= --}}
+
+                                <tr>
+
+                                    <td
+                                        colspan="7"
+                                        class="px-6 py-16 text-center"
+                                    >
+
+                                        <div
+                                            class="mx-auto flex max-w-sm
+                                                flex-col items-center"
+                                        >
+
+                                            {{-- ICON --}}
+
+                                            <div
+                                                class="flex h-12 w-12
+                                                    items-center justify-center
+                                                    rounded-2xl
+                                                    border border-slate-200
+                                                    bg-slate-50
+                                                    text-slate-400"
+                                            >
+                                                <i
+                                                    data-lucide="{{
+                                                        request()->filled('history_search')
+                                                        || request()->filled('history_status')
+                                                            ? 'search-x'
+                                                            : 'history'
+                                                    }}"
+                                                    class="h-5 w-5"
+                                                ></i>
+                                            </div>
+
+
+                                            {{-- TITLE --}}
+
+                                            <h3
+                                                class="mt-4 text-sm
+                                                    font-semibold text-slate-800"
+                                            >
+
+                                                {{
+                                                    request()->filled('history_search')
+                                                    || request()->filled('history_status')
+
+                                                        ? 'No matching reports'
+
+                                                        : 'No report history'
+                                                }}
+
+                                            </h3>
+
+
+                                            {{-- DESCRIPTION --}}
+
+                                            <p
+                                                class="mt-1.5 max-w-xs
+                                                    text-xs leading-5
+                                                    text-slate-400"
+                                            >
+
+                                                {{
+                                                    request()->filled('history_search')
+                                                    || request()->filled('history_status')
+
+                                                        ? 'No reports match the current history search or status filter.'
+
+                                                        : 'Reports submitted by this reporter will appear here.'
+                                                }}
+
+                                            </p>
+
+
+                                            {{-- CLEAR FILTERS --}}
+
+                                            @if (
+                                                request()->filled('history_search')
+                                                || request()->filled('history_status')
+                                            )
+
+                                                <a
+                                                    href="{{ request()->fullUrlWithQuery([
+                                                        'history_search' => null,
+                                                        'history_status' => null,
+                                                        'history_page' => null,
+                                                    ]) }}"
+
+                                                    class="mt-5 inline-flex h-9
+                                                        items-center gap-2
+                                                        rounded-lg
+                                                        border border-slate-200
+                                                        bg-white px-3.5
+                                                        text-xs font-semibold
+                                                        text-slate-600
+                                                        shadow-sm transition
+                                                        hover:border-slate-300
+                                                        hover:bg-slate-50
+                                                        hover:text-slate-900"
+                                                >
+
+                                                    <i
+                                                        data-lucide="rotate-ccw"
+                                                        class="h-3.5 w-3.5"
+                                                    ></i>
+
+                                                    Clear filters
+
+                                                </a>
+
+                                            @endif
+
+                                        </div>
+
+                                    </td>
+
+                                </tr>
+
+                            @endforelse
+
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+
+                {{-- ===================================================== --}}
+                {{-- REPORTER HISTORY PAGINATION --}}
+                {{-- ===================================================== --}}
+
+                @if ($reportHistory->hasPages())
+
+                    <div
+                        class="flex flex-col gap-3
+                            border-t border-slate-200
+                            px-5 py-4
+                            sm:flex-row sm:items-center
+                            sm:justify-between"
+                    >
+
+                        <p class="text-xs text-slate-500">
+
+                            Showing
+
+                            <span class="font-semibold text-slate-700">
+                                {{ $reportHistory->firstItem() }}
+                            </span>
+
+                            to
+
+                            <span class="font-semibold text-slate-700">
+                                {{ $reportHistory->lastItem() }}
+                            </span>
+
+                            of
+
+                            <span class="font-semibold text-slate-700">
+                                {{ $reportHistory->total() }}
+                            </span>
+
+                            reports
+
+                        </p>
+
+
+                        <div>
+                            {{ $reportHistory->links() }}
+                        </div>
+
+                    </div>
+
+                @endif
+
+            @else
+
             {{-- ===================================================== --}}
             {{-- HEADER --}}
             {{-- ===================================================== --}}
 
+            {{-- ===================================================== --}}
+            {{-- REPORTER DIRECTORY TOOLBAR --}}
+            {{-- LEFT: TITLE --}}
+            {{-- MIDDLE: STATUS TABS --}}
+            {{-- RIGHT: SEARCH --}}
+            {{-- ===================================================== --}}
+
             <div
-                class="flex flex-col gap-4 border-b border-slate-200 px-5 py-4
-                    lg:flex-row lg:items-center lg:justify-between"
+                class="flex flex-col gap-4 border-b border-slate-200
+                    px-5 py-4 xl:flex-row xl:items-center"
             >
 
-                {{-- TITLE --}}
-                <div class="flex items-center gap-3">
+                {{-- ================================================= --}}
+                {{-- LEFT SIDE: TITLE --}}
+                {{-- ================================================= --}}
+
+                <div class="flex shrink-0 items-center gap-3">
 
                     <div
-                        class="flex h-9 w-9 shrink-0 items-center justify-center
-                            rounded-lg bg-slate-100 text-slate-600"
+                        class="flex h-9 w-9 shrink-0 items-center
+                            justify-center rounded-lg
+                            bg-slate-100 text-slate-600"
                     >
-                        <i data-lucide="users" class="h-4 w-4"></i>
+                        <i
+                            data-lucide="users"
+                            class="h-4 w-4"
+                        ></i>
                     </div>
 
+
                     <div>
+
                         <h2 class="text-sm font-semibold text-slate-900">
                             Reporter Directory
                         </h2>
+
 
                         <p class="mt-0.5 text-xs text-slate-400">
 
@@ -502,105 +1262,151 @@
 
                             {{
                                 $reporters->total() === 1
-                                    ? "registered reporter"
-                                    : "registered reporters"
+                                    ? 'registered reporter'
+                                    : 'registered reporters'
                             }}
 
                         </p>
+
                     </div>
 
                 </div>
 
 
-                {{-- ===================================================== --}}
-                {{-- SEARCH + STATUS FILTER --}}
-                {{-- SERVER SIDE SEARCH AND FILTERING --}}
-                {{-- ===================================================== --}}
+                {{-- ================================================= --}}
+                {{-- MIDDLE: STATUS TABS --}}
+                {{-- TAKES AVAILABLE SPACE --}}
+                {{-- SCROLLS HORIZONTALLY IF NEEDED --}}
+                {{-- ================================================= --}}
+
+                <div class="min-w-0 flex-1 xl:ml-4">
+
+                    <div
+                        class="flex items-center gap-1
+                            overflow-x-auto whitespace-nowrap
+                            [scrollbar-width:none]
+                            [&::-webkit-scrollbar]:hidden"
+                    >
+
+                        {{-- ALL REPORTERS --}}
+
+                        <a
+                            href="{{ request()->fullUrlWithQuery([
+                                'status' => null,
+                                'page' => null,
+                            ]) }}"
+
+                            class="shrink-0 rounded-lg px-3 py-2
+                                text-sm transition
+                                {{
+                                    !request()->filled('status')
+                                        ? 'bg-slate-900 font-medium text-white'
+                                        : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                                }}"
+                        >
+                            All
+                        </a>
+
+
+                        {{-- ACTIVE --}}
+
+                        <a
+                            href="{{ request()->fullUrlWithQuery([
+                                'status' => 'Active',
+                                'page' => null,
+                            ]) }}"
+
+                            class="shrink-0 rounded-lg px-3 py-2
+                                text-sm transition
+                                {{
+                                    request('status') === 'Active'
+                                        ? 'bg-slate-900 font-medium text-white'
+                                        : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                                }}"
+                        >
+                            Active
+                        </a>
+
+
+                        {{-- INACTIVE --}}
+
+                        <a
+                            href="{{ request()->fullUrlWithQuery([
+                                'status' => 'Inactive',
+                                'page' => null,
+                            ]) }}"
+
+                            class="shrink-0 rounded-lg px-3 py-2
+                                text-sm transition
+                                {{
+                                    request('status') === 'Inactive'
+                                        ? 'bg-slate-900 font-medium text-white'
+                                        : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                                }}"
+                        >
+                            Inactive
+                        </a>
+
+                    </div>
+
+                </div>
+
+
+                {{-- ================================================= --}}
+                {{-- RIGHT SIDE: SEARCH --}}
+                {{-- ================================================= --}}
 
                 <form
                     method="GET"
                     action="{{ url()->current() }}"
-                    class="flex w-full flex-col gap-2
-                        sm:flex-row lg:w-auto lg:items-center"
+
+                    class="flex w-full shrink-0 items-center gap-2
+                        sm:w-auto"
                 >
 
                     {{-- ================================================= --}}
-                    {{-- SEARCH --}}
+                    {{-- PRESERVE SELECTED STATUS TAB --}}
                     {{-- ================================================= --}}
 
-                    <div class="relative w-full sm:w-[280px]">
+                    @if (request()->filled('status'))
+
+                        <input
+                            type="hidden"
+                            name="status"
+                            value="{{ request('status') }}"
+                        >
+
+                    @endif
+
+
+                    {{-- ================================================= --}}
+                    {{-- SEARCH INPUT --}}
+                    {{-- ================================================= --}}
+
+                    <div class="relative min-w-0 flex-1 sm:w-[260px] sm:flex-none">
 
                         <i
                             data-lucide="search"
-                            class="pointer-events-none absolute left-3
-                                top-1/2 h-4 w-4 -translate-y-1/2
-                                text-slate-400"
+                            class="pointer-events-none absolute
+                                left-3 top-1/2 h-4 w-4
+                                -translate-y-1/2 text-slate-400"
                         ></i>
+
 
                         <input
                             type="search"
                             name="search"
                             value="{{ request('search') }}"
                             placeholder="Search reporters..."
-                            class="h-9 w-full rounded-lg border border-slate-200
-                                bg-white pl-9 pr-3 text-xs font-medium
-                                text-slate-700 outline-none transition
+
+                            class="h-9 w-full rounded-lg
+                                border border-slate-200
+                                bg-white pl-9 pr-3
+                                text-xs font-medium text-slate-700
+                                outline-none transition
                                 placeholder:text-slate-400
                                 focus:border-slate-400"
                         >
-
-                    </div>
-
-
-                    {{-- ================================================= --}}
-                    {{-- STATUS FILTER --}}
-                    {{-- ================================================= --}}
-
-                    <div class="relative">
-
-                        <i
-                            data-lucide="list-filter"
-                            class="pointer-events-none absolute left-3
-                                top-1/2 h-3.5 w-3.5 -translate-y-1/2
-                                text-slate-400"
-                        ></i>
-
-                        <select
-                            name="status"
-                            onchange="this.form.submit()"
-                            class="h-9 w-full appearance-none rounded-lg
-                                border border-slate-200 bg-white
-                                pl-9 pr-9 text-xs font-medium
-                                text-slate-600 outline-none transition
-                                focus:border-slate-400 sm:w-[150px]"
-                        >
-
-                            <option value="">
-                                All statuses
-                            </option>
-
-                            <option
-                                value="Active"
-                                {{ request('status') === 'Active' ? 'selected' : '' }}
-                            >
-                                Active
-                            </option>
-
-                            <option
-                                value="Inactive"
-                                {{ request('status') === 'Inactive' ? 'selected' : '' }}
-                            >
-                                Inactive
-                            </option>
-
-                        </select>
-
-                        <i
-                            data-lucide="chevron-down"
-                            class="pointer-events-none absolute right-3
-                                top-1/2 h-3.5 w-3.5 -translate-y-1/2
-                                text-slate-400"
-                        ></i>
 
                     </div>
 
@@ -611,30 +1417,54 @@
 
                     <button
                         type="submit"
-                        class="inline-flex h-9 items-center justify-center
-                            rounded-lg bg-slate-900 px-4
-                            text-xs font-semibold text-white
-                            transition hover:bg-slate-700"
+
+                        class="inline-flex h-9 shrink-0
+                            items-center justify-center gap-2
+                            rounded-lg bg-slate-950 px-4
+                            text-sm font-semibold text-white
+                            transition hover:bg-slate-800"
                     >
+
+                        <i
+                            data-lucide="search"
+                            class="h-4 w-4"
+                        ></i>
+
                         Search
+
                     </button>
 
 
                     {{-- ================================================= --}}
-                    {{-- CLEAR FILTERS --}}
+                    {{-- CLEAR SEARCH --}}
+                    {{-- KEEPS CURRENT STATUS TAB --}}
                     {{-- ================================================= --}}
 
-                    @if (request()->filled('search') || request()->filled('status'))
+                    @if (request()->filled('search'))
 
                         <a
-                            href="{{ url()->current() }}"
-                            class="inline-flex h-9 items-center justify-center
+                            href="{{ request()->fullUrlWithQuery([
+                                'search' => null,
+                                'page' => null,
+                            ]) }}"
+
+                            class="inline-flex h-9 w-9 shrink-0
+                                items-center justify-center
                                 rounded-lg border border-slate-200
-                                bg-white px-3 text-xs font-medium
-                                text-slate-600 transition
-                                hover:bg-slate-50 hover:text-slate-900"
+                                bg-white text-slate-500
+                                transition
+                                hover:bg-slate-50
+                                hover:text-slate-900"
+
+                            title="Clear search"
+                            aria-label="Clear search"
                         >
-                            Clear
+
+                            <i
+                                data-lucide="x"
+                                class="h-4 w-4"
+                            ></i>
+
                         </a>
 
                     @endif
@@ -707,8 +1537,7 @@
                                 // CHANGE THIS IF YOUR DATABASE COLUMN
                                 // USES A DIFFERENT STATUS NAME
 
-                                $reporterStatus =
-                                    $reporter->reporter_status ?? "Active";
+                                $reporterStatus = $reporter->reporter_status;
 
 
                                 $reporterStatusClass =
@@ -929,62 +1758,142 @@
                                             ></i>
                                         </button>
 
+                                        {{-- ===================================================== --}}
+                                        {{-- REPORTER HISTORY BUTTON --}}
+                                        {{-- SWITCHES CURRENT TABLE INTO HISTORY MODE --}}
+                                        {{-- ===================================================== --}}
 
-                                        {{-- ================================= --}}
-                                        {{-- EDIT BUTTON --}}
-                                        {{-- ================================= --}}
+                                        <a
+                                            href="{{ request()->fullUrlWithQuery([
+                                                'history' => $reporter->reporter_id,
 
-                                        <button
-                                            type="button"
+                                                'history_search' => null,
+                                                'history_status' => null,
+                                                'history_page' => null,
 
-                                            onclick="editReporter(
-                                                '{{ $reporter->reporter_id }}',
-                                                '{{ $reporter->reporter_employee_id }}',
-                                                '{{ $reporter->reporter_full_name }}',
-                                                '{{ $reporter->reporter_email_address }}',
-                                                '{{ $reporter->reporter_contact_number }}'
-                                            )"
+                                                'page' => null,
+                                            ]) }}"
 
-                                            class="flex h-9 w-9 items-center justify-center rounded-lg bg-[#FFF200] text-black transition hover:bg-[#E6E600]"
-
-                                            title="Edit reporter"
-
-                                            aria-label="Edit reporter"
-                                        >
-                                            <i
-                                                data-lucide="edit-3"
-                                                class="h-3.5 w-3.5"
-                                            ></i>
-                                        </button>
-
-
-                                        {{-- ================================= --}}
-                                        {{-- DELETE BUTTON --}}
-                                        {{-- ================================= --}}
-
-                                        <button
-                                            type="button"
-
-                                            onclick='openDeleteModal(
-                                                @js($reporter->reporter_id)
-                                            )'
-
-                                            class="flex h-9 w-9 items-center
-                                                justify-center rounded-xl
-                                                bg-red-600 text-white
-                                                shadow-sm transition
-                                                hover:bg-red-700
+                                            class="flex h-9 w-9 shrink-0
+                                                items-center justify-center
+                                                rounded-xl bg-slate-100
+                                                text-slate-600 transition
+                                                hover:bg-slate-200
+                                                hover:text-slate-900
                                                 active:scale-95"
 
-                                            title="Delete reporter"
-
-                                            aria-label="Delete reporter"
+                                            title="View reporter history"
+                                            aria-label="View reporter history"
                                         >
                                             <i
-                                                data-lucide="trash-2"
+                                                data-lucide="history"
                                                 class="h-3.5 w-3.5"
                                             ></i>
-                                        </button>
+                                        </a>
+
+
+                                        {{-- ===================================================== --}}
+                                        {{-- EDIT BUTTON --}}
+                                        {{-- ONLY ACTIVE REPORTERS CAN BE EDITED --}}
+                                        {{-- ===================================================== --}}
+
+                                        @if ($reporter->reporter_status === 'Active')
+
+                                            <button
+                                                type="button"
+
+                                                onclick="editReporter(
+                                                    @js($reporter->reporter_id),
+                                                    @js($reporter->reporter_employee_id),
+                                                    @js($reporter->reporter_full_name),
+                                                    @js($reporter->reporter_email_address),
+                                                    @js($reporter->reporter_contact_number)
+                                                )"
+
+                                                class="flex h-9 w-9 items-center
+                                                    justify-center rounded-lg
+                                                    bg-[#FFF200] text-black
+                                                    transition
+                                                    hover:bg-[#E6E600]
+                                                    active:scale-95"
+
+                                                title="Edit reporter"
+
+                                                aria-label="Edit reporter"
+                                            >
+
+                                                <i
+                                                    data-lucide="edit-3"
+                                                    class="h-3.5 w-3.5"
+                                                ></i>
+
+                                            </button>
+
+                                        @endif
+
+
+                                        {{-- ===================================================== --}}
+                                        {{-- REPORTER STATUS ACTION --}}
+                                        {{-- OPENS DEACTIVATE OR REACTIVATE MODAL --}}
+                                        {{-- ===================================================== --}}
+
+                                        @if ($reporter->reporter_status === 'Active')
+
+                                            <button
+                                                type="button"
+
+                                                onclick="openReporterStatusModal(
+                                                    @js($reporter->reporter_id),
+                                                    @js($reporter->reporter_full_name),
+                                                    'deactivate'
+                                                )"
+
+                                                class="flex h-9 w-9 items-center
+                                                    justify-center rounded-xl
+                                                    bg-amber-50 text-amber-700
+                                                    ring-1 ring-inset ring-amber-200
+                                                    transition
+                                                    hover:bg-amber-100
+                                                    active:scale-95"
+
+                                                title="Deactivate reporter"
+                                                aria-label="Deactivate reporter"
+                                            >
+                                                <i
+                                                    data-lucide="user-x"
+                                                    class="h-3.5 w-3.5"
+                                                ></i>
+                                            </button>
+
+                                        @else
+
+                                            <button
+                                                type="button"
+
+                                                onclick="openReporterStatusModal(
+                                                    @js($reporter->reporter_id),
+                                                    @js($reporter->reporter_full_name),
+                                                    'reactivate'
+                                                )"
+
+                                                class="flex h-9 w-9 items-center
+                                                    justify-center rounded-xl
+                                                    bg-emerald-50 text-emerald-700
+                                                    ring-1 ring-inset ring-emerald-200
+                                                    transition
+                                                    hover:bg-emerald-100
+                                                    active:scale-95"
+
+                                                title="Reactivate reporter"
+                                                aria-label="Reactivate reporter"
+                                            >
+                                                <i
+                                                    data-lucide="user-check"
+                                                    class="h-3.5 w-3.5"
+                                                ></i>
+                                            </button>
+
+                                        @endif
 
                                     </div>
 
@@ -1164,6 +2073,8 @@
                     </div>
 
                 </div>
+
+            @endif
 
             @endif
 
@@ -1567,6 +2478,193 @@
         </form>
     </div>
 
+    {{-- ===================================================== --}}
+    {{-- REPORTER STATUS CONFIRMATION MODAL --}}
+    {{-- REUSABLE FOR DEACTIVATE AND REACTIVATE --}}
+    {{-- ===================================================== --}}
+
+    <div
+        id="reporterStatusModal"
+        class="fixed inset-0 z-50 hidden
+            items-center justify-center
+            bg-black/30 p-4 backdrop-blur-[2px]"
+    >
+
+        <div
+            class="relative w-full max-w-md
+                overflow-hidden rounded-2xl
+                border border-slate-200
+                bg-white shadow-2xl"
+        >
+
+            {{-- ================================================= --}}
+            {{-- CLOSE BUTTON --}}
+            {{-- ABSOLUTE TOP RIGHT OF MODAL CARD --}}
+            {{-- ================================================= --}}
+
+            <button
+                type="button"
+                onclick="closeReporterStatusModal()"
+
+                class="absolute right-4 top-4 z-10
+                    flex h-8 w-8 items-center justify-center
+                    rounded-full text-slate-400
+                    transition
+                    hover:bg-slate-100
+                    hover:text-slate-900"
+
+                aria-label="Close modal"
+                title="Close"
+            >
+                <i
+                    data-lucide="x"
+                    class="h-4 w-4"
+                ></i>
+            </button>
+
+            {{-- ================================================= --}}
+            {{-- MODAL CONTENT --}}
+            {{-- ================================================= --}}
+
+            <div class="px-6 pb-5 pt-6">
+
+                {{-- ICON --}}
+
+                <div
+                    id="reporterStatusIconContainer"
+                    class="flex h-11 w-11
+                        items-center justify-center
+                        rounded-xl"
+                >
+                    <i
+                        id="reporterStatusIcon"
+                        data-lucide="user-x"
+                        class="h-5 w-5"
+                    ></i>
+                </div>
+
+
+                {{-- TITLE --}}
+
+                <h2
+                    id="reporterStatusTitle"
+                    class="mt-4 text-base
+                        font-semibold text-slate-900"
+                >
+                    Deactivate reporter?
+                </h2>
+
+                {{-- DESCRIPTION --}}
+
+                <p
+                    id="reporterStatusDescription"
+                    class="mt-2 text-sm
+                        leading-6 text-slate-500"
+                >
+                    This reporter will no longer be allowed
+                    to submit new reports.
+                </p>
+
+
+                {{-- REPORTER NAME --}}
+
+                <div
+                    class="mt-4 rounded-xl
+                        border border-slate-200
+                        bg-slate-50 px-4 py-3"
+                >
+                    <p
+                        class="text-xs font-medium
+                            uppercase tracking-wide
+                            text-slate-400"
+                    >
+                        Reporter
+                    </p>
+
+                    <p
+                        id="reporterStatusName"
+                        class="mt-1 text-sm
+                            font-semibold text-slate-800"
+                    >
+                    </p>
+                </div>
+
+            </div>
+
+
+            {{-- ================================================= --}}
+            {{-- MODAL FOOTER --}}
+            {{-- ================================================= --}}
+
+            <div
+                class="flex items-center justify-end gap-2
+                    border-t border-slate-200
+                    bg-slate-50/70 px-6 py-4"
+            >
+
+                {{-- CANCEL --}}
+
+                <button
+                    type="button"
+                    onclick="closeReporterStatusModal()"
+
+                    class="inline-flex h-10
+                        items-center justify-center
+                        rounded-lg border
+                        border-slate-200
+                        bg-white px-4
+                        text-sm font-medium
+                        text-slate-600
+                        transition
+                        hover:bg-slate-50
+                        hover:text-slate-900"
+                >
+                    Cancel
+                </button>
+
+
+                {{-- SUBMIT FORM --}}
+
+                <form
+                    id="reporterStatusForm"
+                    method="POST"
+                    action=""
+                >
+                    @csrf
+                    @method('PATCH')
+
+
+                    <button
+                        id="reporterStatusSubmitButton"
+                        type="submit"
+
+                        class="inline-flex h-10
+                            items-center justify-center
+                            gap-2 rounded-lg px-4
+                            text-sm font-semibold
+                            transition"
+                    >
+
+                        <i
+                            id="reporterStatusSubmitIcon"
+                            data-lucide="user-x"
+                            class="h-4 w-4"
+                        ></i>
+
+                        <span id="reporterStatusSubmitText">
+                            Deactivate reporter
+                        </span>
+
+                    </button>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
     <div
         id="deleteModal"
         class="fixed inset-0 z-50 hidden items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]"
@@ -1765,6 +2863,221 @@
         }
 
         
+    </script>
+
+    <script>
+        // =====================================================
+        // OPEN REPORTER STATUS MODAL
+        // HANDLES DEACTIVATE AND REACTIVATE
+        // =====================================================
+
+        function openReporterStatusModal(
+            reporterId,
+            reporterName,
+            action
+        ) {
+            const modal =
+                document.getElementById('reporterStatusModal');
+
+            const form =
+                document.getElementById('reporterStatusForm');
+
+            const name =
+                document.getElementById('reporterStatusName');
+
+            const title =
+                document.getElementById('reporterStatusTitle');
+
+            const description =
+                document.getElementById(
+                    'reporterStatusDescription'
+                );
+
+            const iconContainer =
+                document.getElementById(
+                    'reporterStatusIconContainer'
+                );
+
+            const icon =
+                document.getElementById('reporterStatusIcon');
+
+            const submitButton =
+                document.getElementById(
+                    'reporterStatusSubmitButton'
+                );
+
+            const submitIcon =
+                document.getElementById(
+                    'reporterStatusSubmitIcon'
+                );
+
+            const submitText =
+                document.getElementById(
+                    'reporterStatusSubmitText'
+                );
+
+
+            // =================================================
+            // SET REPORTER NAME
+            // =================================================
+
+            name.textContent = reporterName;
+
+
+            // =================================================
+            // DEACTIVATE MODE
+            // =================================================
+
+            if (action === 'deactivate') {
+
+                form.action =
+                    `/maintenance/reporters/${reporterId}/deactivate`;
+
+
+                title.textContent =
+                    'Deactivate reporter?';
+
+
+                description.textContent =
+                    'This reporter will no longer be allowed to submit new reports. Existing reports and history will remain available.';
+
+
+                iconContainer.className =
+                    'flex h-11 w-11 items-center justify-center rounded-xl bg-amber-50 text-amber-700';
+
+
+                icon.setAttribute(
+                    'data-lucide',
+                    'user-x'
+                );
+
+
+                submitButton.className =
+                    'inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-amber-600 px-4 text-sm font-semibold text-white transition hover:bg-amber-700 active:scale-[0.98]';
+
+
+                submitIcon.setAttribute(
+                    'data-lucide',
+                    'user-x'
+                );
+
+
+                submitText.textContent =
+                    'Deactivate reporter';
+
+            }
+
+
+            // =================================================
+            // REACTIVATE MODE
+            // =================================================
+
+            if (action === 'reactivate') {
+
+                form.action =
+                    `/maintenance/reporters/${reporterId}/reactivate`;
+
+
+                title.textContent =
+                    'Reactivate reporter?';
+
+
+                description.textContent =
+                    'This reporter will become active again and will be allowed to submit new reports.';
+
+
+                iconContainer.className =
+                    'flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700';
+
+
+                icon.setAttribute(
+                    'data-lucide',
+                    'user-check'
+                );
+
+
+                submitButton.className =
+                    'inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 active:scale-[0.98]';
+
+
+                submitIcon.setAttribute(
+                    'data-lucide',
+                    'user-check'
+                );
+
+
+                submitText.textContent =
+                    'Reactivate reporter';
+
+            }
+
+
+            // =================================================
+            // REINITIALIZE LUCIDE ICONS
+            // REQUIRED AFTER CHANGING DATA-LUCIDE
+            // =================================================
+
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+
+
+            // =================================================
+            // SHOW MODAL
+            // =================================================
+
+            modal.classList.remove('hidden');
+
+            modal.classList.add('flex');
+        }
+
+
+        // =====================================================
+        // CLOSE REPORTER STATUS MODAL
+        // =====================================================
+
+        function closeReporterStatusModal()
+        {
+            const modal =
+                document.getElementById('reporterStatusModal');
+
+
+            modal.classList.add('hidden');
+
+            modal.classList.remove('flex');
+        }
+
+
+        // =====================================================
+        // CLOSE WHEN CLICKING MODAL BACKDROP
+        // =====================================================
+
+        document
+            .getElementById('reporterStatusModal')
+            .addEventListener('click', function (event) {
+
+                if (event.target === this) {
+
+                    closeReporterStatusModal();
+
+                }
+
+            });
+
+
+        // =====================================================
+        // CLOSE WITH ESCAPE KEY
+        // =====================================================
+
+        document.addEventListener('keydown', function (event) {
+
+            if (event.key === 'Escape') {
+
+                closeReporterStatusModal();
+
+            }
+
+        });
     </script>
 
 @endsection

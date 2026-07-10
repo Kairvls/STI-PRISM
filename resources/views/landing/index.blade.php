@@ -256,6 +256,108 @@
         }
     </style>
 
+    <style>
+        /* =====================================================
+        MODERN SUCCESS ALERT
+        ===================================================== */
+
+        .modern-success-popup {
+            border: 1px solid #e5e7eb !important;
+
+            border-radius: 16px !important;
+
+            box-shadow:
+                0 24px 60px rgba(15, 23, 42, 0.12) !important;
+        }
+
+
+        /* =====================================================
+        SUCCESS ICON
+        ===================================================== */
+
+        .modern-success-icon {
+            width: 56px !important;
+
+            height: 56px !important;
+
+            margin: 0 auto 1.25rem !important;
+
+            border-width: 2px !important;
+        }
+
+
+        /* =====================================================
+        TITLE
+        ===================================================== */
+
+        .modern-success-title {
+            padding: 0 !important;
+
+            margin: 0 !important;
+
+            font-family: 'Poppins', sans-serif !important;
+
+            font-size: 1.25rem !important;
+
+            font-weight: 700 !important;
+
+            letter-spacing: -0.025em !important;
+
+            color: #111827 !important;
+        }
+
+
+        /* =====================================================
+        MESSAGE
+        ===================================================== */
+
+        .modern-success-content {
+            padding: 0 !important;
+
+            margin: 0.65rem 0 0 !important;
+
+            font-family: 'Inter', sans-serif !important;
+
+            font-size: 0.9rem !important;
+
+            line-height: 1.6 !important;
+
+            color: #6b7280 !important;
+        }
+
+        .swal-message {
+            max-width: 320px;
+
+            margin: 0 auto;
+        }
+
+
+        /* =====================================================
+        TIMER PROGRESS
+        ===================================================== */
+
+        .modern-success-progress {
+            height: 3px !important;
+
+            background: rgba(0,55,199,0.85) !important;
+        }
+
+
+        /* =====================================================
+        MOBILE
+        ===================================================== */
+
+        @media (max-width: 480px) {
+
+            .modern-success-popup {
+                width: calc(100% - 32px) !important;
+
+                padding: 1.5rem !important;
+            }
+
+        }
+    </style>
+
 </head>
 
 <body>
@@ -930,8 +1032,8 @@
 
     <!-- ── 1. LOGIN CHOOSER ── -->
     <div id="loginChooserModal"
-         class="hidden fixed inset-0 z-50 flex items-center justify-center px-4"
-         style="background:rgba(0,0,0,0.75);  backdrop-filter:blur(6px);">
+         class="hidden fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30 p-4 backdrop-blur-[2px]"
+        >
 
         <div class="modal-animation w-full max-w-[440px] rounded-3xl p-7 relative"
              style="background:#0f1628; border:1px solid rgba(255,255,255,0.1); box-shadow:0 32px 80px rgba(0,0,0,0.6);">
@@ -985,8 +1087,7 @@
 
     <!-- ── 2. STAFF CHOOSER ── -->
     <div id="staffChooserModal"
-         class="hidden fixed inset-0 z-50 flex items-center justify-center px-4"
-         style="background:rgba(0,0,0,0.75); backdrop-filter:blur(6px);">
+         class="hidden fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30 p-4 backdrop-blur-[2px]">
 
         <div class="modal-animation w-full max-w-[440px] rounded-3xl p-7 relative"
              style="background:#0f1628; border:1px solid rgba(255,255,255,0.1); box-shadow:0 32px 80px rgba(0,0,0,0.6);">
@@ -1050,8 +1151,8 @@
 
     <!-- ── 3. ROLE LOGIN FORM ── -->
     <div id="roleLoginModal"
-         class="hidden fixed inset-0 z-50 flex items-center justify-center px-4"
-         style="backdrop-filter:blur(6px);">
+         class="hidden fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30 p-4 backdrop-blur-[2px]"
+         >
 
         <div class="modal-animation w-full max-w-[440px] rounded-3xl p-7 relative"
              style="background:#0f1628; border:1px solid rgba(255,255,255,0.1); box-shadow:0 32px 80px rgba(0,0,0,0.6);">
@@ -1383,119 +1484,77 @@
     @if(session('success'))
 
     <script>
-    document.addEventListener(
-        'DOMContentLoaded',
-        function(){
+    document.addEventListener('DOMContentLoaded', function () {
 
-            Swal.fire({
+        Swal.fire({
 
-                icon: 'success',
+            // =====================================================
+            // CONTENT
+            // =====================================================
 
-                title: 'Maintenance Report Submitted',
+            
 
-                html: `
-                    <div style="color:#6b7280;">
-                        Your maintenance request has been successfully submitted and is awaiting review.
-                    </div>
-                `,
+            title: 'Report submitted',
 
-                showConfirmButton: false,
+            html: `
+                <div class="swal-message">
+                    Your maintenance report has been submitted successfully
+                    and is now awaiting review.
+                </div>
+            `,
 
-                timer: 3000,
 
-                timerProgressBar: true,
+            // =====================================================
+            // BEHAVIOR
+            // =====================================================
 
-                iconColor: '#2947f0',
+            showConfirmButton: false,
 
-                background: '#ffffff',
+            timer: 3000,
 
-                color: '#111827',
+            timerProgressBar: true,
 
-                backdrop: `
-                    rgba(0,0,0,0.45)
-                    blur(8px)
-                `,
 
-                didOpen: () => {
+            // =====================================================
+            // BASE APPEARANCE
+            // =====================================================
 
-                    const popup = Swal.getPopup();
+            
 
-                    popup.style.border =
-                        '1.5px solid rgba(41,71,240,.15)';
+            background: '#ffffff',
 
-                    popup.style.borderRadius =
-                        '20px';
+            color: '#111827',
 
-                    popup.style.boxShadow =
-                        '0 20px 45px rgba(41,71,240,.15)';
+            width: '420px',
 
-                    popup.style.padding =
-                        '1rem';
+            padding: '1.75rem',
 
-                    popup.style.overflow =
-                        'hidden';
+            backdrop: `
+                rgba(15, 23, 42, 0.35)
+            `,
 
-                    popup.insertAdjacentHTML(
-                        'afterbegin',
-                        `
-                        <div
-                            style="
-                                height:4px;
-                                margin:-1rem -1rem .8rem -1rem;
-                                background:
-                                linear-gradient(
-                                    90deg,
-                                    #2947f0,
-                                    #f0b429
-                                );
-                            ">
-                        </div>
-                        `
-                    );
 
-                    const title = popup.querySelector('.swal2-title');
+            // =====================================================
+            // CUSTOM CLASSES
+            // =====================================================
 
-                    if(title){
+            customClass: {
 
-                        title.style.fontFamily =
-                            'Poppins, sans-serif';
+                popup: 'modern-success-popup',
 
-                        title.style.fontSize =
-                            '1.25rem';
+                icon: 'modern-success-icon',
 
-                        title.style.fontWeight =
-                            '700';
+                title: 'modern-success-title',
 
-                        title.style.margin =
-                            '0 0 .4rem 0';
+                htmlContainer: 'modern-success-content',
 
-                    }
+                timerProgressBar: 'modern-success-progress',
 
-                    const htmlContainer =
-                        popup.querySelector('.swal2-html-container');
+            },
 
-                    if(htmlContainer){
+        });
 
-                        htmlContainer.style.fontFamily =
-                            'Inter, sans-serif';
-
-                        htmlContainer.style.fontSize =
-                            '.9rem';
-
-                        htmlContainer.style.lineHeight =
-                            '1.45';
-
-                        htmlContainer.style.margin =
-                            '0';
-
-                    }
-
-                }
-
-            });
-
-        }
-    );
+    });
     </script>
 
     @endif

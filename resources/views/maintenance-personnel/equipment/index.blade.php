@@ -575,220 +575,372 @@
         >
             <div class="overflow-x-auto">
 
-                <!-- ========================================================= -->
-                <!-- TABLE TOOLBAR -->
-                <!-- ========================================================= -->
+                {{-- ===================================================== --}}
+                {{-- TABLE TOOLBAR --}}
+                {{-- STATUS TABS SHRINK AND SCROLL --}}
+                {{-- FILTERS KEEP THEIR SPACE --}}
+                {{-- ===================================================== --}}
+
                 <div
-                    class="flex flex-col gap-4 border-b border-slate-200 bg-white px-5 py-4 lg:flex-row lg:items-center lg:justify-between"
+                    class="flex flex-col gap-3 border-b border-slate-200
+                        bg-white px-5 py-4
+                        xl:flex-row xl:items-center"
                 >
-                    <!-- ========================================================= -->
-                    <!-- LEFT STATUS FILTERS -->
-                    <!-- REPLACE YOUR CURRENT ALL / ACTIVE / MAINTENANCE BUTTONS -->
-                    <!-- ========================================================= -->
 
-                    <div class="flex items-center gap-2 overflow-x-auto whitespace-nowrap">
+                    {{-- ================================================= --}}
+                    {{-- LEFT SIDE --}}
+                    {{-- STATUS TABS --}}
+                    {{-- TAKES REMAINING AVAILABLE SPACE --}}
+                    {{-- ================================================= --}}
 
-                        {{-- ===================================================== --}}
-                        {{-- ALL EQUIPMENT --}}
-                        {{-- REMOVES STATUS AND RESETS PAGINATION --}}
-                        {{-- ===================================================== --}}
+                    <div class="min-w-0 flex-1">
 
-                        <a
-                            href="{{ request()->fullUrlWithQuery([
-                                'status' => null,
-                                'page' => null,
-                            ]) }}"
-
-                            class="rounded-lg px-3 py-2 text-sm transition
-                                {{
-                                    !request()->filled('status')
-                                        ? 'bg-slate-900 font-medium text-white'
-                                        : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
-                                }}"
+                        <div
+                            class="flex items-center gap-1
+                                overflow-x-auto whitespace-nowrap
+                                [scrollbar-width:none]
+                                [&::-webkit-scrollbar]:hidden"
                         >
-                            All
-                        </a>
+
+                            {{-- ALL --}}
+
+                            <a
+                                href="{{ request()->fullUrlWithQuery([
+                                    'status' => null,
+                                    'page' => null,
+                                ]) }}"
+
+                                class="shrink-0 rounded-lg px-3 py-2
+                                    text-sm transition
+                                    {{
+                                        !request()->filled('status')
+                                            ? 'bg-slate-900 font-medium text-white'
+                                            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                                    }}"
+                            >
+                                All
+                            </a>
 
 
-                        {{-- ===================================================== --}}
-                        {{-- ACTIVE EQUIPMENT --}}
-                        {{-- ===================================================== --}}
+                            {{-- ACTIVE --}}
 
-                        <a
-                            href="{{ request()->fullUrlWithQuery([
-                                'status' => 'Active',
-                                'page' => null,
-                            ]) }}"
+                            <a
+                                href="{{ request()->fullUrlWithQuery([
+                                    'status' => 'Active',
+                                    'page' => null,
+                                ]) }}"
 
-                            class="rounded-lg px-3 py-2 text-sm transition
-                                {{
-                                    request('status') === 'Active'
-                                        ? 'bg-slate-900 font-medium text-white'
-                                        : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
-                                }}"
-                        >
-                            Active
-                        </a>
-
-
-                        {{-- ===================================================== --}}
-                        {{-- UNDER MAINTENANCE EQUIPMENT --}}
-                        {{-- IMPORTANT: VALUE MUST MATCH DATABASE STATUS --}}
-                        {{-- ===================================================== --}}
-
-                        <a
-                            href="{{ request()->fullUrlWithQuery([
-                                'status' => 'Under Maintenance',
-                                'page' => null,
-                            ]) }}"
-
-                            class="rounded-lg px-3 py-2 text-sm transition
-                                {{
-                                    request('status') === 'Under Maintenance'
-                                        ? 'bg-slate-900 font-medium text-white'
-                                        : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
-                                }}"
-                        >
-                            Maintenance
-                        </a>
+                                class="shrink-0 rounded-lg px-3 py-2
+                                    text-sm transition
+                                    {{
+                                        request('status') === 'Active'
+                                            ? 'bg-slate-900 font-medium text-white'
+                                            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                                    }}"
+                            >
+                                Active
+                            </a>
 
 
-                        {{-- ===================================================== --}}
-                        {{-- BORROWED EQUIPMENT --}}
-                        {{-- ===================================================== --}}
+                            {{-- MAINTENANCE --}}
 
-                        <a
-                            href="{{ request()->fullUrlWithQuery([
-                                'status' => 'Borrowed',
-                                'page' => null,
-                            ]) }}"
+                            <a
+                                href="{{ request()->fullUrlWithQuery([
+                                    'status' => 'Under Maintenance',
+                                    'page' => null,
+                                ]) }}"
 
-                            class="rounded-lg px-3 py-2 text-sm transition
-                                {{
-                                    request('status') === 'Borrowed'
-                                        ? 'bg-slate-900 font-medium text-white'
-                                        : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
-                                }}"
-                        >
-                            Borrowed
-                        </a>
+                                class="shrink-0 rounded-lg px-3 py-2
+                                    text-sm transition
+                                    {{
+                                        request('status') === 'Under Maintenance'
+                                            ? 'bg-slate-900 font-medium text-white'
+                                            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                                    }}"
+                            >
+                                Maintenance
+                            </a>
 
 
-                        {{-- ===================================================== --}}
-                        {{-- DISPOSED EQUIPMENT --}}
-                        {{-- ===================================================== --}}
+                            {{-- BORROWED --}}
 
-                        <a
-                            href="{{ request()->fullUrlWithQuery([
-                                'status' => 'Disposed',
-                                'page' => null,
-                            ]) }}"
+                            <a
+                                href="{{ request()->fullUrlWithQuery([
+                                    'status' => 'Borrowed',
+                                    'page' => null,
+                                ]) }}"
 
-                            class="rounded-lg px-3 py-2 text-sm transition
-                                {{
-                                    request('status') === 'Disposed'
-                                        ? 'bg-slate-900 font-medium text-white'
-                                        : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
-                                }}"
-                        >
-                            Disposed
-                        </a>
+                                class="shrink-0 rounded-lg px-3 py-2
+                                    text-sm transition
+                                    {{
+                                        request('status') === 'Borrowed'
+                                            ? 'bg-slate-900 font-medium text-white'
+                                            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                                    }}"
+                            >
+                                Borrowed
+                            </a>
+
+
+                            {{-- DISPOSED --}}
+
+                            <a
+                                href="{{ request()->fullUrlWithQuery([
+                                    'status' => 'Disposed',
+                                    'page' => null,
+                                ]) }}"
+
+                                class="shrink-0 rounded-lg px-3 py-2
+                                    text-sm transition
+                                    {{
+                                        request('status') === 'Disposed'
+                                            ? 'bg-slate-900 font-medium text-white'
+                                            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                                    }}"
+                            >
+                                Disposed
+                            </a>
+
+                        </div>
 
                     </div>
 
-                    <!-- RIGHT -->
-                    <form method="GET">
-                        <input
-                            type="hidden"
-                            name="status"
-                            value="{{ request('status') }}"
-                        >
-                        <div class="flex flex-wrap items-center gap-2">
 
-                            <!-- Search -->
-                            <div class="relative">
+                    {{-- ================================================= --}}
+                    {{-- RIGHT SIDE --}}
+                    {{-- SEARCH AND FILTERS --}}
+                    {{-- DOES NOT WRAP ON XL SCREENS --}}
+                    {{-- ================================================= --}}
 
-                                <i
-                                    data-lucide="search"
-                                    class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-                                ></i>
+                    <form
+                        method="GET"
+                        action="{{ url()->current() }}"
 
-                                <input
-                                    type="text"
-                                    name="search"
-                                    value="{{ request('search') }}"
-                                    placeholder="Search equipment..."
-                                    class="h-10 w-64 rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-3 text-sm focus:border-blue-500 focus:bg-white focus:outline-none"
-                                >
-                            </div>
+                        class="flex shrink-0 flex-wrap items-center gap-2
+                            xl:flex-nowrap"
+                    >
 
-                            <!-- Category -->
+                        {{-- ================================================= --}}
+                        {{-- PRESERVE STATUS --}}
+                        {{-- ================================================= --}}
+
+                        @if (request()->filled('status'))
+
+                            <input
+                                type="hidden"
+                                name="status"
+                                value="{{ request('status') }}"
+                            >
+
+                        @endif
+
+
+                        {{-- ================================================= --}}
+                        {{-- SEARCH --}}
+                        {{-- ================================================= --}}
+
+                        <div class="relative">
+
+                            <i
+                                data-lucide="search"
+
+                                class="pointer-events-none absolute
+                                    left-3 top-1/2 h-4 w-4
+                                    -translate-y-1/2 text-slate-400"
+                            ></i>
+
+                            <input
+                                type="search"
+
+                                name="search"
+
+                                value="{{ request('search') }}"
+
+                                placeholder="Search equipment..."
+
+                                class="h-10 w-48 rounded-lg
+                                    border border-slate-200
+                                    bg-white pl-10 pr-3
+                                    text-sm text-slate-700
+                                    outline-none transition
+                                    placeholder:text-slate-400
+                                    focus:border-slate-400
+                                    focus:ring-2 focus:ring-slate-100"
+                            >
+
+                        </div>
+
+
+                        {{-- ================================================= --}}
+                        {{-- CATEGORY --}}
+                        {{-- ================================================= --}}
+
+                        <div class="relative">
+
                             <select
                                 name="category"
-                                class="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm"
+
+                                class="h-10 w-40 appearance-none
+                                    rounded-lg border border-slate-200
+                                    bg-white pl-3 pr-9
+                                    text-sm text-slate-600
+                                    outline-none transition
+                                    focus:border-slate-400
+                                    focus:ring-2 focus:ring-slate-100"
                             >
-                                <option value="">All Category</option>
+
+                                <option value="">
+                                    All Categories
+                                </option>
 
                                 @foreach ($categories as $category)
+
                                     <option
                                         value="{{ $category->equipment_category_id }}"
-                                        {{
-                                            request("category") ==
-                                            $category->equipment_category_id
-                                                ? "selected"
-                                                : ""
-                                        }}
+
+                                        @selected(
+                                            request('category')
+                                            == $category->equipment_category_id
+                                        )
                                     >
                                         {{ $category->equipment_category_name }}
                                     </option>
+
                                 @endforeach
+
                             </select>
 
-                            <!-- Room 
+
+                            <i
+                                data-lucide="chevron-down"
+
+                                class="pointer-events-none absolute
+                                    right-3 top-1/2 h-4 w-4
+                                    -translate-y-1/2 text-slate-400"
+                            ></i>
+
+                        </div>
+
+
+                        {{-- ================================================= --}}
+                        {{-- ROOM --}}
+                        {{-- ================================================= --}}
+
+                        <div class="relative">
+
                             <select
                                 name="room"
-                                class="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm"
+
+                                class="h-10 w-36 appearance-none
+                                    rounded-lg border border-slate-200
+                                    bg-white pl-3 pr-9
+                                    text-sm text-slate-600
+                                    outline-none transition
+                                    focus:border-slate-400
+                                    focus:ring-2 focus:ring-slate-100"
                             >
-                                <option value="">Room</option>
+
+                                <option value="">
+                                    All Rooms
+                                </option>
 
                                 @foreach ($rooms as $room)
+
                                     <option
                                         value="{{ $room->room_id }}"
-                                        {{
-                                            request("room") == $room->room_id
-                                                ? "selected"
-                                                : ""
-                                        }}
+
+                                        @selected(
+                                            request('room') == $room->room_id
+                                        )
                                     >
                                         {{ $room->room_name }}
                                     </option>
+
                                 @endforeach
-                            </select>-->
 
-                            <!-- Status 
-                            <select
-                                name="status"
-                                class="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm"
-                            >
-                                <option value="">Status</option>
+                            </select>
 
-                                <option value="Active">Active</option>
-                                <option value="Under Maintenance">Under Maintenance</option>
-                                <option value="Borrowed">Borrowed</option>
-                                <option value="For Replacement">For Replacement</option>
-                                <option value="Disposed">Disposed</option>
-                            </select> -->
 
-                            <button
-                                type="submit"
-                                class="inline-flex h-9 items-center rounded-lg bg-[rgba(0,55,199,0.85)] px-3 text-xs font-semibold font-sans-serif text-white transition hover:bg-[rgba(0,44,155,0.85)]"
-                            >
-                                Search
-                            </button>
+                            <i
+                                data-lucide="chevron-down"
+
+                                class="pointer-events-none absolute
+                                    right-3 top-1/2 h-4 w-4
+                                    -translate-y-1/2 text-slate-400"
+                            ></i>
 
                         </div>
+
+
+                        {{-- ================================================= --}}
+                        {{-- APPLY --}}
+                        {{-- ================================================= --}}
+
+                        <button
+                            type="submit"
+
+                            class="inline-flex h-10 shrink-0
+                                items-center justify-center gap-2
+                                rounded-lg bg-slate-950 px-4
+                                text-sm font-semibold text-white
+                                transition hover:bg-slate-800"
+                        >
+
+                            <i
+                                data-lucide="sliders-horizontal"
+                                class="h-4 w-4"
+                            ></i>
+
+                            Apply
+
+                        </button>
+
+
+                        {{-- ================================================= --}}
+                        {{-- CLEAR --}}
+                        {{-- ================================================= --}}
+
+                        @if (
+                            request()->filled('search')
+                            || request()->filled('category')
+                            || request()->filled('room')
+                        )
+
+                            <a
+                                href="{{ request()->fullUrlWithQuery([
+                                    'search' => null,
+                                    'category' => null,
+                                    'room' => null,
+                                    'page' => null,
+                                ]) }}"
+
+                                class="inline-flex h-10 w-10 shrink-0
+                                    items-center justify-center
+                                    rounded-lg border border-slate-200
+                                    bg-white text-slate-500
+                                    transition
+                                    hover:bg-slate-50
+                                    hover:text-slate-900"
+
+                                title="Clear filters"
+                            >
+
+                                <i
+                                    data-lucide="x"
+                                    class="h-4 w-4"
+                                ></i>
+
+                            </a>
+
+                        @endif
+
                     </form>
+
                 </div>
+
+
+
+                
 
                 <table class="w-full">
                     <thead class="border-b border-slate-200 bg-slate-50/80">
@@ -917,6 +1069,8 @@
 
                                                 '{{ $item->equipment_inventory_status }}',
 
+                                                '{{ $item->equipment_is_borrowable }}',
+
                                                 '{{ $item->equipment_purchase_date ?? 'N/A' }}',
 
                                                 '{{ $item->equipment_warranty_expiration ?? 'N/A' }}',
@@ -953,7 +1107,9 @@
 
                                                 '{{ $item->equipment_condition_status }}',
 
-                                                '{{ $item->equipment_inventory_status }}'
+                                                '{{ $item->equipment_inventory_status }}',
+
+                                                '{{ $item->equipment_is_borrowable }}'
 
                                             )"
                                             class="flex h-9 w-9 items-center justify-center rounded-lg bg-[#FFF200] text-black transition hover:bg-[#E6E600]"
@@ -993,6 +1149,7 @@
                                                 data-lucide="{{
                                                     request()->filled('search')
                                                     || request()->filled('category')
+                                                    || request()->filled('room')
                                                     || request()->filled('status')
                                                         ? 'search-x'
                                                         : 'package-open'
@@ -1011,6 +1168,7 @@
                                             {{
                                                 request()->filled('search')
                                                 || request()->filled('category')
+                                                || request()->filled('room')
                                                 || request()->filled('status')
 
                                                     ? 'No matching equipment'
@@ -1033,6 +1191,7 @@
                                             {{
                                                 request()->filled('search')
                                                 || request()->filled('category')
+                                                || request()->filled('room')
                                                 || request()->filled('status')
 
                                                     ? 'No equipment matches your current search or filters. Try adjusting them.'
@@ -1051,6 +1210,7 @@
                                         @if (
                                             request()->filled('search')
                                             || request()->filled('category')
+                                            || request()->filled('room')
                                             || request()->filled('status')
                                         )
 
@@ -1737,6 +1897,51 @@
                                     </option>
                                 </select>
                             </div>
+
+                            <!-- ===================================== -->
+                            <!-- BORROWABLE -->
+                            <!-- Place below the Condition field -->
+                            <!-- ===================================== -->
+
+                            <div class="sm:col-span-2">
+                                <label
+                                    for="add_equipment_borrowable"
+                                    class="mb-2 block text-sm font-medium text-slate-700"
+                                >
+                                    Borrowable
+                                </label>
+
+                                <label
+                                    class="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 transition hover:border-slate-300"
+                                >
+                                    <div>
+                                        <p class="text-sm font-medium text-slate-900">
+                                            Allow equipment borrowing
+                                        </p>
+
+                                        <p class="mt-1 text-xs text-slate-500">
+                                            Enable this if the equipment can be borrowed by authorized users.
+                                        </p>
+                                    </div>
+
+                                    <input
+                                        id="add_equipment_borrowable"
+                                        type="checkbox"
+                                        name="equipment_is_borrowable"
+                                        value="1"
+                                        class="peer sr-only"
+                                    >
+
+                                    <div
+                                        class="relative h-6 w-11 rounded-full bg-slate-300 transition
+                                            peer-checked:bg-emerald-500
+                                            after:absolute after:left-0.5 after:top-0.5
+                                            after:h-5 after:w-5 after:rounded-full
+                                            after:bg-white after:transition-all
+                                            peer-checked:after:translate-x-5"
+                                    ></div>
+                                </label>
+                            </div>
                         </div>
                     </section>
                 </div>
@@ -1833,7 +2038,7 @@
             class="flex min-h-0 flex-1 flex-col"
         >
             @csrf
-            @method("PUT")
+            
 
             <!-- ===================================== -->
             <!-- SCROLLABLE FORM CONTENT -->
@@ -2105,6 +2310,47 @@
                                 </select>
                             </div>
 
+                            <!-- BORROWABLE -->
+                            <div class="md:col-span-3">
+                                <label
+                                    for="edit_equipment_borrowable"
+                                    class="mb-2 block text-sm font-medium text-slate-700"
+                                >
+                                    Borrowable
+                                </label>
+
+                                <label
+                                    class="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 transition hover:border-slate-300"
+                                >
+                                    <div>
+                                        <p class="text-sm font-medium text-slate-900">
+                                            Allow equipment borrowing
+                                        </p>
+
+                                        <p class="mt-1 text-xs text-slate-500">
+                                            Enable this if the equipment can be borrowed by authorized users.
+                                        </p>
+                                    </div>
+
+                                    <input
+                                        id="edit_equipment_borrowable"
+                                        type="checkbox"
+                                        name="equipment_is_borrowable"
+                                        value="1"
+                                        class="peer sr-only"
+                                    >
+
+                                    <div
+                                        class="relative h-6 w-11 rounded-full bg-slate-300 transition
+                                            peer-checked:bg-emerald-500
+                                            after:absolute after:left-0.5 after:top-0.5
+                                            after:h-5 after:w-5 after:rounded-full
+                                            after:bg-white after:transition-all
+                                            peer-checked:after:translate-x-5"
+                                    ></div>
+                                </label>
+                            </div>
+
                             <!-- INVENTORY STATUS -->
                             <div>
                                 <label
@@ -2253,6 +2499,7 @@
             quantity,
             condition,
             status,
+            borrowable
         ) {
             document.getElementById("editEquipmentForm").action =
                 "/maintenance/equipment/update/" + id;
@@ -2272,6 +2519,13 @@
             document.getElementById("edit_condition").value = condition;
 
             document.getElementById("edit_status").value = status;
+
+            document.getElementById("edit_category").value = category;
+
+            document.getElementById("edit_room").value = room;
+
+            document.getElementById("edit_equipment_borrowable").checked =
+                borrowable == 1;
 
             document
                 .getElementById("editEquipmentModal")

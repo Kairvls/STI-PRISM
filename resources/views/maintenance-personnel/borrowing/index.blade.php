@@ -1,5 +1,9 @@
 @extends ("layouts.maintenance-layout")
 
+@php
+    use Carbon\Carbon;
+@endphp
+
 @section ("content")
 
     <div
@@ -347,6 +351,176 @@
                 </div>
 
             </div>
+
+
+            {{-- ===================================================== --}}
+            {{-- SEARCH AND FILTER BAR --}}
+            {{-- ADD BETWEEN TABLE HEADER INFORMATION AND TABLE --}}
+            {{-- ===================================================== --}}
+
+            <form
+                method="GET"
+                action="{{ url()->current() }}"
+                class="border-b border-slate-200 px-5 py-4"
+            >
+
+                <div
+                    class="flex flex-col gap-3
+                        sm:flex-row sm:items-center"
+                >
+
+                    {{-- ================================================= --}}
+                    {{-- SEARCH --}}
+                    {{-- ================================================= --}}
+
+                    <div class="relative min-w-0 flex-1">
+
+                        <i
+                            data-lucide="search"
+                            class="pointer-events-none absolute
+                                left-3 top-1/2 h-4 w-4
+                                -translate-y-1/2 text-slate-400"
+                        ></i>
+
+                        <input
+                            type="search"
+
+                            name="search"
+
+                            value="{{ request('search') }}"
+
+                            placeholder="Search equipment, borrower, department, or authorized person..."
+
+                            class="h-10 w-full rounded-lg
+                                border border-slate-200
+                                bg-white pl-10 pr-3
+                                text-sm text-slate-700
+                                outline-none transition
+                                placeholder:text-slate-400
+                                focus:border-slate-400
+                                focus:ring-2 focus:ring-slate-100"
+                        >
+
+                    </div>
+
+
+                    {{-- ================================================= --}}
+                    {{-- STATUS FILTER --}}
+                    {{-- ================================================= --}}
+
+                    <div class="relative">
+
+                        <select
+                            name="status"
+
+                            class="h-10 min-w-[170px]
+                                appearance-none rounded-lg
+                                border border-slate-200
+                                bg-white pl-3 pr-9
+                                text-sm text-slate-600
+                                outline-none transition
+                                focus:border-slate-400
+                                focus:ring-2 focus:ring-slate-100"
+                        >
+
+                            <option value="">
+                                All Status
+                            </option>
+
+                            <option
+                                value="Borrowed"
+                                @selected(request('status') === 'Borrowed')
+                            >
+                                Borrowed
+                            </option>
+
+                            <option
+                                value="Returned"
+                                @selected(request('status') === 'Returned')
+                            >
+                                Returned
+                            </option>
+
+                            <option
+                                value="Overdue"
+                                @selected(request('status') === 'Overdue')
+                            >
+                                Overdue
+                            </option>
+
+                        </select>
+
+
+                        <i
+                            data-lucide="chevron-down"
+                            class="pointer-events-none absolute
+                                right-3 top-1/2 h-4 w-4
+                                -translate-y-1/2 text-slate-400"
+                        ></i>
+
+                    </div>
+
+
+                    {{-- ================================================= --}}
+                    {{-- APPLY BUTTON --}}
+                    {{-- ================================================= --}}
+
+                    <button
+                        type="submit"
+
+                        class="inline-flex h-10 items-center
+                            justify-center gap-2 rounded-lg
+                            bg-slate-950 px-4
+                            text-sm font-semibold text-white
+                            transition hover:bg-slate-800"
+                    >
+
+                        <i
+                            data-lucide="sliders-horizontal"
+                            class="h-4 w-4"
+                        ></i>
+
+                        Apply
+
+                    </button>
+
+
+                    {{-- ================================================= --}}
+                    {{-- CLEAR BUTTON --}}
+                    {{-- ================================================= --}}
+
+                    @if (
+                        request()->filled('search')
+                        || request()->filled('status')
+                    )
+
+                        <a
+                            href="{{ url()->current() }}"
+
+                            class="inline-flex h-10 items-center
+                                justify-center gap-2 rounded-lg
+                                border border-slate-200
+                                bg-white px-4
+                                text-sm font-medium text-slate-600
+                                transition
+                                hover:bg-slate-50
+                                hover:text-slate-900"
+                        >
+
+                            <i
+                                data-lucide="x"
+                                class="h-4 w-4"
+                            ></i>
+
+                            Clear
+
+                        </a>
+
+                    @endif
+
+                </div>
+
+            </form>
 
 
 
@@ -708,20 +882,20 @@
                                         <button
                                             type="button"
 
-                                            onclick='viewBorrowing(
-                                                @js($record->equipment_name),
-                                                @js($record->borrowing_borrower_name),
-                                                @js($record->borrowing_borrower_department),
-                                                @js($record->borrowing_quantity),
-                                                @js($record->borrowing_date),
-                                                @js($record->borrowing_expected_return_date),
-                                                @js($record->borrowing_actual_return_date),
-                                                @js($record->borrowing_purpose),
-                                                @js($record->borrowing_destination_location),
-                                                @js($record->borrowing_authorized_by),
-                                                @js($record->borrowing_remarks),
-                                                @js($record->borrowing_status)
-                                            )'
+                                            onclick="viewBorrowing(
+                                                '{{ $record->equipment_name }}',
+                                                '{{ $record->borrowing_borrower_name }}',
+                                                '{{ $record->borrowing_borrower_department }}',
+                                                '{{ $record->borrowing_quantity }}',
+                                                '{{ $record->borrowing_date }}',
+                                                '{{ $record->borrowing_expected_return_date }}',
+                                                '{{ $record->borrowing_actual_return_date }}',
+                                                '{{ $record->borrowing_purpose }}',
+                                                '{{ $record->borrowing_destination_location }}',
+                                                '{{ $record->borrowing_authorized_by }}',
+                                                '{{ $record->borrowing_remarks }}',
+                                                '{{ $record->borrowing_status }}'
+                                            )"
 
                                             class="flex h-10 w-10 items-center
                                                 justify-center rounded-xl
@@ -751,10 +925,10 @@
                                             <button
                                                 type="button"
 
-                                                onclick='openReturnModal(
-                                                    @js($record->borrowing_record_id),
-                                                    @js($record->equipment_name)
-                                                )'
+                                                onclick="openReturnModal(
+                                                    '{{$record->borrowing_record_id}}',
+                                                    '{{$record->equipment_name}}'
+                                                )"
 
                                                 class="flex h-10 w-10 items-center
                                                     justify-center rounded-xl
@@ -1344,7 +1518,7 @@
     <!-- BORROWING DETAILS MODAL -->
     <!-- ===================================== -->
     <div
-        class="flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
+        class="flex max-h-[80vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
     >
         <!-- ===================================== -->
         <!-- MODAL HEADER -->
@@ -1783,17 +1957,18 @@
         }
 
         function openReturnModal(id, equipment) {
+
             document.getElementById("returnBorrowingId").value = id;
 
-            document.getElementById("returnEquipmentName").innerText =
-                equipment;
+            document.getElementById("returnEquipmentName").innerText = equipment;
 
             document.getElementById("returnModal").classList.remove("hidden");
+            document.getElementById("returnModal").classList.add("flex");
         }
 
         function closeReturnModal() {
-            document.getElementById("returnModal").classList.add("hidden");
 
+            document.getElementById("returnModal").classList.add("hidden");
             document.getElementById("returnModal").classList.remove("flex");
         }
     </script>

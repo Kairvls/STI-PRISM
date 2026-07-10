@@ -425,6 +425,263 @@
 
         </div>
 
+        {{-- ===================================================== --}}
+        {{-- SEARCH AND FILTER BAR --}}
+        {{-- ADD BETWEEN SCHEDULE LIST HEADER AND TABLE --}}
+        {{-- ===================================================== --}}
+
+        <form
+            method="GET"
+            action="{{ url()->current() }}"
+            class="border-b border-slate-200 px-5 py-4"
+        >
+
+            <div
+                class="flex flex-col gap-3
+                    lg:flex-row lg:items-center"
+            >
+
+                {{-- ================================================= --}}
+                {{-- SEARCH --}}
+                {{-- ================================================= --}}
+
+                <div class="relative min-w-0 flex-1">
+
+                    <i
+                        data-lucide="search"
+                        class="pointer-events-none absolute
+                            left-3 top-1/2 h-4 w-4
+                            -translate-y-1/2 text-slate-400"
+                    ></i>
+
+                    <input
+                        type="search"
+                        name="search"
+                        value="{{ request('search') }}"
+                        placeholder="Search equipment, maintenance, room, or description..."
+
+                        class="h-10 w-full rounded-lg
+                            border border-slate-200
+                            bg-white pl-10 pr-3
+                            text-sm text-slate-700
+                            outline-none transition
+                            placeholder:text-slate-400
+                            focus:border-slate-400
+                            focus:ring-2 focus:ring-slate-100"
+                    >
+
+                </div>
+
+
+                {{-- ===================================================== --}}
+                {{-- FREQUENCY FILTER --}}
+                {{-- VALUES MATCH CREATE SCHEDULE MODAL --}}
+                {{-- ===================================================== --}}
+
+                <div class="relative">
+
+                    <select
+                        name="frequency"
+
+                        class="h-10 min-w-[170px]
+                            appearance-none rounded-lg
+                            border border-slate-200
+                            bg-white pl-3 pr-9
+                            text-sm text-slate-600
+                            outline-none transition
+                            focus:border-slate-400
+                            focus:ring-2 focus:ring-slate-100"
+                    >
+
+                        <option value="">
+                            All Frequencies
+                        </option>
+
+
+                        {{-- ================================================= --}}
+                        {{-- MONTHLY --}}
+                        {{-- ================================================= --}}
+
+                        <option
+                            value="Monthly"
+                            @selected(request('frequency') === 'Monthly')
+                        >
+                            Monthly
+                        </option>
+
+
+                        {{-- ================================================= --}}
+                        {{-- QUARTERLY --}}
+                        {{-- ================================================= --}}
+
+                        <option
+                            value="Quarterly"
+                            @selected(request('frequency') === 'Quarterly')
+                        >
+                            Quarterly
+                        </option>
+
+
+                        {{-- ================================================= --}}
+                        {{-- SEMI ANNUAL --}}
+                        {{-- MUST MATCH VALUE SAVED BY CREATE MODAL --}}
+                        {{-- ================================================= --}}
+
+                        <option
+                            value="Semi annual"
+                            @selected(request('frequency') === 'Semi annual')
+                        >
+                            Semi annual
+                        </option>
+
+
+                        {{-- ================================================= --}}
+                        {{-- ANNUAL --}}
+                        {{-- ================================================= --}}
+
+                        <option
+                            value="Annual"
+                            @selected(request('frequency') === 'Annual')
+                        >
+                            Annual
+                        </option>
+
+                    </select>
+
+
+                    {{-- ===================================================== --}}
+                    {{-- DROPDOWN ICON --}}
+                    {{-- ===================================================== --}}
+
+                    <i
+                        data-lucide="chevron-down"
+                        class="pointer-events-none absolute
+                            right-3 top-1/2 h-4 w-4
+                            -translate-y-1/2 text-slate-400"
+                    ></i>
+
+                </div>
+
+
+                {{-- ================================================= --}}
+                {{-- STATUS FILTER --}}
+                {{-- ================================================= --}}
+
+                <div class="relative">
+
+                    <select
+                        name="status"
+
+                        class="h-10 min-w-[160px]
+                            appearance-none rounded-lg
+                            border border-slate-200
+                            bg-white pl-3 pr-9
+                            text-sm text-slate-600
+                            outline-none transition
+                            focus:border-slate-400
+                            focus:ring-2 focus:ring-slate-100"
+                    >
+
+                        <option value="">
+                            All Status
+                        </option>
+
+                        <option
+                            value="Active"
+                            @selected(request('status') === 'Active')
+                        >
+                            Active
+                        </option>
+
+                        <option
+                            value="Completed"
+                            @selected(request('status') === 'Completed')
+                        >
+                            Completed
+                        </option>
+
+                        <option
+                            value="Overdue"
+                            @selected(request('status') === 'Overdue')
+                        >
+                            Overdue
+                        </option>
+
+                    </select>
+
+                    <i
+                        data-lucide="chevron-down"
+                        class="pointer-events-none absolute
+                            right-3 top-1/2 h-4 w-4
+                            -translate-y-1/2 text-slate-400"
+                    ></i>
+
+                </div>
+
+
+                {{-- ================================================= --}}
+                {{-- APPLY --}}
+                {{-- ================================================= --}}
+
+                <button
+                    type="submit"
+
+                    class="inline-flex h-10 items-center
+                        justify-center gap-2 rounded-lg
+                        bg-slate-950 px-4
+                        text-sm font-semibold text-white
+                        transition hover:bg-slate-800"
+                >
+
+                    <i
+                        data-lucide="sliders-horizontal"
+                        class="h-4 w-4"
+                    ></i>
+
+                    Apply
+
+                </button>
+
+
+                {{-- ================================================= --}}
+                {{-- CLEAR --}}
+                {{-- ================================================= --}}
+
+                @if (
+                    request()->filled('search')
+                    || request()->filled('frequency')
+                    || request()->filled('status')
+                )
+
+                    <a
+                        href="{{ url()->current() }}"
+
+                        class="inline-flex h-10 items-center
+                            justify-center gap-2 rounded-lg
+                            border border-slate-200
+                            bg-white px-4
+                            text-sm font-medium text-slate-600
+                            transition
+                            hover:border-slate-300
+                            hover:bg-slate-50
+                            hover:text-slate-900"
+                    >
+
+                        <i
+                            data-lucide="x"
+                            class="h-4 w-4"
+                        ></i>
+
+                        Clear
+
+                    </a>
+
+                @endif
+
+            </div>
+
+        </form>
+
 
         {{-- ===================================================== --}}
         {{-- TABLE --}}
@@ -881,7 +1138,13 @@
                                             bg-slate-50 text-slate-400"
                                     >
                                         <i
-                                            data-lucide="calendar-plus"
+                                            data-lucide="{{
+                                                request()->filled('search')
+                                                || request()->filled('frequency')
+                                                || request()->filled('status')
+                                                    ? 'search-x'
+                                                    : 'calendar-plus'
+                                            }}"
                                             class="h-5 w-5"
                                         ></i>
                                     </div>
@@ -893,7 +1156,15 @@
 
                                     <h3 class="mt-4 text-sm font-semibold text-slate-800">
 
-                                        No maintenance schedules yet
+                                        {{
+                                            request()->filled('search')
+                                            || request()->filled('frequency')
+                                            || request()->filled('status')
+
+                                                ? 'No matching schedules'
+
+                                                : 'No maintenance schedules yet'
+                                        }}
 
                                     </h3>
 
@@ -902,43 +1173,75 @@
                                     {{-- DESCRIPTION --}}
                                     {{-- ================================================= --}}
 
-                                    <p
-                                        class="mt-1.5 max-w-xs text-xs leading-5
-                                            text-slate-400"
-                                    >
+                                    <p class="mt-1.5 max-w-xs text-xs leading-5 text-slate-400">
 
-                                        Create a maintenance schedule to track upcoming
-                                        preventive maintenance for your equipment.
+                                        {{
+                                            request()->filled('search')
+                                            || request()->filled('frequency')
+                                            || request()->filled('status')
+
+                                                ? 'No maintenance schedules match your current search or filters.'
+
+                                                : 'Create a maintenance schedule to track upcoming preventive maintenance for your equipment.'
+                                        }}
 
                                     </p>
 
 
                                     {{-- ================================================= --}}
-                                    {{-- CREATE SCHEDULE BUTTON --}}
+                                    {{-- EMPTY STATE ACTION --}}
                                     {{-- ================================================= --}}
 
-                                    <button
-                                        type="button"
-                                        onclick="openScheduleModal()"
+                                    @if (
+                                        request()->filled('search')
+                                        || request()->filled('frequency')
+                                        || request()->filled('status')
+                                    )
 
-                                        class="mt-5 inline-flex h-9 items-center gap-2
-                                            rounded-lg border border-slate-200
-                                            bg-white px-3.5
-                                            text-xs font-semibold text-slate-600
-                                            shadow-sm transition
-                                            hover:border-slate-300
-                                            hover:bg-slate-50
-                                            hover:text-slate-900"
-                                    >
+                                        <a
+                                            href="{{ url()->current() }}"
 
-                                        <i
-                                            data-lucide="plus"
-                                            class="h-3.5 w-3.5"
-                                        ></i>
+                                            class="mt-5 inline-flex h-9 items-center gap-2
+                                                rounded-lg border border-slate-200
+                                                bg-white px-3.5
+                                                text-xs font-semibold text-slate-600
+                                                shadow-sm transition
+                                                hover:border-slate-300
+                                                hover:bg-slate-50
+                                                hover:text-slate-900"
+                                        >
+                                            <i
+                                                data-lucide="rotate-ccw"
+                                                class="h-3.5 w-3.5"
+                                            ></i>
 
-                                        Create schedule
+                                            Clear filters
+                                        </a>
 
-                                    </button>
+                                    @else
+
+                                        <button
+                                            type="button"
+                                            onclick="openScheduleModal()"
+
+                                            class="mt-5 inline-flex h-9 items-center gap-2
+                                                rounded-lg border border-slate-200
+                                                bg-white px-3.5
+                                                text-xs font-semibold text-slate-600
+                                                shadow-sm transition
+                                                hover:border-slate-300
+                                                hover:bg-slate-50
+                                                hover:text-slate-900"
+                                        >
+                                            <i
+                                                data-lucide="plus"
+                                                class="h-3.5 w-3.5"
+                                            ></i>
+
+                                            Create schedule
+                                        </button>
+
+                                    @endif
 
                                 </div>
 

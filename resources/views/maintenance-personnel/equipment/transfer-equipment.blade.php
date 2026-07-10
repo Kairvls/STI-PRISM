@@ -444,6 +444,275 @@
             </div>
 
 
+            {{-- ===================================================== --}}
+            {{-- SEARCH AND FILTER BAR --}}
+            {{-- ADD BETWEEN HEADER AND TABLE --}}
+            {{-- ===================================================== --}}
+
+            <form
+                method="GET"
+                action="{{ url()->current() }}"
+                class="border-b border-slate-200 px-5 py-4"
+            >
+
+                <div class="flex flex-col gap-3 xl:flex-row xl:items-center">
+
+                    {{-- ================================================= --}}
+                    {{-- SEARCH --}}
+                    {{-- ================================================= --}}
+
+                    <div class="relative min-w-0 flex-1">
+
+                        <i
+                            data-lucide="search"
+                            class="pointer-events-none absolute
+                                left-3 top-1/2 h-4 w-4
+                                -translate-y-1/2 text-slate-400"
+                        ></i>
+
+                        <input
+                            type="search"
+                            name="search"
+                            value="{{ request('search') }}"
+                            placeholder="Search equipment, asset tag, category, or room..."
+
+                            class="h-10 w-full rounded-lg
+                                border border-slate-200
+                                bg-white pl-10 pr-3
+                                text-sm text-slate-700
+                                outline-none transition
+                                placeholder:text-slate-400
+                                focus:border-slate-400
+                                focus:ring-2 focus:ring-slate-100"
+                        >
+
+                    </div>
+
+
+                    {{-- ================================================= --}}
+                    {{-- CATEGORY FILTER --}}
+                    {{-- ================================================= --}}
+
+                    <div class="relative">
+
+                        <select
+                            name="category"
+
+                            class="h-10 min-w-[175px]
+                                appearance-none rounded-lg
+                                border border-slate-200
+                                bg-white pl-3 pr-9
+                                text-sm text-slate-600
+                                outline-none transition
+                                focus:border-slate-400
+                                focus:ring-2 focus:ring-slate-100"
+                        >
+
+                            <option value="">
+                                All Categories
+                            </option>
+
+                            @foreach ($categories as $category)
+
+                                <option
+                                    value="{{ $category->equipment_category_id }}"
+
+                                    @selected(
+                                        request('category')
+                                        == $category->equipment_category_id
+                                    )
+                                >
+                                    {{ $category->equipment_category_name }}
+                                </option>
+
+                            @endforeach
+
+                        </select>
+
+                        <i
+                            data-lucide="chevron-down"
+                            class="pointer-events-none absolute
+                                right-3 top-1/2 h-4 w-4
+                                -translate-y-1/2 text-slate-400"
+                        ></i>
+
+                    </div>
+
+
+                    {{-- ================================================= --}}
+                    {{-- ROOM FILTER --}}
+                    {{-- ================================================= --}}
+
+                    <div class="relative">
+
+                        <select
+                            name="room"
+
+                            class="h-10 min-w-[165px]
+                                appearance-none rounded-lg
+                                border border-slate-200
+                                bg-white pl-3 pr-9
+                                text-sm text-slate-600
+                                outline-none transition
+                                focus:border-slate-400
+                                focus:ring-2 focus:ring-slate-100"
+                        >
+
+                            <option value="">
+                                All Rooms
+                            </option>
+
+                            @foreach ($rooms as $room)
+
+                                <option
+                                    value="{{ $room->room_id }}"
+
+                                    @selected(
+                                        request('room')
+                                        == $room->room_id
+                                    )
+                                >
+                                    {{ $room->room_name }}
+                                </option>
+
+                            @endforeach
+
+                        </select>
+
+                        <i
+                            data-lucide="chevron-down"
+                            class="pointer-events-none absolute
+                                right-3 top-1/2 h-4 w-4
+                                -translate-y-1/2 text-slate-400"
+                        ></i>
+
+                    </div>
+
+
+                    {{-- ================================================= --}}
+                    {{-- STATUS FILTER --}}
+                    {{-- ================================================= --}}
+
+                    <div class="relative">
+
+                        <select
+                            name="status"
+
+                            class="h-10 min-w-[180px]
+                                appearance-none rounded-lg
+                                border border-slate-200
+                                bg-white pl-3 pr-9
+                                text-sm text-slate-600
+                                outline-none transition
+                                focus:border-slate-400
+                                focus:ring-2 focus:ring-slate-100"
+                        >
+
+                            <option value="">
+                                All Status
+                            </option>
+
+                            <option
+                                value="Active"
+                                @selected(request('status') === 'Active')
+                            >
+                                Active
+                            </option>
+
+                            <option
+                                value="Borrowed"
+                                @selected(request('status') === 'Borrowed')
+                            >
+                                Borrowed
+                            </option>
+
+                            <option
+                                value="Under Maintenance"
+                                @selected(request('status') === 'Under Maintenance')
+                            >
+                                Under Maintenance
+                            </option>
+
+                            <option
+                                value="Disposed"
+                                @selected(request('status') === 'Disposed')
+                            >
+                                Disposed
+                            </option>
+
+                        </select>
+
+                        <i
+                            data-lucide="chevron-down"
+                            class="pointer-events-none absolute
+                                right-3 top-1/2 h-4 w-4
+                                -translate-y-1/2 text-slate-400"
+                        ></i>
+
+                    </div>
+
+
+                    {{-- ================================================= --}}
+                    {{-- APPLY --}}
+                    {{-- ================================================= --}}
+
+                    <button
+                        type="submit"
+
+                        class="inline-flex h-10 items-center
+                            justify-center gap-2 rounded-lg
+                            bg-slate-950 px-4
+                            text-sm font-semibold text-white
+                            transition hover:bg-slate-800"
+                    >
+
+                        <i
+                            data-lucide="sliders-horizontal"
+                            class="h-4 w-4"
+                        ></i>
+
+                        Apply
+
+                    </button>
+
+
+                    {{-- ================================================= --}}
+                    {{-- CLEAR --}}
+                    {{-- ================================================= --}}
+
+                    @if (
+                        request()->filled('search')
+                        || request()->filled('category')
+                        || request()->filled('room')
+                        || request()->filled('status')
+                    )
+
+                        <a
+                            href="{{ url()->current() }}"
+
+                            class="inline-flex h-10 items-center
+                                justify-center gap-2 rounded-lg
+                                border border-slate-200
+                                bg-white px-4
+                                text-sm font-medium text-slate-600
+                                transition
+                                hover:bg-slate-50
+                                hover:text-slate-900"
+                        >
+
+                            <i data-lucide="x" class="h-4 w-4"></i>
+
+                            Clear
+
+                        </a>
+
+                    @endif
+
+                </div>
+
+            </form>
+
+
 
             {{-- ===================================================== --}}
             {{-- TABLE --}}
@@ -514,7 +783,7 @@
 
 
                                 $statusClass = match ($inventoryStatus) {
-                                    "Available" =>
+                                    "Active" =>
                                         "bg-emerald-50 text-emerald-700 ring-emerald-200",
 
                                     "Borrowed" =>
@@ -532,7 +801,7 @@
 
 
                                 $statusDotClass = match ($inventoryStatus) {
-                                    "Available" =>
+                                    "Active" =>
                                         "bg-emerald-500",
 
                                     "Borrowed" =>
