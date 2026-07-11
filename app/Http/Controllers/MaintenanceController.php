@@ -142,6 +142,29 @@ class MaintenanceController extends Controller
                 'reporters_table.reporter_employee_id'
             )
 
+            // =====================================================
+            // JOIN ASSIGNED MAINTENANCE PERSONNEL HERE
+            // =====================================================
+
+            ->leftJoin(
+                'users_table as assigned_personnel',
+                'reports_table.report_assigned_personnel_id',
+                '=',
+                'assigned_personnel.user_id'
+            )
+
+
+            // =====================================================
+            // JOIN ASSIGNED PURCHASER HERE
+            // =====================================================
+
+            ->leftJoin(
+                'users_table as assigned_purchaser',
+                'reports_table.report_assigned_purchaser_id',
+                '=',
+                'assigned_purchaser.user_id'
+            )
+
             /*
             |--------------------------------------------------------------------------
             | SEARCH SYSTEM
@@ -267,7 +290,22 @@ class MaintenanceController extends Controller
 
                 'reporters_table.reporter_full_name',
 
-                'reporters_table.reporter_employee_id'
+                'reporters_table.reporter_employee_id',
+
+                // =====================================================
+                // ASSIGNED MAINTENANCE PERSONNEL NAME HERE
+                // =====================================================
+
+                'assigned_personnel.user_full_name
+                    as assigned_personnel_name',
+
+
+                // =====================================================
+                // ASSIGNED PURCHASER NAME HERE
+                // =====================================================
+
+                'assigned_purchaser.user_full_name
+                    as assigned_purchaser_name',
 
             );
     }
@@ -994,63 +1032,205 @@ class MaintenanceController extends Controller
         );
     }
 
+    // =====================================================
+    // ASSIGN REPORT TO MAINTENANCE PERSONNEL
+    // =====================================================
+
     public function assignReport(Request $request, $id)
     {
+        // =====================================================
+        // VALIDATE PERSONNEL ID HERE
+        // =====================================================
+
         $request->validate([
 
-            'personnel_id' => 'required'
+            'personnel_id' =>
+                'required|integer|exists:users_table,user_id',
 
         ]);
 
-        $report = DB::table('reports_table')
-            ->where('report_id', $id)
-            ->first();
 
-        if (!$report) {
+        // =====================================================
+        // DATABASE TRANSACTION HERE
+        // =====================================================
+
+        return DB::transaction(function () use (
+            $request,
+            $id
+        ) {
+
+
+            // =================================================
+            // LOCK REPORT ROW HERE
+            // =================================================
+
+            $report = DB::table('reports_table')
+
+                ->where(
+                    'report_id',
+                    $id
+                )
+
+                ->lockForUpdate()
+
+                ->first();
+
+
+            // =================================================
+            // REPORT MUST EXIST
+            // =================================================
+
+            if (!$report) {
+
+                return back()->with(
+                    'error',
+                    'Report not found.'
+                );
+
+            }
+
+
+            // =================================================
+            // REPORT MUST NOT BE ARCHIVED
+            // =================================================
+
+            if ($report->report_is_archived) {
+
+                return back()->with(
+                    'error',
+                    'Archived reports cannot be assigned.'
+                );
+
+            }
+
+
+            // =================================================
+            // REPORT MUST STILL BE PENDING
+            // =================================================
+
+            if (
+                $report->report_current_status
+                !==
+                'Pending'
+            ) {
+
+                return back()->with(
+                    'error',
+                    'Only pending reports can be assigned.'
+                );
+
+            }
+
+
+            // =================================================
+            // PURCHASER MUST NOT ALREADY OWN REPORT
+            // =================================================
+
+            if (
+                $report->report_assigned_purchaser_id
+                !==
+                null
+            ) {
+
+                return back()->with(
+                    'error',
+                    'The Purchaser is already handling this urgent report.'
+                );
+
+            }
+
+
+            // =================================================
+            // MAINTENANCE PERSONNEL MUST NOT ALREADY BE ASSIGNED
+            // =================================================
+
+            if (
+                $report->report_assigned_personnel_id
+                !==
+                null
+            ) {
+
+                return back()->with(
+                    'error',
+                    'Another maintenance personnel is already assigned to this report.'
+                );
+
+            }
+
+
+            // =================================================
+            // MAKE SURE SELECTED USER IS MAINTENANCE PERSONNEL
+            //
+            // YOUR CURRENT CONTROLLER USES ROLE ID 2
+            // FOR MAINTENANCE PERSONNEL.
+            // =================================================
+
+            $validPersonnel = DB::table('users_table')
+
+                ->where(
+                    'user_id',
+                    $request->personnel_id
+                )
+
+                ->where(
+                    'user_role_id',
+                    2
+                )
+
+                ->exists();
+
+
+            if (!$validPersonnel) {
+
+                return back()->with(
+                    'error',
+                    'Selected user is not a maintenance personnel.'
+                );
+
+            }
+
+
+            // =================================================
+            // ASSIGN REPORT HERE
+            // =================================================
+
+            DB::table('reports_table')
+
+                ->where(
+                    'report_id',
+                    $id
+                )
+
+                ->update([
+
+                    'report_assigned_personnel_id' =>
+                        $request->personnel_id,
+
+                    'report_current_status' =>
+                        'Processing',
+
+                    'report_updated_at' =>
+                        now(),
+
+                ]);
+
+
+            // =================================================
+            // RETURN REPORT DETAILS PAGE
+            // =================================================
+
             return redirect()
-                ->back()
-                ->with('error', 'Report not found.');
-        }
 
-        if ($report->report_current_status !== 'Pending') {
-            return redirect()
-                ->back()
-                ->with('error', 'Only pending reports can be assigned.');
-        }
+                ->to(
+                    '/maintenance/reports/details/' . $id
+                )
 
-        DB::table('reports_table')
+                ->with(
+                    'success',
+                    'Report assigned successfully.'
+                );
 
-            ->where(
-                'report_id',
-                $id
-            )
-
-            ->update([
-
-                'report_assigned_personnel_id'
-                    =>
-                    $request->personnel_id,
-
-                'report_current_status'
-                    =>
-                    'Processing',
-
-                'report_updated_at'
-                    =>
-                    now()
-
-            ]);
-
-        return redirect()
-
-            ->to(
-                '/maintenance/reports/details/' . $id
-            )
-
-            ->with(
-                'success',
-                'Report assigned successfully.'
-            );
+        });
     }
 
 
@@ -1082,58 +1262,42 @@ class MaintenanceController extends Controller
         );
     }
 
+    // =====================================================
+    // UPDATE REPORT STATUS
+    // MAINTENANCE PERSONNEL
+    // =====================================================
+
     public function updateStatus(Request $request, $id)
     {
+        // =====================================================
+        // VALIDATE REQUEST HERE
+        // =====================================================
+
         $request->validate([
-            'status' => 'required',
-            'remarks' => 'nullable|string',
-            'proof_image' => 'nullable|image|max:5120'
+
+            'status' =>
+                'required|in:Processing,Resolved,For Replacement,Rejected',
+
+            'remarks' =>
+                'nullable|string',
+
+            'proof_image' =>
+                'nullable|image|max:5120',
+
         ]);
 
-        $report = DB::table('reports_table')
-            ->where('report_id', $id)
-            ->first();
 
-        if (!$report) {
-            return redirect()
-                ->back()
-                ->with('error', 'Report not found.');
-        }
-
-        $undoRequested = (bool) $request->boolean('undo');
-        $newStatus = $request->status;
-
-        if ($undoRequested) {
-
-            DB::table('reports_table')
-                ->where('report_id', $id)
-                ->update([
-                    'report_current_status' => $newStatus,
-                    'report_updated_at' => now()
-                ]);
-
-            return redirect()
-                ->back()
-                ->with('success', 'Status reverted successfully.');
-        }
-
-        $allowedTransitions = [
-            'Pending' => ['Processing', 'Rejected'],
-            'Processing' => ['Resolved', 'For Replacement'],
-        ];
-
-        if (
-            !isset($allowedTransitions[$report->report_current_status])
-            || !in_array($newStatus, $allowedTransitions[$report->report_current_status], true)
-        ) {
-            return redirect()
-                ->back()
-                ->with('error', 'This status cannot be changed to the selected value.');
-        }
+        // =====================================================
+        // STORE IMAGE BEFORE DATABASE TRANSACTION
+        //
+        // FILE STORAGE SHOULD NOT BE DONE WHILE HOLDING
+        // A DATABASE ROW LOCK.
+        // =====================================================
 
         $imagePath = null;
 
-        if($request->hasFile('proof_image')){
+
+        if ($request->hasFile('proof_image')) {
 
             $imagePath = $request
                 ->file('proof_image')
@@ -1141,127 +1305,683 @@ class MaintenanceController extends Controller
                     'maintenance-proofs',
                     'public'
                 );
+
         }
 
-        $update = [
-            'report_current_status' => $newStatus,
-            'report_updated_at' => now()
-        ];
 
-        if($newStatus === 'Resolved'){
+        // =====================================================
+        // CURRENT MAINTENANCE PERSONNEL ID HERE
+        // =====================================================
 
-            $update['report_resolution_notes']
-                = $request->remarks;
+        $personnelId = Auth::id();
 
-            $update['report_resolution_image']
-                = $imagePath;
-        }
 
-        if($newStatus === 'Rejected'){
+        // =====================================================
+        // STATUS REQUESTED BY USER HERE
+        // =====================================================
 
-            $update['report_rejection_notes']
-                = $request->remarks;
-        }
+        $newStatus = $request->status;
 
-        if($newStatus === 'For Replacement'){
 
-            $update['report_replacement_notes']
-                = $request->remarks;
+        // =====================================================
+        // CHECK IF THIS IS AN UNDO REQUEST HERE
+        // =====================================================
 
-            $update['report_replacement_image']
-                = $imagePath;
+        $undoRequested =
+            (bool) $request->boolean('undo');
 
-            $update['report_replacement_submitted_to_purchaser']
-                = 1;
-        }
 
-        if($newStatus === 'For Replacement'){
+        // =====================================================
+        // DATABASE TRANSACTION HERE
+        // =====================================================
 
-            $existingNotification = DB::table(
-                'notifications_table'
-            )
-            ->where(
-                'notification_type',
-                'replacement'
-            )
-            ->where(
-                'notification_message',
-                'Report #'.$id.' requires replacement.'
-            )
-            ->exists();
+        return DB::transaction(function () use (
 
-            if(!$existingNotification){
+            $request,
 
-                DB::table('notifications_table')
-                    ->insert([
+            $id,
 
-                        'notification_user_id' => 3,
+            $personnelId,
 
-                        'notification_title'
-                            => 'Replacement Request',
+            $newStatus,
 
-                        'notification_message'
-                            => 'Report #'.$id.' requires replacement.',
+            $undoRequested,
 
-                        'notification_type'
-                            => 'replacement',
+            $imagePath
 
-                        'notification_created_at'
-                            => now()
+        ) {
+
+
+            // =================================================
+            // LOCK REPORT ROW HERE
+            //
+            // ONLY ONE REQUEST CAN MODIFY THIS REPORT
+            // AT A TIME.
+            // =================================================
+
+            $report = DB::table('reports_table')
+
+                ->where(
+                    'report_id',
+                    $id
+                )
+
+                ->lockForUpdate()
+
+                ->first();
+
+
+            // =================================================
+            // STOP IF REPORT DOES NOT EXIST
+            // =================================================
+
+            if (!$report) {
+
+                return back()->with(
+                    'error',
+                    'Report not found.'
+                );
+
+            }
+
+
+            // =================================================
+            // BLOCK ARCHIVED REPORTS
+            // =================================================
+
+            if ($report->report_is_archived) {
+
+                return back()->with(
+                    'error',
+                    'Archived reports cannot be updated.'
+                );
+
+            }
+
+
+            // =================================================
+            // HANDLE UNDO REQUEST HERE
+            //
+            // KEEPING YOUR CURRENT UNDO BEHAVIOR.
+            //
+            // NOTE:
+            // THIS SHOULD LATER BE REFACTORED BECAUSE ACCEPTING
+            // A STATUS FROM THE REQUEST IS NOT STRONG ENOUGH
+            // SERVER SIDE VALIDATION FOR UNDO.
+            // =================================================
+
+            // =====================================================
+            // HANDLE UNDO REQUEST HERE
+            //
+            // ONLY ALLOW:
+            //
+            // PROCESSING -> PENDING
+            //
+            // THIS IS SAFE BECAUSE START PROCESSING HAS NOT CREATED
+            // PROCUREMENT REQUESTS OR RESOLUTION DATA.
+            // =====================================================
+
+            if ($undoRequested) {
+
+                // =================================================
+                // REPORT MUST CURRENTLY BE PROCESSING
+                // =================================================
+
+                if (
+                    $report->report_current_status
+                    !==
+                    'Processing'
+                ) {
+
+                    return back()->with(
+                        'error',
+                        'This report cannot be reverted.'
+                    );
+
+                }
+
+
+                // =================================================
+                // REPORT MUST BELONG TO CURRENT MAINTENANCE USER
+                // =================================================
+
+                if (
+                    (int) $report->report_assigned_personnel_id
+                    !==
+                    (int) $personnelId
+                ) {
+
+                    return back()->with(
+                        'error',
+                        'You are not assigned to this report.'
+                    );
+
+                }
+
+
+                // =================================================
+                // PURCHASER MUST NOT OWN REPORT
+                // =================================================
+
+                if (
+                    $report->report_assigned_purchaser_id
+                    !==
+                    null
+                ) {
+
+                    return back()->with(
+                        'error',
+                        'This urgent report is being handled by the Purchaser.'
+                    );
+
+                }
+
+
+                // =================================================
+                // RETURN REPORT TO PENDING
+                //
+                // IMPORTANT:
+                // CLEAR MAINTENANCE ASSIGNMENT SO ANOTHER PERSONNEL
+                // CAN CLAIM THE REPORT.
+                // =================================================
+
+                DB::table('reports_table')
+
+                    ->where(
+                        'report_id',
+                        $id
+                    )
+
+                    ->update([
+
+                        'report_current_status' =>
+                            'Pending',
+
+                        'report_assigned_personnel_id' =>
+                            null,
+
+                        'report_updated_at' =>
+                            now(),
 
                     ]);
 
-            }
-        }
 
-        if($newStatus === 'For Replacement'){
-
-            $existingProcurement = DB::table(
-                'procurement_requests_table'
-            )
-            ->where(
-                'procurement_request_report_id',
-                $id
-            )
-            ->exists();
-
-            if(!$existingProcurement){
-
-                DB::table(
-                    'procurement_requests_table'
-                )->insert([
-
-                    'procurement_request_report_id'
-                        => $id,
-
-                    'procurement_request_status'
-                        => 'Pending',
-
-                    'procurement_request_created_by'
-                        => Auth::id()
-
-                ]);
+                return back()->with(
+                    'success',
+                    'Report returned to Pending successfully.'
+                );
 
             }
-        }
 
-        if (
-            $report->report_current_status === 'Pending'
-            && $newStatus === 'Processing'
-            && Auth::id()
-        ) {
-            $update['report_assigned_personnel_id'] = Auth::id();
-        }
 
-        DB::table('reports_table')
-            ->where('report_id', $id)
-            ->update($update);
+            // =================================================
+            // ALLOWED MAINTENANCE STATUS TRANSITIONS HERE
+            // =================================================
 
-        return redirect()
-            ->back()
-            ->with('success', 'Report status updated successfully.')
-            ->with('undo_report_id', $id)
-            ->with('undo_previous_status', $report->report_current_status);
+            $allowedTransitions = [
+
+                'Pending' => [
+                    'Processing',
+                    'Rejected',
+                ],
+
+                'Processing' => [
+                    'Resolved',
+                    'For Replacement',
+                ],
+
+            ];
+
+
+            // =================================================
+            // VALIDATE STATUS TRANSITION HERE
+            // =================================================
+
+            if (
+
+                !isset(
+                    $allowedTransitions[
+                        $report->report_current_status
+                    ]
+                )
+
+                ||
+
+                !in_array(
+
+                    $newStatus,
+
+                    $allowedTransitions[
+                        $report->report_current_status
+                    ],
+
+                    true
+
+                )
+
+            ) {
+
+                return back()->with(
+                    'error',
+                    'This status cannot be changed to the selected value.'
+                );
+
+            }
+
+
+            // =================================================
+            // PENDING REPORT ACTIONS HERE
+            // =================================================
+
+            if (
+                $report->report_current_status
+                ===
+                'Pending'
+            ) {
+
+
+                // =================================================
+                // PURCHASER ALREADY CLAIMED REPORT
+                // =================================================
+
+                if (
+                    $report->report_assigned_purchaser_id
+                    !==
+                    null
+                ) {
+
+                    return back()->with(
+                        'error',
+                        'The Purchaser is already handling this urgent report.'
+                    );
+
+                }
+
+
+                // =================================================
+                // ANOTHER MAINTENANCE PERSONNEL ALREADY ASSIGNED
+                // =================================================
+
+                if (
+                    $report->report_assigned_personnel_id
+                    !==
+                    null
+                ) {
+
+                    return back()->with(
+                        'error',
+                        'Another maintenance personnel is already assigned to this report.'
+                    );
+
+                }
+
+
+                // =================================================
+                // START PROCESSING
+                //
+                // CLAIM REPORT FOR CURRENT MAINTENANCE PERSONNEL.
+                // =================================================
+
+                if (
+                    $newStatus
+                    ===
+                    'Processing'
+                ) {
+
+                    DB::table('reports_table')
+
+                        ->where(
+                            'report_id',
+                            $id
+                        )
+
+                        ->update([
+
+                            'report_current_status' =>
+                                'Processing',
+
+                            'report_assigned_personnel_id' =>
+                                $personnelId,
+
+                            'report_updated_at' =>
+                                now(),
+
+                        ]);
+
+
+                    return back()
+
+                        ->with(
+                            'success',
+                            'Report is now being processed.'
+                        )
+
+                        ->with(
+                            'undo_report_id',
+                            $id
+                        )
+
+                        ->with(
+                            'undo_previous_status',
+                            $report->report_current_status
+                        );
+
+                }
+
+
+                // =================================================
+                // REJECT PENDING REPORT HERE
+                //
+                // REJECTION DOES NOT ASSIGN THE REPORT.
+                // =================================================
+
+                if (
+                    $newStatus
+                    ===
+                    'Rejected'
+                ) {
+
+                    DB::table('reports_table')
+
+                        ->where(
+                            'report_id',
+                            $id
+                        )
+
+                        ->update([
+
+                            'report_current_status' =>
+                                'Rejected',
+
+                            'report_rejection_notes' =>
+                                $request->remarks,
+
+                            'report_updated_at' =>
+                                now(),
+
+                        ]);
+
+
+                    return back()
+
+                        ->with(
+                            'success',
+                            'Report rejected successfully.'
+                        )
+
+                        ->with(
+                            'undo_report_id',
+                            $id
+                        )
+
+                        ->with(
+                            'undo_previous_status',
+                            $report->report_current_status
+                        );
+
+                }
+
+            }
+
+
+            // =================================================
+            // PROCESSING REPORT ACTIONS HERE
+            // =================================================
+
+            if (
+                $report->report_current_status
+                ===
+                'Processing'
+            ) {
+
+
+                // =================================================
+                // BLOCK MAINTENANCE FROM MODIFYING REPORT
+                // CLAIMED BY PURCHASER
+                // =================================================
+
+                if (
+                    $report->report_assigned_purchaser_id
+                    !==
+                    null
+                ) {
+
+                    return back()->with(
+                        'error',
+                        'This urgent report is being handled by the Purchaser.'
+                    );
+
+                }
+
+
+                // =================================================
+                // ONLY ASSIGNED MAINTENANCE PERSONNEL CAN UPDATE
+                // THE PROCESSING REPORT.
+                // =================================================
+
+                if (
+                    (int) $report->report_assigned_personnel_id
+                    !==
+                    (int) $personnelId
+                ) {
+
+                    return back()->with(
+                        'error',
+                        'You are not assigned to this report.'
+                    );
+
+                }
+
+
+                // =================================================
+                // RESOLVE REPORT HERE
+                // =================================================
+
+                if (
+                    $newStatus
+                    ===
+                    'Resolved'
+                ) {
+
+                    DB::table('reports_table')
+
+                        ->where(
+                            'report_id',
+                            $id
+                        )
+
+                        ->update([
+
+                            'report_current_status' =>
+                                'Resolved',
+
+                            'report_resolution_notes' =>
+                                $request->remarks,
+
+                            'report_resolution_image' =>
+                                $imagePath,
+
+                            'report_updated_at' =>
+                                now(),
+
+                        ]);
+
+
+                    return back()
+
+                        ->with(
+                            'success',
+                            'Report resolved successfully.'
+                        )
+
+                        ->with(
+                            'undo_report_id',
+                            $id
+                        )
+
+                        ->with(
+                            'undo_previous_status',
+                            $report->report_current_status
+                        );
+
+                }
+
+
+                // =================================================
+                // SEND REPORT FOR REPLACEMENT HERE
+                // =================================================
+
+                if (
+                    $newStatus
+                    ===
+                    'For Replacement'
+                ) {
+
+
+                    // =================================================
+                    // UPDATE REPORT HERE
+                    // =================================================
+
+                    DB::table('reports_table')
+
+                        ->where(
+                            'report_id',
+                            $id
+                        )
+
+                        ->update([
+
+                            'report_current_status' =>
+                                'For Replacement',
+
+                            'report_replacement_notes' =>
+                                $request->remarks,
+
+                            'report_replacement_image' =>
+                                $imagePath,
+
+                            'report_replacement_submitted_to_purchaser' =>
+                                1,
+
+                            'report_updated_at' =>
+                                now(),
+
+                        ]);
+
+
+                    // =================================================
+                    // CREATE PURCHASER NOTIFICATION HERE
+                    // =================================================
+
+                    $existingNotification =
+                        DB::table('notifications_table')
+
+                            ->where(
+                                'notification_type',
+                                'replacement'
+                            )
+
+                            ->where(
+                                'notification_message',
+                                'Report #' . $id . ' requires replacement.'
+                            )
+
+                            ->exists();
+
+
+                    if (!$existingNotification) {
+
+                        DB::table('notifications_table')
+
+                            ->insert([
+
+                                'notification_user_id' =>
+                                    3,
+
+                                'notification_title' =>
+                                    'Replacement Request',
+
+                                'notification_message' =>
+                                    'Report #' . $id . ' requires replacement.',
+
+                                'notification_type' =>
+                                    'replacement',
+
+                                'notification_created_at' =>
+                                    now(),
+
+                            ]);
+
+                    }
+
+
+                    // =================================================
+                    // CREATE PROCUREMENT REQUEST HERE
+                    // =================================================
+
+                    $existingProcurement =
+                        DB::table('procurement_requests_table')
+
+                            ->where(
+                                'procurement_request_report_id',
+                                $id
+                            )
+
+                            ->exists();
+
+
+                    if (!$existingProcurement) {
+
+                        DB::table('procurement_requests_table')
+
+                            ->insert([
+
+                                'procurement_request_report_id' =>
+                                    $id,
+
+                                'procurement_request_status' =>
+                                    'Pending',
+
+                                'procurement_request_created_by' =>
+                                    $personnelId,
+
+                            ]);
+
+                    }
+
+
+                    return back()
+
+                        ->with(
+                            'success',
+                            'Report submitted for replacement successfully.'
+                        )
+
+                        ->with(
+                            'undo_report_id',
+                            $id
+                        )
+
+                        ->with(
+                            'undo_previous_status',
+                            $report->report_current_status
+                        );
+
+                }
+
+            }
+
+
+            // =================================================
+            // FALLBACK RESPONSE HERE
+            // =================================================
+
+            return back()->with(
+                'error',
+                'Unable to update this report.'
+            );
+
+        });
     }
 
     public function archiveReport($id)

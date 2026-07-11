@@ -406,20 +406,58 @@
                     Make Report
                 </button>
 
-                <button onclick="openLoginModal()"
-                    class="flex items-center gap-2 px-4 py-2 rounded-xl btn-ghost"
-                    style="font-size:.875rem;">
-                    <i data-lucide="user" class="w-4 h-4"></i>
-                    Log In
-                </button>
+                @guest
+
+                    <button
+                        onclick="openLoginModal()"
+                        class="flex items-center gap-2 px-4 py-2 rounded-xl btn-ghost"
+                        style="font-size:.875rem;"
+                    >
+                        <i data-lucide="user" class="w-4 h-4"></i>
+
+                        Log In
+                    </button>
+
+                @else
+
+                    <a
+                        href="{{ route('dashboard') }}"
+                        class="flex items-center gap-2 px-4 py-2 rounded-xl btn-ghost"
+                        style="font-size:.875rem;"
+                    >
+                        <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+
+                        Dashboard
+                    </a>
+
+                @endguest
 
             </div>
 
             <!-- MOBILE LOGIN -->
-            <button onclick="openLoginModal()"
-                class="lg:hidden btn-primary px-5 py-2 rounded-xl text-sm">
-                Login
-            </button>
+            {{-- ===================================================== --}}
+            {{-- MOBILE LOGIN OR DASHBOARD BUTTON HERE --}}
+            {{-- ===================================================== --}}
+
+            @guest
+
+                <button
+                    onclick="openLoginModal()"
+                    class="lg:hidden btn-primary px-5 py-2 rounded-xl text-sm"
+                >
+                    Login
+                </button>
+
+            @else
+
+                <a
+                    href="{{ route('dashboard') }}"
+                    class="lg:hidden btn-primary px-5 py-2 rounded-xl text-sm"
+                >
+                    Dashboard
+                </a>
+
+            @endguest
 
         </div>
 
@@ -468,11 +506,33 @@
                             Make Maintenance Report
                         </button>
 
-                        <button onclick="openLoginModal()"
-                            class="btn-ghost flex items-center justify-center gap-2 px-8 py-4 rounded-2xl text-base">
-                            <i data-lucide="user" class="w-5 h-5"></i>
-                            System Login
-                        </button>
+                        {{-- ===================================================== --}}
+                        {{-- HERO LOGIN OR DASHBOARD BUTTON HERE --}}
+                        {{-- ===================================================== --}}
+
+                        @guest
+
+                            <button
+                                onclick="openLoginModal()"
+                                class="btn-ghost flex items-center justify-center gap-2 px-8 py-4 rounded-2xl text-base"
+                            >
+                                <i data-lucide="user" class="w-5 h-5"></i>
+
+                                System Login
+                            </button>
+
+                        @else
+
+                            <a
+                                href="{{ route('dashboard') }}"
+                                class="btn-ghost flex items-center justify-center gap-2 px-8 py-4 rounded-2xl text-base"
+                            >
+                                <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+
+                                Go to Dashboard
+                            </a>
+
+                        @endguest
 
                     </div>
 
@@ -977,11 +1037,33 @@
                         Make Maintenance Report
                     </button>
 
-                    <button onclick="openLoginModal()"
-                        class="btn-ghost flex items-center gap-2 px-8 py-4 rounded-2xl text-base">
-                        <i data-lucide="log-in" class="w-5 h-5"></i>
-                        System Login
-                    </button>
+                    {{-- ===================================================== --}}
+                    {{-- CTA LOGIN OR DASHBOARD BUTTON HERE --}}
+                    {{-- ===================================================== --}}
+
+                    @guest
+
+                        <button
+                            onclick="openLoginModal()"
+                            class="btn-ghost flex items-center gap-2 px-8 py-4 rounded-2xl text-base"
+                        >
+                            <i data-lucide="log-in" class="w-5 h-5"></i>
+
+                            System Login
+                        </button>
+
+                    @else
+
+                        <a
+                            href="{{ route('dashboard') }}"
+                            class="btn-ghost flex items-center gap-2 px-8 py-4 rounded-2xl text-base"
+                        >
+                            <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+
+                            Go to Dashboard
+                        </a>
+
+                    @endguest
 
                 </div>
 
@@ -1029,6 +1111,8 @@
     <!-- ═══════════════════════════════════════════════════════════════════
          MODALS
     ═══════════════════════════════════════════════════════════════════ -->
+
+    @guest
 
     <!-- ── 1. LOGIN CHOOSER ── -->
     <div id="loginChooserModal"
@@ -1262,6 +1346,7 @@
 
     </div>
 
+    @endguest
 
     <!-- ── 4. REPORT MODAL ── -->
     <div id="reportModal"
@@ -1291,19 +1376,65 @@
         });
 
         /* ── MODALS ── */
-        const loginChooserModal = document.getElementById('loginChooserModal');
-        const staffChooserModal = document.getElementById('staffChooserModal');
-        const roleLoginModal    = document.getElementById('roleLoginModal');
-        const reportModal       = document.getElementById('reportModal');
+        /* =====================================================
+        MODAL ELEMENTS HERE
+        ===================================================== */
+
+        const loginChooserModal =
+            document.getElementById('loginChooserModal');
+
+        const staffChooserModal =
+            document.getElementById('staffChooserModal');
+
+        const roleLoginModal =
+            document.getElementById('roleLoginModal');
+
+        const reportModal =
+            document.getElementById('reportModal');
+
+
+        /* =====================================================
+        CLOSE ALL MODALS HERE
+        ===================================================== */
 
         function closeAllModals() {
-            loginChooserModal.classList.add('hidden');
-            staffChooserModal.classList.add('hidden');
-            roleLoginModal.classList.add('hidden');
-            reportModal.classList.add('hidden');
+
+            // LOGIN CHOOSER
+            if (loginChooserModal) {
+                loginChooserModal.classList.add('hidden');
+            }
+
+
+            // STAFF CHOOSER
+            if (staffChooserModal) {
+                staffChooserModal.classList.add('hidden');
+            }
+
+
+            // ROLE LOGIN
+            if (roleLoginModal) {
+                roleLoginModal.classList.add('hidden');
+            }
+
+
+            // REPORT MODAL
+            if (reportModal) {
+                reportModal.classList.add('hidden');
+            }
         }
 
+
+        /* =====================================================
+        SHOW MODAL HERE
+        ===================================================== */
+
         function showModal(modal) {
+
+            // STOP IF MODAL DOES NOT EXIST
+            if (!modal) {
+                return;
+            }
+
 
             closeAllModals();
 
@@ -1314,18 +1445,37 @@
             document.documentElement.classList.add('overflow-hidden');
         }
 
+
+        /* =====================================================
+        HIDE MODAL HERE
+        ===================================================== */
+
         function hideModal(modal) {
+
+            // STOP IF MODAL DOES NOT EXIST
+            if (!modal) {
+                return;
+            }
+
 
             modal.classList.add('hidden');
 
+
             const visible =
-                document.querySelector('.fixed.inset-0:not(.hidden)');
+                document.querySelector(
+                    '.fixed.inset-0:not(.hidden)'
+                );
+
 
             if (!visible) {
 
-                document.body.classList.remove('overflow-hidden');
+                document.body.classList.remove(
+                    'overflow-hidden'
+                );
 
-                document.documentElement.classList.remove('overflow-hidden');
+                document.documentElement.classList.remove(
+                    'overflow-hidden'
+                );
             }
         }
 

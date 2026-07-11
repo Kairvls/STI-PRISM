@@ -24,70 +24,86 @@ class AuthenticatedSessionController extends Controller
      */
     public function store(LoginRequest $request): RedirectResponse
     {
-        // AUTHENTICATE USER
+        // =====================================================
+        // AUTHENTICATE USER HERE
+        // LoginRequest checks employee ID, password, and role
+        // =====================================================
+
         $request->authenticate();
 
-        // REGENERATE SESSION
+
+        // =====================================================
+        // REGENERATE SESSION HERE
+        // Protects the session after successful login
+        // =====================================================
+
         $request->session()->regenerate();
 
-        // GET CURRENT LOGGED-IN USER
+
+        // =====================================================
+        // GET AUTHENTICATED USER HERE
+        // =====================================================
+
         $user = Auth::user();
 
-        /**
-         * ROLE IDS
-         *
-         * 1 = Admin
-         * 2 = Maintenance Personnel
-         * 3 = Purchaser
-         * 4 = President
-         * 5 = Accounting
-         * 6 = Receiving Officer
-         */
 
-        // ADMIN
-        if ($user->user_role_id == 1) {
+        // =====================================================
+        // REDIRECT USER BASED ON ROLE HERE
+        //
+        // 1 = Admin
+        // 2 = Maintenance Personnel
+        // 3 = Purchaser
+        // 4 = President
+        // 5 = Accounting
+        // 6 = Receiving Officer
+        // =====================================================
 
-            return redirect('/admin/dashboard');
+        return match ((int) $user->user_role_id) {
 
-        }
+            // ADMIN
+            1 => redirect('/admin/dashboard'),
 
-        // MAINTENANCE PERSONNEL
-        elseif ($user->user_role_id == 2) {
+            // MAINTENANCE PERSONNEL
+            2 => redirect('/maintenance/dashboard'),
 
-            return redirect('/maintenance/dashboard');
+            // PURCHASER
+            3 => redirect('/purchaser/dashboard'),
 
-        }
+            // PRESIDENT
+            4 => redirect('/president/dashboard'),
 
-        // PURCHASER
-        elseif ($user->user_role_id == 3) {
+            // ACCOUNTING
+            5 => redirect('/accounting/dashboard'),
 
-            return redirect('/purchaser/dashboard');
+            // RECEIVING OFFICER
+            6 => redirect('/receiving/dashboard'),
 
-        }
+            // UNKNOWN ROLE
+            default => $this->logoutUnknownRole($request),
+        };
+    }
 
-        // PRESIDENT
-        elseif ($user->user_role_id == 4) {
 
-            return redirect('/president/dashboard');
+    /**
+     * =====================================================
+     * LOGOUT USER WHEN ROLE IS INVALID HERE
+     * =====================================================
+     */
+    private function logoutUnknownRole(
+        LoginRequest $request
+    ): RedirectResponse
+    {
+        Auth::guard('web')->logout();
 
-        }
+        $request->session()->invalidate();
 
-        // ACCOUNTING
-        elseif ($user->user_role_id == 5) {
+        $request->session()->regenerateToken();
 
-            return redirect('/accounting/dashboard');
-
-        }
-
-        // RECEIVING OFFICER
-        elseif ($user->user_role_id == 6) {
-
-            return redirect('/receiving/dashboard');
-
-        }
-
-        // FALLBACK
-        return redirect('/dashboard');
+        return redirect('/login')
+            ->withErrors([
+                'user_employee_id' =>
+                    'Your account does not have a valid system role.',
+            ]);
     }
 
     /**

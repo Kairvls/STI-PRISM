@@ -9,6 +9,7 @@ use App\Http\Controllers\Auth\MicrosoftController;
 use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\InfrastructureController;
 use App\Http\Controllers\QRController;
+use App\Http\Controllers\PurchaserController;
 
 /*
 |--------------------------------------------------------------------------
@@ -972,7 +973,122 @@ Route::middleware([
 // =====================================================
 
 
+// =====================================================
+// PURCHASER ROUTES
+// =====================================================
 
+Route::middleware([
+    'auth',
+    'purchaser',
+])
+    ->prefix('purchaser')
+    ->name('purchaser.')
+    ->group(function () {
+
+
+        // =====================================================
+        // PURCHASER DASHBOARD
+        // =====================================================
+
+        Route::get(
+            '/dashboard',
+            [PurchaserController::class, 'dashboard']
+        )
+        ->name('dashboard');
+
+
+        // =====================================================
+        // REPLACEMENT REQUESTS
+        // =====================================================
+
+        Route::get(
+            '/procurement/replacement-requests',
+            [PurchaserController::class, 'replacementRequests']
+        )
+        ->name('procurement.replacement-requests');
+
+        // =====================================================
+        // PURCHASER URGENT REPORT ROUTES
+        // =====================================================
+
+
+        // =====================================================
+        // SHOW URGENT REPORTS
+        // =====================================================
+
+        Route::get(
+            '/reports/urgent',
+            [PurchaserController::class, 'urgentReports']
+        )
+            ->name('reports.urgent');
+
+
+        // =====================================================
+        // ACCEPT URGENT REPORT
+        // =====================================================
+
+        Route::post(
+            '/reports/urgent/{reportId}/accept',
+            [PurchaserController::class, 'acceptUrgentReport']
+        )
+            ->name('reports.urgent.accept');
+
+
+        // =====================================================
+        // RESOLVE URGENT REPORT
+        // =====================================================
+
+        Route::post(
+            '/reports/urgent/{reportId}/resolve',
+            [PurchaserController::class, 'resolveUrgentReport']
+        )
+            ->name('reports.urgent.resolve');
+
+
+        // =====================================================
+        // SEND URGENT REPORT FOR REPLACEMENT
+        // =====================================================
+
+        Route::post(
+            '/reports/urgent/{reportId}/replacement',
+            [PurchaserController::class, 'replaceUrgentReport']
+        )
+            ->name('reports.urgent.replacement');
+
+
+        // =====================================================
+        // PURCHASER ARCHIVE URGENT REPORT
+        // =====================================================
+
+        Route::post(
+            '/reports/urgent/{reportId}/archive',
+            [
+                PurchaserController::class,
+                'archiveUrgentReport',
+            ]
+        )
+            ->name(
+                'reports.urgent.archive'
+            );
+
+
+        // =====================================================
+        // PURCHASER RESTORE URGENT REPORT
+        // =====================================================
+
+        Route::post(
+            '/reports/urgent/{reportId}/restore',
+            [
+                PurchaserController::class,
+                'restoreUrgentReport',
+            ]
+        )
+            ->name(
+                'reports.urgent.restore'
+            );
+
+
+    });
 
 
 

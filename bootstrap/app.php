@@ -21,15 +21,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
 
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
-
+            'maintenance' => \App\Http\Middleware\MaintenanceMiddleware::class,
+            'purchaser' => \App\Http\Middleware\PurchaserMiddleware::class,
         ]);
 
-        $middleware->alias([
-
-            'maintenance' =>
-                MaintenanceMiddleware::class,
-
-        ]);
+        
 
     })
     ->withExceptions(function (Exceptions $exceptions): void {

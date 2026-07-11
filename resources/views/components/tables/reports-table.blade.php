@@ -1086,6 +1086,84 @@
                             </div>
                         @endif
 
+                        
+
+                        {{-- ===================================================== --}}
+                        {{-- HANDLED BY SECTION HERE --}}
+                        {{-- ONLY SHOW FOR RESOLVED OR FOR REPLACEMENT REPORTS --}}
+                        {{-- ===================================================== --}}
+
+                        @if (
+                            in_array(
+                                $currentStatus,
+                                [
+                                    "Resolved",
+                                    "For Replacement",
+                                    "Rejected",
+                                ]
+                            )
+                        )
+
+                            <div class="min-w-0">
+
+                                <p class="text-xs font-medium text-gray-400">
+                                    Handled By
+                                </p>
+
+
+                                @if ($report->assigned_personnel_name)
+
+                                    <div class="mt-1">
+
+                                        <p
+                                            class="
+                                                max-w-36
+                                                truncate
+                                                text-sm
+                                                font-semibold
+                                                text-gray-800
+                                            "
+                                            title="{{ $report->assigned_personnel_name }}"
+                                        >
+                                            {{ $report->assigned_personnel_name }}
+                                        </p>
+
+                                        <p class="mt-0.5 text-xs text-gray-500">
+                                            Maintenance Personnel
+                                        </p>
+
+                                    </div>
+
+
+                                @elseif ($report->assigned_purchaser_name)
+
+                                    <div class="mt-1">
+
+                                        <p
+                                            class="
+                                                max-w-36
+                                                truncate
+                                                text-sm
+                                                font-semibold
+                                                text-gray-800
+                                            "
+                                            title="{{ $report->assigned_purchaser_name }}"
+                                        >
+                                            {{ $report->assigned_purchaser_name }}
+                                        </p>
+
+                                        <p class="mt-0.5 text-xs text-gray-500">
+                                            Purchaser
+                                        </p>
+
+                                    </div>
+
+                                @endif
+
+                            </div>
+
+                        @endif
+
                         <!-- Actions -->
                         <div class="flex shrink-0 items-center gap-1.5">
                             <button
@@ -1135,6 +1213,8 @@
 
                             @endif
                         </div>
+
+                        
                     </div>
                 </div>
             </div>
@@ -1819,6 +1899,37 @@
                             }}
                         </span>
                     </div>
+
+                    {{-- ===================================================== --}}
+                    {{-- HANDLED BY SECTION HERE --}}
+                    {{-- ===================================================== --}}
+                    <div class="flex items-start justify-between gap-8 border-t border-slate-100 py-3.5">
+                        <span class="shrink-0 text-sm text-slate-500">
+                            Handled By
+                        </span>
+
+                        <div class="max-w-[65%] text-right text-sm font-medium text-slate-900">
+                            @if ($report->assigned_personnel_name)
+                                <p class="font-semibold text-slate-900">
+                                    {{ $report->assigned_personnel_name }}
+                                </p>
+                                <p class="text-xs text-slate-500 font-normal">
+                                    Maintenance Personnel
+                                </p>
+                            @elseif ($report->assigned_purchaser_name)
+                                <p class="font-semibold text-slate-900">
+                                    {{ $report->assigned_purchaser_name }}
+                                </p>
+                                <p class="text-xs text-slate-500 font-normal">
+                                    Purchaser
+                                </p>
+                            @else
+                                <p class="text-slate-500 font-normal">
+                                    No assigned
+                                </p>
+                            @endif
+                        </div>
+                    </div>
                 </div>
 
                 <!-- ===================================== -->
@@ -1862,6 +1973,90 @@
                             }}
                         </p>
                     </div>
+
+                    {{-- ===================================================== --}}
+                    {{-- ORIGINAL REPORT IMAGE HERE --}}
+                    {{-- IMAGE SUBMITTED BY THE REPORTER --}}
+                    {{-- ===================================================== --}}
+
+                    <div class="mt-6">
+
+                        <div class="mb-2">
+
+                            <p class="text-xs font-medium text-gray-400">
+                                Report Image
+                            </p>
+
+                            <p class="mt-1 text-sm text-gray-500">
+                                Image submitted by the reporter
+                            </p>
+
+                        </div>
+
+
+                        @if ($report->report_uploaded_image)
+
+                            <div
+                                class="
+                                    overflow-hidden
+                                    rounded-xl
+                                    border
+                                    border-gray-200
+                                    bg-gray-50
+                                "
+                            >
+
+                                <img
+
+                                    src="{{
+                                        asset(
+                                            'storage/'
+                                            .
+                                            $report->report_uploaded_image
+                                        )
+                                    }}"
+
+                                    alt="Image submitted for Report #{{ $report->report_id }}"
+
+                                    class="
+                                        max-h-96
+                                        w-full
+                                        cursor-pointer
+                                        object-contain
+                                    "
+
+                                    onclick="window.open(this.src, '_blank')"
+
+                                >
+
+                            </div>
+
+                        @else
+
+                            <div
+                                class="
+                                    flex
+                                    min-h-32
+                                    items-center
+                                    justify-center
+                                    rounded-xl
+                                    border
+                                    border-dashed
+                                    border-gray-200
+                                    bg-gray-50
+                                "
+                            >
+
+                                <p class="text-sm text-gray-400">
+                                    No report image was submitted
+                                </p>
+
+                            </div>
+
+                        @endif
+
+                    </div>
+
                 </div>
 
                 <!-- ===================================== -->
