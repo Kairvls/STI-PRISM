@@ -1,6 +1,6 @@
 @extends('layouts.president-layout')
 
-@section('title', 'Notifications')
+@section('title', 'Approvals')
 
 @section('content')
 
@@ -8,13 +8,13 @@
 
     <h1 class="text-3xl font-bold">
 
-        Notifications
+        Approvals
 
     </h1>
 
     <p class="text-slate-500">
 
-        President notifications will appear here.
+        Approval requests will appear here.
 
     </p>
 

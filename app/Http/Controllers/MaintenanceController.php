@@ -16,39 +16,43 @@ class MaintenanceController extends Controller
     |--------------------------------------------------------------------------
     */
 
+    // =====================================================
+    // REPLACE YOUR CURRENT dashboard() METHOD
+    // STARTING HERE
+    // =====================================================
+
     public function dashboard()
     {
-        /*
-        |--------------------------------------------------------------------------
-        | REPORT COUNTS
-        |--------------------------------------------------------------------------
-        */
+        // =====================================================
+        // CURRENT LOGGED IN USER
+        // =====================================================
+
+        $user = Auth::user();
+
+
+        // =====================================================
+        // ACTIVE / OPEN REPORT STATISTICS
+        // =====================================================
 
         $pendingReports = DB::table('reports_table')
             ->where('report_current_status', 'Pending')
+            ->where('report_is_archived', false)
             ->count();
+
 
         $urgentReports = DB::table('reports_table')
             ->where('report_urgency_level', 'Urgent')
+            ->whereNotIn(
+                'report_current_status',
+                [
+                    'Resolved',
+                    'Rejected',
+                    'For Replacement',
+                ]
+            )
+            ->where('report_is_archived', false)
             ->count();
 
-        $resolvedReports = DB::table('reports_table')
-            ->where('report_current_status', 'Resolved')
-            ->count();
-
-        $rejectedReports = DB::table('reports_table')
-            ->where('report_current_status', 'Rejected')
-            ->count();
-
-        $replacementReports = DB::table('reports_table')
-            ->where('report_current_status', 'For Replacement')
-            ->count();
-
-        /*
-        |--------------------------------------------------------------------------
-        | EQUIPMENT COUNTS
-        |--------------------------------------------------------------------------
-        */
 
         $underMaintenance = DB::table('equipment_table')
             ->where(
@@ -57,49 +61,2055 @@ class MaintenanceController extends Controller
             )
             ->count();
 
-        /*
-        |--------------------------------------------------------------------------
-        | BORROWING COUNTS
-        |--------------------------------------------------------------------------
-        */
 
         $borrowedEquipment = DB::table('borrowing_records_table')
             ->where('borrowing_status', 'Borrowed')
             ->count();
 
-        /*
-        |--------------------------------------------------------------------------
-        | MAINTENANCE SCHEDULE COUNTS
-        |--------------------------------------------------------------------------
-        */
 
         $overdueMaintenance = DB::table('maintenance_schedules_table')
-            ->where(
-                'maintenance_schedule_status',
-                'Overdue'
-            )
+            ->where('maintenance_schedule_status', 'Overdue')
             ->count();
 
-        /*
-        |--------------------------------------------------------------------------
-        | RETURN DASHBOARD
-        |--------------------------------------------------------------------------
-        */
+
+        // =====================================================
+        // PENDING REPORTS SUBMITTED TODAY
+        // =====================================================
+
+        $pendingReportsToday = DB::table('reports_table')
+            ->where('report_current_status', 'Pending')
+            ->whereDate('report_submitted_at', today())
+            ->where('report_is_archived', false)
+            ->count();
+
+
+        // =====================================================
+        // URGENT REPORT LIST
+        // LATEST 5 ACTIVE URGENT REPORTS
+        // =====================================================
+
+        $urgentReportList = DB::table('reports_table')
+
+            ->leftJoin(
+                'rooms_table',
+                'reports_table.report_room_id',
+                '=',
+                'rooms_table.room_id'
+            )
+
+            ->leftJoin(
+                'floors_table',
+                'rooms_table.room_floor_id',
+                '=',
+                'floors_table.floor_id'
+            )
+
+            ->leftJoin(
+                'buildings_table',
+                'floors_table.floor_building_id',
+                '=',
+                'buildings_table.building_id'
+            )
+
+            ->leftJoin(
+                'equipment_table',
+                'reports_table.report_equipment_id',
+                '=',
+                'equipment_table.equipment_id'
+            )
+
+            ->leftJoin(
+                'reporters_table',
+                'reports_table.report_reporter_employee_id',
+                '=',
+                'reporters_table.reporter_employee_id'
+            )
+
+            ->where(
+                'reports_table.report_urgency_level',
+                'Urgent'
+            )
+
+            ->whereNotIn(
+                'reports_table.report_current_status',
+                [
+                    'Resolved',
+                    'Rejected',
+                    'For Replacement',
+                ]
+            )
+
+            ->where(
+                'reports_table.report_is_archived',
+                false
+            )
+
+            ->select(
+                'reports_table.*',
+
+                'rooms_table.room_name',
+
+                'floors_table.floor_level',
+
+                'buildings_table.building_name',
+
+                'equipment_table.equipment_name',
+
+                'reporters_table.reporter_full_name'
+            )
+
+            ->orderBy(
+                'reports_table.report_submitted_at',
+                'desc'
+            )
+
+            ->limit(5)
+
+            ->get();
+
+
+        // =====================================================
+        // BUILDINGS
+        // =====================================================
+
+        $buildings = DB::table('buildings_table')
+
+            ->orderBy(
+                'building_name',
+                'asc'
+            )
+
+            ->get();
+
+
+        // =====================================================
+        // FLOORS
+        // =====================================================
+
+        $floors = DB::table('floors_table')
+
+            ->leftJoin(
+                'buildings_table',
+                'floors_table.floor_building_id',
+                '=',
+                'buildings_table.building_id'
+            )
+
+            ->select(
+                'floors_table.floor_id',
+
+                'floors_table.floor_building_id',
+
+                'floors_table.floor_level',
+
+                'buildings_table.building_name'
+            )
+
+            ->orderBy(
+                'floors_table.floor_id',
+                'asc'
+            )
+
+            ->get();
+
+
+        // =====================================================
+        // ROOMS WITH BUILDING, FLOOR, AND EQUIPMENT COUNT
+        // =====================================================
+
+        $rooms = DB::table('rooms_table')
+
+            ->leftJoin(
+                'floors_table',
+                'rooms_table.room_floor_id',
+                '=',
+                'floors_table.floor_id'
+            )
+
+            ->leftJoin(
+                'buildings_table',
+                'floors_table.floor_building_id',
+                '=',
+                'buildings_table.building_id'
+            )
+
+            ->where(
+                'rooms_table.room_is_archived',
+                false
+            )
+
+            ->select(
+                'rooms_table.*',
+
+                'floors_table.floor_id',
+
+                'floors_table.floor_building_id',
+
+                'floors_table.floor_level',
+
+                'buildings_table.building_id',
+
+                'buildings_table.building_name'
+            )
+
+            ->selectSub(function ($query) {
+
+                $query
+                    ->from('equipment_table')
+
+                    ->selectRaw(
+                        'COALESCE(SUM(equipment_quantity), 0)'
+                    )
+
+                    ->whereColumn(
+                        'equipment_table.equipment_room_id',
+                        'rooms_table.room_id'
+                    )
+
+                    ->where(
+                        'equipment_table.equipment_inventory_status',
+                        '!=',
+                        'Disposed'
+                    );
+
+            }, 'equipment_count')
+
+            ->orderBy(
+                'buildings_table.building_id',
+                'asc'
+            )
+
+            ->orderBy(
+                'floors_table.floor_id',
+                'asc'
+            )
+
+            ->orderBy(
+                'rooms_table.room_name',
+                'asc'
+            )
+
+            ->get();
+
+
+        // =====================================================
+        // ADD DASHBOARD INFORMATION TO EVERY ROOM
+        // =====================================================
+
+        $rooms->transform(function ($room) {
+
+
+            // =================================================
+            // ACTIVE REPORT COUNT
+            // =================================================
+
+            $room->active_report_count =
+                DB::table('reports_table')
+
+                    ->where(
+                        'report_room_id',
+                        $room->room_id
+                    )
+
+                    ->whereNotIn(
+                        'report_current_status',
+                        [
+                            'Resolved',
+                            'Rejected',
+                            'For Replacement',
+                        ]
+                    )
+
+                    ->where(
+                        'report_is_archived',
+                        false
+                    )
+
+                    ->count();
+
+
+            // =================================================
+            // ACTIVE URGENT REPORT COUNT
+            // =================================================
+
+            $room->urgent_report_count =
+                DB::table('reports_table')
+
+                    ->where(
+                        'report_room_id',
+                        $room->room_id
+                    )
+
+                    ->where(
+                        'report_urgency_level',
+                        'Urgent'
+                    )
+
+                    ->whereNotIn(
+                        'report_current_status',
+                        [
+                            'Resolved',
+                            'Rejected',
+                            'For Replacement',
+                        ]
+                    )
+
+                    ->where(
+                        'report_is_archived',
+                        false
+                    )
+
+                    ->count();
+
+
+            // =================================================
+            // UNDER MAINTENANCE EQUIPMENT COUNT
+            // =================================================
+
+            $room->maintenance_equipment_count =
+                DB::table('equipment_table')
+
+                    ->where(
+                        'equipment_room_id',
+                        $room->room_id
+                    )
+
+                    ->where(
+                        'equipment_inventory_status',
+                        'Under Maintenance'
+                    )
+
+                    ->count();
+
+
+            // =================================================
+            // DETERMINE ROOM DASHBOARD STATUS
+            // =================================================
+
+            if ($room->urgent_report_count > 0) {
+
+                $room->dashboard_status = 'critical';
+
+                $room->dashboard_label = 'Critical';
+
+            } elseif ($room->active_report_count > 0) {
+
+                $room->dashboard_status = 'needs-repair';
+
+                $room->dashboard_label = 'Repair';
+
+            } elseif ($room->maintenance_equipment_count > 0) {
+
+                $room->dashboard_status = 'maintenance';
+
+                $room->dashboard_label = 'Maintenance';
+
+            } else {
+
+                $room->dashboard_status = 'available';
+
+                $room->dashboard_label = 'Good';
+
+            }
+
+
+            return $room;
+
+        });
+
+
+        // =====================================================
+        // GROUP ROOMS BY FLOOR
+        // PRESERVED FOR EXISTING BLADE COMPATIBILITY
+        // =====================================================
+
+        $roomsByFloor = $rooms->groupBy('floor_id');
+
+
+        // =====================================================
+        // NEW DASHBOARD DATA
+        //
+        // REPORT TREND
+        // LAST 30 DAYS
+        // =====================================================
+
+        $reportTrendStartDate =
+            now()
+                ->copy()
+                ->subDays(29)
+                ->startOfDay();
+
+
+        $reportTrendEndDate =
+            now()
+                ->copy()
+                ->endOfDay();
+
+
+        // =====================================================
+        // GET DATABASE COUNTS GROUPED BY DATE
+        // =====================================================
+
+        $reportTrendRows = DB::table('reports_table')
+
+            ->selectRaw(
+                '
+                DATE(report_submitted_at) AS report_date,
+                COUNT(*) AS report_count
+                '
+            )
+
+            ->whereBetween(
+                'report_submitted_at',
+                [
+                    $reportTrendStartDate,
+                    $reportTrendEndDate,
+                ]
+            )
+
+            ->groupByRaw(
+                'DATE(report_submitted_at)'
+            )
+
+            ->orderByRaw(
+                'DATE(report_submitted_at)'
+            )
+
+            ->get()
+
+            ->keyBy('report_date');
+
+
+        // =====================================================
+        // BUILD ALL 30 DAYS
+        //
+        // DAYS WITHOUT REPORTS MUST STILL APPEAR AS ZERO
+        // =====================================================
+
+        $reportTrendLabels = [];
+
+        $reportTrendData = [];
+
+
+        for ($i = 29; $i >= 0; $i--) {
+
+            $date =
+                now()
+                    ->copy()
+                    ->subDays($i);
+
+
+            $databaseDate =
+                $date->format('Y-m-d');
+
+
+            $reportTrendLabels[] =
+                $date->format('M j');
+
+
+            $reportTrendData[] =
+                (int) (
+                    $reportTrendRows
+                        ->get($databaseDate)
+                        ->report_count
+                    ?? 0
+                );
+
+        }
+
+        // =====================================================
+        // ACTIVE REPORT TREND
+        // LAST 30 DAYS
+        //
+        // COUNTS REPORTS SUBMITTED EACH DAY
+        // THAT ARE STILL PENDING OR PROCESSING
+        // =====================================================
+
+        $activeReportTrendRows = DB::table('reports_table')
+
+            ->selectRaw(
+                '
+                DATE(report_submitted_at) AS report_date,
+                COUNT(*) AS report_count
+                '
+            )
+
+            ->whereIn(
+                'report_current_status',
+                [
+                    'Pending',
+                    'Processing',
+                ]
+            )
+
+            ->where(
+                'report_is_archived',
+                false
+            )
+
+            ->whereBetween(
+                'report_submitted_at',
+                [
+                    $reportTrendStartDate,
+                    $reportTrendEndDate,
+                ]
+            )
+
+            ->groupByRaw(
+                'DATE(report_submitted_at)'
+            )
+
+            ->orderByRaw(
+                'DATE(report_submitted_at)'
+            )
+
+            ->get()
+
+            ->keyBy('report_date');
+
+
+        // =====================================================
+        // BUILD ALL 30 DAYS
+        // DAYS WITHOUT ACTIVE REPORTS = ZERO
+        // =====================================================
+
+        $activeReportTrendLabels = [];
+
+        $activeReportTrendData = [];
+
+
+        for ($i = 29; $i >= 0; $i--) {
+
+            $date = now()
+                ->copy()
+                ->subDays($i);
+
+
+            $databaseDate =
+                $date->format('Y-m-d');
+
+
+            $activeReportTrendLabels[] =
+                $date->format('M j');
+
+
+            $activeReportTrendData[] =
+                (int) (
+                    $activeReportTrendRows
+                        ->get($databaseDate)
+                        ->report_count
+                    ?? 0
+                );
+
+        }
+
+
+        // =====================================================
+        // NEW DASHBOARD DATA
+        //
+        // REPORT STATUS DONUT CHART
+        // ALL NON ARCHIVED REPORTS
+        // =====================================================
+
+        $reportStatusRows = DB::table('reports_table')
+
+            ->select(
+                'report_current_status'
+            )
+
+            ->selectRaw(
+                'COUNT(*) AS status_count'
+            )
+
+            ->where(
+                'report_is_archived',
+                false
+            )
+
+            ->groupBy(
+                'report_current_status'
+            )
+
+            ->pluck(
+                'status_count',
+                'report_current_status'
+            );
+
+
+        // =====================================================
+        // FIXED STATUS ORDER
+        //
+        // THIS KEEPS THE CHART ORDER CONSISTENT
+        // =====================================================
+
+        $reportStatusChart = [
+
+            'labels' => [
+
+                'Pending',
+
+                'Processing',
+
+                'Resolved',
+
+                'For Replacement',
+
+                'Rejected',
+
+            ],
+
+            'data' => [
+
+                (int) $reportStatusRows->get(
+                    'Pending',
+                    0
+                ),
+
+                (int) $reportStatusRows->get(
+                    'Processing',
+                    0
+                ),
+
+                (int) $reportStatusRows->get(
+                    'Resolved',
+                    0
+                ),
+
+                (int) $reportStatusRows->get(
+                    'For Replacement',
+                    0
+                ),
+
+                (int) $reportStatusRows->get(
+                    'Rejected',
+                    0
+                ),
+
+            ],
+
+        ];
+
+
+        // =====================================================
+        // NEW DASHBOARD DATA
+        //
+        // TOP 5 LOCATIONS WITH THE MOST REPORTS
+        // =====================================================
+
+        $reportsByLocation = DB::table('reports_table')
+
+            ->join(
+                'rooms_table',
+                'reports_table.report_room_id',
+                '=',
+                'rooms_table.room_id'
+            )
+
+            ->where(
+                'reports_table.report_is_archived',
+                false
+            )
+
+            ->select(
+                'rooms_table.room_id',
+
+                'rooms_table.room_name'
+            )
+
+            ->selectRaw(
+                'COUNT(reports_table.report_id) AS report_count'
+            )
+
+            ->groupBy(
+                'rooms_table.room_id',
+
+                'rooms_table.room_name'
+            )
+
+            ->orderByDesc(
+                'report_count'
+            )
+
+            ->limit(5)
+
+            ->get();
+
+
+        // =====================================================
+        // NEW DASHBOARD DATA
+        //
+        // RESOLUTION RATE
+        //
+        // COMPLETED REPORTS ARE:
+        //
+        // RESOLVED
+        // REJECTED
+        // FOR REPLACEMENT
+        //
+        // RESOLUTION RATE =
+        //
+        // RESOLVED / COMPLETED REPORTS * 100
+        // =====================================================
+
+        $resolvedReportCount =
+            DB::table('reports_table')
+
+                ->where(
+                    'report_current_status',
+                    'Resolved'
+                )
+
+                ->count();
+
+
+        $completedReportCount =
+            DB::table('reports_table')
+
+                ->whereIn(
+                    'report_current_status',
+                    [
+                        'Resolved',
+                        'Rejected',
+                        'For Replacement',
+                    ]
+                )
+
+                ->count();
+
+
+        $resolutionRate =
+            $completedReportCount > 0
+
+                ? round(
+
+                    (
+                        $resolvedReportCount
+                        /
+                        $completedReportCount
+                    )
+
+                    * 100
+
+                )
+
+                : 0;
+
+
+        // =====================================================
+        // NEW DASHBOARD DATA
+        //
+        // LOCATION HEALTH SUMMARY
+        // =====================================================
+
+        $locationHealth = [
+
+            'normal' =>
+
+                $rooms
+                    ->where(
+                        'dashboard_status',
+                        'available'
+                    )
+                    ->count(),
+
+
+            'maintenance_needed' =>
+
+                $rooms
+                    ->whereIn(
+                        'dashboard_status',
+                        [
+                            'needs-repair',
+                            'maintenance',
+                        ]
+                    )
+                    ->count(),
+
+
+            'critical' =>
+
+                $rooms
+                    ->where(
+                        'dashboard_status',
+                        'critical'
+                    )
+                    ->count(),
+
+        ];
+
+
+        // =====================================================
+        // NEW DASHBOARD DATA
+        //
+        // MOST REPORTED LOCATION
+        //
+        // REUSE TOP LOCATION QUERY RESULT
+        // =====================================================
+
+        $mostReportedLocation =
+            $reportsByLocation->first();
+
+
+        // =====================================================
+        // RECENT ACTIVITIES
+        // LATEST 5 RECORDS
+        // =====================================================
+
+        $recentActivities = DB::table('reports_table')
+
+            ->leftJoin(
+                'rooms_table',
+                'reports_table.report_room_id',
+                '=',
+                'rooms_table.room_id'
+            )
+
+            ->leftJoin(
+                'equipment_table',
+                'reports_table.report_equipment_id',
+                '=',
+                'equipment_table.equipment_id'
+            )
+
+            ->where(
+                'reports_table.report_is_archived',
+                false
+            )
+
+            ->select(
+                'reports_table.report_id',
+
+                'reports_table.report_current_status',
+
+                'reports_table.report_urgency_level',
+
+                'reports_table.report_problem_description',
+
+                'reports_table.report_submitted_at',
+
+                'reports_table.report_updated_at',
+
+                'rooms_table.room_name',
+
+                'equipment_table.equipment_name'
+            )
+
+            ->orderBy(
+                'reports_table.report_updated_at',
+                'desc'
+            )
+
+            ->limit(5)
+
+            ->get()
+
+            ->map(function ($report) {
+
+
+                // =================================================
+                // DEFAULT ACTIVITY
+                // =================================================
+
+                $title =
+                    'Report Submitted';
+
+
+                $icon =
+                    'file-plus';
+
+
+                $background =
+                    '#dbeafe';
+
+
+                $color =
+                    '#0037c7';
+
+
+                $activityDate =
+                    $report->report_submitted_at;
+
+
+                // =================================================
+                // URGENT PENDING REPORT
+                // =================================================
+
+                if (
+
+                    $report->report_urgency_level
+                    ===
+                    'Urgent'
+
+                    &&
+
+                    $report->report_current_status
+                    ===
+                    'Pending'
+
+                ) {
+
+                    $title =
+                        'Urgent Report Submitted';
+
+
+                    $icon =
+                        'alert-triangle';
+
+
+                    $background =
+                        '#fee2e2';
+
+
+                    $color =
+                        '#dc2626';
+
+                }
+
+
+                // =================================================
+                // PROCESSING
+                // =================================================
+
+                if (
+                    $report->report_current_status
+                    ===
+                    'Processing'
+                ) {
+
+                    $title =
+                        'Report Processing Started';
+
+
+                    $icon =
+                        'wrench';
+
+
+                    $background =
+                        '#fef3c7';
+
+
+                    $color =
+                        '#d97706';
+
+
+                    $activityDate =
+                        $report->report_updated_at;
+
+                }
+
+
+                // =================================================
+                // RESOLVED
+                // =================================================
+
+                if (
+                    $report->report_current_status
+                    ===
+                    'Resolved'
+                ) {
+
+                    $title =
+                        'Report Resolved';
+
+
+                    $icon =
+                        'check-circle';
+
+
+                    $background =
+                        '#d1fae5';
+
+
+                    $color =
+                        '#16a34a';
+
+
+                    $activityDate =
+                        $report->report_updated_at;
+
+                }
+
+
+                // =================================================
+                // FOR REPLACEMENT
+                // =================================================
+
+                if (
+                    $report->report_current_status
+                    ===
+                    'For Replacement'
+                ) {
+
+                    $title =
+                        'Replacement Requested';
+
+
+                    $icon =
+                        'package-search';
+
+
+                    $background =
+                        '#fef3c7';
+
+
+                    $color =
+                        '#d97706';
+
+
+                    $activityDate =
+                        $report->report_updated_at;
+
+                }
+
+
+                // =================================================
+                // REJECTED
+                // =================================================
+
+                if (
+                    $report->report_current_status
+                    ===
+                    'Rejected'
+                ) {
+
+                    $title =
+                        'Report Rejected';
+
+
+                    $icon =
+                        'x-circle';
+
+
+                    $background =
+                        '#fee2e2';
+
+
+                    $color =
+                        '#dc2626';
+
+
+                    $activityDate =
+                        $report->report_updated_at;
+
+                }
+
+
+                // =================================================
+                // ACTIVITY DESCRIPTION
+                // =================================================
+
+                $equipmentName =
+                    $report->equipment_name
+                    ?? 'Unlisted Equipment';
+
+
+                $roomName =
+                    $report->room_name
+                    ?? 'Unknown Room';
+
+
+                $description =
+                    $equipmentName
+                    . ' at '
+                    . $roomName;
+
+
+                return (object) [
+
+                    'report_id' =>
+                        $report->report_id,
+
+                    'title' =>
+                        $title,
+
+                    'description' =>
+                        $description,
+
+                    'icon' =>
+                        $icon,
+
+                    'background' =>
+                        $background,
+
+                    'color' =>
+                        $color,
+
+                    'created_at' =>
+                        $activityDate,
+
+                ];
+
+            })
+
+            ->sortByDesc(
+                'created_at'
+            )
+
+            ->values();
+
+        // =====================================================
+        // CURRENT CALENDAR MONTH
+        // =====================================================
+
+        $calendarStartDate = now()
+            ->copy()
+            ->startOfMonth()
+            ->startOfDay();
+
+
+        $calendarEndDate = now()
+            ->copy()
+            ->endOfMonth()
+            ->endOfDay();
+
+
+        // =====================================================
+        // REPORTS FOR CURRENT MONTH
+        // =====================================================
+
+        $calendarReports = DB::table('reports_table')
+
+            ->leftJoin(
+                'rooms_table',
+                'reports_table.report_room_id',
+                '=',
+                'rooms_table.room_id'
+            )
+
+            ->leftJoin(
+                'equipment_table',
+                'reports_table.report_equipment_id',
+                '=',
+                'equipment_table.equipment_id'
+            )
+
+            ->whereBetween(
+                'reports_table.report_submitted_at',
+                [
+                    $calendarStartDate,
+                    $calendarEndDate,
+                ]
+            )
+
+            ->where(
+                'reports_table.report_is_archived',
+                false
+            )
+
+            ->select(
+
+                'reports_table.report_id',
+
+                'reports_table.report_submitted_at',
+
+                'reports_table.report_urgency_level',
+
+                'reports_table.report_current_status',
+
+                'reports_table.report_unlisted_equipment_name',
+
+                'rooms_table.room_name',
+
+                'equipment_table.equipment_name'
+
+            )
+
+            ->orderBy(
+                'reports_table.report_submitted_at',
+                'asc'
+            )
+
+            ->get();
+
+
+        // =====================================================
+        // MAINTENANCE SCHEDULES FOR CURRENT MONTH
+        // =====================================================
+
+        $calendarSchedules = DB::table('maintenance_schedules_table')
+
+            ->leftJoin(
+                'equipment_table',
+                'maintenance_schedules_table.maintenance_schedule_equipment_id',
+                '=',
+                'equipment_table.equipment_id'
+            )
+
+            ->leftJoin(
+                'rooms_table',
+                'equipment_table.equipment_room_id',
+                '=',
+                'rooms_table.room_id'
+            )
+
+            ->whereNotNull(
+                'maintenance_schedules_table.maintenance_schedule_next_date'
+            )
+
+            ->whereBetween(
+                'maintenance_schedules_table.maintenance_schedule_next_date',
+                [
+                    $calendarStartDate->toDateString(),
+                    $calendarEndDate->toDateString(),
+                ]
+            )
+
+            ->select(
+
+                'maintenance_schedules_table.maintenance_schedule_id',
+
+                'maintenance_schedules_table.maintenance_schedule_title',
+
+                'maintenance_schedules_table.maintenance_schedule_description',
+
+                'maintenance_schedules_table.maintenance_schedule_frequency',
+
+                'maintenance_schedules_table.maintenance_schedule_next_date',
+
+                'maintenance_schedules_table.maintenance_schedule_last_date',
+
+                'maintenance_schedules_table.maintenance_schedule_status',
+
+                'equipment_table.equipment_name',
+
+                'rooms_table.room_name'
+
+            )
+
+            ->orderBy(
+                'maintenance_schedules_table.maintenance_schedule_next_date',
+                'asc'
+            )
+
+            ->get();
+
+
+        // =====================================================
+        // BUILD CALENDAR EVENTS
+        //
+        // ONE COLLECTION USED BY THE BLADE CALENDAR
+        // =====================================================
+
+        $calendarEvents = collect();
+
+
+        // =====================================================
+        // ADD REPORT EVENTS
+        // =====================================================
+
+        foreach ($calendarReports as $report) {
+
+            $equipmentName =
+                $report->equipment_name
+                ??
+                $report->report_unlisted_equipment_name
+                ??
+                'Unlisted Equipment';
+
+
+            $calendarEvents->push([
+
+                'id' =>
+                    $report->report_id,
+
+                'type' =>
+                    'report',
+
+                'date' =>
+                    \Carbon\Carbon::parse(
+                        $report->report_submitted_at
+                    )->format('Y-m-d'),
+
+                'time' =>
+                    \Carbon\Carbon::parse(
+                        $report->report_submitted_at
+                    )->format('H:i'),
+
+                'title' =>
+                    $report->report_urgency_level === 'Urgent'
+                        ? 'Urgent Report'
+                        : 'Report Submitted',
+
+                'description' =>
+                    $equipmentName,
+
+                'location' =>
+                    $report->room_name
+                    ?? 'Unknown Room',
+
+                'urgent' =>
+                    $report->report_urgency_level === 'Urgent',
+
+                'status' =>
+                    $report->report_current_status,
+
+                'url' =>
+                    url(
+                        '/maintenance/reports/details/'
+                        .
+                        $report->report_id
+                    ),
+
+            ]);
+
+        }
+
+
+        // =====================================================
+        // ADD SCHEDULE EVENTS
+        // =====================================================
+
+        foreach ($calendarSchedules as $schedule) {
+
+            $scheduleDate = \Carbon\Carbon::parse(
+                $schedule->maintenance_schedule_next_date
+            );
+
+
+            $calendarEvents->push([
+
+                'id' =>
+                    $schedule->maintenance_schedule_id,
+
+                'type' =>
+                    'schedule',
+
+                'date' =>
+                    $scheduleDate->format('Y-m-d'),
+
+
+                // =================================================
+                // YOUR DATABASE STORES ONLY A DATE, NOT A TIME
+                // =================================================
+
+                'time' =>
+                    null,
+
+
+                // =================================================
+                // USE THE REAL SCHEDULE TITLE
+                // =================================================
+
+                'title' =>
+                    $schedule->maintenance_schedule_title
+                    ?? 'Maintenance Schedule',
+
+
+                // =================================================
+                // SHOW EQUIPMENT NAME AS THE MAIN DESCRIPTION
+                // =================================================
+
+                'description' =>
+                    $schedule->equipment_name
+                    ?? $schedule->maintenance_schedule_description
+                    ?? 'Scheduled Maintenance',
+
+
+                'location' =>
+                    $schedule->room_name
+                    ?? 'Unknown Room',
+
+
+                'urgent' =>
+                    false,
+
+
+                'status' =>
+                    $schedule->maintenance_schedule_status,
+
+
+                'frequency' =>
+                    $schedule->maintenance_schedule_frequency,
+
+
+                // =================================================
+                // TEMPORARY URL
+                //
+                // CHANGE THIS LATER IF YOUR REAL SCHEDULE DETAILS
+                // ROUTE USES A DIFFERENT URL
+                // =================================================
+
+                'url' =>
+                    url(
+                        '/maintenance/schedules/'
+                        .
+                        $schedule->maintenance_schedule_id
+                    ),
+
+            ]);
+
+        }
+
+
+        // =====================================================
+        // SORT CALENDAR EVENTS BY DATE AND TIME
+        // =====================================================
+
+        $calendarEvents = $calendarEvents
+            ->sortBy(function ($event) {
+
+                return
+                    $event['date']
+                    .
+                    ' '
+                    .
+                    ($event['time'] ?? '00:00');
+
+            })
+            ->values();
+
+        // =====================================================
+        // GROUP EVENTS BY DATE
+        //
+        // EXAMPLE:
+        //
+        // 2026-07-14 => [
+        //     REPORT,
+        //     REPORT,
+        //     SCHEDULE,
+        // ]
+        // =====================================================
+
+        $calendarEventsByDate =
+            $calendarEvents->groupBy('date');
+
+
+        // =====================================================
+        // CURRENT MONTH CALENDAR TOTALS
+        // =====================================================
+
+        $calendarReportCount =
+            $calendarEvents
+                ->where('type', 'report')
+                ->count();
+
+
+        $calendarScheduleCount =
+            $calendarEvents
+                ->where('type', 'schedule')
+                ->count();
+
+
+        $calendarUrgentCount =
+            $calendarEvents
+                ->where('type', 'report')
+                ->where('urgent', true)
+                ->count();
+
+
+        // =====================================================
+        // DEFAULT SELECTED DATE
+        //
+        // TODAY IF TODAY IS INSIDE CURRENT CALENDAR MONTH
+        // =====================================================
+
+        $calendarSelectedDate =
+            now()->format('Y-m-d');
+
+
+        // =====================================================
+        // PRESERVE YOUR EXISTING CURRENT MONTH ACTIVITY CHART
+        //
+        // WE WILL REMOVE IT FROM THE NEW BLADE LATER,
+        // BUT KEEPING THE VARIABLE PREVENTS EXISTING BLADE ERRORS
+        // WHILE YOU ARE BETWEEN PART 1 AND PART 2.
+        // =====================================================
+
+        $currentMonthStart =
+            now()->startOfMonth();
+
+
+        $currentMonthEnd =
+            now()->endOfMonth();
+
+
+        $monthlyReportDates =
+            DB::table('reports_table')
+
+                ->whereBetween(
+                    'report_submitted_at',
+                    [
+                        $currentMonthStart,
+                        $currentMonthEnd,
+                    ]
+                )
+
+                ->pluck(
+                    'report_submitted_at'
+                );
+
+
+        $reportActivityChart = [
+
+            $monthlyReportDates
+                ->filter(function ($date) {
+
+                    $day =
+                        \Carbon\Carbon::parse($date)->day;
+
+
+                    return
+                        $day >= 1
+                        &&
+                        $day <= 7;
+
+                })
+                ->count(),
+
+
+            $monthlyReportDates
+                ->filter(function ($date) {
+
+                    $day =
+                        \Carbon\Carbon::parse($date)->day;
+
+
+                    return
+                        $day >= 8
+                        &&
+                        $day <= 14;
+
+                })
+                ->count(),
+
+
+            $monthlyReportDates
+                ->filter(function ($date) {
+
+                    $day =
+                        \Carbon\Carbon::parse($date)->day;
+
+
+                    return
+                        $day >= 15
+                        &&
+                        $day <= 21;
+
+                })
+                ->count(),
+
+
+            $monthlyReportDates
+                ->filter(function ($date) {
+
+                    $day =
+                        \Carbon\Carbon::parse($date)->day;
+
+
+                    return
+                        $day >= 22
+                        &&
+                        $day <= 28;
+
+                })
+                ->count(),
+
+
+            $monthlyReportDates
+                ->filter(function ($date) {
+
+                    $day =
+                        \Carbon\Carbon::parse($date)->day;
+
+
+                    return
+                        $day >= 29;
+
+                })
+                ->count(),
+
+        ];
+
+        // =====================================================
+        // EQUIPMENT CONDITION CHART
+        //
+        // CURRENT SNAPSHOT OF ALL REGISTERED EQUIPMENT.
+        //
+        // NO MONTH FILTER.
+        // NO YEAR FILTER.
+        // NO DROPDOWN.
+        //
+        // THE CHART AUTOMATICALLY UPDATES WHEN AN
+        // EQUIPMENT CONDITION CHANGES.
+        // =====================================================
+
+        $equipmentConditionRows =
+            DB::table('equipment_table')
+
+                ->select(
+                    'equipment_condition_status'
+                )
+
+                ->selectRaw(
+                    'COUNT(*) AS condition_count'
+                )
+
+                // =================================================
+                // ONLY INCLUDE EQUIPMENT WITH A CONDITION
+                // =================================================
+
+                ->whereNotNull(
+                    'equipment_condition_status'
+                )
+
+                // =================================================
+                // GROUP EQUIPMENT BY CURRENT CONDITION
+                // =================================================
+
+                ->groupBy(
+                    'equipment_condition_status'
+                )
+
+                ->pluck(
+                    'condition_count',
+                    'equipment_condition_status'
+                );
+
+
+        // =====================================================
+        // EQUIPMENT CONDITION CHART DATA
+        //
+        // FIXED ORDER IS IMPORTANT FOR YOUR CONCENTRIC
+        // BUBBLE CHART DESIGN.
+        //
+        // THE JAVASCRIPT SORTS THESE FROM HIGHEST TO LOWEST
+        // BEFORE DRAWING THE CIRCLES.
+        // =====================================================
+
+        $equipmentConditionChart = [
+
+            'labels' => [
+
+                'Good',
+
+                'Damaged',
+
+                'Under Maintenance',
+
+                'Disposed',
+
+            ],
+
+
+            'data' => [
+
+                (int) $equipmentConditionRows->get(
+                    'Good',
+                    0
+                ),
+
+                (int) $equipmentConditionRows->get(
+                    'Damaged',
+                    0
+                ),
+
+                (int) $equipmentConditionRows->get(
+                    'Under Maintenance',
+                    0
+                ),
+
+                (int) $equipmentConditionRows->get(
+                    'Disposed',
+                    0
+                ),
+
+            ],
+
+        ];
+
+        // =====================================================
+        // MAINTENANCE SCHEDULE WORKLOAD
+        //
+        // CURRENT PERIOD:
+        // NEXT 30 DAYS INCLUDING TODAY
+        //
+        // PREVIOUS PERIOD:
+        // PREVIOUS 30 DAYS BEFORE TODAY
+        //
+        // BOTH DATASETS USE THE SAME 30 X AXIS POSITIONS
+        // SO THEY CAN BE COMPARED IN THE LINE CHART.
+        // =====================================================
+
+
+        // =====================================================
+        // CURRENT PERIOD DATE RANGE
+        // TODAY UNTIL 29 DAYS FROM TODAY
+        // =====================================================
+
+        $maintenanceWorkloadStartDate =
+            now()
+                ->copy()
+                ->startOfDay();
+
+
+        $maintenanceWorkloadEndDate =
+            now()
+                ->copy()
+                ->addDays(29)
+                ->endOfDay();
+
+
+        // =====================================================
+        // PREVIOUS PERIOD DATE RANGE
+        // 30 DAYS BEFORE TODAY UNTIL YESTERDAY
+        // =====================================================
+
+        $maintenancePreviousWorkloadStartDate =
+            now()
+                ->copy()
+                ->subDays(30)
+                ->startOfDay();
+
+
+        $maintenancePreviousWorkloadEndDate =
+            now()
+                ->copy()
+                ->subDay()
+                ->endOfDay();
+
+
+        // =====================================================
+        // CURRENT PERIOD QUERY
+        //
+        // GET ACTIVE MAINTENANCE SCHEDULES FOR NEXT 30 DAYS
+        // =====================================================
+
+        $maintenanceWorkloadRows =
+
+            DB::table(
+                'maintenance_schedules_table'
+            )
+
+                ->selectRaw(
+                    '
+                    maintenance_schedule_next_date AS schedule_date,
+                    COUNT(*) AS schedule_count
+                    '
+                )
+
+                ->whereNotNull(
+                    'maintenance_schedule_next_date'
+                )
+
+                ->where(
+                    'maintenance_schedule_status',
+                    'Active'
+                )
+
+                ->whereBetween(
+
+                    'maintenance_schedule_next_date',
+
+                    [
+
+                        $maintenanceWorkloadStartDate
+                            ->toDateString(),
+
+                        $maintenanceWorkloadEndDate
+                            ->toDateString(),
+
+                    ]
+
+                )
+
+                ->groupBy(
+                    'maintenance_schedule_next_date'
+                )
+
+                ->orderBy(
+                    'maintenance_schedule_next_date'
+                )
+
+                ->get()
+
+                ->keyBy(
+                    'schedule_date'
+                );
+
+
+        // =====================================================
+        // PREVIOUS PERIOD QUERY
+        //
+        // GET MAINTENANCE SCHEDULE COUNTS FROM PREVIOUS 30 DAYS
+        //
+        // DO NOT FILTER ONLY ACTIVE HERE.
+        //
+        // WHY:
+        //
+        // A SCHEDULE FROM THE PREVIOUS PERIOD MAY NOW BE:
+        // COMPLETED
+        // OVERDUE
+        // ACTIVE
+        //
+        // FILTERING ONLY ACTIVE WOULD REMOVE VALID HISTORICAL DATA.
+        // =====================================================
+
+        $maintenancePreviousWorkloadRows =
+
+            DB::table(
+                'maintenance_schedules_table'
+            )
+
+                ->selectRaw(
+                    '
+                    maintenance_schedule_next_date AS schedule_date,
+                    COUNT(*) AS schedule_count
+                    '
+                )
+
+                ->whereNotNull(
+                    'maintenance_schedule_next_date'
+                )
+
+                ->whereBetween(
+
+                    'maintenance_schedule_next_date',
+
+                    [
+
+                        $maintenancePreviousWorkloadStartDate
+                            ->toDateString(),
+
+                        $maintenancePreviousWorkloadEndDate
+                            ->toDateString(),
+
+                    ]
+
+                )
+
+                ->groupBy(
+                    'maintenance_schedule_next_date'
+                )
+
+                ->orderBy(
+                    'maintenance_schedule_next_date'
+                )
+
+                ->get()
+
+                ->keyBy(
+                    'schedule_date'
+                );
+
+
+        // =====================================================
+        // BUILD CHART DATA
+        //
+        // BOTH ARRAYS MUST CONTAIN EXACTLY 30 VALUES.
+        //
+        // CURRENT:
+        // INDEX 0 = TODAY
+        // INDEX 29 = 29 DAYS FROM TODAY
+        //
+        // PREVIOUS:
+        // INDEX 0 = 30 DAYS AGO
+        // INDEX 29 = YESTERDAY
+        // =====================================================
+
+        $maintenanceWorkloadLabels = [];
+
+        $maintenanceWorkloadData = [];
+
+        $maintenancePreviousWorkloadData = [];
+
+
+        for ($i = 0; $i < 30; $i++) {
+
+
+            // =================================================
+            // CURRENT PERIOD DATE
+            // =================================================
+
+            $currentDate =
+
+                now()
+                    ->copy()
+                    ->addDays($i);
+
+
+            $currentDatabaseDate =
+
+                $currentDate
+                    ->format('Y-m-d');
+
+
+            // =================================================
+            // PREVIOUS PERIOD DATE
+            //
+            // INDEX 0  = 30 DAYS AGO
+            // INDEX 29 = YESTERDAY
+            // =================================================
+
+            $previousDate =
+
+                now()
+                    ->copy()
+                    ->subDays(30)
+                    ->addDays($i);
+
+
+            $previousDatabaseDate =
+
+                $previousDate
+                    ->format('Y-m-d');
+
+
+            // =================================================
+            // X AXIS LABEL
+            //
+            // LABELS DISPLAY THE CURRENT PERIOD DATES.
+            // =================================================
+
+            $maintenanceWorkloadLabels[] =
+
+                $currentDate
+                    ->format('M j');
+
+
+            // =================================================
+            // CURRENT PERIOD VALUE
+            // =================================================
+
+            $maintenanceWorkloadData[] =
+
+                (int) (
+
+                    optional(
+
+                        $maintenanceWorkloadRows
+                            ->get($currentDatabaseDate)
+
+                    )->schedule_count
+
+                    ?? 0
+
+                );
+
+
+            // =================================================
+            // PREVIOUS PERIOD VALUE
+            // =================================================
+
+            $maintenancePreviousWorkloadData[] =
+
+                (int) (
+
+                    optional(
+
+                        $maintenancePreviousWorkloadRows
+                            ->get($previousDatabaseDate)
+
+                    )->schedule_count
+
+                    ?? 0
+
+                );
+
+        }
+
+
+        // =====================================================
+        // RETURN DASHBOARD VIEW
+        // =====================================================
 
         return view(
+
             'maintenance-personnel.dashboard',
+
             compact(
+
+                // =================================================
+                // USER
+                // =================================================
+
+                'user',
+
+
+                // =================================================
+                // EXISTING STATISTICS
+                // =================================================
+
                 'pendingReports',
+
+                'pendingReportsToday',
+
                 'urgentReports',
-                'resolvedReports',
-                'rejectedReports',
-                'replacementReports',
+
                 'underMaintenance',
+
                 'borrowedEquipment',
-                'overdueMaintenance'
+
+                'overdueMaintenance',
+
+
+                // =================================================
+                // EXISTING DASHBOARD DATA
+                // =================================================
+
+                'urgentReportList',
+
+                'buildings',
+
+                'floors',
+
+                'roomsByFloor',
+
+                'recentActivities',
+
+                'reportActivityChart',
+
+
+                // =================================================
+                // NEW DASHBOARD DATA
+                // =================================================
+
+                'reportTrendLabels',
+
+                'reportTrendData',
+
+                'reportStatusChart',
+
+                'reportsByLocation',
+
+                'resolutionRate',
+
+                'locationHealth',
+
+                'mostReportedLocation',
+
+                'calendarEvents',
+
+                'calendarEventsByDate',
+
+                'calendarReportCount',
+
+                'calendarScheduleCount',
+
+                'calendarUrgentCount',
+
+                'calendarSelectedDate',
+
+                'equipmentConditionChart',
+
+                'activeReportTrendLabels',
+
+                'activeReportTrendData',
+
+                'maintenanceWorkloadLabels',
+
+                'maintenanceWorkloadData',
+
+                'maintenancePreviousWorkloadData'
+
             )
+
         );
     }
+
+    // =====================================================
+    // REPLACE YOUR CURRENT dashboard() METHOD
+    // END HERE
+    // =====================================================
 
     /*
     |--------------------------------------------------------------------------
