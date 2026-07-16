@@ -160,7 +160,7 @@
         </div>
 
         <a
-            href="/admin/procurement-review"
+            href="/admin/procurement-review/ris"
             class="menu-item {{ request()->is('admin/procurement-review*') ? 'active' : '' }}"
         >
 
@@ -185,8 +185,7 @@
             <span>Sign RIS</span>
         </a> --}}
         <a
-            
-            href="{{ route('admin.procurement-review.index') }}"
+            href="/admin/digital-signatures/sign-ris"
             class="menu-item {{ request()->is('admin/digital-signatures/sign-ris') ? 'active' : '' }}"
         >
 

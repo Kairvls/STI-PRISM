@@ -31,7 +31,22 @@ class AdminController extends Controller
 
     public function procurementReview(): View
     {
-        return view('admin.procurement-review.index');
+        $risRecords = DB::table('requisition_issue_slip_table')
+            ->leftJoin('procurement_requests_table', 'requisition_issue_slip_table.ris_procurement_request_id', '=', 'procurement_requests_table.procurement_request_id')
+            ->leftJoin('reports_table', 'procurement_requests_table.procurement_request_report_id', '=', 'reports_table.report_id')
+            ->leftJoin('equipment_table', 'reports_table.report_equipment_id', '=', 'equipment_table.equipment_id')
+            ->select(
+                'requisition_issue_slip_table.*',
+                'procurement_requests_table.procurement_request_id',
+                'reports_table.report_id',
+                'reports_table.report_unlisted_equipment_name',
+                'equipment_table.equipment_name'
+            )
+            ->whereNotNull('requisition_issue_slip_table.ris_requested_by_date')
+            ->orderByDesc('requisition_issue_slip_table.ris_requested_by_date')
+            ->paginate(10);
+
+        return view('admin.procurement-review.index', compact('risRecords'));
     }
 
     /*
