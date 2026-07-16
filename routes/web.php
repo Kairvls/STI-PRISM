@@ -139,6 +139,32 @@ Route::middleware(['auth', 'admin'])->group(function () {
 
     Route::post('/admin/settings/campus-setup-pin',
         [AdminController::class, 'updateCampusSetupPin']);
+    // =====================================================
+    // ADDED RIS ADMIN APPROVAL ROUTES
+    // =====================================================
+
+    Route::get(
+        '/admin/procurement-review',
+        [AdminController::class, 'risApprovals']
+    )->name('admin.procurement-review.index');
+
+    Route::post(
+        '/admin/procurement-review/ris/{risId}/approve',
+        [AdminController::class, 'approveRis']
+    )->name('admin.procurement-review.ris.approve');
+
+    Route::post(
+        '/admin/procurement-review/ris/{risId}/reject',
+        [AdminController::class, 'rejectRis']
+    )->name('admin.procurement-review.ris.reject');
+    Route::get(
+        '/admin/procurement-review/ris/{risId}/print',
+        [PurchaserController::class, 'printRis']
+    )->name('admin.procurement-review.ris.print');
+
+    // =====================================================
+    // END ADDED RIS ADMIN APPROVAL ROUTES
+    // =====================================================
 
 });
 
@@ -1006,6 +1032,40 @@ Route::middleware([
             [PurchaserController::class, 'replacementRequests']
         )
         ->name('procurement.replacement-requests');
+        // =====================================================
+        // ADDED RIS MODULE ROUTES
+        // =====================================================
+
+        Route::get(
+            '/ris',
+            [PurchaserController::class, 'risIndex']
+        )
+            ->name('ris.index');
+
+        Route::post(
+            '/ris',
+            [PurchaserController::class, 'storeRis']
+        )
+            ->name('ris.store');
+
+        Route::post(
+            '/ris/{risId}/submit',
+            [PurchaserController::class, 'submitRis']
+        )
+            ->name('ris.submit');
+        // =====================================================
+        // ADDED RIS MODULE: DEDICATED PRINT ROUTE
+        // =====================================================
+
+        Route::get(
+            '/ris/{risId}/print',
+            [PurchaserController::class, 'printRis']
+        )
+            ->name('ris.print');
+
+        // =====================================================
+        // END ADDED RIS MODULE ROUTES
+        // =====================================================
 
         // =====================================================
         // PURCHASER URGENT REPORT ROUTES
@@ -1118,3 +1178,4 @@ Route::middleware([
 
 
 require __DIR__.'/auth.php';
+

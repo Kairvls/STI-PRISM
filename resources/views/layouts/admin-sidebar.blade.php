@@ -39,6 +39,16 @@
             </button>
 
         </form>
+        {{-- ===================================================== --}}
+        {{-- ADDED RIS ADMIN APPROVAL: SIDEBAR LINK --}}
+        {{-- ===================================================== --}}
+
+        <li>
+            <a href="{{ route('admin.procurement-review.index') }}">
+                RIS Approval
+            </a>
+        </li>
+
 
     </ul>
 
