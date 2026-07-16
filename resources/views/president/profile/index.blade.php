@@ -1,6 +1,6 @@
 @extends('layouts.president-layout')
 
-@section('title', 'Notifications')
+@section('title', 'Profile')
 
 @section('content')
 
@@ -8,13 +8,13 @@
 
     <h1 class="text-3xl font-bold">
 
-        Notifications
+        Profile
 
     </h1>
 
     <p class="text-slate-500">
 
-        President notifications will appear here.
+        Profile settings will appear here.
 
     </p>
 

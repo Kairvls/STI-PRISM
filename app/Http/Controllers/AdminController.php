@@ -12,6 +12,112 @@ use Illuminate\View\View;
 
 class AdminController extends Controller
 {
+    /*
+    |--------------------------------------------------------------------------
+    | Dashboard
+    |--------------------------------------------------------------------------
+    */
+
+    public function dashboard(): View
+    {
+        return view('admin.dashboard');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Procurement Review
+    |--------------------------------------------------------------------------
+    */
+
+    public function procurementReview(): View
+    {
+        return view('admin.procurement-review.index');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Digital Signatures
+    |--------------------------------------------------------------------------
+    */
+
+    public function signRis(): View
+    {
+        return view('admin.digital-signatures.sign-ris');
+    }
+
+    public function signatureHistory(): View
+    {
+        return view('admin.digital-signatures.signature-history');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Notifications
+    |--------------------------------------------------------------------------
+    */
+
+    public function notifications(): View
+    {
+        return view('admin.notifications.index');
+    }
+
+    public function createNotification(): View
+    {
+        return view('admin.notifications.create');
+    }
+
+    public function viewNotification(): View
+    {
+        return view('admin.notifications.view');
+    }
+
+    public function sentNotificationHistory(): View
+    {
+        return view('admin.notifications.sent-history');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Users
+    |--------------------------------------------------------------------------
+    */
+
+    public function users(): View
+    {
+        return view('admin.users.index');
+    }
+
+    public function createUser(): View
+    {
+        return view('admin.users.create');
+    }
+
+    public function editUser(): View
+    {
+        return view('admin.users.edit');
+    }
+
+    public function viewUser(): View
+    {
+        return view('admin.users.view');
+    }
+
+    public function resetPassword(): View
+    {
+        return view('admin.users.reset-password');
+    }
+
+    public function userActivityLogs(): View
+    {
+        return view('admin.users.activity-logs');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Store User
+    |--------------------------------------------------------------------------
+    */
+
     public function storeUser(Request $request)
     {
         User::create([
@@ -42,6 +148,43 @@ class AdminController extends Controller
         return redirect('/admin/users');
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Reports
+    |--------------------------------------------------------------------------
+    */
+
+    public function approvalLogs(): View
+    {
+        return view('admin.reports.approval-logs');
+    }
+
+    public function auditLogs(): View
+    {
+        return view('admin.reports.audit-logs');
+    }
+
+    public function maintenanceHistory(): View
+    {
+        return view('admin.reports.maintenance-history');
+    }
+
+    public function procurementHistory(): View
+    {
+        return view('admin.reports.procurement-history');
+    }
+
+    public function userLoginLogs(): View
+    {
+        return view('admin.reports.user-login-logs');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Settings
+    |--------------------------------------------------------------------------
+    */
+
     public function campusSetupPin(): View
     {
         $setting = CampusSetupSetting::query()->first();
@@ -49,6 +192,21 @@ class AdminController extends Controller
         return view('admin.settings.campus-setup-pin', [
             'setting' => $setting,
         ]);
+    }
+
+    public function maintenanceSettings(): View
+    {
+        return view('admin.settings.maintenance-settings');
+    }
+
+    public function notificationSettings(): View
+    {
+        return view('admin.settings.notification-settings');
+    }
+
+    public function systemSettings(): View
+    {
+        return view('admin.settings.system-settings');
     }
 
     public function updateCampusSetupPin(Request $request)

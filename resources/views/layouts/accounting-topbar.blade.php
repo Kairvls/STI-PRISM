@@ -185,7 +185,7 @@
 
                     <p
                         class="mt-0.5 max-w-[150px] truncate text-xs text-slate-500"
-                    >Purchaser</p>
+                    >Accounting</p>
                 </div>
 
                 <!-- CHEVRON -->
