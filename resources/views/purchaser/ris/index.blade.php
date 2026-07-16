@@ -284,10 +284,11 @@
                                 <span class="rounded-full px-3 py-1 text-xs font-semibold
                                     {{ $ris->ris_status === 'Approved' ? 'bg-green-100 text-green-700' : '' }}
                                     {{ $ris->ris_status === 'Rejected' ? 'bg-red-100 text-red-700' : '' }}
-                                    {{ $ris->ris_status === 'Pending' && $ris->ris_requested_by_date ? 'bg-blue-100 text-blue-700' : '' }}
+                                    {{ $ris->ris_status === 'Pending' && $ris->ris_approved_by_date ? 'bg-amber-100 text-amber-700' : '' }}
+                                    {{ $ris->ris_status === 'Pending' && $ris->ris_requested_by_date && !$ris->ris_approved_by_date ? 'bg-blue-100 text-blue-700' : '' }}
                                     {{ $ris->ris_status === 'Pending' && !$ris->ris_requested_by_date ? 'bg-gray-100 text-gray-700' : '' }}
                                 ">
-                                    {{ $ris->ris_status === 'Pending' && $ris->ris_requested_by_date ? 'Submitted to Admin' : $ris->ris_status }}
+                                    {{ $ris->ris_status === 'Pending' && $ris->ris_approved_by_date ? 'Awaiting President' : ($ris->ris_status === 'Pending' && $ris->ris_requested_by_date ? 'Submitted to Admin' : $ris->ris_status) }}
                                 </span>
                             </td>
 

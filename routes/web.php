@@ -46,43 +46,18 @@ Route::get('/', function () {
 
 Route::get('/dashboard', function () {
 
-    if (Auth::user()->user_role_id == 1) {
+    // Only authenticated users can reach this due to middleware('auth').
+    $roleId = auth()->user()?->user_role_id;
 
-        return redirect('/admin/dashboard');
-
-    }
-
-    elseif (Auth::user()->user_role_id == 2) {
-
-        return redirect('/maintenance/dashboard');
-
-    }
-
-    elseif (Auth::user()->user_role_id == 3) {
-
-        return redirect('/purchaser/dashboard');
-
-    }
-
-    elseif (Auth::user()->user_role_id == 4) {
-
-        return redirect('/president/dashboard');
-
-    }
-
-    elseif (Auth::user()->user_role_id == 5) {
-
-        return redirect('/accounting/dashboard');
-
-    }
-
-    elseif (Auth::user()->user_role_id == 6) {
-
-        return redirect('/receiving/dashboard');
-
-    }
-
-    abort(403);
+    return match ((int) $roleId) {
+        1 => redirect('/admin/dashboard'),
+        2 => redirect('/maintenance/dashboard'),
+        3 => redirect('/purchaser/dashboard'),
+        4 => redirect('/president/dashboard'),
+        5 => redirect('/accounting/dashboard'),
+        6 => redirect('/receiving/dashboard'),
+        default => abort(403),
+    };
 
 })->middleware(['auth'])->name('dashboard');
 
@@ -122,122 +97,180 @@ Route::middleware(['auth', 'admin'])
         // DASHBOARD
         // ==========================================
 
-        Route::get('/dashboard', [AdminController::class, 'dashboard'])
-            ->name('dashboard');
+        Route::get(
+            '/dashboard',
+            [AdminController::class, 'dashboard']
+        )->name('dashboard');
 
         // ==========================================
         // PROCUREMENT REVIEW
         // ==========================================
 
-        Route::get('/procurement-review', [AdminController::class, 'procurementReview'])
-            ->name('procurement-review');
-
-        // RIS Approval
-        Route::get('/procurement-review/ris', [AdminController::class, 'risApprovals'])
-            ->name('procurement-review.index');
-
-        Route::post('/procurement-review/ris/{risId}/approve', [AdminController::class, 'approveRis'])
-            ->name('procurement-review.ris.approve');
-
-        Route::post('/procurement-review/ris/{risId}/reject', [AdminController::class, 'rejectRis'])
-            ->name('procurement-review.ris.reject');
-
-        Route::get('/procurement-review/ris/{risId}/print', [PurchaserController::class, 'printRis'])
-            ->name('procurement-review.ris.print');
+        Route::get(
+            '/procurement-review',
+            [AdminController::class, 'procurementReview']
+        )->name('procurement-review');
 
         // ==========================================
         // DIGITAL SIGNATURES
         // ==========================================
 
-        Route::get('/digital-signatures/sign-ris', [AdminController::class, 'signRis'])
-            ->name('digital-signatures.sign-ris');
+        Route::get(
+            '/digital-signatures/sign-ris',
+            [AdminController::class, 'signRis']
+        )->name('digital-signatures.sign-ris');
 
-        Route::get('/digital-signatures/history', [AdminController::class, 'signatureHistory'])
-            ->name('digital-signatures.history');
+        Route::get(
+            '/digital-signatures/history',
+            [AdminController::class, 'signatureHistory']
+        )->name('digital-signatures.history');
 
         // ==========================================
         // NOTIFICATIONS
         // ==========================================
 
-        Route::get('/notifications', [AdminController::class, 'notifications'])
-            ->name('notifications');
+        Route::get(
+            '/notifications',
+            [AdminController::class, 'notifications']
+        )->name('notifications');
 
-        Route::get('/notifications/create', [AdminController::class, 'createNotification'])
-            ->name('notifications.create');
+        Route::get(
+            '/notifications/create',
+            [AdminController::class, 'createNotification']
+        )->name('notifications.create');
 
-        Route::get('/notifications/view', [AdminController::class, 'viewNotification'])
-            ->name('notifications.view');
+        Route::get(
+            '/notifications/view',
+            [AdminController::class, 'viewNotification']
+        )->name('notifications.view');
 
-        Route::get('/notifications/sent-history', [AdminController::class, 'sentNotificationHistory'])
-            ->name('notifications.sent-history');
+        Route::get(
+            '/notifications/sent-history',
+            [AdminController::class, 'sentNotificationHistory']
+        )->name('notifications.sent-history');
 
         // ==========================================
         // USERS
         // ==========================================
 
-        Route::get('/users', [AdminController::class, 'users'])
-            ->name('users');
+        Route::get(
+            '/users',
+            [AdminController::class, 'users']
+        )->name('users');
 
-        Route::get('/users/create', [AdminController::class, 'createUser'])
-            ->name('users.create');
+        Route::get(
+            '/users/create',
+            [AdminController::class, 'createUser']
+        )->name('users.create');
 
-        Route::post('/users/store', [AdminController::class, 'storeUser'])
-            ->name('users.store');
+        Route::post(
+            '/users/store',
+            [AdminController::class, 'storeUser']
+        )->name('users.store');
 
-        Route::get('/users/edit', [AdminController::class, 'editUser'])
-            ->name('users.edit');
+        Route::get(
+            '/users/edit',
+            [AdminController::class, 'editUser']
+        )->name('users.edit');
 
-        Route::get('/users/view', [AdminController::class, 'viewUser'])
-            ->name('users.view');
+        Route::get(
+            '/users/view',
+            [AdminController::class, 'viewUser']
+        )->name('users.view');
 
-        Route::get('/users/reset-password', [AdminController::class, 'resetPassword'])
-            ->name('users.reset-password');
+        Route::get(
+            '/users/reset-password',
+            [AdminController::class, 'resetPassword']
+        )->name('users.reset-password');
 
-        Route::get('/users/activity-logs', [AdminController::class, 'userActivityLogs'])
-            ->name('users.activity-logs');
+        Route::get(
+            '/users/activity-logs',
+            [AdminController::class, 'userActivityLogs']
+        )->name('users.activity-logs');
 
         // ==========================================
         // REPORTS
         // ==========================================
 
-        Route::get('/reports/approval-logs', [AdminController::class, 'approvalLogs'])
-            ->name('reports.approval-logs');
+        Route::get(
+            '/reports/approval-logs',
+            [AdminController::class, 'approvalLogs']
+        )->name('reports.approval-logs');
 
-        Route::get('/reports/audit-logs', [AdminController::class, 'auditLogs'])
-            ->name('reports.audit-logs');
+        Route::get(
+            '/reports/audit-logs',
+            [AdminController::class, 'auditLogs']
+        )->name('reports.audit-logs');
 
-        Route::get('/reports/maintenance-history', [AdminController::class, 'maintenanceHistory'])
-            ->name('reports.maintenance-history');
+        Route::get(
+            '/reports/maintenance-history',
+            [AdminController::class, 'maintenanceHistory']
+        )->name('reports.maintenance-history');
 
-        Route::get('/reports/procurement-history', [AdminController::class, 'procurementHistory'])
-            ->name('reports.procurement-history');
+        Route::get(
+            '/reports/procurement-history',
+            [AdminController::class, 'procurementHistory']
+        )->name('reports.procurement-history');
 
-        Route::get('/reports/user-login-logs', [AdminController::class, 'userLoginLogs'])
-            ->name('reports.user-login-logs');
+        Route::get(
+            '/reports/user-login-logs',
+            [AdminController::class, 'userLoginLogs']
+        )->name('reports.user-login-logs');
 
         // ==========================================
         // SETTINGS
         // ==========================================
 
-        Route::get('/settings/campus-setup-pin', [AdminController::class, 'campusSetupPin'])
-            ->name('settings.campus-setup-pin');
+        Route::get(
+            '/settings/campus-setup-pin',
+            [AdminController::class, 'campusSetupPin']
+        )->name('settings.campus-setup-pin');
 
-        Route::post('/settings/campus-setup-pin', [AdminController::class, 'updateCampusSetupPin'])
-            ->name('settings.campus-setup-pin.update');
+        Route::post(
+            '/settings/campus-setup-pin',
+            [AdminController::class, 'updateCampusSetupPin']
+        )->name('settings.campus-setup-pin.update');
 
-        Route::get('/settings/maintenance-settings', [AdminController::class, 'maintenanceSettings'])
-            ->name('settings.maintenance-settings');
+        Route::get(
+            '/settings/maintenance-settings',
+            [AdminController::class, 'maintenanceSettings']
+        )->name('settings.maintenance-settings');
 
-        Route::get('/settings/notification-settings', [AdminController::class, 'notificationSettings'])
-            ->name('settings.notification-settings');
+        Route::get(
+            '/settings/notification-settings',
+            [AdminController::class, 'notificationSettings']
+        )->name('settings.notification-settings');
 
-        Route::get('/settings/system-settings', [AdminController::class, 'systemSettings'])
-            ->name('settings.system-settings');
+        Route::get(
+            '/settings/system-settings',
+            [AdminController::class, 'systemSettings']
+        )->name('settings.system-settings');
+
+        // ==========================================
+        // PROCUREMENT REVIEW RIS APPROVALS
+        // ==========================================
+
+        Route::get(
+            '/procurement-review/ris',
+            [AdminController::class, 'risApprovals']
+        )->name('procurement-review.ris');
+
+        Route::post(
+            '/procurement-review/ris/{ris}/approve',
+            [AdminController::class, 'approveRis']
+        )->name('procurement-review.ris.approve');
+
+        Route::post(
+            '/procurement-review/ris/{ris}/reject',
+            [AdminController::class, 'rejectRis']
+        )->name('procurement-review.ris.reject');
+
+        Route::get(
+            '/procurement-review/ris/{ris}/print',
+            [PurchaserController::class, 'printRis']
+        )->name('procurement-review.ris.print');
 
     });
-
-
-
 
 
 
@@ -1103,40 +1136,6 @@ Route::middleware([
             [PurchaserController::class, 'replacementRequests']
         )
         ->name('procurement.replacement-requests');
-        // =====================================================
-        // ADDED RIS MODULE ROUTES
-        // =====================================================
-
-        Route::get(
-            '/ris',
-            [PurchaserController::class, 'risIndex']
-        )
-            ->name('ris.index');
-
-        Route::post(
-            '/ris',
-            [PurchaserController::class, 'storeRis']
-        )
-            ->name('ris.store');
-
-        Route::post(
-            '/ris/{risId}/submit',
-            [PurchaserController::class, 'submitRis']
-        )
-            ->name('ris.submit');
-        // =====================================================
-        // ADDED RIS MODULE: DEDICATED PRINT ROUTE
-        // =====================================================
-
-        Route::get(
-            '/ris/{risId}/print',
-            [PurchaserController::class, 'printRis']
-        )
-            ->name('ris.print');
-
-        // =====================================================
-        // END ADDED RIS MODULE ROUTES
-        // =====================================================
 
         // =====================================================
         // PURCHASER URGENT REPORT ROUTES
@@ -1218,6 +1217,33 @@ Route::middleware([
                 'reports.urgent.restore'
             );
 
+        // =====================================================
+        // PURCHASER RIS ROUTES
+        // =====================================================
+
+        Route::get(
+            '/ris',
+            [PurchaserController::class, 'risIndex']
+        )
+            ->name('ris.index');
+
+        Route::post(
+            '/ris',
+            [PurchaserController::class, 'storeRis']
+        )
+            ->name('ris.store');
+
+        Route::post(
+            '/ris/{ris}/submit',
+            [PurchaserController::class, 'submitRis']
+        )
+            ->name('ris.submit');
+
+        Route::get(
+            '/ris/{ris}/print',
+            [PurchaserController::class, 'printRis']
+        )
+            ->name('ris.print');
 
     });
 
@@ -1240,6 +1266,7 @@ Route::middleware([
     ->prefix('president')
     ->name('president.')
     ->group(function () {
+
 
         // =====================================================
         // DASHBOARD
@@ -1289,6 +1316,20 @@ Route::middleware([
         )->name('reports.monthly-summary');
 
         // =====================================================
+        // APPROVAL DECISION ENDPOINTS
+        // =====================================================
+
+        Route::post(
+            '/approvals/ris/decide',
+            [PresidentController::class, 'decideRis']
+        )->name('approvals.ris.decide');
+
+        Route::post(
+            '/approvals/procurement/decide',
+            [PresidentController::class, 'decideProcurement']
+        )->name('approvals.procurement.decide');
+
+        // =====================================================
         // NOTIFICATIONS
         // =====================================================
 
@@ -1310,7 +1351,7 @@ Route::middleware([
             '/profile',
             [PresidentController::class, 'profile']
         )->name('profile');
-
+    
     });
 
 
@@ -1392,4 +1433,3 @@ Route::middleware(['auth', 'receiving'])
 
 
 require __DIR__.'/auth.php';
-

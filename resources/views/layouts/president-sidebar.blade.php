@@ -74,49 +74,59 @@
 
         <div class="quick-actions">
 
-            <a
-                href="/president/dashboard"
-                class="quick-card {{ request()->is('president/dashboard') ? 'active' : '' }}"
-            >
-
-                <i data-lucide="layout-dashboard"></i>
-
-                <span>Dashboard</span>
-
-            </a>
-
+            {{-- Quick Approval Queue --}}
             <a
                 href="/president/approvals"
                 class="quick-card {{ request()->is('president/approvals*') ? 'active' : '' }}"
+                title="Review RIS approval queue"
             >
-
                 <i data-lucide="clipboard-check"></i>
-
-                <span>Approvals</span>
-
+                <span>RIS Approval Queue</span>
             </a>
 
+
+
+            {{-- Decision history --}}
+            <a
+                href="/president/approvals/history"
+                class="quick-card {{ request()->is('president/approvals/history*') ? 'active' : '' }}"
+                title="View approval timeline"
+            >
+                <i data-lucide="history"></i>
+                <span>Approval History</span>
+            </a>
+
+            {{-- Decision reports snapshot --}}
             <a
                 href="/president/reports/monthly-summary"
-                class="quick-card {{ request()->is('president/reports*') ? 'active' : '' }}"
+                class="quick-card {{ request()->is('president/reports/monthly-summary*') ? 'active' : '' }}"
+                title="Monthly decision summary"
             >
-
                 <i data-lucide="bar-chart-3"></i>
-
-                <span>Reports</span>
-
+                <span>Monthly Decisions</span>
             </a>
 
+            {{-- Notifications center --}}
             <a
                 href="/president/notifications"
                 class="quick-card {{ request()->is('president/notifications*') ? 'active' : '' }}"
+                title="Open notifications"
             >
-
                 <i data-lucide="bell"></i>
-
-                <span>Notifications</span>
-
+                <span>System Alerts</span>
             </a>
+
+            {{-- Recent decision outcomes (quick link) --}}
+            <a
+                href="/president/reports/approved"
+                class="quick-card {{ request()->is('president/reports/approved*') ? 'active' : '' }}"
+                title="View approved decisions"
+                style="align-self: center;"
+            >
+                <i data-lucide="badge-check"></i>
+                <span>Approved Outcomes</span>
+            </a>
+
 
         </div>
 
@@ -173,16 +183,7 @@
 
         </a>
 
-        <a
-            href="/president/approvals/digital-signature"
-            class="menu-item {{ request()->is('president/approvals/digital-signature') ? 'active' : '' }}"
-        >
 
-            <i data-lucide="pen-square"></i>
-
-            <span>Digital Signature</span>
-
-        </a>
 
         {{-- ====================================== --}}
         {{-- REPORTS --}}
