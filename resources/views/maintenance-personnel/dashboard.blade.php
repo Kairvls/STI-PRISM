@@ -2941,6 +2941,646 @@
 
             border-top: 1px solid #f1f5f9;
         }
+
+
+
+        /* ===================================================== */
+        /* PREMIUM CARD */
+        /* ===================================================== */
+
+        .premium-stat-card{
+
+            position:relative;
+
+            overflow:hidden;
+
+            display:flex;
+
+            flex-direction:column;
+
+            justify-content:space-between;
+
+            min-height:285px;
+
+            padding:22px;
+
+            background:#ffffff;
+
+            border:1px solid #edf2f7;
+
+            border-radius:24px;
+
+            box-shadow:
+                0 10px 35px rgba(15,23,42,.05),
+                0 2px 8px rgba(15,23,42,.03);
+
+            transition:.25s ease;
+
+        }
+
+        .premium-stat-card:hover{
+
+            transform:translateY(-4px);
+
+            border-color:#dbe4ee;
+
+            box-shadow:
+                0 20px 50px rgba(15,23,42,.08),
+                0 6px 20px rgba(15,23,42,.05);
+
+        }
+
+        .premium-card-top{
+
+            display:flex;
+            justify-content:space-between;
+            align-items:flex-start;
+
+            margin-bottom:22px;
+
+        }
+
+        .premium-card-info{
+
+            display:flex;
+            align-items:center;
+            gap:14px;
+
+        }
+
+        .premium-icon{
+
+            width:48px;
+            height:48px;
+
+            display:flex;
+            align-items:center;
+            justify-content:center;
+
+            border-radius:15px;
+
+            background:#f8fafc;
+
+            border:1px solid #eef2f7;
+
+            color:#475569;
+
+        }
+
+        .premium-icon svg{
+
+            width:22px;
+            height:22px;
+
+        }
+
+        .premium-card-subtitle{
+
+            font-size:11px;
+
+            font-weight:500;
+
+            color:#94a3b8;
+
+        }
+
+        .premium-card-title{
+
+            margin-top:2px;
+
+            font-size:15px;
+
+            font-weight:700;
+
+            color:#111827;
+
+        }
+
+        .premium-action{
+
+            width:38px;
+            height:38px;
+
+            display:flex;
+            align-items:center;
+            justify-content:center;
+
+            border-radius:50%;
+
+            background:#f8fafc;
+
+            border:1px solid #edf2f7;
+
+            color:#64748b;
+
+            transition:.25s;
+
+        }
+
+        .premium-action:hover{
+
+            background:#111827;
+
+            color:white;
+
+            transform:rotate(45deg);
+
+        }
+
+        .premium-card-body{
+
+            margin-bottom:10px;
+
+        }
+
+        .premium-card-value{
+
+            font-size:52px;
+
+            font-weight:800;
+
+            letter-spacing:-2px;
+
+            color:#111827;
+
+        }
+
+        .premium-card-trend{
+
+            margin-top:14px;
+
+            display:flex;
+
+            align-items:center;
+
+            gap:6px;
+
+            font-size:13px;
+
+            font-weight:600;
+
+        }
+
+        .premium-card-trend.positive{
+
+            color:#16a34a;
+
+        }
+
+        .premium-card-trend.negative{
+
+            color:#dc2626;
+
+        }
+
+        
+
+        .premium-chart{
+
+            position:relative;
+
+            height:120px;
+
+            margin-top:14px;
+
+            
+
+        }
+
+        .premium-chart canvas{
+
+            width:100% !important;
+            height:100% !important;
+
+        }
+
+        .chart-label{
+
+            position:absolute;
+
+            padding:4px 10px;
+
+            border-radius:999px;
+
+            font-size:11px;
+            font-weight:600;
+
+            color:white;
+
+            backdrop-filter:blur(10px);
+
+            background:rgba(255,255,255,.10);
+
+            border:1px solid rgba(255,255,255,.08);
+
+        }
+
+        .label-one{
+
+            top:14px;
+            right:70px;
+
+        }
+
+        .label-two{
+
+            bottom:18px;
+            right:20px;
+
+        }
+
+        .premium-stat-card.red::after{
+
+            content:"";
+
+            position:absolute;
+
+            width:180px;
+            height:180px;
+
+            right:-80px;
+            bottom:-80px;
+
+            border-radius:50%;
+
+            background:radial-gradient(
+
+                circle,
+
+                rgba(255,99,99,.12),
+
+                transparent 75%
+
+            );
+
+            filter:blur(25px);
+
+        }
+
+        .premium-stat-card.amber::after{
+
+            content:"";
+
+            position:absolute;
+
+            width:180px;
+            height:180px;
+
+            right:-80px;
+            bottom:-80px;
+
+            border-radius:50%;
+
+            background:radial-gradient(
+
+                circle,
+
+                rgba(251,191,36,.12),
+
+                transparent 75%
+
+            );
+
+            filter:blur(25px);
+
+        }
+
+        .premium-stat-card.green::after{
+
+            content:"";
+
+            position:absolute;
+
+            width:180px;
+            height:180px;
+
+            right:-80px;
+            bottom:-80px;
+
+            border-radius:50%;
+
+            background:radial-gradient(
+
+                circle,
+
+                rgba(34,197,94,.12),
+
+                transparent 75%
+
+            );
+
+            filter:blur(25px);
+
+        }
+
+        /* ===================================================== */
+        /* FLOW ANALYTICS CARD */
+        /* ===================================================== */
+
+        .flow-card{
+
+            background:#fff;
+
+            border-radius:34px;
+
+            padding:34px;
+
+            border:1px solid #eef2f7;
+
+            box-shadow:
+                0 1px 1px rgba(15,23,42,.03),
+
+                0 12px 24px rgba(15,23,42,.04),
+
+                0 32px 80px rgba(15,23,42,.07);
+
+        }
+
+        .flow-header{
+
+            display:flex;
+
+            justify-content:space-between;
+
+            align-items:center;
+
+        }
+
+        .flow-title{
+
+            font-size:38px;
+
+            font-weight:800;
+
+            color:#111827;
+
+        }
+
+        .flow-subtitle{
+
+            color:#94a3b8;
+
+            font-size:14px;
+
+        }
+
+        .flow-menu{
+
+            width:50px;
+
+            height:50px;
+
+            border-radius:50%;
+
+            background:#f4f6f9;
+
+        }
+
+        .flow-stats{
+
+            margin-top:38px;
+
+            display:grid;
+
+            grid-template-columns:repeat(3,1fr);
+
+        }
+
+        .flow-stat h2{
+
+            font-size:54px;
+
+            font-weight:800;
+
+            color:#111827;
+
+        }
+
+        .flow-stat p{
+
+            color:#6b7280;
+
+            margin-top:4px;
+
+        }
+
+        .flow-area{
+
+            position:relative;
+
+            margin-top:45px;
+
+            height:240px;
+
+        }
+
+        .flow-svg{
+
+            width:100%;
+
+            height:100%;
+
+        }
+
+        .flow-badge{
+
+            position:absolute;
+
+            padding:10px 18px;
+
+            border-radius:999px;
+
+            font-weight:700;
+
+            font-size:14px;
+
+            color:#111827;
+
+        }
+
+        .glass{
+
+            background:rgba(255,255,255,.45);
+
+            backdrop-filter:blur(18px);
+
+            border:1px solid rgba(255,255,255,.7);
+
+            box-shadow:
+
+                0 8px 28px rgba(15,23,42,.08);
+
+        }
+
+        .badge-center{
+
+            background:#111827;
+
+            color:white;
+
+        }
+
+        .flow-line{
+
+            position:absolute;
+
+            width:2px;
+
+            height:72px;
+
+            background:
+
+                repeating-linear-gradient(
+
+                    to bottom,
+
+                    #9ca3af,
+
+                    #9ca3af 6px,
+
+                    transparent 6px,
+
+                    transparent 12px
+
+                );
+
+        }
+
+        .badge-left-top{
+
+            left:3%;
+
+            top:20px;
+
+        }
+
+        .line-left{
+
+            left:5.5%;
+
+            top:54px;
+
+        }
+
+        .badge-left-bottom{
+
+            left:3%;
+
+            bottom:8px;
+
+        }
+
+        .badge-center{
+
+            left:47%;
+
+            top:5px;
+
+        }
+
+        .line-center{
+
+            left:50%;
+
+            top:42px;
+
+        }
+
+        .badge-center-bottom{
+
+            left:47%;
+
+            bottom:8px;
+
+        }
+
+        .badge-right-top{
+
+            right:3%;
+
+            top:20px;
+
+        }
+
+        .line-right{
+
+            right:5.5%;
+
+            top:54px;
+
+        }
+
+        .badge-right-bottom{
+
+            right:3%;
+
+            bottom:8px;
+
+        }
+
+        #glowLayer{
+
+            fill:url(#flowGradient);
+
+        }
+
+        #blurLayer{
+
+            fill:url(#flowGradient);
+
+        }
+
+        #shadowLayer{
+
+            fill:url(#flowGradient);
+
+        }
+
+        #mainLayer{
+
+            fill:url(#flowGradient);
+
+        }
+
+        #highlightLayer{
+
+            fill:white;
+
+            opacity:.12;
+
+        }
+
+        @keyframes floatBadge{
+
+            0%{
+
+                transform:translateY(0);
+
+            }
+
+            50%{
+
+                transform:translateY(-6px);
+
+            }
+
+            100%{
+
+                transform:translateY(0);
+
+            }
+
+        }
+
+        .flow-badge{
+
+            animation:
+
+                floatBadge 4s ease-in-out infinite;
+
+        }
+
+        
     </style>
 
     <!-- ═══════════════════════════════════════════════════ MAIN -->
@@ -3120,125 +3760,277 @@
                 </section>
 
                 {{-- ===================================================== --}}
-                {{-- COMPACT DASHBOARD STAT CARDS --}}
+                {{-- PREMIUM FLOW ANALYTICS CARD --}}
                 {{-- ===================================================== --}}
 
-                <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    {{-- ===================================================== --}}
-                    {{-- URGENT REPORTS --}}
-                    {{-- ===================================================== --}}
+                @php
+                    $total = max(1, $urgentReports + $underMaintenance + $borrowedEquipment);
 
-                    <div class="stat-card">
-                        {{-- ICON --}}
+                    $urgentPercent = round(($urgentReports / $total) * 100);
+                    $maintenancePercent = round(($underMaintenance / $total) * 100);
+                    $borrowedPercent = round(($borrowedEquipment / $total) * 100);
+                @endphp
 
-                        <div
-                            class="stat-card-icon"
-                            style="background: #fef2f2; color: #dc2626"
-                        >
-                            <i
-                                data-lucide="alert-circle"
-                                class="h-[18px] w-[18px]"
-                            ></i>
+                <div class="flow-card">
+
+                    {{-- Header --}}
+                    <div class="flow-header">
+
+                        <div>
+
+                            <p class="flow-subtitle">
+                                Dashboard Overview
+                            </p>
+
+                            <h2 class="flow-title">
+                                Equipment Statistics
+                            </h2>
+
                         </div>
 
-                        {{-- CONTENT --}}
+                        <button class="flow-menu">
 
-                        <div class="stat-card-content">
-                            <div class="stat-card-meta">
-                                {{ $urgentReports }} active
-                            </div>
+                            <i data-lucide="more-vertical"></i>
 
-                            <div class="stat-card-title">Urgent Reports</div>
-                        </div>
-
-                        {{-- MENU --}}
-
-                        <button
-                            type="button"
-                            class="stat-card-menu"
-                            aria-label="Urgent report options"
-                        >
-                            <i data-lucide="more-vertical" class="h-4 w-4"></i>
                         </button>
+
                     </div>
 
-                    {{-- ===================================================== --}}
-                    {{-- UNDER MAINTENANCE --}}
-                    {{-- ===================================================== --}}
 
-                    <div class="stat-card">
-                        {{-- ICON --}}
 
-                        <div
-                            class="stat-card-icon"
-                            style="background: #fffbeb; color: #d97706"
-                        >
-                            <i
-                                data-lucide="wrench"
-                                class="h-[18px] w-[18px]"
-                            ></i>
+                    {{-- Statistics --}}
+                    <div class="flow-stats">
+
+                        <div class="flow-stat">
+
+                            <h2>{{ $urgentReports }}</h2>
+
+                            <p>Urgent Reports</p>
+
                         </div>
 
-                        {{-- CONTENT --}}
+                        <div class="flow-stat">
 
-                        <div class="stat-card-content">
-                            <div class="stat-card-meta">
-                                {{ $underMaintenance }} equipment
-                            </div>
+                            <h2>{{ $underMaintenance }}</h2>
 
-                            <div class="stat-card-title">Under Maintenance</div>
+                            <p>Under Maintenance</p>
+
                         </div>
 
-                        {{-- MENU --}}
+                        <div class="flow-stat">
 
-                        <button
-                            type="button"
-                            class="stat-card-menu"
-                            aria-label="Maintenance options"
-                        >
-                            <i data-lucide="more-vertical" class="h-4 w-4"></i>
-                        </button>
+                            <h2>{{ $borrowedEquipment }}</h2>
+
+                            <p>Borrowed Equipment</p>
+
+                        </div>
+
                     </div>
 
-                    {{-- ===================================================== --}}
-                    {{-- BORROWED EQUIPMENT --}}
-                    {{-- ===================================================== --}}
 
-                    <div class="stat-card">
-                        {{-- ICON --}}
 
-                        <div
-                            class="stat-card-icon"
-                            style="background: #ecfdf5; color: #16a34a"
-                        >
-                            <i
-                                data-lucide="arrow-left-right"
-                                class="h-[18px] w-[18px]"
-                            ></i>
+                    {{-- FLOW AREA --}}
+                    <div class="flow-area">
+
+                        {{-- LEFT BADGE --}}
+
+                        <div class="flow-badge glass badge-left-top">
+
+                            {{ $urgentPercent }}%
+
                         </div>
 
-                        {{-- CONTENT --}}
+                        <div class="flow-line line-left"></div>
 
-                        <div class="stat-card-content">
-                            <div class="stat-card-meta">
-                                {{ $borrowedEquipment }} borrowed
-                            </div>
+                        <div class="flow-badge glass badge-left-bottom">
 
-                            <div class="stat-card-title">
-                                Borrowed Equipment
-                            </div>
+                            {{ max(0,$urgentPercent-4) }}%
+
                         </div>
 
-                        {{-- MENU --}}
 
-                        <button
-                            type="button"
-                            class="stat-card-menu"
-                            aria-label="Borrowing options"
-                        >
-                            <i data-lucide="more-vertical" class="h-4 w-4"></i>
-                        </button>
+
+                        {{-- CENTER BADGE --}}
+
+                        <div class="flow-badge glass badge-center">
+
+                            {{ $maintenancePercent }}%
+
+                        </div>
+
+                        <div class="flow-line line-center"></div>
+
+                        <div class="flow-badge glass badge-center-bottom">
+
+                            {{ max(0,$maintenancePercent-5) }}%
+
+                        </div>
+
+
+
+                        {{-- RIGHT BADGE --}}
+
+                        <div class="flow-badge glass badge-right-top">
+
+                            {{ $borrowedPercent }}%
+
+                        </div>
+
+                        <div class="flow-line line-right"></div>
+
+                        <div class="flow-badge glass badge-right-bottom">
+
+                            {{ max(0,$borrowedPercent-6) }}%
+
+                        </div>
+
+
+
+                        <svg
+                            id="flowRibbon"
+                            class="flow-svg"
+                            viewBox="0 0 1000 220"
+                            preserveAspectRatio="none">
+
+                            <defs>
+
+                                {{-- ===================================================== --}}
+                                {{-- SOFT GLOW --}}
+                                {{-- ===================================================== --}}
+
+                                <filter id="glowBlur"
+                                        x="-40%"
+                                        y="-80%"
+                                        width="180%"
+                                        height="260%">
+
+                                    <feGaussianBlur stdDeviation="28"/>
+
+                                </filter>
+
+                                {{-- ===================================================== --}}
+                                {{-- LIGHT BLOOM --}}
+                                {{-- ===================================================== --}}
+
+                                <filter id="softBlur"
+                                        x="-30%"
+                                        y="-60%"
+                                        width="160%"
+                                        height="220%">
+
+                                    <feGaussianBlur stdDeviation="10"/>
+
+                                </filter>
+
+                                {{-- ===================================================== --}}
+                                {{-- MAIN COLOR --}}
+                                {{-- ===================================================== --}}
+
+                                <linearGradient
+                                    id="flowGradient"
+                                    x1="0%"
+                                    y1="0%"
+                                    x2="100%"
+                                    y2="0%">
+
+                                    <stop offset="0%" stop-color="#37ff4f"/>
+
+                                    <stop offset="16%" stop-color="#59ff57"/>
+
+                                    <stop offset="34%" stop-color="#bfff4d"/>
+
+                                    <stop offset="48%" stop-color="#ffe45a"/>
+
+                                    <stop offset="63%" stop-color="#ffbf53"/>
+
+                                    <stop offset="80%" stop-color="#ff7c38"/>
+
+                                    <stop offset="100%" stop-color="#ff4949"/>
+
+                                </linearGradient>
+
+                                {{-- ===================================================== --}}
+                                {{-- GLASS HIGHLIGHT --}}
+                                {{-- ===================================================== --}}
+
+                                <linearGradient
+                                    id="highlightGradient"
+                                    x1="0%"
+                                    y1="0%"
+                                    x2="0%"
+                                    y2="100%">
+
+                                    <stop offset="0%"
+                                        stop-color="rgba(255,255,255,.95)"/>
+
+                                    <stop offset="55%"
+                                        stop-color="rgba(255,255,255,.25)"/>
+
+                                    <stop offset="100%"
+                                        stop-color="rgba(255,255,255,0)"/>
+
+                                </linearGradient>
+
+                            </defs>
+
+                            {{-- ===================================================== --}}
+                            {{-- OUTER GLOW --}}
+                            {{-- ===================================================== --}}
+
+                            <path
+                                id="glowLayer"
+                                filter="url(#glowBlur)"
+                                fill="url(#flowGradient)"
+                                opacity=".16"/>
+
+                            {{-- ===================================================== --}}
+                            {{-- OUTER TRANSLUCENT RIBBON --}}
+                            {{-- ===================================================== --}}
+
+                            <path
+                                id="outerRibbon"
+                                fill="url(#flowGradient)"
+                                opacity=".18"/>
+
+                            {{-- ===================================================== --}}
+                            {{-- MIDDLE TRANSLUCENT RIBBON --}}
+                            {{-- ===================================================== --}}
+
+                            <path
+                                id="middleRibbon"
+                                fill="url(#flowGradient)"
+                                opacity=".36"/>
+
+                            {{-- ===================================================== --}}
+                            {{-- MAIN RIBBON --}}
+                            {{-- ===================================================== --}}
+
+                            <path
+                                id="mainRibbon"
+                                fill="url(#flowGradient)"/>
+
+                            {{-- ===================================================== --}}
+                            {{-- GLOSS --}}
+                            {{-- ===================================================== --}}
+
+                            <path
+                                id="highlightRibbon"
+                                fill="url(#highlightGradient)"
+                                opacity=".85"/>
+
+                            {{-- ===================================================== --}}
+                            {{-- SOFT BLOOM --}}
+                            {{-- ===================================================== --}}
+
+                            <path
+                                id="softBloom"
+                                filter="url(#softBlur)"
+                                fill="url(#flowGradient)"
+                                opacity=".10"/>
+
+                        </svg>
                     </div>
+
                 </div>
 
                 <!-- ══ URGENT REPORTS PIPELINE ══ -->
@@ -3346,55 +4138,7 @@
                                 {{-- MEDIA AREA --}}
                                 {{-- ================================================= --}}
 
-                                <a
-                                    href="{{ url(
-                                        '/maintenance/reports/details/'
-                                        . $report->report_id
-                                    ) }}"
-                                    class="urgent-media-image"
-                                >
-                                    {{-- ===================================================== --}}
-                                    {{-- REPORT IMAGE --}}
-                                    {{-- USE THE ACTUAL report_uploaded_image COLUMN HERE --}}
-                                    {{-- ===================================================== --}}
-
-                                    @if (!empty($report->report_uploaded_image))
-                                        <img
-                                            src="{{ asset('storage/' . $report->report_uploaded_image) }}"
-                                            alt="{{ $reportTitle }}"
-                                            class="urgent-media-photo"
-                                            loading="lazy"
-                                        />
-
-                                    @else
-                                        {{-- ================================================= --}}
-                                        {{-- FALLBACK WHEN REPORT HAS NO IMAGE --}}
-                                        {{-- ================================================= --}}
-
-                                        <div class="urgent-media-placeholder">
-                                            <i
-                                                data-lucide="image-off"
-                                                class="h-8 w-8"
-                                            ></i>
-
-                                            <span> No report image </span>
-                                        </div>
-
-                                    @endif
-
-                                    {{-- ================================================= --}}
-                                    {{-- URGENCY INDICATOR --}}
-                                    {{-- ================================================= --}}
-
-                                    <!--<span class="urgent-media-alert">
-
-                                        <i
-                                            data-lucide="octagon-alert"
-                                            class="h-4 w-4"
-                                        ></i>
-
-                                    </span>-->
-                                </a>
+                                
 
                                 {{-- ================================================= --}}
                                 {{-- CARD CONTENT --}}
@@ -3938,6 +4682,489 @@
             </aside>
         </div>
     </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            createRibbon();
+        });
+
+        function createRibbon() {
+
+            const glow = document.getElementById("glowLayer");
+            const outer = document.getElementById("outerRibbon");
+            const middle = document.getElementById("middleRibbon");
+            const ribbon = document.getElementById("mainRibbon");
+            const highlight = document.getElementById("highlightRibbon");
+            const bloom = document.getElementById("softBloom");
+
+            if (!glow || !outer || !middle || !ribbon || !highlight || !bloom) {
+                return;
+            }
+
+            const total = {{ max(1, $urgentReports + $underMaintenance + $borrowedEquipment) }};
+
+            const urgent = {{ $urgentReports }} / total;
+            const maintenance = {{ $underMaintenance }} / total;
+            const borrowed = {{ $borrowedEquipment }} / total;
+
+            const WIDTH = 1000;
+            const CENTER = 110;
+
+            function build(offset, scale = 1) {
+
+                let path = "";
+
+                // ==========================
+                // TOP EDGE
+                // ==========================
+
+                for (let x = 0; x <= WIDTH; x += 8) {
+
+                    const t = x / WIDTH;
+
+                    const leftFade =
+                        Math.sin(Math.min(t, 0.12) / 0.12 * Math.PI / 2);
+
+                    const rightFade =
+                        Math.sin(Math.min(1 - t, 0.12) / 0.12 * Math.PI / 2);
+
+                    const taper = Math.min(leftFade, rightFade);
+
+                    const wave =
+                        Math.sin(t * Math.PI * 2 + offset) * 5 +
+                        Math.sin(t * Math.PI * 6 - offset * 1.2) * 2.5 +
+                        Math.cos(t * Math.PI * 10) * 1.2;
+
+                    const pulse =
+                        Math.sin(offset + t * 6) * 4;
+
+                    const SCALE = 160;
+
+                    const leftWidth = 18 + urgent * SCALE;
+                    const middleWidth = 18 + maintenance * SCALE;
+                    const rightWidth = 18 + borrowed * SCALE;
+
+                    let baseWidth;
+
+                    if (t < 0.25) {
+
+                        let k = t / 0.25;
+                        k = k * k * (3 - 2 * k);
+
+                        baseWidth =
+                            leftWidth * (1 - k) +
+                            middleWidth * k;
+
+                    }
+                    else if (t < 0.75) {
+
+                        baseWidth = middleWidth;
+
+                    }
+                    else {
+
+                        let k = (t - 0.75) / 0.25;
+                        k = k * k * (3 - 2 * k);
+
+                        baseWidth =
+                            middleWidth * (1 - k) +
+                            rightWidth * k;
+
+                    }
+
+                    const breathing =
+                        1 + Math.sin(offset * 2) * 0.04;
+
+                    const MIN_WIDTH = 70;
+
+                    const width =
+                        Math.max(baseWidth, MIN_WIDTH) *
+                        taper *
+                        breathing *
+                        scale;
+
+                    const y =
+                        CENTER +
+                        wave +
+                        pulse;
+
+                    if (x === 0) {
+
+                        path = `M -30 ${CENTER}`;
+                        path += ` L ${x} ${y - width}`;
+
+                    } else {
+
+                        path += ` L ${x} ${y - width}`;
+
+                    }
+                }
+
+                // ==========================
+                // BOTTOM EDGE
+                // ==========================
+
+                for (let x = WIDTH; x >= 0; x -= 8) {
+
+                    const t = x / WIDTH;
+
+                    const leftFade =
+                        Math.sin(Math.min(t, 0.12) / 0.12 * Math.PI / 2);
+
+                    const rightFade =
+                        Math.sin(Math.min(1 - t, 0.12) / 0.12 * Math.PI / 2);
+
+                    const taper = Math.min(leftFade, rightFade);
+
+                    const wave =
+                        Math.sin(t * Math.PI * 2 + offset) * 5 +
+                        Math.sin(t * Math.PI * 6 - offset * 1.2) * 2.5 +
+                        Math.cos(t * Math.PI * 10) * 1.2;
+
+                    const pulse =
+                        Math.sin(offset + t * 6) * 4;
+
+                    const SCALE = 160;
+
+                    const leftWidth = 18 + urgent * SCALE;
+                    const middleWidth = 18 + maintenance * SCALE;
+                    const rightWidth = 18 + borrowed * SCALE;
+
+                    let baseWidth;
+
+                    if (t < 0.25) {
+
+                        let k = t / 0.25;
+                        k = k * k * (3 - 2 * k);
+
+                        baseWidth =
+                            leftWidth * (1 - k) +
+                            middleWidth * k;
+
+                    }
+                    else if (t < 0.75) {
+
+                        baseWidth = middleWidth;
+
+                    }
+                    else {
+
+                        let k = (t - 0.75) / 0.25;
+                        k = k * k * (3 - 2 * k);
+
+                        baseWidth =
+                            middleWidth * (1 - k) +
+                            rightWidth * k;
+
+                    }
+
+                    const breathing =
+                        1 + Math.sin(offset * 2) * 0.04;
+
+                    const MIN_WIDTH = 70;
+
+                    const width =
+                        Math.max(baseWidth, MIN_WIDTH) *
+                        taper *
+                        breathing *
+                        scale;
+
+                    const y =
+                        CENTER +
+                        wave +
+                        pulse;
+
+                    path += ` L ${x} ${y + width}`;
+                }
+
+                path += ` L ${WIDTH + 30} ${CENTER} Z`;
+
+                return path;
+            }
+
+            let time = 0;
+
+            function animate() {
+
+                time += 0.02;
+
+                glow.setAttribute("d", build(time - 0.22, 1.70));
+                outer.setAttribute("d", build(time - 0.12, 1.45));
+                middle.setAttribute("d", build(time - 0.05, 1.20));
+                ribbon.setAttribute("d", build(time, 1.00));
+                highlight.setAttribute("d", build(time + 0.04, 0.55));
+                bloom.setAttribute("d", build(time + 0.02, 1.55));
+
+                requestAnimationFrame(animate);
+            }
+
+            animate();
+        }
+    </script>
+
+    
+
+    <script>
+        const miniChartLabels = @json($miniChartLabels);
+
+        const urgentChartData = @json($urgentChartData);
+
+        const maintenanceChartData = @json($maintenanceChartData);
+
+        const borrowedChartData = @json($borrowedChartData);
+        
+
+        
+
+        // =====================================================
+        // SOFT SHADOW UNDER THE LINE
+        // =====================================================
+
+        const shadowPlugin={
+
+            id:"shadowPlugin",
+
+            beforeDatasetDraw(chart,args,pluginOptions){
+
+                const ctx=chart.ctx;
+
+                ctx.save();
+
+                ctx.shadowColor=pluginOptions.color;
+
+                ctx.shadowBlur=20;
+
+                ctx.shadowOffsetY=10;
+
+                ctx.shadowOffsetX=0;
+
+            },
+
+            afterDatasetDraw(chart){
+
+                chart.ctx.restore();
+
+            }
+
+        };
+
+        Chart.register(shadowPlugin);
+
+        // =====================================================
+        // CREATE MODERN MINIMALIST CHART
+        // =====================================================
+
+        function createPremiumChart(canvasId, lineColor, dataValues) {
+
+            const canvas = document.getElementById(canvasId);
+
+            if (!canvas) return;
+
+            const ctx = canvas.getContext("2d");
+
+            const fillGradient = ctx.createLinearGradient(0,0,0,140);
+
+            fillGradient.addColorStop(0,lineColor+"33");
+            fillGradient.addColorStop(.45,lineColor+"12");
+            fillGradient.addColorStop(1,"rgba(255,255,255,0)");
+
+            new Chart(ctx,{
+
+                type:"line",
+
+                data:{
+
+                    labels:miniChartLabels,
+
+                    datasets:[
+
+                        
+
+                        {
+
+                            data:dataValues,
+
+                            borderColor:lineColor,
+
+                            segment:{
+
+                                borderCapStyle:"round",
+
+                                borderJoinStyle:"round"
+
+                            },
+
+                            backgroundColor:fillGradient,
+
+                            fill:true,
+
+                            borderWidth:2.5,
+
+                            tension:.45,
+
+                            pointRadius(context){
+
+                                return context.dataIndex===dataValues.length-1
+                                    ?4
+                                    :0;
+
+                            },
+
+                            pointHoverRadius:6,
+
+                            pointBorderWidth:2,
+
+                            pointBackgroundColor:"#ffffff",
+
+                            pointBorderColor:lineColor,
+
+                            hitRadius:20
+
+                        }
+
+                        
+
+                    ]
+
+                },
+
+                options:{
+
+                    responsive:true,
+
+                    maintainAspectRatio:false,
+
+                    layout:{
+
+                        padding:{
+                            top:12,
+                            bottom:0,
+                            
+                        }
+
+                    },
+
+                    animation:{
+
+                        duration:1400,
+
+                        easing:"easeOutQuart"
+
+                    },
+
+                    interaction:{
+
+                        intersect:false,
+
+                        mode:"index"
+
+                    },
+
+                    plugins:{
+
+                        shadowPlugin:{
+
+                            color:lineColor
+
+                        },
+
+                        legend:{
+                            display:false
+                        },
+
+                        tooltip:{
+
+                            displayColors:false,
+
+                            backgroundColor:"#ffffff",
+
+                            titleColor:"#111827",
+
+                            bodyColor:"#111827",
+
+                            borderColor:"#E5E7EB",
+
+                            borderWidth:1,
+
+                            padding:10,
+
+                            callbacks:{
+
+                                label(context){
+
+                                    return context.raw+" Reports";
+
+                                }
+
+                            }
+
+                        }
+
+                    },
+
+                    scales:{
+
+                        x:{
+
+                            display:false,
+
+                            grid:{
+                                display:false
+                            }
+
+                        },
+
+                        y:{
+
+                            display:false,
+
+                            grid:{
+                                display:false
+                            }
+
+                        }
+
+                    }
+
+                }
+
+            });
+
+        }
+        // =====================================================
+        // URGENT REPORTS
+        // =====================================================
+
+        createPremiumChart(
+            "urgentChart",
+            "#ff4d67",
+            urgentChartData
+        );
+
+        // =====================================================
+        // UNDER MAINTENANCE
+        // =====================================================
+
+        createPremiumChart(
+            "maintenanceChart",
+            "#ffbf3f",
+            maintenanceChartData
+        );
+
+        // =====================================================
+        // BORROWED EQUIPMENT
+        // =====================================================
+
+        createPremiumChart(
+            "borrowedEquipmentChart",
+            "#38ef7d",
+            borrowedChartData
+        );
+
+        
+
+        
+    </script>
 
     {{-- ===================================================== --}}
     {{-- JAVASCRIPT --}}
@@ -4735,7 +5962,7 @@
                             // OTHER CIRCLES = DARK GRAY
                             // =================================================
 
-                            const textColor = isSmallestCircle ? "#BBC9FC" : "#475569";
+                            const textColor = isSmallestCircle ? "#BBC9FC" : "#012274";
 
                             // =================================================
                             // TOP OF CURRENT CIRCLE

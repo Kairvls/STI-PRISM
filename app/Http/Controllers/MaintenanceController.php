@@ -2007,6 +2007,210 @@ class MaintenanceController extends Controller
 
         }
 
+        // =====================================================
+        // MINI DASHBOARD CHARTS
+        // LAST 7 DAYS
+        // =====================================================
+
+        $miniChartStartDate = now()
+            ->copy()
+            ->subDays(6)
+            ->startOfDay();
+
+        $miniChartEndDate = now()
+            ->copy()
+            ->endOfDay();
+
+
+        // =====================================================
+        // URGENT REPORTS
+        // =====================================================
+
+        $urgentChartRows = DB::table('reports_table')
+
+            ->selectRaw('
+                DATE(report_submitted_at) AS chart_date,
+                COUNT(*) AS chart_count
+            ')
+
+            ->whereBetween(
+                'report_submitted_at',
+                [
+                    $miniChartStartDate,
+                    $miniChartEndDate,
+                ]
+            )
+
+            ->where(
+                'report_urgency_level',
+                'Urgent'
+            )
+
+            ->whereNotIn(
+                'report_current_status',
+                [
+                    'Resolved',
+                    'Rejected',
+                    'For Replacement',
+                ]
+            )
+
+            ->groupByRaw(
+                'DATE(report_submitted_at)'
+            )
+
+            ->orderByRaw(
+                'DATE(report_submitted_at)'
+            )
+
+            ->get()
+
+            ->keyBy('chart_date');
+
+
+        // =====================================================
+        // MAINTENANCE HISTORY
+        // =====================================================
+
+        $maintenanceChartRows = DB::table(
+            'equipment_maintenance_history_table'
+        )
+
+            ->selectRaw('
+                DATE(equipment_maintenance_created_at) AS chart_date,
+                COUNT(*) AS chart_count
+            ')
+
+            ->whereBetween(
+                'equipment_maintenance_created_at',
+                [
+                    $miniChartStartDate,
+                    $miniChartEndDate,
+                ]
+            )
+
+            ->groupByRaw(
+                'DATE(equipment_maintenance_created_at)'
+            )
+
+            ->orderByRaw(
+                'DATE(equipment_maintenance_created_at)'
+            )
+
+            ->get()
+
+            ->keyBy('chart_date');
+
+
+        // =====================================================
+        // BORROWING HISTORY
+        // =====================================================
+
+        $borrowedChartRows = DB::table(
+            'borrowing_records_table'
+        )
+
+            ->selectRaw('
+                borrowing_date AS chart_date,
+                COUNT(*) AS chart_count
+            ')
+
+            ->whereBetween(
+                'borrowing_date',
+                [
+                    $miniChartStartDate->toDateString(),
+                    $miniChartEndDate->toDateString(),
+                ]
+            )
+
+            ->groupBy(
+                'borrowing_date'
+            )
+
+            ->orderBy(
+                'borrowing_date'
+            )
+
+            ->get()
+
+            ->keyBy('chart_date');
+
+
+        // =====================================================
+        // BUILD COMPLETE 7 DAY ARRAYS
+        // =====================================================
+
+        $miniChartLabels = [];
+
+        $urgentChartData = [];
+
+        $maintenanceChartData = [];
+
+        $borrowedChartData = [];
+
+
+        for ($i = 6; $i >= 0; $i--) {
+
+            $date = now()
+                ->copy()
+                ->subDays($i);
+
+            $databaseDate =
+                $date->format('Y-m-d');
+
+            $miniChartLabels[] =
+                $date->format('D');
+
+
+            $urgentChartData[] =
+
+                (int)(
+
+                    optional(
+
+                        $urgentChartRows
+                            ->get($databaseDate)
+
+                    )->chart_count
+
+                    ?? 0
+
+                );
+
+
+            $maintenanceChartData[] =
+
+                (int)(
+
+                    optional(
+
+                        $maintenanceChartRows
+                            ->get($databaseDate)
+
+                    )->chart_count
+
+                    ?? 0
+
+                );
+
+
+            $borrowedChartData[] =
+
+                (int)(
+
+                    optional(
+
+                        $borrowedChartRows
+                            ->get($databaseDate)
+
+                    )->chart_count
+
+                    ?? 0
+
+                );
+
+        }
+
 
         // =====================================================
         // RETURN DASHBOARD VIEW
@@ -2099,7 +2303,15 @@ class MaintenanceController extends Controller
 
                 'maintenanceWorkloadData',
 
-                'maintenancePreviousWorkloadData'
+                'maintenancePreviousWorkloadData',
+
+                'miniChartLabels',
+
+                'urgentChartData',
+
+                'maintenanceChartData',
+
+                'borrowedChartData',
 
             )
 
