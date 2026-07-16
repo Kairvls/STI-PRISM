@@ -51,6 +51,43 @@
 
     <div class="sidebar-content">
 
+        <div class="sidebar-search">
+            <div class="sidebar-dropdown">
+                <div id="dropdownTrigger" class="dropdown-trigger">
+                    <div class="flex items-center gap-2">
+                        <i class="h-5 w-5" data-lucide="search"></i>
+                        <span id="selectedSection">Search...</span>
+                    </div>
+                </div>
+                <div id="dropdownMenu" class="dropdown-menu">
+                    <div class="dropdown-item" data-target="dashboard-section">
+                        Dashboard
+                    </div>
+                    <!--<div class="dropdown-item" data-target="reports-section">
+                        Reports & Reporters
+                    </div>-->
+                    <div
+                        class="dropdown-item"
+                        data-target="emergency-response-section"
+                    >
+                        Emergency Response
+                    </div>
+                    <div class="dropdown-item" data-target="procurement-section">
+                        Procurement
+                    </div>
+                    <div
+                        class="dropdown-item"
+                        data-target="purchasing-workflow-section"
+                    >
+                        Purchasing Workflow
+                    </div>
+                    <div class="dropdown-item" data-target="system-section">
+                        System
+                    </div>
+                </div>
+            </div>
+        </div>
+
 
         {{-- ===================================================== --}}
         {{-- QUICK ACTIONS --}}
@@ -152,7 +189,7 @@
         {{-- DASHBOARD SECTION --}}
         {{-- ===================================================== --}}
 
-        <div class="menu-title">
+        <div class="menu-title" id="dashboard-section">
             DASHBOARD
         </div>
 
@@ -187,7 +224,7 @@
         {{-- EMERGENCY RESPONSE SECTION --}}
         {{-- ===================================================== --}}
 
-        <div class="menu-title">
+        <div class="menu-title" id="emergency-response-section">
             EMERGENCY RESPONSE
         </div>
 
@@ -227,7 +264,7 @@
         {{-- PROCUREMENT SECTION --}}
         {{-- ===================================================== --}}
 
-        <div class="menu-title">
+        <div class="menu-title" id="procurement-section">
             PROCUREMENT
         </div>
 
@@ -291,7 +328,7 @@
         {{-- PURCHASING WORKFLOW SECTION --}}
         {{-- ===================================================== --}}
 
-        <div class="menu-title">
+        <div class="menu-title" id="purchasing-workflow-section">
             PURCHASING WORKFLOW
         </div>
 
@@ -410,7 +447,7 @@
         {{-- SYSTEM SECTION --}}
         {{-- ===================================================== --}}
 
-        <div class="menu-title">
+        <div class="menu-title" id="system-section">
             SYSTEM
         </div>
 
