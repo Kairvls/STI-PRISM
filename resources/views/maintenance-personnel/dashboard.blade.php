@@ -4775,7 +4775,7 @@
                     const breathing =
                         1 + Math.sin(offset * 2) * 0.04;
 
-                    const MIN_WIDTH = 70;
+                    const MIN_WIDTH = 0;
 
                     const width =
                         Math.max(baseWidth, MIN_WIDTH) *
