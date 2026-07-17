@@ -342,13 +342,16 @@
     (function initSignatureCanvas() {
         const canvas = document.getElementById('signatureCanvas');
         if (!canvas) return;
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+        // Clear to transparent background
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         // styling
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2.5;
         ctx.lineJoin = 'round';
         ctx.lineCap = 'round';
-        ctx.strokeStyle = '#111827';
+        ctx.strokeStyle = '#1f2937';
 
         let drawing = false;
         let lastX = 0;
@@ -383,6 +386,7 @@
 
         function end() {
             drawing = false;
+            captureSignature();
         }
 
         canvas.addEventListener('mousedown', start);

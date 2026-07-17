@@ -24,6 +24,25 @@
         </div>
     @endif
 
+    {{-- Filter Buttons --}}
+    @php
+        $filter = $filter ?? 'all';
+    @endphp
+    <div class="flex gap-2">
+        <a href="{{ route('admin.procurement-review') }}?filter=all" 
+           class="rounded-lg px-4 py-2 text-sm font-medium transition {{ $filter === 'all' ? 'bg-blue-600 text-white' : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50' }}">
+            All
+        </a>
+        <a href="{{ route('admin.procurement-review') }}?filter=approved" 
+           class="rounded-lg px-4 py-2 text-sm font-medium transition {{ $filter === 'approved' ? 'bg-green-600 text-white' : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50' }}">
+            Approved
+        </a>
+        <a href="{{ route('admin.procurement-review') }}?filter=rejected" 
+           class="rounded-lg px-4 py-2 text-sm font-medium transition {{ $filter === 'rejected' ? 'bg-red-600 text-white' : 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50' }}">
+            Rejected
+        </a>
+    </div>
+
     <div class="overflow-hidden rounded-lg border border-gray-200 bg-white">
         <div class="overflow-x-auto">
             <table class="w-full min-w-[900px]">
@@ -39,18 +58,18 @@
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     @forelse($risRecords as $ris)
-                        <tr>
-                            <td class="px-4 py-4 text-sm font-medium text-gray-900">
+                        <tr class="{{ $ris->ris_status !== 'Pending' ? 'bg-gray-50 opacity-60' : '' }}">
+                            <td class="px-4 py-4 text-sm font-medium {{ $ris->ris_status !== 'Pending' ? 'text-gray-600' : 'text-gray-900' }}">
                                 {{ $ris->ris_form_number ?? 'RIS-' . $ris->ris_id }}
                             </td>
-                            <td class="px-4 py-4 text-sm text-gray-600">
+                            <td class="px-4 py-4 text-sm {{ $ris->ris_status !== 'Pending' ? 'text-gray-500' : 'text-gray-600' }}">
                                 Request #{{ $ris->procurement_request_id ?? 'N/A' }}<br>
                                 <span class="text-xs text-gray-400">Report #{{ $ris->report_id ?? 'N/A' }}</span>
                             </td>
-                            <td class="px-4 py-4 text-sm text-gray-600">
+                            <td class="px-4 py-4 text-sm {{ $ris->ris_status !== 'Pending' ? 'text-gray-500' : 'text-gray-600' }}">
                                 {{ $ris->equipment_name ?? $ris->report_unlisted_equipment_name ?? 'Unknown Equipment' }}
                             </td>
-                            <td class="px-4 py-4 text-sm text-gray-600">
+                            <td class="px-4 py-4 text-sm {{ $ris->ris_status !== 'Pending' ? 'text-gray-500' : 'text-gray-600' }}">
                                 {{ $ris->ris_requested_by_signature ?? 'Purchaser' }}<br>
                                 <span class="text-xs text-gray-400">{{ $ris->ris_requested_by_date }}</span>
                             </td>
@@ -68,26 +87,37 @@
                                     @if($ris->ris_status === 'Pending')
                                         <form method="POST" action="{{ route('admin.procurement-review.ris.approve', $ris->ris_id) }}">
                                             @csrf
-                                            <button type="submit" class="rounded-lg bg-green-600 px-3 py-2 text-xs font-medium text-white">
+                                            <button type="submit" class="rounded-lg bg-green-600 px-3 py-2 text-xs font-medium text-white hover:bg-green-700">
                                                 Approve
-                                            </button>
-                                        </form>
-
-                                        <form method="POST" action="{{ route('admin.procurement-review.ris.reject', $ris->ris_id) }}">
-                                            @csrf
-                                            <button type="submit" class="rounded-lg bg-red-600 px-3 py-2 text-xs font-medium text-white">
-                                                Reject
                                             </button>
                                         </form>
                                     @endif
 
+                                    <button
+                                        type="button"
+                                        class="rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700"
+                                        onclick="openRisPreviewModal('{{ $ris->ris_id }}')"
+                                    >
+                                        Preview
+                                    </button>
+
                                     <a
                                         href="{{ route('admin.procurement-review.ris.print', $ris->ris_id) }}"
                                         target="_blank"
-                                        class="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700"
+                                        class="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium {{ $ris->ris_status !== 'Pending' ? 'text-gray-400 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-50' }}"
+                                        {{ $ris->ris_status !== 'Pending' ? 'disabled' : '' }}
                                     >
                                         View Form
                                     </a>
+
+                                    @if($ris->ris_status === 'Pending')
+                                        <form method="POST" action="{{ route('admin.procurement-review.ris.reject', $ris->ris_id) }}">
+                                            @csrf
+                                            <button type="submit" class="rounded-lg bg-red-600 px-3 py-2 text-xs font-medium text-white hover:bg-red-700">
+                                                Reject
+                                            </button>
+                                        </form>
+                                    @endif
                                 </div>
                             </td>
                         </tr>
@@ -100,13 +130,66 @@
                     @endforelse
                 </tbody>
             </table>
+            </div>
+        </div>
+
+        <div>
+            {{ $risRecords->links() }}
         </div>
     </div>
 
-    <div>
-        {{ $risRecords->links() }}
+{{-- ===================================================== --}}
+{{-- RIS PREVIEW MODAL --}}
+{{-- ===================================================== --}}
+<div id="risPreviewModal" class="fixed inset-0 z-50 hidden">
+    <div class="flex h-screen items-center justify-center bg-black/30 p-2 backdrop-blur-[2px]" onclick="closeRisPreviewModal()">
+        <div class="w-full max-w-6xl h-[calc(100vh-1rem)] overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]" onclick="event.stopPropagation()">
+            <div class="border-b border-gray-100 px-6 py-5">
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-950">RIS Form Preview</h3>
+                        <p id="risPreviewModalSubtitle" class="mt-1 text-sm text-slate-600">Requisition and Issue Slip</p>
+                    </div>
+                    <button type="button" class="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" onclick="closeRisPreviewModal()" aria-label="Close">
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="h-full overflow-auto bg-gray-50">
+                <iframe id="risPreviewIframe" class="w-full h-full" style="min-height: calc(100vh - 140px);" src="about:blank"></iframe>
+            </div>
+        </div>
     </div>
 </div>
+
+<script>
+    function openRisPreviewModal(risId) {
+        const modal = document.getElementById('risPreviewModal');
+        const iframe = document.getElementById('risPreviewIframe');
+        const subtitle = document.getElementById('risPreviewModalSubtitle');
+        
+        if (!modal || !iframe) return;
+
+        subtitle.textContent = `RIS #${risId}`;
+        
+        // Load the printable RIS form with cache-buster
+        iframe.src = `/admin/procurement-review/ris/${risId}/print?ts=${Date.now()}`;
+
+        // Ensure the modal is visible after setting src
+        modal.classList.remove('hidden');
+    }
+
+    function closeRisPreviewModal() {
+        const modal = document.getElementById('risPreviewModal');
+        const iframe = document.getElementById('risPreviewIframe');
+        
+        if (iframe) iframe.src = 'about:blank';
+        if (modal) modal.classList.add('hidden');
+    }
+</script>
 
 @endsection
 

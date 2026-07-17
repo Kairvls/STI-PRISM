@@ -125,6 +125,11 @@ Route::middleware(['auth', 'admin'])
             [AdminController::class, 'signatureHistory']
         )->name('digital-signatures.history');
 
+        Route::post(
+            '/digital-signatures/ris/decide',
+            [AdminController::class, 'decideRis']
+        )->name('digital-signatures.ris.decide');
+
         // ==========================================
         // NOTIFICATIONS
         // ==========================================

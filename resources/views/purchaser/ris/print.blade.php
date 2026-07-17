@@ -105,8 +105,7 @@
                 <p>Approved by:</p>
                 <div class="signature-line">
                     @if (!empty($ris->ris_approved_by_signature) && strpos($ris->ris_approved_by_signature, 'data:image/png;base64,') === 0)
-                        <img src="{{ $ris->ris_approved_by_signature }}" alt="President signature" class="signature-image" />
-                        <div class="signature-name">President</div>
+                        <img src="{{ $ris->ris_approved_by_signature }}" alt="Approved by signature" class="signature-image" />
                     @else
                         {{ $ris->ris_approved_by_signature }}
                     @endif
@@ -115,7 +114,13 @@
             </div>
             <div class="signature-box">
                 <p>Issued by:</p>
-                <div class="signature-line">{{ $ris->ris_issued_by_signature }}</div>
+                <div class="signature-line">
+                    @if (!empty($ris->ris_issued_by_signature) && strpos($ris->ris_issued_by_signature, 'data:image/png;base64,') === 0)
+                        <img src="{{ $ris->ris_issued_by_signature }}" alt="Issued by signature" class="signature-image" />
+                    @else
+                        {{ $ris->ris_issued_by_signature }}
+                    @endif
+                </div>
                 <div class="date-row"><span>Date:</span><div class="signature-line">{{ $ris->ris_issued_by_date }}</div></div>
             </div>
             <div class="signature-box">
