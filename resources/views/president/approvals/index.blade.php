@@ -49,6 +49,17 @@
                             <td class="px-2 py-4 text-sm text-gray-700">{{ $supplierName ?? '—' }}</td>
                             <td class="px-2 py-4">
                                 <div class="flex items-center justify-center gap-2">
+                                    {{-- View RIS (eye icon) --}}
+                                    <button
+                                        type="button"
+                                        class="inline-flex h-9 items-center justify-center rounded-lg bg-white px-3 text-xs font-semibold text-slate-700 border border-gray-200 transition hover:bg-gray-50"
+                                        title="View approved RIS form"
+                                        onclick="openRisFormModal('{{ $ris->ris_id }}')"
+                                    >
+                                        <i data-lucide="eye" class="h-4 w-4"></i>
+                                        View
+                                    </button>
+
                                     <button
                                         type="button"
                                         class="inline-flex h-9 items-center justify-center rounded-lg bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 border border-emerald-200 transition hover:bg-emerald-100"
@@ -85,6 +96,30 @@
 {{-- ============================== --}}
 {{-- DECISION MODAL (single, dynamic) --}}
 {{-- ============================== --}}
+<div id="risFormModal" class="fixed inset-0 z-50 hidden">
+    <div class="flex h-screen items-center justify-center bg-black/30 p-2 backdrop-blur-[2px]" onclick="closeRisFormModal()">
+        <div class="w-full max-w-6xl h-[calc(100vh-1rem)] overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]" onclick="event.stopPropagation()">
+            <div class="border-b border-gray-100 px-6 py-5">
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-950">RIS Form</h3>
+                        <p id="risFormModalSubtitle" class="mt-1 text-sm text-slate-600">Preview of the approved RIS</p>
+                    </div>
+                    <button type="button" class="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" onclick="closeRisFormModal()" aria-label="Close">
+                        <i data-lucide="x" class="h-4 w-4"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="h-full">
+                <div class="h-full w-full overflow-hidden rounded-b-2xl border border-gray-200 bg-gray-50">
+                    <iframe id="risFormIframe" class="w-full h-full" style="min-height: calc(100vh - 140px);" src="about:blank"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div id="decisionModal" class="fixed inset-0 z-50 hidden">
     <div class="flex min-h-screen items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]" onclick="closeDecisionModal()">
         <div class="w-full max-w-lg overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]" onclick="event.stopPropagation()">
@@ -108,6 +143,7 @@
                     <input type="hidden" name="decision" id="targetDecision" value="" />
                     {{-- In-memory signature capture (no persistence) --}}
                     <input type="hidden" name="signature_data" id="signatureData" value="" />
+                    <input type="hidden" name="signature_used" id="signatureUsed" value="0" />
 
                     <div class="space-y-3">
                         <div>
@@ -135,6 +171,14 @@
                                             Use signature
                                         </button>
                                     </div>
+
+                                    <div class="mt-4 hidden" id="signatureHelpText">
+                                        <p class="text-sm text-slate-500">Your signature is captured and ready. Click Confirm Approval below to finish.</p>
+                                    </div>
+
+                                    <div class="mt-4 hidden" id="confirmApprovalSection">
+                                        <button type="submit" class="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-700" onclick="document.getElementById('targetDecision').value='Approved';">Confirm Approval</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -149,9 +193,9 @@
                 <div class="flex items-center justify-end gap-2 border-t border-gray-100 px-6 py-4">
                     <button type="button" class="rounded-lg px-3.5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950" onclick="closeDecisionModal()">Cancel</button>
 
-                    <button type="submit" class="rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-700" onclick="document.getElementById('targetDecision').value='Approved'; document.getElementById('signatureBlock').classList.remove('hidden'); captureSignature();">Approve</button>
+                            <button type="button" class="rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-700" onclick="prepareApproveDecision()">Approve</button>
 
-                    <button type="submit" class="rounded-lg bg-rose-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-rose-700" onclick="document.getElementById('targetDecision').value='Rejected';">Reject</button>
+                        <button type="submit" class="rounded-lg bg-rose-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-rose-700" onclick="document.getElementById('targetDecision').value='Rejected';">Reject</button>
                 </div>
             </form>
         </div>
@@ -171,8 +215,10 @@
         const signatureBlock = document.getElementById('signatureBlock');
         const signatureCanvas = document.getElementById('signatureCanvas');
         const signatureDataInput = document.getElementById('signatureData');
+        const signatureUsedInput = document.getElementById('signatureUsed');
 
         if (signatureDataInput) signatureDataInput.value = '';
+        if (signatureUsedInput) signatureUsedInput.value = '0';
         if (signatureCanvas) {
             const ctx = signatureCanvas.getContext('2d');
             ctx.clearRect(0, 0, signatureCanvas.width, signatureCanvas.height);
@@ -192,6 +238,11 @@
             signatureBlock.classList.toggle('hidden', !isApproved);
         }
 
+        const signatureHelpText = document.getElementById('signatureHelpText');
+        const confirmApprovalSection = document.getElementById('confirmApprovalSection');
+        if (signatureHelpText) signatureHelpText.classList.add('hidden');
+        if (confirmApprovalSection) confirmApprovalSection.classList.add('hidden');
+
         modal.classList.remove('hidden');
 
         if (window.lucide) {
@@ -203,29 +254,90 @@
         document.getElementById('decisionModal').classList.add('hidden');
     }
 
+    function prepareApproveDecision() {
+        const targetDecision = document.getElementById('targetDecision');
+        const signatureBlock = document.getElementById('signatureBlock');
+        const confirmApprovalSection = document.getElementById('confirmApprovalSection');
+        const signatureHelpText = document.getElementById('signatureHelpText');
+
+        if (targetDecision) targetDecision.value = 'Approved';
+        if (signatureBlock) signatureBlock.classList.remove('hidden');
+        if (confirmApprovalSection) confirmApprovalSection.classList.add('hidden');
+        if (signatureHelpText) signatureHelpText.classList.add('hidden');
+    }
+
+    // =====================================================
+    // RIS FORM PREVIEW MODAL
+    // =====================================================
+
+    function openRisFormModal(risId) {
+        const modal = document.getElementById('risFormModal');
+        const iframe = document.getElementById('risFormIframe');
+        if (!modal || !iframe) return;
+
+        // Load the printable RIS form.
+        // Cache-buster avoids iframe showing a previous RIS.
+        iframe.src = `/president/ris/${risId}/print?ts=${Date.now()}`;
+
+        // Ensure the modal is visible after setting src.
+        modal.classList.remove('hidden');
+    }
+
+    function closeRisFormModal() {
+        const modal = document.getElementById('risFormModal');
+        const iframe = document.getElementById('risFormIframe');
+        if (iframe) iframe.src = 'about:blank';
+        if (modal) modal.classList.add('hidden');
+    }
+
     // =====================================================
     // SIGNATURE CANVAS (in-memory capture only)
     // =====================================================
 
+
     function clearSignature() {
         const canvas = document.getElementById('signatureCanvas');
         const input = document.getElementById('signatureData');
+        const usedInput = document.getElementById('signatureUsed');
+        const signatureHelpText = document.getElementById('signatureHelpText');
+        const confirmApprovalSection = document.getElementById('confirmApprovalSection');
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         if (input) input.value = '';
+        if (usedInput) usedInput.value = '0';
+        if (signatureHelpText) signatureHelpText.classList.add('hidden');
+        if (confirmApprovalSection) confirmApprovalSection.classList.add('hidden');
     }
 
     function captureSignature() {
         const canvas = document.getElementById('signatureCanvas');
         const input = document.getElementById('signatureData');
-        if (!canvas || !input) return;
+        const usedInput = document.getElementById('signatureUsed');
+        const signatureHelpText = document.getElementById('signatureHelpText');
+        const confirmApprovalSection = document.getElementById('confirmApprovalSection');
+        if (!canvas || !input || !usedInput) return;
 
-        const isEmpty = canvas.toDataURL('image/png');
-        // store data URL (not persisted by backend in this version)
-        input.value = canvas.toDataURL('image/png');
-        return isEmpty;
+        const dataUrl = canvas.toDataURL('image/png');
+        input.value = dataUrl;
+        usedInput.value = '1';
+
+        if (signatureHelpText) signatureHelpText.classList.remove('hidden');
+        if (confirmApprovalSection) confirmApprovalSection.classList.remove('hidden');
+
+        return dataUrl;
     }
+
+    document.getElementById('decisionForm')?.addEventListener('submit', function (event) {
+        const decision = document.getElementById('targetDecision')?.value;
+        const signatureUsed = document.getElementById('signatureUsed')?.value;
+
+        if (decision === 'Approved' && signatureUsed !== '1') {
+            event.preventDefault();
+            alert('Please sign the RIS before confirming approval.');
+            return false;
+        }
+    });
 
     (function initSignatureCanvas() {
         const canvas = document.getElementById('signatureCanvas');

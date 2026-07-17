@@ -32,6 +32,8 @@
         .signatures { margin-top: 28px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; font-size: 14px; }
         .signature-box p { margin: 0 0 38px; }
         .signature-line { border-bottom: 1px solid #111827; min-height: 20px; text-align: center; font-size: 12px; }
+        .signature-image { display: block; max-height: 72px; margin: 0 auto 4px; }
+        .signature-name { margin-top: 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
         .date-row { margin-top: 16px; display: grid; grid-template-columns: 40px 1fr; gap: 6px; align-items: end; }
 
         @media print {
@@ -101,7 +103,14 @@
             </div>
             <div class="signature-box">
                 <p>Approved by:</p>
-                <div class="signature-line">{{ $ris->ris_approved_by_signature }}</div>
+                <div class="signature-line">
+                    @if (!empty($ris->ris_approved_by_signature) && strpos($ris->ris_approved_by_signature, 'data:image/png;base64,') === 0)
+                        <img src="{{ $ris->ris_approved_by_signature }}" alt="President signature" class="signature-image" />
+                        <div class="signature-name">President</div>
+                    @else
+                        {{ $ris->ris_approved_by_signature }}
+                    @endif
+                </div>
                 <div class="date-row"><span>Date:</span><div class="signature-line">{{ $ris->ris_approved_by_date }}</div></div>
             </div>
             <div class="signature-box">

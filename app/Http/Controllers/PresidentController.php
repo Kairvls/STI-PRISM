@@ -112,7 +112,22 @@ class PresidentController extends Controller
 
     public function approvalHistory(): View
     {
-        return view('president.approvals.approval-history');
+        // Fetch RIS records that have been approved by the President
+        $approvalHistoryRecords = \DB::table('requisition_issue_slip_table')
+            ->select(
+                'requisition_issue_slip_table.ris_id',
+                'requisition_issue_slip_table.ris_form_number',
+                'requisition_issue_slip_table.ris_status',
+                'requisition_issue_slip_table.ris_approved_by_date'
+            )
+            ->where('requisition_issue_slip_table.ris_status', 'Approved')
+            ->whereNotNull('requisition_issue_slip_table.ris_approved_by_signature')
+            ->orderByDesc('requisition_issue_slip_table.ris_approved_by_date')
+            ->get();
+
+        return view('president.approvals.approval-history', [
+            'approvalHistoryRecords' => $approvalHistoryRecords,
+        ]);
     }
 
     public function digitalSignature(): View
@@ -147,12 +162,22 @@ class PresidentController extends Controller
             return back()->with('error', 'Only RIS records approved by Admin can be decided by President.');
         }
 
+        $updateValues = [
+            'ris_status' => $decision === 'Approved' ? 'Approved' : 'Rejected',
+        ];
+
+        if ($decision === 'Approved') {
+            $signatureData = $request->input('signature_data');
+            if (empty($signatureData)) {
+                return back()->with('error', 'President signature is required to approve the RIS.');
+            }
+            $updateValues['ris_approved_by_signature'] = $signatureData;
+            $updateValues['ris_approved_by_date'] = now()->toDateString();
+        }
+
         \DB::table('requisition_issue_slip_table')
             ->where('ris_id', $targetId)
-            ->update([
-                'ris_status' => $decision === 'Approved' ? 'Approved' : 'Rejected',
-                'ris_approved_by_date' => now(),
-            ]);
+            ->update($updateValues);
 
         // approval logs (optional but useful)
         try {

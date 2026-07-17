@@ -1351,6 +1351,17 @@ Route::middleware([
             '/profile',
             [PresidentController::class, 'profile']
         )->name('profile');
+        
+        // =====================================================
+        // PRESIDENT: PRINTABLE RIS FOR APPROVAL PREVIEW
+        // Exposes the Purchaser printable RIS view under the
+        // president prefix so the president can preview RIS forms.
+        // =====================================================
+        Route::get(
+            '/ris/{ris}/print',
+            [PurchaserController::class, 'printRis']
+        )
+            ->name('ris.print');
     
     });
 

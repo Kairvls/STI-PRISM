@@ -83,6 +83,7 @@
                         <th class="px-2 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Decision</th>
                         <th class="px-2 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Remarks</th>
                         <th class="px-2 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Date</th>
+                        <th class="px-2 py-3 text-center text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="historyTableBody">
@@ -102,13 +103,14 @@
                     @isset($approvalHistoryRecords)
                         @forelse($approvalHistoryRecords as $row)
                             @php
-                                $type = $row->type ?? $row->reference_type ?? '—';
+                                $type = $row->type ?? $row->reference_type ?? 'RIS';
                                 $reference = $row->reference ?? ($row->ris_id ? 'RIS#'.$row->ris_id : ($row->procurement_request_id ? 'PR#'.$row->procurement_request_id : '—'));
-                                $supplier = $row->supplier_name ?? $row->party_name ?? '—';
-                                $decision = $row->decision ?? $row->approval_status ?? '—';
+                                $supplier = '—';
+                                $decision = $row->decision ?? $row->ris_status ?? 'Approved';
                                 $remarks = $row->remarks ?? $row->approval_remarks ?? null;
-                                $decidedAt = $row->decided_at ?? $row->approved_at ?? $row->approval_date ?? null;
+                                $decidedAt = $row->decided_at ?? $row->ris_approved_by_date ?? null;
                                 $decisionLower = is_string($decision) ? strtolower($decision) : '';
+                                $risId = $row->ris_id ?? null;
                             @endphp
 
                             <tr class="border-b border-gray-100 history-row" 
@@ -130,15 +132,24 @@
                                 <td class="px-2 py-4 text-sm text-gray-700">
                                     {{ $decidedAt ? 
                                         (is_object($decidedAt)
-                                            ? $decidedAt->format('Y-m-d H:i')
-                                            : date('Y-m-d H:i', strtotime((string)$decidedAt))
+                                            ? $decidedAt->format('Y-m-d')
+                                            : date('Y-m-d', strtotime((string)$decidedAt))
                                         ) : '—'
                                     }}
+                                </td>
+                                <td class="px-2 py-4 text-center">
+                                    @if ($type === 'RIS' && $risId)
+                                        <button type="button" class="inline-flex h-8 items-center justify-center rounded-lg bg-white px-2.5 text-xs font-semibold text-slate-700 border border-gray-200 transition hover:bg-gray-50" title="View approved RIS form" onclick="openRisViewModal({{ $risId }})">
+                                            <i data-lucide="eye" class="h-4 w-4"></i>
+                                        </button>
+                                    @else
+                                        <span class="text-xs text-gray-400">—</span>
+                                    @endif
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="px-2 py-12 text-center">
+                                <td colspan="7" class="px-2 py-12 text-center">
                                     <p class="text-sm font-semibold text-gray-800">No approval records found.</p>
                                     <p class="mt-1 text-xs text-gray-500">When backend data is wired, the table will automatically populate here.</p>
                                 </td>
@@ -146,7 +157,7 @@
                         @endforelse
                     @else
                         <tr>
-                            <td colspan="6" class="px-2 py-12 text-center">
+                            <td colspan="7" class="px-2 py-12 text-center">
                                 <p class="text-sm font-semibold text-gray-800">Approval history UI is ready.</p>
                                 <p class="mt-1 text-xs text-gray-500">Backend data will populate this table once the controller is updated.</p>
                             </td>
@@ -159,7 +170,49 @@
     </section>
 </div>
 
+<div id="risViewModal" class="fixed inset-0 z-50 hidden">
+    <div class="flex h-screen items-center justify-center bg-black/30 p-2 backdrop-blur-[2px]" onclick="closeRisViewModal()">
+        <div class="w-full max-w-6xl h-[calc(100vh-1rem)] overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]" onclick="event.stopPropagation()">
+            <div class="border-b border-gray-100 px-6 py-5">
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-950">RIS Form</h3>
+                        <p id="risViewTitle" class="mt-1 text-sm text-slate-600">Approved RIS</p>
+                    </div>
+                    <button type="button" class="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" onclick="closeRisViewModal()" aria-label="Close">
+                        <i data-lucide="x" class="h-4 w-4"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="h-full">
+                <div class="h-full w-full overflow-hidden rounded-b-2xl border border-gray-200 bg-gray-50">
+                    <iframe id="risViewIframe" class="w-full h-full" style="min-height: calc(100vh - 140px);" src="about:blank"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
+    function openRisViewModal(risId) {
+        const modal = document.getElementById('risViewModal');
+        const iframe = document.getElementById('risViewIframe');
+        const title = document.getElementById('risViewTitle');
+        if (!modal || !iframe) return;
+
+        iframe.src = `/president/ris/${risId}/print?ts=${Date.now()}`;
+        if (title) title.textContent = `RIS #${risId}`;
+        modal.classList.remove('hidden');
+    }
+
+    function closeRisViewModal() {
+        const modal = document.getElementById('risViewModal');
+        const iframe = document.getElementById('risViewIframe');
+        if (iframe) iframe.src = 'about:blank';
+        if (modal) modal.classList.add('hidden');
+    }
+
     function setHistoryCount() {
         const body = document.getElementById('historyTableBody');
         const rows = body ? body.querySelectorAll('.history-row') : [];
