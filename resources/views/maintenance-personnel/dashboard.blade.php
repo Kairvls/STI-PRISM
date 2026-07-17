@@ -3133,7 +3133,7 @@
 
         }
 
-        
+
 
         .premium-chart{
 
@@ -3143,7 +3143,7 @@
 
             margin-top:14px;
 
-            
+
 
         }
 
@@ -3366,11 +3366,14 @@
 
         .flow-area{
 
-            position:relative;
+            position: relative;
+            margin-top: 45px;
+            height: 240px;
 
-            margin-top:45px;
+            margin-left: -34px;
+            margin-right: -34px;
 
-            height:240px;
+            width: calc(100% + 68px);
 
         }
 
@@ -3383,19 +3386,17 @@
         }
 
         .flow-badge{
+            width:100%;
+            height:100%;
 
-            position:absolute;
-
-            padding:10px 18px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
 
             border-radius:999px;
-
             font-weight:700;
-
             font-size:14px;
-
-            color:#111827;
-
+            box-sizing:border-box;
         }
 
         .glass{
@@ -3446,77 +3447,7 @@
 
         }
 
-        .badge-left-top{
-
-            left:3%;
-
-            top:20px;
-
-        }
-
-        .line-left{
-
-            left:5.5%;
-
-            top:54px;
-
-        }
-
-        .badge-left-bottom{
-
-            left:3%;
-
-            bottom:8px;
-
-        }
-
-        .badge-center{
-
-            left:47%;
-
-            top:5px;
-
-        }
-
-        .line-center{
-
-            left:50%;
-
-            top:42px;
-
-        }
-
-        .badge-center-bottom{
-
-            left:47%;
-
-            bottom:8px;
-
-        }
-
-        .badge-right-top{
-
-            right:3%;
-
-            top:20px;
-
-        }
-
-        .line-right{
-
-            right:5.5%;
-
-            top:54px;
-
-        }
-
-        .badge-right-bottom{
-
-            right:3%;
-
-            bottom:8px;
-
-        }
+        
 
         #glowLayer{
 
@@ -3580,7 +3511,7 @@
 
         }
 
-        
+
     </style>
 
     <!-- ═══════════════════════════════════════════════════ MAIN -->
@@ -3770,156 +3701,84 @@
                     $maintenancePercent = round(($underMaintenance / $total) * 100);
                     $borrowedPercent = round(($borrowedEquipment / $total) * 100);
                 @endphp
-
                 <div class="flow-card">
 
-                    {{-- Header --}}
-                    <div class="flow-header">
+                    <div >
+                        {{-- Header --}}
+                        <div class="flow-header">
+                            <div>
+                                <p class="flow-subtitle">Dashboard Overview</p>
 
-                        <div>
+                                <h2 class="flow-title">Equipment Statistics</h2>
+                            </div>
 
-                            <p class="flow-subtitle">
-                                Dashboard Overview
-                            </p>
-
-                            <h2 class="flow-title">
-                                Equipment Statistics
-                            </h2>
-
+                            <button class="flow-menu">
+                                <i data-lucide="more-vertical"></i>
+                            </button>
                         </div>
 
-                        <button class="flow-menu">
+                        {{-- Statistics --}}
+                        <div class="flow-stats">
+                            <div class="flow-stat">
+                                <h2>{{ $urgentReports }}</h2>
 
-                            <i data-lucide="more-vertical"></i>
+                                <p>Urgent Reports</p>
+                            </div>
 
-                        </button>
+                            <div class="flow-stat">
+                                <h2>{{ $underMaintenance }}</h2>
 
+                                <p>Under Maintenance</p>
+                            </div>
+
+                            <div class="flow-stat">
+                                <h2>{{ $borrowedEquipment }}</h2>
+
+                                <p>Borrowed Equipment</p>
+                            </div>
+                        </div>
+
+                        
                     </div>
-
-
-
-                    {{-- Statistics --}}
-                    <div class="flow-stats">
-
-                        <div class="flow-stat">
-
-                            <h2>{{ $urgentReports }}</h2>
-
-                            <p>Urgent Reports</p>
-
-                        </div>
-
-                        <div class="flow-stat">
-
-                            <h2>{{ $underMaintenance }}</h2>
-
-                            <p>Under Maintenance</p>
-
-                        </div>
-
-                        <div class="flow-stat">
-
-                            <h2>{{ $borrowedEquipment }}</h2>
-
-                            <p>Borrowed Equipment</p>
-
-                        </div>
-
-                    </div>
-
-
-
                     {{-- FLOW AREA --}}
                     <div class="flow-area">
-
                         {{-- LEFT BADGE --}}
 
-                        <div class="flow-badge glass badge-left-top">
-
-                            {{ $urgentPercent }}%
-
-                        </div>
-
-                        <div class="flow-line line-left"></div>
-
-                        <div class="flow-badge glass badge-left-bottom">
-
-                            {{ max(0,$urgentPercent-4) }}%
-
-                        </div>
-
-
-
-                        {{-- CENTER BADGE --}}
-
-                        <div class="flow-badge glass badge-center">
-
-                            {{ $maintenancePercent }}%
-
-                        </div>
-
-                        <div class="flow-line line-center"></div>
-
-                        <div class="flow-badge glass badge-center-bottom">
-
-                            {{ max(0,$maintenancePercent-5) }}%
-
-                        </div>
-
-
-
-                        {{-- RIGHT BADGE --}}
-
-                        <div class="flow-badge glass badge-right-top">
-
-                            {{ $borrowedPercent }}%
-
-                        </div>
-
-                        <div class="flow-line line-right"></div>
-
-                        <div class="flow-badge glass badge-right-bottom">
-
-                            {{ max(0,$borrowedPercent-6) }}%
-
-                        </div>
-
-
+                        
 
                         <svg
                             id="flowRibbon"
                             class="flow-svg"
                             viewBox="0 0 1000 220"
-                            preserveAspectRatio="none">
-
+                            preserveAspectRatio="none"
+                        >
                             <defs>
-
                                 {{-- ===================================================== --}}
                                 {{-- SOFT GLOW --}}
                                 {{-- ===================================================== --}}
 
-                                <filter id="glowBlur"
-                                        x="-40%"
-                                        y="-80%"
-                                        width="180%"
-                                        height="260%">
-
-                                    <feGaussianBlur stdDeviation="28"/>
-
+                                <filter
+                                    id="glowBlur"
+                                    x="-40%"
+                                    y="-80%"
+                                    width="180%"
+                                    height="260%"
+                                >
+                                    <feGaussianBlur stdDeviation="28" />
                                 </filter>
 
                                 {{-- ===================================================== --}}
                                 {{-- LIGHT BLOOM --}}
                                 {{-- ===================================================== --}}
 
-                                <filter id="softBlur"
-                                        x="-30%"
-                                        y="-60%"
-                                        width="160%"
-                                        height="220%">
-
-                                    <feGaussianBlur stdDeviation="10"/>
-
+                                <filter
+                                    id="softBlur"
+                                    x="-30%"
+                                    y="-60%"
+                                    width="160%"
+                                    height="220%"
+                                >
+                                    <feGaussianBlur stdDeviation="10" />
                                 </filter>
 
                                 {{-- ===================================================== --}}
@@ -3931,22 +3790,21 @@
                                     x1="0%"
                                     y1="0%"
                                     x2="100%"
-                                    y2="0%">
+                                    y2="0%"
+                                >
+                                    <stop offset="0%" stop-color="#37ff4f" />
 
-                                    <stop offset="0%" stop-color="#37ff4f"/>
+                                    <stop offset="16%" stop-color="#59ff57" />
 
-                                    <stop offset="16%" stop-color="#59ff57"/>
+                                    <stop offset="34%" stop-color="#bfff4d" />
 
-                                    <stop offset="34%" stop-color="#bfff4d"/>
+                                    <stop offset="48%" stop-color="#ffe45a" />
 
-                                    <stop offset="48%" stop-color="#ffe45a"/>
+                                    <stop offset="63%" stop-color="#ffbf53" />
 
-                                    <stop offset="63%" stop-color="#ffbf53"/>
+                                    <stop offset="80%" stop-color="#ff7c38" />
 
-                                    <stop offset="80%" stop-color="#ff7c38"/>
-
-                                    <stop offset="100%" stop-color="#ff4949"/>
-
+                                    <stop offset="100%" stop-color="#ff4949" />
                                 </linearGradient>
 
                                 {{-- ===================================================== --}}
@@ -3958,20 +3816,26 @@
                                     x1="0%"
                                     y1="0%"
                                     x2="0%"
-                                    y2="100%">
+                                    y2="100%"
+                                >
+                                    <stop
+                                        offset="0%"
+                                        stop-color="rgba(255,255,255,.95)"
+                                    />
 
-                                    <stop offset="0%"
-                                        stop-color="rgba(255,255,255,.95)"/>
+                                    <stop
+                                        offset="55%"
+                                        stop-color="rgba(255,255,255,.25)"
+                                    />
 
-                                    <stop offset="55%"
-                                        stop-color="rgba(255,255,255,.25)"/>
-
-                                    <stop offset="100%"
-                                        stop-color="rgba(255,255,255,0)"/>
-
+                                    <stop
+                                        offset="100%"
+                                        stop-color="rgba(255,255,255,0)"
+                                    />
                                 </linearGradient>
-
                             </defs>
+
+                            
 
                             {{-- ===================================================== --}}
                             {{-- OUTER GLOW --}}
@@ -3981,7 +3845,8 @@
                                 id="glowLayer"
                                 filter="url(#glowBlur)"
                                 fill="url(#flowGradient)"
-                                opacity=".16"/>
+                                opacity=".16"
+                            />
 
                             {{-- ===================================================== --}}
                             {{-- OUTER TRANSLUCENT RIBBON --}}
@@ -3990,7 +3855,8 @@
                             <path
                                 id="outerRibbon"
                                 fill="url(#flowGradient)"
-                                opacity=".18"/>
+                                opacity=".18"
+                            />
 
                             {{-- ===================================================== --}}
                             {{-- MIDDLE TRANSLUCENT RIBBON --}}
@@ -3999,15 +3865,14 @@
                             <path
                                 id="middleRibbon"
                                 fill="url(#flowGradient)"
-                                opacity=".36"/>
+                                opacity=".36"
+                            />
 
                             {{-- ===================================================== --}}
                             {{-- MAIN RIBBON --}}
                             {{-- ===================================================== --}}
 
-                            <path
-                                id="mainRibbon"
-                                fill="url(#flowGradient)"/>
+                            <path id="mainRibbon" fill="url(#flowGradient)" />
 
                             {{-- ===================================================== --}}
                             {{-- GLOSS --}}
@@ -4016,7 +3881,8 @@
                             <path
                                 id="highlightRibbon"
                                 fill="url(#highlightGradient)"
-                                opacity=".85"/>
+                                opacity=".85"
+                            />
 
                             {{-- ===================================================== --}}
                             {{-- SOFT BLOOM --}}
@@ -4026,11 +3892,110 @@
                                 id="softBloom"
                                 filter="url(#softBlur)"
                                 fill="url(#flowGradient)"
-                                opacity=".10"/>
+                                opacity=".10"
+                            />
 
+                            {{-- ===================================================== --}}
+                            {{-- GUIDE LINES --}}
+                            {{-- ===================================================== --}}
+
+                            <line
+                                x1="120"
+                                y1="72"
+                                x2="120"
+                                y2="160"
+                                stroke="#94a3b8"
+                                stroke-width="2"
+                                stroke-dasharray="6 6"
+                                opacity=".9"
+                            />
+
+                            <line
+                                x1="500"
+                                y1="72"
+                                x2="500"
+                                y2="160"
+                                stroke="#94a3b8"
+                                stroke-width="2"
+                                stroke-dasharray="6 6"
+                                opacity=".9"
+                            />
+
+                            <line
+                                x1="880"
+                                y1="72"
+                                x2="880"
+                                y2="160"
+                                stroke="#94a3b8"
+                                stroke-width="2"
+                                stroke-dasharray="6 6"
+                                opacity=".9"
+                            />
+
+                            <foreignObject
+                                x="85"
+                                y="10"
+                                width="70"
+                                height="40"
+                            >
+                                <div xmlns="http://www.w3.org/1999/xhtml" class="flow-badge glass">
+                                    {{ $urgentPercent }}%
+                                </div>
+                            </foreignObject>
+
+                            <foreignObject
+                                x="465"
+                                y="0"
+                                width="70"
+                                height="40"
+                            >
+                                <div xmlns="http://www.w3.org/1999/xhtml" class="flow-badge badge-center">
+                                    {{ $maintenancePercent }}%
+                                </div>
+                            </foreignObject>
+
+                            <foreignObject
+                                x="845"
+                                y="10"
+                                width="70"
+                                height="40"
+                            >
+                                <div xmlns="http://www.w3.org/1999/xhtml" class="flow-badge glass">
+                                    {{ $borrowedPercent }}%
+                                </div>
+                            </foreignObject>
+
+                            <foreignObject
+                                x="85"
+                                y="170"
+                                width="70"
+                                height="40">
+                                <div xmlns="http://www.w3.org/1999/xhtml" class="flow-badge glass">
+                                    {{ $urgentPercent }}%
+                                </div>
+                            </foreignObject>
+
+                            <foreignObject
+                                x="465"
+                                y="170"
+                                width="70"
+                                height="40">
+                                <div xmlns="http://www.w3.org/1999/xhtml" class="flow-badge badge-center">
+                                    {{ $maintenancePercent }}%
+                                </div>
+                            </foreignObject>
+
+                            <foreignObject
+                                x="845"
+                                y="170"
+                                width="70"
+                                height="40">
+                                <div xmlns="http://www.w3.org/1999/xhtml" class="flow-badge glass">
+                                    {{ $borrowedPercent }}%
+                                </div>
+                            </foreignObject>
                         </svg>
                     </div>
-
                 </div>
 
                 <!-- ══ URGENT REPORTS PIPELINE ══ -->
@@ -4137,8 +4102,6 @@
                                 {{-- ================================================= --}}
                                 {{-- MEDIA AREA --}}
                                 {{-- ================================================= --}}
-
-                                
 
                                 {{-- ================================================= --}}
                                 {{-- CARD CONTENT --}}
@@ -4689,7 +4652,6 @@
         });
 
         function createRibbon() {
-
             const glow = document.getElementById("glowLayer");
             const outer = document.getElementById("outerRibbon");
             const middle = document.getElementById("middleRibbon");
@@ -4701,7 +4663,12 @@
                 return;
             }
 
-            const total = {{ max(1, $urgentReports + $underMaintenance + $borrowedEquipment) }};
+            const total = {{
+            max(
+                1,
+                $urgentReports + $underMaintenance + $borrowedEquipment,
+            )
+        }};
 
             const urgent = {{ $urgentReports }} / total;
             const maintenance = {{ $underMaintenance }} / total;
@@ -4710,8 +4677,11 @@
             const WIDTH = 1000;
             const CENTER = 110;
 
-            function build(offset, scale = 1) {
+            function smoothstep(x) {
+                return x * x * (3 - 2 * x);
+            }
 
+            function build(offset, scale = 1) {
                 let path = "";
 
                 // ==========================
@@ -4719,14 +4689,15 @@
                 // ==========================
 
                 for (let x = 0; x <= WIDTH; x += 8) {
-
                     const t = x / WIDTH;
 
-                    const leftFade =
-                        Math.sin(Math.min(t, 0.12) / 0.12 * Math.PI / 2);
+                    const leftFade = Math.sin(
+                        ((Math.min(t, 0.12) / 0.12) * Math.PI) / 2,
+                    );
 
-                    const rightFade =
-                        Math.sin(Math.min(1 - t, 0.12) / 0.12 * Math.PI / 2);
+                    const rightFade = Math.sin(
+                        ((Math.min(1 - t, 0.12) / 0.12) * Math.PI) / 2,
+                    );
 
                     const taper = Math.min(leftFade, rightFade);
 
@@ -4735,68 +4706,38 @@
                         Math.sin(t * Math.PI * 6 - offset * 1.2) * 2.5 +
                         Math.cos(t * Math.PI * 10) * 1.2;
 
-                    const pulse =
-                        Math.sin(offset + t * 6) * 4;
+                    const pulse = Math.sin(offset + t * 6) * 4;
 
                     const SCALE = 160;
+                    const MIN = 3;
 
-                    const leftWidth = 18 + urgent * SCALE;
-                    const middleWidth = 18 + maintenance * SCALE;
-                    const rightWidth = 18 + borrowed * SCALE;
+                    const leftWidth = urgent > 0 ? MIN + urgent * SCALE : 0;
+                    const middleWidth = maintenance > 0 ? MIN + maintenance * SCALE : 0;
+                    const rightWidth = borrowed > 0 ? MIN + borrowed * SCALE : 0;
 
-                    let baseWidth;
+                    const hump1 = leftWidth * Math.exp(-Math.pow((t - 0.12) / 0.12, 2));
 
-                    if (t < 0.25) {
+                    const hump2 =
+                        middleWidth * Math.exp(-Math.pow((t - 0.5) / 0.18, 2));
 
-                        let k = t / 0.25;
-                        k = k * k * (3 - 2 * k);
+                    const hump3 =
+                        rightWidth * Math.exp(-Math.pow((t - 0.88) / 0.12, 2));
 
-                        baseWidth =
-                            leftWidth * (1 - k) +
-                            middleWidth * k;
+                    const baseWidth = hump1 + hump2 + hump3;
 
-                    }
-                    else if (t < 0.75) {
-
-                        baseWidth = middleWidth;
-
-                    }
-                    else {
-
-                        let k = (t - 0.75) / 0.25;
-                        k = k * k * (3 - 2 * k);
-
-                        baseWidth =
-                            middleWidth * (1 - k) +
-                            rightWidth * k;
-
-                    }
-
-                    const breathing =
-                        1 + Math.sin(offset * 2) * 0.04;
+                    const breathing = 1 + Math.sin(offset * 2) * 0.04;
 
                     const MIN_WIDTH = 0;
 
-                    const width =
-                        Math.max(baseWidth, MIN_WIDTH) *
-                        taper *
-                        breathing *
-                        scale;
+                    const width = Math.max(baseWidth, 0) * taper * breathing * scale;
 
-                    const y =
-                        CENTER +
-                        wave +
-                        pulse;
+                    const y = CENTER + wave + pulse;
 
                     if (x === 0) {
-
                         path = `M -30 ${CENTER}`;
                         path += ` L ${x} ${y - width}`;
-
                     } else {
-
                         path += ` L ${x} ${y - width}`;
-
                     }
                 }
 
@@ -4805,14 +4746,15 @@
                 // ==========================
 
                 for (let x = WIDTH; x >= 0; x -= 8) {
-
                     const t = x / WIDTH;
 
-                    const leftFade =
-                        Math.sin(Math.min(t, 0.12) / 0.12 * Math.PI / 2);
+                    const leftFade = Math.sin(
+                        ((Math.min(t, 0.12) / 0.12) * Math.PI) / 2,
+                    );
 
-                    const rightFade =
-                        Math.sin(Math.min(1 - t, 0.12) / 0.12 * Math.PI / 2);
+                    const rightFade = Math.sin(
+                        ((Math.min(1 - t, 0.12) / 0.12) * Math.PI) / 2,
+                    );
 
                     const taper = Math.min(leftFade, rightFade);
 
@@ -4821,58 +4763,32 @@
                         Math.sin(t * Math.PI * 6 - offset * 1.2) * 2.5 +
                         Math.cos(t * Math.PI * 10) * 1.2;
 
-                    const pulse =
-                        Math.sin(offset + t * 6) * 4;
+                    const pulse = Math.sin(offset + t * 6) * 4;
 
                     const SCALE = 160;
+                    const MIN = 3;
 
-                    const leftWidth = 18 + urgent * SCALE;
-                    const middleWidth = 18 + maintenance * SCALE;
-                    const rightWidth = 18 + borrowed * SCALE;
+                    const leftWidth = urgent > 0 ? MIN + urgent * SCALE : 0;
+                    const middleWidth = maintenance > 0 ? MIN + maintenance * SCALE : 0;
+                    const rightWidth = borrowed > 0 ? MIN + borrowed * SCALE : 0;
 
-                    let baseWidth;
+                    const hump1 = leftWidth * Math.exp(-Math.pow((t - 0.12) / 0.12, 2));
 
-                    if (t < 0.25) {
+                    const hump2 =
+                        middleWidth * Math.exp(-Math.pow((t - 0.5) / 0.18, 2));
 
-                        let k = t / 0.25;
-                        k = k * k * (3 - 2 * k);
+                    const hump3 =
+                        rightWidth * Math.exp(-Math.pow((t - 0.88) / 0.12, 2));
 
-                        baseWidth =
-                            leftWidth * (1 - k) +
-                            middleWidth * k;
+                    const baseWidth = hump1 + hump2 + hump3;
 
-                    }
-                    else if (t < 0.75) {
+                    const breathing = 1 + Math.sin(offset * 2) * 0.04;
 
-                        baseWidth = middleWidth;
+                    const MIN_WIDTH = 0;
 
-                    }
-                    else {
+                    const width = Math.max(baseWidth, 0) * taper * breathing * scale;
 
-                        let k = (t - 0.75) / 0.25;
-                        k = k * k * (3 - 2 * k);
-
-                        baseWidth =
-                            middleWidth * (1 - k) +
-                            rightWidth * k;
-
-                    }
-
-                    const breathing =
-                        1 + Math.sin(offset * 2) * 0.04;
-
-                    const MIN_WIDTH = 70;
-
-                    const width =
-                        Math.max(baseWidth, MIN_WIDTH) *
-                        taper *
-                        breathing *
-                        scale;
-
-                    const y =
-                        CENTER +
-                        wave +
-                        pulse;
+                    const y = CENTER + wave + pulse;
 
                     path += ` L ${x} ${y + width}`;
                 }
@@ -4885,13 +4801,12 @@
             let time = 0;
 
             function animate() {
-
                 time += 0.02;
 
-                glow.setAttribute("d", build(time - 0.22, 1.70));
+                glow.setAttribute("d", build(time - 0.22, 1.7));
                 outer.setAttribute("d", build(time - 0.12, 1.45));
-                middle.setAttribute("d", build(time - 0.05, 1.20));
-                ribbon.setAttribute("d", build(time, 1.00));
+                middle.setAttribute("d", build(time - 0.05, 1.2));
+                ribbon.setAttribute("d", build(time, 1.0));
                 highlight.setAttribute("d", build(time + 0.04, 0.55));
                 bloom.setAttribute("d", build(time + 0.02, 1.55));
 
@@ -4902,50 +4817,39 @@
         }
     </script>
 
-    
-
     <script>
-        const miniChartLabels = @json($miniChartLabels);
+        const miniChartLabels = @json ($miniChartLabels);
 
-        const urgentChartData = @json($urgentChartData);
+        const urgentChartData = @json ($urgentChartData);
 
-        const maintenanceChartData = @json($maintenanceChartData);
+        const maintenanceChartData = @json ($maintenanceChartData);
 
-        const borrowedChartData = @json($borrowedChartData);
-        
-
-        
+        const borrowedChartData = @json ($borrowedChartData);
 
         // =====================================================
         // SOFT SHADOW UNDER THE LINE
         // =====================================================
 
-        const shadowPlugin={
+        const shadowPlugin = {
+            id: "shadowPlugin",
 
-            id:"shadowPlugin",
-
-            beforeDatasetDraw(chart,args,pluginOptions){
-
-                const ctx=chart.ctx;
+            beforeDatasetDraw(chart, args, pluginOptions) {
+                const ctx = chart.ctx;
 
                 ctx.save();
 
-                ctx.shadowColor=pluginOptions.color;
+                ctx.shadowColor = pluginOptions.color;
 
-                ctx.shadowBlur=20;
+                ctx.shadowBlur = 20;
 
-                ctx.shadowOffsetY=10;
+                ctx.shadowOffsetY = 10;
 
-                ctx.shadowOffsetX=0;
-
+                ctx.shadowOffsetX = 0;
             },
 
-            afterDatasetDraw(chart){
-
+            afterDatasetDraw(chart) {
                 chart.ctx.restore();
-
-            }
-
+            },
         };
 
         Chart.register(shadowPlugin);
@@ -4955,215 +4859,156 @@
         // =====================================================
 
         function createPremiumChart(canvasId, lineColor, dataValues) {
-
             const canvas = document.getElementById(canvasId);
 
             if (!canvas) return;
 
             const ctx = canvas.getContext("2d");
 
-            const fillGradient = ctx.createLinearGradient(0,0,0,140);
+            const fillGradient = ctx.createLinearGradient(0, 0, 0, 140);
 
-            fillGradient.addColorStop(0,lineColor+"33");
-            fillGradient.addColorStop(.45,lineColor+"12");
-            fillGradient.addColorStop(1,"rgba(255,255,255,0)");
+            fillGradient.addColorStop(0, lineColor + "33");
+            fillGradient.addColorStop(0.45, lineColor + "12");
+            fillGradient.addColorStop(1, "rgba(255,255,255,0)");
 
-            new Chart(ctx,{
+            new Chart(ctx, {
+                type: "line",
 
-                type:"line",
+                data: {
+                    labels: miniChartLabels,
 
-                data:{
-
-                    labels:miniChartLabels,
-
-                    datasets:[
-
-                        
-
+                    datasets: [
                         {
+                            data: dataValues,
 
-                            data:dataValues,
+                            borderColor: lineColor,
 
-                            borderColor:lineColor,
+                            segment: {
+                                borderCapStyle: "round",
 
-                            segment:{
-
-                                borderCapStyle:"round",
-
-                                borderJoinStyle:"round"
-
+                                borderJoinStyle: "round",
                             },
 
-                            backgroundColor:fillGradient,
+                            backgroundColor: fillGradient,
 
-                            fill:true,
+                            fill: true,
 
-                            borderWidth:2.5,
+                            borderWidth: 2.5,
 
-                            tension:.45,
+                            tension: 0.45,
 
-                            pointRadius(context){
-
-                                return context.dataIndex===dataValues.length-1
-                                    ?4
-                                    :0;
-
+                            pointRadius(context) {
+                                return context.dataIndex === dataValues.length - 1
+                                    ? 4
+                                    : 0;
                             },
 
-                            pointHoverRadius:6,
+                            pointHoverRadius: 6,
 
-                            pointBorderWidth:2,
+                            pointBorderWidth: 2,
 
-                            pointBackgroundColor:"#ffffff",
+                            pointBackgroundColor: "#ffffff",
 
-                            pointBorderColor:lineColor,
+                            pointBorderColor: lineColor,
 
-                            hitRadius:20
-
-                        }
-
-                        
-
-                    ]
-
+                            hitRadius: 20,
+                        },
+                    ],
                 },
 
-                options:{
+                options: {
+                    responsive: true,
 
-                    responsive:true,
+                    maintainAspectRatio: false,
 
-                    maintainAspectRatio:false,
-
-                    layout:{
-
-                        padding:{
-                            top:12,
-                            bottom:0,
-                            
-                        }
-
+                    layout: {
+                        padding: {
+                            top: 12,
+                            bottom: 0,
+                        },
                     },
 
-                    animation:{
+                    animation: {
+                        duration: 1400,
 
-                        duration:1400,
-
-                        easing:"easeOutQuart"
-
+                        easing: "easeOutQuart",
                     },
 
-                    interaction:{
+                    interaction: {
+                        intersect: false,
 
-                        intersect:false,
-
-                        mode:"index"
-
+                        mode: "index",
                     },
 
-                    plugins:{
-
-                        shadowPlugin:{
-
-                            color:lineColor
-
+                    plugins: {
+                        shadowPlugin: {
+                            color: lineColor,
                         },
 
-                        legend:{
-                            display:false
+                        legend: {
+                            display: false,
                         },
 
-                        tooltip:{
+                        tooltip: {
+                            displayColors: false,
 
-                            displayColors:false,
+                            backgroundColor: "#ffffff",
 
-                            backgroundColor:"#ffffff",
+                            titleColor: "#111827",
 
-                            titleColor:"#111827",
+                            bodyColor: "#111827",
 
-                            bodyColor:"#111827",
+                            borderColor: "#E5E7EB",
 
-                            borderColor:"#E5E7EB",
+                            borderWidth: 1,
 
-                            borderWidth:1,
+                            padding: 10,
 
-                            padding:10,
-
-                            callbacks:{
-
-                                label(context){
-
-                                    return context.raw+" Reports";
-
-                                }
-
-                            }
-
-                        }
-
+                            callbacks: {
+                                label(context) {
+                                    return context.raw + " Reports";
+                                },
+                            },
+                        },
                     },
 
-                    scales:{
+                    scales: {
+                        x: {
+                            display: false,
 
-                        x:{
-
-                            display:false,
-
-                            grid:{
-                                display:false
-                            }
-
+                            grid: {
+                                display: false,
+                            },
                         },
 
-                        y:{
+                        y: {
+                            display: false,
 
-                            display:false,
-
-                            grid:{
-                                display:false
-                            }
-
-                        }
-
-                    }
-
-                }
-
+                            grid: {
+                                display: false,
+                            },
+                        },
+                    },
+                },
             });
-
         }
         // =====================================================
         // URGENT REPORTS
         // =====================================================
 
-        createPremiumChart(
-            "urgentChart",
-            "#ff4d67",
-            urgentChartData
-        );
+        createPremiumChart("urgentChart", "#ff4d67", urgentChartData);
 
         // =====================================================
         // UNDER MAINTENANCE
         // =====================================================
 
-        createPremiumChart(
-            "maintenanceChart",
-            "#ffbf3f",
-            maintenanceChartData
-        );
+        createPremiumChart("maintenanceChart", "#ffbf3f", maintenanceChartData);
 
         // =====================================================
         // BORROWED EQUIPMENT
         // =====================================================
 
-        createPremiumChart(
-            "borrowedEquipmentChart",
-            "#38ef7d",
-            borrowedChartData
-        );
-
-        
-
-        
+        createPremiumChart("borrowedEquipmentChart", "#38ef7d", borrowedChartData);
     </script>
 
     {{-- ===================================================== --}}
