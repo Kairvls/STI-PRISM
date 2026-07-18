@@ -5108,6 +5108,59 @@
     }
     </script>
 
+    @php
+        // =====================================================
+        // PREPARE PHASE 2.1 BUILDING DATA
+        // =====================================================
+
+        $building3DData = $floors->map(function ($floor) use ($roomsByFloor) {
+            return [
+                'id' => $floor->floor_id,
+
+                'name' => $floor->floor_level,
+
+                'rooms' => collect(
+                    $roomsByFloor->get(
+                        $floor->floor_id,
+                        collect()
+                    )
+                )
+                ->filter(function ($room) {
+                    return ! $room->room_is_archived;
+                })
+                ->map(function ($room) {
+                    return [
+                        'id' => $room->room_id,
+                        'name' => $room->room_name,
+                        'type' => $room->room_type,
+                        'status' => $room->dashboard_status,
+
+                        'activeReportCount' => $room->active_report_count,
+
+                        'urgentReportCount' => $room->urgent_report_count,
+
+                        'maintenanceEquipmentCount' => $room->maintenance_equipment_count,
+
+                        'x' => (float) $room->room_x,
+                        'y' => (float) $room->room_y,
+
+                        'width' => (float) $room->room_width,
+                        'height' => (float) $room->room_height,
+
+                        'color' => $room->room_color ?? '#ffffff',
+
+                        'rotation' => (float) data_get(
+                            $room->room_metadata,
+                            'rotation',
+                            0
+                        ),
+                    ];
+                })
+                ->values(),
+            ];
+        })->values();
+    @endphp
+
     <script type="module">
 
         // =====================================================
@@ -5119,6 +5172,17 @@
         import {
             OrbitControls
         } from 'three/addons/controls/OrbitControls.js';
+
+        // =====================================================
+        // PHASE 2.1
+        // REAL FLOOR AND ROOM DATA FROM LARAVEL
+        // =====================================================
+        const building3DData = @json($building3DData);
+
+        console.log(
+            'REAL 3D BUILDING DATA:',
+            building3DData
+        );
 
 
         // =====================================================
@@ -5154,8 +5218,16 @@
             const scene =
                 new THREE.Scene();
 
+            // Dark navy background
             scene.background =
-                new THREE.Color(0xf5f5f4);
+                new THREE.Color(0x020617);
+
+            // Adds depth to the scene
+            scene.fog =
+                new THREE.FogExp2(
+                    0x020617,
+                    0.018
+                );
 
 
             // =====================================================
@@ -5184,7 +5256,8 @@
 
             const renderer =
                 new THREE.WebGLRenderer({
-                    antialias: true
+                    antialias: true,
+                    alpha: false
                 });
 
             renderer.setPixelRatio(
@@ -5199,11 +5272,28 @@
                 container.clientHeight
             );
 
+            // Better color rendering
+            renderer.outputColorSpace =
+                THREE.SRGBColorSpace;
+
+            // Better lighting calculation
+            renderer.toneMapping =
+                THREE.ACESFilmicToneMapping;
+
+            renderer.toneMappingExposure =
+                1.15;
+
+            // Shadows
             renderer.shadowMap.enabled = true;
+
+            renderer.shadowMap.type =
+                THREE.PCFSoftShadowMap;
 
             container.appendChild(
                 renderer.domElement
             );
+
+            
 
 
             // =====================================================
@@ -5234,12 +5324,14 @@
 
             // =====================================================
             // LIGHTING
+            // MODERN DIGITAL TWIN LIGHTING
             // =====================================================
 
+            // Soft overall blue lighting
             const ambientLight =
                 new THREE.AmbientLight(
-                    0xffffff,
-                    2
+                    0x5b8cff,
+                    0.8
                 );
 
             scene.add(
@@ -5247,16 +5339,17 @@
             );
 
 
+            // Main cool directional light
             const directionalLight =
                 new THREE.DirectionalLight(
-                    0xffffff,
-                    3
+                    0xbfe8ff,
+                    2
                 );
 
             directionalLight.position.set(
                 10,
-                15,
-                10
+                18,
+                12
             );
 
             directionalLight.castShadow = true;
@@ -5266,21 +5359,67 @@
             );
 
 
+            // Cyan light from one side
+            const cyanLight =
+                new THREE.PointLight(
+                    0x00d9ff,
+                    20,
+                    35
+                );
+
+            cyanLight.position.set(
+                -10,
+                8,
+                5
+            );
+
+            scene.add(
+                cyanLight
+            );
+
+
+            // Blue light from opposite side
+            const blueLight =
+                new THREE.PointLight(
+                    0x2563eb,
+                    15,
+                    30
+                );
+
+            blueLight.position.set(
+                10,
+                5,
+                -10
+            );
+
+            scene.add(
+                blueLight
+            );
+
+
             // =====================================================
-            // FLOOR
+            // DIGITAL TWIN BASE PLATFORM
+            // REPLACES OLD GRAY FLOOR
             // =====================================================
 
             const floor =
                 new THREE.Mesh(
 
                     new THREE.PlaneGeometry(
-                        30,
-                        30
+                        34,
+                        34
                     ),
 
-                    new THREE.MeshStandardMaterial({
-                        color: 0xe7e5e4,
-                        roughness: 0.9
+                    new THREE.MeshPhysicalMaterial({
+                        color: 0x031525,
+
+                        roughness: 0.35,
+
+                        metalness: 0.4,
+
+                        transparent: true,
+
+                        opacity: 0.95
                     })
 
                 );
@@ -5288,10 +5427,38 @@
             floor.rotation.x =
                 -Math.PI / 2;
 
+            floor.position.y =
+                -0.05;
+
             floor.receiveShadow = true;
 
             scene.add(
                 floor
+            );
+
+
+            // =====================================================
+            // DIGITAL BLUEPRINT GRID
+            // =====================================================
+
+            const grid =
+                new THREE.GridHelper(
+                    34,
+                    34,
+                    0x00d9ff,
+                    0x164e63
+                );
+
+            grid.position.y =
+                0.01;
+
+            // Make grid slightly transparent
+            grid.material.transparent = true;
+
+            grid.material.opacity = 0.35;
+
+            scene.add(
+                grid
             );
 
 
@@ -5314,30 +5481,98 @@
 
             scene.add(building);
 
+            const raycaster = new THREE.Raycaster();
+
+            const mouse = new THREE.Vector2();
+
+            const clickableRooms = [];
+
+            let hoveredRoom = null;
+
+            let selectedRoom = null;
+
 
             // =====================================================
             // ROOM MATERIALS
             // THESE COLORS WILL LATER REPRESENT ROOM STATUS
             // =====================================================
 
+            // =====================================================
+            // ROOM MATERIALS
+            // MODERN HOLOGRAPHIC DIGITAL TWIN
+            // =====================================================
+
             const roomMaterials = {
 
-                normal: new THREE.MeshStandardMaterial({
-                    color: 0xffffff,
-                    roughness: 0.65,
-                    metalness: 0
+                // NORMAL ROOM
+                normal: new THREE.MeshPhysicalMaterial({
+
+                    color: 0x0c4a6e,
+
+                    emissive: 0x062f46,
+
+                    emissiveIntensity: 0.45,
+
+                    transparent: true,
+
+                    opacity: 0.38,
+
+                    roughness: 0.2,
+
+                    metalness: 0.15,
+
+                    side: THREE.DoubleSide,
+
+                    depthWrite: true
+
                 }),
 
-                warning: new THREE.MeshStandardMaterial({
-                    color: 0xfef3c7,
-                    roughness: 0.65,
-                    metalness: 0
+
+                // MAINTENANCE / ACTIVE REPORT
+                warning: new THREE.MeshPhysicalMaterial({
+
+                    color: 0x78350f,
+
+                    emissive: 0xf59e0b,
+
+                    emissiveIntensity: 0.45,
+
+                    transparent: true,
+
+                    opacity: 0.48,
+
+                    roughness: 0.25,
+
+                    metalness: 0.1,
+
+                    side: THREE.DoubleSide,
+
+                    depthWrite: true
+
                 }),
 
-                urgent: new THREE.MeshStandardMaterial({
-                    color: 0xfee2e2,
-                    roughness: 0.65,
-                    metalness: 0
+
+                // URGENT / CRITICAL
+                urgent: new THREE.MeshPhysicalMaterial({
+
+                    color: 0x7f1d1d,
+
+                    emissive: 0xef4444,
+
+                    emissiveIntensity: 0.6,
+
+                    transparent: true,
+
+                    opacity: 0.52,
+
+                    roughness: 0.25,
+
+                    metalness: 0.1,
+
+                    side: THREE.DoubleSide,
+
+                    depthWrite: true
+
                 })
 
             };
@@ -5345,12 +5580,18 @@
 
             // =====================================================
             // ROOM BORDER MATERIAL
-            // CREATES THE DARK OUTLINE AROUND EACH ROOM
+            // CYAN HOLOGRAPHIC OUTLINE
             // =====================================================
 
             const roomEdgeMaterial =
                 new THREE.LineBasicMaterial({
-                    color: 0x94a3b8
+
+                    color: 0x67e8f9,
+
+                    transparent: true,
+
+                    opacity: 0.9
+
                 });
 
 
@@ -5402,7 +5643,7 @@
                 const room =
                     new THREE.Mesh(
                         geometry,
-                        roomMaterials[status]
+                        roomMaterials[status].clone()
                     );
 
 
@@ -5475,226 +5716,754 @@
 
 
             // =====================================================
-            // FLOOR 1
-            // Y POSITION = 0
+            // PHASE 2.3
+            // INDEPENDENT FLOOR ALIGNMENT AND STACKING
             // =====================================================
-
-            createRoom(
-                'Room 101',
-                -4.5,
-                0,
-                -2.5,
-                4,
-                4,
-                'normal'
-            );
-
-            createRoom(
-                'Room 102',
-                0,
-                0,
-                -2.5,
-                4,
-                4,
-                'normal'
-            );
-
-            createRoom(
-                'Room 103',
-                4.5,
-                0,
-                -2.5,
-                4,
-                4,
-                'warning'
-            );
-
-            createRoom(
-                'Computer Lab',
-                -4.5,
-                0,
-                2.5,
-                4,
-                4,
-                'normal'
-            );
-
-            createRoom(
-                'Faculty Room',
-                0,
-                0,
-                2.5,
-                4,
-                4,
-                'urgent'
-            );
-
-            createRoom(
-                'Office',
-                4.5,
-                0,
-                2.5,
-                4,
-                4,
-                'normal'
-            );
 
 
             // =====================================================
-            // FLOOR 2
-            // Y POSITION = 2
+            // CONFIGURATION
             // =====================================================
 
-            createRoom(
-                'Room 201',
-                -4.5,
-                2,
-                -2.5,
-                4,
-                4,
-                'normal'
-            );
+            // Converts your saved 2D blueprint pixels into 3D units.
+            const BLUEPRINT_SCALE = 0.02;
 
-            createRoom(
-                'Room 202',
-                0,
-                2,
-                -2.5,
-                4,
-                4,
-                'normal'
-            );
+            // Vertical distance between each floor.
+            const FLOOR_HEIGHT = 2.6;
 
-            createRoom(
-                'Room 203',
-                4.5,
-                2,
-                -2.5,
-                4,
-                4,
-                'normal'
-            );
-
-            createRoom(
-                'Room 204',
-                -4.5,
-                2,
-                2.5,
-                4,
-                4,
-                'warning'
-            );
-
-            createRoom(
-                'Room 205',
-                0,
-                2,
-                2.5,
-                4,
-                4,
-                'normal'
-            );
-
-            createRoom(
-                'Room 206',
-                4.5,
-                2,
-                2.5,
-                4,
-                4,
-                'normal'
-            );
+            // Minimum visible room size.
+            const MIN_ROOM_SIZE = 0.5;
 
 
             // =====================================================
-            // FLOOR 3
-            // Y POSITION = 4
+            // LOOP THROUGH EACH DATABASE FLOOR
             // =====================================================
 
-            createRoom(
-                'Room 301',
-                -4.5,
-                4,
-                -2.5,
-                4,
-                4,
-                'normal'
-            );
+            building3DData.forEach((floorData, floorIndex) => {
 
-            createRoom(
-                'Room 302',
-                0,
-                4,
-                -2.5,
-                4,
-                4,
-                'urgent'
-            );
 
-            createRoom(
-                'Room 303',
-                4.5,
-                4,
-                -2.5,
-                4,
-                4,
-                'normal'
-            );
+                // =================================================
+                // SKIP EMPTY FLOORS
+                // =================================================
 
-            createRoom(
-                'Room 304',
-                -4.5,
-                4,
-                2.5,
-                4,
-                4,
-                'normal'
-            );
+                if (
+                    !floorData.rooms ||
+                    floorData.rooms.length === 0
+                ) {
 
-            createRoom(
-                'Room 305',
-                0,
-                4,
-                2.5,
-                4,
-                4,
-                'normal'
-            );
+                    return;
 
-            createRoom(
-                'Room 306',
-                4.5,
-                4,
-                2.5,
-                4,
-                4,
-                'warning'
+                }
+
+
+                // =================================================
+                // STEP 1
+                // CALCULATE THIS FLOOR'S OWN BLUEPRINT BOUNDS
+                // =================================================
+
+                let floorMinX = Infinity;
+                let floorMinY = Infinity;
+
+                let floorMaxX = -Infinity;
+                let floorMaxY = -Infinity;
+
+
+                floorData.rooms.forEach((roomData) => {
+
+                    const roomX =
+                        Number(roomData.x) || 0;
+
+                    const roomY =
+                        Number(roomData.y) || 0;
+
+                    const roomWidth =
+                        Number(roomData.width) || 100;
+
+                    const roomHeight =
+                        Number(roomData.height) || 100;
+
+
+                    floorMinX =
+                        Math.min(
+                            floorMinX,
+                            roomX
+                        );
+
+                    floorMinY =
+                        Math.min(
+                            floorMinY,
+                            roomY
+                        );
+
+
+                    floorMaxX =
+                        Math.max(
+                            floorMaxX,
+                            roomX + roomWidth
+                        );
+
+                    floorMaxY =
+                        Math.max(
+                            floorMaxY,
+                            roomY + roomHeight
+                        );
+
+                });
+
+
+                // =================================================
+                // STEP 2
+                // CALCULATE THIS FLOOR'S CENTER
+                // =================================================
+
+                const floorCenterX =
+                    (
+                        floorMinX +
+                        floorMaxX
+                    ) / 2;
+
+                const floorCenterY =
+                    (
+                        floorMinY +
+                        floorMaxY
+                    ) / 2;
+
+
+                // =================================================
+                // STEP 3
+                // CALCULATE VERTICAL FLOOR POSITION
+                // =================================================
+
+                const floorY =
+                    floorIndex *
+                    FLOOR_HEIGHT;
+
+                // =================================================
+                // PHASE 7.1
+                // CALCULATE ACTUAL SIZE OF THIS FLOOR
+                // =================================================
+
+                const floorWidth =
+                    Math.max(
+                        (floorMaxX - floorMinX) * BLUEPRINT_SCALE,
+                        4
+                    );
+
+                const floorDepth =
+                    Math.max(
+                        (floorMaxY - floorMinY) * BLUEPRINT_SCALE,
+                        4
+                    );
+
+
+                // =================================================
+                // PHASE 7.1
+                // CREATE ARCHITECTURAL FLOOR SLAB
+                // =================================================
+
+                const slabGeometry =
+                    new THREE.BoxGeometry(
+                        floorWidth + 1,
+                        0.12,
+                        floorDepth + 1
+                    );
+
+                const slabMaterial =
+                    new THREE.MeshPhysicalMaterial({
+
+                        color: 0x063b52,
+
+                        emissive: 0x002b3d,
+
+                        emissiveIntensity: 0.25,
+
+                        transparent: true,
+
+                        opacity: 0.28,
+
+                        roughness: 0.2,
+
+                        metalness: 0.15,
+
+                        side: THREE.DoubleSide,
+
+                        depthWrite: false
+
+                    });
+
+                const floorSlab =
+                    new THREE.Mesh(
+                        slabGeometry,
+                        slabMaterial
+                    );
+
+                floorSlab.position.set(
+                    0,
+                    floorY,
+                    0
+                );
+
+                floorSlab.receiveShadow = true;
+
+                building.add(
+                    floorSlab
+                );
+
+
+                // =================================================
+                // PHASE 7.1
+                // CREATE CYAN FLOOR PERIMETER
+                // =================================================
+
+                const slabEdges =
+                    new THREE.EdgesGeometry(
+                        slabGeometry
+                    );
+
+                const slabEdgeMaterial =
+                    new THREE.LineBasicMaterial({
+
+                        color: 0x22d3ee,
+
+                        transparent: true,
+
+                        opacity: 0.75
+
+                    });
+
+                const slabOutline =
+                    new THREE.LineSegments(
+                        slabEdges,
+                        slabEdgeMaterial
+                    );
+
+                slabOutline.position.copy(
+                    floorSlab.position
+                );
+
+                building.add(
+                    slabOutline
+                );
+
+
+                // =================================================
+                // STEP 4
+                // CREATE ROOMS FOR THIS FLOOR
+                // =================================================
+
+                floorData.rooms.forEach((roomData) => {
+
+
+                    // =============================================
+                    // ORIGINAL 2D BLUEPRINT DATA
+                    // =============================================
+
+                    const originalX =
+                        Number(roomData.x) || 0;
+
+                    const originalY =
+                        Number(roomData.y) || 0;
+
+                    const originalWidth =
+                        Number(roomData.width) || 100;
+
+                    const originalHeight =
+                        Number(roomData.height) || 100;
+
+
+                    // =============================================
+                    // CONVERT ROOM SIZE TO THREE.JS UNITS
+                    // =============================================
+
+                    const roomWidth =
+                        Math.max(
+                            originalWidth *
+                            BLUEPRINT_SCALE,
+
+                            MIN_ROOM_SIZE
+                        );
+
+                    const roomDepth =
+                        Math.max(
+                            originalHeight *
+                            BLUEPRINT_SCALE,
+
+                            MIN_ROOM_SIZE
+                        );
+
+
+                    // =============================================
+                    // FIND CENTER OF ROOM IN 2D BLUEPRINT
+                    //
+                    // Your database position represents the
+                    // top left corner.
+                    //
+                    // Three.js positions boxes from the center.
+                    // =============================================
+
+                    const roomCenterX =
+                        originalX +
+                        originalWidth / 2;
+
+                    const roomCenterY =
+                        originalY +
+                        originalHeight / 2;
+
+
+                    // =============================================
+                    // CENTER ROOM RELATIVE TO ITS OWN FLOOR
+                    // =============================================
+
+                    const roomX =
+                        (
+                            roomCenterX -
+                            floorCenterX
+                        ) *
+                        BLUEPRINT_SCALE;
+
+                    const roomZ =
+                        (
+                            roomCenterY -
+                            floorCenterY
+                        ) *
+                        BLUEPRINT_SCALE;
+
+
+                    // =============================================
+                    // DETERMINE ROOM STATUS
+                    // =============================================
+
+                    // =============================================
+                    // PHASE 6
+                    // DETERMINE DYNAMIC ROOM STATUS
+                    //
+                    // available    = no active issue
+                    // needs-repair = active non urgent report
+                    // maintenance  = equipment under maintenance
+                    // critical     = active urgent report
+                    // =============================================
+
+                    let room3DStatus =
+                        'normal';
+
+
+                    // =============================================
+                    // ACTIVE REPORT
+                    // OR EQUIPMENT UNDER MAINTENANCE
+                    // =============================================
+
+                    if (
+                        roomData.status === 'needs-repair' ||
+                        roomData.status === 'maintenance'
+                    ) {
+
+                        room3DStatus =
+                            'warning';
+
+                    }
+
+
+                    // =============================================
+                    // ACTIVE URGENT REPORT
+                    // HIGHEST PRIORITY
+                    // =============================================
+
+                    if (
+                        roomData.status === 'critical'
+                    ) {
+
+                        room3DStatus =
+                            'urgent';
+
+                    }
+
+
+                    // =============================================
+                    // CREATE ROOM
+                    // =============================================
+
+                    const roomMesh =
+                        createRoom(
+                            roomData.name,
+                            roomX,
+                            floorY,
+                            roomZ,
+                            roomWidth,
+                            roomDepth,
+                            room3DStatus
+                        );
+
+
+                    // =============================================
+                    // SAVE DATABASE INFORMATION
+                    // =============================================
+
+                    roomMesh.userData = {
+
+                        type: 'room',
+
+                        roomId:
+                            roomData.id,
+
+                        roomName:
+                            roomData.name,
+
+                        roomType:
+                            roomData.type,
+
+                        roomStatus:
+                            roomData.status,
+
+                        floorId:
+                            floorData.id,
+
+                        floorName:
+                            floorData.name
+
+                    };
+
+                    clickableRooms.push(
+                        roomMesh
+                    );
+
+
+                    // =============================================
+                    // APPLY SAVED ROOM ROTATION
+                    // =============================================
+
+                    roomMesh.rotation.y =
+                        THREE.MathUtils.degToRad(
+                            roomData.rotation || 0
+                        );
+
+                });
+
+            });
+
+
+            // =====================================================
+            // PHASE 2.3
+            // CALCULATE FINAL 3D BUILDING BOUNDS
+            // =====================================================
+
+            const buildingBounds =
+                new THREE.Box3()
+                    .setFromObject(building);
+
+
+            // =====================================================
+            // PHASE 2.3
+            // AUTOMATIC CAMERA FIT
+            // =====================================================
+
+            if (!buildingBounds.isEmpty()) {
+
+                const buildingSize =
+                    buildingBounds.getSize(
+                        new THREE.Vector3()
+                    );
+
+                const buildingCenter =
+                    buildingBounds.getCenter(
+                        new THREE.Vector3()
+                    );
+
+
+                // =================================================
+                // CAMERA LOOKS AT CENTER OF COMPLETE BUILDING
+                // =================================================
+
+                controls.target.copy(
+                    buildingCenter
+                );
+
+
+                // =================================================
+                // CALCULATE APPROPRIATE CAMERA DISTANCE
+                // =================================================
+
+                const maxDimension =
+                    Math.max(
+                        buildingSize.x,
+                        buildingSize.y,
+                        buildingSize.z
+                    );
+
+
+                const cameraDistance =
+                    Math.max(
+                        maxDimension * 2,
+                        12
+                    );
+
+
+                // =================================================
+                // POSITION CAMERA AT ISOMETRIC ANGLE
+                // =================================================
+
+                camera.position.set(
+
+                    buildingCenter.x +
+                        cameraDistance,
+
+                    buildingCenter.y +
+                        cameraDistance *
+                        0.75,
+
+                    buildingCenter.z +
+                        cameraDistance
+
+                );
+
+
+                controls.update();
+
+            }
+
+
+            // =====================================================
+            // PHASE 2.3 COMPLETE
+            // EACH FLOOR IS NOW CENTERED AND STACKED
+            // =====================================================
+
+           
+            // =====================================================
+
+
+            
+
+
+            // =====================================================
+            // PHASE 2.1 COMPLETE
+            // ROOMS ARE NOW GENERATED FROM DATABASE
+            // =====================================================
+
+            // =====================================================
+            // PHASE 3
+            // GET MOUSE POSITION INSIDE THE 3D VIEWER
+            // =====================================================
+
+            function getViewerMousePosition(event) {
+
+                const rect =
+                    renderer.domElement.getBoundingClientRect();
+
+                mouse.x =
+                    (
+                        (event.clientX - rect.left) /
+                        rect.width
+                    ) * 2 - 1;
+
+                mouse.y =
+                    -(
+                        (
+                            event.clientY - rect.top
+                        ) /
+                        rect.height
+                    ) * 2 + 1;
+            }
+
+
+            // =====================================================
+            // PHASE 3
+            // ROOM HOVER
+            // =====================================================
+
+            renderer.domElement.addEventListener(
+                'pointermove',
+                function (event) {
+
+                    getViewerMousePosition(event);
+
+                    raycaster.setFromCamera(
+                        mouse,
+                        camera
+                    );
+
+                    const intersections =
+                        raycaster.intersectObjects(
+                            clickableRooms,
+                            false
+                        );
+
+
+                    // ==============================================
+                    // RESET PREVIOUS HOVER
+                    // ==============================================
+
+                    if (
+                        hoveredRoom &&
+                        hoveredRoom !== selectedRoom
+                    ) {
+
+                        hoveredRoom.material.emissive.setHex(
+                            0x000000
+                        );
+
+                    }
+
+
+                    // ==============================================
+                    // ROOM IS BEING HOVERED
+                    // ==============================================
+
+                    if (intersections.length > 0) {
+
+                        hoveredRoom =
+                            intersections[0].object;
+
+                        renderer.domElement.style.cursor =
+                            'pointer';
+
+
+                        if (
+                            hoveredRoom !== selectedRoom
+                        ) {
+
+                            hoveredRoom.material.emissive.setHex(
+                                0x222222
+                            );
+
+                        }
+
+                    } else {
+
+                        hoveredRoom = null;
+
+                        renderer.domElement.style.cursor =
+                            'grab';
+
+                    }
+
+                }
             );
 
 
             // =====================================================
-            // PHASE 2 COMPLETE
-            // EACH ROOM IS NOW ITS OWN THREE.JS OBJECT
+            // PHASE 3
+            // ROOM CLICK SELECTION
             // =====================================================
 
+            renderer.domElement.addEventListener(
+                'click',
+                function (event) {
+
+                    getViewerMousePosition(event);
+
+                    raycaster.setFromCamera(
+                        mouse,
+                        camera
+                    );
+
+                    const intersections =
+                        raycaster.intersectObjects(
+                            clickableRooms,
+                            false
+                        );
+
+
+                    if (
+                        intersections.length === 0
+                    ) {
+
+                        return;
+
+                    }
+
+
+                    const roomMesh =
+                        intersections[0].object;
+
+
+                    // ==============================================
+                    // RESET PREVIOUS SELECTED ROOM
+                    // ==============================================
+
+                    if (
+                        selectedRoom &&
+                        selectedRoom !== roomMesh
+                    ) {
+
+                        selectedRoom.material.emissive.setHex(
+                            0x000000
+                        );
+
+                    }
+
+
+                    // ==============================================
+                    // SELECT NEW ROOM
+                    // ==============================================
+
+                    selectedRoom =
+                        roomMesh;
+
+                    selectedRoom.material.emissive.setHex(
+                        0x444400
+                    );
+
+
+                    // ==============================================
+                    // TEST REAL DATABASE ROOM INFORMATION
+                    // ==============================================
+
+                    console.log(
+                        'Selected 3D Room:',
+                        selectedRoom.userData
+                    );
+
+
+                    open3DRoomInspector(
+                        selectedRoom.userData
+                    );
+
+                }
+            );
+
+
+            // =====================================================
+            // PHASE 3
+            // TEMPORARY ROOM INSPECTOR CONNECTION
+            // =====================================================
+
+            function open3DRoomInspector(room) {
+
+                // ==============================================
+                // MAKE SURE THE ROOM HAS A DATABASE ID
+                // ==============================================
+
+                if (!room || !room.roomId) {
+
+                    console.error(
+                        'Selected 3D room does not have a valid room ID:',
+                        room
+                    );
+
+                    return;
+                }
+
+                // ==============================================
+                // CREATE INFRASTRUCTURE MONITOR URL
+                //
+                // Example:
+                // /maintenance/infrastructure?room=11
+                // ==============================================
+
+                const monitorUrl =
+                    `/maintenance/infrastructure?room=${encodeURIComponent(room.roomId)}`;
+
+                // ==============================================
+                // OPEN INFRASTRUCTURE MONITOR
+                // ==============================================
+
+                window.location.href = monitorUrl;
+            }
 
             // =====================================================
             // GRID
             // =====================================================
 
-            const grid =
-                new THREE.GridHelper(
-                    30,
-                    30,
-                    0x94a3b8,
-                    0xd1d5db
-                );
-
-            grid.position.y = 0.01;
-
-            scene.add(
-                grid
-            );
+            
 
 
             // =====================================================
