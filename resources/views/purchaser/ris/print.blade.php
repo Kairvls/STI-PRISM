@@ -14,8 +14,8 @@
         body { margin: 0; background: #f3f4f6; color: #111827; }
         .toolbar { padding: 16px; text-align: center; }
         .toolbar button { border: 0; border-radius: 6px; background: #111827; color: white; cursor: pointer; font-size: 14px; padding: 10px 18px; }
-        .sheet { width: 11in; min-height: 8.5in; margin: 0 auto 24px; background: white; padding: 0.35in; }
-        .header { position: relative; margin-bottom: 10px; text-align: center; }
+        .sheet { width: 11in; min-height: 8.5in; margin: 0 auto 24px; background: white; padding: 0.35in; position: relative; }
+        .header { position: relative; margin-top: 160px; margin-bottom: 10px; text-align: center; }
         .school { font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
         .title { margin-top: 8px; font-family: Georgia, 'Times New Roman', serif; font-size: 22px; font-weight: 800; letter-spacing: 1px; }
         .number { position: absolute; right: 0; bottom: -4px; font-size: 14px; }
@@ -38,6 +38,9 @@
         .date-row { margin-top: 16px; display: grid; grid-template-columns: 40px 1fr; gap: 6px; align-items: end; }
 
         .approval-stamp {
+            position: absolute;
+            top: 0.5in;
+            left: 0.35in;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -45,7 +48,6 @@
             text-align: center;
             width: 100px;
             height: 100px;
-            margin: 0 auto 12px;
             border: 3px solid rgba(5, 150, 105, 0.55);
             border-radius: 50%;
             color: rgba(5, 150, 105, 0.7);
@@ -73,13 +75,15 @@
         @media print {
             body { background: white; }
             .toolbar { display: none; }
-            .sheet { width: 100%; min-height: auto; margin: 0; padding: 0.2in; }
-            @page { size: landscape; margin: 0.25in; }
+            .sheet { width: 100%; min-height: auto; margin: 0; padding: 0.2in; position: relative; }
+            .header { margin-top: 140px; }
+            .approval-stamp { top: 0.35in; left: 0.2in; }
             .approval-stamp {
                 opacity: 0.7;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
+            @page { size: landscape; margin: 0.25in; }
         }
     </style>
 </head>
@@ -93,6 +97,14 @@
     {{-- ===================================================== --}}
 
     <main class="sheet">
+        @if ($ris->ris_status === 'Approved')
+            <div class="approval-stamp">
+                <span class="stamp-title">APPROVED</span>
+                <span class="stamp-sub">President</span>
+                <span class="stamp-sub">{{ \Carbon\Carbon::parse($ris->ris_approved_by_date)->format('Y-m-d') }}</span>
+            </div>
+        @endif
+
         <section class="header">
             <div class="school">STI COLLEGE- ORMOC, INC.</div>
             <div class="title">REQUISITION AND ISSUE SLIP</div>
@@ -142,13 +154,6 @@
             </div>
             <div class="signature-box">
                 <p>Approved by:</p>
-                @if ($ris->ris_status === 'Approved')
-                    <div class="approval-stamp">
-                        <span class="stamp-title">APPROVED</span>
-                        <span class="stamp-sub">President</span>
-                        <span class="stamp-sub">{{ \Carbon\Carbon::parse($ris->ris_approved_by_date)->format('Y-m-d') }}</span>
-                    </div>
-                @endif
                 <div class="signature-line">
                     @if (!empty($ris->ris_approved_by_signature) && strpos($ris->ris_approved_by_signature, 'data:image/png;base64,') === 0)
                         <img src="{{ $ris->ris_approved_by_signature }}" alt="Approved by signature" class="signature-image" />
