@@ -521,259 +521,7 @@
 
                 }
 
-                /* ===================================================== */
-                /* MAINTENANCE HERO */
-                /* ===================================================== */
-
-                .maintenance-hero {
-                    position: relative;
-
-                    overflow: hidden;
-
-                    min-height: 190px;
-
-                    padding: 28px 30px;
-
-                    display: flex;
-
-                    align-items: center;
-
-                    justify-content: space-between;
-
-                    gap: 30px;
-
-                    background:
-                        linear-gradient(
-                            135deg,
-                            #111827 0%,
-                            #172554 55%,
-                            #1e3a8a 100%
-                        );
-
-                    border-radius: 22px;
-
-                    color: #ffffff;
-                }
-
-
-                .maintenance-hero::after {
-                    content: "";
-
-                    position: absolute;
-
-                    width: 280px;
-
-                    height: 280px;
-
-                    right: -100px;
-
-                    top: -150px;
-
-                    border-radius: 999px;
-
-                    background:
-                        rgba(
-                            255,
-                            255,
-                            255,
-                            0.07
-                        );
-                }
-
-
-                .maintenance-hero-content {
-                    position: relative;
-
-                    z-index: 2;
-
-                    max-width: 620px;
-                }
-
-
-                .maintenance-hero-eyebrow {
-                    margin-bottom: 10px;
-
-                    font-size: 11px;
-
-                    font-weight: 700;
-
-                    letter-spacing: 0.12em;
-
-                    color: #bfdbfe;
-                }
-
-
-                .maintenance-hero-title {
-                    margin: 0;
-
-                    font-family: "Outfit", sans-serif;
-
-                    font-size: 28px;
-
-                    font-weight: 800;
-
-                    line-height: 1.15;
-                }
-
-
-                .maintenance-hero-description {
-                    max-width: 560px;
-
-                    margin-top: 10px;
-
-                    font-size: 13px;
-
-                    line-height: 1.6;
-
-                    color: #cbd5e1;
-                }
-
-
-                .maintenance-hero-actions {
-                    display: flex;
-
-                    flex-wrap: wrap;
-
-                    gap: 10px;
-
-                    margin-top: 20px;
-                }
-
-
-                .maintenance-hero-primary,
-                .maintenance-hero-secondary {
-                    display: inline-flex;
-
-                    align-items: center;
-
-                    justify-content: center;
-
-                    gap: 8px;
-
-                    min-height: 40px;
-
-                    padding: 0 16px;
-
-                    border-radius: 11px;
-
-                    font-size: 12px;
-
-                    font-weight: 700;
-
-                    text-decoration: none;
-
-                    cursor: pointer;
-                }
-
-
-                .maintenance-hero-primary {
-                    background: #ffffff;
-
-                    color: #0f172a;
-                }
-
-
-                .maintenance-hero-secondary {
-                    border:
-                        1px solid
-                        rgba(
-                            255,
-                            255,
-                            255,
-                            0.2
-                        );
-
-                    background:
-                        rgba(
-                            255,
-                            255,
-                            255,
-                            0.08
-                        );
-
-                    color: #ffffff;
-                }
-
-
-                .maintenance-hero-summary {
-                    position: relative;
-
-                    z-index: 2;
-
-                    display: grid;
-
-                    grid-template-columns:
-                        repeat(2, 110px);
-
-                    gap: 12px;
-                }
-
-
-                .maintenance-hero-summary > div {
-                    padding: 18px;
-
-                    text-align: center;
-
-                    background:
-                        rgba(
-                            255,
-                            255,
-                            255,
-                            0.1
-                        );
-
-                    border:
-                        1px solid
-                        rgba(
-                            255,
-                            255,
-                            255,
-                            0.12
-                        );
-
-                    border-radius: 16px;
-
-                    backdrop-filter: blur(8px);
-                }
-
-
-                .maintenance-hero-number {
-                    display: block;
-
-                    font-family: "Outfit", sans-serif;
-
-                    font-size: 26px;
-
-                    font-weight: 800;
-                }
-
-
-                .maintenance-hero-label {
-                    display: block;
-
-                    margin-top: 3px;
-
-                    font-size: 11px;
-
-                    color: #cbd5e1;
-                }
-
-
-                @media (max-width: 768px) {
-
-                    .maintenance-hero {
-                        align-items: stretch;
-
-                        flex-direction: column;
-                    }
-
-
-                    .maintenance-hero-summary {
-                        grid-template-columns:
-                            repeat(2, 1fr);
-                    }
-
-                }
+                
 
                 /* ===================================================== */
                 /* DASHBOARD UTILITY TOOLBAR */
@@ -834,7 +582,7 @@
 
                     gap: 7px;
 
-                    padding: 0 13px;
+                    padding: 0 20px;
 
                     border: 1px solid #e2e8f0;
 
@@ -3273,241 +3021,766 @@
 
         }
 
-        /* ===================================================== */
-        /* FLOW ANALYTICS CARD */
-        /* ===================================================== */
+        /* =====================================================
+        DASHBOARD OVERVIEW ROW
+        Prevent cards from becoming unnecessarily tall
+        ===================================================== */
 
-        .flow-card{
+        .dashboard-overview-row {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 24px;
 
-            background:#fff;
+            /* IMPORTANT: Both sides get equal height */
+            align-items: stretch;
+        }
 
-            border-radius:34px;
+        .dashboard-overview-row > * {
+            min-width: 0;
+        }
 
-            padding:34px;
 
-            border:1px solid #eef2f7;
+        /* =====================================================
+        FLOW ANALYTICS CARD
+        More compact height
+        ===================================================== */
 
+        .flow-card {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 28px;
+
+            /* CHANGED: Reduced from 34px */
+            padding: 26px;
             box-shadow:
-                0 1px 1px rgba(15,23,42,.03),
-
-                0 12px 24px rgba(15,23,42,.04),
-
-                0 32px 80px rgba(15,23,42,.07);
-
+                0 1px 2px rgba(0, 0, 0, 0.02),
+                0 8px 24px rgba(0, 0, 0, 0.04);
         }
 
-        .flow-header{
-
-            display:flex;
-
-            justify-content:space-between;
-
-            align-items:center;
-
+        .flow-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
-        .flow-title{
+        .maintenance-hero-eyebrows {
+            /* CHANGED: Reduced spacing */
+            margin-bottom: 6px;
 
-            font-size:38px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
 
-            font-weight:800;
-
-            color:#111827;
-
+            color: #6b7280;
         }
 
-        .flow-subtitle{
+        .flow-title {
+            
+            font-size: clamp(18px, 2.5vw, 20px);
 
-            color:#94a3b8;
+            font-weight: 600;
+            line-height: 1.1;
 
-            font-size:14px;
-
+            color: #111827;
         }
 
-        .flow-menu{
-
-            width:50px;
-
-            height:50px;
-
-            border-radius:50%;
-
-            background:#f4f6f9;
-
+        .flow-subtitle {
+            color: #94a3b8;
+            font-size: 14px;
         }
 
-        .flow-stats{
-
-            margin-top:38px;
-
-            display:grid;
-
-            grid-template-columns:repeat(3,1fr);
-
+        .flow-menu {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #f4f6f9;
         }
 
-        .flow-stat h2{
 
-            font-size:54px;
+        /* =====================================================
+        FLOW STATS
+        ===================================================== */
 
-            font-weight:800;
+        .flow-stats {
+            /* CHANGED: Reduced from 38px */
+            margin-top: 24px;
 
-            color:#111827;
-
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
         }
 
-        .flow-stat p{
-
-            color:#6b7280;
-
-            margin-top:4px;
-
+        .flow-stat h2 {
+            font-size: 22px;
+            font-weight: 600;
+            color: #111827;
         }
 
-        .flow-area{
+        .flow-stat p {
+            font-size: 12px;
+            font-weight: 500;
+            color: #6b7280;
+            margin-top: 4px;
+        }
 
+
+        /* =====================================================
+        FLOW GRAPH AREA
+        ===================================================== */
+
+        .flow-area {
             position: relative;
-            margin-top: 45px;
-            height: 240px;
 
-            margin-left: -34px;
-            margin-right: -34px;
+            /* CHANGED: Reduced from 45px */
+            margin-top: 25px;
 
-            width: calc(100% + 68px);
+            /* CHANGED: Reduced from 240px */
+            height: 190px;
 
+            /* CHANGED: Match new 26px card padding */
+            margin-left: -26px;
+            margin-right: -26px;
+
+            width: calc(100% + 52px);
         }
 
-        .flow-svg{
-
-            width:100%;
-
-            height:100%;
-
+        .flow-svg {
+            width: 100%;
+            height: 100%;
         }
 
-        .flow-badge{
-            width:100%;
-            height:100%;
 
-            display:flex;
-            align-items:center;
-            justify-content:center;
+        /* =====================================================
+        MAINTENANCE HERO GRID
+        ===================================================== */
 
-            border-radius:999px;
-            font-weight:700;
-            font-size:14px;
-            box-sizing:border-box;
+        
+        .maintenance-hero {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+
+            /* First row is summary cards */
+            /* Second row fills ALL remaining height */
+            grid-template-rows: 130px minmax(0, 1fr);
+
+            gap: 12px;
+
+            width: 100%;
+            height: 100%;
+
+            min-width: 0;
+            min-height: 0;
         }
 
-        .glass{
+        .maintenance-hero-summary {
+            display: contents;
+        }
 
-            background:rgba(255,255,255,.45);
 
-            backdrop-filter:blur(18px);
+        /* =====================================================
+        TOP SUMMARY CARDS
+        ===================================================== */
 
-            border:1px solid rgba(255,255,255,.7);
+        
+        .maintenance-summary-card {
+            display: flex;
+            flex-direction: column;
+
+            min-width: 0;
+
+            /* Fill the 130px grid row */
+            height: 100%;
+
+            padding: 22px 26px;
+
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 28px;
+        }
+
+        .maintenance-summary-label {
+            font-size: 12px;
+            font-weight: 500;
+            color: #6b7280;
+        }
+
+        .maintenance-summary-number {
+            display: block;
+
+            /* CHANGED: Reduced spacing */
+            margin-top: 4px;
+
+            font-size: 22px;
+            font-weight: 600;
+            line-height: 1;
+
+            color: #111827;
+        }
+
+        .maintenance-summary-status {
+            /* CHANGED: Reduced spacing */
+            margin-top: 6px;
+
+            font-size: 14px;
+            color: #6b7280;
+        }
+
+        .maintenance-summary-action {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            width: 100%;
+
+            /* CHANGED: Slightly shorter */
+            height: 36px;
+
+            margin-top: auto;
+
+            border: 1px solid #e5e7eb;
+            border-radius: 999px;
+
+            font-size: 13px;
+            font-weight: 600;
+
+            color: #111827;
+            background: #ffffff;
+
+            transition: 0.2s ease;
+        }
+
+        .maintenance-summary-action:hover {
+            background: #f9fafb;
+        }
+
+
+        /* =====================================================
+        BOTTOM FULL WIDTH HERO CARD
+        ===================================================== */
+
+        .maintenance-hero-main {
+            grid-column: 1 / -1;
+
+            display: flex;
+            flex-direction: column;
+
+            min-width: 0;
+            min-height: 0;
+
+            /* Fill remaining space until left card bottom */
+            height: 100%;
+
+            padding: 26px;
+
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 28px;
 
             box-shadow:
-
-                0 8px 28px rgba(15,23,42,.08);
-
+                0 1px 2px rgba(0, 0, 0, 0.02),
+                0 8px 24px rgba(0, 0, 0, 0.04);
         }
 
-        .badge-center{
+        .maintenance-hero-eyebrow {
+            /* CHANGED: Reduced spacing */
+            margin-bottom: 8px;
 
-            background:#111827;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
 
-            color:white;
-
+            color: #6b7280;
         }
 
-        .flow-line{
+        .maintenance-hero-title {
+            margin: 0;
+            max-width: 700px;
 
-            position:absolute;
+            /* CHANGED: Slightly smaller */
+            font-size: clamp(18px, 2.5vw, 20px);
 
-            width:2px;
+            font-weight: 600;
+            line-height: 1.1;
 
-            height:72px;
-
-            background:
-
-                repeating-linear-gradient(
-
-                    to bottom,
-
-                    #9ca3af,
-
-                    #9ca3af 6px,
-
-                    transparent 6px,
-
-                    transparent 12px
-
-                );
-
+            color: #111827;
         }
+
+        .maintenance-hero-description {
+            max-width: 650px;
+
+            /* CHANGED: Reduced spacing */
+            margin-top: 10px;
+
+            font-size: 12px;
+            line-height: 1.5;
+
+            color: #6b7280;
+        }
+
+        /* =====================================================
+        MINI ACTIVITY CHART
+        ===================================================== */
+
+        .maintenance-mini-chart {
+            width: 100%;
+            height: 55px;
+            margin-top: 14px;
+        }
+
+        .maintenance-mini-chart-bars {
+            display: flex;
+            align-items: stretch;
+            gap: 6px;
+
+            width: 100%;
+            height: 100%;
+        }
+
+        .maintenance-mini-chart-item {
+            flex: 1;
+
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+
+            min-width: 0;
+        }
+
+        .maintenance-mini-chart-bar {
+            display: block;
+
+            width: 100%;
+            max-width: 24px;
+
+            background: #9ca3af;
+
+            border-radius: 4px 4px 0 0;
+
+            min-height: 2px;
+
+            transition: height 0.3s ease;
+        }
+
+        .maintenance-mini-chart-item small {
+            margin-top: 4px;
+
+            font-size: 9px;
+            color: #9ca3af;
+        }
+
+        /* =====================================================
+        ACTION BUTTONS
+        ===================================================== */
+
+        .maintenance-hero-actions {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 10px;
+
+            width: 100%;
+
+            /* Push buttons to bottom of card */
+            margin-top: auto;
+            padding-top: 14px;
+        }
+
+        .maintenance-hero-primary,
+        .maintenance-hero-secondary {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+
+            /* Both buttons share the available space */
+            flex: 1;
+
+            /* Important for preventing overflow */
+            min-width: 0;
+
+            height: 38px;
+            padding: 0 12px;
+
+            border-radius: 999px;
+
+            font-size: 14px;
+            font-weight: 600;
+
+            white-space: nowrap;
+
+            transition: 0.2s ease;
+        }
+
+        .maintenance-hero-primary {
+            background: #111827;
+            color: #ffffff;
+            border: 1px solid #111827;
+        }
+
+        .maintenance-hero-primary:hover {
+            background: #000000;
+        }
+
+        .maintenance-hero-secondary {
+            background: #ffffff;
+            color: #374151;
+            border: 1px solid #d1d5db;
+        }
+
+        .maintenance-hero-secondary:hover {
+            background: #f9fafb;
+        }
+
+
+        /* =====================================================
+        RESPONSIVE
+        ===================================================== */
+
+        @media (max-width: 1024px) {
+            .dashboard-overview-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 640px) {
+
+            .maintenance-hero {
+                grid-template-columns: 1fr;
+            }
+
+            .maintenance-hero-main {
+                grid-column: 1;
+            }
+
+            .maintenance-summary-card {
+                height: auto;
+                min-height: 140px;
+                padding: 20px;
+                border-radius: 22px;
+            }
+
+            .maintenance-hero-main {
+                padding: 22px;
+                border-radius: 22px;
+            }
+
+            .maintenance-hero-actions {
+                flex-direction: column;
+            }
+
+            .maintenance-hero-primary,
+            .maintenance-hero-secondary {
+                width: 100%;
+            }
+        }
+
+        /* =====================================================
+        3D BUILDING OVERVIEW
+        ADD THIS INSIDE YOUR STYLE
+        ===================================================== */
+
+        .dashboard-building-section {
+            width: 100%;
+            min-width: 0;
+
+            overflow: hidden;
+
+            background: #ffffff;
+
+            border: 1px solid #e5e7eb;
+            border-radius: 24px;
+
+            box-shadow:
+                0 1px 3px rgba(15, 23, 42, 0.04);
+        }
+
+
+        /* =====================================================
+        HEADER
+        ===================================================== */
+
+        .dashboard-building-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+
+            gap: 24px;
+
+            padding: 22px 26px;
+        }
+
+
+        .dashboard-building-eyebrow {
+            margin: 0 0 5px;
+
+            color: #94a3b8;
+
+            font-size: 9px;
+            font-weight: 700;
+
+            letter-spacing: 0.08em;
+        }
+
+
+        .dashboard-building-title {
+            margin: 0;
+
+            color: #0f172a;
+
+            font-family: "Outfit", sans-serif;
+
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+
+        .dashboard-building-subtitle {
+            margin: 4px 0 0;
+
+            color: #94a3b8;
+
+            font-size: 11px;
+        }
+
+
+        /* =====================================================
+        VIEW BUILDING BUTTON
+        ===================================================== */
+
+        .dashboard-building-action {
+            height: 40px;
+
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+
+            gap: 7px;
+
+            padding: 0 15px;
+
+            flex-shrink: 0;
+
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+
+            background: #ffffff;
+
+            color: #334155;
+
+            font-size: 11px;
+            font-weight: 600;
+
+            text-decoration: none;
+
+            transition: 0.2s ease;
+        }
+
+
+        .dashboard-building-action:hover {
+            background: #f8fafc;
+
+            border-color: #cbd5e1;
+        }
+
+
+        .dashboard-building-action svg {
+            width: 15px;
+            height: 15px;
+        }
+
+
+        /* =====================================================
+        3D BUILDING VIEWPORT
+        ===================================================== */
 
         
 
-        #glowLayer{
 
-            fill:url(#flowGradient);
+        /* =====================================================
+        3D BUILDING IMAGE
+        ===================================================== */
 
+        /* =====================================================
+        PHASE 1: THREE.JS 3D BUILDING VIEWPORT
+        ===================================================== */
+
+        .dashboard-building-view {
+            position: relative;
+
+            width: 100%;
+
+            /* Controls how tall the building area is */
+            height: clamp(220px, 34vw, 430px);
+
+            overflow: hidden;
+
+            background: #f8f7f4;
         }
 
-        #blurLayer{
 
-            fill:url(#flowGradient);
+        /* THREE.JS RENDER CONTAINER */
 
+        #building3DViewport {
+            position: absolute;
+            inset: 0;
+
+            width: 100%;
+            height: 100%;
         }
 
-        #shadowLayer{
 
-            fill:url(#flowGradient);
+        /* THREE.JS CANVAS */
 
+        #building3DViewport canvas {
+            display: block;
+
+            width: 100% !important;
+            height: 100% !important;
+
+            cursor: grab;
         }
 
-        #mainLayer{
-
-            fill:url(#flowGradient);
-
+        #building3DViewport canvas:active {
+            cursor: grabbing;
         }
 
-        #highlightLayer{
 
-            fill:white;
+        /* =====================================================
+        3D CONTROLS
+        ===================================================== */
 
-            opacity:.12;
+        .building-3d-controls {
+            position: absolute;
 
+            right: 20px;
+            bottom: 20px;
+
+            z-index: 10;
+
+            display: flex;
+            align-items: center;
+
+            gap: 6px;
+
+            padding: 6px;
+
+            background: rgba(255, 255, 255, 0.9);
+
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+
+            border: 1px solid rgba(226, 232, 240, 0.9);
+            border-radius: 12px;
+
+            box-shadow:
+                0 4px 16px rgba(15, 23, 42, 0.08);
         }
 
-        @keyframes floatBadge{
 
-            0%{
+        .building-3d-control {
+            width: 34px;
+            height: 34px;
 
-                transform:translateY(0);
+            display: flex;
+            align-items: center;
+            justify-content: center;
 
+            border: 0;
+            border-radius: 8px;
+
+            background: transparent;
+
+            color: #475569;
+
+            cursor: pointer;
+
+            transition: 0.2s ease;
+        }
+
+
+        .building-3d-control:hover {
+            background: #f1f5f9;
+
+            color: #0f172a;
+        }
+
+
+        .building-3d-control svg {
+            width: 15px;
+            height: 15px;
+        }
+
+
+        /* Keep overlays above Three.js */
+
+        .dashboard-building-badge {
+            z-index: 10;
+        }
+
+
+        /* =====================================================
+        FLOATING BADGE
+        ===================================================== */
+
+        .dashboard-building-badge {
+            position: absolute;
+
+            left: 20px;
+            bottom: 20px;
+
+            display: inline-flex;
+            align-items: center;
+
+            gap: 7px;
+
+            padding: 9px 13px;
+
+            background: rgba(255, 255, 255, 0.9);
+
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            border-radius: 999px;
+
+            box-shadow:
+                0 4px 16px rgba(15, 23, 42, 0.08);
+
+            color: #334155;
+
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+
+        .dashboard-building-badge-dot {
+            width: 7px;
+            height: 7px;
+
+            border-radius: 50%;
+
+            background: #22c55e;
+        }
+
+
+        /* =====================================================
+        RESPONSIVE
+        ===================================================== */
+
+        @media (max-width: 768px) {
+
+            .dashboard-building-header {
+                align-items: flex-start;
+                flex-direction: column;
             }
 
-            50%{
-
-                transform:translateY(-6px);
-
+            .dashboard-building-action {
+                width: 100%;
             }
 
-            100%{
-
-                transform:translateY(0);
-
+            .dashboard-building-view {
+                height: 400px;
             }
-
-        }
-
-        .flow-badge{
-
-            animation:
-
-                floatBadge 4s ease-in-out infinite;
 
         }
 
@@ -3569,10 +3842,10 @@
                     href="{{ url('/maintenance/equipment/create') }}"
                     class="group inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition duration-200 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-950 focus:outline-none focus:ring-2 focus:ring-yellow-400/40"
                 >
-                    <i
+                    <!--<i
                         data-lucide="package-plus"
                         class="h-4 w-4 text-gray-400 transition-colors group-hover:text-yellow-600"
-                    ></i>
+                    ></i>-->
 
                     <span>Equipment</span>
                 </a>
@@ -3585,10 +3858,10 @@
                     href="{{ url('/maintenance/schedules/create') }}"
                     class="group inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition duration-200 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-950 focus:outline-none focus:ring-2 focus:ring-yellow-400/40"
                 >
-                    <i
+                    <!--<i
                         data-lucide="calendar-plus"
                         class="h-4 w-4 text-gray-400 transition-colors group-hover:text-yellow-600"
-                    ></i>
+                    ></i>-->
 
                     <span>Schedule</span>
                 </a>
@@ -3601,10 +3874,10 @@
                     href="{{ url('/maintenance/borrowing/create') }}"
                     class="group inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition duration-200 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-950 focus:outline-none focus:ring-2 focus:ring-yellow-400/40"
                 >
-                    <i
+                    <!--<i
                         data-lucide="clipboard-plus"
                         class="h-4 w-4 text-gray-400 transition-colors group-hover:text-yellow-600"
-                    ></i>
+                    ></i>-->
 
                     <span>Borrowing</span>
                 </a>
@@ -3626,69 +3899,11 @@
                 {{-- MAINTENANCE OPERATIONS HERO --}}
                 {{-- ===================================================== --}}
 
-                <section class="maintenance-hero">
-                    <div class="maintenance-hero-content">
-                        <div class="maintenance-hero-eyebrow">
-                            MAINTENANCE OPERATIONS
-                        </div>
+                
 
-                        <h2 class="maintenance-hero-title">
-                            {{ $urgentReports }} urgent reports require
-                            attention
-                        </h2>
+                
 
-                        <p class="maintenance-hero-description">Review active maintenance issues and prioritize critical equipment requiring immediate action.</p>
-
-                        <div class="maintenance-hero-actions">
-                            <a
-                                href="{{ url('/maintenance/reports') }}"
-                                class="maintenance-hero-primary"
-                            >
-                                Review Reports
-
-                                <i
-                                    data-lucide="chevrons-right"
-                                    class="h-4 w-4"
-                                ></i>
-                            </a>
-
-                            <button
-                                type="button"
-                                class="maintenance-hero-secondary"
-                            >
-                                <i data-lucide="scan-line" class="h-4 w-4"></i>
-
-                                Scan Equipment
-                            </button>
-                        </div>
-                    </div>
-
-                    {{-- ===================================================== --}}
-                    {{-- HERO SUMMARY --}}
-                    {{-- ===================================================== --}}
-
-                    <div class="maintenance-hero-summary">
-                        <div>
-                            <span class="maintenance-hero-number">
-                                {{ $pendingReports }}
-                            </span>
-
-                            <span class="maintenance-hero-label">
-                                Pending
-                            </span>
-                        </div>
-
-                        <div>
-                            <span class="maintenance-hero-number">
-                                {{ $overdueMaintenance }}
-                            </span>
-
-                            <span class="maintenance-hero-label">
-                                Overdue
-                            </span>
-                        </div>
-                    </div>
-                </section>
+                <div class="dashboard-overview-row">
 
                 {{-- ===================================================== --}}
                 {{-- PREMIUM FLOW ANALYTICS CARD --}}
@@ -3707,13 +3922,15 @@
                         {{-- Header --}}
                         <div class="flow-header">
                             <div>
-                                <p class="flow-subtitle">Dashboard Overview</p>
+                                <div class="maintenance-hero-eyebrows">
+                                    MAINTENANCE OPERATIONS
+                                </div>
 
                                 <h2 class="flow-title">Equipment Statistics</h2>
                             </div>
 
                             <button class="flow-menu">
-                                <i data-lucide="more-vertical"></i>
+                                <i data-lucide="more-vertical" class="h-4 w-4"></i>
                             </button>
                         </div>
 
@@ -3792,19 +4009,19 @@
                                     x2="100%"
                                     y2="0%"
                                 >
-                                    <stop offset="0%" stop-color="#37ff4f" />
+                                    <stop offset="0%" stop-color="#BBC8FC" />
 
-                                    <stop offset="16%" stop-color="#59ff57" />
+                                    <stop offset="16%" stop-color="#8FA4FA" />
 
-                                    <stop offset="34%" stop-color="#bfff4d" />
+                                    <stop offset="34%" stop-color="#6381F8" />
 
-                                    <stop offset="48%" stop-color="#ffe45a" />
+                                    <stop offset="48%" stop-color="#2750F5" />
 
-                                    <stop offset="63%" stop-color="#ffbf53" />
+                                    <stop offset="63%" stop-color="#0B3AF4" />
 
-                                    <stop offset="80%" stop-color="#ff7c38" />
+                                    <stop offset="80%" stop-color="#092FC8" />
 
-                                    <stop offset="100%" stop-color="#ff4949" />
+                                    <stop offset="100%" stop-color="#07259C" />
                                 </linearGradient>
 
                                 {{-- ===================================================== --}}
@@ -3995,6 +4212,433 @@
                                 </div>
                             </foreignObject>
                         </svg>
+                    </div>
+                </div>
+
+
+                <section class="maintenance-hero">
+
+                    {{-- ===================================================== --}}
+                    {{-- TOP TWO CARDS --}}
+                    {{-- ===================================================== --}}
+                    <div class="maintenance-hero-summary">
+
+                        {{-- PENDING REPORTS --}}
+                        <div class="maintenance-summary-card">
+                            <span class="maintenance-summary-label">
+                                Pending Reports
+                            </span>
+
+                            <span class="maintenance-summary-number">
+                                {{ $pendingReports }}
+                            </span>
+
+                            <a
+                                href="{{ url('/maintenance/schedules') }}"
+                                class="maintenance-summary-action"
+                            >
+                                View Reports
+                            </a>
+                        </div>
+
+
+                        {{-- OVERDUE MAINTENANCE --}}
+                        <div class="maintenance-summary-card">
+                            <span class="maintenance-summary-label">
+                                Overdue Maintenance
+                            </span>
+
+                            <span class="maintenance-summary-number">
+                                {{ $overdueMaintenance }}
+                            </span>
+
+                            <a
+                                href="{{ url('/maintenance/schedules') }}"
+                                class="maintenance-summary-action"
+                            >
+                                View Schedule
+                            </a>
+                        </div>
+
+                    </div>
+
+
+                    {{-- ===================================================== --}}
+                    {{-- BOTTOM FULL WIDTH CARD --}}
+                    {{-- ===================================================== --}}
+                    <div class="maintenance-hero-main">
+
+                        <div class="maintenance-hero-eyebrow">
+                            MAINTENANCE OPERATIONS
+                        </div>
+
+                        <h2 class="maintenance-hero-title">
+                            {{ $urgentReports }} urgent reports require attention
+                        </h2>
+
+                        <p class="maintenance-hero-description">
+                            Review active maintenance issues and prioritize critical
+                            equipment requiring immediate action.
+                        </p>
+
+                        {{-- ===================================================== --}}
+                        {{-- REAL URGENT REPORT ACTIVITY: LAST 7 DAYS --}}
+                        {{-- ===================================================== --}}
+                        @php
+                            // Get the highest value so the bars can be scaled proportionally.
+                            // Example: if the highest count is 5, a day with 5 reports = 100%.
+                            $urgentChartMax = max($urgentChartData ?: [0]);
+
+                            // Prevent division by zero when there are no urgent reports.
+                            $urgentChartMax = max($urgentChartMax, 1);
+                        @endphp
+
+                        <div class="maintenance-mini-chart">
+                            <div class="maintenance-mini-chart-bars">
+
+                                @foreach ($urgentChartData as $index => $count)
+                                    @php
+                                        // Convert the real report count into a percentage height.
+                                        $barHeight = ($count / $urgentChartMax) * 100;
+                                    @endphp
+
+                                    <div class="maintenance-mini-chart-item">
+
+                                        <span
+                                            class="maintenance-mini-chart-bar"
+                                            style="height: {{ $barHeight }}%;"
+                                            title="{{ $miniChartLabels[$index] }}: {{ $count }} urgent reports"
+                                        ></span>
+
+                                        <small>
+                                            {{ $miniChartLabels[$index] }}
+                                        </small>
+
+                                    </div>
+                                @endforeach
+
+                            </div>
+                        </div>
+
+                        <div class="maintenance-hero-actions">
+
+                            <a
+                                href="{{ url('/maintenance/reports') }}"
+                                class="maintenance-hero-primary"
+                            >
+                                Review Reports
+
+                                <i
+                                    data-lucide="chevrons-right"
+                                    class="h-4 w-4"
+                                ></i>
+                            </a>
+
+                            <button
+                                type="button"
+                                class="maintenance-hero-secondary"
+                            >
+                                <i
+                                    data-lucide="scan-line"
+                                    class="h-4 w-4"
+                                ></i>
+
+                                Scan Equipment
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </section>
+
+                
+
+                </div>
+
+                {{-- ===================================================== --}}
+                {{-- MAINTENANCE SCHEDULE WORKLOAD --}}
+                {{-- ===================================================== --}}
+
+                <section class="dashboard-analytics-card">
+                    <div class="dashboard-analytics-header">
+                        <div>
+                            <h2 class="dashboard-analytics-title">
+                                Maintenance Schedule Workload
+                            </h2>
+
+                            <p class="dashboard-analytics-subtitle">Scheduled maintenance workload for the next 30 days</p>
+                        </div>
+
+                        {{-- ================================================= --}}
+                        {{-- TOTAL SCHEDULED MAINTENANCE --}}
+                        {{-- ================================================= --}}
+
+                        <div class="activity-chart-total">
+                            {{
+                                array_sum(
+                                    $maintenanceWorkloadData,
+                                )
+                            }}
+
+                            <span> scheduled tasks </span>
+                        </div>
+                    </div>
+
+                    {{-- ===================================================== --}}
+                    {{-- CHART --}}
+                    {{-- ===================================================== --}}
+
+                    <div class="dashboard-report-activity-chart">
+                        <canvas id="maintenanceWorkloadChart"></canvas>
+                    </div>
+                </section>
+
+                {{-- ===================================================== --}}
+                {{-- BOTTOM ANALYTICS CHARTS --}}
+                {{-- REPORT STATUS + EQUIPMENT CONDITION --}}
+                {{-- ===================================================== --}}
+
+                <div class="dashboard-bottom-charts">
+                    {{-- ===================================================== --}}
+                    {{-- REPORT STATUS --}}
+                    {{-- ===================================================== --}}
+
+                    <section class="dashboard-analytics-card">
+                        <div class="dashboard-analytics-header">
+                            <div>
+                                <h2 class="dashboard-analytics-title">
+                                    Report Status
+                                </h2>
+
+                                <p class="dashboard-analytics-subtitle">Distribution of active maintenance reports</p>
+                            </div>
+                        </div>
+
+                        <div class="dashboard-small-chart">
+                            <canvas id="reportStatusChart"></canvas>
+                        </div>
+                    </section>
+
+                    {{-- ===================================================== --}}
+                    {{-- EQUIPMENT CONDITION --}}
+                    {{-- ===================================================== --}}
+
+                    <section class="dashboard-analytics-card">
+                        {{-- ===================================================== --}}
+                        {{-- HEADER --}}
+                        {{-- ===================================================== --}}
+
+                        <div class="dashboard-analytics-header">
+                            <div>
+                                <h2 class="dashboard-analytics-title">
+                                    Equipment Condition
+                                </h2>
+
+                                <p class="dashboard-analytics-subtitle">Current condition of registered equipment</p>
+                            </div>
+
+                            {{-- ===================================================== --}}
+                            {{-- TOTAL REGISTERED EQUIPMENT --}}
+                            {{-- ===================================================== --}}
+
+                            <div class="activity-chart-total">
+                                {{
+                                    collect(
+                                        $equipmentConditionChart["data"],
+                                    )->sum()
+                                }}
+
+                                <span> equipment </span>
+                            </div>
+                        </div>
+
+                        {{-- ===================================================== --}}
+                        {{-- CONCENTRIC BUBBLE CHART --}}
+                        {{-- ===================================================== --}}
+
+                        <div class="dashboard-small-chart">
+                            <canvas id="equipmentConditionChart"></canvas>
+                        </div>
+                    </section>
+                </div>
+
+                {{-- ===================================================== --}}
+                {{-- 3D CAMPUS / BUILDING OVERVIEW --}}
+                {{-- ADD THIS AFTER dashboard-bottom-charts --}}
+                {{-- ===================================================== --}}
+
+                <section class="dashboard-building-section">
+
+                    {{-- HEADER --}}
+                    <div class="dashboard-building-header">
+                        <div>
+                            <p class="dashboard-building-eyebrow">
+                                INFRASTRUCTURE OVERVIEW
+                            </p>
+
+                            <h2 class="dashboard-building-title">
+                                Building Rooms
+                            </h2>
+
+                            <p class="dashboard-building-subtitle">
+                                Interactive overview of rooms, equipment, and maintenance status.
+                            </p>
+                        </div>
+
+                        <a
+                            href="#"
+                            class="dashboard-building-action"
+                        >
+                            <i data-lucide="maximize-2"></i>
+                            <span>View Building</span>
+                        </a>
+                    </div>
+
+
+                    {{-- 3D BUILDING VIEW --}}
+                    {{-- ===================================================== --}}
+                    {{-- PHASE 1: INTERACTIVE 3D BUILDING VIEWPORT --}}
+                    {{-- ===================================================== --}}
+
+                    <div class="dashboard-building-view">
+
+                        {{-- THREE.JS WILL RENDER THE 3D SCENE HERE --}}
+                        <div id="building3DViewport"></div>
+
+
+                        {{-- FLOATING LABEL --}}
+                        <div class="dashboard-building-badge">
+                            <span class="dashboard-building-badge-dot"></span>
+
+                            Interactive Building Overview
+                        </div>
+
+
+                        {{-- 3D CONTROLS --}}
+                        <div class="building-3d-controls">
+
+                            <button
+                                type="button"
+                                id="buildingZoomOut"
+                                class="building-3d-control"
+                                title="Zoom Out"
+                            >
+                                <i data-lucide="minus"></i>
+                            </button>
+
+                            <button
+                                type="button"
+                                id="buildingZoomIn"
+                                class="building-3d-control"
+                                title="Zoom In"
+                            >
+                                <i data-lucide="plus"></i>
+                            </button>
+
+                            <button
+                                type="button"
+                                id="buildingReset"
+                                class="building-3d-control"
+                                title="Reset View"
+                            >
+                                <i data-lucide="rotate-ccw"></i>
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </section>
+
+                
+            </main>
+
+            {{-- ===================================================== --}}
+            {{-- RIGHT DASHBOARD SIDEBAR --}}
+            {{-- ===================================================== --}}
+
+            <aside class="maintenance-dashboard-sidebar">
+                {{-- ===================================================== --}}
+                {{-- MAINTENANCE CALENDAR --}}
+                {{-- ADD THIS ABOVE THE EXISTING ACTIVITY CARD --}}
+                {{-- ===================================================== --}}
+
+                <div
+                    id="dashboardCalendar"
+                    class="dashboard-calendar-card"
+                    data-events='@json($calendarEvents)'
+                >
+                    {{-- ================================================= --}}
+                    {{-- CALENDAR HEADER --}}
+                    {{-- ================================================= --}}
+
+                    <div class="dashboard-calendar-header">
+                        <div>
+                            <h2 class="dashboard-calendar-title">
+                                Maintenance Calendar
+                            </h2>
+
+                            <p class="dashboard-calendar-subtitle">Reports and scheduled maintenance</p>
+                        </div>
+
+                        <div class="dashboard-calendar-header-icon">
+                            <i data-lucide="calendar-days" class="h-4 w-4"></i>
+                        </div>
+                    </div>
+
+                    {{-- ================================================= --}}
+                    {{-- CALENDAR BODY --}}
+                    {{-- ================================================= --}}
+
+                    <div class="dashboard-calendar-body">
+                        {{-- ================================================= --}}
+                        {{-- CURRENT MONTH --}}
+                        {{-- ================================================= --}}
+
+                        <div class="dashboard-calendar-month-row">
+                            <div
+                                id="calendarMonthLabel"
+                                class="dashboard-calendar-month"
+                            ></div>
+                        </div>
+
+                        {{-- ================================================= --}}
+                        {{-- WEEKDAY LABELS --}}
+                        {{-- ================================================= --}}
+
+                        <div class="calendar-weekdays">
+                            <div>Sun</div>
+
+                            <div>Mon</div>
+
+                            <div>Tue</div>
+
+                            <div>Wed</div>
+
+                            <div>Thu</div>
+
+                            <div>Fri</div>
+
+                            <div>Sat</div>
+                        </div>
+
+                        {{-- ================================================= --}}
+                        {{-- CALENDAR DAYS --}}
+                        {{-- FILLED BY YOUR EXISTING JAVASCRIPT --}}
+                        {{-- ================================================= --}}
+
+                        <div id="calendarDays" class="calendar-days"></div>
+
+                        {{-- ================================================= --}}
+                        {{-- SELECTED DATE EVENTS --}}
+                        {{-- FILLED BY YOUR EXISTING JAVASCRIPT --}}
+                        {{-- ================================================= --}}
+
+                        <div
+                            id="calendarSelectedEvents"
+                            class="calendar-selected-events"
+                        ></div>
                     </div>
                 </div>
 
@@ -4250,202 +4894,6 @@
                 </section>
 
                 {{-- ===================================================== --}}
-                {{-- MAINTENANCE SCHEDULE WORKLOAD --}}
-                {{-- ===================================================== --}}
-
-                <section class="dashboard-analytics-card">
-                    <div class="dashboard-analytics-header">
-                        <div>
-                            <h2 class="dashboard-analytics-title">
-                                Maintenance Schedule Workload
-                            </h2>
-
-                            <p class="dashboard-analytics-subtitle">Scheduled maintenance workload for the next 30 days</p>
-                        </div>
-
-                        {{-- ================================================= --}}
-                        {{-- TOTAL SCHEDULED MAINTENANCE --}}
-                        {{-- ================================================= --}}
-
-                        <div class="activity-chart-total">
-                            {{
-                                array_sum(
-                                    $maintenanceWorkloadData,
-                                )
-                            }}
-
-                            <span> scheduled tasks </span>
-                        </div>
-                    </div>
-
-                    {{-- ===================================================== --}}
-                    {{-- CHART --}}
-                    {{-- ===================================================== --}}
-
-                    <div class="dashboard-report-activity-chart">
-                        <canvas id="maintenanceWorkloadChart"></canvas>
-                    </div>
-                </section>
-
-                {{-- ===================================================== --}}
-                {{-- BOTTOM ANALYTICS CHARTS --}}
-                {{-- REPORT STATUS + EQUIPMENT CONDITION --}}
-                {{-- ===================================================== --}}
-
-                <div class="dashboard-bottom-charts">
-                    {{-- ===================================================== --}}
-                    {{-- REPORT STATUS --}}
-                    {{-- ===================================================== --}}
-
-                    <section class="dashboard-analytics-card">
-                        <div class="dashboard-analytics-header">
-                            <div>
-                                <h2 class="dashboard-analytics-title">
-                                    Report Status
-                                </h2>
-
-                                <p class="dashboard-analytics-subtitle">Distribution of active maintenance reports</p>
-                            </div>
-                        </div>
-
-                        <div class="dashboard-small-chart">
-                            <canvas id="reportStatusChart"></canvas>
-                        </div>
-                    </section>
-
-                    {{-- ===================================================== --}}
-                    {{-- EQUIPMENT CONDITION --}}
-                    {{-- ===================================================== --}}
-
-                    <section class="dashboard-analytics-card">
-                        {{-- ===================================================== --}}
-                        {{-- HEADER --}}
-                        {{-- ===================================================== --}}
-
-                        <div class="dashboard-analytics-header">
-                            <div>
-                                <h2 class="dashboard-analytics-title">
-                                    Equipment Condition
-                                </h2>
-
-                                <p class="dashboard-analytics-subtitle">Current condition of registered equipment</p>
-                            </div>
-
-                            {{-- ===================================================== --}}
-                            {{-- TOTAL REGISTERED EQUIPMENT --}}
-                            {{-- ===================================================== --}}
-
-                            <div class="activity-chart-total">
-                                {{
-                                    collect(
-                                        $equipmentConditionChart["data"],
-                                    )->sum()
-                                }}
-
-                                <span> equipment </span>
-                            </div>
-                        </div>
-
-                        {{-- ===================================================== --}}
-                        {{-- CONCENTRIC BUBBLE CHART --}}
-                        {{-- ===================================================== --}}
-
-                        <div class="dashboard-small-chart">
-                            <canvas id="equipmentConditionChart"></canvas>
-                        </div>
-                    </section>
-                </div>
-            </main>
-
-            {{-- ===================================================== --}}
-            {{-- RIGHT DASHBOARD SIDEBAR --}}
-            {{-- ===================================================== --}}
-
-            <aside class="maintenance-dashboard-sidebar">
-                {{-- ===================================================== --}}
-                {{-- MAINTENANCE CALENDAR --}}
-                {{-- ADD THIS ABOVE THE EXISTING ACTIVITY CARD --}}
-                {{-- ===================================================== --}}
-
-                <div
-                    id="dashboardCalendar"
-                    class="dashboard-calendar-card"
-                    data-events='@json($calendarEvents)'
-                >
-                    {{-- ================================================= --}}
-                    {{-- CALENDAR HEADER --}}
-                    {{-- ================================================= --}}
-
-                    <div class="dashboard-calendar-header">
-                        <div>
-                            <h2 class="dashboard-calendar-title">
-                                Maintenance Calendar
-                            </h2>
-
-                            <p class="dashboard-calendar-subtitle">Reports and scheduled maintenance</p>
-                        </div>
-
-                        <div class="dashboard-calendar-header-icon">
-                            <i data-lucide="calendar-days" class="h-4 w-4"></i>
-                        </div>
-                    </div>
-
-                    {{-- ================================================= --}}
-                    {{-- CALENDAR BODY --}}
-                    {{-- ================================================= --}}
-
-                    <div class="dashboard-calendar-body">
-                        {{-- ================================================= --}}
-                        {{-- CURRENT MONTH --}}
-                        {{-- ================================================= --}}
-
-                        <div class="dashboard-calendar-month-row">
-                            <div
-                                id="calendarMonthLabel"
-                                class="dashboard-calendar-month"
-                            ></div>
-                        </div>
-
-                        {{-- ================================================= --}}
-                        {{-- WEEKDAY LABELS --}}
-                        {{-- ================================================= --}}
-
-                        <div class="calendar-weekdays">
-                            <div>Sun</div>
-
-                            <div>Mon</div>
-
-                            <div>Tue</div>
-
-                            <div>Wed</div>
-
-                            <div>Thu</div>
-
-                            <div>Fri</div>
-
-                            <div>Sat</div>
-                        </div>
-
-                        {{-- ================================================= --}}
-                        {{-- CALENDAR DAYS --}}
-                        {{-- FILLED BY YOUR EXISTING JAVASCRIPT --}}
-                        {{-- ================================================= --}}
-
-                        <div id="calendarDays" class="calendar-days"></div>
-
-                        {{-- ================================================= --}}
-                        {{-- SELECTED DATE EVENTS --}}
-                        {{-- FILLED BY YOUR EXISTING JAVASCRIPT --}}
-                        {{-- ================================================= --}}
-
-                        <div
-                            id="calendarSelectedEvents"
-                            class="calendar-selected-events"
-                        ></div>
-                    </div>
-                </div>
-
-                {{-- ===================================================== --}}
                 {{-- ACTIVITY SIDEBAR CARD --}}
                 {{-- NOTHING BELOW THIS WAS REMOVED --}}
                 {{-- ===================================================== --}}
@@ -4645,6 +5093,746 @@
             </aside>
         </div>
     </div>
+
+    {{-- ===================================================== --}}
+    {{-- THREE.JS --}}
+    {{-- PHASE 1: 3D BUILDING VIEWER --}}
+    {{-- ===================================================== --}}
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module">
+
+        // =====================================================
+        // IMPORT THREE.JS DIRECTLY
+        // =====================================================
+
+        import * as THREE from 'three';
+
+        import {
+            OrbitControls
+        } from 'three/addons/controls/OrbitControls.js';
+
+
+        // =====================================================
+        // GET VIEWPORT
+        // =====================================================
+
+        const container =
+            document.getElementById('building3DViewport');
+
+        console.log(
+            '3D Building Viewport:',
+            container
+        );
+
+
+        if (!container) {
+
+            console.error(
+                'building3DViewport was not found.'
+            );
+
+        } else {
+
+            console.log(
+                'Starting Three.js building viewer...'
+            );
+
+
+            // =====================================================
+            // SCENE
+            // =====================================================
+
+            const scene =
+                new THREE.Scene();
+
+            scene.background =
+                new THREE.Color(0xf5f5f4);
+
+
+            // =====================================================
+            // CAMERA
+            // =====================================================
+
+            const camera =
+                new THREE.PerspectiveCamera(
+                    45,
+                    container.clientWidth /
+                        container.clientHeight,
+                    0.1,
+                    1000
+                );
+
+            camera.position.set(
+                18,
+                14,
+                20
+            );
+
+
+            // =====================================================
+            // RENDERER
+            // =====================================================
+
+            const renderer =
+                new THREE.WebGLRenderer({
+                    antialias: true
+                });
+
+            renderer.setPixelRatio(
+                Math.min(
+                    window.devicePixelRatio,
+                    2
+                )
+            );
+
+            renderer.setSize(
+                container.clientWidth,
+                container.clientHeight
+            );
+
+            renderer.shadowMap.enabled = true;
+
+            container.appendChild(
+                renderer.domElement
+            );
+
+
+            // =====================================================
+            // CAMERA CONTROLS
+            // =====================================================
+
+            const controls =
+                new OrbitControls(
+                    camera,
+                    renderer.domElement
+                );
+
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.06;
+
+            controls.enableZoom = true;
+            controls.enablePan = true;
+
+            controls.minDistance = 8;
+            controls.maxDistance = 35;
+
+            controls.target.set(
+                0,
+                2.5,
+                0
+            );
+
+
+            // =====================================================
+            // LIGHTING
+            // =====================================================
+
+            const ambientLight =
+                new THREE.AmbientLight(
+                    0xffffff,
+                    2
+                );
+
+            scene.add(
+                ambientLight
+            );
+
+
+            const directionalLight =
+                new THREE.DirectionalLight(
+                    0xffffff,
+                    3
+                );
+
+            directionalLight.position.set(
+                10,
+                15,
+                10
+            );
+
+            directionalLight.castShadow = true;
+
+            scene.add(
+                directionalLight
+            );
+
+
+            // =====================================================
+            // FLOOR
+            // =====================================================
+
+            const floor =
+                new THREE.Mesh(
+
+                    new THREE.PlaneGeometry(
+                        30,
+                        30
+                    ),
+
+                    new THREE.MeshStandardMaterial({
+                        color: 0xe7e5e4,
+                        roughness: 0.9
+                    })
+
+                );
+
+            floor.rotation.x =
+                -Math.PI / 2;
+
+            floor.receiveShadow = true;
+
+            scene.add(
+                floor
+            );
+
+
+            // =====================================================
+            // BUILDING GROUP
+            // =====================================================
+
+            // =====================================================
+            // PHASE 2: 3D BUILDING WITH INDIVIDUAL ROOMS
+            // REPLACES THE OLD PLACEHOLDER BUILDING BLOCKS
+            // =====================================================
+
+
+            // =====================================================
+            // BUILDING GROUP
+            // ALL FLOORS AND ROOMS WILL BE ADDED HERE
+            // =====================================================
+
+            const building = new THREE.Group();
+
+            scene.add(building);
+
+
+            // =====================================================
+            // ROOM MATERIALS
+            // THESE COLORS WILL LATER REPRESENT ROOM STATUS
+            // =====================================================
+
+            const roomMaterials = {
+
+                normal: new THREE.MeshStandardMaterial({
+                    color: 0xffffff,
+                    roughness: 0.65,
+                    metalness: 0
+                }),
+
+                warning: new THREE.MeshStandardMaterial({
+                    color: 0xfef3c7,
+                    roughness: 0.65,
+                    metalness: 0
+                }),
+
+                urgent: new THREE.MeshStandardMaterial({
+                    color: 0xfee2e2,
+                    roughness: 0.65,
+                    metalness: 0
+                })
+
+            };
+
+
+            // =====================================================
+            // ROOM BORDER MATERIAL
+            // CREATES THE DARK OUTLINE AROUND EACH ROOM
+            // =====================================================
+
+            const roomEdgeMaterial =
+                new THREE.LineBasicMaterial({
+                    color: 0x94a3b8
+                });
+
+
+            // =====================================================
+            // CREATE INDIVIDUAL ROOM
+            //
+            // name   = room name
+            // x      = horizontal position
+            // y      = floor height
+            // z      = depth position
+            // width  = room width
+            // depth  = room depth
+            // status = normal, warning, or urgent
+            // =====================================================
+
+            function createRoom(
+                name,
+                x,
+                y,
+                z,
+                width,
+                depth,
+                status = 'normal'
+            ) {
+
+                // =================================================
+                // ROOM HEIGHT
+                // =================================================
+
+                const roomHeight = 1.8;
+
+
+                // =================================================
+                // CREATE ROOM GEOMETRY
+                // =================================================
+
+                const geometry =
+                    new THREE.BoxGeometry(
+                        width,
+                        roomHeight,
+                        depth
+                    );
+
+
+                // =================================================
+                // CREATE ROOM MESH
+                // =================================================
+
+                const room =
+                    new THREE.Mesh(
+                        geometry,
+                        roomMaterials[status]
+                    );
+
+
+                // =================================================
+                // ROOM POSITION
+                // =================================================
+
+                room.position.set(
+                    x,
+                    y + roomHeight / 2,
+                    z
+                );
+
+
+                // =================================================
+                // ENABLE SHADOWS
+                // =================================================
+
+                room.castShadow = true;
+
+                room.receiveShadow = true;
+
+
+                // =================================================
+                // SAVE ROOM INFORMATION
+                // THIS WILL BE USED IN PHASE 3 FOR CLICKING ROOMS
+                // =================================================
+
+                room.userData = {
+                    type: 'room',
+                    name: name,
+                    status: status
+                };
+
+
+                // =================================================
+                // ADD ROOM TO BUILDING
+                // =================================================
+
+                building.add(room);
+
+
+                // =================================================
+                // CREATE ROOM OUTLINE
+                // MAKES EACH ROOM EASIER TO SEE
+                // =================================================
+
+                const edges =
+                    new THREE.EdgesGeometry(
+                        geometry
+                    );
+
+                const outline =
+                    new THREE.LineSegments(
+                        edges,
+                        roomEdgeMaterial
+                    );
+
+                outline.position.copy(
+                    room.position
+                );
+
+                building.add(
+                    outline
+                );
+
+
+                return room;
+            }
+
+
+            // =====================================================
+            // FLOOR 1
+            // Y POSITION = 0
+            // =====================================================
+
+            createRoom(
+                'Room 101',
+                -4.5,
+                0,
+                -2.5,
+                4,
+                4,
+                'normal'
+            );
+
+            createRoom(
+                'Room 102',
+                0,
+                0,
+                -2.5,
+                4,
+                4,
+                'normal'
+            );
+
+            createRoom(
+                'Room 103',
+                4.5,
+                0,
+                -2.5,
+                4,
+                4,
+                'warning'
+            );
+
+            createRoom(
+                'Computer Lab',
+                -4.5,
+                0,
+                2.5,
+                4,
+                4,
+                'normal'
+            );
+
+            createRoom(
+                'Faculty Room',
+                0,
+                0,
+                2.5,
+                4,
+                4,
+                'urgent'
+            );
+
+            createRoom(
+                'Office',
+                4.5,
+                0,
+                2.5,
+                4,
+                4,
+                'normal'
+            );
+
+
+            // =====================================================
+            // FLOOR 2
+            // Y POSITION = 2
+            // =====================================================
+
+            createRoom(
+                'Room 201',
+                -4.5,
+                2,
+                -2.5,
+                4,
+                4,
+                'normal'
+            );
+
+            createRoom(
+                'Room 202',
+                0,
+                2,
+                -2.5,
+                4,
+                4,
+                'normal'
+            );
+
+            createRoom(
+                'Room 203',
+                4.5,
+                2,
+                -2.5,
+                4,
+                4,
+                'normal'
+            );
+
+            createRoom(
+                'Room 204',
+                -4.5,
+                2,
+                2.5,
+                4,
+                4,
+                'warning'
+            );
+
+            createRoom(
+                'Room 205',
+                0,
+                2,
+                2.5,
+                4,
+                4,
+                'normal'
+            );
+
+            createRoom(
+                'Room 206',
+                4.5,
+                2,
+                2.5,
+                4,
+                4,
+                'normal'
+            );
+
+
+            // =====================================================
+            // FLOOR 3
+            // Y POSITION = 4
+            // =====================================================
+
+            createRoom(
+                'Room 301',
+                -4.5,
+                4,
+                -2.5,
+                4,
+                4,
+                'normal'
+            );
+
+            createRoom(
+                'Room 302',
+                0,
+                4,
+                -2.5,
+                4,
+                4,
+                'urgent'
+            );
+
+            createRoom(
+                'Room 303',
+                4.5,
+                4,
+                -2.5,
+                4,
+                4,
+                'normal'
+            );
+
+            createRoom(
+                'Room 304',
+                -4.5,
+                4,
+                2.5,
+                4,
+                4,
+                'normal'
+            );
+
+            createRoom(
+                'Room 305',
+                0,
+                4,
+                2.5,
+                4,
+                4,
+                'normal'
+            );
+
+            createRoom(
+                'Room 306',
+                4.5,
+                4,
+                2.5,
+                4,
+                4,
+                'warning'
+            );
+
+
+            // =====================================================
+            // PHASE 2 COMPLETE
+            // EACH ROOM IS NOW ITS OWN THREE.JS OBJECT
+            // =====================================================
+
+
+            // =====================================================
+            // GRID
+            // =====================================================
+
+            const grid =
+                new THREE.GridHelper(
+                    30,
+                    30,
+                    0x94a3b8,
+                    0xd1d5db
+                );
+
+            grid.position.y = 0.01;
+
+            scene.add(
+                grid
+            );
+
+
+            // =====================================================
+            // ZOOM BUTTONS
+            // =====================================================
+
+            document
+                .getElementById('buildingZoomIn')
+                ?.addEventListener(
+                    'click',
+                    () => {
+
+                        camera.position.multiplyScalar(
+                            0.85
+                        );
+
+                        controls.update();
+
+                    }
+                );
+
+
+            document
+                .getElementById('buildingZoomOut')
+                ?.addEventListener(
+                    'click',
+                    () => {
+
+                        camera.position.multiplyScalar(
+                            1.15
+                        );
+
+                        controls.update();
+
+                    }
+                );
+
+
+            // =====================================================
+            // RESET BUTTON
+            // =====================================================
+
+            document
+                .getElementById('buildingReset')
+                ?.addEventListener(
+                    'click',
+                    () => {
+
+                        camera.position.set(
+                            18,
+                            14,
+                            20
+                        );
+
+                        controls.target.set(
+                            0,
+                            2.5,
+                            0
+                        );
+
+                        controls.update();
+
+                    }
+                );
+
+
+            // =====================================================
+            // RESPONSIVE RESIZE
+            // =====================================================
+
+            const resizeObserver =
+                new ResizeObserver(() => {
+
+                    const width =
+                        container.clientWidth;
+
+                    const height =
+                        container.clientHeight;
+
+
+                    if (
+                        width === 0 ||
+                        height === 0
+                    ) {
+                        return;
+                    }
+
+
+                    camera.aspect =
+                        width / height;
+
+                    camera.updateProjectionMatrix();
+
+
+                    renderer.setSize(
+                        width,
+                        height,
+                        false
+                    );
+
+                });
+
+
+            resizeObserver.observe(
+                container
+            );
+
+
+            // =====================================================
+            // ANIMATION
+            // =====================================================
+
+            function animate() {
+
+                requestAnimationFrame(
+                    animate
+                );
+
+                controls.update();
+
+                renderer.render(
+                    scene,
+                    camera
+                );
+
+            }
+
+
+            animate();
+
+
+            console.log(
+                'Three.js building viewer started successfully.'
+            );
+
+        }
+
+    </script>
 
     <script>
         document.addEventListener("DOMContentLoaded", () => {
