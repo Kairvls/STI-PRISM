@@ -94,13 +94,13 @@
             </a>
 
             <a
-                href="/admin/users/create"
-                class="quick-card {{ request()->is('admin/users/create*') ? 'active' : '' }}"
+                href="/admin/digital-signatures/sign-ris"
+                class="quick-card {{ request()->is('admin/digital-signatures/sign-ris*') ? 'active' : '' }}"
             >
 
-                <i data-lucide="user-plus"></i>
+                <i data-lucide="pen-tool"></i>
 
-                <span>Create User</span>
+                <span>Sign RIS</span>
 
             </a>
 
@@ -160,7 +160,7 @@
         </div>
 
         <a
-            href="/admin/procurement-review"
+            href="/admin/procurement-review/ris"
             class="menu-item {{ request()->is('admin/procurement-review*') ? 'active' : '' }}"
         >
 
@@ -179,7 +179,11 @@
             DIGITAL SIGNATURES
 
         </div>
+        {{-- <a href="{{ route('admin.procurement-review.index') }}"> 
+                        <i data-lucide="pen-tool"></i>
 
+            <span>Sign RIS</span>
+        </a> --}}
         <a
             href="/admin/digital-signatures/sign-ris"
             class="menu-item {{ request()->is('admin/digital-signatures/sign-ris') ? 'active' : '' }}"
@@ -223,17 +227,6 @@
 
         </a>
 
-        <a
-            href="/admin/users/create"
-            class="menu-item {{ request()->is('admin/users/create') ? 'active' : '' }}"
-        >
-
-            <i data-lucide="user-plus"></i>
-
-            <span>Create Account</span>
-
-        </a>
-
         {{-- ====================================== --}}
         {{-- REPORTS --}}
         {{-- ====================================== --}}
@@ -264,17 +257,6 @@
             SYSTEM
 
         </div>
-
-        <a
-            href="/admin/notifications"
-            class="menu-item {{ request()->is('admin/notifications*') ? 'active' : '' }}"
-        >
-
-            <i data-lucide="bell"></i>
-
-            <span>Notifications</span>
-
-        </a>
 
         <a
             href="/admin/settings/campus-setup-pin"

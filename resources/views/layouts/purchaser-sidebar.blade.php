@@ -404,8 +404,16 @@
         {{-- ===================================================== --}}
 
         <a
-            href="#"
-            class="menu-item mt-1"
+            href="{{ route('purchaser.ris.index') }}"
+            class="
+                menu-item mt-1
+
+                {{
+                    request()->routeIs('purchaser.ris*')
+                        ? 'active'
+                        : ''
+                }}
+            "
         >
 
             <i

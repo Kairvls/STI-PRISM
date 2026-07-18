@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\CampusSetupSetting;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class AdminController extends Controller
@@ -28,9 +29,38 @@ class AdminController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    public function procurementReview(): View
+    public function procurementReview(Request $request): View
     {
-        return view('admin.procurement-review.index');
+        $filter = $request->query('filter', 'all'); // Default to 'all'
+        
+        $query = DB::table('requisition_issue_slip_table')
+            ->leftJoin('procurement_requests_table', 'requisition_issue_slip_table.ris_procurement_request_id', '=', 'procurement_requests_table.procurement_request_id')
+            ->leftJoin('reports_table', 'procurement_requests_table.procurement_request_report_id', '=', 'reports_table.report_id')
+            ->leftJoin('equipment_table', 'reports_table.report_equipment_id', '=', 'equipment_table.equipment_id')
+            ->select(
+                'requisition_issue_slip_table.*',
+                'procurement_requests_table.procurement_request_id',
+                'reports_table.report_id',
+                'reports_table.report_unlisted_equipment_name',
+                'equipment_table.equipment_name'
+            )
+            ->whereNotNull('requisition_issue_slip_table.ris_requested_by_date');
+
+        // Apply filter
+        if ($filter === 'approved') {
+            $query->where('requisition_issue_slip_table.ris_status', 'Approved');
+        } elseif ($filter === 'rejected') {
+            $query->where('requisition_issue_slip_table.ris_status', 'Rejected');
+        } else {
+            // Show all records
+            $query->whereIn('requisition_issue_slip_table.ris_status', ['Pending', 'Approved', 'Rejected']);
+        }
+
+        $risRecords = $query->orderByDesc('requisition_issue_slip_table.ris_requested_by_date')
+            ->paginate(10)
+            ->appends(request()->query()); // Preserve filter in pagination links
+
+        return view('admin.procurement-review.index', compact('risRecords', 'filter'));
     }
 
     /*
@@ -41,12 +71,112 @@ class AdminController extends Controller
 
     public function signRis(): View
     {
-        return view('admin.digital-signatures.sign-ris');
+        // Get RIS records approved by Admin but not yet signed by Admin (for signature)
+        $signableRisRecords = DB::table('requisition_issue_slip_table')
+            ->leftJoin('procurement_requests_table', 'requisition_issue_slip_table.ris_procurement_request_id', '=', 'procurement_requests_table.procurement_request_id')
+            ->leftJoin('reports_table', 'procurement_requests_table.procurement_request_report_id', '=', 'reports_table.report_id')
+            ->leftJoin('equipment_table', 'reports_table.report_equipment_id', '=', 'equipment_table.equipment_id')
+            ->select(
+                'requisition_issue_slip_table.*',
+                'procurement_requests_table.procurement_request_id',
+                'reports_table.report_id',
+                'reports_table.report_unlisted_equipment_name',
+                'equipment_table.equipment_name'
+            )
+            ->where('requisition_issue_slip_table.ris_status', 'Approved')
+            ->whereNotNull('requisition_issue_slip_table.ris_approved_by_date')
+            ->whereNull('requisition_issue_slip_table.ris_issued_by_date')
+            ->orderByDesc('requisition_issue_slip_table.ris_approved_by_date')
+            ->get();
+
+        return view('admin.digital-signatures.sign-ris', compact('signableRisRecords'));
     }
 
     public function signatureHistory(): View
     {
-        return view('admin.digital-signatures.signature-history');
+        // Get RIS records that have been signed by Admin
+        $signatureHistory = DB::table('requisition_issue_slip_table')
+            ->leftJoin('procurement_requests_table', 'requisition_issue_slip_table.ris_procurement_request_id', '=', 'procurement_requests_table.procurement_request_id')
+            ->leftJoin('reports_table', 'procurement_requests_table.procurement_request_report_id', '=', 'reports_table.report_id')
+            ->leftJoin('equipment_table', 'reports_table.report_equipment_id', '=', 'equipment_table.equipment_id')
+            ->select(
+                'requisition_issue_slip_table.*',
+                'procurement_requests_table.procurement_request_id',
+                'reports_table.report_id',
+                'reports_table.report_unlisted_equipment_name',
+                'equipment_table.equipment_name'
+            )
+            ->whereNotNull('requisition_issue_slip_table.ris_issued_by_date')
+            ->orderByDesc('requisition_issue_slip_table.ris_issued_by_date')
+            ->paginate(10);
+
+        return view('admin.digital-signatures.signature-history', compact('signatureHistory'));
+    }
+
+    // =====================================================
+    // ADMIN RIS DECISION WITH DIGITAL SIGNATURE
+    // =====================================================
+
+    public function decideRis(Request $request)
+    {
+        $targetId = $request->input('target_id');
+        $decision = $request->input('decision');
+        $remarks = $request->input('remarks');
+
+        // Basic validation
+        if (empty($targetId) || !in_array($decision, ['Approved', 'Rejected'], true)) {
+            return back()->with('error', 'Invalid RIS decision payload.');
+        }
+
+        $target = DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $targetId)
+            ->first();
+
+        if (!$target) {
+            return back()->with('error', 'RIS not found.');
+        }
+
+        // Check if RIS is eligible for signing
+        if ($target->ris_status !== 'Approved' || empty($target->ris_approved_by_date)) {
+            return back()->with('error', 'Only RIS records approved by President can be signed.');
+        }
+
+        $updateValues = [
+            'ris_status' => $decision === 'Approved' ? 'Approved' : 'Rejected',
+        ];
+
+        if ($decision === 'Approved') {
+            $signatureData = $request->input('signature_data');
+            if (empty($signatureData)) {
+                return back()->with('error', 'Admin signature is required to approve the RIS.');
+            }
+            $updateValues['ris_issued_by_signature'] = $signatureData;
+            $updateValues['ris_issued_by_date'] = now()->toDateString();
+        } else {
+            // For rejection, just update status
+            $updateValues['ris_status'] = 'Rejected';
+        }
+
+        DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $targetId)
+            ->update($updateValues);
+
+        // Log the activity to approval logs
+        try {
+            DB::table('approval_logs_table')->insert([
+                'approval_log_reference_type' => 'RIS',
+                'approval_log_reference_id' => (int) $targetId,
+                'approval_log_level' => 'Admin',
+                'approval_log_approved_by' => Auth::id(),
+                'approval_log_approval_status' => $decision,
+                'approval_log_approval_remarks' => $remarks,
+                'approval_log_approved_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            // ignore logging failures
+        }
+
+        return redirect('/admin/digital-signatures/sign-ris')->with('success', 'RIS decision saved successfully.');
     }
 
     /*
@@ -242,4 +372,87 @@ class AdminController extends Controller
 
         return back()->with('success', 'Campus setup PIN updated successfully.');
     }
+    // =====================================================
+    // ADDED RIS ADMIN APPROVAL: SHOW SUBMITTED RIS RECORDS
+    // =====================================================
+
+    public function risApprovals(Request $request)
+    {
+        // ADDED RIS ADMIN APPROVAL: submitted means Pending with requested date filled.
+        $risRecords = DB::table('requisition_issue_slip_table')
+            ->leftJoin('procurement_requests_table', 'requisition_issue_slip_table.ris_procurement_request_id', '=', 'procurement_requests_table.procurement_request_id')
+            ->leftJoin('reports_table', 'procurement_requests_table.procurement_request_report_id', '=', 'reports_table.report_id')
+            ->leftJoin('equipment_table', 'reports_table.report_equipment_id', '=', 'equipment_table.equipment_id')
+            ->select(
+                'requisition_issue_slip_table.*',
+                'procurement_requests_table.procurement_request_id',
+                'reports_table.report_id',
+                'reports_table.report_unlisted_equipment_name',
+                'equipment_table.equipment_name'
+            )
+            ->where('requisition_issue_slip_table.ris_status', 'Pending')
+            ->whereNotNull('requisition_issue_slip_table.ris_requested_by_date')
+            ->whereNull('requisition_issue_slip_table.ris_approved_by_date')
+            ->orderByDesc('requisition_issue_slip_table.ris_requested_by_date')
+            ->paginate(10);
+
+        return view('admin.procurement-review.index', compact('risRecords'));
+    }
+
+    // =====================================================
+    // ADDED RIS ADMIN APPROVAL: APPROVE RIS
+    // =====================================================
+
+    public function approveRis($risId)
+    {
+        return DB::transaction(function () use ($risId) {
+            $ris = DB::table('requisition_issue_slip_table')
+                ->where('ris_id', $risId)
+                ->lockForUpdate()
+                ->first();
+
+            abort_if(!$ris, 404);
+
+            if ($ris->ris_status !== 'Pending' || !$ris->ris_requested_by_date) {
+                return back()->with('error', 'Only submitted pending RIS records can be approved.');
+            }
+
+            DB::table('requisition_issue_slip_table')
+                ->where('ris_id', $risId)
+                ->update([
+                    'ris_status' => 'Pending',
+                    'ris_approved_by_signature' => Auth::user()->user_full_name ?? 'Admin',
+                    'ris_approved_by_date' => now()->toDateString(),
+                ]);
+
+            return back()->with('success', 'RIS approved successfully.');
+        });
+    }
+
+    // =====================================================
+    // ADDED RIS ADMIN APPROVAL: REJECT RIS
+    // =====================================================
+
+    public function rejectRis($risId)
+    {
+        return DB::transaction(function () use ($risId) {
+            $ris = DB::table('requisition_issue_slip_table')
+                ->where('ris_id', $risId)
+                ->lockForUpdate()
+                ->first();
+
+            abort_if(!$ris, 404);
+
+            if ($ris->ris_status !== 'Pending' || !$ris->ris_requested_by_date) {
+                return back()->with('error', 'Only submitted pending RIS records can be rejected.');
+            }
+
+            DB::table('requisition_issue_slip_table')
+                ->where('ris_id', $risId)
+                ->update(['ris_status' => 'Rejected']);
+
+            return back()->with('success', 'RIS rejected successfully. prism.sql has no rejection reason column yet.');
+        });
+    }
 }
+

@@ -35,27 +35,6 @@
         <!-- NOTIFICATIONS -->
         <!-- ===================================== -->
 
-        {{-- ================================================= --}}
-        {{-- MAILBOX BUTTON --}}
-        {{-- BESIDE NOTIFICATION BUTTON --}}
-        {{-- ================================================= --}}
-
-        <a
-            href="{{ url('/admin/messages') }}"
-            class="dashboard-icon-action"
-            aria-label="PRISM messages box"
-            title="PRISM messages box"
-        >
-            <i data-lucide="messages-square" class="h-[18px] w-[18px]"></i>
-
-            {{-- ================================================= --}}
-            {{-- OPTIONAL MAIL UNREAD DOT --}}
-            {{-- REMOVE THIS SPAN IF YOU DO NOT HAVE MAIL COUNTS --}}
-            {{-- ================================================= --}}
-
-            <span class="dashboard-notification-dot"></span>
-        </a>
-
         <div class="relative">
             <!-- ===================================== -->
             <!-- NOTIFICATION BUTTON -->
@@ -69,12 +48,18 @@
             >
                 <i data-lucide="bell" class="h-5 w-5"></i>
 
-                <!-- ===================================== -->
-                <!-- UNREAD INDICATOR -->
-                <!-- ONLY SHOW WHEN UNREAD EXISTS -->
-                <!-- ===================================== -->
+                @php
+                    $unreadCount = 0;
+                    try {
+                        $unreadCount = \DB::table('notifications_table')
+                            ->where('notification_user_id', auth()->id())
+                            ->count();
+                    } catch (\Throwable $e) {
+                        $unreadCount = 0;
+                    }
+                @endphp
 
-                @if (0 > 0)
+                @if ($unreadCount > 0)
                     <span
                         class="absolute right-[9px] top-[8px] h-2 w-2 rounded-full border-2 border-white bg-rose-500"
                     ></span>
@@ -114,7 +99,7 @@
                     <span
                         class="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-600"
                     >
-                        {{-- $headerUnreadCount --}} new
+                        {{ $unreadCount }} new
                     </span>
                 </div>
 
@@ -124,24 +109,60 @@
 
                 <div class="max-h-[360px] overflow-y-auto">
 
-                    <div
-                        class="flex min-h-[220px] flex-col items-center justify-center px-6 text-center"
-                    >
+                    @php
+                        $recentAlerts = \DB::table('requisition_issue_slip_table')
+                            ->select('ris_id', 'ris_form_number', 'ris_status', 'ris_created_at', 'ris_purpose_description')
+                            ->orderByDesc('ris_created_at')
+                            ->limit(5)
+                            ->get();
+                    @endphp
+
+                    @if ($recentAlerts->count() > 0)
+                        @foreach ($recentAlerts as $alert)
+                            @php
+                                $statusLower = strtolower($alert->ris_status ?? '');
+                                $icon = $statusLower === 'approved' ? 'circle-check-big' : ($statusLower === 'rejected' ? 'x-circle' : 'clock-3');
+                                $color = $statusLower === 'approved' ? 'bg-emerald-100 text-emerald-600' : ($statusLower === 'rejected' ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600');
+                                $title = $alert->ris_form_number ?? ('RIS #' . $alert->ris_id);
+                                $time = $alert->ris_created_at ? date('M d, Y', strtotime($alert->ris_created_at)) : '—';
+                            @endphp
+
+                            <a href="/president/approvals" class="notification-item flex items-center gap-3">
+
+                                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl {{ $color }}">
+                                    <i data-lucide="{{ $icon }}" class="h-4 w-4"></i>
+                                </div>
+
+                                <div class="min-w-0">
+                                    <h4 class="text-sm font-medium text-slate-900 truncate">{{ $title }}</h4>
+
+                                    <p class="text-xs text-slate-500 truncate">{{ $alert->ris_purpose_description ?? 'No description' }}</p>
+
+                                    <span class="text-[11px] text-slate-400">{{ $time }}</span>
+                                </div>
+
+                            </a>
+                        @endforeach
+                    @else
                         <div
-                            class="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-400"
+                            class="flex min-h-[220px] flex-col items-center justify-center px-6 text-center"
                         >
-                            <i data-lucide="bell-off" class="h-4 w-4"></i>
+                            <div
+                                class="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-400"
+                            >
+                                <i data-lucide="bell-off" class="h-4 w-4"></i>
+                            </div>
+
+                            <h4 class="mt-3 text-sm font-medium text-slate-700">
+                                No notifications
+                            </h4>
+
+                            <p class="mt-1 text-xs text-slate-400">
+                                New system activity will appear here.
+                            </p>
+
                         </div>
-
-                        <h4 class="mt-3 text-sm font-medium text-slate-700">
-                            No notifications
-                        </h4>
-
-                        <p class="mt-1 text-xs text-slate-400">
-                            New system activity will appear here.
-                        </p>
-
-                    </div>
+                    @endif
 
                 </div>
 
@@ -151,7 +172,7 @@
 
                 <div class="border-t border-slate-100 px-3 py-2">
                     <a
-                        href="{{ url('/admin/notifications') }}"
+                        href="{{ url('/president/notifications') }}"
                         class="block w-full rounded-lg px-3 py-2 text-center text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
                     >
                         View all notifications
@@ -230,7 +251,7 @@
                 <!-- ===================================== -->
                 <div class="p-2">
                     <a
-                        href="{{ url('/admin/profile') }}"
+                        href="{{ url('/president/profile') }}"
                         class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
                     >
                         <i
@@ -239,18 +260,6 @@
                         ></i>
 
                         Profile settings
-                    </a>
-
-                    <a
-                        href="{{ url('/admin/security') }}"
-                        class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
-                    >
-                        <i
-                            data-lucide="shield-check"
-                            class="h-4 w-4 text-slate-400"
-                        ></i>
-
-                        Security settings
                     </a>
                 </div>
 
@@ -327,139 +336,139 @@
        KEEP THIS INSIDE maintenance-topbar.blade.php
     ====================================== */
 
-    .dashboard-toolbar-search {
-        width: 320px;
-        height: 46px;
+        .dashboard-toolbar-search {
+            width: 320px;
+            height: 46px;
 
-        display: flex;
-        align-items: center;
+            display: flex;
+            align-items: center;
 
-        gap: 12px;
+            gap: 12px;
 
-        padding: 0 12px 0 16px;
+            padding: 0 12px 0 16px;
 
-        background: #ffffff;
+            background: #ffffff;
 
-        border: 1px solid #e2e8f0;
+            border: 1px solid #e2e8f0;
 
-        border-radius: 14px;
+            border-radius: 14px;
 
-        color: #64748b;
-    }
-
-
-    .dashboard-toolbar-search-icon {
-        width: 18px;
-        height: 18px;
-
-        flex-shrink: 0;
-
-        color: #94a3b8;
-
-        stroke: currentColor;
-    }
+            color: #64748b;
+        }
 
 
-    .dashboard-toolbar-search input {
-        min-width: 0;
+        .dashboard-toolbar-search-icon {
+            width: 18px;
+            height: 18px;
 
-        flex: 1;
+            flex-shrink: 0;
 
-        border: none;
+            color: #94a3b8;
 
-        outline: none;
-
-        background: transparent;
-
-        font-size: 14px;
-
-        color: #0f172a;
-    }
+            stroke: currentColor;
+        }
 
 
-    .dashboard-toolbar-search input::placeholder {
-        color: #94a3b8;
-    }
+        .dashboard-toolbar-search input {
+            min-width: 0;
+
+            flex: 1;
+
+            border: none;
+
+            outline: none;
+
+            background: transparent;
+
+            font-size: 14px;
+
+            color: #0f172a;
+        }
 
 
-    .dashboard-search-shortcut {
-        flex-shrink: 0;
-
-        padding: 3px 7px;
-
-        border: 1px solid #e2e8f0;
-
-        border-radius: 6px;
-
-        background: #f8fafc;
-
-        color: #94a3b8;
-
-        font-size: 11px;
-
-        line-height: 1;
-    }
+        .dashboard-toolbar-search input::placeholder {
+            color: #94a3b8;
+        }
 
 
-    /* ======================================
+        .dashboard-search-shortcut {
+            flex-shrink: 0;
+
+            padding: 3px 7px;
+
+            border: 1px solid #e2e8f0;
+
+            border-radius: 6px;
+
+            background: #f8fafc;
+
+            color: #94a3b8;
+
+            font-size: 11px;
+
+            line-height: 1;
+        }
+
+
+        /* ======================================
        MAILBOX BUTTON
        KEEP THIS INSIDE maintenance-topbar.blade.php
     ====================================== */
 
-    .dashboard-icon-action {
-        position: relative;
+        .dashboard-icon-action {
+            position: relative;
 
-        width: 40px;
-        height: 40px;
+            width: 40px;
+            height: 40px;
 
-        display: flex;
-        align-items: center;
-        justify-content: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
 
-        flex-shrink: 0;
+            flex-shrink: 0;
 
-        border-radius: 999px;
+            border-radius: 999px;
 
-        color: #64748b;
+            color: #64748b;
 
-        text-decoration: none;
+            text-decoration: none;
 
-        transition:
-            background 0.2s ease,
-            color 0.2s ease;
-    }
-
-
-    .dashboard-icon-action:hover {
-        background: #f1f5f9;
-
-        color: #0f172a;
-    }
+            transition:
+                background 0.2s ease,
+                color 0.2s ease;
+        }
 
 
-    .dashboard-icon-action svg {
-        width: 18px;
-        height: 18px;
+        .dashboard-icon-action:hover {
+            background: #f1f5f9;
 
-        stroke: currentColor;
-    }
+            color: #0f172a;
+        }
 
 
-    .dashboard-notification-dot {
-        position: absolute;
+        .dashboard-icon-action svg {
+            width: 18px;
+            height: 18px;
 
-        top: 8px;
-        right: 8px;
+            stroke: currentColor;
+        }
 
-        width: 6px;
-        height: 6px;
 
-        border-radius: 999px;
+        .dashboard-notification-dot {
+            position: absolute;
 
-        background: #ef4444;
+            top: 8px;
+            right: 8px;
 
-        border: 1px solid #ffffff;
-    }
+            width: 6px;
+            height: 6px;
+
+            border-radius: 999px;
+
+            background: #ef4444;
+
+            border: 1px solid #ffffff;
+        }
 
         .mobile-sidebar-btn{
             width:46px;
@@ -669,6 +678,8 @@
             gap:14px;
             padding:18px;
             transition:.2s;
+            text-decoration:none;
+            color:inherit;
         }
 
         .notification-item:hover{

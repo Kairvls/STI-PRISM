@@ -1527,4 +1527,420 @@ class PurchaserController extends Controller
 
         });
     }
+    // =====================================================
+    // ADDED RIS MODULE: SHOW RIS DASHBOARD AND LIST
+    // =====================================================
+
+    public function risIndex(Request $request)
+    {
+        // =====================================================
+        // ADDED RIS MODULE: GET RIS RECORDS WITH RELATED REQUEST DATA
+        // =====================================================
+
+        $risQuery = DB::table('requisition_issue_slip_table')
+
+            ->leftJoin(
+                'procurement_requests_table',
+                'requisition_issue_slip_table.ris_procurement_request_id',
+                '=',
+                'procurement_requests_table.procurement_request_id'
+            )
+
+            ->leftJoin(
+                'reports_table',
+                'procurement_requests_table.procurement_request_report_id',
+                '=',
+                'reports_table.report_id'
+            )
+
+            ->leftJoin(
+                'equipment_table',
+                'reports_table.report_equipment_id',
+                '=',
+                'equipment_table.equipment_id'
+            )
+
+            ->leftJoin(
+                'rooms_table',
+                'reports_table.report_room_id',
+                '=',
+                'rooms_table.room_id'
+            )
+
+            ->select(
+                'requisition_issue_slip_table.*',
+                'procurement_requests_table.procurement_request_id',
+                'procurement_requests_table.procurement_request_status',
+                'reports_table.report_id',
+                'reports_table.report_problem_description',
+                'reports_table.report_replacement_notes',
+                'reports_table.report_unlisted_equipment_name',
+                'equipment_table.equipment_name',
+                'equipment_table.equipment_asset_tag',
+                'rooms_table.room_name'
+            );
+
+        // =====================================================
+        // ADDED RIS MODULE: SEARCH FILTER
+        // =====================================================
+
+        if ($request->filled('search')) {
+
+            $risQuery->where(function ($query) use ($request) {
+
+                $query
+                    ->where(
+                        'requisition_issue_slip_table.ris_form_number',
+                        'LIKE',
+                        '%' . $request->search . '%'
+                    )
+                    ->orWhere(
+                        'procurement_requests_table.procurement_request_id',
+                        'LIKE',
+                        '%' . $request->search . '%'
+                    )
+                    ->orWhere(
+                        'equipment_table.equipment_name',
+                        'LIKE',
+                        '%' . $request->search . '%'
+                    )
+                    ->orWhere(
+                        'reports_table.report_unlisted_equipment_name',
+                        'LIKE',
+                        '%' . $request->search . '%'
+                    );
+
+            });
+
+        }
+
+        // =====================================================
+        // ADDED RIS MODULE: STATUS FILTER
+        // =====================================================
+
+        if ($request->filled('status')) {
+
+            $risQuery->where(
+                'requisition_issue_slip_table.ris_status',
+                $request->status
+            );
+
+        }
+
+        // =====================================================
+        // ADDED RIS MODULE: DATE FILTERS
+        // =====================================================
+
+        if ($request->filled('date_from')) {
+
+            $risQuery->whereDate(
+                'requisition_issue_slip_table.ris_created_at',
+                '>=',
+                $request->date_from
+            );
+
+        }
+
+        if ($request->filled('date_to')) {
+
+            $risQuery->whereDate(
+                'requisition_issue_slip_table.ris_created_at',
+                '<=',
+                $request->date_to
+            );
+
+        }
+
+        // =====================================================
+        // ADDED RIS MODULE: PAGINATED RIS LIST
+        // =====================================================
+
+        $risRecords = $risQuery
+            ->orderByDesc('requisition_issue_slip_table.ris_created_at')
+            ->paginate(10)
+            ->withQueryString();
+
+        // =====================================================
+        // ADDED RIS MODULE: REPLACEMENT REQUESTS WITHOUT RIS YET
+        // =====================================================
+
+        $eligibleReplacementRequests = DB::table('procurement_requests_table')
+
+            ->join(
+                'reports_table',
+                'procurement_requests_table.procurement_request_report_id',
+                '=',
+                'reports_table.report_id'
+            )
+
+            ->leftJoin(
+                'equipment_table',
+                'reports_table.report_equipment_id',
+                '=',
+                'equipment_table.equipment_id'
+            )
+
+            ->leftJoin(
+                'rooms_table',
+                'reports_table.report_room_id',
+                '=',
+                'rooms_table.room_id'
+            )
+
+            ->leftJoin(
+                'requisition_issue_slip_table',
+                'procurement_requests_table.procurement_request_id',
+                '=',
+                'requisition_issue_slip_table.ris_procurement_request_id'
+            )
+
+            ->whereNull('requisition_issue_slip_table.ris_id')
+
+            ->where(
+                'reports_table.report_current_status',
+                'For Replacement'
+            )
+
+            ->select(
+                'procurement_requests_table.procurement_request_id',
+                'procurement_requests_table.procurement_request_status',
+                'procurement_requests_table.procurement_request_created_at',
+                'reports_table.report_id',
+                'reports_table.report_problem_description',
+                'reports_table.report_replacement_notes',
+                'reports_table.report_unlisted_equipment_name',
+                'equipment_table.equipment_name',
+                'equipment_table.equipment_asset_tag',
+                'rooms_table.room_name'
+            )
+
+            ->orderByDesc(
+                'procurement_requests_table.procurement_request_created_at'
+            )
+
+            ->limit(10)
+
+            ->get();
+
+        // =====================================================
+        // ADDED RIS MODULE: DASHBOARD COUNTS
+        // =====================================================
+
+        $risSummary = [
+            'total' => DB::table('requisition_issue_slip_table')->count(),
+            'draft' => DB::table('requisition_issue_slip_table')->where('ris_status', 'Pending')->whereNull('ris_requested_by_date')->count(),
+            'submitted' => DB::table('requisition_issue_slip_table')->where('ris_status', 'Pending')->whereNotNull('ris_requested_by_date')->count(),
+            'approved' => DB::table('requisition_issue_slip_table')
+                ->where('ris_status', 'Approved')
+                ->count(),
+            'rejected' => DB::table('requisition_issue_slip_table')
+                ->where('ris_status', 'Rejected')
+                ->count(),
+        ];
+
+        // =====================================================
+        // ADDED RIS MODULE: RETURN RIS INDEX PAGE
+        // =====================================================
+
+        return view(
+            'purchaser.ris.index',
+            compact(
+                'risRecords',
+                'eligibleReplacementRequests',
+                'risSummary'
+            )
+        );
+    }
+
+
+    // =====================================================
+    // ADDED RIS MODULE: CREATE RIS FROM REPLACEMENT REQUEST
+    // =====================================================
+
+    public function storeRis(Request $request)
+    {
+        // =====================================================
+        // ADDED RIS MODULE: VALIDATE RIS FORM INPUT WITH MULTIPLE ITEMS
+        // =====================================================
+
+        $validated = $request->validate([
+            'procurement_request_id' => ['required', 'integer', 'exists:procurement_requests_table,procurement_request_id'],
+            'ris_purpose_description' => ['required', 'string', 'max:2000'],
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.description' => ['nullable', 'string', 'max:2000'],
+            'items.*.quantity_requested' => ['nullable', 'integer', 'min:1'],
+            'items.*.unit_cost' => ['nullable', 'numeric', 'min:0'],
+        ]);
+
+        // =====================================================
+        // ADDED RIS MODULE: REMOVE BLANK ITEM ROWS
+        // =====================================================
+
+        $items = collect($validated['items'])
+            ->filter(function ($item) {
+                return filled($item['description'] ?? null);
+            })
+            ->values();
+
+        if ($items->isEmpty()) {
+            return back()->withInput()->with('error', 'Please add at least one RIS item.');
+        }
+
+        // =====================================================
+        // ADDED RIS MODULE: CREATE RIS SAFELY AND PREVENT DUPLICATES
+        // =====================================================
+
+        return DB::transaction(function () use ($validated, $items) {
+            $replacementRequest = DB::table('procurement_requests_table')
+                ->join('reports_table', 'procurement_requests_table.procurement_request_report_id', '=', 'reports_table.report_id')
+                ->where('procurement_requests_table.procurement_request_id', $validated['procurement_request_id'])
+                ->where('reports_table.report_current_status', 'For Replacement')
+                ->lockForUpdate()
+                ->first();
+
+            if (!$replacementRequest) {
+                return back()->with('error', 'Only reports marked For Replacement can have an RIS.');
+            }
+
+            $existingRis = DB::table('requisition_issue_slip_table')
+                ->where('ris_procurement_request_id', $validated['procurement_request_id'])
+                ->exists();
+
+            if ($existingRis) {
+                return back()->with('error', 'This replacement request already has an RIS.');
+            }
+
+            $risId = DB::table('requisition_issue_slip_table')
+                ->insertGetId([
+                    'ris_procurement_request_id' => $validated['procurement_request_id'],
+                    'ris_purpose_description' => $validated['ris_purpose_description'],
+                    'ris_status' => 'Pending',
+                    'ris_created_at' => now(),
+                ]);
+
+            DB::table('requisition_issue_slip_table')
+                ->where('ris_id', $risId)
+                ->update([
+                    'ris_form_number' => 'RIS-' . now()->format('Y') . '-' . str_pad($risId, 5, '0', STR_PAD_LEFT),
+                ]);
+
+            foreach ($items as $item) {
+                $quantityRequested = $item['quantity_requested'] ?? 1;
+                $unitCost = $item['unit_cost'] ?? 0;
+
+                DB::table('requisition_issue_slip_items_table')
+                    ->insert([
+                        'ris_id' => $risId,
+                        'ris_item_name_description' => $item['description'],
+                        'ris_quantity_requested' => $quantityRequested,
+                        'ris_quantity_issued' => 0,
+                        'ris_unit_cost' => $unitCost,
+                        'ris_total_amount' => $unitCost * $quantityRequested,
+                    ]);
+            }
+
+            return redirect()
+                ->route('purchaser.ris.index')
+                ->with('success', 'RIS created successfully.');
+        });
+    }
+
+    // =====================================================
+    // ADDED RIS MODULE: SUBMIT RIS TO ADMIN USING EXISTING COLUMNS
+    // =====================================================
+
+    public function submitRis($risId)
+    {
+        // =====================================================
+        // ADDED RIS MODULE: EXISTING SQL HAS NO SUBMITTED STATUS,
+        // SO ADMIN QUEUE USES PENDING STATUS WITH REQUESTED DATE FILLED
+        // =====================================================
+
+        return DB::transaction(function () use ($risId) {
+
+            $ris = DB::table('requisition_issue_slip_table')
+                ->where('ris_id', $risId)
+                ->lockForUpdate()
+                ->first();
+
+            abort_if(!$ris, 404);
+
+            if ($ris->ris_status !== 'Pending') {
+
+                return back()->with(
+                    'error',
+                    'Only pending RIS records can be submitted.'
+                );
+
+            }
+
+            if ($ris->ris_requested_by_date !== null) {
+
+                return back()->with(
+                    'error',
+                    'This RIS has already been submitted to Admin.'
+                );
+
+            }
+
+            DB::table('requisition_issue_slip_table')
+                ->where('ris_id', $risId)
+                ->update([
+                    'ris_requested_by_signature' =>
+                        Auth::user()->user_full_name ?? 'Purchaser',
+                    'ris_requested_by_date' =>
+                        now()->toDateString(),
+                ]);
+
+            return back()->with(
+                'success',
+                'RIS submitted to Admin for approval.'
+            );
+
+        });
+    }
+
+    // =====================================================
+    // ADDED RIS MODULE: SHOW DEDICATED PRINTABLE RIS FORM
+    // =====================================================
+
+    public function printRis($risId)
+    {
+        // =====================================================
+        // ADDED RIS MODULE: LOAD RIS HEADER FOR PRINT FORM
+        // =====================================================
+
+        $ris = DB::table('requisition_issue_slip_table')
+            ->leftJoin('procurement_requests_table', 'requisition_issue_slip_table.ris_procurement_request_id', '=', 'procurement_requests_table.procurement_request_id')
+            ->leftJoin('reports_table', 'procurement_requests_table.procurement_request_report_id', '=', 'reports_table.report_id')
+            ->leftJoin('equipment_table', 'reports_table.report_equipment_id', '=', 'equipment_table.equipment_id')
+            ->select(
+                'requisition_issue_slip_table.*',
+                'procurement_requests_table.procurement_request_id',
+                'reports_table.report_id',
+                'equipment_table.equipment_name',
+                'reports_table.report_unlisted_equipment_name'
+            )
+            ->where('requisition_issue_slip_table.ris_id', $risId)
+            ->first();
+
+        abort_if(!$ris, 404);
+
+        // =====================================================
+        // ADDED RIS MODULE: LOAD RIS ITEMS FOR PRINT FORM
+        // =====================================================
+
+        $risItems = DB::table('requisition_issue_slip_items_table')
+            ->where('ris_id', $risId)
+            ->orderBy('ris_item_id')
+            ->get();
+
+        return view('purchaser.ris.print', compact('ris', 'risItems'));
+    }
+
+    // =====================================================
+    // END ADDED RIS MODULE
+    // =====================================================
 }
+
+

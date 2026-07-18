@@ -46,43 +46,18 @@ Route::get('/', function () {
 
 Route::get('/dashboard', function () {
 
-    if (Auth::user()->user_role_id == 1) {
+    // Only authenticated users can reach this due to middleware('auth').
+    $roleId = auth()->user()?->user_role_id;
 
-        return redirect('/admin/dashboard');
-
-    }
-
-    elseif (Auth::user()->user_role_id == 2) {
-
-        return redirect('/maintenance/dashboard');
-
-    }
-
-    elseif (Auth::user()->user_role_id == 3) {
-
-        return redirect('/purchaser/dashboard');
-
-    }
-
-    elseif (Auth::user()->user_role_id == 4) {
-
-        return redirect('/president/dashboard');
-
-    }
-
-    elseif (Auth::user()->user_role_id == 5) {
-
-        return redirect('/accounting/dashboard');
-
-    }
-
-    elseif (Auth::user()->user_role_id == 6) {
-
-        return redirect('/receiving/dashboard');
-
-    }
-
-    abort(403);
+    return match ((int) $roleId) {
+        1 => redirect('/admin/dashboard'),
+        2 => redirect('/maintenance/dashboard'),
+        3 => redirect('/purchaser/dashboard'),
+        4 => redirect('/president/dashboard'),
+        5 => redirect('/accounting/dashboard'),
+        6 => redirect('/receiving/dashboard'),
+        default => abort(403),
+    };
 
 })->middleware(['auth'])->name('dashboard');
 
@@ -149,6 +124,11 @@ Route::middleware(['auth', 'admin'])
             '/digital-signatures/history',
             [AdminController::class, 'signatureHistory']
         )->name('digital-signatures.history');
+
+        Route::post(
+            '/digital-signatures/ris/decide',
+            [AdminController::class, 'decideRis']
+        )->name('digital-signatures.ris.decide');
 
         // ==========================================
         // NOTIFICATIONS
@@ -270,6 +250,30 @@ Route::middleware(['auth', 'admin'])
             '/settings/system-settings',
             [AdminController::class, 'systemSettings']
         )->name('settings.system-settings');
+
+        // ==========================================
+        // PROCUREMENT REVIEW RIS APPROVALS
+        // ==========================================
+
+        Route::get(
+            '/procurement-review/ris',
+            [AdminController::class, 'risApprovals']
+        )->name('procurement-review.ris');
+
+        Route::post(
+            '/procurement-review/ris/{ris}/approve',
+            [AdminController::class, 'approveRis']
+        )->name('procurement-review.ris.approve');
+
+        Route::post(
+            '/procurement-review/ris/{ris}/reject',
+            [AdminController::class, 'rejectRis']
+        )->name('procurement-review.ris.reject');
+
+        Route::get(
+            '/procurement-review/ris/{ris}/print',
+            [PurchaserController::class, 'printRis']
+        )->name('procurement-review.ris.print');
 
     });
 
@@ -1218,6 +1222,33 @@ Route::middleware([
                 'reports.urgent.restore'
             );
 
+        // =====================================================
+        // PURCHASER RIS ROUTES
+        // =====================================================
+
+        Route::get(
+            '/ris',
+            [PurchaserController::class, 'risIndex']
+        )
+            ->name('ris.index');
+
+        Route::post(
+            '/ris',
+            [PurchaserController::class, 'storeRis']
+        )
+            ->name('ris.store');
+
+        Route::post(
+            '/ris/{ris}/submit',
+            [PurchaserController::class, 'submitRis']
+        )
+            ->name('ris.submit');
+
+        Route::get(
+            '/ris/{ris}/print',
+            [PurchaserController::class, 'printRis']
+        )
+            ->name('ris.print');
 
     });
 
@@ -1240,6 +1271,7 @@ Route::middleware([
     ->prefix('president')
     ->name('president.')
     ->group(function () {
+
 
         // =====================================================
         // DASHBOARD
@@ -1289,6 +1321,20 @@ Route::middleware([
         )->name('reports.monthly-summary');
 
         // =====================================================
+        // APPROVAL DECISION ENDPOINTS
+        // =====================================================
+
+        Route::post(
+            '/approvals/ris/decide',
+            [PresidentController::class, 'decideRis']
+        )->name('approvals.ris.decide');
+
+        Route::post(
+            '/approvals/procurement/decide',
+            [PresidentController::class, 'decideProcurement']
+        )->name('approvals.procurement.decide');
+
+        // =====================================================
         // NOTIFICATIONS
         // =====================================================
 
@@ -1310,7 +1356,18 @@ Route::middleware([
             '/profile',
             [PresidentController::class, 'profile']
         )->name('profile');
-
+        
+        // =====================================================
+        // PRESIDENT: PRINTABLE RIS FOR APPROVAL PREVIEW
+        // Exposes the Purchaser printable RIS view under the
+        // president prefix so the president can preview RIS forms.
+        // =====================================================
+        Route::get(
+            '/ris/{ris}/print',
+            [PurchaserController::class, 'printRis']
+        )
+            ->name('ris.print');
+    
     });
 
 
