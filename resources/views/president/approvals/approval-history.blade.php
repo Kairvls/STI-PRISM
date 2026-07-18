@@ -48,26 +48,14 @@
                 </thead>
                 <tbody id="historyTableBody">
 
-                    {{--
-                      Expected future variables (optional):
-                        - $approvalHistoryRecords = collection/array of records
-                      Each record (suggested shape):
-                        - type: 'RIS'|'Procurement'
-                        - reference: e.g. 'RIS#123' / 'PR#456'
-                        - supplier_name: string
-                        - decision: 'Approved'|'Rejected'
-                        - remarks: string|null
-                        - decided_at: datetime|string
-                    --}}
-
                     @isset($approvalHistoryRecords)
                         @forelse($approvalHistoryRecords as $row)
                             @php
-                                $type = $row->type ?? $row->reference_type ?? 'RIS';
-                                $reference = $row->ris_form_number ?? $row->reference ?? ($row->procurement_request_id ? 'PR#'.$row->procurement_request_id : '—');
+                                $type = 'RIS';
+                                $reference = $row->ris_form_number ?? ('RIS #' . $row->ris_id);
                                 $decision = $row->decision ?? $row->ris_status ?? 'Approved';
-                                $decidedAt = $row->decided_at ?? $row->ris_approved_by_date ?? null;
                                 $decisionLower = is_string($decision) ? strtolower($decision) : '';
+                                $decidedAt = $row->decided_at ?? $row->ris_approved_by_date ?? null;
                                 $risId = $row->ris_id ?? null;
                             @endphp
 
@@ -105,15 +93,15 @@
                             <tr>
                                 <td colspan="5" class="px-2 py-12 text-center fade-in">
                                     <p class="text-sm font-semibold text-gray-800">No approval records found.</p>
-                                    <p class="mt-1 text-xs text-gray-500">When backend data is wired, the table will automatically populate here.</p>
+                                    <p class="mt-1 text-xs text-gray-500">When decisions are made, the table will automatically populate here.</p>
                                 </td>
                             </tr>
                         @endforelse
                     @else
                         <tr>
                             <td colspan="5" class="px-2 py-12 text-center fade-in">
-                                <p class="text-sm font-semibold text-gray-800">Approval history UI is ready.</p>
-                                <p class="mt-1 text-xs text-gray-500">Backend data will populate this table once the controller is updated.</p>
+                                <p class="text-sm font-semibold text-gray-800">No data available.</p>
+                                <p class="mt-1 text-xs text-gray-500">Approval history will appear here once the controller is updated.</p>
                             </td>
                         </tr>
                     @endisset
@@ -149,10 +137,6 @@
 </div>
 
 <style>
-    /* ======================================
-       ANIMATIONS
-    ====================================== */
-
     @keyframes fadeIn {
         from { opacity: 0; }
         to { opacity: 1; }
@@ -182,7 +166,6 @@
         animation: slideUp 0.5s ease-out forwards;
     }
 
-    /* Modal opening animation */
     .modal-overlay {
         animation: overlayIn 0.2s ease-out forwards;
     }
@@ -191,7 +174,6 @@
         animation: modalIn 0.25s ease-out forwards;
     }
 
-    /* Table row hover */
     .history-row {
         transition: background-color 0.2s ease;
     }
@@ -200,7 +182,6 @@
         background-color: rgba(254, 252, 232, 0.4);
     }
 
-    /* Button click */
     .action-btn {
         transition: all 0.2s ease;
     }

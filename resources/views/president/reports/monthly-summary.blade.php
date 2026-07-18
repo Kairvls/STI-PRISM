@@ -47,7 +47,7 @@
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
             <h2 class="text-sm font-semibold text-gray-900">Approved vs Rejected (by Month)</h2>
-            <p class="mt-1 text-xs text-gray-500">Monthly breakdown of RIS decisions from July 2026 onward.</p>
+            <p class="mt-1 text-xs text-gray-500">Monthly breakdown of RIS decisions.</p>
         </div>
 
         <div class="flex items-center gap-2">
@@ -109,19 +109,11 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
 <script>
-    // =====================================================
-    // DATA
-    // =====================================================
-
     const monthlyData = @json($monthlyStats);
 
     const labels = monthlyData.map(r => r.month_label);
     const approvedData = monthlyData.map(r => r.approved);
     const rejectedData = monthlyData.map(r => r.rejected);
-
-    // =====================================================
-    // CHART
-    // =====================================================
 
     const ctx = document.getElementById('monthlyChart').getContext('2d');
 
@@ -208,10 +200,6 @@
         }
     });
 
-    // =====================================================
-    // FILTER LOGIC
-    // =====================================================
-
     function applySummaryFilter(filter) {
         const rows = document.querySelectorAll('.summary-row');
 
@@ -244,7 +232,6 @@
             }
         });
 
-        // Update stat cards
         const approvedEl = document.getElementById('approvedTotal');
         const rejectedEl = document.getElementById('rejectedTotal');
         const grandEl = document.getElementById('grandTotal');
@@ -263,7 +250,6 @@
             grandEl.textContent = rejectedSum + pendingSum;
         }
 
-        // Update chart
         const filteredApproved = [];
         const filteredRejected = [];
         const filteredLabels = [];
@@ -282,7 +268,6 @@
         monthlyChart.update();
     }
 
-    // Init filter buttons
     document.querySelectorAll('.summary-filter-btn').forEach(btn => {
         btn.addEventListener('click', function () {
             document.querySelectorAll('.summary-filter-btn').forEach(b => {
@@ -296,11 +281,6 @@
         });
     });
 
-    // =====================================================
-    // UI ANIMATIONS
-    // =====================================================
-
-    // Count-up animation
     document.querySelectorAll('.count-up').forEach(el => {
         const target = parseInt(el.textContent || '0');
         if (target === 0) return;
@@ -316,7 +296,6 @@
         }, 30);
     });
 
-    // Table row hover
     document.querySelectorAll('.table-row-hover').forEach(row => {
         row.addEventListener('mouseenter', function () {
             this.classList.add('bg-yellow-50/40');
@@ -328,10 +307,6 @@
 </script>
 
 <style>
-    /* ======================================
-       ANIMATIONS
-    ====================================== */
-
     @keyframes fadeIn {
         from { opacity: 0; }
         to { opacity: 1; }

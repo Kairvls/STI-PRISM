@@ -13,66 +13,97 @@ class PresidentController extends Controller
     public function dashboard(): View
     {
         // ================================
-        // Procurement decision counts
+        // RIS decision counts
         // ================================
-        // Read-only queries (no DB writes)
+        $totalRisCount = \DB::table('requisition_issue_slip_table')->count();
+
         $pendingApprovalsCount =
-            \DB::table('procurement_requests_table')
-                ->where('procurement_request_status', 'Pending')
+            \DB::table('requisition_issue_slip_table')
+                ->where('ris_status', 'Pending')
                 ->count();
 
         $approvedDecisionsCount =
-            \DB::table('procurement_requests_table')
-                ->where('procurement_request_status', 'Approved')
+            \DB::table('requisition_issue_slip_table')
+                ->where('ris_status', 'Approved')
                 ->count();
 
         $rejectedDecisionsCount =
-            \DB::table('procurement_requests_table')
-                ->where('procurement_request_status', 'Rejected')
+            \DB::table('requisition_issue_slip_table')
+                ->where('ris_status', 'Rejected')
                 ->count();
 
         // ================================
-        // Notifications count
+        // Monthly stats (last 6 months)
         // ================================
-        // Prefer role-targeted notifications if available,
-        // otherwise show notifications assigned to the current user.
-        $notificationsCount = 0;
+        $monthlyStats = [];
+        $monthNames = [
+            1 => 'January', 2 => 'February', 3 => 'March', 4 => 'April',
+            5 => 'May', 6 => 'June', 7 => 'July', 8 => 'August',
+            9 => 'September', 10 => 'October', 11 => 'November', 12 => 'December',
+        ];
 
+        for ($i = 5; $i >= 0; $i--) {
+            $y = (int) date('Y', strtotime("-$i months"));
+            $m = (int) date('m', strtotime("-$i months"));
+
+            $approved = \DB::table('requisition_issue_slip_table')
+                ->where('ris_status', 'Approved')
+                ->whereYear('ris_created_at', $y)
+                ->whereMonth('ris_created_at', $m)
+                ->count();
+
+            $rejected = \DB::table('requisition_issue_slip_table')
+                ->where('ris_status', 'Rejected')
+                ->whereYear('ris_created_at', $y)
+                ->whereMonth('ris_created_at', $m)
+                ->count();
+
+            $monthlyStats[] = [
+                'year_month' => sprintf('%04d-%02d', $y, $m),
+                'month_label' => $monthNames[$m] . ' ' . $y,
+                'approved' => $approved,
+                'rejected' => $rejected,
+            ];
+        }
+
+        // ================================
+        // Recent activity (last 5 RIS)
+        // ================================
+        $recentRis = \DB::table('requisition_issue_slip_table')
+            ->select(
+                'ris_id',
+                'ris_form_number',
+                'ris_status',
+                'ris_created_at',
+                'ris_purpose_description'
+            )
+            ->orderByDesc('ris_created_at')
+            ->limit(5)
+            ->get();
+
+        // ================================
+        // Notifications count (for current user)
+        // ================================
+        $notificationsCount = 0;
         try {
             $user = \Auth::user();
-
             if ($user) {
-                $notificationsCount =
-                    \DB::table('notifications_table')
-                        ->when(
-                            !empty($user->user_role_id),
-                            function ($q) use ($user) {
-                                // notifications_table.notification_target_role stores role name (string)
-                                // in your current SQL dump it's NULL, so this may be 0.
-                                // We still keep it as a useful default.
-                                return $q->where('notification_target_role', function ($sub) use ($user) {
-                                    $sub->select('role_name')
-                                        ->from('roles_table')
-                                        ->whereColumn('roles_table.role_id', 'users_table.user_role_id')
-                                        ->limit(1);
-                                });
-                            }
-                        )
-                        ->when(empty($user->user_role_id), function ($q) {
-                            return $q;
-                        })
-                        ->where('notification_user_id', $user->user_id)
-                        ->count();
+                $notificationsCount = \DB::table('notifications_table')
+                    ->where('notification_user_id', $user->user_id)
+                    ->count();
             }
         } catch (\Throwable $e) {
             $notificationsCount = 0;
         }
 
         return view('president.dashboard', [
+            'totalRisCount' => $totalRisCount,
             'pendingApprovalsCount' => $pendingApprovalsCount,
             'approvedDecisionsCount' => $approvedDecisionsCount,
             'rejectedDecisionsCount' => $rejectedDecisionsCount,
             'notificationsCount' => $notificationsCount,
+            'monthlyStats' => $monthlyStats,
+            'recentRis' => $recentRis,
         ]);
     }
 
@@ -112,17 +143,24 @@ class PresidentController extends Controller
 
     public function approvalHistory(): View
     {
-        // Fetch RIS records that have been approved by the President
-        $approvalHistoryRecords = \DB::table('requisition_issue_slip_table')
+        $approvalHistoryRecords = \DB::table('requisition_issue_slip_table as ris')
+            ->join('approval_logs_table as log', function ($join) {
+                $join->on('log.approval_log_reference_id', '=', 'ris.ris_id')
+                    ->where('log.approval_log_reference_type', '=', 'RIS')
+                    ->where('log.approval_log_level', '=', 'President');
+            })
             ->select(
-                'requisition_issue_slip_table.ris_id',
-                'requisition_issue_slip_table.ris_form_number',
-                'requisition_issue_slip_table.ris_status',
-                'requisition_issue_slip_table.ris_approved_by_date'
+                'ris.ris_id',
+                'ris.ris_form_number',
+                'ris.ris_status',
+                'ris.ris_approved_by_date',
+                'ris.ris_purpose_description',
+                'log.approval_log_approval_status as decision',
+                'log.approval_log_approval_remarks as remarks',
+                'log.approval_log_approved_at as decided_at'
             )
-            ->where('requisition_issue_slip_table.ris_status', 'Approved')
-            ->whereNotNull('requisition_issue_slip_table.ris_approved_by_signature')
-            ->orderByDesc('requisition_issue_slip_table.ris_approved_by_date')
+            ->whereIn('ris.ris_status', ['Approved', 'Rejected'])
+            ->orderByDesc('log.approval_log_approved_at')
             ->get();
 
         return view('president.approvals.approval-history', [
@@ -245,12 +283,54 @@ class PresidentController extends Controller
 
     public function approvedReports(): View
     {
-        return view('president.reports.approved');
+        $approvedRecords = \DB::table('requisition_issue_slip_table as ris')
+            ->leftJoin('approval_logs_table as log', function ($join) {
+                $join->on('log.approval_log_reference_id', '=', 'ris.ris_id')
+                    ->where('log.approval_log_reference_type', '=', 'RIS')
+                    ->where('log.approval_log_level', '=', 'President');
+            })
+            ->select(
+                'ris.ris_id',
+                'ris.ris_form_number',
+                'ris.ris_status',
+                'ris.ris_created_at',
+                'ris.ris_purpose_description',
+                'log.approval_log_approval_remarks as remarks',
+                'log.approval_log_approved_at as decided_at'
+            )
+            ->where('ris.ris_status', 'Approved')
+            ->orderByDesc('ris.ris_created_at')
+            ->get();
+
+        return view('president.reports.approved', [
+            'approvedOutcomeRecords' => $approvedRecords,
+        ]);
     }
 
     public function rejectedReports(): View
     {
-        return view('president.reports.rejected');
+        $rejectedRecords = \DB::table('requisition_issue_slip_table as ris')
+            ->leftJoin('approval_logs_table as log', function ($join) {
+                $join->on('log.approval_log_reference_id', '=', 'ris.ris_id')
+                    ->where('log.approval_log_reference_type', '=', 'RIS')
+                    ->where('log.approval_log_level', '=', 'President');
+            })
+            ->select(
+                'ris.ris_id',
+                'ris.ris_form_number',
+                'ris.ris_status',
+                'ris.ris_created_at',
+                'ris.ris_purpose_description',
+                'log.approval_log_approval_remarks as remarks',
+                'log.approval_log_approved_at as decided_at'
+            )
+            ->where('ris.ris_status', 'Rejected')
+            ->orderByDesc('ris.ris_created_at')
+            ->get();
+
+        return view('president.reports.rejected', [
+            'rejectedOutcomeRecords' => $rejectedRecords,
+        ]);
     }
 
     public function monthlySummary(): View
@@ -272,8 +352,7 @@ class PresidentController extends Controller
             ->count();
 
         // ================================
-        // Monthly breakdown — predefined months
-        // (August 2025 to July 2026)
+        // Monthly breakdown — last 6 months
         // ================================
 
         $monthlyStats = [];
@@ -284,25 +363,9 @@ class PresidentController extends Controller
             9 => 'September', 10 => 'October', 11 => 'November', 12 => 'December',
         ];
 
-        // Generate August 2025 to July 2026
-        $periods = [
-            ['year' => 2025, 'month' => 8],
-            ['year' => 2025, 'month' => 9],
-            ['year' => 2025, 'month' => 10],
-            ['year' => 2025, 'month' => 11],
-            ['year' => 2025, 'month' => 12],
-            ['year' => 2026, 'month' => 1],
-            ['year' => 2026, 'month' => 2],
-            ['year' => 2026, 'month' => 3],
-            ['year' => 2026, 'month' => 4],
-            ['year' => 2026, 'month' => 5],
-            ['year' => 2026, 'month' => 6],
-            ['year' => 2026, 'month' => 7],
-        ];
-
-        foreach ($periods as $period) {
-            $y = $period['year'];
-            $m = $period['month'];
+        for ($i = 5; $i >= 0; $i--) {
+            $y = (int) date('Y', strtotime("-$i months"));
+            $m = (int) date('m', strtotime("-$i months"));
 
             $approved = \DB::table('requisition_issue_slip_table')
                 ->where('ris_status', 'Approved')
