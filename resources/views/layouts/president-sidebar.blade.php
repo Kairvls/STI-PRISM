@@ -116,17 +116,6 @@
                 <span>System Alerts</span>
             </a>
 
-            {{-- Recent decision outcomes (quick link) --}}
-            <a
-                href="/president/reports/approved"
-                class="quick-card {{ request()->is('president/reports/approved*') ? 'active' : '' }}"
-                title="View approved decisions"
-                style="align-self: center;"
-            >
-                <i data-lucide="badge-check"></i>
-                <span>Approved Outcomes</span>
-            </a>
-
 
         </div>
 

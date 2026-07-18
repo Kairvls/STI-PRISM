@@ -255,7 +255,81 @@ class PresidentController extends Controller
 
     public function monthlySummary(): View
     {
-        return view('president.reports.monthly-summary');
+        // ================================
+        // All-time totals (RIS only)
+        // ================================
+
+        $risApproved = \DB::table('requisition_issue_slip_table')
+            ->where('ris_status', 'Approved')
+            ->count();
+
+        $risRejected = \DB::table('requisition_issue_slip_table')
+            ->where('ris_status', 'Rejected')
+            ->count();
+
+        $risPending = \DB::table('requisition_issue_slip_table')
+            ->where('ris_status', 'Pending')
+            ->count();
+
+        // ================================
+        // Monthly breakdown — predefined months
+        // (August 2025 to July 2026)
+        // ================================
+
+        $monthlyStats = [];
+
+        $monthNames = [
+            1 => 'January', 2 => 'February', 3 => 'March', 4 => 'April',
+            5 => 'May', 6 => 'June', 7 => 'July', 8 => 'August',
+            9 => 'September', 10 => 'October', 11 => 'November', 12 => 'December',
+        ];
+
+        // Generate August 2025 to July 2026
+        $periods = [
+            ['year' => 2025, 'month' => 8],
+            ['year' => 2025, 'month' => 9],
+            ['year' => 2025, 'month' => 10],
+            ['year' => 2025, 'month' => 11],
+            ['year' => 2025, 'month' => 12],
+            ['year' => 2026, 'month' => 1],
+            ['year' => 2026, 'month' => 2],
+            ['year' => 2026, 'month' => 3],
+            ['year' => 2026, 'month' => 4],
+            ['year' => 2026, 'month' => 5],
+            ['year' => 2026, 'month' => 6],
+            ['year' => 2026, 'month' => 7],
+        ];
+
+        foreach ($periods as $period) {
+            $y = $period['year'];
+            $m = $period['month'];
+
+            $approved = \DB::table('requisition_issue_slip_table')
+                ->where('ris_status', 'Approved')
+                ->whereYear('ris_created_at', $y)
+                ->whereMonth('ris_created_at', $m)
+                ->count();
+
+            $rejected = \DB::table('requisition_issue_slip_table')
+                ->where('ris_status', 'Rejected')
+                ->whereYear('ris_created_at', $y)
+                ->whereMonth('ris_created_at', $m)
+                ->count();
+
+            $monthlyStats[] = [
+                'year_month' => sprintf('%04d-%02d', $y, $m),
+                'month_label' => $monthNames[$m] . ' ' . $y,
+                'approved' => $approved,
+                'rejected' => $rejected,
+            ];
+        }
+
+        return view('president.reports.monthly-summary', [
+            'approvedDecisionsCount' => $risApproved,
+            'rejectedDecisionsCount' => $risRejected,
+            'pendingApprovalsCount' => $risPending,
+            'monthlyStats' => $monthlyStats,
+        ]);
     }
 
     // =====================================================
@@ -264,7 +338,40 @@ class PresidentController extends Controller
 
     public function notifications(): View
     {
-        return view('president.notifications.index');
+        // Fetch the 3 most recent RIS records forwarded to the President
+        // (records that have been approved by Admin but need President's decision)
+        $recentRis = \DB::table('requisition_issue_slip_table')
+            ->select(
+                'ris_id',
+                'ris_form_number',
+                'ris_status',
+                'ris_created_at',
+                'ris_purpose_description'
+            )
+            ->whereNotNull('ris_requested_by_date')
+            ->whereNotNull('ris_approved_by_date')
+            ->orderByDesc('ris_created_at')
+            ->limit(3)
+            ->get();
+
+        // Fetch all RIS records for the "View All" modal
+        $allRis = \DB::table('requisition_issue_slip_table')
+            ->select(
+                'ris_id',
+                'ris_form_number',
+                'ris_status',
+                'ris_created_at',
+                'ris_purpose_description'
+            )
+            ->whereNotNull('ris_requested_by_date')
+            ->whereNotNull('ris_approved_by_date')
+            ->orderByDesc('ris_created_at')
+            ->get();
+
+        return view('president.notifications.index', [
+            'recentRis' => $recentRis,
+            'allRis' => $allRis,
+        ]);
     }
 
     public function rejectionHistory(): View

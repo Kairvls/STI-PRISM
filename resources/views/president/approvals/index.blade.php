@@ -4,7 +4,7 @@
 
 @section('content')
 
-<div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+<div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between fade-in">
     <div>
         <h1 class="text-2xl font-semibold tracking-tight text-gray-900">Approvals</h1>
     <p class="mt-1 text-sm leading-6 text-gray-500">Review pending RIS requests, then approve or reject.</p>
@@ -16,7 +16,7 @@
     {{-- ============================== --}}
     {{-- RIS APPROVALS --}}
     {{-- ============================== --}}
-    <section class="rounded-xl border border-gray-200 bg-white p-5">
+    <section class="rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.1s">
         <div class="flex items-center justify-between">
             <div>
                 <h2 class="text-sm font-semibold text-gray-900">RIS Approvals</h2>
@@ -43,7 +43,7 @@
                             // Supplier name may not exist; keep blank-friendly.
                             $supplierName = $ris->supplier_name ?? null;
                         @endphp
-                        <tr class="border-b border-gray-100 hover:bg-yellow-50/30 transition">
+                        <tr class="border-b border-gray-100 approval-row transition-all duration-200">
                             <td class="px-2 py-4 text-sm font-semibold text-gray-600">RIS#{{ $ris->ris_id }}</td>
                             <td class="px-2 py-4 text-sm text-gray-700">{{ $ris->ris_form_number ?? '—' }}</td>
                             <td class="px-2 py-4 text-sm text-gray-700">{{ $supplierName ?? '—' }}</td>
@@ -52,7 +52,7 @@
                                     {{-- View RIS (eye icon) --}}
                                     <button
                                         type="button"
-                                        class="inline-flex h-9 items-center justify-center rounded-lg bg-white px-3 text-xs font-semibold text-slate-700 border border-gray-200 transition hover:bg-gray-50"
+                                        class="action-btn inline-flex h-9 items-center justify-center rounded-lg bg-white px-3 text-xs font-semibold text-slate-700 border border-gray-200 transition-all duration-200 hover:bg-gray-50 active:scale-95"
                                         title="View approved RIS form"
                                         onclick="openRisFormModal('{{ $ris->ris_id }}')"
                                     >
@@ -62,14 +62,14 @@
 
                                     <button
                                         type="button"
-                                        class="inline-flex h-9 items-center justify-center rounded-lg bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 border border-emerald-200 transition hover:bg-emerald-100"
+                                        class="action-btn inline-flex h-9 items-center justify-center rounded-lg bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 border border-emerald-200 transition-all duration-200 hover:bg-emerald-100 active:scale-95"
                                         onclick="openDecisionModal('ris', '{{ $ris->ris_id }}', 'Approved')"
                                     >
                                         Approve
                                     </button>
                                     <button
                                         type="button"
-                                        class="inline-flex h-9 items-center justify-center rounded-lg bg-rose-50 px-3 text-xs font-semibold text-rose-700 border border-rose-200 transition hover:bg-rose-100"
+                                        class="action-btn inline-flex h-9 items-center justify-center rounded-lg bg-rose-50 px-3 text-xs font-semibold text-rose-700 border border-rose-200 transition-all duration-200 hover:bg-rose-100 active:scale-95"
                                         onclick="openDecisionModal('ris', '{{ $ris->ris_id }}', 'Rejected')"
                                     >
                                         Reject
@@ -79,7 +79,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="4" class="px-2 py-10 text-center">
+                            <td colspan="4" class="px-2 py-10 text-center fade-in">
                                 <p class="text-sm font-semibold text-gray-800">No pending RIS approvals</p>
                                 <p class="mt-1 text-xs text-gray-500">You're all caught up.</p>
                             </td>
@@ -97,15 +97,15 @@
 {{-- DECISION MODAL (single, dynamic) --}}
 {{-- ============================== --}}
 <div id="risFormModal" class="fixed inset-0 z-50 hidden">
-    <div class="flex h-screen items-center justify-center bg-black/30 p-2 backdrop-blur-[2px]" onclick="closeRisFormModal()">
-        <div class="w-full max-w-6xl h-[calc(100vh-1rem)] overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]" onclick="event.stopPropagation()">
+    <div class="flex h-screen items-center justify-center bg-black/30 p-2 backdrop-blur-[2px] modal-overlay" onclick="closeRisFormModal()">
+        <div class="w-full max-w-6xl h-[calc(100vh-1rem)] overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)] modal-content" onclick="event.stopPropagation()">
             <div class="border-b border-gray-100 px-6 py-5">
                 <div class="flex items-start justify-between gap-4">
                     <div>
                         <h3 class="text-lg font-bold text-slate-950">RIS Form</h3>
                         <p id="risFormModalSubtitle" class="mt-1 text-sm text-slate-600">Preview of the approved RIS</p>
                     </div>
-                    <button type="button" class="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" onclick="closeRisFormModal()" aria-label="Close">
+                    <button type="button" class="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition-all duration-200 hover:bg-slate-100 hover:text-slate-900 active:scale-90" onclick="closeRisFormModal()" aria-label="Close">
                         <i data-lucide="x" class="h-4 w-4"></i>
                     </button>
                 </div>
@@ -121,15 +121,15 @@
 </div>
 
 <div id="decisionModal" class="fixed inset-0 z-50 hidden">
-    <div class="flex min-h-screen items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]" onclick="closeDecisionModal()">
-        <div class="w-full max-w-lg overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]" onclick="event.stopPropagation()">
+    <div class="flex min-h-screen items-center justify-center bg-black/30 p-4 backdrop-blur-[2px] modal-overlay" onclick="closeDecisionModal()">
+        <div class="w-full max-w-lg overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)] modal-content" onclick="event.stopPropagation()">
             <div class="border-b border-gray-100 px-6 py-5">
                 <div class="flex items-start justify-between gap-4">
                     <div>
                         <h3 class="text-lg font-bold text-slate-950">Decision</h3>
                         <p id="decisionModalSubtitle" class="mt-1 text-sm text-slate-600">Approve or reject the selected RIS</p>
                     </div>
-                    <button type="button" class="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" onclick="closeDecisionModal()" aria-label="Close">
+                    <button type="button" class="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition-all duration-200 hover:bg-slate-100 hover:text-slate-900 active:scale-90" onclick="closeDecisionModal()" aria-label="Close">
                         <i data-lucide="x" class="h-4 w-4"></i>
                     </button>
                 </div>
@@ -148,7 +148,7 @@
                     <div class="space-y-3">
                         <div>
                             <label class="block text-sm font-medium text-slate-700">Remarks (optional)</label>
-                            <textarea name="remarks" rows="4" placeholder="Add remarks for your RIS decision..." class="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-4 focus:ring-amber-100"></textarea>
+                            <textarea name="remarks" rows="4" placeholder="Add remarks for your RIS decision..." class="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-4 focus:ring-amber-100 transition-all duration-200"></textarea>
                         </div>
 
                         <div id="signatureBlock" class="hidden">
@@ -164,10 +164,10 @@
                                     ></canvas>
 
                                     <div class="mt-3 flex items-center justify-between gap-2">
-                                        <button type="button" class="rounded-lg bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 border border-slate-200 hover:bg-slate-100" onclick="clearSignature()">
+                                        <button type="button" class="action-btn rounded-lg bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 border border-slate-200 transition-all duration-200 hover:bg-slate-100 active:scale-95" onclick="clearSignature()">
                                             Clear
                                         </button>
-                                        <button type="button" class="rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white hover:bg-slate-800" onclick="captureSignature()">
+                                        <button type="button" class="action-btn rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white transition-all duration-200 hover:bg-slate-800 active:scale-95" onclick="captureSignature()">
                                             Use signature
                                         </button>
                                     </div>
@@ -177,7 +177,7 @@
                                     </div>
 
                                     <div class="mt-4 hidden" id="confirmApprovalSection">
-                                        <button type="submit" class="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-700" onclick="document.getElementById('targetDecision').value='Approved';">Confirm Approval</button>
+                                        <button type="submit" class="action-btn w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition-all duration-200 hover:bg-emerald-700 active:scale-95" onclick="document.getElementById('targetDecision').value='Approved';">Confirm Approval</button>
                                     </div>
                                 </div>
                             </div>
@@ -191,16 +191,78 @@
 
 
                 <div class="flex items-center justify-end gap-2 border-t border-gray-100 px-6 py-4">
-                    <button type="button" class="rounded-lg px-3.5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950" onclick="closeDecisionModal()">Cancel</button>
+                    <button type="button" class="action-btn rounded-lg px-3.5 py-2.5 text-sm font-medium text-slate-600 transition-all duration-200 hover:bg-slate-100 hover:text-slate-950 active:scale-95" onclick="closeDecisionModal()">Cancel</button>
 
-                            <button type="button" class="rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-700" onclick="prepareApproveDecision()">Approve</button>
+                            <button type="button" class="action-btn rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition-all duration-200 hover:bg-emerald-700 active:scale-95" onclick="prepareApproveDecision()">Approve</button>
 
-                        <button type="submit" class="rounded-lg bg-rose-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-rose-700" onclick="document.getElementById('targetDecision').value='Rejected';">Reject</button>
+                        <button type="submit" class="action-btn rounded-lg bg-rose-600 px-4 py-2.5 text-sm font-medium text-white transition-all duration-200 hover:bg-rose-700 active:scale-95" onclick="document.getElementById('targetDecision').value='Rejected';">Reject</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
+
+<style>
+    /* ======================================
+       ANIMATIONS
+    ====================================== */
+
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    @keyframes slideUp {
+        from { opacity: 0; transform: translateY(16px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes modalIn {
+        from { opacity: 0; transform: scale(0.95) translateY(10px); }
+        to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    @keyframes overlayIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    .fade-in {
+        animation: fadeIn 0.4s ease-out forwards;
+    }
+
+    .slide-up {
+        opacity: 0;
+        animation: slideUp 0.5s ease-out forwards;
+    }
+
+    /* Modal opening animation */
+    .modal-overlay {
+        animation: overlayIn 0.2s ease-out forwards;
+    }
+
+    .modal-content {
+        animation: modalIn 0.25s ease-out forwards;
+    }
+
+    /* Table row hover */
+    .approval-row {
+        transition: background-color 0.2s ease;
+    }
+
+    .approval-row:hover {
+        background-color: rgba(254, 252, 232, 0.4);
+    }
+
+    /* Button click */
+    .action-btn {
+        transition: all 0.2s ease;
+    }
+
+    .action-btn:active {
+        transform: scale(0.95);
+    }
+</style>
 
 <script>
     function openDecisionModal(type, id, presetDecision) {
