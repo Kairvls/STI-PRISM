@@ -6061,6 +6061,160 @@
 
             scene.add(building);
 
+            // =====================================================
+            // PHASE 8.1
+            // EXTERIOR BUILDING SHELL
+            // =====================================================
+
+            // This group is separate from the existing interior building.
+            // Later, Phase 8.2 will switch between:
+            // exteriorBuilding = outside view
+            // building = interior room view
+
+            const exteriorBuilding =
+                new THREE.Group();
+
+            exteriorBuilding.userData.isBuildingExterior = true;
+
+            scene.add(
+                exteriorBuilding
+            );
+
+
+            // =====================================================
+            // EXTERIOR MATERIAL
+            // HOLOGRAPHIC GLASS EFFECT
+            // =====================================================
+
+            const exteriorMaterial =
+                new THREE.MeshPhysicalMaterial({
+
+                    color: 0x0c4a6e,
+
+                    emissive: 0x063b52,
+
+                    emissiveIntensity: 0.35,
+
+                    transparent: true,
+
+                    opacity: 0.18,
+
+                    roughness: 0.15,
+
+                    metalness: 0.1,
+
+                    side: THREE.DoubleSide,
+
+                    depthWrite: false
+
+                });
+
+
+            // =====================================================
+            // EXTERIOR EDGE MATERIAL
+            // CYAN ARCHITECTURAL WIREFRAME
+            // =====================================================
+
+            const exteriorEdgeMaterial =
+                new THREE.LineBasicMaterial({
+
+                    color: 0x67e8f9,
+
+                    transparent: true,
+
+                    opacity: 0.85
+
+                });
+
+
+            // =====================================================
+            // PHASE 8.1
+            // HELPER FUNCTION TO CREATE BUILDING SECTIONS
+            // =====================================================
+
+            function createExteriorSection(
+                width,
+                height,
+                depth,
+                x,
+                y,
+                z
+            ) {
+
+                const geometry =
+                    new THREE.BoxGeometry(
+                        width,
+                        height,
+                        depth
+                    );
+
+
+                // Main transparent building section
+                const mesh =
+                    new THREE.Mesh(
+                        geometry,
+                        exteriorMaterial.clone()
+                    );
+
+                mesh.position.set(
+                    x,
+                    y,
+                    z
+                );
+
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+
+
+                // Cyan wireframe outline
+                const edges =
+                    new THREE.EdgesGeometry(
+                        geometry
+                    );
+
+                const outline =
+                    new THREE.LineSegments(
+                        edges,
+                        exteriorEdgeMaterial.clone()
+                    );
+
+                mesh.add(
+                    outline
+                );
+
+
+                exteriorBuilding.add(
+                    mesh
+                );
+
+                return mesh;
+            }
+
+
+            // =====================================================
+            // PHASE 8.1
+            // MAIN STI BUILDING BODY
+            //
+            // Inspired by the actual long horizontal shape
+            // of the STI College Ormoc building.
+            // =====================================================
+
+
+
+            // =====================================================
+            // PHASE 8.1
+            // SAVE IDENTIFICATION
+            // USED LATER FOR CLICKING THE BUILDING
+            // =====================================================
+
+            exteriorBuilding.userData = {
+
+                type: 'exterior-building',
+
+                name: 'STI College Ormoc'
+
+            };
+
             const raycaster = new THREE.Raycaster();
 
             const mouse = new THREE.Vector2();
@@ -6227,6 +6381,14 @@
                 new Map();
 
             let cameraTransition = null;
+
+            // =====================================================
+            // PHASE 7.9
+            // SAVE CAMERA VIEW BEFORE SELECTING A ROOM
+            // =====================================================
+
+            let cameraPositionBeforeRoomSelection = null;
+            let cameraTargetBeforeRoomSelection = null;
 
             // =====================================================
             // PHASE 7.7
@@ -6800,6 +6962,137 @@
                 return label;
             }
 
+            // =====================================================
+            // PHASE 7.10
+            // CREATE DYNAMIC ROOM NAME LABEL
+            // ONLY VISIBLE WHEN A SINGLE FLOOR IS SELECTED
+            // =====================================================
+
+            function createRoomLabel(text) {
+
+                // Create canvas for room name
+                const canvas = document.createElement('canvas');
+
+                canvas.width = 512;
+                canvas.height = 128;
+
+                const context =
+                    canvas.getContext('2d');
+
+
+                // =================================================
+                // LABEL BACKGROUND
+                // =================================================
+
+                context.fillStyle =
+                    'rgba(2, 6, 23, 0.88)';
+
+                context.beginPath();
+
+                context.roundRect(
+                    4,
+                    4,
+                    canvas.width - 8,
+                    canvas.height - 8,
+                    24
+                );
+
+                context.fill();
+
+
+                // =================================================
+                // LABEL BORDER
+                // =================================================
+
+                context.strokeStyle =
+                    'rgba(34, 211, 238, 0.85)';
+
+                context.lineWidth = 4;
+
+                context.stroke();
+
+
+                // =================================================
+                // ROOM NAME
+                // =================================================
+
+                context.font =
+                    'bold 42px Arial';
+
+                context.fillStyle =
+                    '#ffffff';
+
+                context.textAlign =
+                    'center';
+
+                context.textBaseline =
+                    'middle';
+
+                context.fillText(
+                    text || 'Room',
+                    canvas.width / 2,
+                    canvas.height / 2
+                );
+
+
+                // =================================================
+                // CONVERT CANVAS TO THREE.JS TEXTURE
+                // =================================================
+
+                const texture =
+                    new THREE.CanvasTexture(canvas);
+
+                texture.colorSpace =
+                    THREE.SRGBColorSpace;
+
+
+                // =================================================
+                // CREATE SPRITE
+                // =================================================
+
+                const material =
+                    new THREE.SpriteMaterial({
+
+                        map: texture,
+
+                        transparent: true,
+
+                        depthTest: false,
+
+                        depthWrite: false
+
+                    });
+
+
+                const label =
+                    new THREE.Sprite(material);
+
+
+                // =================================================
+                // PHASE 7.10
+                // IDENTIFY AS ROOM LABEL
+                // =================================================
+
+                label.userData.type =
+                    'room-label';
+
+
+                // Smaller than floor labels
+                label.scale.set(
+                    2.8,
+                    0.7,
+                    1
+                );
+
+
+                // Hidden by default because All Floors is default
+                label.visible =
+                    false;
+
+
+                return label;
+            }
+
 
             // =====================================================
             // LOOP THROUGH EACH DATABASE FLOOR
@@ -7221,6 +7514,31 @@
                             room3DStatus
                         );
 
+                    // =================================================
+                    // PHASE 7.10
+                    // CREATE ROOM NAME LABEL
+                    // =================================================
+
+                    const roomLabel =
+                        createRoomLabel(
+                            roomData.name
+                        );
+
+
+                    // Position label above the room
+                    roomLabel.position.set(
+                        0,
+                        1.8,
+                        0
+                    );
+
+
+                    // Add label directly to room mesh
+                    // This makes the label follow the room position
+                    roomMesh.add(
+                        roomLabel
+                    );
+
                     roomMesh.userData.originalEmissive =
                         roomMesh.material.emissive.getHex();
 
@@ -7303,6 +7621,166 @@
                 });
 
             });
+
+            // =====================================================
+            // PHASE 8.1 PART 2
+            // CALCULATE COMPLETE INTERIOR BUILDING BOUNDS
+            // =====================================================
+
+            function getBuildingInteriorBounds() {
+
+                building.updateMatrixWorld(true);
+
+                const bounds =
+                    new THREE.Box3()
+                        .setFromObject(building);
+
+                if (bounds.isEmpty()) {
+                    return null;
+                }
+
+                return bounds;
+            }
+
+
+            // =====================================================
+            // PHASE 8.1 PART 2
+            // CREATE AUTO FITTING EXTERIOR BUILDING
+            // =====================================================
+
+            function createDynamicBuildingExterior() {
+
+                const bounds =
+                    getBuildingInteriorBounds();
+
+                if (!bounds) {
+
+                    console.warn(
+                        'Could not calculate building interior bounds.'
+                    );
+
+                    return;
+                }
+
+
+                // =================================================
+                // GET COMPLETE INTERIOR SIZE AND CENTER
+                // =================================================
+
+                const size =
+                    bounds.getSize(
+                        new THREE.Vector3()
+                    );
+
+                const center =
+                    bounds.getCenter(
+                        new THREE.Vector3()
+                    );
+
+
+                // =================================================
+                // EXTRA SPACE AROUND THE INTERIOR
+                // =================================================
+
+                const paddingX = 2.5;
+                const paddingY = 1.5;
+                const paddingZ = 2.5;
+
+
+                // =================================================
+                // CREATE MAIN EXTERIOR BODY
+                // =================================================
+
+                const exteriorMainBuilding =
+                    createExteriorSection(
+
+                        size.x + paddingX,
+
+                        size.y + paddingY,
+
+                        size.z + paddingZ,
+
+                        center.x,
+
+                        center.y,
+
+                        center.z
+
+                    );
+
+
+                // =================================================
+                // IDENTIFY AS EXTERIOR
+                // =================================================
+
+                exteriorMainBuilding.userData.isBuildingExterior =
+                    true;
+
+
+                // =================================================
+                // CREATE SLIGHTLY TALLER CENTRAL ENTRANCE
+                // =================================================
+
+                const entranceWidth =
+                    Math.max(
+                        (size.x + paddingX) * 0.22,
+                        3
+                    );
+
+                const exteriorEntranceSection =
+                    createExteriorSection(
+
+                        entranceWidth,
+
+                        size.y + paddingY + 2,
+
+                        size.z + paddingZ + 0.5,
+
+                        center.x,
+
+                        center.y + 1,
+
+                        center.z
+
+                    );
+
+                exteriorEntranceSection.userData.isBuildingExterior =
+                    true;
+
+
+                // =================================================
+                // CREATE ROOF
+                // =================================================
+
+                const exteriorRoof =
+                    createExteriorSection(
+
+                        size.x + paddingX + 0.5,
+
+                        0.25,
+
+                        size.z + paddingZ + 0.5,
+
+                        center.x,
+
+                        bounds.max.y + paddingY,
+
+                        center.z
+
+                    );
+
+                exteriorRoof.userData.isBuildingExterior =
+                    true;
+
+            }
+
+
+            // =====================================================
+            // PHASE 8.1 PART 2
+            // BUILD EXTERIOR AFTER ALL FLOORS AND ROOMS EXIST
+            // =====================================================
+
+            createDynamicBuildingExterior();
 
             // =====================================================
             // PHASE 7.4
@@ -7487,25 +7965,52 @@
 
 
                             // =========================================
-                            // SHOW / HIDE FLOORS
+                            // PHASE 7.10
+                            // SHOW / HIDE FLOORS AND ROOM LABELS
                             // =========================================
 
                             buildingFloorGroups.forEach(
                                 (floorGroup, floorId) => {
 
-                                    if (
-                                        selectedFloor === 'all'
-                                    ) {
+                                    const isAllFloors =
+                                        selectedFloor === 'all';
 
-                                        floorGroup.visible =
-                                            true;
+                                    const isSelectedFloor =
+                                        floorId === selectedFloor;
 
-                                    } else {
 
-                                        floorGroup.visible =
-                                            floorId === selectedFloor;
+                                    // =====================================
+                                    // FLOOR VISIBILITY
+                                    // =====================================
 
-                                    }
+                                    floorGroup.visible =
+                                        isAllFloors ||
+                                        isSelectedFloor;
+
+
+                                    // =====================================
+                                    // ROOM LABEL VISIBILITY
+                                    // =====================================
+
+                                    floorGroup.traverse(
+                                        child => {
+
+                                            if (
+                                                child.userData.type ===
+                                                'room-label'
+                                            ) {
+
+                                                // Hide labels on All Floors
+                                                // Show labels only on selected floor
+
+                                                child.visible =
+                                                    !isAllFloors &&
+                                                    isSelectedFloor;
+
+                                            }
+
+                                        }
+                                    );
 
                                 }
                             );
@@ -7914,6 +8419,16 @@
                         selectedRoom
                     );
 
+                    // =================================================
+                // SAVE CURRENT CAMERA VIEW BEFORE ROOM FOCUS
+                // =================================================
+
+                cameraPositionBeforeRoomSelection =
+                    camera.position.clone();
+
+                cameraTargetBeforeRoomSelection =
+                    controls.target.clone();
+
                     focusCameraOnObject(
                         selectedRoom
                     );
@@ -7954,13 +8469,57 @@
                         'visible'
                     );
 
+                    // =================================================
+                    // PHASE 7.9
+                    // CLEAR SELECTED ROOM VISUAL
+                    // =================================================
+
                     if (selectedRoom) {
 
-                        selectedRoom.material.emissive.setHex(
-                            0x000000
+                        restoreRoomVisual(
+                            selectedRoom
                         );
 
                         selectedRoom = null;
+
+                    }
+
+                    // =================================================
+                    // PHASE 7.9
+                    // SMOOTHLY RETURN TO PREVIOUS CAMERA VIEW
+                    // =================================================
+
+                    if (
+                        cameraPositionBeforeRoomSelection &&
+                        cameraTargetBeforeRoomSelection
+                    ) {
+
+                        cameraTransition = {
+
+                            startPosition:
+                                camera.position.clone(),
+
+                            endPosition:
+                                cameraPositionBeforeRoomSelection.clone(),
+
+                            startTarget:
+                                controls.target.clone(),
+
+                            endTarget:
+                                cameraTargetBeforeRoomSelection.clone(),
+
+                            startTime:
+                                performance.now(),
+
+                            duration:
+                                800
+
+                        };
+
+
+                        // Clear saved camera state
+                        cameraPositionBeforeRoomSelection = null;
+                        cameraTargetBeforeRoomSelection = null;
 
                     }
 
@@ -8081,6 +8640,31 @@
                 ?.addEventListener(
                     'click',
                     () => {
+
+                        // =================================================
+                        // PHASE 7.9
+                        // CLEAR ROOM SELECTION
+                        // =================================================
+
+                        if (selectedRoom) {
+
+                            restoreRoomVisual(
+                                selectedRoom
+                            );
+
+                            selectedRoom = null;
+
+                        }
+
+                        hoveredRoom = null;
+
+                        hideRoomTooltip();
+
+                        roomDetailsPanel?.classList.remove(
+                            'visible'
+                        );
+
+                        cameraTransition = null;
 
                         camera.position.set(
                             18,
