@@ -204,27 +204,23 @@
 {{-- RIS FORM MODAL --}}
 {{-- ============================== --}}
 <div id="risFormModal" class="fixed inset-0 z-50 hidden">
-    <div class="flex h-screen items-center justify-center bg-black/30 p-2 backdrop-blur-[2px] modal-overlay" onclick="closeRisFormModal()">
-        <div class="w-full max-w-6xl h-[90vh] overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)] modal-content" onclick="event.stopPropagation()">
-            <div class="border-b border-gray-100 px-6 py-4">
-                <div class="flex items-start justify-between gap-4">
-                    <div>
-                        <h3 class="text-lg font-bold text-slate-950">RIS Form</h3>
-                        <p id="risFormModalSubtitle" class="mt-0.5 text-sm text-slate-600">Preview of the RIS document</p>
-                    </div>
-                    <button type="button" class="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition-all duration-200 hover:bg-slate-100 hover:text-slate-900 active:scale-90" onclick="closeRisFormModal()" aria-label="Close">
-                        <i data-lucide="x" class="h-4 w-4"></i>
-                    </button>
-                </div>
+    <div class="flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 sm:p-8 modal-overlay" onclick="closeRisFormModal()">
+        <div class="relative w-full max-w-5xl max-h-[90vh] bg-white shadow-2xl modal-content" onclick="event.stopPropagation()">
+            <div class="absolute top-4 right-4 z-10 flex items-center gap-2">
+                <button type="button" class="action-btn inline-flex h-9 items-center justify-center rounded-lg bg-white border border-gray-200 px-3 text-xs font-semibold text-gray-700 shadow-sm transition-all duration-200 hover:bg-gray-50 active:scale-95" onclick="window.print()" title="Print RIS">
+                    <i data-lucide="printer" class="h-4 w-4"></i>
+                    <span class="ml-1.5">Print</span>
+                </button>
+                <button type="button" class="flex h-9 w-9 items-center justify-center rounded-full bg-white border border-gray-200 text-slate-400 shadow-sm transition-all duration-200 hover:bg-slate-100 hover:text-slate-900 active:scale-90" onclick="closeRisFormModal()" aria-label="Close">
+                    <i data-lucide="x" class="h-4 w-4"></i>
+                </button>
             </div>
-
-            <div class="h-full">
-                <div class="h-full w-full overflow-hidden rounded-b-2xl border border-gray-200 bg-gray-50">
-                    <iframe id="risFormIframe" class="w-full h-full" style="min-height: calc(90vh - 80px);" src="about:blank"></iframe>
-                </div>
+            <div class="overflow-auto p-4" style="max-height: 90vh;">
+                <iframe id="risFormIframe" class="w-full bg-white" style="height: 75vh; min-height: 600px;" src="about:blank"></iframe>
             </div>
         </div>
     </div>
+</div>
 </div>
 
 <style>
