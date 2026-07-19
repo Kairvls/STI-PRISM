@@ -3,18 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ $ris->ris_form_number ?? 'RIS Form' }}</title>
-
-    {{-- ===================================================== --}}
-    {{-- ADDED RIS MODULE: PRINTABLE RIS FORM STYLES --}}
-    {{-- ===================================================== --}}
-
+    <title>RIS Preview</title>
     <style>
         * { box-sizing: border-box; font-family: Arial, Helvetica, sans-serif; }
-        body { margin: 0; background: #f3f4f6; color: #111827; }
-        .toolbar { padding: 16px; text-align: center; }
-        .toolbar button { border: 0; border-radius: 6px; background: #111827; color: white; cursor: pointer; font-size: 14px; padding: 10px 18px; }
-        .sheet { width: 11in; min-height: 8.5in; margin: 0 auto 24px; background: white; padding: 0.35in; position: relative; }
+        body { margin: 0; padding: 0; background: transparent; }
+        .ris-document {
+            width: 11in;
+            min-height: 8.5in;
+            padding: 0.35in;
+            background: white;
+            position: relative;
+        }
         .header { position: relative; margin-top: 160px; margin-bottom: 10px; text-align: center; }
         .school { font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
         .title { margin-top: 8px; font-family: Georgia, 'Times New Roman', serif; font-size: 22px; font-weight: 800; letter-spacing: 1px; }
@@ -55,8 +54,13 @@
 
         @media print {
             body { background: white; }
-            .toolbar { display: none; }
-            .sheet { width: 100%; min-height: auto; margin: 0; padding: 0.2in; position: relative; }
+            .ris-document {
+                width: 100%;
+                min-height: auto;
+                margin: 0;
+                padding: 0.2in;
+                position: relative;
+            }
             .header { margin-top: 140px; }
             .approval-watermark {
                 opacity: 0.12;
@@ -68,15 +72,7 @@
     </style>
 </head>
 <body>
-    <div class="toolbar">
-        <button type="button" onclick="window.print()">Print RIS Form</button>
-    </div>
-
-    {{-- ===================================================== --}}
-    {{-- ADDED RIS MODULE: PRINTABLE RIS FORM MATCHING PAPER FORMAT --}}
-    {{-- ===================================================== --}}
-
-    <main class="sheet">
+    <main class="ris-document">
         @if ($ris->ris_status === 'Approved')
             <div class="approval-watermark">APPROVED</div>
         @endif

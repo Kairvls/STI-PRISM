@@ -1,13 +1,13 @@
 @extends('layouts.president-layout')
 
-@section('title', 'Monthly Summary')
+@section('title', 'Reports & Summary')
 
 @section('content')
 
 <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between fade-in">
     <div>
-        <h1 class="text-2xl font-semibold tracking-tight text-gray-900">Monthly Summary</h1>
-        <p class="mt-1 text-sm text-gray-500">Summary of approved and rejected RIS decisions.</p>
+        <h1 class="text-2xl font-semibold tracking-tight text-gray-900">Reports & Summary</h1>
+        <p class="mt-1 text-sm text-gray-500">Weekly and monthly RIS statistics and trends.</p>
     </div>
 
     <div class="flex items-center gap-2">
@@ -15,93 +15,162 @@
 </div>
 
 {{-- Stats Cards --}}
-<div class="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+<div class="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
     <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.05s">
-        <p class="text-sm font-medium text-gray-500">Approved (total)</p>
-        <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900 count-up" id="approvedTotal">{{ $approvedDecisionsCount ?? 0 }}</p>
-        <p class="mt-2 text-xs text-gray-500">All-time approved RIS records.</p>
+        <p class="text-sm font-medium text-gray-500">Total RIS</p>
+        <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900 count-up" data-target="{{ $totalRis ?? 0 }}">{{ $totalRis ?? 0 }}</p>
+        <p class="mt-2 text-xs text-gray-500">All records</p>
     </div>
 
-    <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.1s">
-        <p class="text-sm font-medium text-gray-500">Rejected (total)</p>
-        <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900 count-up" id="rejectedTotal">{{ $rejectedDecisionsCount ?? 0 }}</p>
-        <p class="mt-2 text-xs text-gray-500">All-time rejected RIS records.</p>
+    <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-5 card-hover slide-up" style="animation-delay: 0.1s">
+        <p class="text-sm font-medium text-emerald-700">Approved</p>
+        <p class="mt-3 text-3xl font-semibold tracking-tight text-emerald-900 count-up" data-target="{{ $approvedDecisionsCount ?? 0 }}">{{ $approvedDecisionsCount ?? 0 }}</p>
+        <p class="mt-2 text-xs text-emerald-600">Approved RIS</p>
     </div>
 
-    <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.15s">
-        <p class="text-sm font-medium text-gray-500">Pending (total)</p>
-        <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900 count-up" id="pendingTotal">{{ $pendingApprovalsCount ?? 0 }}</p>
-        <p class="mt-2 text-xs text-gray-500">Currently pending RIS approvals.</p>
+    <div class="rounded-xl border border-rose-200 bg-rose-50 p-5 card-hover slide-up" style="animation-delay: 0.15s">
+        <p class="text-sm font-medium text-rose-700">Rejected</p>
+        <p class="mt-3 text-3xl font-semibold tracking-tight text-rose-900 count-up" data-target="{{ $rejectedDecisionsCount ?? 0 }}">{{ $rejectedDecisionsCount ?? 0 }}</p>
+        <p class="mt-2 text-xs text-rose-600">Rejected RIS</p>
     </div>
 
-    <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.2s">
-        <p class="text-sm font-medium text-gray-500">Total Records</p>
-        <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900 count-up" id="grandTotal">{{ ($approvedDecisionsCount ?? 0) + ($rejectedDecisionsCount ?? 0) + ($pendingApprovalsCount ?? 0) }}</p>
-        <p class="mt-2 text-xs text-gray-500">All RIS records.</p>
+    <div class="rounded-xl border border-amber-200 bg-amber-50 p-5 card-hover slide-up" style="animation-delay: 0.2s">
+        <p class="text-sm font-medium text-amber-700">Pending</p>
+        <p class="mt-3 text-3xl font-semibold tracking-tight text-amber-900 count-up" data-target="{{ $pendingApprovalsCount ?? 0 }}">{{ $pendingApprovalsCount ?? 0 }}</p>
+        <p class="mt-2 text-xs text-amber-600">Pending RIS</p>
+    </div>
+
+    <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.25s">
+        <p class="text-sm font-medium text-gray-500">Total Amount</p>
+        <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">₱{{ number_format((float)($totalAmount ?? 0), 2) }}</p>
+        <p class="mt-2 text-xs text-gray-500">All RIS value</p>
     </div>
 </div>
 
-{{-- Filter + Graph + Table --}}
-<div class="mt-6 rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.25s">
-    {{-- Header + Filter --}}
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-            <h2 class="text-sm font-semibold text-gray-900">Approved vs Rejected (by Month)</h2>
-            <p class="mt-1 text-xs text-gray-500">Monthly breakdown of RIS decisions.</p>
-        </div>
+{{-- Tabs --}}
+<div class="mt-6 flex flex-wrap items-center gap-3">
+    <button type="button" id="tabWeekly" onclick="switchTab('weekly')" class="action-btn inline-flex h-11 items-center justify-center gap-2.5 rounded-lg px-5 text-sm font-semibold transition-all duration-200 {{ request('tab') !== 'monthly' ? 'bg-gray-900 text-white shadow-sm' : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50' }}">
+        <i data-lucide="trending-up" class="h-4 w-4"></i>
+        <span>Weekly Summary</span>
+    </button>
+    <button type="button" id="tabMonthly" onclick="switchTab('monthly')" class="action-btn inline-flex h-11 items-center justify-center gap-2.5 rounded-lg px-5 text-sm font-semibold transition-all duration-200 {{ request('tab') === 'monthly' ? 'bg-gray-900 text-white shadow-sm' : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50' }}">
+        <i data-lucide="calendar-days" class="h-4 w-4"></i>
+        <span>Monthly Summary</span>
+    </button>
+</div>
 
-        <div class="flex items-center gap-2">
-            <span class="text-xs font-medium text-gray-500">Filter:</span>
-            <div class="flex rounded-lg border border-gray-200 bg-white overflow-hidden">
-                <button type="button" class="summary-filter-btn px-4 py-2 text-xs font-semibold bg-gray-900 text-white transition-all duration-200 hover:bg-gray-800 active:scale-95" data-filter="all">All</button>
-                <button type="button" class="summary-filter-btn px-4 py-2 text-xs font-semibold text-gray-700 transition-all duration-200 hover:bg-gray-100 active:scale-95" data-filter="approved">Approved</button>
-                <button type="button" class="summary-filter-btn px-4 py-2 text-xs font-semibold text-gray-700 transition-all duration-200 hover:bg-gray-100 active:scale-95" data-filter="rejected">Rejected</button>
-            </div>
+{{-- Weekly Tab --}}
+<div id="weeklyTab" class="mt-6 {{ request('tab') === 'monthly' ? 'hidden' : '' }}">
+    {{-- Weekly Chart --}}
+    <div class="rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.1s">
+        <h2 class="text-sm font-semibold text-gray-900">Weekly Trend</h2>
+        <p class="mt-1 text-xs text-gray-500">Last 4 weeks RIS decisions.</p>
+        <div class="mt-4" style="height: 300px;">
+            <canvas id="weeklyChart"></canvas>
         </div>
     </div>
 
-    {{-- Line Graph --}}
-    <div class="mt-6">
-        <canvas id="monthlyChart" height="220" class="w-full"></canvas>
-    </div>
-
-    {{-- Table --}}
-    <div class="mt-6 overflow-x-auto">
-        <table class="w-full">
-            <thead>
-                <tr class="border-b border-gray-100">
-                    <th class="px-2 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Month</th>
-                    <th class="px-2 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Approved</th>
-                    <th class="px-2 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Rejected</th>
-                </tr>
-            </thead>
-            <tbody id="summaryTableBody">
-                @if(count($monthlyStats) > 0)
-                    @foreach($monthlyStats as $row)
-                        @php
-                            $approved = (int)($row['approved'] ?? 0);
-                            $rejected = (int)($row['rejected'] ?? 0);
-                            $label = $row['month_label'] ?? ($row['month'] ?? '—');
-                        @endphp
-                        <tr class="border-b border-gray-100 table-row-hover transition-all duration-200 summary-row"
-                            data-month="{{ $row['year_month'] ?? '' }}"
-                            data-approved="{{ $approved }}"
-                            data-rejected="{{ $rejected }}">
-                            <td class="px-2 py-4 text-sm font-semibold text-gray-700">{{ $label }}</td>
-                            <td class="px-2 py-4 text-sm text-emerald-700 font-semibold approved-cell">{{ $approved }}</td>
-                            <td class="px-2 py-4 text-sm text-rose-700 font-semibold rejected-cell">{{ $rejected }}</td>
-                        </tr>
-                    @endforeach
-                @else
-                    <tr>
-                        <td colspan="3" class="px-2 py-12 text-center">
-                            <p class="text-sm font-semibold text-gray-800">No decision records found.</p>
-                            <p class="mt-1 text-xs text-gray-500">Monthly data will appear here once decisions are made.</p>
-                        </td>
+    {{-- Weekly Table --}}
+    <div class="mt-6 rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.15s">
+        <h2 class="text-sm font-semibold text-gray-900">Weekly Breakdown</h2>
+        <div class="mt-4 overflow-x-auto">
+            <table class="min-w-full">
+                <thead>
+                    <tr class="border-b border-gray-100">
+                        <th class="px-3 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Week</th>
+                        <th class="px-3 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Approved</th>
+                        <th class="px-3 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Rejected</th>
+                        <th class="px-3 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Pending</th>
                     </tr>
-                @endif
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    @forelse($weeklyStats ?? [] as $row)
+                        <tr class="border-b border-gray-100 transition-all duration-200 hover:bg-yellow-50/40">
+                            <td class="px-3 py-4 text-sm font-semibold text-gray-700">{{ $row['label'] }}</td>
+                            <td class="px-3 py-4 text-sm text-emerald-700 font-semibold">{{ $row['approved'] }}</td>
+                            <td class="px-3 py-4 text-sm text-rose-700 font-semibold">{{ $row['rejected'] }}</td>
+                            <td class="px-3 py-4 text-sm text-amber-700 font-semibold">{{ $row['pending'] }}</td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="4" class="px-2 py-12 text-center">
+                                <p class="text-sm font-semibold text-gray-800">No weekly data available.</p>
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{{-- Monthly Tab --}}
+<div id="monthlyTab" class="mt-6 {{ request('tab') === 'monthly' ? '' : 'hidden' }}">
+    {{-- Month Selector --}}
+    <div class="rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.05s">
+        <form id="monthFilterForm" method="GET" action="/president/reports/monthly-summary" class="flex flex-wrap items-center gap-2">
+            <input type="hidden" name="tab" value="monthly" />
+            <select name="month" id="monthSelect" class="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:ring-4 focus:ring-amber-100 transition-all duration-200">
+                @foreach([1=>'January',2=>'February',3=>'March',4=>'April',5=>'May',6=>'June',7=>'July',8=>'August',9=>'September',10=>'October',11=>'November',12=>'December'] as $num => $name)
+                    <option value="{{ $num }}" {{ (request('month') ?? date('m')) == $num ? 'selected' : '' }}>{{ $name }}</option>
+                @endforeach
+            </select>
+            <select name="year" id="yearSelect" class="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:ring-4 focus:ring-amber-100 transition-all duration-200">
+                @for ($y = date('Y'); $y >= date('Y') - 5; $y--)
+                    <option value="{{ $y }}" {{ (request('year') ?? date('Y')) == $y ? 'selected' : '' }}>{{ $y }}</option>
+                @endfor
+            </select>
+            <button type="submit" class="action-btn inline-flex h-10 items-center justify-center rounded-lg bg-gray-900 px-4 text-sm font-semibold text-white transition hover:bg-gray-800 active:scale-95">
+                <i data-lucide="search" class="h-4 w-4"></i>
+                <span class="ml-1.5">Apply</span>
+            </button>
+            <button type="button" id="resetFilterBtn" class="action-btn inline-flex h-10 items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 active:scale-95 {{ !request('month') && !request('year') ? 'opacity-50 cursor-not-allowed' : '' }}">
+                <i data-lucide="rotate-ccw" class="h-4 w-4"></i>
+                <span class="ml-1.5">Reset</span>
+            </button>
+        </form>
+    </div>
+
+    {{-- Monthly Chart --}}
+    <div class="mt-6 rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.1s">
+        <h2 class="text-sm font-semibold text-gray-900">{{ $filterMonth && $filterYear ? 'Monthly Trend' : 'Monthly Trend' }}</h2>
+        <p class="mt-1 text-xs text-gray-500">{{ $filterMonth && $filterYear ? 'Selected month RIS decisions.' : 'Last 6 months RIS decisions.' }}</p>
+        <div class="mt-4" style="height: 300px;">
+            <canvas id="monthlyChart"></canvas>
+        </div>
+    </div>
+
+    {{-- Monthly Table --}}
+    <div class="mt-6 rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.15s">
+        <h2 class="text-sm font-semibold text-gray-900">Monthly Breakdown</h2>
+        <div class="mt-4 overflow-x-auto">
+            <table class="min-w-full">
+                <thead>
+                    <tr class="border-b border-gray-100">
+                        <th class="px-3 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Month</th>
+                        <th class="px-3 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Approved</th>
+                        <th class="px-3 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Rejected</th>
+                        <th class="px-3 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Pending</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($monthlyStats ?? [] as $row)
+                        <tr class="border-b border-gray-100 transition-all duration-200 hover:bg-yellow-50/40">
+                            <td class="px-3 py-4 text-sm font-semibold text-gray-700">{{ $row['month_label'] }}</td>
+                            <td class="px-3 py-4 text-sm text-emerald-700 font-semibold">{{ $row['approved'] }}</td>
+                            <td class="px-3 py-4 text-sm text-rose-700 font-semibold">{{ $row['rejected'] }}</td>
+                            <td class="px-3 py-4 text-sm text-amber-700 font-semibold">{{ $row['pending'] }}</td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="4" class="px-2 py-12 text-center">
+                                <p class="text-sm font-semibold text-gray-800">No monthly data available.</p>
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
@@ -109,200 +178,456 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
 <script>
-    const monthlyData = @json($monthlyStats);
+    function switchTab(tab) {
+        const weeklyTab = document.getElementById('weeklyTab');
+        const monthlyTab = document.getElementById('monthlyTab');
+        const weeklyBtn = document.getElementById('tabWeekly');
+        const monthlyBtn = document.getElementById('tabMonthly');
 
-    const labels = monthlyData.map(r => r.month_label);
-    const approvedData = monthlyData.map(r => r.approved);
-    const rejectedData = monthlyData.map(r => r.rejected);
-
-    const ctx = document.getElementById('monthlyChart').getContext('2d');
-
-    let monthlyChart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [
-                {
-                    label: 'Approved',
-                    data: approvedData,
-                    borderColor: '#059669',
-                    backgroundColor: 'rgba(5, 150, 105, 0.08)',
-                    fill: true,
-                    tension: 0.35,
-                    pointBackgroundColor: '#059669',
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 2,
-                    pointRadius: 4,
-                    pointHoverRadius: 6,
-                    borderWidth: 2.5,
-                },
-                {
-                    label: 'Rejected',
-                    data: rejectedData,
-                    borderColor: '#e11d48',
-                    backgroundColor: 'rgba(225, 29, 72, 0.08)',
-                    fill: true,
-                    tension: 0.35,
-                    pointBackgroundColor: '#e11d48',
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 2,
-                    pointRadius: 4,
-                    pointHoverRadius: 6,
-                    borderWidth: 2.5,
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            animation: {
-                duration: 1000,
-                easing: 'easeInOutQuart'
-            },
-            plugins: {
-                legend: {
-                    display: true,
-                    position: 'top',
-                    labels: {
-                        usePointStyle: true,
-                        boxWidth: 8,
-                        font: { size: 12 }
-                    }
-                },
-                tooltip: {
-                    backgroundColor: '#1f2937',
-                    titleFont: { size: 13 },
-                    bodyFont: { size: 12 },
-                    padding: 10,
-                    cornerRadius: 8,
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: {
-                        stepSize: 1,
-                        font: { size: 11 }
-                    },
-                    grid: {
-                        color: 'rgba(0,0,0,0.05)'
-                    }
-                },
-                x: {
-                    grid: {
-                        display: false
-                    },
-                    ticks: {
-                        font: { size: 11 }
-                    }
-                }
-            }
+        if (tab === 'weekly') {
+            weeklyTab.classList.remove('hidden');
+            monthlyTab.classList.add('hidden');
+            weeklyBtn.classList.remove('bg-white', 'text-gray-700', 'border', 'border-gray-200', 'hover:bg-gray-50');
+            weeklyBtn.classList.add('bg-gray-900', 'text-white');
+            monthlyBtn.classList.remove('bg-gray-900', 'text-white');
+            monthlyBtn.classList.add('bg-white', 'text-gray-700', 'border', 'border-gray-200', 'hover:bg-gray-50');
+        } else {
+            weeklyTab.classList.add('hidden');
+            monthlyTab.classList.remove('hidden');
+            monthlyBtn.classList.remove('bg-white', 'text-gray-700', 'border', 'border-gray-200', 'hover:bg-gray-50');
+            monthlyBtn.classList.add('bg-gray-900', 'text-white');
+            weeklyBtn.classList.remove('bg-gray-900', 'text-white');
+            weeklyBtn.classList.add('bg-white', 'text-gray-700', 'border', 'border-gray-200', 'hover:bg-gray-50');
         }
-    });
-
-    function applySummaryFilter(filter) {
-        const rows = document.querySelectorAll('.summary-row');
-
-        let approvedSum = 0;
-        let rejectedSum = 0;
-        let pendingSum = parseInt(document.getElementById('pendingTotal')?.textContent || '0');
-
-        rows.forEach(row => {
-            const approved = parseInt(row.dataset.approved || '0');
-            const rejected = parseInt(row.dataset.rejected || '0');
-
-            if (filter === 'all') {
-                row.style.display = '';
-                approvedSum += approved;
-                rejectedSum += rejected;
-            } else if (filter === 'approved') {
-                if (approved > 0) {
-                    row.style.display = '';
-                    approvedSum += approved;
-                } else {
-                    row.style.display = 'none';
-                }
-            } else if (filter === 'rejected') {
-                if (rejected > 0) {
-                    row.style.display = '';
-                    rejectedSum += rejected;
-                } else {
-                    row.style.display = 'none';
-                }
-            }
-        });
-
-        const approvedEl = document.getElementById('approvedTotal');
-        const rejectedEl = document.getElementById('rejectedTotal');
-        const grandEl = document.getElementById('grandTotal');
-
-        if (filter === 'all') {
-            approvedEl.textContent = approvedSum;
-            rejectedEl.textContent = rejectedSum;
-            grandEl.textContent = approvedSum + rejectedSum + pendingSum;
-        } else if (filter === 'approved') {
-            approvedEl.textContent = approvedSum;
-            rejectedEl.textContent = 0;
-            grandEl.textContent = approvedSum + pendingSum;
-        } else if (filter === 'rejected') {
-            approvedEl.textContent = 0;
-            rejectedEl.textContent = rejectedSum;
-            grandEl.textContent = rejectedSum + pendingSum;
-        }
-
-        const filteredApproved = [];
-        const filteredRejected = [];
-        const filteredLabels = [];
-
-        rows.forEach(row => {
-            if (row.style.display !== 'none') {
-                filteredLabels.push(row.querySelector('td:first-child')?.textContent?.trim() || '');
-                filteredApproved.push(parseInt(row.dataset.approved || '0'));
-                filteredRejected.push(parseInt(row.dataset.rejected || '0'));
-            }
-        });
-
-        monthlyChart.data.labels = filteredLabels;
-        monthlyChart.data.datasets[0].data = filteredApproved;
-        monthlyChart.data.datasets[1].data = filteredRejected;
-        monthlyChart.update();
     }
 
-    document.querySelectorAll('.summary-filter-btn').forEach(btn => {
-        btn.addEventListener('click', function () {
-            document.querySelectorAll('.summary-filter-btn').forEach(b => {
-                b.classList.remove('bg-gray-900', 'text-white');
-                b.classList.add('text-gray-700');
+    document.addEventListener('DOMContentLoaded', () => {
+        if (window.lucide) { lucide.createIcons(); }
+
+        const weeklyData = @json($weeklyStats ?? []);
+        const monthlyData = @json($monthlyStats ?? []);
+        const resetBtn = document.getElementById('resetFilterBtn');
+        const monthSelect = document.getElementById('monthSelect');
+        const yearSelect = document.getElementById('yearSelect');
+
+        // Weekly Chart
+        const weeklyCtx = document.getElementById('weeklyChart');
+        if (weeklyCtx && weeklyData.length > 0) {
+            new Chart(weeklyCtx, {
+                type: 'line',
+                data: {
+                    labels: weeklyData.map(r => r.label),
+                    datasets: [
+                        {
+                            label: 'Approved',
+                            data: weeklyData.map(r => r.approved),
+                            borderColor: '#10b981',
+                            backgroundColor: (context) => {
+                                const ctx = context.chart.ctx;
+                                const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+                                gradient.addColorStop(0, 'rgba(16, 185, 129, 0.2)');
+                                gradient.addColorStop(1, 'rgba(16, 185, 129, 0.02)');
+                                return gradient;
+                            },
+                            fill: true,
+                            tension: 0.4,
+                            pointBackgroundColor: '#10b981',
+                            pointBorderColor: '#ffffff',
+                            pointBorderWidth: 3,
+                            pointRadius: 5,
+                            pointHoverRadius: 7,
+                            pointHoverBackgroundColor: '#10b981',
+                            pointHoverBorderColor: '#ffffff',
+                            pointHoverBorderWidth: 3,
+                            borderWidth: 3,
+                        },
+                        {
+                            label: 'Rejected',
+                            data: weeklyData.map(r => r.rejected),
+                            borderColor: '#f43f5e',
+                            backgroundColor: (context) => {
+                                const ctx = context.chart.ctx;
+                                const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+                                gradient.addColorStop(0, 'rgba(244, 63, 94, 0.2)');
+                                gradient.addColorStop(1, 'rgba(244, 63, 94, 0.02)');
+                                return gradient;
+                            },
+                            fill: true,
+                            tension: 0.4,
+                            pointBackgroundColor: '#f43f5e',
+                            pointBorderColor: '#ffffff',
+                            pointBorderWidth: 3,
+                            pointRadius: 5,
+                            pointHoverRadius: 7,
+                            pointHoverBackgroundColor: '#f43f5e',
+                            pointHoverBorderColor: '#ffffff',
+                            pointHoverBorderWidth: 3,
+                            borderWidth: 3,
+                        },
+                        {
+                            label: 'Pending',
+                            data: weeklyData.map(r => r.pending),
+                            borderColor: '#f59e0b',
+                            backgroundColor: (context) => {
+                                const ctx = context.chart.ctx;
+                                const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+                                gradient.addColorStop(0, 'rgba(245, 158, 11, 0.2)');
+                                gradient.addColorStop(1, 'rgba(245, 158, 11, 0.02)');
+                                return gradient;
+                            },
+                            fill: true,
+                            tension: 0.4,
+                            pointBackgroundColor: '#f59e0b',
+                            pointBorderColor: '#ffffff',
+                            pointBorderWidth: 3,
+                            pointRadius: 5,
+                            pointHoverRadius: 7,
+                            pointHoverBackgroundColor: '#f59e0b',
+                            pointHoverBorderColor: '#ffffff',
+                            pointHoverBorderWidth: 3,
+                            borderWidth: 3,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                        duration: 1500,
+                        easing: 'easeInOutQuart',
+                        onComplete: () => {
+                            // Smooth fade-in after animation
+                            weeklyCtx.style.opacity = '1';
+                        }
+                    },
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            align: 'end',
+                            labels: {
+                                usePointStyle: true,
+                                pointStyle: 'circle',
+                                boxWidth: 8,
+                                boxHeight: 8,
+                                padding: 20,
+                                font: {
+                                    size: 12,
+                                    weight: '500'
+                                },
+                                color: '#64748b'
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                            titleColor: '#f1f5f9',
+                            bodyColor: '#cbd5e1',
+                            titleFont: {
+                                size: 13,
+                                weight: '600'
+                            },
+                            bodyFont: {
+                                size: 12
+                            },
+                            padding: 14,
+                            cornerRadius: 10,
+                            displayColors: true,
+                            boxWidth: 10,
+                            boxHeight: 10,
+                            boxPadding: 4,
+                            usePointStyle: true,
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + context.parsed.y + ' RIS';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1,
+                                font: {
+                                    size: 11,
+                                    weight: '500'
+                                },
+                                color: '#64748b',
+                                padding: 10
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.04)',
+                                drawBorder: false
+                            },
+                            border: {
+                                display: false
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false,
+                                drawBorder: false
+                            },
+                            ticks: {
+                                font: {
+                                    size: 11,
+                                    weight: '500'
+                                },
+                                color: '#64748b',
+                                padding: 10
+                            },
+                            border: {
+                                display: false
+                            }
+                        }
+                    }
+                }
             });
-            this.classList.remove('text-gray-700');
-            this.classList.add('bg-gray-900', 'text-white');
+        }
 
-            applySummaryFilter(this.dataset.filter);
+        // Monthly Chart
+        const monthlyCtx = document.getElementById('monthlyChart');
+        if (monthlyCtx && monthlyData.length > 0) {
+            const isFiltered = @json($filterMonth && $filterYear);
+            new Chart(monthlyCtx, {
+                type: isFiltered ? 'bar' : 'line',
+                data: {
+                    labels: monthlyData.map(r => r.month_label),
+                    datasets: [
+                        {
+                            label: 'Approved',
+                            data: monthlyData.map(r => r.approved),
+                            backgroundColor: isFiltered ? '#10b981' : (context) => {
+                                const ctx = context.chart.ctx;
+                                const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+                                gradient.addColorStop(0, 'rgba(16, 185, 129, 0.25)');
+                                gradient.addColorStop(1, 'rgba(16, 185, 129, 0.05)');
+                                return gradient;
+                            },
+                            borderColor: '#10b981',
+                            fill: isFiltered ? false : true,
+                            tension: isFiltered ? 0 : 0.4,
+                            pointBackgroundColor: '#10b981',
+                            pointBorderColor: '#ffffff',
+                            pointBorderWidth: 3,
+                            pointRadius: isFiltered ? 0 : 5,
+                            pointHoverRadius: isFiltered ? 0 : 7,
+                            pointHoverBackgroundColor: '#10b981',
+                            pointHoverBorderColor: '#ffffff',
+                            pointHoverBorderWidth: 3,
+                            borderWidth: 3,
+                        },
+                        {
+                            label: 'Rejected',
+                            data: monthlyData.map(r => r.rejected),
+                            backgroundColor: isFiltered ? '#f43f5e' : (context) => {
+                                const ctx = context.chart.ctx;
+                                const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+                                gradient.addColorStop(0, 'rgba(244, 63, 94, 0.25)');
+                                gradient.addColorStop(1, 'rgba(244, 63, 94, 0.05)');
+                                return gradient;
+                            },
+                            borderColor: '#f43f5e',
+                            fill: isFiltered ? false : true,
+                            tension: isFiltered ? 0 : 0.4,
+                            pointBackgroundColor: '#f43f5e',
+                            pointBorderColor: '#ffffff',
+                            pointBorderWidth: 3,
+                            pointRadius: isFiltered ? 0 : 5,
+                            pointHoverRadius: isFiltered ? 0 : 7,
+                            pointHoverBackgroundColor: '#f43f5e',
+                            pointHoverBorderColor: '#ffffff',
+                            pointHoverBorderWidth: 3,
+                            borderWidth: 3,
+                        },
+                        {
+                            label: 'Pending',
+                            data: monthlyData.map(r => r.pending),
+                            backgroundColor: isFiltered ? '#f59e0b' : (context) => {
+                                const ctx = context.chart.ctx;
+                                const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+                                gradient.addColorStop(0, 'rgba(245, 158, 11, 0.25)');
+                                gradient.addColorStop(1, 'rgba(245, 158, 11, 0.05)');
+                                return gradient;
+                            },
+                            borderColor: '#f59e0b',
+                            fill: isFiltered ? false : true,
+                            tension: isFiltered ? 0 : 0.4,
+                            pointBackgroundColor: '#f59e0b',
+                            pointBorderColor: '#ffffff',
+                            pointBorderWidth: 3,
+                            pointRadius: isFiltered ? 0 : 5,
+                            pointHoverRadius: isFiltered ? 0 : 7,
+                            pointHoverBackgroundColor: '#f59e0b',
+                            pointHoverBorderColor: '#ffffff',
+                            pointHoverBorderWidth: 3,
+                            borderWidth: 3,
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: {
+                        duration: 1500,
+                        easing: 'easeInOutQuart',
+                        onComplete: () => {
+                            // Smooth fade-in after animation
+                            monthlyCtx.style.opacity = '1';
+                        }
+                    },
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            align: 'end',
+                            labels: {
+                                usePointStyle: true,
+                                pointStyle: 'circle',
+                                boxWidth: 8,
+                                boxHeight: 8,
+                                padding: 20,
+                                font: {
+                                    size: 12,
+                                    weight: '500'
+                                },
+                                color: '#64748b'
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                            titleColor: '#f1f5f9',
+                            bodyColor: '#cbd5e1',
+                            titleFont: {
+                                size: 13,
+                                weight: '600'
+                            },
+                            bodyFont: {
+                                size: 12
+                            },
+                            padding: 14,
+                            cornerRadius: 10,
+                            displayColors: true,
+                            boxWidth: 10,
+                            boxHeight: 10,
+                            boxPadding: 4,
+                            usePointStyle: true,
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + context.parsed.y + ' RIS';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1,
+                                font: {
+                                    size: 11,
+                                    weight: '500'
+                                },
+                                color: '#64748b',
+                                padding: 10
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.04)',
+                                drawBorder: false
+                            },
+                            border: {
+                                display: false
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false,
+                                drawBorder: false
+                            },
+                            ticks: {
+                                font: {
+                                    size: 11,
+                                    weight: '500'
+                                },
+                                color: '#64748b',
+                                padding: 10
+                            },
+                            border: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Count-up animation
+        document.querySelectorAll('.count-up').forEach(el => {
+            const target = parseInt(el.dataset.target || el.textContent || '0');
+            if (target === 0) return;
+            let current = 0;
+            const step = Math.max(1, Math.floor(target / 30));
+            const interval = setInterval(() => {
+                current += step;
+                if (current >= target) {
+                    current = target;
+                    clearInterval(interval);
+                }
+                el.textContent = current;
+            }, 30);
         });
-    });
 
-    document.querySelectorAll('.count-up').forEach(el => {
-        const target = parseInt(el.textContent || '0');
-        if (target === 0) return;
-        let current = 0;
-        const step = Math.max(1, Math.floor(target / 30));
-        const interval = setInterval(() => {
-            current += step;
-            if (current >= target) {
-                current = target;
-                clearInterval(interval);
+        // Reset filter button functionality
+        if (resetBtn && monthSelect && yearSelect) {
+            // Update button state based on filter
+            function updateResetButtonState() {
+                const hasFilter = monthSelect.value || yearSelect.value;
+                if (hasFilter) {
+                    resetBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    resetBtn.disabled = false;
+                } else {
+                    resetBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                    resetBtn.disabled = true;
+                }
             }
-            el.textContent = current;
-        }, 30);
-    });
 
-    document.querySelectorAll('.table-row-hover').forEach(row => {
-        row.addEventListener('mouseenter', function () {
-            this.classList.add('bg-yellow-50/40');
-        });
-        row.addEventListener('mouseleave', function () {
-            this.classList.remove('bg-yellow-50/40');
-        });
+            // Initialize button state
+            updateResetButtonState();
+
+            // Update state when selections change
+            monthSelect.addEventListener('change', updateResetButtonState);
+            yearSelect.addEventListener('change', updateResetButtonState);
+
+            // Reset button click handler
+            resetBtn.addEventListener('click', function() {
+                // Clear selections
+                monthSelect.value = '';
+                yearSelect.value = '';
+
+                // Update button state
+                updateResetButtonState();
+
+                // Submit form to reload page with all data
+                const form = document.getElementById('monthFilterForm');
+                if (form) {
+                    // Remove any existing month/year parameters from URL
+                    const url = new URL(window.location.href);
+                    url.searchParams.delete('month');
+                    url.searchParams.delete('year');
+                    
+                    // Redirect to clean URL
+                    window.location.href = url.toString();
+                }
+            });
+        }
     });
 </script>
 
@@ -335,15 +660,11 @@
         box-shadow: 0 8px 25px rgba(0, 0, 0, 0.06);
     }
 
-    .table-row-hover {
-        transition: background-color 0.2s ease;
-    }
-
-    .summary-filter-btn {
+    .action-btn {
         transition: all 0.2s ease;
     }
 
-    .summary-filter-btn:active {
+    .action-btn:active {
         transform: scale(0.95);
     }
 </style>

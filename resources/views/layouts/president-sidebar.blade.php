@@ -74,27 +74,17 @@
 
         <div class="quick-actions">
 
-            {{-- Quick Approval Queue --}}
+            {{-- RIS Management --}}
             <a
                 href="/president/approvals"
                 class="quick-card {{ request()->is('president/approvals*') ? 'active' : '' }}"
-                title="Review RIS approval queue"
+                title="Manage RIS approvals"
             >
                 <i data-lucide="clipboard-check"></i>
-                <span>RIS Approval Queue</span>
+                <span>RIS Management</span>
             </a>
 
 
-
-            {{-- Decision history --}}
-            <a
-                href="/president/approvals/history"
-                class="quick-card {{ request()->is('president/approvals/history*') ? 'active' : '' }}"
-                title="View approval timeline"
-            >
-                <i data-lucide="history"></i>
-                <span>Approval History</span>
-            </a>
 
             {{-- Decision reports snapshot --}}
             <a
@@ -105,17 +95,6 @@
                 <i data-lucide="bar-chart-3"></i>
                 <span>Monthly Decisions</span>
             </a>
-
-            {{-- Notifications center --}}
-            <a
-                href="/president/notifications"
-                class="quick-card {{ request()->is('president/notifications*') ? 'active' : '' }}"
-                title="Open notifications"
-            >
-                <i data-lucide="bell"></i>
-                <span>System Alerts</span>
-            </a>
-
 
         </div>
 
@@ -161,19 +140,6 @@
 
         </a>
 
-        <a
-            href="/president/approvals/history"
-            class="menu-item {{ request()->is('president/approvals/history') ? 'active' : '' }}"
-        >
-
-            <i data-lucide="history"></i>
-
-            <span>Approval History</span>
-
-        </a>
-
-
-
         {{-- ====================================== --}}
         {{-- REPORTS --}}
         {{-- ====================================== --}}
@@ -186,23 +152,12 @@
 
         <a
             href="/president/reports/approved"
-            class="menu-item {{ request()->is('president/reports/approved') ? 'active' : '' }}"
+            class="menu-item {{ request()->is('president/reports/approved') || request()->is('president/reports/rejected') ? 'active' : '' }}"
         >
 
             <i data-lucide="badge-check"></i>
 
-            <span>Approved Decisions</span>
-
-        </a>
-
-        <a
-            href="/president/reports/rejected"
-            class="menu-item {{ request()->is('president/reports/rejected') ? 'active' : '' }}"
-        >
-
-            <i data-lucide="x-circle"></i>
-
-            <span>Rejected Decisions</span>
+            <span>RIS Decisions</span>
 
         </a>
 
@@ -213,39 +168,7 @@
 
             <i data-lucide="bar-chart-3"></i>
 
-            <span>Decision Summary</span>
-
-        </a>
-
-        {{-- ====================================== --}}
-        {{-- SYSTEM --}}
-        {{-- ====================================== --}}
-
-        <div class="menu-title" id="system-section">
-
-            SYSTEM
-
-        </div>
-
-        <a
-            href="/president/notifications"
-            class="menu-item {{ request()->is('president/notifications*') ? 'active' : '' }}"
-        >
-
-            <i data-lucide="bell"></i>
-
-            <span>Notifications</span>
-
-        </a>
-
-        <a
-            href="/president/profile"
-            class="menu-item {{ request()->is('president/profile*') ? 'active' : '' }}"
-        >
-
-            <i data-lucide="user"></i>
-
-            <span>Profile</span>
+            <span>Reports & Summary</span>
 
         </a>
 

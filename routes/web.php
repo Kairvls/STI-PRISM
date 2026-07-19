@@ -1311,11 +1311,6 @@ Route::middleware([
         )->name('reports.approved');
 
         Route::get(
-            '/reports/rejected',
-            [PresidentController::class, 'rejectedReports']
-        )->name('reports.rejected');
-
-        Route::get(
             '/reports/monthly-summary',
             [PresidentController::class, 'monthlySummary']
         )->name('reports.monthly-summary');
@@ -1367,8 +1362,17 @@ Route::middleware([
             [PurchaserController::class, 'printRis']
         )
             ->name('ris.print');
-    
-    });
+
+        // =====================================================
+        // PRESIDENT: RIS VIEWER (for preview)
+        // =====================================================
+        Route::get(
+            '/ris/{ris}/view',
+            [PresidentController::class, 'viewRis']
+        )
+            ->name('ris.view');
+     
+     });
 
 
 
