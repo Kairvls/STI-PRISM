@@ -239,11 +239,14 @@
    SCROLLABLE CONTENT
 ====================================== */
     .sidebar-content {
-        flex: 1;
-        overflow-y: auto;
-        overflow-x: hidden;
-        padding: 20px;
-    }
+    flex: 1;
+
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    /* TOP | RIGHT | BOTTOM | LEFT */
+    padding: 20px 20px 20px 20px;
+}
     
 
     /* ======================================
@@ -365,56 +368,199 @@
     /* ======================================
    SECTION TITLE
 ====================================== */
-    .menu-title {
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 1.5px;
-        color: #64748b;
-        margin-top: 28px;
-        margin-bottom: 10px;
-        padding-left: 14px;
-        transition: all 0.3s ease;
-    }
+
+.menu-title {
+    font-size: 11px;
+
+    font-weight: 700;
+
+    letter-spacing: 1.5px;
+
+    color: #64748b;
+
+    margin-top: 28px;
+
+    margin-bottom: 10px;
+
+
+    /*
+    REMOVE THE EXTRA INDENTATION.
+
+    sidebar-content ALREADY PROVIDES 20px.
+    */
+
+    padding-left: 0;
+
+    transition: all 0.3s ease;
+}
+
+    
 
     /* ======================================
    MENU ITEMS
 ====================================== */
-    .menu-item {
-        height: 48px;
-        display: flex;
-        align-items: center;
-        gap: 14px;
-        padding: 0 14px;
-        border-radius: 14px;
-        color: #cbd5e1;
-        text-decoration: none;
-        transition: all 0.2s ease;
-        margin-bottom: 4px;
-        font-size: 14px;
-    }
-    .menu-item:hover {
-        background: #1f2937;
-        color: white;
-    }
-    .menu-item i {
-        width: 18px;
-        height: 18px;
-    }
 
-    /* ======================================
-   ACTIVE MENU
+.menu-item {
+    position: relative;
+
+    height: 48px;
+
+    display: flex;
+    align-items: center;
+
+    gap: 12px;
+
+    /*
+    IMPORTANT:
+
+    sidebar-content already has 20px padding.
+
+    DO NOT add another 14px horizontal padding.
+
+    This makes the menu icon align with:
+    PRISM logo
+    Search box
+    Quick Actions
+    */
+
+    padding: 0;
+
+    border-radius: 0;
+
+    color: #94a3b8;
+
+    text-decoration: none;
+
+    font-size: 14px;
+
+    font-weight: 400;
+
+    margin-bottom: 2px;
+
+    transition:
+        color 0.2s ease,
+        opacity 0.2s ease;
+}
+
+
+/* ======================================
+   MENU ICON
+
+   LUCIDE CONVERTS <i> INTO <svg>
 ====================================== */
-    .menu-item.active {
-        background: linear-gradient(
-            90deg,
-            rgba(255, 242, 0, 0.2),
-            rgba(255, 242, 0, 0.05)
-        );
-        border-left: 4px solid #fff200;
-        color: #fff200;
-        font-weight: 600;
-        margin-left: -4px;
-    }
+
+.menu-item svg {
+    width: 18px;
+
+    height: 18px;
+
+    flex-shrink: 0;
+
+    color: #94a3b8;
+
+    stroke: currentColor;
+
+    transition: color 0.2s ease;
+}
+
+
+/* ======================================
+   MENU TEXT
+====================================== */
+
+.menu-item span {
+    color: inherit;
+}
+
+
+/* ======================================
+   MENU HOVER
+====================================== */
+
+.menu-item:hover {
+    color: #ffffff;
+
+    background: transparent;
+}
+
+
+.menu-item:hover svg {
+    color: #ffffff;
+
+    stroke: #ffffff;
+}
+
+
+/* ======================================
+   ACTIVE MENU ITEM
+====================================== */
+
+.menu-item.active {
+    background: transparent;
+
+    color: #ffffff;
+
+    font-weight: 600;
+}
+
+
+/* ======================================
+   ACTIVE LEFT INDICATOR
+====================================== */
+
+.menu-item.active::before {
+    content: "";
+
+    position: absolute;
+
+
+    /*
+    MOVE THROUGH sidebar-content
+    20px LEFT PADDING.
+
+    THIS MAKES IT TOUCH THE SIDEBAR EDGE.
+    */
+
+    left: -20px;
+
+
+    top: 50%;
+
+    transform: translateY(-50%);
+
+
+    width: 5px;
+
+    height: 32px;
+
+
+    background: #fff200;
+
+
+    border-radius: 0 5px 5px 0;
+}
+
+
+/* ======================================
+   ACTIVE ICON
+
+   USE SVG BECAUSE OF LUCIDE
+====================================== */
+
+.menu-item.active svg {
+    color: #fff200 !important;
+
+    stroke: #fff200 !important;
+}
+
+
+/* ======================================
+   ACTIVE TEXT
+====================================== */
+
+.menu-item.active span {
+    color: #ffffff;
+}
 
     /* ======================================
    USER CARD
