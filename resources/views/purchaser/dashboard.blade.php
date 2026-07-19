@@ -76,7 +76,7 @@
     {{-- DASHBOARD STAT CARDS --}}
     {{-- ===================================================== --}}
 
-    <div class="mt-7 grid grid-cols-1 gap-4 md:grid-cols-3">
+    <div class="mt-7 grid grid-cols-1 gap-4 md:grid-cols-4">
 
 
         {{-- ================================================= --}}
@@ -258,6 +258,60 @@
 
                 <span>
                     Finished procurement requests
+                </span>
+
+                <i
+                    data-lucide="arrow-right"
+                    class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"
+                ></i>
+
+            </div>
+
+        </a>
+
+
+        {{-- ================================================= --}}
+        {{-- ATP READY RIS --}}
+        {{-- ================================================= --}}
+
+        <a
+            href="{{ route('purchaser.ris.index', ['status' => 'Approved']) }}"
+            class="group rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:shadow-sm"
+        >
+
+            <div class="flex items-start justify-between gap-4">
+
+                <div>
+
+                    <p class="text-sm font-medium text-gray-500">
+                        Approved RIS ready for ATP
+                    </p>
+
+                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">
+
+                        {{ number_format($risReadyForAtp) }}
+
+                    </p>
+
+                </div>
+
+
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
+
+                    <i
+                        data-lucide="file-check-2"
+                        class="h-5 w-5"
+                    ></i>
+
+                </div>
+
+            </div>
+
+
+            <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
+
+                <span>
+                    Create ATP from approved RIS
                 </span>
 
                 <i

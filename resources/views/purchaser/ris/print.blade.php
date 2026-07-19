@@ -14,8 +14,8 @@
         body { margin: 0; background: #f3f4f6; color: #111827; }
         .toolbar { padding: 16px; text-align: center; }
         .toolbar button { border: 0; border-radius: 6px; background: #111827; color: white; cursor: pointer; font-size: 14px; padding: 10px 18px; }
-        .sheet { width: 11in; min-height: 8.5in; margin: 0 auto 24px; background: white; padding: 0.35in; position: relative; }
-        .header { position: relative; margin-top: 160px; margin-bottom: 10px; text-align: center; }
+        .sheet { width: 11in; min-height: 8.5in; margin: 0 auto 24px; background: white; padding: 0.35in; }
+        .header { position: relative; margin-bottom: 10px; text-align: center; }
         .school { font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
         .title { margin-top: 8px; font-family: Georgia, 'Times New Roman', serif; font-size: 22px; font-weight: 800; letter-spacing: 1px; }
         .number { position: absolute; right: 0; bottom: -4px; font-size: 14px; }
@@ -30,39 +30,14 @@
         .purpose { margin-top: 8px; display: grid; grid-template-columns: 130px 1fr; gap: 8px; font-size: 15px; font-weight: 700; }
         .purpose-lines { min-height: 58px; border-bottom: 1px solid #6b7280; line-height: 28px; font-weight: 400; }
         .signatures { margin-top: 28px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; font-size: 14px; }
-        .signature-box { position: relative; }
         .signature-box p { margin: 0 0 38px; }
         .signature-line { border-bottom: 1px solid #111827; min-height: 20px; text-align: center; font-size: 12px; }
-        .signature-image { display: block; max-height: 72px; margin: 0 auto 4px; }
-        .signature-name { margin-top: 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
         .date-row { margin-top: 16px; display: grid; grid-template-columns: 40px 1fr; gap: 6px; align-items: end; }
-
-        .approval-watermark {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(-45deg);
-            font-size: 120px;
-            font-weight: 900;
-            color: rgba(5, 150, 105, 0.12);
-            letter-spacing: 8px;
-            text-transform: uppercase;
-            pointer-events: none;
-            z-index: 0;
-            white-space: nowrap;
-            user-select: none;
-        }
 
         @media print {
             body { background: white; }
             .toolbar { display: none; }
-            .sheet { width: 100%; min-height: auto; margin: 0; padding: 0.2in; position: relative; }
-            .header { margin-top: 140px; }
-            .approval-watermark {
-                opacity: 0.12;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            }
+            .sheet { width: 100%; min-height: auto; margin: 0; padding: 0.2in; }
             @page { size: landscape; margin: 0.25in; }
         }
     </style>
@@ -77,10 +52,6 @@
     {{-- ===================================================== --}}
 
     <main class="sheet">
-        @if ($ris->ris_status === 'Approved')
-            <div class="approval-watermark">APPROVED</div>
-        @endif
-
         <section class="header">
             <div class="school">STI COLLEGE- ORMOC, INC.</div>
             <div class="title">REQUISITION AND ISSUE SLIP</div>
@@ -130,24 +101,12 @@
             </div>
             <div class="signature-box">
                 <p>Approved by:</p>
-                <div class="signature-line">
-                    @if (!empty($ris->ris_approved_by_signature) && strpos($ris->ris_approved_by_signature, 'data:image/png;base64,') === 0)
-                        <img src="{{ $ris->ris_approved_by_signature }}" alt="Approved by signature" class="signature-image" />
-                    @else
-                        {{ $ris->ris_approved_by_signature }}
-                    @endif
-                </div>
+                <div class="signature-line">{{ $ris->ris_approved_by_signature }}</div>
                 <div class="date-row"><span>Date:</span><div class="signature-line">{{ $ris->ris_approved_by_date }}</div></div>
             </div>
             <div class="signature-box">
                 <p>Issued by:</p>
-                <div class="signature-line">
-                    @if (!empty($ris->ris_issued_by_signature) && strpos($ris->ris_issued_by_signature, 'data:image/png;base64,') === 0)
-                        <img src="{{ $ris->ris_issued_by_signature }}" alt="Issued by signature" class="signature-image" />
-                    @else
-                        {{ $ris->ris_issued_by_signature }}
-                    @endif
-                </div>
+                <div class="signature-line">{{ $ris->ris_issued_by_signature }}</div>
                 <div class="date-row"><span>Date:</span><div class="signature-line">{{ $ris->ris_issued_by_date }}</div></div>
             </div>
             <div class="signature-box">

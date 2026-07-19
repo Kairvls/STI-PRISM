@@ -307,8 +307,8 @@
         {{-- ===================================================== --}}
 
         <a
-            href="#"
-            class="menu-item mt-1"
+            href="{{ route('purchaser.suppliers.index') }}"
+            class="menu-item mt-1 {{ request()->routeIs('purchaser.suppliers.*') ? 'active' : '' }}"
         >
 
             <i
@@ -360,8 +360,8 @@
         {{-- ===================================================== --}}
 
         <a
-            href="#"
-            class="menu-item mt-1"
+            href="{{ route('purchaser.atp.index') }}"
+            class="menu-item mt-1 {{ request()->routeIs('purchaser.atp*') ? 'active' : '' }}"
         >
 
             <i

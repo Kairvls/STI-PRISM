@@ -10,6 +10,8 @@ use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\InfrastructureController;
 use App\Http\Controllers\QRController;
 use App\Http\Controllers\PurchaserController;
+use App\Http\Controllers\AuthorityToPurchaseController;
+use App\Http\Controllers\ReplacementRequestController;
 use App\Http\Controllers\PresidentController;
 use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\ReceivingController;
@@ -1138,9 +1140,189 @@ Route::middleware([
 
         Route::get(
             '/procurement/replacement-requests',
-            [PurchaserController::class, 'replacementRequests']
+            [ReplacementRequestController::class, 'index']
         )
         ->name('procurement.replacement-requests');
+
+        Route::post(
+            '/procurement/replacement-requests/{requestId}/approve',
+            [ReplacementRequestController::class, 'approve']
+        )
+        ->name('procurement.replacement-requests.approve');
+
+        Route::post(
+            '/procurement/replacement-requests/{requestId}/reject',
+            [ReplacementRequestController::class, 'reject']
+        )
+        ->name('procurement.replacement-requests.reject');
+
+        Route::post(
+            '/procurement/replacement-requests/{requestId}/archive',
+            [ReplacementRequestController::class, 'archive']
+        )
+        ->name('procurement.replacement-requests.archive');
+
+        Route::post(
+            '/procurement/replacement-requests/{requestId}/restore',
+            [ReplacementRequestController::class, 'restore']
+        )
+        ->name('procurement.replacement-requests.restore');
+        // =====================================================
+        // ADDED RIS MODULE ROUTES
+        // =====================================================
+
+        Route::get(
+            '/ris',
+            [PurchaserController::class, 'risIndex']
+        )
+            ->name('ris.index');
+
+        Route::post(
+            '/ris',
+            [PurchaserController::class, 'storeRis']
+        )
+            ->name('ris.store');
+
+        Route::post(
+            '/ris/{risId}/submit',
+            [PurchaserController::class, 'submitRis']
+        )
+            ->name('ris.submit');
+        // =====================================================
+        // ADDED RIS MODULE: SUPPORTING DOCUMENT DOWNLOAD ROUTE
+        // =====================================================
+
+        Route::get(
+            '/ris/attachments/{attachmentId}/download',
+            [PurchaserController::class, 'downloadRisAttachment']
+        )
+            ->name('ris.attachments.download');
+
+        // =====================================================
+        // END ADDED RIS MODULE ROUTES
+        // =====================================================
+
+        // =====================================================
+        // AUTHORITY TO PURCHASE
+        // =====================================================
+
+        Route::get(
+            '/authority-to-purchase',
+            [AuthorityToPurchaseController::class, 'index']
+        )
+            ->name('atp.index');
+
+        Route::get(
+            '/authority-to-purchase/create',
+            [AuthorityToPurchaseController::class, 'create']
+        )
+            ->name('atp.create');
+
+        Route::post(
+            '/authority-to-purchase',
+            [AuthorityToPurchaseController::class, 'store']
+        )
+            ->name('atp.store');
+
+        Route::get(
+            '/authority-to-purchase/{id}',
+            [AuthorityToPurchaseController::class, 'show']
+        )
+            ->name('atp.show');
+
+        Route::get(
+            '/authority-to-purchase/{id}/edit',
+            [AuthorityToPurchaseController::class, 'edit']
+        )
+            ->name('atp.edit');
+
+        Route::put(
+            '/authority-to-purchase/{id}',
+            [AuthorityToPurchaseController::class, 'update']
+        )
+            ->name('atp.update');
+
+        Route::post(
+            '/authority-to-purchase/{id}/submit',
+            [AuthorityToPurchaseController::class, 'submit']
+        )
+            ->name('atp.submit');
+
+        Route::post(
+            '/authority-to-purchase/{id}/approve',
+            [AuthorityToPurchaseController::class, 'approve']
+        )
+            ->name('atp.approve');
+
+        Route::post(
+            '/authority-to-purchase/{id}/reject',
+            [AuthorityToPurchaseController::class, 'reject']
+        )
+            ->name('atp.reject');
+
+        Route::post(
+            '/authority-to-purchase/{id}/archive',
+            [AuthorityToPurchaseController::class, 'archive']
+        )
+            ->name('atp.archive');
+
+        Route::post(
+            '/authority-to-purchase/{id}/restore',
+            [AuthorityToPurchaseController::class, 'restore']
+        )
+            ->name('atp.restore');
+
+        // =====================================================
+        // SUPPLIERS
+        // =====================================================
+
+        Route::get(
+            '/suppliers',
+            [\App\Http\Controllers\SupplierController::class, 'index']
+        )
+        ->name('suppliers.index');
+
+        Route::get(
+            '/suppliers/create',
+            [\App\Http\Controllers\SupplierController::class, 'create']
+        )
+        ->name('suppliers.create');
+
+        Route::post(
+            '/suppliers',
+            [\App\Http\Controllers\SupplierController::class, 'store']
+        )
+        ->name('suppliers.store');
+
+        Route::get(
+            '/suppliers/{id}/edit',
+            [\App\Http\Controllers\SupplierController::class, 'edit']
+        )
+        ->name('suppliers.edit');
+
+        Route::get(
+            '/suppliers/{id}',
+            [\App\Http\Controllers\SupplierController::class, 'show']
+        )
+        ->name('suppliers.show');
+
+        Route::put(
+            '/suppliers/{id}',
+            [\App\Http\Controllers\SupplierController::class, 'update']
+        )
+        ->name('suppliers.update');
+
+        Route::post(
+            '/suppliers/{id}/deactivate',
+            [\App\Http\Controllers\SupplierController::class, 'deactivate']
+        )
+        ->name('suppliers.deactivate');
+
+        Route::post(
+            '/suppliers/{id}/activate',
+            [\App\Http\Controllers\SupplierController::class, 'activate']
+        )
+        ->name('suppliers.activate');
 
         // =====================================================
         // PURCHASER URGENT REPORT ROUTES
@@ -1453,3 +1635,7 @@ Route::middleware(['auth', 'receiving'])
 
 
 require __DIR__.'/auth.php';
+
+
+
+
