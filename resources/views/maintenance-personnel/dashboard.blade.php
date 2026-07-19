@@ -3762,6 +3762,76 @@
             background: #22c55e;
         }
 
+        /* =====================================================
+        PHASE 7.4
+        3D BUILDING FLOOR FILTERS
+        ===================================================== */
+
+        .building-floor-filters {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            z-index: 20;
+
+            display: flex;
+            align-items: center;
+            gap: 6px;
+
+            padding: 5px;
+
+            background: rgba(2, 6, 23, 0.72);
+            border: 1px solid rgba(34, 211, 238, 0.2);
+            border-radius: 999px;
+
+            backdrop-filter: blur(12px);
+        }
+
+        .building-floor-filter {
+            height: 34px;
+            padding: 0 14px;
+
+            border: 0;
+            border-radius: 999px;
+
+            background: transparent;
+            color: #94a3b8;
+
+            font-size: 12px;
+            font-weight: 600;
+
+            white-space: nowrap;
+            cursor: pointer;
+
+            transition: 0.2s ease;
+        }
+
+        .building-floor-filter:hover {
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .building-floor-filter.active {
+            color: #ffffff;
+            background: rgba(34, 211, 238, 0.18);
+            box-shadow:
+                inset 0 0 0 1px rgba(34, 211, 238, 0.35),
+                0 0 16px rgba(34, 211, 238, 0.08);
+        }
+
+
+        /* =====================================================
+        RESPONSIVE FLOOR FILTER
+        ===================================================== */
+
+        @media (max-width: 640px) {
+
+            .building-floor-filters {
+                max-width: calc(100% - 32px);
+                overflow-x: auto;
+            }
+
+        }
+
 
         /* =====================================================
         RESPONSIVE
@@ -3782,6 +3852,344 @@
                 height: 400px;
             }
 
+        }
+
+        /* =====================================================
+        PHASE 7.7
+        3D ROOM HOVER TOOLTIP
+        ===================================================== */
+
+        .building-room-tooltip {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 50;
+
+            min-width: 150px;
+            padding: 12px 14px;
+
+            background: rgba(2, 6, 23, 0.92);
+
+            border:
+                1px solid
+                rgba(34, 211, 238, 0.25);
+
+            border-radius: 12px;
+
+            box-shadow:
+                0 12px 30px
+                rgba(0, 0, 0, 0.28);
+
+            backdrop-filter:
+                blur(12px);
+
+            pointer-events: none;
+
+            opacity: 0;
+            visibility: hidden;
+
+            transform:
+                translate(
+                    12px,
+                    12px
+                );
+
+            transition:
+                opacity 0.15s ease,
+                visibility 0.15s ease;
+        }
+
+
+        /* =====================================================
+        TOOLTIP VISIBLE STATE
+        ===================================================== */
+
+        .building-room-tooltip.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+
+        /* =====================================================
+        TOOLTIP HEADER
+        ===================================================== */
+
+        .building-room-tooltip-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+
+            margin-bottom: 5px;
+        }
+
+
+        .building-room-tooltip-dot {
+            width: 6px;
+            height: 6px;
+
+            border-radius: 50%;
+
+            background: #22d3ee;
+
+            box-shadow:
+                0 0 8px
+                rgba(34, 211, 238, 0.8);
+        }
+
+
+        .building-room-tooltip-eyebrow {
+            font-size: 9px;
+            font-weight: 700;
+
+            letter-spacing: 0.12em;
+
+            color: #67e8f9;
+        }
+
+
+        /* =====================================================
+        ROOM NAME
+        ===================================================== */
+
+        .building-room-tooltip-name {
+            font-size: 14px;
+            font-weight: 700;
+
+            color: #ffffff;
+        }
+
+
+        /* =====================================================
+        FLOOR AND STATUS
+        ===================================================== */
+
+        .building-room-tooltip-details {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+
+            margin-top: 3px;
+
+            font-size: 11px;
+
+            color: #94a3b8;
+        }
+
+
+        .building-room-tooltip-separator {
+            opacity: 0.5;
+        }
+
+        /* ===================================================== */
+        /* PHASE 7.8: COMPACT ROOM DETAILS PANEL */
+        /* ===================================================== */
+
+        .building-room-details-panel {
+            position: absolute;
+            top: 76px;
+            right: 20px;
+            width: 280px;
+            padding: 18px;
+
+            background: rgba(2, 6, 23, 0.94);
+            border: 1px solid rgba(34, 211, 238, 0.25);
+            border-radius: 16px;
+
+            backdrop-filter: blur(18px);
+
+            box-shadow:
+                0 20px 50px rgba(0, 0, 0, 0.35),
+                0 0 30px rgba(34, 211, 238, 0.06);
+
+            z-index: 20;
+
+            opacity: 0;
+            visibility: hidden;
+            transform: translateX(15px);
+
+            transition:
+                opacity 0.2s ease,
+                transform 0.2s ease,
+                visibility 0.2s ease;
+        }
+
+        .building-room-details-panel.visible {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(0);
+        }
+
+
+        /* HEADER */
+
+        .building-room-details-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .building-room-details-eyebrow {
+            display: block;
+
+            margin-bottom: 5px;
+
+            font-size: 10px;
+            font-weight: 700;
+
+            letter-spacing: 0.12em;
+
+            color: #22d3ee;
+        }
+
+        .building-room-details-header h3 {
+            margin: 0;
+
+            font-size: 18px;
+            font-weight: 700;
+
+            color: #ffffff;
+        }
+
+
+        /* CLOSE */
+
+        .building-room-details-close {
+            width: 30px;
+            height: 30px;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 8px;
+
+            background: rgba(15, 23, 42, 0.8);
+
+            color: #94a3b8;
+
+            cursor: pointer;
+        }
+
+        .building-room-details-close:hover {
+            color: #ffffff;
+            border-color: rgba(34, 211, 238, 0.4);
+        }
+
+        .building-room-details-close svg {
+            width: 15px;
+            height: 15px;
+        }
+
+
+        /* ROOM INFO */
+
+        .building-room-details-info {
+            margin-top: 16px;
+
+            padding: 12px;
+
+            background: rgba(15, 23, 42, 0.65);
+
+            border-radius: 10px;
+        }
+
+        .building-room-details-row {
+            display: flex;
+            justify-content: space-between;
+
+            padding: 5px 0;
+
+            font-size: 12px;
+        }
+
+        .building-room-details-row span {
+            color: #64748b;
+        }
+
+        .building-room-details-row strong {
+            color: #e2e8f0;
+        }
+
+
+        /* STATS */
+
+        .building-room-details-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+
+            gap: 7px;
+
+            margin-top: 10px;
+        }
+
+        .building-room-details-stat {
+            padding: 10px 6px;
+
+            text-align: center;
+
+            background: rgba(15, 23, 42, 0.65);
+
+            border-radius: 10px;
+        }
+
+        .building-room-details-stat span {
+            display: block;
+
+            min-height: 28px;
+
+            font-size: 9px;
+            line-height: 1.3;
+
+            color: #64748b;
+        }
+
+        .building-room-details-stat strong {
+            display: block;
+
+            margin-top: 4px;
+
+            font-size: 17px;
+
+            color: #ffffff;
+        }
+
+
+        /* VIEW ROOM BUTTON */
+
+        .building-room-details-view {
+            width: 100%;
+
+            margin-top: 12px;
+            padding: 10px 14px;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            gap: 7px;
+
+            border: 1px solid rgba(34, 211, 238, 0.35);
+            border-radius: 10px;
+
+            background: rgba(8, 145, 178, 0.15);
+
+            color: #67e8f9;
+
+            font-size: 12px;
+            font-weight: 600;
+
+            cursor: pointer;
+        }
+
+        .building-room-details-view:hover {
+            background: rgba(8, 145, 178, 0.25);
+        }
+
+        .building-room-details-view svg {
+            width: 14px;
+            height: 14px;
         }
 
 
@@ -4506,12 +4914,175 @@
                         {{-- THREE.JS WILL RENDER THE 3D SCENE HERE --}}
                         <div id="building3DViewport"></div>
 
+                        {{-- ===================================================== --}}
+                        {{-- PHASE 7.8: COMPACT ROOM DETAILS PANEL --}}
+                        {{-- ===================================================== --}}
+
+                        <div
+                            id="buildingRoomDetailsPanel"
+                            class="building-room-details-panel"
+                        >
+
+                            {{-- HEADER --}}
+                            <div class="building-room-details-header">
+
+                                <div>
+                                    <span class="building-room-details-eyebrow">
+                                        SELECTED ROOM
+                                    </span>
+
+                                    <h3 id="buildingRoomDetailsName">
+                                        Room
+                                    </h3>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    id="buildingRoomDetailsClose"
+                                    class="building-room-details-close"
+                                    aria-label="Close room details"
+                                >
+                                    <i data-lucide="x"></i>
+                                </button>
+
+                            </div>
+
+
+                            {{-- ROOM INFORMATION --}}
+                            <div class="building-room-details-info">
+
+                                <div class="building-room-details-row">
+                                    <span>Floor</span>
+
+                                    <strong id="buildingRoomDetailsFloor">
+                                        Unknown
+                                    </strong>
+                                </div>
+
+                                <div class="building-room-details-row">
+                                    <span>Status</span>
+
+                                    <strong id="buildingRoomDetailsStatus">
+                                        Available
+                                    </strong>
+                                </div>
+
+                            </div>
+
+
+                            {{-- MAINTENANCE SUMMARY --}}
+                            <div class="building-room-details-stats">
+
+                                <div class="building-room-details-stat">
+                                    <span>Active Reports</span>
+
+                                    <strong id="buildingRoomDetailsActiveReports">
+                                        0
+                                    </strong>
+                                </div>
+
+                                <div class="building-room-details-stat">
+                                    <span>Urgent Reports</span>
+
+                                    <strong id="buildingRoomDetailsUrgentReports">
+                                        0
+                                    </strong>
+                                </div>
+
+                                <div class="building-room-details-stat">
+                                    <span>Maintenance</span>
+
+                                    <strong id="buildingRoomDetailsMaintenance">
+                                        0
+                                    </strong>
+                                </div>
+
+                            </div>
+
+
+                            {{-- ACTION --}}
+                            <button
+                                type="button"
+                                id="buildingRoomDetailsView"
+                                class="building-room-details-view"
+                            >
+                                View Room
+
+                                <i data-lucide="arrow-right"></i>
+                            </button>
+
+                        </div>
+
+                        {{-- ===================================================== --}}
+                        {{-- PHASE 7.7: ROOM HOVER TOOLTIP --}}
+                        {{-- ===================================================== --}}
+
+                        <div
+                            id="buildingRoomTooltip"
+                            class="building-room-tooltip"
+                        >
+                            <div class="building-room-tooltip-header">
+
+                                <span
+                                    id="buildingRoomTooltipDot"
+                                    class="building-room-tooltip-dot"
+                                ></span>
+
+                                <span class="building-room-tooltip-eyebrow">
+                                    ROOM
+                                </span>
+
+                            </div>
+
+                            <div
+                                id="buildingRoomTooltipName"
+                                class="building-room-tooltip-name"
+                            >
+                                Room
+                            </div>
+
+                            <div class="building-room-tooltip-details">
+
+                                <span id="buildingRoomTooltipFloor">
+                                    Floor
+                                </span>
+
+                                <span class="building-room-tooltip-separator">
+                                    •
+                                </span>
+
+                                <span id="buildingRoomTooltipStatus">
+                                    Available
+                                </span>
+
+                            </div>
+                        </div>
+
 
                         {{-- FLOATING LABEL --}}
                         <div class="dashboard-building-badge">
                             <span class="dashboard-building-badge-dot"></span>
 
                             Interactive Building Overview
+                        </div>
+
+                        {{-- ===================================================== --}}
+                        {{-- PHASE 7.4: FLOOR FILTER CONTROLS --}}
+                        {{-- ===================================================== --}}
+
+                        <div class="building-floor-filters">
+                            <button
+                                type="button"
+                                class="building-floor-filter active"
+                                data-floor-filter="all"
+                            >
+                                All Floors
+                            </button>
+
+                            <div
+                                id="buildingFloorFilterButtons"
+                                class="building-floor-filter-dynamic"
+                            ></div>
                         </div>
 
 
@@ -5321,6 +5892,15 @@
                 0
             );
 
+            controls.addEventListener(
+                'start',
+                () => {
+
+                    cameraTransition = null;
+
+                }
+            );
+
 
             // =====================================================
             // LIGHTING
@@ -5491,6 +6071,383 @@
 
             let selectedRoom = null;
 
+            // =====================================================
+            // PHASE 7.9
+            // ROOM VISUAL STATE HELPERS
+            // =====================================================
+
+            function restoreRoomVisual(room) {
+
+                if (!room) {
+                    return;
+                }
+
+                // Restore the room's original material appearance
+                if (room.userData.originalEmissive !== undefined) {
+
+                    room.material.emissive.setHex(
+                        room.userData.originalEmissive
+                    );
+
+                }
+
+                if (room.userData.originalEmissiveIntensity !== undefined) {
+
+                    room.material.emissiveIntensity =
+                        room.userData.originalEmissiveIntensity;
+
+                }
+
+                // Restore normal room size
+                room.scale.set(
+                    1,
+                    1,
+                    1
+                );
+
+            }
+
+
+            function applyRoomHoverVisual(room) {
+
+                if (!room || room === selectedRoom) {
+                    return;
+                }
+
+                // Bright cyan hover effect
+                room.material.emissive.setHex(
+                    0x22d3ee
+                );
+
+                room.material.emissiveIntensity =
+                    0.8;
+
+            }
+
+
+            function applyRoomSelectedVisual(room) {
+
+                if (!room) {
+                    return;
+                }
+
+                // Strong selected highlight
+                room.material.emissive.setHex(
+                    0xfacc15
+                );
+
+                room.material.emissiveIntensity =
+                    1;
+
+                // Slightly enlarge selected room
+                room.scale.set(
+                    1.05,
+                    1.05,
+                    1.05
+                );
+
+            }
+
+            // =====================================================
+            // PHASE 7.8
+            // ROOM DETAILS PANEL ELEMENTS
+            // =====================================================
+
+            const roomDetailsPanel =
+                document.getElementById(
+                    'buildingRoomDetailsPanel'
+                );
+
+            const roomDetailsName =
+                document.getElementById(
+                    'buildingRoomDetailsName'
+                );
+
+            const roomDetailsFloor =
+                document.getElementById(
+                    'buildingRoomDetailsFloor'
+                );
+
+            const roomDetailsStatus =
+                document.getElementById(
+                    'buildingRoomDetailsStatus'
+                );
+
+            const roomDetailsActiveReports =
+                document.getElementById(
+                    'buildingRoomDetailsActiveReports'
+                );
+
+            const roomDetailsUrgentReports =
+                document.getElementById(
+                    'buildingRoomDetailsUrgentReports'
+                );
+
+            const roomDetailsMaintenance =
+                document.getElementById(
+                    'buildingRoomDetailsMaintenance'
+                );
+
+            const roomDetailsClose =
+                document.getElementById(
+                    'buildingRoomDetailsClose'
+                );
+
+            const roomDetailsView =
+                document.getElementById(
+                    'buildingRoomDetailsView'
+                );
+
+            const roomTooltip =
+                document.getElementById(
+                    'buildingRoomTooltip'
+                );
+
+            const roomTooltipName =
+                document.getElementById(
+                    'buildingRoomTooltipName'
+                );
+
+            const roomTooltipFloor =
+                document.getElementById(
+                    'buildingRoomTooltipFloor'
+                );
+
+            const roomTooltipStatus =
+                document.getElementById(
+                    'buildingRoomTooltipStatus'
+                );
+
+            const roomTooltipDot =
+                document.getElementById(
+                    'buildingRoomTooltipDot'
+                );
+
+            const buildingFloorGroups =
+                new Map();
+
+            let cameraTransition = null;
+
+            // =====================================================
+            // PHASE 7.7
+            // FORMAT ROOM STATUS FOR TOOLTIP
+            // =====================================================
+
+            function formatRoomStatus(status) {
+
+                switch (status) {
+
+                    case 'critical':
+                        return 'Critical';
+
+                    case 'needs-repair':
+                        return 'Needs Repair';
+
+                    case 'maintenance':
+                        return 'Maintenance';
+
+                    case 'available':
+                        return 'Available';
+
+                    default:
+                        return 'Available';
+
+                }
+
+            }
+
+            // =====================================================
+            // PHASE 7.7
+            // UPDATE TOOLTIP CONTENT
+            // =====================================================
+
+            function updateRoomTooltip(
+                room,
+                mouseEvent
+            ) {
+
+                if (
+                    !roomTooltip ||
+                    !room
+                ) {
+                    return;
+                }
+
+
+                // =================================================
+                // ROOM INFORMATION
+                // =================================================
+
+                roomTooltipName.textContent =
+                    room.userData.roomName ||
+                    'Room';
+
+                roomTooltipFloor.textContent =
+                    room.userData.floorName ||
+                    'Floor';
+
+                roomTooltipStatus.textContent =
+                    formatRoomStatus(
+                        room.userData.roomStatus
+                    );
+
+
+                // =================================================
+                // STATUS DOT COLOR
+                // =================================================
+
+                if (
+                    room.userData.roomStatus ===
+                    'critical'
+                ) {
+
+                    roomTooltipDot.style.background =
+                        '#ef4444';
+
+                    roomTooltipDot.style.boxShadow =
+                        '0 0 8px rgba(239, 68, 68, 0.9)';
+
+                }
+
+                else if (
+                    room.userData.roomStatus ===
+                    'needs-repair' ||
+                    room.userData.roomStatus ===
+                    'maintenance'
+                ) {
+
+                    roomTooltipDot.style.background =
+                        '#f59e0b';
+
+                    roomTooltipDot.style.boxShadow =
+                        '0 0 8px rgba(245, 158, 11, 0.9)';
+
+                }
+
+                else {
+
+                    roomTooltipDot.style.background =
+                        '#22d3ee';
+
+                    roomTooltipDot.style.boxShadow =
+                        '0 0 8px rgba(34, 211, 238, 0.9)';
+
+                }
+
+
+                // =================================================
+                // POSITION TOOLTIP
+                // =================================================
+
+                const viewRect =
+                    renderer.domElement
+                        .getBoundingClientRect();
+
+                const mouseX =
+                    mouseEvent.clientX -
+                    viewRect.left;
+
+                const mouseY =
+                    mouseEvent.clientY -
+                    viewRect.top;
+
+                roomTooltip.style.left =
+                    `${mouseX}px`;
+
+                roomTooltip.style.top =
+                    `${mouseY}px`;
+
+
+                // =================================================
+                // SHOW TOOLTIP
+                // =================================================
+
+                roomTooltip.classList.add(
+                    'visible'
+                );
+
+            }
+
+            // =====================================================
+            // PHASE 7.7
+            // HIDE ROOM TOOLTIP
+            // =====================================================
+
+            function hideRoomTooltip() {
+
+                if (!roomTooltip) {
+                    return;
+                }
+
+                roomTooltip.classList.remove(
+                    'visible'
+                );
+
+            }
+
+            // =====================================================
+            // PHASE 7.8
+            // OPEN COMPACT ROOM DETAILS PANEL
+            // =====================================================
+
+            function openRoomDetailsPanel(room) {
+
+                if (
+                    !room ||
+                    !roomDetailsPanel
+                ) {
+                    return;
+                }
+
+
+                // =============================================
+                // UPDATE ROOM INFORMATION
+                // =============================================
+
+                roomDetailsName.textContent =
+                    room.roomName || 'Room';
+
+                roomDetailsFloor.textContent =
+                    room.floorName || 'Unknown';
+
+                roomDetailsStatus.textContent =
+                    formatRoomStatus(
+                        room.roomStatus
+                    );
+
+
+                // =============================================
+                // UPDATE MAINTENANCE COUNTS
+                // =============================================
+
+                roomDetailsActiveReports.textContent =
+                    room.activeReportCount || 0;
+
+                roomDetailsUrgentReports.textContent =
+                    room.urgentReportCount || 0;
+
+                roomDetailsMaintenance.textContent =
+                    room.maintenanceEquipmentCount || 0;
+
+
+                // =============================================
+                // SAVE SELECTED ROOM ID
+                // =============================================
+
+                roomDetailsView.dataset.roomId =
+                    room.roomId;
+
+
+                // =============================================
+                // SHOW PANEL
+                // =============================================
+
+                roomDetailsPanel.classList.add(
+                    'visible'
+                );
+
+            }
+
 
             // =====================================================
             // ROOM MATERIALS
@@ -5653,7 +6610,7 @@
 
                 room.position.set(
                     x,
-                    y + roomHeight / 2,
+                    y + 0.06 + (roomHeight / 2),
                     z
                 );
 
@@ -5683,7 +6640,7 @@
                 // ADD ROOM TO BUILDING
                 // =================================================
 
-                building.add(room);
+                
 
 
                 // =================================================
@@ -5702,11 +6659,7 @@
                         roomEdgeMaterial
                     );
 
-                outline.position.copy(
-                    room.position
-                );
-
-                building.add(
+                room.add(
                     outline
                 );
 
@@ -5729,10 +6682,123 @@
             const BLUEPRINT_SCALE = 0.02;
 
             // Vertical distance between each floor.
-            const FLOOR_HEIGHT = 2.6;
+            
 
             // Minimum visible room size.
             const MIN_ROOM_SIZE = 0.5;
+
+            const FLOOR_BASE_HEIGHT = 0.15;
+
+            // Increase this number to create more space between floors
+            const FLOOR_VERTICAL_GAP = 4;
+
+            // =====================================================
+            // PHASE 7.3
+            // CREATE FLOATING FLOOR LABEL
+            // =====================================================
+
+            function createFloorLabel(text) {
+
+                // Create canvas for the label
+                const canvas = document.createElement('canvas');
+
+                canvas.width = 512;
+                canvas.height = 128;
+
+                const context = canvas.getContext('2d');
+
+
+                // =================================================
+                // LABEL BACKGROUND
+                // =================================================
+
+                context.fillStyle = 'rgba(2, 6, 23, 0.85)';
+
+                context.fillRect(
+                    0,
+                    0,
+                    canvas.width,
+                    canvas.height
+                );
+
+
+                // =================================================
+                // LABEL BORDER
+                // =================================================
+
+                context.strokeStyle = '#22d3ee';
+
+                context.lineWidth = 4;
+
+                context.strokeRect(
+                    2,
+                    2,
+                    canvas.width - 4,
+                    canvas.height - 4
+                );
+
+
+                // =================================================
+                // LABEL TEXT
+                // =================================================
+
+                context.font = 'bold 48px Arial';
+
+                context.fillStyle = '#ffffff';
+
+                context.textAlign = 'center';
+
+                context.textBaseline = 'middle';
+
+                context.fillText(
+                    text,
+                    canvas.width / 2,
+                    canvas.height / 2
+                );
+
+
+                // =================================================
+                // CONVERT CANVAS INTO THREE.JS TEXTURE
+                // =================================================
+
+                const texture =
+                    new THREE.CanvasTexture(canvas);
+
+                texture.colorSpace =
+                    THREE.SRGBColorSpace;
+
+
+                // =================================================
+                // CREATE SPRITE MATERIAL
+                // =================================================
+
+                const material =
+                    new THREE.SpriteMaterial({
+
+                        map: texture,
+
+                        transparent: true,
+
+                        depthTest: false
+
+                    });
+
+
+                // =================================================
+                // CREATE SPRITE
+                // =================================================
+
+                const label =
+                    new THREE.Sprite(material);
+
+                label.scale.set(
+                    4,
+                    1,
+                    1
+                );
+
+                return label;
+            }
 
 
             // =====================================================
@@ -5740,6 +6806,31 @@
             // =====================================================
 
             building3DData.forEach((floorData, floorIndex) => {
+
+                // =====================================================
+                // PHASE 7.4
+                // CREATE GROUP FOR THIS FLOOR
+                // =====================================================
+
+                const floorGroup =
+                    new THREE.Group();
+
+                floorGroup.userData = {
+                    type: 'floor',
+                    floorId: String(floorData.id),
+                    floorName: floorData.name
+                };
+
+                building.add(
+                    floorGroup
+                );
+
+                buildingFloorGroups.set(
+                    String(floorData.id),
+                    floorGroup
+                );
+
+                const floorY = floorIndex * FLOOR_VERTICAL_GAP;
 
 
                 // =================================================
@@ -5829,14 +6920,7 @@
                     ) / 2;
 
 
-                // =================================================
-                // STEP 3
-                // CALCULATE VERTICAL FLOOR POSITION
-                // =================================================
-
-                const floorY =
-                    floorIndex *
-                    FLOOR_HEIGHT;
+                
 
                 // =================================================
                 // PHASE 7.1
@@ -5905,7 +6989,7 @@
 
                 floorSlab.receiveShadow = true;
 
-                building.add(
+                floorGroup.add(
                     floorSlab
                 );
 
@@ -5937,12 +7021,56 @@
                         slabEdgeMaterial
                     );
 
-                slabOutline.position.copy(
-                    floorSlab.position
+                // =================================================
+                // FIX
+                // KEEP FLOOR BORDER AT THE SAME HEIGHT AS FLOOR SLAB
+                // =================================================
+
+                slabOutline.position.set(
+                    0,
+                    floorY,
+                    0
                 );
 
-                building.add(
+                floorGroup.add(
                     slabOutline
+                );
+
+                // =================================================
+                // PHASE 7.3
+                // ADD DYNAMIC FLOATING FLOOR LABEL
+                // =================================================
+
+                const floorLabel =
+                    createFloorLabel(
+                        floorData.name || `Floor ${floorIndex + 1}`
+                    );
+
+
+                // =================================================
+                // POSITION LABEL BESIDE THE FLOOR
+                // =================================================
+
+                floorLabel.position.set(
+
+                    // Left side of the floor
+                    -(floorWidth / 2) - 2.5,
+
+                    // Slightly above the floor
+                    floorY + 0.8,
+
+                    // Center depth
+                    0
+
+                );
+
+
+                // =================================================
+                // ADD LABEL TO BUILDING
+                // =================================================
+
+                floorGroup.add(
+                    floorLabel
                 );
 
 
@@ -6093,9 +7221,25 @@
                             room3DStatus
                         );
 
+                    roomMesh.userData.originalEmissive =
+                        roomMesh.material.emissive.getHex();
+
+                    roomMesh.userData.originalEmissiveIntensity =
+                        roomMesh.material.emissiveIntensity;
+
+                    // =================================================
+                    // PHASE 7.4
+                    // ADD ROOM TO ITS FLOOR GROUP
+                    // =================================================
+
+                    floorGroup.add(
+                        roomMesh
+                    );
+
 
                     // =============================================
-                    // SAVE DATABASE INFORMATION
+                    // PHASE 7.8
+                    // SAVE DATABASE INFORMATION FOR ROOM PANEL
                     // =============================================
 
                     roomMesh.userData = {
@@ -6118,7 +7262,27 @@
                             floorData.id,
 
                         floorName:
-                            floorData.name
+                            floorData.name,
+
+                        // =========================================
+                        // PHASE 7.8
+                        // ROOM MAINTENANCE INFORMATION
+                        // =========================================
+
+                        activeReportCount:
+                            roomData.activeReportCount || 0,
+
+                        urgentReportCount:
+                            roomData.urgentReportCount || 0,
+
+                        maintenanceEquipmentCount:
+                            roomData.maintenanceEquipmentCount || 0,
+
+                        originalEmissive:
+                            roomMesh.material.emissive.getHex(),
+
+                        originalEmissiveIntensity:
+                            roomMesh.material.emissiveIntensity
 
                     };
 
@@ -6139,6 +7303,266 @@
                 });
 
             });
+
+            // =====================================================
+            // PHASE 7.4
+            // GENERATE FLOOR FILTER BUTTONS
+            // =====================================================
+
+            const floorFilterButtonContainer =
+                document.getElementById(
+                    'buildingFloorFilterButtons'
+                );
+
+            if (floorFilterButtonContainer) {
+
+                building3DData.forEach(
+                    floorData => {
+
+                        const button =
+                            document.createElement(
+                                'button'
+                            );
+
+                        button.type =
+                            'button';
+
+                        button.className =
+                            'building-floor-filter';
+
+                        button.dataset.floorFilter =
+                            String(floorData.id);
+
+                        button.textContent =
+                            floorData.name;
+
+                        floorFilterButtonContainer.appendChild(
+                            button
+                        );
+
+                    }
+                );
+
+            }
+
+            // =====================================================
+            // PHASE 7.5
+            // AUTO FOCUS CAMERA ON SELECTED FLOOR
+            // =====================================================
+
+            // =====================================================
+            // PHASE 7.5 + 7.6
+            // AUTO FOCUS WITH SMOOTH CAMERA TRANSITION
+            // =====================================================
+
+            function focusCameraOnObject(object) {
+
+                if (!object) {
+                    return;
+                }
+
+                // =================================================
+                // GET OBJECT BOUNDS
+                // =================================================
+
+                const bounds =
+                    new THREE.Box3().setFromObject(object);
+
+                if (bounds.isEmpty()) {
+                    return;
+                }
+
+                const size =
+                    bounds.getSize(
+                        new THREE.Vector3()
+                    );
+
+                const center =
+                    bounds.getCenter(
+                        new THREE.Vector3()
+                    );
+
+
+                // =================================================
+                // CALCULATE CAMERA DISTANCE
+                // =================================================
+
+                const maxDimension =
+                    Math.max(
+                        size.x,
+                        size.y,
+                        size.z
+                    );
+
+                const distance =
+                    Math.max(
+                        maxDimension * 1.8,
+                        10
+                    );
+
+
+                // =================================================
+                // CALCULATE TARGET CAMERA POSITION
+                // =================================================
+
+                const targetPosition =
+                    new THREE.Vector3(
+
+                        center.x + distance,
+
+                        center.y + distance * 0.75,
+
+                        center.z + distance
+
+                    );
+
+
+                // =================================================
+                // PHASE 7.6
+                // START SMOOTH CAMERA TRANSITION
+                // =================================================
+
+                cameraTransition = {
+
+                    startPosition:
+                        camera.position.clone(),
+
+                    endPosition:
+                        targetPosition.clone(),
+
+                    startTarget:
+                        controls.target.clone(),
+
+                    endTarget:
+                        center.clone(),
+
+                    startTime:
+                        performance.now(),
+
+                    duration:
+                        800
+
+                };
+
+            }
+
+            // =====================================================
+            // PHASE 7.4
+            // FLOOR FILTERING
+            // =====================================================
+
+            const floorFilterButtons =
+                document.querySelectorAll(
+                    '.building-floor-filter'
+                );
+
+            floorFilterButtons.forEach(
+                button => {
+
+                    button.addEventListener(
+                        'click',
+                        function () {
+
+                            const selectedFloor =
+                                this.dataset.floorFilter;
+
+
+                            // =========================================
+                            // UPDATE ACTIVE BUTTON
+                            // =========================================
+
+                            floorFilterButtons.forEach(
+                                filterButton => {
+
+                                    filterButton.classList.remove(
+                                        'active'
+                                    );
+
+                                }
+                            );
+
+                            this.classList.add(
+                                'active'
+                            );
+
+
+                            // =========================================
+                            // SHOW / HIDE FLOORS
+                            // =========================================
+
+                            buildingFloorGroups.forEach(
+                                (floorGroup, floorId) => {
+
+                                    if (
+                                        selectedFloor === 'all'
+                                    ) {
+
+                                        floorGroup.visible =
+                                            true;
+
+                                    } else {
+
+                                        floorGroup.visible =
+                                            floorId === selectedFloor;
+
+                                    }
+
+                                }
+                            );
+
+                            // =========================================
+                            // PHASE 7.5
+                            // AUTO FOCUS CAMERA
+                            // =========================================
+
+                            if (
+                                selectedFloor === 'all'
+                            ) {
+
+                                // Focus on the complete building
+                                focusCameraOnObject(
+                                    building
+                                );
+
+                            } else {
+
+                                // Get the selected floor group
+                                const selectedFloorGroup =
+                                    buildingFloorGroups.get(
+                                        selectedFloor
+                                    );
+
+                                // Focus only on the selected floor
+                                if (selectedFloorGroup) {
+
+                                    focusCameraOnObject(
+                                        selectedFloorGroup
+                                    );
+
+                                }
+
+                            }
+
+
+                            // =========================================
+                            // CLEAR HOVERED ROOM
+                            // =========================================
+
+                            if (hoveredRoom) {
+
+                                hoveredRoom = null;
+
+                            }
+
+
+                            renderer.domElement.style.cursor =
+                                'grab';
+
+                        }
+                    );
+
+                }
+            );
 
 
             // =====================================================
@@ -6263,6 +7687,38 @@
                     ) * 2 + 1;
             }
 
+            // =====================================================
+            // PHASE 7.4
+            // GET ONLY ROOMS FROM VISIBLE FLOORS
+            // =====================================================
+
+            function getVisibleClickableRooms() {
+
+                return clickableRooms.filter(
+                    room => {
+
+                        // Room must be visible
+                        if (!room.visible) {
+                            return false;
+                        }
+
+                        // Floor group must also be visible
+                        if (
+                            room.parent &&
+                            room.parent.userData.type === 'floor'
+                        ) {
+
+                            return room.parent.visible;
+
+                        }
+
+                        return true;
+
+                    }
+                );
+
+            }
+
 
             // =====================================================
             // PHASE 3
@@ -6280,9 +7736,14 @@
                         camera
                     );
 
+                    // =================================================
+                    // PHASE 7.4
+                    // ONLY RAYCAST VISIBLE FLOOR ROOMS
+                    // =================================================
+
                     const intersections =
                         raycaster.intersectObjects(
-                            clickableRooms,
+                            getVisibleClickableRooms(),
                             false
                         );
 
@@ -6296,8 +7757,8 @@
                         hoveredRoom !== selectedRoom
                     ) {
 
-                        hoveredRoom.material.emissive.setHex(
-                            0x000000
+                        restoreRoomVisual(
+                            hoveredRoom
                         );
 
                     }
@@ -6312,16 +7773,31 @@
                         hoveredRoom =
                             intersections[0].object;
 
+                        // =================================================
+                        // PHASE 7.7
+                        // SHOW ROOM TOOLTIP
+                        // =================================================
+
+                        updateRoomTooltip(
+                            hoveredRoom,
+                            event
+                        );
+
                         renderer.domElement.style.cursor =
                             'pointer';
 
+
+                        // ==============================================
+                        // PHASE 7.9
+                        // APPLY HOVER VISUAL
+                        // ==============================================
 
                         if (
                             hoveredRoom !== selectedRoom
                         ) {
 
-                            hoveredRoom.material.emissive.setHex(
-                                0x222222
+                            applyRoomHoverVisual(
+                                hoveredRoom
                             );
 
                         }
@@ -6333,7 +7809,23 @@
                         renderer.domElement.style.cursor =
                             'grab';
 
+                        hideRoomTooltip();
+
                     }
+
+                }
+            );
+
+            // =====================================================
+            // PHASE 7.7
+            // HIDE TOOLTIP WHEN POINTER LEAVES 3D VIEW
+            // =====================================================
+
+            renderer.domElement.addEventListener(
+                'pointerleave',
+                () => {
+
+                    hideRoomTooltip();
 
                 }
             );
@@ -6355,9 +7847,14 @@
                         camera
                     );
 
+                    // =================================================
+                    // PHASE 7.4
+                    // ONLY CLICK ROOMS ON VISIBLE FLOORS
+                    // =================================================
+
                     const intersections =
                         raycaster.intersectObjects(
-                            clickableRooms,
+                            getVisibleClickableRooms(),
                             false
                         );
 
@@ -6365,6 +7862,20 @@
                     if (
                         intersections.length === 0
                     ) {
+
+                        if (selectedRoom) {
+
+                            restoreRoomVisual(
+                                selectedRoom
+                            );
+
+                            selectedRoom = null;
+
+                        }
+
+                        roomDetailsPanel?.classList.remove(
+                            'visible'
+                        );
 
                         return;
 
@@ -6376,7 +7887,8 @@
 
 
                     // ==============================================
-                    // RESET PREVIOUS SELECTED ROOM
+                    // PHASE 7.9
+                    // RESTORE PREVIOUS SELECTED ROOM
                     // ==============================================
 
                     if (
@@ -6384,8 +7896,8 @@
                         selectedRoom !== roomMesh
                     ) {
 
-                        selectedRoom.material.emissive.setHex(
-                            0x000000
+                        restoreRoomVisual(
+                            selectedRoom
                         );
 
                     }
@@ -6398,8 +7910,12 @@
                     selectedRoom =
                         roomMesh;
 
-                    selectedRoom.material.emissive.setHex(
-                        0x444400
+                    applyRoomSelectedVisual(
+                        selectedRoom
+                    );
+
+                    focusCameraOnObject(
+                        selectedRoom
                     );
 
 
@@ -6413,9 +7929,63 @@
                     );
 
 
-                    open3DRoomInspector(
+                    // =====================================================
+                    // PHASE 7.8
+                    // OPEN ROOM DETAILS PANEL
+                    // =====================================================
+
+                    openRoomDetailsPanel(
                         selectedRoom.userData
                     );
+
+                }
+            );
+
+            // =====================================================
+            // PHASE 7.8
+            // CLOSE ROOM DETAILS PANEL
+            // =====================================================
+
+            roomDetailsClose?.addEventListener(
+                'click',
+                () => {
+
+                    roomDetailsPanel?.classList.remove(
+                        'visible'
+                    );
+
+                    if (selectedRoom) {
+
+                        selectedRoom.material.emissive.setHex(
+                            0x000000
+                        );
+
+                        selectedRoom = null;
+
+                    }
+
+                }
+            );
+
+
+            // =====================================================
+            // PHASE 7.8
+            // VIEW FULL ROOM DETAILS
+            // =====================================================
+
+            roomDetailsView?.addEventListener(
+                'click',
+                () => {
+
+                    const roomId =
+                        roomDetailsView.dataset.roomId;
+
+                    if (!roomId) {
+                        return;
+                    }
+
+                    window.location.href =
+                        `/maintenance/infrastructure?room=${encodeURIComponent(roomId)}`;
 
                 }
             );
@@ -6581,6 +8151,78 @@
                 requestAnimationFrame(
                     animate
                 );
+
+
+                // =================================================
+                // PHASE 7.6
+                // SMOOTH CAMERA TRANSITION
+                // =================================================
+
+                if (cameraTransition) {
+
+                    const elapsed =
+                        performance.now() -
+                        cameraTransition.startTime;
+
+                    let progress =
+                        elapsed /
+                        cameraTransition.duration;
+
+                    progress =
+                        Math.min(
+                            progress,
+                            1
+                        );
+
+
+                    // =================================================
+                    // SMOOTH EASE IN AND EASE OUT
+                    // =================================================
+
+                    const easedProgress =
+                        progress < 0.5
+                            ? 2 * progress * progress
+                            : 1 -
+                                Math.pow(
+                                    -2 * progress + 2,
+                                    2
+                                ) / 2;
+
+
+                    // =================================================
+                    // MOVE CAMERA SMOOTHLY
+                    // =================================================
+
+                    camera.position.lerpVectors(
+                        cameraTransition.startPosition,
+                        cameraTransition.endPosition,
+                        easedProgress
+                    );
+
+
+                    // =================================================
+                    // MOVE CAMERA TARGET SMOOTHLY
+                    // =================================================
+
+                    controls.target.lerpVectors(
+                        cameraTransition.startTarget,
+                        cameraTransition.endTarget,
+                        easedProgress
+                    );
+
+
+                    // =================================================
+                    // END TRANSITION
+                    // =================================================
+
+                    if (progress >= 1) {
+
+                        cameraTransition = null;
+
+                    }
+
+                }
+
 
                 controls.update();
 
