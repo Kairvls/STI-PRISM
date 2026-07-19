@@ -4192,6 +4192,45 @@
             height: 14px;
         }
 
+        /* =====================================================
+        PHASE 8.2 PART 4
+        BACK TO BUILDING OVERVIEW BUTTON
+        ===================================================== */
+
+        .building-back-overview-btn {
+            position: absolute;
+            left: 24px;
+            bottom: 24px;
+            z-index: 20;
+
+            display: flex;
+            align-items: center;
+            gap: 8px;
+
+            padding: 10px 16px;
+
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            border-radius: 999px;
+
+            color: #334155;
+            font-size: 13px;
+            font-weight: 600;
+
+            cursor: pointer;
+
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+
+            transition:
+                transform 0.2s ease,
+                background 0.2s ease;
+        }
+
+        .building-back-overview-btn:hover {
+            transform: translateY(-2px);
+            background: #ffffff;
+        }
+
 
     </style>
 
@@ -5060,11 +5099,13 @@
 
 
                         {{-- FLOATING LABEL --}}
-                        <div class="dashboard-building-badge">
+                        <!--<div class="dashboard-building-badge">
                             <span class="dashboard-building-badge-dot"></span>
 
                             Interactive Building Overview
-                        </div>
+                        </div>-->
+
+                        
 
                         {{-- ===================================================== --}}
                         {{-- PHASE 7.4: FLOOR FILTER CONTROLS --}}
@@ -5084,6 +5125,18 @@
                                 class="building-floor-filter-dynamic"
                             ></div>
                         </div>
+
+                        <button
+                            type="button"
+                            id="backToBuildingOverview"
+                            style="display: none;"
+                            class="building-back-overview-btn"
+                        >
+                            <i class="fas fa-arrow-left"></i>
+                            <span>Back to Building Overview</span>
+                        </button>
+
+                        
 
 
                         {{-- 3D CONTROLS --}}
@@ -6080,6 +6133,32 @@
                 exteriorBuilding
             );
 
+            // =====================================================
+            // PHASE 8.2
+            // BUILDING VIEW MODE
+            //
+            // exterior = user is viewing the outside building shell
+            // interior = user is viewing floors and rooms
+            // =====================================================
+
+            let currentBuildingView = 'exterior';
+
+            let isBuildingViewTransitioning = false;
+
+
+            // =====================================================
+            // PHASE 8.2
+            // INITIAL BUILDING VISIBILITY
+            //
+            // Dashboard starts in Exterior Mode.
+            // Hide the interior rooms and floors.
+            // Show the exterior building shell.
+            // =====================================================
+
+            building.visible = false;
+
+            exteriorBuilding.visible = true;
+
 
             // =====================================================
             // EXTERIOR MATERIAL
@@ -6188,6 +6267,377 @@
                 );
 
                 return mesh;
+            }
+
+            // =====================================================
+            // PHASE 8.3 PART 2
+            // CREATE CURVED FRONT ARCH
+            // =====================================================
+
+            function createExteriorFrontArch(
+                width,
+                height,
+                depth,
+                x,
+                y,
+                z
+            ) {
+
+                // =================================================
+                // ARCH GROUP
+                // =================================================
+
+                const archGroup =
+                    new THREE.Group();
+
+                archGroup.position.set(
+                    x,
+                    y,
+                    z
+                );
+
+
+                // =================================================
+                // ARCH DIMENSIONS
+                //
+                // The arch is made from:
+                //
+                // 1. Left vertical column
+                // 2. Right vertical column
+                // 3. Curved upper section
+                //
+                // This creates the large rounded feature visible
+                // on the Robinsons front facade.
+                // =================================================
+
+                const columnWidth =
+                    Math.max(
+                        width * 0.16,
+                        0.35
+                    );
+
+                const curveRadius =
+                    width / 2;
+
+                const straightHeight =
+                    Math.max(
+                        height - curveRadius,
+                        height * 0.45
+                    );
+
+
+                // =================================================
+                // ARCH MATERIAL
+                //
+                // Keep this consistent with the existing
+                // blueprint exterior style.
+                // =================================================
+
+                const archMaterial =
+                    new THREE.MeshBasicMaterial({
+
+                        color: 0x17375e,
+
+                        transparent: true,
+
+                        opacity: 0.28,
+
+                        side: THREE.DoubleSide,
+
+                        depthWrite: false
+
+                    });
+
+
+                const archEdgeMaterial =
+                    new THREE.LineBasicMaterial({
+
+                        color: 0x79cfff,
+
+                        transparent: true,
+
+                        opacity: 0.75
+
+                    });
+
+
+                // =================================================
+                // LEFT VERTICAL COLUMN
+                // =================================================
+
+                const leftColumnGeometry =
+                    new THREE.BoxGeometry(
+
+                        columnWidth,
+
+                        straightHeight,
+
+                        depth
+
+                    );
+
+
+                const leftColumn =
+                    new THREE.Mesh(
+
+                        leftColumnGeometry,
+
+                        archMaterial.clone()
+
+                    );
+
+
+                leftColumn.position.set(
+
+                    -(width / 2) +
+                        (columnWidth / 2),
+
+                    -(height / 2) +
+                        (straightHeight / 2),
+
+                    0
+
+                );
+
+
+                archGroup.add(
+                    leftColumn
+                );
+
+
+                // =================================================
+                // LEFT COLUMN EDGES
+                // =================================================
+
+                const leftColumnEdges =
+                    new THREE.LineSegments(
+
+                        new THREE.EdgesGeometry(
+                            leftColumnGeometry
+                        ),
+
+                        archEdgeMaterial.clone()
+
+                    );
+
+
+                leftColumnEdges.position.copy(
+                    leftColumn.position
+                );
+
+
+                archGroup.add(
+                    leftColumnEdges
+                );
+
+
+                // =================================================
+                // RIGHT VERTICAL COLUMN
+                // =================================================
+
+                const rightColumnGeometry =
+                    new THREE.BoxGeometry(
+
+                        columnWidth,
+
+                        straightHeight,
+
+                        depth
+
+                    );
+
+
+                const rightColumn =
+                    new THREE.Mesh(
+
+                        rightColumnGeometry,
+
+                        archMaterial.clone()
+
+                    );
+
+
+                rightColumn.position.set(
+
+                    (width / 2) -
+                        (columnWidth / 2),
+
+                    -(height / 2) +
+                        (straightHeight / 2),
+
+                    0
+
+                );
+
+
+                archGroup.add(
+                    rightColumn
+                );
+
+
+                // =================================================
+                // RIGHT COLUMN EDGES
+                // =================================================
+
+                const rightColumnEdges =
+                    new THREE.LineSegments(
+
+                        new THREE.EdgesGeometry(
+                            rightColumnGeometry
+                        ),
+
+                        archEdgeMaterial.clone()
+
+                    );
+
+
+                rightColumnEdges.position.copy(
+                    rightColumn.position
+                );
+
+
+                archGroup.add(
+                    rightColumnEdges
+                );
+
+
+                // =================================================
+                // CURVED TOP
+                //
+                // Creates the rounded arch shape.
+                //
+                // RingGeometry gives us an outer curve and an
+                // inner opening instead of a solid semicircle.
+                // =================================================
+
+                const outerRadius =
+                    width / 2;
+
+
+                const innerRadius =
+                    Math.max(
+
+                        outerRadius - columnWidth,
+
+                        outerRadius * 0.55
+
+                    );
+
+
+                const archGeometry =
+                    new THREE.RingGeometry(
+
+                        innerRadius,
+
+                        outerRadius,
+
+                        32,
+
+                        1,
+
+                        0,
+
+                        Math.PI
+
+                    );
+
+
+                const curvedArch =
+                    new THREE.Mesh(
+
+                        archGeometry,
+
+                        archMaterial.clone()
+
+                    );
+
+
+                // =================================================
+                // POSITION THE CURVE
+                //
+                // RingGeometry is created in the XY plane.
+                // Since the front facade faces the Z direction,
+                // no rotation is needed here.
+                // =================================================
+
+                curvedArch.position.set(
+
+                    0,
+
+                    -(height / 2) +
+                        straightHeight,
+
+                    depth / 2 + 0.01
+
+                );
+
+
+                archGroup.add(
+                    curvedArch
+                );
+
+
+                // =================================================
+                // CURVED ARCH OUTLINE
+                // =================================================
+
+                const curvedArchEdges =
+                    new THREE.LineSegments(
+
+                        new THREE.EdgesGeometry(
+                            archGeometry
+                        ),
+
+                        archEdgeMaterial.clone()
+
+                    );
+
+
+                curvedArchEdges.position.copy(
+                    curvedArch.position
+                );
+
+
+                archGroup.add(
+                    curvedArchEdges
+                );
+
+
+                // =================================================
+                // MARK ALL OBJECTS AS EXTERIOR
+                //
+                // This is important because Phase 8.2 uses this
+                // property for exterior clicking and interaction.
+                // =================================================
+
+                archGroup.traverse(
+                    child => {
+
+                        if (
+                            child.isMesh ||
+                            child.isLineSegments
+                        ) {
+
+                            child.userData.isBuildingExterior =
+                                true;
+
+                        }
+
+                    }
+                );
+
+
+                // =================================================
+                // ADD TO EXTERIOR BUILDING GROUP
+                // =================================================
+
+                exteriorBuilding.add(
+                    archGroup
+                );
+
+
+                return archGroup;
+
             }
 
 
@@ -7648,6 +8098,30 @@
             // CREATE AUTO FITTING EXTERIOR BUILDING
             // =====================================================
 
+            // =====================================================
+            // PHASE 8.3 PART 1
+            // BASIC ARCHITECTURAL EXTERIOR SHAPE
+            //
+            // REFERENCE:
+            // ROBINSONS ORMOC CENTRUM / STI COLLEGE ORMOC
+            //
+            // IMPORTANT BUILDING LAYOUT:
+            //
+            // GROUND FLOOR
+            // Robinsons / commercial area
+            //
+            // SECOND AND THIRD FLOOR
+            // STI College Ormoc
+            //
+            // FRONT
+            // Robinsons commercial facade
+            // Large central arched architectural feature
+            //
+            // BACK
+            // Actual STI College entrance
+            // Staircase from ground level to second floor
+            // =====================================================
+
             function createDynamicBuildingExterior() {
 
                 const bounds =
@@ -7679,7 +8153,7 @@
 
 
                 // =================================================
-                // EXTRA SPACE AROUND THE INTERIOR
+                // EXTRA SPACE AROUND INTERIOR
                 // =================================================
 
                 const paddingX = 2.5;
@@ -7687,18 +8161,57 @@
                 const paddingZ = 2.5;
 
 
+                const buildingWidth =
+                    size.x + paddingX;
+
+                const buildingHeight =
+                    size.y + paddingY;
+
+                const buildingDepth =
+                    size.z + paddingZ;
+
+
                 // =================================================
-                // CREATE MAIN EXTERIOR BODY
+                // BUILDING DIRECTION
+                //
+                // CURRENT ASSUMPTION:
+                //
+                // +Z = FRONT
+                // -Z = BACK
+                //
+                // Robinsons facade is located at +Z.
+                // STI entrance will eventually be located at -Z.
+                // =================================================
+
+                const frontZ =
+                    center.z + (buildingDepth / 2);
+
+                const backZ =
+                    center.z - (buildingDepth / 2);
+
+
+                // =================================================
+                // 1. MAIN LONG BUILDING BODY
+                //
+                // Represents the overall rectangular structure.
+                //
+                // This contains:
+                //
+                // Ground Floor
+                // Robinsons / Commercial
+                //
+                // Upper Floors
+                // STI College Ormoc
                 // =================================================
 
                 const exteriorMainBuilding =
                     createExteriorSection(
 
-                        size.x + paddingX,
+                        buildingWidth,
 
-                        size.y + paddingY,
+                        buildingHeight,
 
-                        size.z + paddingZ,
+                        buildingDepth,
 
                         center.x,
 
@@ -7708,68 +8221,2413 @@
 
                     );
 
-
-                // =================================================
-                // IDENTIFY AS EXTERIOR
-                // =================================================
-
                 exteriorMainBuilding.userData.isBuildingExterior =
                     true;
 
 
                 // =================================================
-                // CREATE SLIGHTLY TALLER CENTRAL ENTRANCE
+                // 2. FRONT GROUND FLOOR COMMERCIAL BAND
+                //
+                // This represents the long Robinsons frontage
+                // visible across the ground floor.
+                //
+                // IMPORTANT:
+                // This is NOT the STI College entrance.
                 // =================================================
 
-                const entranceWidth =
+                const commercialBandHeight =
                     Math.max(
-                        (size.x + paddingX) * 0.22,
-                        3
+                        buildingHeight * 0.28,
+                        1.2
                     );
 
-                const exteriorEntranceSection =
+                const commercialBandDepth =
+                    Math.max(
+                        buildingDepth * 0.08,
+                        0.6
+                    );
+
+                const commercialBand =
                     createExteriorSection(
 
-                        entranceWidth,
+                        buildingWidth * 0.96,
 
-                        size.y + paddingY + 2,
+                        commercialBandHeight,
 
-                        size.z + paddingZ + 0.5,
+                        commercialBandDepth,
 
                         center.x,
 
-                        center.y + 1,
+                        center.y -
+                            (buildingHeight / 2) +
+                            (commercialBandHeight / 2),
+
+                        frontZ +
+                            (commercialBandDepth / 2)
+
+                    );
+
+                commercialBand.userData.isBuildingExterior =
+                    true;
+
+
+                // =================================================
+                // 3. SECOND FLOOR FRONT FACADE
+                //
+                // Represents the long horizontal upper facade
+                // occupied partly by STI College.
+                // =================================================
+
+                const upperFacadeHeight =
+                    Math.max(
+                        buildingHeight * 0.22,
+                        1
+                    );
+
+                const upperFacadeDepth =
+                    Math.max(
+                        buildingDepth * 0.035,
+                        0.3
+                    );
+
+                const secondFloorFacade =
+                    createExteriorSection(
+
+                        buildingWidth * 0.94,
+
+                        upperFacadeHeight,
+
+                        upperFacadeDepth,
+
+                        center.x,
+
+                        center.y,
+
+                        frontZ +
+                            (upperFacadeDepth / 2)
+
+                    );
+
+                secondFloorFacade.userData.isBuildingExterior =
+                    true;
+
+
+                // =================================================
+                // 4. THIRD FLOOR / UPPER FACADE BAND
+                //
+                // Creates the upper horizontal shape visible
+                // along the entire building.
+                // =================================================
+
+                const thirdFloorFacade =
+                    createExteriorSection(
+
+                        buildingWidth * 0.96,
+
+                        upperFacadeHeight * 0.8,
+
+                        upperFacadeDepth,
+
+                        center.x,
+
+                        center.y +
+                            (buildingHeight * 0.30),
+
+                        frontZ +
+                            (upperFacadeDepth / 2)
+
+                    );
+
+                thirdFloorFacade.userData.isBuildingExterior =
+                    true;
+
+
+                // =================================================
+                // 5. FRONT CENTRAL ROBINSONS ARCH FEATURE
+                //
+                // IMPORTANT:
+                //
+                // This is NOT the STI College entrance.
+                //
+                // This represents the large curved architectural
+                // feature visible at the center of the Robinsons
+                // Ormoc Centrum front facade.
+                //
+                // The actual STI entrance is located at the BACK
+                // of the building.
+                // =================================================
+
+                const frontFeatureWidth =
+                    Math.max(
+                        buildingWidth * 0.18,
+                        3
+                    );
+
+                const frontFeatureDepth =
+                    Math.max(
+                        buildingDepth * 0.05,
+                        0.4
+                    );
+
+                const frontFeatureHeight =
+                    buildingHeight * 1.12;
+
+
+                // =================================================
+                // CREATE THE CURVED FRONT ARCH
+                // =================================================
+
+                const frontCentralArch =
+                    createExteriorFrontArch(
+
+                        frontFeatureWidth,
+
+                        frontFeatureHeight,
+
+                        frontFeatureDepth,
+
+                        center.x,
+
+                        center.y +
+                            (
+                                frontFeatureHeight -
+                                buildingHeight
+                            ) / 2,
+
+                        frontZ +
+                            (frontFeatureDepth / 2)
+
+                    );
+
+                // =================================================
+                // CENTRAL GLASS FACADE
+                //
+                // The real building has a large glass section
+                // underneath the curved architectural arch.
+                //
+                // This is only a simplified blueprint representation.
+                // =================================================
+
+                const glassWidth =
+                    frontFeatureWidth * 0.62;
+
+                const glassHeight =
+                    frontFeatureHeight * 0.58;
+
+                const glassDepth =
+                    0.08;
+
+
+                const frontGlassFacade =
+                    createExteriorSection(
+
+                        glassWidth,
+
+                        glassHeight,
+
+                        glassDepth,
+
+                        center.x,
+
+                        center.y +
+                            (frontFeatureHeight * 0.02),
+
+                        frontZ +
+                            frontFeatureDepth +
+                            0.02
+
+                    );
+
+
+                frontGlassFacade.userData.isBuildingExterior =
+                    true;
+
+
+                
+
+
+                // =================================================
+                // PHASE 8.3 PART 2
+                // FRONT HORIZONTAL ARCHITECTURAL BANDS
+                //
+                // These represent the long horizontal layers
+                // visible across the Robinsons Ormoc facade.
+                // =================================================
+
+                const facadeBandDepth =
+                    Math.max(
+                        buildingDepth * 0.045,
+                        0.35
+                    );
+
+
+                // =================================================
+                // LOWER FRONT BAND
+                // =================================================
+
+                const lowerFacadeBand =
+                    createExteriorSection(
+
+                        buildingWidth * 0.98,
+
+                        0.32,
+
+                        facadeBandDepth,
+
+                        center.x,
+
+                        center.y -
+                            (buildingHeight * 0.18),
+
+                        frontZ +
+                            (facadeBandDepth / 2) +
+                            0.05
+
+                    );
+
+                lowerFacadeBand.userData.isBuildingExterior =
+                    true;
+
+
+                // =================================================
+                // MIDDLE FRONT BAND
+                // =================================================
+
+                const middleFacadeBand =
+                    createExteriorSection(
+
+                        buildingWidth * 0.96,
+
+                        0.22,
+
+                        facadeBandDepth * 0.8,
+
+                        center.x,
+
+                        center.y +
+                            (buildingHeight * 0.10),
+
+                        frontZ +
+                            (facadeBandDepth / 2) +
+                            0.03
+
+                    );
+
+                middleFacadeBand.userData.isBuildingExterior =
+                    true;
+
+
+                // =================================================
+                // UPPER FRONT BAND
+                // =================================================
+
+                const upperFacadeBand =
+                    createExteriorSection(
+
+                        buildingWidth * 0.98,
+
+                        0.28,
+
+                        facadeBandDepth,
+
+                        center.x,
+
+                        center.y +
+                            (buildingHeight * 0.38),
+
+                        frontZ +
+                            (facadeBandDepth / 2) +
+                            0.05
+
+                    );
+
+                upperFacadeBand.userData.isBuildingExterior =
+                    true;
+
+                // =================================================
+                // PHASE 8.3 PART 2.1
+                // WRAPAROUND HORIZONTAL ARCHITECTURAL BANDS
+                //
+                // Extends the three existing front facade bands
+                // around the LEFT SIDE, RIGHT SIDE, and BACK.
+                //
+                // IMPORTANT:
+                // All bands use the exact same Y positions as the
+                // existing front bands so they connect visually
+                // around the corners of the building.
+                //
+                // +Z = FRONT
+                // -Z = BACK
+                // =================================================
+
+
+                // =================================================
+                // SHARED BAND POSITIONS
+                // Must match the existing front facade bands.
+                // =================================================
+
+                const lowerBandY =
+                    center.y -
+                    (buildingHeight * 0.18);
+
+                const middleBandY =
+                    center.y +
+                    (buildingHeight * 0.10);
+
+                const upperBandY =
+                    center.y +
+                    (buildingHeight * 0.38);
+
+
+                // =================================================
+                // SIDE BAND THICKNESS
+                //
+                // Since the side walls run along the Z axis,
+                // the thin dimension is now X instead of Z.
+                // =================================================
+
+                const sideBandThickness =
+                    facadeBandDepth;
+
+
+                // =================================================
+                // BACK BAND OFFSET
+                // Places the bands slightly outside the back wall.
+                // =================================================
+
+                const backBandZ =
+                    backZ -
+                    (facadeBandDepth / 2) -
+                    0.05;
+
+
+                // =================================================
+                // LEFT SIDE POSITION
+                // =================================================
+
+                const leftBandX =
+                    center.x -
+                    (buildingWidth / 2) -
+                    (sideBandThickness / 2) -
+                    0.05;
+
+
+                // =================================================
+                // RIGHT SIDE POSITION
+                // =================================================
+
+                const rightBandX =
+                    center.x +
+                    (buildingWidth / 2) +
+                    (sideBandThickness / 2) +
+                    0.05;
+
+
+                // =================================================
+                // 1. LOWER BACK BAND
+                // =================================================
+
+                const lowerBackFacadeBand =
+                    createExteriorSection(
+
+                        buildingWidth * 0.98,
+
+                        0.32,
+
+                        facadeBandDepth,
+
+                        center.x,
+
+                        lowerBandY,
+
+                        backBandZ
+
+                    );
+
+                lowerBackFacadeBand.userData.isBuildingExterior =
+                    true;
+
+
+                // =================================================
+                // 2. MIDDLE BACK BAND
+                // =================================================
+
+                const middleBackFacadeBand =
+                    createExteriorSection(
+
+                        buildingWidth * 0.96,
+
+                        0.22,
+
+                        facadeBandDepth * 0.8,
+
+                        center.x,
+
+                        middleBandY,
+
+                        backZ -
+                        ((facadeBandDepth * 0.8) / 2) -
+                        0.03
+
+                    );
+
+                middleBackFacadeBand.userData.isBuildingExterior =
+                    true;
+
+
+                // =================================================
+                // 3. UPPER BACK BAND
+                // =================================================
+
+                const upperBackFacadeBand =
+                    createExteriorSection(
+
+                        buildingWidth * 0.98,
+
+                        0.28,
+
+                        facadeBandDepth,
+
+                        center.x,
+
+                        upperBandY,
+
+                        backBandZ
+
+                    );
+
+                upperBackFacadeBand.userData.isBuildingExterior =
+                    true;
+
+
+                // =================================================
+                // 4. LOWER LEFT SIDE BAND
+                //
+                // Width is thin because this is attached to the
+                // left wall.
+                //
+                // Depth runs almost the entire building length.
+                // =================================================
+
+                const lowerLeftFacadeBand =
+                    createExteriorSection(
+
+                        sideBandThickness,
+
+                        0.32,
+
+                        buildingDepth * 0.98,
+
+                        leftBandX,
+
+                        lowerBandY,
 
                         center.z
 
                     );
 
-                exteriorEntranceSection.userData.isBuildingExterior =
+                lowerLeftFacadeBand.userData.isBuildingExterior =
                     true;
 
 
                 // =================================================
-                // CREATE ROOF
+                // 5. MIDDLE LEFT SIDE BAND
                 // =================================================
+
+                const middleLeftFacadeBand =
+                    createExteriorSection(
+
+                        sideBandThickness * 0.8,
+
+                        0.22,
+
+                        buildingDepth * 0.96,
+
+                        center.x -
+                        (buildingWidth / 2) -
+                        ((sideBandThickness * 0.8) / 2) -
+                        0.03,
+
+                        middleBandY,
+
+                        center.z
+
+                    );
+
+                middleLeftFacadeBand.userData.isBuildingExterior =
+                    true;
+
+
+                // =================================================
+                // 6. UPPER LEFT SIDE BAND
+                // =================================================
+
+                const upperLeftFacadeBand =
+                    createExteriorSection(
+
+                        sideBandThickness,
+
+                        0.28,
+
+                        buildingDepth * 0.98,
+
+                        leftBandX,
+
+                        upperBandY,
+
+                        center.z
+
+                    );
+
+                upperLeftFacadeBand.userData.isBuildingExterior =
+                    true;
+
+
+                // =================================================
+                // 7. LOWER RIGHT SIDE BAND
+                // =================================================
+
+                const lowerRightFacadeBand =
+                    createExteriorSection(
+
+                        sideBandThickness,
+
+                        0.32,
+
+                        buildingDepth * 0.98,
+
+                        rightBandX,
+
+                        lowerBandY,
+
+                        center.z
+
+                    );
+
+                lowerRightFacadeBand.userData.isBuildingExterior =
+                    true;
+
+
+                // =================================================
+                // 8. MIDDLE RIGHT SIDE BAND
+                // =================================================
+
+                const middleRightFacadeBand =
+                    createExteriorSection(
+
+                        sideBandThickness * 0.8,
+
+                        0.22,
+
+                        buildingDepth * 0.96,
+
+                        center.x +
+                        (buildingWidth / 2) +
+                        ((sideBandThickness * 0.8) / 2) +
+                        0.03,
+
+                        middleBandY,
+
+                        center.z
+
+                    );
+
+                middleRightFacadeBand.userData.isBuildingExterior =
+                    true;
+
+
+                // =================================================
+                // 9. UPPER RIGHT SIDE BAND
+                // =================================================
+
+                const upperRightFacadeBand =
+                    createExteriorSection(
+
+                        sideBandThickness,
+
+                        0.28,
+
+                        buildingDepth * 0.98,
+
+                        rightBandX,
+
+                        upperBandY,
+
+                        center.z
+
+                    );
+
+                upperRightFacadeBand.userData.isBuildingExterior =
+                    true;
+
+                
+                
+
+
+                
+
+                // =================================================
+                // PHASE 8.3 PART 3
+                // WINDOW ROWS AND FACADE SEGMENTATION
+                //
+                // Adds simplified architectural window modules
+                // to the second and third floor.
+                //
+                // IMPORTANT:
+                //
+                // FRONT:
+                // Window rows are split into LEFT and RIGHT sections
+                // because the central Robinsons arch occupies the
+                // middle of the facade.
+                //
+                // LEFT / RIGHT SIDES:
+                // Window rows continue along the building depth.
+                //
+                // BACK:
+                // Window rows are also split around the center because
+                // the future STI College entrance and staircase will
+                // occupy the central rear section.
+                // =================================================
+
+
+                // =================================================
+                // WINDOW CONFIGURATION
+                // =================================================
+
+                const windowHeight =
+                    Math.max(
+                        buildingHeight * 0.11,
+                        0.55
+                    );
+
+                const windowDepth =
+                    Math.max(
+                        facadeBandDepth * 0.35,
+                        0.08
+                    );
+
+                const windowGap =
+                    Math.max(
+                        buildingWidth * 0.012,
+                        0.18
+                    );
+
+
+                // =================================================
+                // FLOOR WINDOW Y POSITIONS
+                //
+                // These sit between the horizontal facade bands.
+                // =================================================
+
+                const secondFloorWindowY =
+                    center.y -
+                    (buildingHeight * 0.03);
+
+                const thirdFloorWindowY =
+                    center.y +
+                    (buildingHeight * 0.25);
+
+
+                // =================================================
+                // FRONT WINDOW AREA
+                //
+                // The center is intentionally left empty because
+                // the large Robinsons architectural arch and glass
+                // facade already occupy this section.
+                // =================================================
+
+                const frontWindowSideWidth =
+                    (
+                        buildingWidth -
+                        frontFeatureWidth
+                    ) / 2;
+
+
+                // =================================================
+                // HELPER FUNCTION
+                // CREATE FRONT OR BACK WINDOW ROW
+                //
+                // Creates individual rectangular window modules
+                // across a horizontal section.
+                // =================================================
+
+                function createHorizontalWindowRow(
+                    startX,
+                    totalWidth,
+                    y,
+                    z,
+                    faceDirection
+                ) {
+
+                    const approximateWindowWidth =
+                        Math.max(
+                            buildingWidth * 0.055,
+                            0.7
+                        );
+
+                    const windowCount =
+                        Math.max(
+                            2,
+                            Math.floor(
+                                totalWidth /
+                                (
+                                    approximateWindowWidth +
+                                    windowGap
+                                )
+                            )
+                        );
+
+                    const usableWidth =
+                        totalWidth -
+                        (
+                            windowGap *
+                            (windowCount - 1)
+                        );
+
+                    const actualWindowWidth =
+                        usableWidth /
+                        windowCount;
+
+
+                    for (
+                        let i = 0;
+                        i < windowCount;
+                        i++
+                    ) {
+
+                        const windowX =
+                            startX +
+                            (actualWindowWidth / 2) +
+                            i *
+                            (
+                                actualWindowWidth +
+                                windowGap
+                            );
+
+
+                        const windowSection =
+                            createExteriorSection(
+
+                                actualWindowWidth,
+
+                                windowHeight,
+
+                                windowDepth,
+
+                                windowX,
+
+                                y,
+
+                                z
+
+                            );
+
+
+                        windowSection.userData.isBuildingExterior =
+                            true;
+
+                        windowSection.userData.isExteriorWindow =
+                            true;
+
+                        windowSection.userData.windowFace =
+                            faceDirection;
+
+                    }
+
+                }
+
+
+                // =================================================
+                // FRONT WINDOW Z POSITION
+                // =================================================
+
+                const frontWindowZ =
+                    frontZ +
+                    (windowDepth / 2) +
+                    facadeBandDepth +
+                    0.04;
+
+
+                // =================================================
+                // LEFT FRONT WINDOW SECTION
+                // =================================================
+
+                const leftFrontWindowStart =
+                    center.x -
+                    (buildingWidth / 2) +
+                    (buildingWidth * 0.03);
+
+                const leftFrontWindowWidth =
+                    frontWindowSideWidth -
+                    (buildingWidth * 0.06);
+
+
+                // =================================================
+                // RIGHT FRONT WINDOW SECTION
+                // =================================================
+
+                const rightFrontWindowStart =
+                    center.x +
+                    (frontFeatureWidth / 2) +
+                    (buildingWidth * 0.03);
+
+                const rightFrontWindowWidth =
+                    frontWindowSideWidth -
+                    (buildingWidth * 0.06);
+
+
+                // =================================================
+                // SECOND FLOOR FRONT WINDOWS
+                // LEFT SIDE
+                // =================================================
+
+                createHorizontalWindowRow(
+
+                    leftFrontWindowStart,
+
+                    leftFrontWindowWidth,
+
+                    secondFloorWindowY,
+
+                    frontWindowZ,
+
+                    'front'
+
+                );
+
+
+                // =================================================
+                // SECOND FLOOR FRONT WINDOWS
+                // RIGHT SIDE
+                // =================================================
+
+                createHorizontalWindowRow(
+
+                    rightFrontWindowStart,
+
+                    rightFrontWindowWidth,
+
+                    secondFloorWindowY,
+
+                    frontWindowZ,
+
+                    'front'
+
+                );
+
+
+                // =================================================
+                // THIRD FLOOR FRONT WINDOWS
+                // LEFT SIDE
+                // =================================================
+
+                createHorizontalWindowRow(
+
+                    leftFrontWindowStart,
+
+                    leftFrontWindowWidth,
+
+                    thirdFloorWindowY,
+
+                    frontWindowZ,
+
+                    'front'
+
+                );
+
+
+                // =================================================
+                // THIRD FLOOR FRONT WINDOWS
+                // RIGHT SIDE
+                // =================================================
+
+                createHorizontalWindowRow(
+
+                    rightFrontWindowStart,
+
+                    rightFrontWindowWidth,
+
+                    thirdFloorWindowY,
+
+                    frontWindowZ,
+
+                    'front'
+
+                );
+
+
+                // =================================================
+                // BACK WINDOW CONFIGURATION
+                //
+                // Leave a center opening for the future STI entrance
+                // and staircase architecture.
+                // =================================================
+
+                const backCenterClearance =
+                Math.max(
+                    buildingWidth * 0.225,
+                    3.75
+                );
+                const backWindowSideWidth =
+                    (
+                        buildingWidth -
+                        backCenterClearance
+                    ) / 2;
+
+                const backWindowZ =
+                    backZ -
+                    (windowDepth / 2) -
+                    facadeBandDepth -
+                    0.04;
+
+
+                // =================================================
+                // LEFT BACK WINDOW SECTION
+                // =================================================
+
+                const leftBackWindowStart =
+                    center.x -
+                    (buildingWidth / 2) +
+                    (buildingWidth * 0.03);
+
+                const leftBackWindowWidth =
+                    backWindowSideWidth -
+                    (buildingWidth * 0.06);
+
+
+                // =================================================
+                // RIGHT BACK WINDOW SECTION
+                // =================================================
+
+                const rightBackWindowStart =
+                    center.x +
+                    (backCenterClearance / 2) +
+                    (buildingWidth * 0.03);
+
+                const rightBackWindowWidth =
+                    backWindowSideWidth -
+                    (buildingWidth * 0.06);
+
+
+                // =================================================
+                // SECOND FLOOR BACK WINDOWS
+                // LEFT SIDE
+                // =================================================
+
+                createHorizontalWindowRow(
+
+                    leftBackWindowStart,
+
+                    leftBackWindowWidth,
+
+                    secondFloorWindowY,
+
+                    backWindowZ,
+
+                    'back'
+
+                );
+
+
+                // =================================================
+                // SECOND FLOOR BACK WINDOWS
+                // RIGHT SIDE
+                // =================================================
+
+                createHorizontalWindowRow(
+
+                    rightBackWindowStart,
+
+                    rightBackWindowWidth,
+
+                    secondFloorWindowY,
+
+                    backWindowZ,
+
+                    'back'
+
+                );
+
+
+                // =================================================
+                // THIRD FLOOR BACK WINDOWS
+                // LEFT SIDE
+                // =================================================
+
+                createHorizontalWindowRow(
+
+                    leftBackWindowStart,
+
+                    leftBackWindowWidth,
+
+                    thirdFloorWindowY,
+
+                    backWindowZ,
+
+                    'back'
+
+                );
+
+
+                // =================================================
+                // THIRD FLOOR BACK WINDOWS
+                // RIGHT SIDE
+                // =================================================
+
+                createHorizontalWindowRow(
+
+                    rightBackWindowStart,
+
+                    rightBackWindowWidth,
+
+                    thirdFloorWindowY,
+
+                    backWindowZ,
+
+                    'back'
+
+                );
+
+
+                // =================================================
+                // SIDE WINDOW HELPER
+                //
+                // Side windows run along the Z axis instead of X.
+                // =================================================
+
+                function createSideWindowRow(
+                    x,
+                    y,
+                    startZ,
+                    totalDepth,
+                    faceDirection
+                ) {
+
+                    const approximateWindowWidth =
+                        Math.max(
+                            buildingDepth * 0.08,
+                            0.7
+                        );
+
+                    const sideWindowGap =
+                        Math.max(
+                            buildingDepth * 0.018,
+                            0.18
+                        );
+
+
+                    const windowCount =
+                        Math.max(
+                            2,
+                            Math.floor(
+                                totalDepth /
+                                (
+                                    approximateWindowWidth +
+                                    sideWindowGap
+                                )
+                            )
+                        );
+
+
+                    const usableDepth =
+                        totalDepth -
+                        (
+                            sideWindowGap *
+                            (windowCount - 1)
+                        );
+
+
+                    const actualWindowDepth =
+                        usableDepth /
+                        windowCount;
+
+
+                    for (
+                        let i = 0;
+                        i < windowCount;
+                        i++
+                    ) {
+
+                        const windowZ =
+                            startZ +
+                            (actualWindowDepth / 2) +
+                            i *
+                            (
+                                actualWindowDepth +
+                                sideWindowGap
+                            );
+
+
+                        const windowSection =
+                            createExteriorSection(
+
+                                windowDepth,
+
+                                windowHeight,
+
+                                actualWindowDepth,
+
+                                x,
+
+                                y,
+
+                                windowZ
+
+                            );
+
+
+                        windowSection.userData.isBuildingExterior =
+                            true;
+
+                        windowSection.userData.isExteriorWindow =
+                            true;
+
+                        windowSection.userData.windowFace =
+                            faceDirection;
+
+                    }
+
+                }
+
+
+                // =================================================
+                // SIDE WINDOW POSITIONS
+                // =================================================
+
+                const leftWindowX =
+                    center.x -
+                    (buildingWidth / 2) -
+                    facadeBandDepth -
+                    (windowDepth / 2) -
+                    0.04;
+
+                const rightWindowX =
+                    center.x +
+                    (buildingWidth / 2) +
+                    facadeBandDepth +
+                    (windowDepth / 2) +
+                    0.04;
+
+
+                // =================================================
+                // SIDE WINDOW DEPTH AREA
+                //
+                // Leave a little space near the front and back
+                // corners so the windows do not collide with the
+                // corner architectural sections.
+                // =================================================
+
+                const sideWindowStartZ =
+                    backZ +
+                    (buildingDepth * 0.06);
+
+                const sideWindowTotalDepth =
+                    buildingDepth * 0.88;
+
+
+                // =================================================
+                // LEFT SIDE
+                // SECOND FLOOR WINDOWS
+                // =================================================
+
+                createSideWindowRow(
+
+                    leftWindowX,
+
+                    secondFloorWindowY,
+
+                    sideWindowStartZ,
+
+                    sideWindowTotalDepth,
+
+                    'left'
+
+                );
+
+
+                // =================================================
+                // LEFT SIDE
+                // THIRD FLOOR WINDOWS
+                // =================================================
+
+                createSideWindowRow(
+
+                    leftWindowX,
+
+                    thirdFloorWindowY,
+
+                    sideWindowStartZ,
+
+                    sideWindowTotalDepth,
+
+                    'left'
+
+                );
+
+
+                // =================================================
+                // RIGHT SIDE
+                // SECOND FLOOR WINDOWS
+                // =================================================
+
+                createSideWindowRow(
+
+                    rightWindowX,
+
+                    secondFloorWindowY,
+
+                    sideWindowStartZ,
+
+                    sideWindowTotalDepth,
+
+                    'right'
+
+                );
+
+
+                // =================================================
+                // RIGHT SIDE
+                // THIRD FLOOR WINDOWS
+                // =================================================
+
+                createSideWindowRow(
+
+                    rightWindowX,
+
+                    thirdFloorWindowY,
+
+                    sideWindowStartZ,
+
+                    sideWindowTotalDepth,
+
+                    'right'
+
+                );
+
+
+                // =================================================
+                // 6. MAIN TOP ROOF
+                //
+                // Long flat roof following the overall building.
+                //
+                // The actual reference has rounded corners.
+                // Those will be refined later.
+                // =================================================
+
+                const mainRoofThickness =
+                    0.25;
 
                 const exteriorRoof =
                     createExteriorSection(
 
-                        size.x + paddingX + 0.5,
+                        buildingWidth + 0.5,
 
-                        0.25,
+                        mainRoofThickness,
 
-                        size.z + paddingZ + 0.5,
+                        buildingDepth + 0.5,
 
                         center.x,
 
-                        bounds.max.y + paddingY,
+                        center.y +
+                            (buildingHeight / 2) +
+                            (mainRoofThickness / 2),
 
                         center.z
 
                     );
 
                 exteriorRoof.userData.isBuildingExterior =
+                    true;
+
+
+                // =================================================
+                // 7. FRONT ROOF FASCIA
+                //
+                // Creates the thicker upper edge visible from
+                // the street-facing side of the real building.
+                // =================================================
+
+                const roofFasciaHeight =
+                    Math.max(
+                        buildingHeight * 0.10,
+                        0.5
+                    );
+
+                const roofFasciaDepth =
+                    Math.max(
+                        buildingDepth * 0.06,
+                        0.5
+                    );
+
+
+                const frontRoofFascia =
+                    createExteriorSection(
+
+                        buildingWidth + 0.3,
+
+                        roofFasciaHeight,
+
+                        roofFasciaDepth,
+
+                        center.x,
+
+                        center.y +
+                            (buildingHeight / 2) -
+                            (roofFasciaHeight / 2),
+
+                        frontZ +
+                            (roofFasciaDepth / 2)
+
+                    );
+
+                frontRoofFascia.userData.isBuildingExterior =
+                    true;
+
+
+                // =================================================
+                // 8. LEFT SIDE CORNER MASS
+                //
+                // The real building has large corner sections
+                // instead of separate front wings.
+                //
+                // This replaces the incorrect left front wing
+                // from the previous version.
+                // =================================================
+
+                const cornerWidth =
+                    Math.max(
+                        buildingWidth * 0.12,
+                        1.8
+                    );
+
+                const cornerDepth =
+                    Math.max(
+                        buildingDepth * 0.10,
+                        0.8
+                    );
+
+
+                const leftCornerSection =
+                    createExteriorSection(
+
+                        cornerWidth,
+
+                        buildingHeight * 0.95,
+
+                        cornerDepth,
+
+                        center.x -
+                            (buildingWidth / 2) +
+                            (cornerWidth / 2),
+
+                        center.y,
+
+                        frontZ +
+                            (cornerDepth / 2)
+
+                    );
+
+                leftCornerSection.userData.isBuildingExterior =
+                    true;
+
+
+                // =================================================
+                // 9. RIGHT SIDE CORNER MASS
+                //
+                // Mirrors the left side.
+                // =================================================
+
+                const rightCornerSection =
+                    createExteriorSection(
+
+                        cornerWidth,
+
+                        buildingHeight * 0.95,
+
+                        cornerDepth,
+
+                        center.x +
+                            (buildingWidth / 2) -
+                            (cornerWidth / 2),
+
+                        center.y,
+
+                        frontZ +
+                            (cornerDepth / 2)
+
+                    );
+
+                rightCornerSection.userData.isBuildingExterior =
+                    true;
+
+
+                // =================================================
+                // PHASE 8.3 PART 4
+                // REAR STI COLLEGE ORMOC ENTRANCE
+                // AND EXTERIOR STAIRCASE
+                //
+                // IMPORTANT BUILDING LAYOUT:
+                //
+                // GROUND FLOOR:
+                // Robinsons / Commercial Area
+                //
+                // SECOND FLOOR:
+                // STI College Ormoc entrance
+                //
+                // The staircase begins at ground level behind the
+                // building and rises toward a central second-floor
+                // entrance.
+                //
+                // +Z = FRONT
+                // -Z = BACK
+                // =================================================
+
+
+                // =================================================
+                // STI ENTRANCE DIMENSIONS
+                // =================================================
+
+                const stiEntranceWidth =
+                    Math.max(
+                        buildingWidth * 0.18,
+                        3
+                    );
+
+                const stiEntranceDepth =
+                    Math.max(
+                        buildingDepth * 0.10,
+                        1
+                    );
+
+                // =================================================
+                // PHASE 8.3 PART 2.2
+                // WRAPAROUND MAIN FACADE SECTIONS
+                //
+                // Extends the main facade sections to:
+                // 1. LEFT SIDE
+                // 2. RIGHT SIDE
+                // 3. REAR SIDE
+                //
+                // IMPORTANT:
+                // The rear ground floor and second floor facades
+                // are split into LEFT and RIGHT sections.
+                //
+                // This creates a clear opening for the actual
+                // STI College entrance, landing, and staircase.
+                //
+                // The third floor remains continuous.
+                // =================================================
+
+
+                // =================================================
+                // REAR STI ENTRANCE FACADE OPENING
+                //
+                // Creates extra clearance around the STI entrance.
+                // =================================================
+
+                const rearEntranceOpeningWidth =
+                    stiEntranceWidth + 0.8;
+
+
+                // =================================================
+                // SHARED SIDE FACADE THICKNESS
+                // =================================================
+
+                const sideFacadeThickness =
+                    upperFacadeDepth;
+
+
+                // =================================================
+                // 1. REAR GROUND FLOOR COMMERCIAL BAND
+                // SPLIT AROUND STI ENTRANCE
+                // =================================================
+
+                const rearCommercialTotalWidth =
+                    buildingWidth * 0.96;
+
+
+                const rearCommercialSideWidth =
+                    (
+                        rearCommercialTotalWidth -
+                        rearEntranceOpeningWidth
+                    ) / 2;
+
+
+                // =================================================
+                // LEFT AND RIGHT X POSITIONS
+                // =================================================
+
+                const rearCommercialLeftX =
+                    center.x -
+                    (rearEntranceOpeningWidth / 2) -
+                    (rearCommercialSideWidth / 2);
+
+
+                const rearCommercialRightX =
+                    center.x +
+                    (rearEntranceOpeningWidth / 2) +
+                    (rearCommercialSideWidth / 2);
+
+
+                // =================================================
+                // REAR COMMERCIAL BAND
+                // LEFT SECTION
+                // =================================================
+
+                const rearCommercialBandLeft =
+                    createExteriorSection(
+
+                        rearCommercialSideWidth,
+
+                        commercialBandHeight,
+
+                        commercialBandDepth,
+
+                        rearCommercialLeftX,
+
+                        center.y -
+                            (buildingHeight / 2) +
+                            (commercialBandHeight / 2),
+
+                        backZ -
+                            (commercialBandDepth / 2)
+
+                    );
+
+                rearCommercialBandLeft.userData.isBuildingExterior =
+                    true;
+
+
+                // =================================================
+                // REAR COMMERCIAL BAND
+                // RIGHT SECTION
+                // =================================================
+
+                const rearCommercialBandRight =
+                    createExteriorSection(
+
+                        rearCommercialSideWidth,
+
+                        commercialBandHeight,
+
+                        commercialBandDepth,
+
+                        rearCommercialRightX,
+
+                        center.y -
+                            (buildingHeight / 2) +
+                            (commercialBandHeight / 2),
+
+                        backZ -
+                            (commercialBandDepth / 2)
+
+                    );
+
+                rearCommercialBandRight.userData.isBuildingExterior =
+                    true;
+
+
+                // =================================================
+                // 2. LEFT GROUND FLOOR COMMERCIAL BAND
+                // =================================================
+
+                const leftCommercialBand =
+                    createExteriorSection(
+
+                        commercialBandDepth,
+
+                        commercialBandHeight,
+
+                        buildingDepth * 0.96,
+
+                        center.x -
+                            (buildingWidth / 2) -
+                            (commercialBandDepth / 2),
+
+                        center.y -
+                            (buildingHeight / 2) +
+                            (commercialBandHeight / 2),
+
+                        center.z
+
+                    );
+
+                leftCommercialBand.userData.isBuildingExterior =
+                    true;
+
+
+                // =================================================
+                // 3. RIGHT GROUND FLOOR COMMERCIAL BAND
+                // =================================================
+
+                const rightCommercialBand =
+                    createExteriorSection(
+
+                        commercialBandDepth,
+
+                        commercialBandHeight,
+
+                        buildingDepth * 0.96,
+
+                        center.x +
+                            (buildingWidth / 2) +
+                            (commercialBandDepth / 2),
+
+                        center.y -
+                            (buildingHeight / 2) +
+                            (commercialBandHeight / 2),
+
+                        center.z
+
+                    );
+
+                rightCommercialBand.userData.isBuildingExterior =
+                    true;
+
+
+                // =================================================
+                // 4. REAR SECOND FLOOR FACADE
+                // SPLIT AROUND STI ENTRANCE
+                // =================================================
+
+                const rearSecondFacadeTotalWidth =
+                    buildingWidth * 0.94;
+
+
+                const rearSecondFacadeSideWidth =
+                    (
+                        rearSecondFacadeTotalWidth -
+                        rearEntranceOpeningWidth
+                    ) / 2;
+
+
+                // =================================================
+                // LEFT AND RIGHT X POSITIONS
+                // =================================================
+
+                const rearSecondLeftX =
+                    center.x -
+                    (rearEntranceOpeningWidth / 2) -
+                    (rearSecondFacadeSideWidth / 2);
+
+
+                const rearSecondRightX =
+                    center.x +
+                    (rearEntranceOpeningWidth / 2) +
+                    (rearSecondFacadeSideWidth / 2);
+
+
+                // =================================================
+                // REAR SECOND FLOOR FACADE
+                // LEFT SECTION
+                // =================================================
+
+                const rearSecondFloorFacadeLeft =
+                    createExteriorSection(
+
+                        rearSecondFacadeSideWidth,
+
+                        upperFacadeHeight,
+
+                        upperFacadeDepth,
+
+                        rearSecondLeftX,
+
+                        center.y,
+
+                        backZ -
+                            (upperFacadeDepth / 2)
+
+                    );
+
+                rearSecondFloorFacadeLeft.userData.isBuildingExterior =
+                    true;
+
+
+                // =================================================
+                // REAR SECOND FLOOR FACADE
+                // RIGHT SECTION
+                // =================================================
+
+                const rearSecondFloorFacadeRight =
+                    createExteriorSection(
+
+                        rearSecondFacadeSideWidth,
+
+                        upperFacadeHeight,
+
+                        upperFacadeDepth,
+
+                        rearSecondRightX,
+
+                        center.y,
+
+                        backZ -
+                            (upperFacadeDepth / 2)
+
+                    );
+
+                rearSecondFloorFacadeRight.userData.isBuildingExterior =
+                    true;
+
+
+                // =================================================
+                // 5. LEFT SECOND FLOOR FACADE
+                // =================================================
+
+                const leftSecondFloorFacade =
+                    createExteriorSection(
+
+                        sideFacadeThickness,
+
+                        upperFacadeHeight,
+
+                        buildingDepth * 0.94,
+
+                        center.x -
+                            (buildingWidth / 2) -
+                            (sideFacadeThickness / 2),
+
+                        center.y,
+
+                        center.z
+
+                    );
+
+                leftSecondFloorFacade.userData.isBuildingExterior =
+                    true;
+
+
+                // =================================================
+                // 6. RIGHT SECOND FLOOR FACADE
+                // =================================================
+
+                const rightSecondFloorFacade =
+                    createExteriorSection(
+
+                        sideFacadeThickness,
+
+                        upperFacadeHeight,
+
+                        buildingDepth * 0.94,
+
+                        center.x +
+                            (buildingWidth / 2) +
+                            (sideFacadeThickness / 2),
+
+                        center.y,
+
+                        center.z
+
+                    );
+
+                rightSecondFloorFacade.userData.isBuildingExterior =
+                    true;
+
+
+                // =================================================
+                // 7. REAR THIRD FLOOR FACADE
+                //
+                // This remains continuous because the STI entrance
+                // opening only needs to affect the lower levels.
+                // =================================================
+
+                const rearThirdFloorFacade =
+                    createExteriorSection(
+
+                        buildingWidth * 0.96,
+
+                        upperFacadeHeight * 0.8,
+
+                        upperFacadeDepth,
+
+                        center.x,
+
+                        center.y +
+                            (buildingHeight * 0.30),
+
+                        backZ -
+                            (upperFacadeDepth / 2)
+
+                    );
+
+                rearThirdFloorFacade.userData.isBuildingExterior =
+                    true;
+
+
+                // =================================================
+                // 8. LEFT THIRD FLOOR FACADE
+                // =================================================
+
+                const leftThirdFloorFacade =
+                    createExteriorSection(
+
+                        sideFacadeThickness,
+
+                        upperFacadeHeight * 0.8,
+
+                        buildingDepth * 0.96,
+
+                        center.x -
+                            (buildingWidth / 2) -
+                            (sideFacadeThickness / 2),
+
+                        center.y +
+                            (buildingHeight * 0.30),
+
+                        center.z
+
+                    );
+
+                leftThirdFloorFacade.userData.isBuildingExterior =
+                    true;
+
+
+                // =================================================
+                // 9. RIGHT THIRD FLOOR FACADE
+                // =================================================
+
+                const rightThirdFloorFacade =
+                    createExteriorSection(
+
+                        sideFacadeThickness,
+
+                        upperFacadeHeight * 0.8,
+
+                        buildingDepth * 0.96,
+
+                        center.x +
+                            (buildingWidth / 2) +
+                            (sideFacadeThickness / 2),
+
+                        center.y +
+                            (buildingHeight * 0.30),
+
+                        center.z
+
+                    );
+
+                rightThirdFloorFacade.userData.isBuildingExterior =
+                    true;
+
+
+                // =================================================
+                // ESTIMATED FLOOR HEIGHT
+                //
+                // The exterior represents approximately three
+                // vertical building levels.
+                //
+                // We use this to calculate the second-floor height.
+                // =================================================
+
+                const estimatedFloorHeight =
+                    buildingHeight / 3;
+
+
+                // =================================================
+                // GROUND LEVEL
+                // =================================================
+
+                const buildingBottomY =
+                    center.y -
+                    (buildingHeight / 2);
+
+
+                // =================================================
+                // SECOND FLOOR ENTRANCE HEIGHT
+                //
+                // This is one floor above ground level.
+                // =================================================
+
+                const secondFloorEntranceY =
+                    buildingBottomY +
+                    estimatedFloorHeight;
+
+
+                // =================================================
+                // 1. SECOND FLOOR STI ENTRANCE LANDING
+                //
+                // This platform sits behind the building at the
+                // second-floor level.
+                //
+                // The staircase will connect directly to it.
+                // =================================================
+
+                const stiLandingThickness =
+                    0.22;
+
+                const stiLandingDepth =
+                    Math.max(
+                        buildingDepth * 0.12,
+                        1.4
+                    );
+
+
+                const stiEntranceLanding =
+                    createExteriorSection(
+
+                        stiEntranceWidth,
+
+                        stiLandingThickness,
+
+                        stiLandingDepth,
+
+                        center.x,
+
+                        secondFloorEntranceY,
+
+                        backZ -
+                        (stiLandingDepth / 2)
+
+                    );
+
+                stiEntranceLanding.userData.isBuildingExterior =
+                    true;
+
+                stiEntranceLanding.userData.isStiEntrance =
+                    true;
+
+
+                // =================================================
+                // 2. STI SECOND FLOOR ENTRANCE FRAME
+                //
+                // Marks the doorway at the rear center.
+                //
+                // This is the actual school entrance position.
+                // =================================================
+
+                const stiDoorWidth =
+                    Math.max(
+                        stiEntranceWidth * 0.45,
+                        1.2
+                    );
+
+                const stiDoorHeight =
+                    Math.max(
+                        estimatedFloorHeight * 0.58,
+                        1.5
+                    );
+
+                const stiDoorDepth =
+                    Math.max(
+                        buildingDepth * 0.025,
+                        0.18
+                    );
+
+
+                const stiEntranceFrame =
+                    createExteriorSection(
+
+                        stiDoorWidth,
+
+                        stiDoorHeight,
+
+                        stiDoorDepth,
+
+                        center.x,
+
+                        secondFloorEntranceY +
+                        (stiDoorHeight / 2),
+
+                        backZ -
+                        (stiDoorDepth / 2) -
+                        0.04
+
+                    );
+
+                stiEntranceFrame.userData.isBuildingExterior =
+                    true;
+
+                stiEntranceFrame.userData.isStiEntrance =
+                    true;
+
+
+                // =================================================
+                // 3. STAIRCASE CONFIGURATION
+                // SIDEWAYS REAR STAIRCASE
+                //
+                // The STI entrance remains centered at the BACK.
+                //
+                // The staircase now runs SIDEWAYS along the X axis.
+                //
+                // TOP:
+                // Center landing at the STI entrance.
+                //
+                // BOTTOM:
+                // Extends toward the RIGHT side of the building.
+                //
+                // Change stairDirection to -1 if you want the
+                // staircase to descend toward the LEFT instead.
+                // =================================================
+
+                const stairDirection = -1;
+
+                const stairWidth =
+                    Math.max(
+                        stiEntranceDepth * 0.85,
+                        1.8
+                    );
+
+                const stairRun =
+                    Math.max(
+                        buildingWidth * 0.32,
+                        4
+                    );
+
+                const stairStepCount =
+                    12;
+
+
+                // =================================================
+                // CALCULATE STAIR STEP DIMENSIONS
+                // =================================================
+
+                const stairStepHeight =
+                    estimatedFloorHeight /
+                    stairStepCount;
+
+                const stairStepRun =
+                    stairRun /
+                    stairStepCount;
+
+
+                // =================================================
+                // STAIRCASE Z POSITION
+                //
+                // Keeps the entire staircase behind the building
+                // and aligned with the STI entrance landing.
+                // =================================================
+
+                const staircaseZ =
+                    backZ -
+                    stiLandingDepth -
+                    (stairWidth / 2);
+
+                // =================================================
+                // STAIRCASE TOP CONNECTION POINT
+                // Start from the RIGHT SIDE of the entrance landing
+                // Keep the existing staircase direction unchanged
+                // =================================================
+
+                const stairTopX =
+                    center.x +
+                    (stiEntranceWidth / 2);
+
+
+                // =================================================
+                // CREATE SIDEWAYS STAIR STEPS
+                //
+                // Higher steps are closer to the center landing.
+                //
+                // Lower steps extend sideways toward the right.
+                //
+                // stairDirection = 1  -> right side
+                // stairDirection = -1 -> left side
+                // =================================================
+
+                for (
+                    let i = 0;
+                    i < stairStepCount;
+                    i++
+                ) {
+
+                    const currentStepHeight =
+                        stairStepHeight *
+                        (i + 1);
+
+
+                    // =================================================
+                    // STEP HEIGHT
+                    // =================================================
+
+                    const stepY =
+                        buildingBottomY +
+                        (currentStepHeight / 2);
+
+
+                    // =================================================
+                    // STEP X POSITION
+                    //
+                    // Step 0 is the lowest and farthest from entrance.
+                    //
+                    // Final step ends near the center landing.
+                    // =================================================
+
+                    const distanceFromLanding =
+                        stairRun -
+                        (
+                            stairStepRun *
+                            (i + 0.5)
+                        );
+
+                    const stepX =
+                        stairTopX +
+                        (
+                            distanceFromLanding *
+                            stairDirection
+                        );
+
+
+                    // =================================================
+                    // CREATE STEP
+                    //
+                    // Width is now along X.
+                    // Stair width is now along Z.
+                    // =================================================
+
+                    const stairStep =
+                        createExteriorSection(
+
+                            stairStepRun,
+
+                            currentStepHeight,
+
+                            stairWidth,
+
+                            stepX,
+
+                            stepY,
+
+                            staircaseZ
+
+                        );
+
+
+                    stairStep.userData.isBuildingExterior =
+                        true;
+
+                    stairStep.userData.isStiStaircase =
+                        true;
+
+                }
+
+
+                // =================================================
+                // 4. BACK STAIR RAILING
+                // FIXED FOR SIDEWAYS STAIRCASE
+                // =================================================
+
+                const railingThickness =
+                    0.08;
+
+                const railingHeight =
+                    Math.max(
+                        estimatedFloorHeight * 0.30,
+                        0.8
+                    );
+
+                const stairSlopeAngle =
+                    Math.atan2(
+                        estimatedFloorHeight,
+                        stairRun
+                    );
+
+                const staircaseCenterX =
+                    stairTopX +
+                    (
+                        (stairRun / 2) *
+                        stairDirection
+                    );
+
+
+                // =================================================
+                // FIX:
+                // Since the staircase runs along the X axis,
+                // the railing geometry must follow X.
+                //
+                // Rotation direction must be OPPOSITE when
+                // stairDirection is positive.
+                // =================================================
+
+                const railingRotationZ =
+                    -stairDirection *
+                    stairSlopeAngle;
+
+
+                // =================================================
+                // BACK STAIR RAILING
+                // =================================================
+
+                const backStairRailing =
+                    createExteriorSection(
+
+                        stairRun,
+
+                        railingThickness,
+
+                        railingHeight,
+
+                        staircaseCenterX,
+
+                        buildingBottomY +
+                        (estimatedFloorHeight / 2) +
+                        (railingHeight / 2),
+
+                        staircaseZ -
+                        (stairWidth / 2)
+
+                    );
+
+                backStairRailing.rotation.z =
+                    railingRotationZ;
+
+                backStairRailing.userData.isBuildingExterior =
+                    true;
+
+                backStairRailing.userData.isStiStaircase =
+                    true;
+
+
+                // =================================================
+                // 5. FRONT STAIR RAILING
+                // =================================================
+
+                const frontStairRailing =
+                    createExteriorSection(
+
+                        stairRun,
+
+                        railingThickness,
+
+                        railingHeight,
+
+                        staircaseCenterX,
+
+                        buildingBottomY +
+                        (estimatedFloorHeight / 2) +
+                        (railingHeight / 2),
+
+                        staircaseZ +
+                        (stairWidth / 2)
+
+                    );
+
+                frontStairRailing.rotation.z =
+                    railingRotationZ;
+
+                frontStairRailing.userData.isBuildingExterior =
+                    true;
+
+                frontStairRailing.userData.isStiStaircase =
+                    true;
+
+
+                // =================================================
+                // 6. LEFT LANDING RAILING
+                // =================================================
+
+                const landingRailingHeight =
+                    Math.max(
+                        estimatedFloorHeight * 0.25,
+                        0.7
+                    );
+
+
+                const leftLandingRailing =
+                    createExteriorSection(
+
+                        railingThickness,
+
+                        landingRailingHeight,
+
+                        stiLandingDepth,
+
+                        center.x -
+                        (stiEntranceWidth / 2),
+
+                        secondFloorEntranceY +
+                        (landingRailingHeight / 2),
+
+                        backZ -
+                        (stiLandingDepth / 2)
+
+                    );
+
+                leftLandingRailing.userData.isBuildingExterior =
+                    true;
+
+                leftLandingRailing.userData.isStiEntrance =
+                    true;
+
+
+                // =================================================
+                // 7. RIGHT LANDING RAILING
+                // =================================================
+
+                const rightLandingRailing =
+                    createExteriorSection(
+
+                        railingThickness,
+
+                        landingRailingHeight,
+
+                        stiLandingDepth,
+
+                        center.x +
+                        (stiEntranceWidth / 2),
+
+                        secondFloorEntranceY +
+                        (landingRailingHeight / 2),
+
+                        backZ -
+                        (stiLandingDepth / 2)
+
+                    );
+
+                rightLandingRailing.userData.isBuildingExterior =
+                    true;
+
+                rightLandingRailing.userData.isStiEntrance =
+                    true;
+
+
+                // =================================================
+                // 8. STI ENTRANCE CANOPY
+                //
+                // Small protective roof above the second-floor
+                // entrance.
+                //
+                // This is intentionally simple for the blueprint
+                // exterior.
+                // =================================================
+
+                const stiCanopyWidth =
+                    stiEntranceWidth * 0.75;
+
+                const stiCanopyDepth =
+                    Math.max(
+                        stiLandingDepth * 0.65,
+                        0.8
+                    );
+
+                const stiCanopyThickness =
+                    0.12;
+
+
+                const stiEntranceCanopy =
+                    createExteriorSection(
+
+                        stiCanopyWidth,
+
+                        stiCanopyThickness,
+
+                        stiCanopyDepth,
+
+                        center.x,
+
+                        secondFloorEntranceY +
+                        stiDoorHeight +
+                        0.25,
+
+                        backZ -
+                        (stiCanopyDepth / 2)
+
+                    );
+
+                stiEntranceCanopy.userData.isBuildingExterior =
+                    true;
+
+                stiEntranceCanopy.userData.isStiEntrance =
                     true;
 
             }
@@ -7791,6 +10649,30 @@
                 document.getElementById(
                     'buildingFloorFilterButtons'
                 );
+
+            // =====================================================
+            // PHASE 8.2 PART 4
+            // BACK TO BUILDING OVERVIEW BUTTON
+            // =====================================================
+
+            const backToBuildingOverviewButton =
+                document.getElementById(
+                    'backToBuildingOverview'
+                );
+
+            // =====================================================
+            // PHASE 8.2
+            // HIDE FLOOR FILTERS WHILE VIEWING EXTERIOR
+            // =====================================================
+
+            if (floorFilterButtonContainer) {
+
+                floorFilterButtonContainer.style.display =
+                    currentBuildingView === 'exterior'
+                        ? 'none'
+                        : '';
+
+            }
 
             if (floorFilterButtonContainer) {
 
@@ -8224,6 +11106,652 @@
 
             }
 
+            // =====================================================
+            // PHASE 8.2 PART 2
+            // CHECK IF POINTER IS OVER EXTERIOR BUILDING
+            // =====================================================
+
+            function getExteriorIntersection(event) {
+
+                if (currentBuildingView !== 'exterior') {
+                    return null;
+                }
+
+                const rect =
+                    renderer.domElement.getBoundingClientRect();
+
+                mouse.x =
+                    ((event.clientX - rect.left) / rect.width) * 2 - 1;
+
+                mouse.y =
+                    -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+                raycaster.setFromCamera(
+                    mouse,
+                    camera
+                );
+
+                const intersections =
+                    raycaster.intersectObject(
+                        exteriorBuilding,
+                        true
+                    );
+
+                if (intersections.length === 0) {
+                    return null;
+                }
+
+                return intersections[0];
+
+            }
+
+            // =====================================================
+            // PHASE 8.2 PART 3
+            // FADE EXTERIOR BUILDING
+            // =====================================================
+
+            function fadeExteriorBuilding(
+                targetOpacity,
+                duration = 500,
+                onComplete = null
+            ) {
+
+                const materials = [];
+
+                exteriorBuilding.traverse(
+                    object => {
+
+                        if (
+                            object.material
+                        ) {
+
+                            const objectMaterials =
+                                Array.isArray(
+                                    object.material
+                                )
+                                    ? object.material
+                                    : [object.material];
+
+                            objectMaterials.forEach(
+                                material => {
+
+                                    materials.push({
+
+                                        material:
+                                            material,
+
+                                        startOpacity:
+                                            material.opacity
+
+                                    });
+
+                                }
+                            );
+
+                        }
+
+                    }
+                );
+
+
+                const startTime =
+                    performance.now();
+
+
+                function animateFade(
+                    currentTime
+                ) {
+
+                    const elapsed =
+                        currentTime -
+                        startTime;
+
+                    const progress =
+                        Math.min(
+                            elapsed / duration,
+                            1
+                        );
+
+
+                    // Smooth easing
+                    const eased =
+                        progress *
+                        progress *
+                        (
+                            3 -
+                            2 * progress
+                        );
+
+
+                    materials.forEach(
+                        item => {
+
+                            item.material.opacity =
+                                THREE.MathUtils.lerp(
+                                    item.startOpacity,
+                                    targetOpacity,
+                                    eased
+                                );
+
+                        }
+                    );
+
+
+                    if (
+                        progress < 1
+                    ) {
+
+                        requestAnimationFrame(
+                            animateFade
+                        );
+
+                    } else {
+
+                        if (onComplete) {
+
+                            onComplete();
+
+                        }
+
+                    }
+
+                }
+
+
+                requestAnimationFrame(
+                    animateFade
+                );
+
+            }
+
+            // =====================================================
+            // PHASE 8.2 PART 3
+            // GET CINEMATIC CAMERA POSITION NEAR EXTERIOR
+            // =====================================================
+
+            function getExteriorFocusView() {
+
+                const box =
+                    new THREE.Box3()
+                        .setFromObject(
+                            exteriorBuilding
+                        );
+
+                const center =
+                    box.getCenter(
+                        new THREE.Vector3()
+                    );
+
+                const size =
+                    box.getSize(
+                        new THREE.Vector3()
+                    );
+
+
+                const distance =
+                    Math.max(
+                        size.x,
+                        size.y,
+                        size.z
+                    );
+
+
+                const position =
+                    new THREE.Vector3(
+
+                        center.x +
+                            distance * 0.75,
+
+                        center.y +
+                            distance * 0.5,
+
+                        center.z +
+                            distance * 0.9
+
+                    );
+
+
+                return {
+
+                    position:
+                        position,
+
+                    target:
+                        center
+
+                };
+
+            }
+
+            // =====================================================
+            // PHASE 8.2 PART 2
+            // ENTER INTERIOR BUILDING MODE
+            // =====================================================
+
+            // =====================================================
+            // PHASE 8.2 PART 3
+            // CINEMATICALLY ENTER INTERIOR BUILDING MODE
+            // =====================================================
+
+            function enterInteriorMode() {
+
+                if (
+                    currentBuildingView ===
+                    'interior'
+                ) {
+                    return;
+                }
+
+
+                if (
+                    isBuildingViewTransitioning
+                ) {
+                    return;
+                }
+
+
+                // =================================================
+                // LOCK INTERACTION DURING TRANSITION
+                // =================================================
+
+                isBuildingViewTransitioning =
+                    true;
+
+                renderer.domElement.style.cursor =
+                    'default';
+
+
+                // =================================================
+                // GET CINEMATIC EXTERIOR FOCUS POSITION
+                // =================================================
+
+                const exteriorView =
+                    getExteriorFocusView();
+
+
+                // =================================================
+                // FIRST CAMERA MOVEMENT
+                // MOVE TOWARD EXTERIOR
+                // =================================================
+
+                cameraTransition = {
+
+                    startPosition:
+                        camera.position.clone(),
+
+                    endPosition:
+                        exteriorView.position.clone(),
+
+                    startTarget:
+                        controls.target.clone(),
+
+                    endTarget:
+                        exteriorView.target.clone(),
+
+                    startTime:
+                        performance.now(),
+
+                    duration:
+                        700
+
+                };
+
+
+                // =================================================
+                // WAIT FOR CAMERA APPROACH
+                // =================================================
+
+                setTimeout(
+                    () => {
+
+                        // =============================================
+                        // FADE EXTERIOR BUILDING
+                        // =============================================
+
+                        fadeExteriorBuilding(
+                            0,
+                            450,
+                            () => {
+
+                                // =====================================
+                                // HIDE EXTERIOR
+                                // =====================================
+
+                                exteriorBuilding.visible =
+                                    false;
+
+
+                                // =====================================
+                                // SHOW INTERIOR
+                                // =====================================
+
+                                building.visible =
+                                    true;
+
+
+                                // =====================================
+                                // CHANGE VIEW MODE
+                                // =====================================
+
+                                currentBuildingView =
+                                    'interior';
+
+
+                                // =====================================
+                                // SHOW FLOOR FILTERS
+                                // =====================================
+
+                                if (
+                                    floorFilterButtonContainer
+                                ) {
+
+                                    floorFilterButtonContainer
+                                        .style
+                                        .display = '';
+
+                                }
+
+                                if (
+                                    backToBuildingOverviewButton
+                                ) {
+
+                                    backToBuildingOverviewButton
+                                        .style
+                                        .display = '';
+
+                                }
+
+
+                                // =====================================
+                                // FOCUS CAMERA ON INTERIOR
+                                // =====================================
+
+                                focusCameraOnObject(
+                                    building
+                                );
+
+
+                                // =====================================
+                                // UNLOCK INTERACTION
+                                //
+                                // Wait for the interior camera
+                                // transition to mostly finish.
+                                // =====================================
+
+                                setTimeout(
+                                    () => {
+
+                                        isBuildingViewTransitioning =
+                                            false;
+
+                                        renderer.domElement.style.cursor =
+                                            'grab';
+
+                                    },
+                                    850
+                                );
+
+                            }
+                        );
+
+                    },
+                    700
+                );
+
+            }
+
+
+            // =====================================================
+            // PHASE 8.2 PART 4
+            // CINEMATICALLY RETURN TO EXTERIOR BUILDING MODE
+            // =====================================================
+
+            function returnToExteriorMode() {
+
+                // Do nothing if already outside
+                if (
+                    currentBuildingView ===
+                    'exterior'
+                ) {
+                    return;
+                }
+
+
+                // Prevent multiple transitions
+                if (
+                    isBuildingViewTransitioning
+                ) {
+                    return;
+                }
+
+
+                // =================================================
+                // LOCK INTERACTION
+                // =================================================
+
+                isBuildingViewTransitioning =
+                    true;
+
+                renderer.domElement.style.cursor =
+                    'default';
+
+
+                // =================================================
+                // CLEAR ROOM HOVER AND SELECTION
+                // =================================================
+
+                if (hoveredRoom) {
+
+                    if (
+                        hoveredRoom !==
+                        selectedRoom
+                    ) {
+
+                        restoreRoomVisual(
+                            hoveredRoom
+                        );
+
+                    }
+
+                    hoveredRoom = null;
+
+                }
+
+
+                if (selectedRoom) {
+
+                    restoreRoomVisual(
+                        selectedRoom
+                    );
+
+                    selectedRoom = null;
+
+                }
+
+
+                hideRoomTooltip();
+
+                roomDetailsPanel?.classList.remove(
+                    'visible'
+                );
+
+
+                // =================================================
+                // HIDE INTERIOR CONTROLS
+                // =================================================
+
+                if (
+                    floorFilterButtonContainer
+                ) {
+
+                    floorFilterButtonContainer
+                        .style
+                        .display = 'none';
+
+                }
+
+
+                if (
+                    backToBuildingOverviewButton
+                ) {
+
+                    backToBuildingOverviewButton
+                        .style
+                        .display = 'none';
+
+                }
+
+
+                // =================================================
+                // GET EXTERIOR CAMERA VIEW
+                // =================================================
+
+                const exteriorView =
+                    getExteriorFocusView();
+
+
+                // =================================================
+                // MOVE CAMERA TOWARD EXTERIOR VIEW
+                // =================================================
+
+                cameraTransition = {
+
+                    startPosition:
+                        camera.position.clone(),
+
+                    endPosition:
+                        exteriorView.position.clone(),
+
+                    startTarget:
+                        controls.target.clone(),
+
+                    endTarget:
+                        exteriorView.target.clone(),
+
+                    startTime:
+                        performance.now(),
+
+                    duration:
+                        800
+
+                };
+
+
+                // =================================================
+                // WAIT FOR CAMERA MOVEMENT
+                // =================================================
+
+                setTimeout(
+                    () => {
+
+                        // =========================================
+                        // HIDE INTERIOR
+                        // =========================================
+
+                        building.visible =
+                            false;
+
+
+                        // =========================================
+                        // SHOW EXTERIOR
+                        // =========================================
+
+                        exteriorBuilding.visible =
+                            true;
+
+
+                        // =========================================
+                        // CHANGE VIEW MODE
+                        // IMPORTANT:
+                        // getExteriorIntersection() only works
+                        // when currentBuildingView is "exterior"
+                        // =========================================
+
+                        currentBuildingView =
+                            'exterior';
+
+
+                        // =========================================
+                        // RESTORE EXTERIOR MATERIAL OPACITY
+                        // Phase 8.2 Part 3 faded everything to 0
+                        // =========================================
+
+                        exteriorBuilding.traverse(
+                            object => {
+
+                                if (!object.material) {
+                                    return;
+                                }
+
+                                const materials =
+                                    Array.isArray(
+                                        object.material
+                                    )
+                                        ? object.material
+                                        : [object.material];
+
+
+                                materials.forEach(
+                                    material => {
+
+                                        // Exterior mesh material
+                                        if (
+                                            material.isMeshPhysicalMaterial
+                                        ) {
+
+                                            material.opacity =
+                                                0.18;
+
+                                        }
+
+                                        // Exterior cyan wireframe
+                                        if (
+                                            material.isLineBasicMaterial
+                                        ) {
+
+                                            material.opacity =
+                                                0.85;
+
+                                        }
+
+                                    }
+                                );
+
+                            }
+                        );
+
+
+                        // =========================================
+                        // UNLOCK INTERACTION
+                        // =========================================
+
+                        isBuildingViewTransitioning =
+                            false;
+
+                        renderer.domElement.style.cursor =
+                            'grab';
+
+                    },
+                    850
+                );
+
+            }
+
+            // =====================================================
+            // PHASE 8.2 PART 4
+            // BACK TO BUILDING OVERVIEW BUTTON CLICK
+            // =====================================================
+
+            backToBuildingOverviewButton
+                ?.addEventListener(
+                    'click',
+                    () => {
+
+                        returnToExteriorMode();
+
+                    }
+                );
+
 
             // =====================================================
             // PHASE 3
@@ -8233,6 +11761,50 @@
             renderer.domElement.addEventListener(
                 'pointermove',
                 function (event) {
+
+                    // =====================================================
+                    // PHASE 8.2 PART 3
+                    // IGNORE HOVER DURING CINEMATIC TRANSITION
+                    // =====================================================
+
+                    if (
+                        isBuildingViewTransitioning
+                    ) {
+
+                        renderer.domElement.style.cursor =
+                            'default';
+
+                        return;
+
+                    }
+
+                    
+
+                    // =====================================================
+                    // PHASE 8.2 PART 2
+                    // EXTERIOR BUILDING HOVER
+                    // =====================================================
+
+                    if (currentBuildingView === 'exterior') {
+
+                        const exteriorHit =
+                            getExteriorIntersection(event);
+
+                        renderer.domElement.style.cursor =
+                            exteriorHit
+                                ? 'pointer'
+                                : 'grab';
+
+                        // Stop here while viewing the exterior.
+                        // The room hover code below should only run
+                        // when we are inside the building.
+                        return;
+                    }
+
+
+                    // =====================================================
+                    // EXISTING ROOM HOVER CODE
+                    // =====================================================
 
                     getViewerMousePosition(event);
 
@@ -8344,6 +11916,27 @@
             renderer.domElement.addEventListener(
                 'click',
                 function (event) {
+
+                    // =====================================================
+                    // PHASE 8.2 PART 2
+                    // EXTERIOR BUILDING CLICK
+                    // =====================================================
+
+                    if (currentBuildingView === 'exterior') {
+
+                        const exteriorHit =
+                            getExteriorIntersection(event);
+
+                        if (exteriorHit) {
+
+                            enterInteriorMode();
+
+                        }
+
+                        // Prevent room selection from running
+                        // while in exterior mode.
+                        return;
+                    }
 
                     getViewerMousePosition(event);
 
