@@ -390,13 +390,9 @@ class AdminController extends Controller
                 'reports_table.report_unlisted_equipment_name',
                 'equipment_table.equipment_name'
             )
-<<<<<<< HEAD
-            ->whereNotNull('requisition_issue_slip_table.ris_requested_by_date')
-=======
             ->where('requisition_issue_slip_table.ris_status', 'Pending')
             ->whereNotNull('requisition_issue_slip_table.ris_requested_by_date')
             ->whereNull('requisition_issue_slip_table.ris_approved_by_date')
->>>>>>> d8daffc056cc5a9fb69d71a51889a26aaa65dab1
             ->orderByDesc('requisition_issue_slip_table.ris_requested_by_date')
             ->paginate(10);
 
@@ -424,11 +420,7 @@ class AdminController extends Controller
             DB::table('requisition_issue_slip_table')
                 ->where('ris_id', $risId)
                 ->update([
-<<<<<<< HEAD
-                    'ris_status' => 'Approved',
-=======
                     'ris_status' => 'Pending',
->>>>>>> d8daffc056cc5a9fb69d71a51889a26aaa65dab1
                     'ris_approved_by_signature' => Auth::user()->user_full_name ?? 'Admin',
                     'ris_approved_by_date' => now()->toDateString(),
                 ]);
