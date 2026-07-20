@@ -405,7 +405,7 @@ class PresidentController extends Controller
     {
         $filter = $request->filled('filter') ? $request->filter : 'approved';
         
-        if (!in_array($filter, ['approved', 'rejected'], true)) {
+        if (!in_array($filter, ['approved', 'rejected', 'pending'], true)) {
             $filter = 'approved';
         }
 
@@ -426,7 +426,7 @@ class PresidentController extends Controller
                 'log.approval_log_approved_at as decided_at',
                 DB::raw('COALESCE(SUM(items.ris_total_amount), 0) as total_amount')
             )
-            ->where('ris.ris_status', $filter === 'approved' ? 'Approved' : 'Rejected')
+            ->where('ris.ris_status', $filter === 'approved' ? 'Approved' : ($filter === 'rejected' ? 'Rejected' : 'Pending'))
             ->groupBy(
                 'ris.ris_id',
                 'ris.ris_form_number',
@@ -477,7 +477,16 @@ class PresidentController extends Controller
             ->where('ris_status', 'Rejected')
             ->count();
             
-        $totalDecisions = $totalApproved + $totalRejected;
+        $pendingToday = DB::table('requisition_issue_slip_table')
+            ->where('ris_status', 'Pending')
+            ->whereDate('ris_created_at', $today)
+            ->count();
+
+        $totalPending = DB::table('requisition_issue_slip_table')
+            ->where('ris_status', 'Pending')
+            ->count();
+
+        $totalDecisions = $totalApproved + $totalRejected + $totalPending;
 
         if ($request->ajax()) {
             $tableHtml = view('president.reports._approved-table', compact('outcomeRecords'))->render();
@@ -501,6 +510,8 @@ class PresidentController extends Controller
             'totalApproved' => $totalApproved,
             'totalRejected' => $totalRejected,
             'totalDecisions' => $totalDecisions,
+            'pendingToday' => $pendingToday,
+            'totalPending' => $totalPending,
         ]);
     }
 

@@ -1,14 +1,14 @@
 @extends('layouts.president-layout')
 
-@section('title', 'RIS Decisions')
+@section('title', 'RIS Status')
 
 @section('content')
 
 <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between fade-in">
     <div>
-        <h1 class="text-2xl font-semibold tracking-tight text-gray-900">RIS Decisions</h1>
+        <h1 class="text-2xl font-semibold tracking-tight text-gray-900">RIS Status</h1>
         <p class="mt-1 text-sm leading-6 text-gray-500">
-            View all RIS decisions marked as Approved or Rejected by the President.
+            View all RIS records marked as Approved, Rejected, or Pending.
         </p>
     </div>
 
@@ -21,7 +21,7 @@
 </div>
 
 {{-- Summary Cards --}}
-<div class="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6 slide-up" style="animation-delay: 0.05s">
+<div class="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-7 slide-up" style="animation-delay: 0.05s">
     <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
         <p class="text-xs font-semibold text-emerald-700">Approved Today</p>
         <p class="mt-1 text-2xl font-bold text-emerald-900">{{ $approvedToday ?? 0 }}</p>
@@ -42,6 +42,10 @@
         <p class="text-xs font-semibold text-rose-700">Total Rejected</p>
         <p class="mt-1 text-2xl font-bold text-rose-900">{{ $totalRejected ?? 0 }}</p>
     </div>
+    <div class="rounded-xl border border-amber-200 bg-amber-50 p-4">
+        <p class="text-xs font-semibold text-amber-700">Pending Today</p>
+        <p class="mt-1 text-2xl font-bold text-amber-900">{{ $pendingToday ?? 0 }}</p>
+    </div>
     <div class="rounded-xl border border-gray-200 bg-white p-4">
         <p class="text-xs font-semibold text-gray-700">Total Decisions</p>
         <p class="mt-1 text-2xl font-bold text-gray-900">{{ $totalDecisions ?? 0 }}</p>
@@ -58,6 +62,10 @@
         <a href="/president/reports/approved?filter=rejected" class="inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition active:scale-95 {{ ($filter ?? 'approved') === 'rejected' ? 'border-rose-600 bg-rose-600 text-white' : 'border-rose-200 bg-white text-rose-700 hover:bg-rose-50' }}">
             <i data-lucide="x-circle" class="h-4 w-4"></i>
             RIS Rejections
+        </a>
+        <a href="/president/reports/approved?filter=pending" class="inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition active:scale-95 {{ ($filter ?? 'approved') === 'pending' ? 'border-amber-600 bg-amber-600 text-white' : 'border-amber-200 bg-white text-amber-700 hover:bg-amber-50' }}">
+            <i data-lucide="clock" class="h-4 w-4"></i>
+            Pending RIS
         </a>
     </div>
 </div>
@@ -85,10 +93,10 @@
     <section class="rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.15s">
         <div class="flex items-center justify-between gap-4">
             <div>
-                <h2 class="text-sm font-semibold text-gray-900">{{ ($filter ?? 'approved') === 'approved' ? 'Approved decision list' : 'Rejected decision list' }}</h2>
-                <p class="mt-1 text-xs text-gray-500">{{ ($filter ?? 'approved') === 'approved' ? 'RIS records approved by the President.' : 'RIS records rejected by the President.' }}</p>
+                <h2 class="text-sm font-semibold text-gray-900">{{ ($filter ?? 'approved') === 'approved' ? 'Approved decision list' : (($filter ?? 'approved') === 'rejected' ? 'Rejected decision list' : 'Pending decision list') }}</h2>
+                <p class="mt-1 text-xs text-gray-500">{{ ($filter ?? 'approved') === 'approved' ? 'RIS records approved by the President.' : (($filter ?? 'approved') === 'rejected' ? 'RIS records rejected by the President.' : 'RIS records pending President\'s decision.') }}</p>
             </div>
-            <span id="approvedCount" class="inline-flex items-center rounded-lg {{ ($filter ?? 'approved') === 'approved' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-rose-50 text-rose-800 border-rose-200' }} px-3 py-1 text-xs font-semibold border">
+            <span id="approvedCount" class="inline-flex items-center rounded-lg {{ ($filter ?? 'approved') === 'approved' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : (($filter ?? 'approved') === 'rejected' ? 'bg-rose-50 text-rose-800 border-rose-200' : 'bg-amber-50 text-amber-800 border-amber-200') }} px-3 py-1 text-xs font-semibold border">
                 {{ $outcomeRecords->total() }} total
             </span>
         </div>
