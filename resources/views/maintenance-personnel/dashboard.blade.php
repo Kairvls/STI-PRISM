@@ -1530,29 +1530,25 @@
 
                 /* ===================================================== */
                 /* CAROUSEL */
+                /* NO INNER PADDING SO 100% = EXACT VIEWPORT WIDTH */
                 /* ===================================================== */
 
                 .urgent-media-carousel {
                     display: flex;
-
                     align-items: stretch;
 
                     gap: 0;
 
                     overflow-x: auto;
-
                     overflow-y: hidden;
 
                     scroll-behavior: smooth;
-
                     scroll-snap-type: x mandatory;
 
-                    padding: 18px;
+                    padding: 0;
 
                     background: #ffffff;
-
                     border: 1px solid #e5e7eb;
-
                     border-radius: 22px;
 
                     box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
@@ -1561,28 +1557,23 @@
 
                 /* ===================================================== */
                 /* REPORT CARD */
+                /* ONE FULL CARD */
                 /* ===================================================== */
 
                 .urgent-media-card {
-                    flex: 0 0 33.333333%;
+                    flex: 0 0 100%;
+                    width: 100%;
+                    min-width: 100%;
 
-                    min-width: 0;
+                    box-sizing: border-box;
 
-                    padding: 0 8px;
-
-                    overflow: hidden;
+                    /* Card gets the spacing instead */
+                    padding: 28px 26px;
 
                     scroll-snap-align: start;
+                    scroll-snap-stop: always;
 
-                    background: transparent;
-
-                    border: 0;
-
-                    border-radius: 0;
-
-                    box-shadow: none;
-
-                    transition: none;
+                    overflow: hidden;
                 }
 
 
@@ -2016,21 +2007,6 @@
                 .urgent-media-empty span {
                     font-size: 10px;
                 }
-
-
-                /* ===================================================== */
-                /* TABLET */
-                /* SHOW 2 CARDS */
-                /* ===================================================== */
-
-                @media (max-width: 1024px) {
-
-                    .urgent-media-card {
-                        flex-basis: 50%;
-                    }
-
-                }
-
 
                 /* ===================================================== */
                 /* MOBILE */
@@ -5798,6 +5774,23 @@
         } from 'three/addons/controls/OrbitControls.js';
 
         // =====================================================
+        // BLOOM POST PROCESSING
+        // ADD THESE IMPORTS HERE
+        // =====================================================
+
+        import {
+            EffectComposer
+        } from 'three/addons/postprocessing/EffectComposer.js';
+
+        import {
+            RenderPass
+        } from 'three/addons/postprocessing/RenderPass.js';
+
+        import {
+            UnrealBloomPass
+        } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+        // =====================================================
         // PHASE 2.1
         // REAL FLOOR AND ROOM DATA FROM LARAVEL
         // =====================================================
@@ -5837,20 +5830,26 @@
 
             // =====================================================
             // SCENE
+            // DEEP BLUE BLACK HOLOGRAPHIC BACKGROUND
             // =====================================================
 
             const scene =
                 new THREE.Scene();
 
-            // Dark navy background
             scene.background =
-                new THREE.Color(0x020617);
+                new THREE.Color(
+                    0x020b14
+                );
 
-            // Adds depth to the scene
+
+            // =====================================================
+            // MATCH FOG WITH NEW BACKGROUND
+            // =====================================================
+
             scene.fog =
                 new THREE.FogExp2(
-                    0x020617,
-                    0.018
+                    0x020b14,
+                    0.012
                 );
 
 
@@ -5896,6 +5895,8 @@
                 container.clientHeight
             );
 
+            
+
             // Better color rendering
             renderer.outputColorSpace =
                 THREE.SRGBColorSpace;
@@ -5917,7 +5918,60 @@
                 renderer.domElement
             );
 
+            // =====================================================
+            // BLOOM POST PROCESSING
+            // ADD DIRECTLY AFTER RENDERER SETUP
+            // =====================================================
+
+            const composer =
+                new EffectComposer(
+                    renderer
+                );
+
+            const renderPass =
+                new RenderPass(
+                    scene,
+                    camera
+                );
+
+            composer.addPass(
+                renderPass
+            );
+
+
+            // =====================================================
+            // HOLOGRAPHIC CYAN BLOOM
+            // =====================================================
+
+            const bloomPass =
+                new UnrealBloomPass(
+
+                    new THREE.Vector2(
+                        container.clientWidth,
+                        container.clientHeight
+                    ),
+
+                    0.45,   // Strength, was 1.0
+                    0.30,   // Radius, was 0.45
+                    0.55    // Threshold, was 0.35
+
+                );
+
+            composer.addPass(
+                bloomPass
+            );
+
             
+            // =====================================================
+            // SET INITIAL COMPOSER SIZE
+            // PUT composer.setSize() HERE
+            // =====================================================
+
+            composer.setSize(
+                container.clientWidth,
+                container.clientHeight
+            );
+
 
 
             // =====================================================
@@ -5957,14 +6011,19 @@
 
             // =====================================================
             // LIGHTING
-            // MODERN DIGITAL TWIN LIGHTING
+            // BRIGHT BLUE CYAN HOLOGRAPHIC LIGHTING
             // =====================================================
 
-            // Soft overall blue lighting
+
+            // =====================================================
+            // BLUE AMBIENT LIGHT
+            // PROVIDES SOFT BLUE LIGHT ACROSS THE WHOLE SCENE
+            // =====================================================
+
             const ambientLight =
                 new THREE.AmbientLight(
-                    0x5b8cff,
-                    0.8
+                    0x38bdf8,
+                    1.2
                 );
 
             scene.add(
@@ -5972,11 +6031,61 @@
             );
 
 
-            // Main cool directional light
+            // =====================================================
+            // CYAN TOP LIGHT
+            // CREATES BRIGHT LIGHT FROM ABOVE
+            // =====================================================
+
+            const topLight =
+                new THREE.PointLight(
+                    0x22d3ee,
+                    12,
+                    100
+                );
+
+            topLight.position.set(
+                0,
+                20,
+                0
+            );
+
+            scene.add(
+                topLight
+            );
+
+
+            // =====================================================
+            // BLUE GROUND LIGHT
+            // CREATES BLUE GLOW UNDER THE BUILDING
+            // =====================================================
+
+            const groundLight =
+                new THREE.PointLight(
+                    0x008cff,
+                    15,
+                    50
+                );
+
+            groundLight.position.set(
+                0,
+                1,
+                5
+            );
+
+            scene.add(
+                groundLight
+            );
+
+
+            // =====================================================
+            // SOFT DIRECTIONAL LIGHT
+            // KEEPS THE BUILDING SHAPE VISIBLE
+            // =====================================================
+
             const directionalLight =
                 new THREE.DirectionalLight(
                     0xbfe8ff,
-                    2
+                    1.5
                 );
 
             directionalLight.position.set(
@@ -5985,74 +6094,37 @@
                 12
             );
 
-            directionalLight.castShadow = true;
+            directionalLight.castShadow =
+                true;
 
             scene.add(
                 directionalLight
             );
 
 
-            // Cyan light from one side
-            const cyanLight =
-                new THREE.PointLight(
-                    0x00d9ff,
-                    20,
-                    35
-                );
-
-            cyanLight.position.set(
-                -10,
-                8,
-                5
-            );
-
-            scene.add(
-                cyanLight
-            );
-
-
-            // Blue light from opposite side
-            const blueLight =
-                new THREE.PointLight(
-                    0x2563eb,
-                    15,
-                    30
-                );
-
-            blueLight.position.set(
-                10,
-                5,
-                -10
-            );
-
-            scene.add(
-                blueLight
-            );
-
-
             // =====================================================
-            // DIGITAL TWIN BASE PLATFORM
-            // REPLACES OLD GRAY FLOOR
+            // BLUE HOLOGRAPHIC GROUND PLANE
+            // REPLACES EXISTING DIGITAL TWIN BASE PLATFORM
             // =====================================================
 
             const floor =
                 new THREE.Mesh(
 
                     new THREE.PlaneGeometry(
-                        34,
-                        34
+                        100,
+                        100
                     ),
 
-                    new THREE.MeshPhysicalMaterial({
-                        color: 0x031525,
+                    new THREE.MeshBasicMaterial({
 
-                        roughness: 0.35,
-
-                        metalness: 0.4,
+                        color: 0x031d2e,
 
                         transparent: true,
 
-                        opacity: 0.95
+                        opacity: 0.45,
+
+                        side: THREE.DoubleSide
+
                     })
 
                 );
@@ -6060,10 +6132,14 @@
             floor.rotation.x =
                 -Math.PI / 2;
 
-            floor.position.y =
-                -0.05;
 
-            floor.receiveShadow = true;
+            // =====================================================
+            // PLACE SLIGHTLY BELOW GRID
+            // PREVENTS GRID FLICKERING
+            // =====================================================
+
+            floor.position.y =
+                -0.02;
 
             scene.add(
                 floor
@@ -6071,24 +6147,36 @@
 
 
             // =====================================================
-            // DIGITAL BLUEPRINT GRID
+            // FUTURISTIC BLUE DIGITAL GRID
+            // REPLACES EXISTING DIGITAL BLUEPRINT GRID
             // =====================================================
 
             const grid =
                 new THREE.GridHelper(
-                    34,
-                    34,
-                    0x00d9ff,
-                    0x164e63
+
+                    100,
+
+                    100,
+
+                    0x00cfff,
+
+                    0x075985
+
                 );
+
+
+            // =====================================================
+            // KEEP GRID SLIGHTLY ABOVE GROUND
+            // =====================================================
 
             grid.position.y =
                 0.01;
 
-            // Make grid slightly transparent
-            grid.material.transparent = true;
+            grid.material.transparent =
+                true;
 
-            grid.material.opacity = 0.35;
+            grid.material.opacity =
+                0.35;
 
             scene.add(
                 grid
@@ -6161,8 +6249,18 @@
 
 
             // =====================================================
+            // EXTERIOR HOLOGRAPHIC GLASS MATERIAL
+            // BRIGHTER CYAN FOR BLOOM
+            // =====================================================
+
+            // =====================================================
+            // EXTERIOR BUILDING SHELL MATERIAL
+            // RESTORED DARKER APPEARANCE
+            // =====================================================
+
+            // =====================================================
             // EXTERIOR MATERIAL
-            // HOLOGRAPHIC GLASS EFFECT
+            // RESTORED ORIGINAL HOLOGRAPHIC GLASS EFFECT
             // =====================================================
 
             const exteriorMaterial =
@@ -6191,7 +6289,7 @@
 
             // =====================================================
             // EXTERIOR EDGE MATERIAL
-            // CYAN ARCHITECTURAL WIREFRAME
+            // RESTORED ORIGINAL CYAN ARCHITECTURAL WIREFRAME
             // =====================================================
 
             const exteriorEdgeMaterial =
@@ -6204,7 +6302,6 @@
                     opacity: 0.85
 
                 });
-
 
             // =====================================================
             // PHASE 8.1
@@ -12403,10 +12500,7 @@
 
                 controls.update();
 
-                renderer.render(
-                    scene,
-                    camera
-                );
+                composer.render();
 
             }
 
