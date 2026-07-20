@@ -521,7 +521,7 @@
 
                 }
 
-                
+
 
                 /* ===================================================== */
                 /* DASHBOARD UTILITY TOOLBAR */
@@ -559,11 +559,244 @@
 
                     align-items: center;
 
-                    gap: 8px;
+                    gap: 10px;
 
                     flex: 0 0 auto;
 
                     white-space: nowrap;
+                }
+
+                .button {
+                    --h-button: 48px;
+                    --w-button: 102px;
+                    --round: 0.75rem;
+
+                    cursor: pointer;
+                    position: relative;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    overflow: hidden;
+
+                    transition: all 0.25s ease;
+
+                    /* CHANGE GRADIENT HERE */
+                    background: linear-gradient(
+                        to top,
+                        #60a5fa 0%,
+                        #2563eb 35%,
+                        #0622D6 70%,
+                        rgba(0,55,199,0.85) 100%
+                    );
+
+                    border-radius: var(--round);
+                    border: none;
+                    outline: none;
+                    padding: 10px 12px;
+                }
+                    linear-gradient(0deg, #7a5af8, #7a5af8);
+                .button::before,
+                .button::after {
+                    content: "";
+                    position: absolute;
+                    inset: var(--space);
+                    transition: all 0.5s ease-in-out;
+                    border-radius: calc(var(--round) - var(--space));
+                    z-index: 0;
+                }
+
+                .button::before {
+                    --space: 1px;
+
+                    background: linear-gradient(
+                        177.95deg,
+                        rgba(255, 255, 255, 0.19) 0%,
+                        rgba(255, 255, 255, 0) 100%
+                    );
+                }
+
+                .button::after {
+                    --space: 2px;
+
+                    /* CHANGE: WHITE AT BOTTOM TO BLUE AT TOP */
+                    background: linear-gradient(
+                        to top,
+                        #ffffff 0%,
+                        #bfdbfe 15%,
+                        #3b82f6 45%,
+                        #1d4ed8 100%
+                    );
+                }
+                .button:active {
+                transform: scale(0.95);
+                }
+
+                .fold {
+                z-index: 1;
+                position: absolute;
+                top: 0;
+                right: 0;
+                height: 1rem;
+                width: 1rem;
+                display: inline-block;
+                transition: all 0.5s ease-in-out;
+                background: radial-gradient(
+                    100% 75% at 55%,
+                    rgba(223, 113, 255, 0.8) 0%,
+                    rgba(223, 113, 255, 0) 100%
+                );
+                box-shadow: 0 0 3px black;
+                border-bottom-left-radius: 0.5rem;
+                border-top-right-radius: var(--round);
+                }
+                .fold::after {
+                content: "";
+                position: absolute;
+                top: 0;
+                right: 0;
+                width: 150%;
+                height: 150%;
+                transform: rotate(45deg) translateX(0%) translateY(-18px);
+                background-color: #e8e8e8;
+                pointer-events: none;
+                }
+                .button:hover .fold {
+                margin-top: -1rem;
+                margin-right: -1rem;
+                }
+
+                .points_wrapper {
+                overflow: hidden;
+                width: 100%;
+                height: 100%;
+                pointer-events: none;
+                position: absolute;
+                z-index: 1;
+                }
+
+                .points_wrapper .point {
+                bottom: -10px;
+                position: absolute;
+                animation: floating-points infinite ease-in-out;
+                pointer-events: none;
+                width: 2px;
+                height: 2px;
+                background-color: #fff;
+                border-radius: 9999px;
+                }
+                @keyframes floating-points {
+                0% {
+                    transform: translateY(0);
+                }
+                85% {
+                    opacity: 0;
+                }
+                100% {
+                    transform: translateY(-55px);
+                    opacity: 0;
+                }
+                }
+                .points_wrapper .point:nth-child(1) {
+                left: 10%;
+                opacity: 1;
+                animation-duration: 2.35s;
+                animation-delay: 0.2s;
+                }
+                .points_wrapper .point:nth-child(2) {
+                left: 30%;
+                opacity: 0.7;
+                animation-duration: 2.5s;
+                animation-delay: 0.5s;
+                }
+                .points_wrapper .point:nth-child(3) {
+                left: 25%;
+                opacity: 0.8;
+                animation-duration: 2.2s;
+                animation-delay: 0.1s;
+                }
+                .points_wrapper .point:nth-child(4) {
+                left: 44%;
+                opacity: 0.6;
+                animation-duration: 2.05s;
+                }
+                .points_wrapper .point:nth-child(5) {
+                left: 50%;
+                opacity: 1;
+                animation-duration: 1.9s;
+                }
+                .points_wrapper .point:nth-child(6) {
+                left: 75%;
+                opacity: 0.5;
+                animation-duration: 1.5s;
+                animation-delay: 1.5s;
+                }
+                .points_wrapper .point:nth-child(7) {
+                left: 88%;
+                opacity: 0.9;
+                animation-duration: 2.2s;
+                animation-delay: 0.2s;
+                }
+                .points_wrapper .point:nth-child(8) {
+                left: 58%;
+                opacity: 0.8;
+                animation-duration: 2.25s;
+                animation-delay: 0.2s;
+                }
+                .points_wrapper .point:nth-child(9) {
+                left: 98%;
+                opacity: 0.6;
+                animation-duration: 2.6s;
+                animation-delay: 0.1s;
+                }
+                .points_wrapper .point:nth-child(10) {
+                left: 65%;
+                opacity: 1;
+                animation-duration: 2.5s;
+                animation-delay: 0.2s;
+                }
+
+                .inner {
+                z-index: 2;
+                gap: 6px;
+                position: relative;
+                width: 100%;
+                color: white;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 12px;
+                font-weight: 500;
+                line-height: 1.5;
+                transition: color 0.2s ease-in-out;
+                }
+
+                .inner svg.icon {
+                width: 18px;
+                height: 18px;
+                transition: fill 0.1s linear;
+                }
+
+                .button:focus svg.icon {
+                fill: white;
+                }
+                .button:hover svg.icon {
+                fill: transparent;
+                animation:
+                    dasharray 1s linear forwards,
+                    filled 0.1s linear forwards 0.95s;
+                }
+                @keyframes dasharray {
+                from {
+                    stroke-dasharray: 0 0 0 0;
+                }
+                to {
+                    stroke-dasharray: 68 68 0 0;
+                }
+                }
+                @keyframes filled {
+                to {
+                    fill: white;
+                }
                 }
 
 
@@ -1568,7 +1801,7 @@
                     box-sizing: border-box;
 
                     /* Card gets the spacing instead */
-                    padding: 28px 26px;
+                    padding: 12px 10px;
 
                     scroll-snap-align: start;
                     scroll-snap-stop: always;
@@ -3051,7 +3284,7 @@
         }
 
         .flow-title {
-            
+
             font-size: clamp(18px, 2.5vw, 20px);
 
             font-weight: 600;
@@ -3129,7 +3362,7 @@
         MAINTENANCE HERO GRID
         ===================================================== */
 
-        
+
         .maintenance-hero {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3156,7 +3389,7 @@
         TOP SUMMARY CARDS
         ===================================================== */
 
-        
+
         .maintenance-summary-card {
             display: flex;
             flex-direction: column;
@@ -3569,7 +3802,7 @@
         3D BUILDING VIEWPORT
         ===================================================== */
 
-        
+
 
 
         /* =====================================================
@@ -3638,7 +3871,7 @@
 
             gap: 6px;
 
-            padding: 6px;
+            padding: 2px;
 
             background: rgba(255, 255, 255, 0.9);
 
@@ -4261,49 +4494,77 @@
                 {{-- ADD EQUIPMENT --}}
                 {{-- ===================================================== --}}
 
-                <a
-                    href="{{ url('/maintenance/equipment/create') }}"
-                    class="group inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition duration-200 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-950 focus:outline-none focus:ring-2 focus:ring-yellow-400/40"
-                >
-                    <!--<i
-                        data-lucide="package-plus"
-                        class="h-4 w-4 text-gray-400 transition-colors group-hover:text-yellow-600"
-                    ></i>-->
+                <button type="button" class="button">
+                    <span class="fold"></span>
 
-                    <span>Equipment</span>
-                </a>
+                    <div class="points_wrapper">
+                        <i class="point"></i>
+                        <i class="point"></i>
+                        <i class="point"></i>
+                        <i class="point"></i>
+                        <i class="point"></i>
+                        <i class="point"></i>
+                        <i class="point"></i>
+                        <i class="point"></i>
+                        <i class="point"></i>
+                        <i class="point"></i>
+                    </div>
 
-                {{-- ===================================================== --}}
-                {{-- ADD SCHEDULE --}}
-                {{-- ===================================================== --}}
+                    <span class="inner"
+                        ><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-patch-plus" viewBox="0 0 16 16">
+                        <path fill-rule="evenodd" d="M8 5.5a.5.5 0 0 1 .5.5v1.5H10a.5.5 0 0 1 0 1H8.5V10a.5.5 0 0 1-1 0V8.5H6a.5.5 0 0 1 0-1h1.5V6a.5.5 0 0 1 .5-.5"/>
+                        <path d="m10.273 2.513-.921-.944.715-.698.622.637.89-.011a2.89 2.89 0 0 1 2.924 2.924l-.01.89.636.622a2.89 2.89 0 0 1 0 4.134l-.637.622.011.89a2.89 2.89 0 0 1-2.924 2.924l-.89-.01-.622.636a2.89 2.89 0 0 1-4.134 0l-.622-.637-.89.011a2.89 2.89 0 0 1-2.924-2.924l.01-.89-.636-.622a2.89 2.89 0 0 1 0-4.134l.637-.622-.011-.89a2.89 2.89 0 0 1 2.924-2.924l.89.01.622-.636a2.89 2.89 0 0 1 4.134 0l-.715.698a1.89 1.89 0 0 0-2.704 0l-.92.944-1.32-.016a1.89 1.89 0 0 0-1.911 1.912l.016 1.318-.944.921a1.89 1.89 0 0 0 0 2.704l.944.92-.016 1.32a1.89 1.89 0 0 0 1.912 1.911l1.318-.016.921.944a1.89 1.89 0 0 0 2.704 0l.92-.944 1.32.016a1.89 1.89 0 0 0 1.911-1.912l-.016-1.318.944-.921a1.89 1.89 0 0 0 0-2.704l-.944-.92.016-1.32a1.89 1.89 0 0 0-1.912-1.911z"/>
+                        </svg>Equipment</span
+                    >
+                </button>
 
-                <a
-                    href="{{ url('/maintenance/schedules/create') }}"
-                    class="group inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition duration-200 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-950 focus:outline-none focus:ring-2 focus:ring-yellow-400/40"
-                >
-                    <!--<i
-                        data-lucide="calendar-plus"
-                        class="h-4 w-4 text-gray-400 transition-colors group-hover:text-yellow-600"
-                    ></i>-->
+                <button type="button" class="button">
+                    <span class="fold"></span>
 
-                    <span>Schedule</span>
-                </a>
+                    <div class="points_wrapper">
+                        <i class="point"></i>
+                        <i class="point"></i>
+                        <i class="point"></i>
+                        <i class="point"></i>
+                        <i class="point"></i>
+                        <i class="point"></i>
+                        <i class="point"></i>
+                        <i class="point"></i>
+                        <i class="point"></i>
+                        <i class="point"></i>
+                    </div>
 
-                {{-- ===================================================== --}}
-                {{-- ADD BORROWING --}}
-                {{-- ===================================================== --}}
+                    <span class="inner"
+                        ><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-patch-plus" viewBox="0 0 16 16">
+                        <path fill-rule="evenodd" d="M8 5.5a.5.5 0 0 1 .5.5v1.5H10a.5.5 0 0 1 0 1H8.5V10a.5.5 0 0 1-1 0V8.5H6a.5.5 0 0 1 0-1h1.5V6a.5.5 0 0 1 .5-.5"/>
+                        <path d="m10.273 2.513-.921-.944.715-.698.622.637.89-.011a2.89 2.89 0 0 1 2.924 2.924l-.01.89.636.622a2.89 2.89 0 0 1 0 4.134l-.637.622.011.89a2.89 2.89 0 0 1-2.924 2.924l-.89-.01-.622.636a2.89 2.89 0 0 1-4.134 0l-.622-.637-.89.011a2.89 2.89 0 0 1-2.924-2.924l.01-.89-.636-.622a2.89 2.89 0 0 1 0-4.134l.637-.622-.011-.89a2.89 2.89 0 0 1 2.924-2.924l.89.01.622-.636a2.89 2.89 0 0 1 4.134 0l-.715.698a1.89 1.89 0 0 0-2.704 0l-.92.944-1.32-.016a1.89 1.89 0 0 0-1.911 1.912l.016 1.318-.944.921a1.89 1.89 0 0 0 0 2.704l.944.92-.016 1.32a1.89 1.89 0 0 0 1.912 1.911l1.318-.016.921.944a1.89 1.89 0 0 0 2.704 0l.92-.944 1.32.016a1.89 1.89 0 0 0 1.911-1.912l-.016-1.318.944-.921a1.89 1.89 0 0 0 0-2.704l-.944-.92.016-1.32a1.89 1.89 0 0 0-1.912-1.911z"/>
+                        </svg>Schedule</span
+                    >
+                </button>
 
-                <a
-                    href="{{ url('/maintenance/borrowing/create') }}"
-                    class="group inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm transition duration-200 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-950 focus:outline-none focus:ring-2 focus:ring-yellow-400/40"
-                >
-                    <!--<i
-                        data-lucide="clipboard-plus"
-                        class="h-4 w-4 text-gray-400 transition-colors group-hover:text-yellow-600"
-                    ></i>-->
+                <button type="button" class="button">
+                    <span class="fold"></span>
 
-                    <span>Borrowing</span>
-                </a>
+                    <div class="points_wrapper">
+                        <i class="point"></i>
+                        <i class="point"></i>
+                        <i class="point"></i>
+                        <i class="point"></i>
+                        <i class="point"></i>
+                        <i class="point"></i>
+                        <i class="point"></i>
+                        <i class="point"></i>
+                        <i class="point"></i>
+                        <i class="point"></i>
+                    </div>
+
+                    <span class="inner"
+                        ><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-patch-plus" viewBox="0 0 16 16">
+                        <path fill-rule="evenodd" d="M8 5.5a.5.5 0 0 1 .5.5v1.5H10a.5.5 0 0 1 0 1H8.5V10a.5.5 0 0 1-1 0V8.5H6a.5.5 0 0 1 0-1h1.5V6a.5.5 0 0 1 .5-.5"/>
+                        <path d="m10.273 2.513-.921-.944.715-.698.622.637.89-.011a2.89 2.89 0 0 1 2.924 2.924l-.01.89.636.622a2.89 2.89 0 0 1 0 4.134l-.637.622.011.89a2.89 2.89 0 0 1-2.924 2.924l-.89-.01-.622.636a2.89 2.89 0 0 1-4.134 0l-.622-.637-.89.011a2.89 2.89 0 0 1-2.924-2.924l.01-.89-.636-.622a2.89 2.89 0 0 1 0-4.134l.637-.622-.011-.89a2.89 2.89 0 0 1 2.924-2.924l.89.01.622-.636a2.89 2.89 0 0 1 4.134 0l-.715.698a1.89 1.89 0 0 0-2.704 0l-.92.944-1.32-.016a1.89 1.89 0 0 0-1.911 1.912l.016 1.318-.944.921a1.89 1.89 0 0 0 0 2.704l.944.92-.016 1.32a1.89 1.89 0 0 0 1.912 1.911l1.318-.016.921.944a1.89 1.89 0 0 0 2.704 0l.92-.944 1.32.016a1.89 1.89 0 0 0 1.911-1.912l-.016-1.318.944-.921a1.89 1.89 0 0 0 0-2.704l-.944-.92.016-1.32a1.89 1.89 0 0 0-1.912-1.911z"/>
+                        </svg>Borrowing</span
+                    >
+                </button>
             </div>
         </div>
 
@@ -4322,461 +4583,461 @@
                 {{-- MAINTENANCE OPERATIONS HERO --}}
                 {{-- ===================================================== --}}
 
-                
-
-                
-
                 <div class="dashboard-overview-row">
-
-                {{-- ===================================================== --}}
-                {{-- PREMIUM FLOW ANALYTICS CARD --}}
-                {{-- ===================================================== --}}
-
-                @php
-                    $total = max(1, $urgentReports + $underMaintenance + $borrowedEquipment);
-
-                    $urgentPercent = round(($urgentReports / $total) * 100);
-                    $maintenancePercent = round(($underMaintenance / $total) * 100);
-                    $borrowedPercent = round(($borrowedEquipment / $total) * 100);
-                @endphp
-                <div class="flow-card">
-
-                    <div >
-                        {{-- Header --}}
-                        <div class="flow-header">
-                            <div>
-                                <div class="maintenance-hero-eyebrows">
-                                    MAINTENANCE OPERATIONS
-                                </div>
-
-                                <h2 class="flow-title">Equipment Statistics</h2>
-                            </div>
-
-                            <button class="flow-menu">
-                                <i data-lucide="more-vertical" class="h-4 w-4"></i>
-                            </button>
-                        </div>
-
-                        {{-- Statistics --}}
-                        <div class="flow-stats">
-                            <div class="flow-stat">
-                                <h2>{{ $urgentReports }}</h2>
-
-                                <p>Urgent Reports</p>
-                            </div>
-
-                            <div class="flow-stat">
-                                <h2>{{ $underMaintenance }}</h2>
-
-                                <p>Under Maintenance</p>
-                            </div>
-
-                            <div class="flow-stat">
-                                <h2>{{ $borrowedEquipment }}</h2>
-
-                                <p>Borrowed Equipment</p>
-                            </div>
-                        </div>
-
-                        
-                    </div>
-                    {{-- FLOW AREA --}}
-                    <div class="flow-area">
-                        {{-- LEFT BADGE --}}
-
-                        
-
-                        <svg
-                            id="flowRibbon"
-                            class="flow-svg"
-                            viewBox="0 0 1000 220"
-                            preserveAspectRatio="none"
-                        >
-                            <defs>
-                                {{-- ===================================================== --}}
-                                {{-- SOFT GLOW --}}
-                                {{-- ===================================================== --}}
-
-                                <filter
-                                    id="glowBlur"
-                                    x="-40%"
-                                    y="-80%"
-                                    width="180%"
-                                    height="260%"
-                                >
-                                    <feGaussianBlur stdDeviation="28" />
-                                </filter>
-
-                                {{-- ===================================================== --}}
-                                {{-- LIGHT BLOOM --}}
-                                {{-- ===================================================== --}}
-
-                                <filter
-                                    id="softBlur"
-                                    x="-30%"
-                                    y="-60%"
-                                    width="160%"
-                                    height="220%"
-                                >
-                                    <feGaussianBlur stdDeviation="10" />
-                                </filter>
-
-                                {{-- ===================================================== --}}
-                                {{-- MAIN COLOR --}}
-                                {{-- ===================================================== --}}
-
-                                <linearGradient
-                                    id="flowGradient"
-                                    x1="0%"
-                                    y1="0%"
-                                    x2="100%"
-                                    y2="0%"
-                                >
-                                    <stop offset="0%" stop-color="#BBC8FC" />
-
-                                    <stop offset="16%" stop-color="#8FA4FA" />
-
-                                    <stop offset="34%" stop-color="#6381F8" />
-
-                                    <stop offset="48%" stop-color="#2750F5" />
-
-                                    <stop offset="63%" stop-color="#0B3AF4" />
-
-                                    <stop offset="80%" stop-color="#092FC8" />
-
-                                    <stop offset="100%" stop-color="#07259C" />
-                                </linearGradient>
-
-                                {{-- ===================================================== --}}
-                                {{-- GLASS HIGHLIGHT --}}
-                                {{-- ===================================================== --}}
-
-                                <linearGradient
-                                    id="highlightGradient"
-                                    x1="0%"
-                                    y1="0%"
-                                    x2="0%"
-                                    y2="100%"
-                                >
-                                    <stop
-                                        offset="0%"
-                                        stop-color="rgba(255,255,255,.95)"
-                                    />
-
-                                    <stop
-                                        offset="55%"
-                                        stop-color="rgba(255,255,255,.25)"
-                                    />
-
-                                    <stop
-                                        offset="100%"
-                                        stop-color="rgba(255,255,255,0)"
-                                    />
-                                </linearGradient>
-                            </defs>
-
-                            
-
-                            {{-- ===================================================== --}}
-                            {{-- OUTER GLOW --}}
-                            {{-- ===================================================== --}}
-
-                            <path
-                                id="glowLayer"
-                                filter="url(#glowBlur)"
-                                fill="url(#flowGradient)"
-                                opacity=".16"
-                            />
-
-                            {{-- ===================================================== --}}
-                            {{-- OUTER TRANSLUCENT RIBBON --}}
-                            {{-- ===================================================== --}}
-
-                            <path
-                                id="outerRibbon"
-                                fill="url(#flowGradient)"
-                                opacity=".18"
-                            />
-
-                            {{-- ===================================================== --}}
-                            {{-- MIDDLE TRANSLUCENT RIBBON --}}
-                            {{-- ===================================================== --}}
-
-                            <path
-                                id="middleRibbon"
-                                fill="url(#flowGradient)"
-                                opacity=".36"
-                            />
-
-                            {{-- ===================================================== --}}
-                            {{-- MAIN RIBBON --}}
-                            {{-- ===================================================== --}}
-
-                            <path id="mainRibbon" fill="url(#flowGradient)" />
-
-                            {{-- ===================================================== --}}
-                            {{-- GLOSS --}}
-                            {{-- ===================================================== --}}
-
-                            <path
-                                id="highlightRibbon"
-                                fill="url(#highlightGradient)"
-                                opacity=".85"
-                            />
-
-                            {{-- ===================================================== --}}
-                            {{-- SOFT BLOOM --}}
-                            {{-- ===================================================== --}}
-
-                            <path
-                                id="softBloom"
-                                filter="url(#softBlur)"
-                                fill="url(#flowGradient)"
-                                opacity=".10"
-                            />
-
-                            {{-- ===================================================== --}}
-                            {{-- GUIDE LINES --}}
-                            {{-- ===================================================== --}}
-
-                            <line
-                                x1="120"
-                                y1="72"
-                                x2="120"
-                                y2="160"
-                                stroke="#94a3b8"
-                                stroke-width="2"
-                                stroke-dasharray="6 6"
-                                opacity=".9"
-                            />
-
-                            <line
-                                x1="500"
-                                y1="72"
-                                x2="500"
-                                y2="160"
-                                stroke="#94a3b8"
-                                stroke-width="2"
-                                stroke-dasharray="6 6"
-                                opacity=".9"
-                            />
-
-                            <line
-                                x1="880"
-                                y1="72"
-                                x2="880"
-                                y2="160"
-                                stroke="#94a3b8"
-                                stroke-width="2"
-                                stroke-dasharray="6 6"
-                                opacity=".9"
-                            />
-
-                            <foreignObject
-                                x="85"
-                                y="10"
-                                width="70"
-                                height="40"
-                            >
-                                <div xmlns="http://www.w3.org/1999/xhtml" class="flow-badge glass">
-                                    {{ $urgentPercent }}%
-                                </div>
-                            </foreignObject>
-
-                            <foreignObject
-                                x="465"
-                                y="0"
-                                width="70"
-                                height="40"
-                            >
-                                <div xmlns="http://www.w3.org/1999/xhtml" class="flow-badge badge-center">
-                                    {{ $maintenancePercent }}%
-                                </div>
-                            </foreignObject>
-
-                            <foreignObject
-                                x="845"
-                                y="10"
-                                width="70"
-                                height="40"
-                            >
-                                <div xmlns="http://www.w3.org/1999/xhtml" class="flow-badge glass">
-                                    {{ $borrowedPercent }}%
-                                </div>
-                            </foreignObject>
-
-                            <foreignObject
-                                x="85"
-                                y="170"
-                                width="70"
-                                height="40">
-                                <div xmlns="http://www.w3.org/1999/xhtml" class="flow-badge glass">
-                                    {{ $urgentPercent }}%
-                                </div>
-                            </foreignObject>
-
-                            <foreignObject
-                                x="465"
-                                y="170"
-                                width="70"
-                                height="40">
-                                <div xmlns="http://www.w3.org/1999/xhtml" class="flow-badge badge-center">
-                                    {{ $maintenancePercent }}%
-                                </div>
-                            </foreignObject>
-
-                            <foreignObject
-                                x="845"
-                                y="170"
-                                width="70"
-                                height="40">
-                                <div xmlns="http://www.w3.org/1999/xhtml" class="flow-badge glass">
-                                    {{ $borrowedPercent }}%
-                                </div>
-                            </foreignObject>
-                        </svg>
-                    </div>
-                </div>
-
-
-                <section class="maintenance-hero">
-
                     {{-- ===================================================== --}}
-                    {{-- TOP TWO CARDS --}}
+                    {{-- PREMIUM FLOW ANALYTICS CARD --}}
                     {{-- ===================================================== --}}
-                    <div class="maintenance-hero-summary">
 
-                        {{-- PENDING REPORTS --}}
-                        <div class="maintenance-summary-card">
-                            <span class="maintenance-summary-label">
-                                Pending Reports
-                            </span>
+                    @php
+                        $total = max(1, $urgentReports + $underMaintenance + $borrowedEquipment);
 
-                            <span class="maintenance-summary-number">
-                                {{ $pendingReports }}
-                            </span>
-
-                            <a
-                                href="{{ url('/maintenance/schedules') }}"
-                                class="maintenance-summary-action"
-                            >
-                                View Reports
-                            </a>
-                        </div>
-
-
-                        {{-- OVERDUE MAINTENANCE --}}
-                        <div class="maintenance-summary-card">
-                            <span class="maintenance-summary-label">
-                                Overdue Maintenance
-                            </span>
-
-                            <span class="maintenance-summary-number">
-                                {{ $overdueMaintenance }}
-                            </span>
-
-                            <a
-                                href="{{ url('/maintenance/schedules') }}"
-                                class="maintenance-summary-action"
-                            >
-                                View Schedule
-                            </a>
-                        </div>
-
-                    </div>
-
-
-                    {{-- ===================================================== --}}
-                    {{-- BOTTOM FULL WIDTH CARD --}}
-                    {{-- ===================================================== --}}
-                    <div class="maintenance-hero-main">
-
-                        <div class="maintenance-hero-eyebrow">
-                            MAINTENANCE OPERATIONS
-                        </div>
-
-                        <h2 class="maintenance-hero-title">
-                            {{ $urgentReports }} urgent reports require attention
-                        </h2>
-
-                        <p class="maintenance-hero-description">
-                            Review active maintenance issues and prioritize critical
-                            equipment requiring immediate action.
-                        </p>
-
-                        {{-- ===================================================== --}}
-                        {{-- REAL URGENT REPORT ACTIVITY: LAST 7 DAYS --}}
-                        {{-- ===================================================== --}}
-                        @php
-                            // Get the highest value so the bars can be scaled proportionally.
-                            // Example: if the highest count is 5, a day with 5 reports = 100%.
-                            $urgentChartMax = max($urgentChartData ?: [0]);
-
-                            // Prevent division by zero when there are no urgent reports.
-                            $urgentChartMax = max($urgentChartMax, 1);
-                        @endphp
-
-                        <div class="maintenance-mini-chart">
-                            <div class="maintenance-mini-chart-bars">
-
-                                @foreach ($urgentChartData as $index => $count)
-                                    @php
-                                        // Convert the real report count into a percentage height.
-                                        $barHeight = ($count / $urgentChartMax) * 100;
-                                    @endphp
-
-                                    <div class="maintenance-mini-chart-item">
-
-                                        <span
-                                            class="maintenance-mini-chart-bar"
-                                            style="height: {{ $barHeight }}%;"
-                                            title="{{ $miniChartLabels[$index] }}: {{ $count }} urgent reports"
-                                        ></span>
-
-                                        <small>
-                                            {{ $miniChartLabels[$index] }}
-                                        </small>
-
+                        $urgentPercent = round(($urgentReports / $total) * 100);
+                        $maintenancePercent = round(($underMaintenance / $total) * 100);
+                        $borrowedPercent = round(($borrowedEquipment / $total) * 100);
+                    @endphp
+                    <div class="flow-card">
+                        <div>
+                            {{-- Header --}}
+                            <div class="flow-header">
+                                <div>
+                                    <div class="maintenance-hero-eyebrows">
+                                        MAINTENANCE OPERATIONS
                                     </div>
-                                @endforeach
 
+                                    <h2 class="flow-title">
+                                        Equipment Statistics
+                                    </h2>
+                                </div>
+
+                                <button class="flow-menu">
+                                    <i
+                                        data-lucide="more-vertical"
+                                        class="h-4 w-4"
+                                    ></i>
+                                </button>
+                            </div>
+
+                            {{-- Statistics --}}
+                            <div class="flow-stats">
+                                <div class="flow-stat">
+                                    <h2>{{ $urgentReports }}</h2>
+
+                                    <p>Urgent Reports</p>
+                                </div>
+
+                                <div class="flow-stat">
+                                    <h2>{{ $underMaintenance }}</h2>
+
+                                    <p>Under Maintenance</p>
+                                </div>
+
+                                <div class="flow-stat">
+                                    <h2>{{ $borrowedEquipment }}</h2>
+
+                                    <p>Borrowed Equipment</p>
+                                </div>
+                            </div>
+                        </div>
+                        {{-- FLOW AREA --}}
+                        <div class="flow-area">
+                            {{-- LEFT BADGE --}}
+
+                            <svg
+                                id="flowRibbon"
+                                class="flow-svg"
+                                viewBox="0 0 1000 220"
+                                preserveAspectRatio="none"
+                            >
+                                <defs>
+                                    {{-- ===================================================== --}}
+                                    {{-- SOFT GLOW --}}
+                                    {{-- ===================================================== --}}
+
+                                    <filter
+                                        id="glowBlur"
+                                        x="-40%"
+                                        y="-80%"
+                                        width="180%"
+                                        height="260%"
+                                    >
+                                        <feGaussianBlur stdDeviation="28" />
+                                    </filter>
+
+                                    {{-- ===================================================== --}}
+                                    {{-- LIGHT BLOOM --}}
+                                    {{-- ===================================================== --}}
+
+                                    <filter
+                                        id="softBlur"
+                                        x="-30%"
+                                        y="-60%"
+                                        width="160%"
+                                        height="220%"
+                                    >
+                                        <feGaussianBlur stdDeviation="10" />
+                                    </filter>
+
+                                    {{-- ===================================================== --}}
+                                    {{-- MAIN COLOR --}}
+                                    {{-- ===================================================== --}}
+
+                                    <linearGradient
+                                        id="flowGradient"
+                                        x1="0%"
+                                        y1="0%"
+                                        x2="100%"
+                                        y2="0%"
+                                    >
+                                        <stop offset="0%" stop-color="#BBC8FC" />
+
+                                        <stop offset="16%" stop-color="#8FA4FA" />
+
+                                        <stop offset="34%" stop-color="#6381F8" />
+
+                                        <stop offset="48%" stop-color="#2750F5" />
+
+                                        <stop offset="63%" stop-color="#0B3AF4" />
+
+                                        <stop offset="80%" stop-color="#092FC8" />
+
+                                        <stop offset="100%" stop-color="#07259C" />
+                                    </linearGradient>
+
+                                    {{-- ===================================================== --}}
+                                    {{-- GLASS HIGHLIGHT --}}
+                                    {{-- ===================================================== --}}
+
+                                    <linearGradient
+                                        id="highlightGradient"
+                                        x1="0%"
+                                        y1="0%"
+                                        x2="0%"
+                                        y2="100%"
+                                    >
+                                        <stop
+                                            offset="0%"
+                                            stop-color="rgba(255,255,255,.95)"
+                                        />
+
+                                        <stop
+                                            offset="55%"
+                                            stop-color="rgba(255,255,255,.25)"
+                                        />
+
+                                        <stop
+                                            offset="100%"
+                                            stop-color="rgba(255,255,255,0)"
+                                        />
+                                    </linearGradient>
+                                </defs>
+
+                                {{-- ===================================================== --}}
+                                {{-- OUTER GLOW --}}
+                                {{-- ===================================================== --}}
+
+                                <path
+                                    id="glowLayer"
+                                    filter="url(#glowBlur)"
+                                    fill="url(#flowGradient)"
+                                    opacity=".16"
+                                />
+
+                                {{-- ===================================================== --}}
+                                {{-- OUTER TRANSLUCENT RIBBON --}}
+                                {{-- ===================================================== --}}
+
+                                <path
+                                    id="outerRibbon"
+                                    fill="url(#flowGradient)"
+                                    opacity=".18"
+                                />
+
+                                {{-- ===================================================== --}}
+                                {{-- MIDDLE TRANSLUCENT RIBBON --}}
+                                {{-- ===================================================== --}}
+
+                                <path
+                                    id="middleRibbon"
+                                    fill="url(#flowGradient)"
+                                    opacity=".36"
+                                />
+
+                                {{-- ===================================================== --}}
+                                {{-- MAIN RIBBON --}}
+                                {{-- ===================================================== --}}
+
+                                <path id="mainRibbon" fill="url(#flowGradient)" />
+
+                                {{-- ===================================================== --}}
+                                {{-- GLOSS --}}
+                                {{-- ===================================================== --}}
+
+                                <path
+                                    id="highlightRibbon"
+                                    fill="url(#highlightGradient)"
+                                    opacity=".85"
+                                />
+
+                                {{-- ===================================================== --}}
+                                {{-- SOFT BLOOM --}}
+                                {{-- ===================================================== --}}
+
+                                <path
+                                    id="softBloom"
+                                    filter="url(#softBlur)"
+                                    fill="url(#flowGradient)"
+                                    opacity=".10"
+                                />
+
+                                {{-- ===================================================== --}}
+                                {{-- GUIDE LINES --}}
+                                {{-- ===================================================== --}}
+
+                                <line
+                                    x1="120"
+                                    y1="72"
+                                    x2="120"
+                                    y2="160"
+                                    stroke="#94a3b8"
+                                    stroke-width="2"
+                                    stroke-dasharray="6 6"
+                                    opacity=".9"
+                                />
+
+                                <line
+                                    x1="500"
+                                    y1="72"
+                                    x2="500"
+                                    y2="160"
+                                    stroke="#94a3b8"
+                                    stroke-width="2"
+                                    stroke-dasharray="6 6"
+                                    opacity=".9"
+                                />
+
+                                <line
+                                    x1="880"
+                                    y1="72"
+                                    x2="880"
+                                    y2="160"
+                                    stroke="#94a3b8"
+                                    stroke-width="2"
+                                    stroke-dasharray="6 6"
+                                    opacity=".9"
+                                />
+
+                                <foreignObject
+                                    x="85"
+                                    y="10"
+                                    width="70"
+                                    height="40"
+                                >
+                                    <div
+                                        xmlns="http://www.w3.org/1999/xhtml"
+                                        class="flow-badge glass"
+                                    >
+                                        {{ $urgentPercent }}%
+                                    </div>
+                                </foreignObject>
+
+                                <foreignObject
+                                    x="465"
+                                    y="0"
+                                    width="70"
+                                    height="40"
+                                >
+                                    <div
+                                        xmlns="http://www.w3.org/1999/xhtml"
+                                        class="flow-badge badge-center"
+                                    >
+                                        {{ $maintenancePercent }}%
+                                    </div>
+                                </foreignObject>
+
+                                <foreignObject
+                                    x="845"
+                                    y="10"
+                                    width="70"
+                                    height="40"
+                                >
+                                    <div
+                                        xmlns="http://www.w3.org/1999/xhtml"
+                                        class="flow-badge glass"
+                                    >
+                                        {{ $borrowedPercent }}%
+                                    </div>
+                                </foreignObject>
+
+                                <foreignObject
+                                    x="85"
+                                    y="170"
+                                    width="70"
+                                    height="40"
+                                >
+                                    <div
+                                        xmlns="http://www.w3.org/1999/xhtml"
+                                        class="flow-badge glass"
+                                    >
+                                        {{ $urgentPercent }}%
+                                    </div>
+                                </foreignObject>
+
+                                <foreignObject
+                                    x="465"
+                                    y="170"
+                                    width="70"
+                                    height="40"
+                                >
+                                    <div
+                                        xmlns="http://www.w3.org/1999/xhtml"
+                                        class="flow-badge badge-center"
+                                    >
+                                        {{ $maintenancePercent }}%
+                                    </div>
+                                </foreignObject>
+
+                                <foreignObject
+                                    x="845"
+                                    y="170"
+                                    width="70"
+                                    height="40"
+                                >
+                                    <div
+                                        xmlns="http://www.w3.org/1999/xhtml"
+                                        class="flow-badge glass"
+                                    >
+                                        {{ $borrowedPercent }}%
+                                    </div>
+                                </foreignObject>
+                            </svg>
+                        </div>
+                    </div>
+
+                    <section class="maintenance-hero">
+                        {{-- ===================================================== --}}
+                        {{-- TOP TWO CARDS --}}
+                        {{-- ===================================================== --}}
+                        <div class="maintenance-hero-summary">
+                            {{-- PENDING REPORTS --}}
+                            <div class="maintenance-summary-card">
+                                <span class="maintenance-summary-label">
+                                    Pending Reports
+                                </span>
+
+                                <span class="maintenance-summary-number">
+                                    {{ $pendingReports }}
+                                </span>
+
+                                <a
+                                    href="{{ url('/maintenance/schedules') }}"
+                                    class="maintenance-summary-action"
+                                >
+                                    View Reports
+                                </a>
+                            </div>
+
+                            {{-- OVERDUE MAINTENANCE --}}
+                            <div class="maintenance-summary-card">
+                                <span class="maintenance-summary-label">
+                                    Overdue Maintenance
+                                </span>
+
+                                <span class="maintenance-summary-number">
+                                    {{ $overdueMaintenance }}
+                                </span>
+
+                                <a
+                                    href="{{ url('/maintenance/schedules') }}"
+                                    class="maintenance-summary-action"
+                                >
+                                    View Schedule
+                                </a>
                             </div>
                         </div>
 
-                        <div class="maintenance-hero-actions">
+                        {{-- ===================================================== --}}
+                        {{-- BOTTOM FULL WIDTH CARD --}}
+                        {{-- ===================================================== --}}
+                        <div class="maintenance-hero-main">
+                            <div class="maintenance-hero-eyebrow">
+                                MAINTENANCE OPERATIONS
+                            </div>
 
-                            <a
-                                href="{{ url('/maintenance/reports') }}"
-                                class="maintenance-hero-primary"
-                            >
-                                Review Reports
+                            <h2 class="maintenance-hero-title">
+                                {{ $urgentReports }} urgent reports require
+                                attention
+                            </h2>
 
-                                <i
-                                    data-lucide="chevrons-right"
-                                    class="h-4 w-4"
-                                ></i>
-                            </a>
+                            <p class="maintenance-hero-description">Review active maintenance issues and prioritize critical equipment requiring immediate action.</p>
 
-                            <button
-                                type="button"
-                                class="maintenance-hero-secondary"
-                            >
-                                <i
-                                    data-lucide="scan-line"
-                                    class="h-4 w-4"
-                                ></i>
+                            {{-- ===================================================== --}}
+                            {{-- REAL URGENT REPORT ACTIVITY: LAST 7 DAYS --}}
+                            {{-- ===================================================== --}}
+                            @php
+                                // Get the highest value so the bars can be scaled proportionally.
+                                // Example: if the highest count is 5, a day with 5 reports = 100%.
+                                $urgentChartMax = max($urgentChartData ?: [0]);
 
-                                Scan Equipment
-                            </button>
+                                // Prevent division by zero when there are no urgent reports.
+                                $urgentChartMax = max($urgentChartMax, 1);
+                            @endphp
 
+                            <div class="maintenance-mini-chart">
+                                <div class="maintenance-mini-chart-bars">
+                                    @foreach ($urgentChartData as $index => $count)
+                                        @php
+                                            // Convert the real report count into a percentage height.
+                                            $barHeight = ($count / $urgentChartMax) * 100;
+                                        @endphp
+
+                                        <div
+                                            class="maintenance-mini-chart-item"
+                                        >
+                                            <span
+                                                class="maintenance-mini-chart-bar"
+                                                style="height: {{ $barHeight }}%;"
+                                                title="{{ $miniChartLabels[$index] }}: {{ $count }} urgent reports"
+                                            ></span>
+
+                                            <small>
+                                                {{
+                                                    $miniChartLabels[
+                                                        $index
+                                                    ]
+                                                }}
+                                            </small>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+
+                            <div class="maintenance-hero-actions">
+                                <a
+                                    href="{{ url('/maintenance/reports') }}"
+                                    class="maintenance-hero-primary"
+                                >
+                                    Review Reports
+
+                                    <i
+                                        data-lucide="chevrons-right"
+                                        class="h-4 w-4"
+                                    ></i>
+                                </a>
+
+                                <button
+                                    type="button"
+                                    class="maintenance-hero-secondary"
+                                >
+                                    <i
+                                        data-lucide="scan-line"
+                                        class="h-4 w-4"
+                                    ></i>
+
+                                    Scan Equipment
+                                </button>
+                            </div>
                         </div>
-
-                    </div>
-
-                </section>
-
-                
-
+                    </section>
                 </div>
 
                 {{-- ===================================================== --}}
@@ -4892,32 +5153,23 @@
                 {{-- ===================================================== --}}
 
                 <section class="dashboard-building-section">
-
                     {{-- HEADER --}}
                     <div class="dashboard-building-header">
                         <div>
-                            <p class="dashboard-building-eyebrow">
-                                INFRASTRUCTURE OVERVIEW
-                            </p>
+                            <p class="dashboard-building-eyebrow">INFRASTRUCTURE OVERVIEW</p>
 
                             <h2 class="dashboard-building-title">
                                 Building Rooms
                             </h2>
 
-                            <p class="dashboard-building-subtitle">
-                                Interactive overview of rooms, equipment, and maintenance status.
-                            </p>
+                            <p class="dashboard-building-subtitle">Interactive overview of rooms, equipment, and maintenance status.</p>
                         </div>
 
-                        <a
-                            href="#"
-                            class="dashboard-building-action"
-                        >
+                        <a href="#" class="dashboard-building-action">
                             <i data-lucide="maximize-2"></i>
                             <span>View Building</span>
                         </a>
                     </div>
-
 
                     {{-- 3D BUILDING VIEW --}}
                     {{-- ===================================================== --}}
@@ -4925,7 +5177,6 @@
                     {{-- ===================================================== --}}
 
                     <div class="dashboard-building-view">
-
                         {{-- THREE.JS WILL RENDER THE 3D SCENE HERE --}}
                         <div id="building3DViewport"></div>
 
@@ -4937,18 +5188,14 @@
                             id="buildingRoomDetailsPanel"
                             class="building-room-details-panel"
                         >
-
                             {{-- HEADER --}}
                             <div class="building-room-details-header">
-
                                 <div>
                                     <span class="building-room-details-eyebrow">
                                         SELECTED ROOM
                                     </span>
 
-                                    <h3 id="buildingRoomDetailsName">
-                                        Room
-                                    </h3>
+                                    <h3 id="buildingRoomDetailsName">Room</h3>
                                 </div>
 
                                 <button
@@ -4959,13 +5206,10 @@
                                 >
                                     <i data-lucide="x"></i>
                                 </button>
-
                             </div>
-
 
                             {{-- ROOM INFORMATION --}}
                             <div class="building-room-details-info">
-
                                 <div class="building-room-details-row">
                                     <span>Floor</span>
 
@@ -4981,17 +5225,16 @@
                                         Available
                                     </strong>
                                 </div>
-
                             </div>
-
 
                             {{-- MAINTENANCE SUMMARY --}}
                             <div class="building-room-details-stats">
-
                                 <div class="building-room-details-stat">
                                     <span>Active Reports</span>
 
-                                    <strong id="buildingRoomDetailsActiveReports">
+                                    <strong
+                                        id="buildingRoomDetailsActiveReports"
+                                    >
                                         0
                                     </strong>
                                 </div>
@@ -4999,7 +5242,9 @@
                                 <div class="building-room-details-stat">
                                     <span>Urgent Reports</span>
 
-                                    <strong id="buildingRoomDetailsUrgentReports">
+                                    <strong
+                                        id="buildingRoomDetailsUrgentReports"
+                                    >
                                         0
                                     </strong>
                                 </div>
@@ -5011,9 +5256,7 @@
                                         0
                                     </strong>
                                 </div>
-
                             </div>
-
 
                             {{-- ACTION --}}
                             <button
@@ -5025,7 +5268,6 @@
 
                                 <i data-lucide="arrow-right"></i>
                             </button>
-
                         </div>
 
                         {{-- ===================================================== --}}
@@ -5037,7 +5279,6 @@
                             class="building-room-tooltip"
                         >
                             <div class="building-room-tooltip-header">
-
                                 <span
                                     id="buildingRoomTooltipDot"
                                     class="building-room-tooltip-dot"
@@ -5046,7 +5287,6 @@
                                 <span class="building-room-tooltip-eyebrow">
                                     ROOM
                                 </span>
-
                             </div>
 
                             <div
@@ -5057,7 +5297,6 @@
                             </div>
 
                             <div class="building-room-tooltip-details">
-
                                 <span id="buildingRoomTooltipFloor">
                                     Floor
                                 </span>
@@ -5069,10 +5308,8 @@
                                 <span id="buildingRoomTooltipStatus">
                                     Available
                                 </span>
-
                             </div>
                         </div>
-
 
                         {{-- FLOATING LABEL --}}
                         <!--<div class="dashboard-building-badge">
@@ -5080,8 +5317,6 @@
 
                             Interactive Building Overview
                         </div>-->
-
-                        
 
                         {{-- ===================================================== --}}
                         {{-- PHASE 7.4: FLOOR FILTER CONTROLS --}}
@@ -5105,36 +5340,32 @@
                         <button
                             type="button"
                             id="backToBuildingOverview"
-                            style="display: none;"
+                            style="display: none"
                             class="building-back-overview-btn"
                         >
-                            <i class="fas fa-arrow-left"></i>
-                            <span>Back to Building Overview</span>
+                            
+                            <span>Return</span>
                         </button>
-
-                        
-
 
                         {{-- 3D CONTROLS --}}
                         <div class="building-3d-controls">
-
-                            <button
+                            <!--<button
                                 type="button"
                                 id="buildingZoomOut"
                                 class="building-3d-control"
                                 title="Zoom Out"
                             >
                                 <i data-lucide="minus"></i>
-                            </button>
+                            </button>-->
 
-                            <button
+                            <!--<button
                                 type="button"
                                 id="buildingZoomIn"
                                 class="building-3d-control"
                                 title="Zoom In"
                             >
                                 <i data-lucide="plus"></i>
-                            </button>
+                            </button>-->
 
                             <button
                                 type="button"
@@ -5144,14 +5375,9 @@
                             >
                                 <i data-lucide="rotate-ccw"></i>
                             </button>
-
                         </div>
-
                     </div>
-
                 </section>
-
-                
             </main>
 
             {{-- ===================================================== --}}
@@ -5700,12 +5926,12 @@
     {{-- ===================================================== --}}
 
     <script type="importmap">
-    {
-        "imports": {
-            "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
-            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+            }
         }
-    }
     </script>
 
     @php
@@ -5713,276 +5939,186 @@
         // PREPARE PHASE 2.1 BUILDING DATA
         // =====================================================
 
-        $building3DData = $floors->map(function ($floor) use ($roomsByFloor) {
-            return [
-                'id' => $floor->floor_id,
+        $building3DData = $floors
+            ->map(function ($floor) use ($roomsByFloor) {
+                return [
+                    "id" => $floor->floor_id,
 
-                'name' => $floor->floor_level,
+                    "name" => $floor->floor_level,
 
-                'rooms' => collect(
-                    $roomsByFloor->get(
-                        $floor->floor_id,
-                        collect()
-                    )
-                )
-                ->filter(function ($room) {
-                    return ! $room->room_is_archived;
-                })
-                ->map(function ($room) {
-                    return [
-                        'id' => $room->room_id,
-                        'name' => $room->room_name,
-                        'type' => $room->room_type,
-                        'status' => $room->dashboard_status,
+                    "rooms" => collect($roomsByFloor->get($floor->floor_id, collect()))
+                        ->filter(function ($room) {
+                            return !$room->room_is_archived;
+                        })
+                        ->map(function ($room) {
+                            return [
+                                "id" => $room->room_id,
+                                "name" => $room->room_name,
+                                "type" => $room->room_type,
+                                "status" => $room->dashboard_status,
 
-                        'activeReportCount' => $room->active_report_count,
+                                "activeReportCount" => $room->active_report_count,
 
-                        'urgentReportCount' => $room->urgent_report_count,
+                                "urgentReportCount" => $room->urgent_report_count,
 
-                        'maintenanceEquipmentCount' => $room->maintenance_equipment_count,
+                                "maintenanceEquipmentCount" =>
+                                    $room->maintenance_equipment_count,
 
-                        'x' => (float) $room->room_x,
-                        'y' => (float) $room->room_y,
+                                "x" => (float) $room->room_x,
+                                "y" => (float) $room->room_y,
 
-                        'width' => (float) $room->room_width,
-                        'height' => (float) $room->room_height,
+                                "width" => (float) $room->room_width,
+                                "height" => (float) $room->room_height,
 
-                        'color' => $room->room_color ?? '#ffffff',
+                                "color" => $room->room_color ?? "#ffffff",
 
-                        'rotation' => (float) data_get(
-                            $room->room_metadata,
-                            'rotation',
-                            0
-                        ),
-                    ];
-                })
-                ->values(),
-            ];
-        })->values();
+                                "rotation" => (float) data_get(
+                                    $room->room_metadata,
+                                    "rotation",
+                                    0,
+                                ),
+                            ];
+                        })
+                        ->values(),
+                ];
+            })
+            ->values();
     @endphp
 
     <script type="module">
-
         // =====================================================
         // IMPORT THREE.JS DIRECTLY
         // =====================================================
 
-        import * as THREE from 'three';
+        import * as THREE from "three";
 
-        import {
-            OrbitControls
-        } from 'three/addons/controls/OrbitControls.js';
+        import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
         // =====================================================
         // BLOOM POST PROCESSING
         // ADD THESE IMPORTS HERE
         // =====================================================
 
-        import {
-            EffectComposer
-        } from 'three/addons/postprocessing/EffectComposer.js';
+        import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 
-        import {
-            RenderPass
-        } from 'three/addons/postprocessing/RenderPass.js';
+        import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 
-        import {
-            UnrealBloomPass
-        } from 'three/addons/postprocessing/UnrealBloomPass.js';
+        import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 
         // =====================================================
         // PHASE 2.1
         // REAL FLOOR AND ROOM DATA FROM LARAVEL
         // =====================================================
-        const building3DData = @json($building3DData);
+        const building3DData = @json ($building3DData);
 
-        console.log(
-            'REAL 3D BUILDING DATA:',
-            building3DData
-        );
-
+        console.log("REAL 3D BUILDING DATA:", building3DData);
 
         // =====================================================
         // GET VIEWPORT
         // =====================================================
 
-        const container =
-            document.getElementById('building3DViewport');
+        const container = document.getElementById("building3DViewport");
 
-        console.log(
-            '3D Building Viewport:',
-            container
-        );
-
+        console.log("3D Building Viewport:", container);
 
         if (!container) {
-
-            console.error(
-                'building3DViewport was not found.'
-            );
-
+            console.error("building3DViewport was not found.");
         } else {
-
-            console.log(
-                'Starting Three.js building viewer...'
-            );
-
+            console.log("Starting Three.js building viewer...");
 
             // =====================================================
             // SCENE
             // DEEP BLUE BLACK HOLOGRAPHIC BACKGROUND
             // =====================================================
 
-            const scene =
-                new THREE.Scene();
+            const scene = new THREE.Scene();
 
-            scene.background =
-                new THREE.Color(
-                    0x020b14
-                );
-
+            scene.background = new THREE.Color(0x020b14);
 
             // =====================================================
             // MATCH FOG WITH NEW BACKGROUND
             // =====================================================
 
-            scene.fog =
-                new THREE.FogExp2(
-                    0x020b14,
-                    0.012
-                );
-
+            scene.fog = new THREE.FogExp2(0x020b14, 0.012);
 
             // =====================================================
             // CAMERA
             // =====================================================
 
-            const camera =
-                new THREE.PerspectiveCamera(
-                    45,
-                    container.clientWidth /
-                        container.clientHeight,
-                    0.1,
-                    1000
-                );
-
-            camera.position.set(
-                18,
-                14,
-                20
+            const camera = new THREE.PerspectiveCamera(
+                45,
+                container.clientWidth / container.clientHeight,
+                0.1,
+                1000,
             );
 
+            camera.position.set(18, 14, 20);
 
             // =====================================================
             // RENDERER
             // =====================================================
 
-            const renderer =
-                new THREE.WebGLRenderer({
-                    antialias: true,
-                    alpha: false
-                });
+            const renderer = new THREE.WebGLRenderer({
+                antialias: true,
+                alpha: false,
+            });
 
-            renderer.setPixelRatio(
-                Math.min(
-                    window.devicePixelRatio,
-                    2
-                )
-            );
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-            renderer.setSize(
-                container.clientWidth,
-                container.clientHeight
-            );
-
-            
+            renderer.setSize(container.clientWidth, container.clientHeight);
 
             // Better color rendering
-            renderer.outputColorSpace =
-                THREE.SRGBColorSpace;
+            renderer.outputColorSpace = THREE.SRGBColorSpace;
 
             // Better lighting calculation
-            renderer.toneMapping =
-                THREE.ACESFilmicToneMapping;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
 
-            renderer.toneMappingExposure =
-                1.15;
+            renderer.toneMappingExposure = 1.15;
 
             // Shadows
             renderer.shadowMap.enabled = true;
 
-            renderer.shadowMap.type =
-                THREE.PCFSoftShadowMap;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-            container.appendChild(
-                renderer.domElement
-            );
+            container.appendChild(renderer.domElement);
 
             // =====================================================
             // BLOOM POST PROCESSING
             // ADD DIRECTLY AFTER RENDERER SETUP
             // =====================================================
 
-            const composer =
-                new EffectComposer(
-                    renderer
-                );
+            const composer = new EffectComposer(renderer);
 
-            const renderPass =
-                new RenderPass(
-                    scene,
-                    camera
-                );
+            const renderPass = new RenderPass(scene, camera);
 
-            composer.addPass(
-                renderPass
-            );
-
+            composer.addPass(renderPass);
 
             // =====================================================
             // HOLOGRAPHIC CYAN BLOOM
             // =====================================================
 
-            const bloomPass =
-                new UnrealBloomPass(
+            const bloomPass = new UnrealBloomPass(
+                new THREE.Vector2(container.clientWidth, container.clientHeight),
 
-                    new THREE.Vector2(
-                        container.clientWidth,
-                        container.clientHeight
-                    ),
-
-                    0.45,   // Strength, was 1.0
-                    0.30,   // Radius, was 0.45
-                    0.55    // Threshold, was 0.35
-
-                );
-
-            composer.addPass(
-                bloomPass
+                0.45, // Strength, was 1.0
+                0.3, // Radius, was 0.45
+                0.55, // Threshold, was 0.35
             );
 
-            
+            composer.addPass(bloomPass);
+
             // =====================================================
             // SET INITIAL COMPOSER SIZE
             // PUT composer.setSize() HERE
             // =====================================================
 
-            composer.setSize(
-                container.clientWidth,
-                container.clientHeight
-            );
-
-
+            composer.setSize(container.clientWidth, container.clientHeight);
 
             // =====================================================
             // CAMERA CONTROLS
             // =====================================================
 
-            const controls =
-                new OrbitControls(
-                    camera,
-                    renderer.domElement
-                );
+            const controls = new OrbitControls(camera, renderer.domElement);
 
             controls.enableDamping = true;
             controls.dampingFactor = 0.06;
@@ -5993,195 +6129,117 @@
             controls.minDistance = 8;
             controls.maxDistance = 35;
 
-            controls.target.set(
-                0,
-                2.5,
-                0
-            );
+            controls.target.set(0, 2.5, 0);
 
-            controls.addEventListener(
-                'start',
-                () => {
-
-                    cameraTransition = null;
-
-                }
-            );
-
+            controls.addEventListener("start", () => {
+                cameraTransition = null;
+            });
 
             // =====================================================
             // LIGHTING
             // BRIGHT BLUE CYAN HOLOGRAPHIC LIGHTING
             // =====================================================
 
-
             // =====================================================
             // BLUE AMBIENT LIGHT
             // PROVIDES SOFT BLUE LIGHT ACROSS THE WHOLE SCENE
             // =====================================================
 
-            const ambientLight =
-                new THREE.AmbientLight(
-                    0x38bdf8,
-                    1.2
-                );
+            const ambientLight = new THREE.AmbientLight(0x38bdf8, 1.2);
 
-            scene.add(
-                ambientLight
-            );
-
+            scene.add(ambientLight);
 
             // =====================================================
             // CYAN TOP LIGHT
             // CREATES BRIGHT LIGHT FROM ABOVE
             // =====================================================
 
-            const topLight =
-                new THREE.PointLight(
-                    0x22d3ee,
-                    12,
-                    100
-                );
+            const topLight = new THREE.PointLight(0x22d3ee, 12, 100);
 
-            topLight.position.set(
-                0,
-                20,
-                0
-            );
+            topLight.position.set(0, 20, 0);
 
-            scene.add(
-                topLight
-            );
-
+            scene.add(topLight);
 
             // =====================================================
             // BLUE GROUND LIGHT
             // CREATES BLUE GLOW UNDER THE BUILDING
             // =====================================================
 
-            const groundLight =
-                new THREE.PointLight(
-                    0x008cff,
-                    15,
-                    50
-                );
+            const groundLight = new THREE.PointLight(0x008cff, 15, 50);
 
-            groundLight.position.set(
-                0,
-                1,
-                5
-            );
+            groundLight.position.set(0, 1, 5);
 
-            scene.add(
-                groundLight
-            );
-
+            scene.add(groundLight);
 
             // =====================================================
             // SOFT DIRECTIONAL LIGHT
             // KEEPS THE BUILDING SHAPE VISIBLE
             // =====================================================
 
-            const directionalLight =
-                new THREE.DirectionalLight(
-                    0xbfe8ff,
-                    1.5
-                );
+            const directionalLight = new THREE.DirectionalLight(0xbfe8ff, 1.5);
 
-            directionalLight.position.set(
-                10,
-                18,
-                12
-            );
+            directionalLight.position.set(10, 18, 12);
 
-            directionalLight.castShadow =
-                true;
+            directionalLight.castShadow = true;
 
-            scene.add(
-                directionalLight
-            );
-
+            scene.add(directionalLight);
 
             // =====================================================
             // BLUE HOLOGRAPHIC GROUND PLANE
             // REPLACES EXISTING DIGITAL TWIN BASE PLATFORM
             // =====================================================
 
-            const floor =
-                new THREE.Mesh(
+            const floor = new THREE.Mesh(
+                new THREE.PlaneGeometry(100, 100),
 
-                    new THREE.PlaneGeometry(
-                        100,
-                        100
-                    ),
+                new THREE.MeshBasicMaterial({
+                    color: 0x031d2e,
 
-                    new THREE.MeshBasicMaterial({
+                    transparent: true,
 
-                        color: 0x031d2e,
+                    opacity: 0.45,
 
-                        transparent: true,
+                    side: THREE.DoubleSide,
+                }),
+            );
 
-                        opacity: 0.45,
-
-                        side: THREE.DoubleSide
-
-                    })
-
-                );
-
-            floor.rotation.x =
-                -Math.PI / 2;
-
+            floor.rotation.x = -Math.PI / 2;
 
             // =====================================================
             // PLACE SLIGHTLY BELOW GRID
             // PREVENTS GRID FLICKERING
             // =====================================================
 
-            floor.position.y =
-                -0.02;
+            floor.position.y = -0.02;
 
-            scene.add(
-                floor
-            );
-
+            scene.add(floor);
 
             // =====================================================
             // FUTURISTIC BLUE DIGITAL GRID
             // REPLACES EXISTING DIGITAL BLUEPRINT GRID
             // =====================================================
 
-            const grid =
-                new THREE.GridHelper(
+            const grid = new THREE.GridHelper(
+                100,
 
-                    100,
+                100,
 
-                    100,
+                0x00cfff,
 
-                    0x00cfff,
-
-                    0x075985
-
-                );
-
+                0x075985,
+            );
 
             // =====================================================
             // KEEP GRID SLIGHTLY ABOVE GROUND
             // =====================================================
 
-            grid.position.y =
-                0.01;
+            grid.position.y = 0.01;
 
-            grid.material.transparent =
-                true;
+            grid.material.transparent = true;
 
-            grid.material.opacity =
-                0.35;
+            grid.material.opacity = 0.35;
 
-            scene.add(
-                grid
-            );
-
+            scene.add(grid);
 
             // =====================================================
             // BUILDING GROUP
@@ -6191,7 +6249,6 @@
             // PHASE 2: 3D BUILDING WITH INDIVIDUAL ROOMS
             // REPLACES THE OLD PLACEHOLDER BUILDING BLOCKS
             // =====================================================
-
 
             // =====================================================
             // BUILDING GROUP
@@ -6212,14 +6269,11 @@
             // exteriorBuilding = outside view
             // building = interior room view
 
-            const exteriorBuilding =
-                new THREE.Group();
+            const exteriorBuilding = new THREE.Group();
 
             exteriorBuilding.userData.isBuildingExterior = true;
 
-            scene.add(
-                exteriorBuilding
-            );
+            scene.add(exteriorBuilding);
 
             // =====================================================
             // PHASE 8.2
@@ -6229,10 +6283,9 @@
             // interior = user is viewing floors and rooms
             // =====================================================
 
-            let currentBuildingView = 'exterior';
+            let currentBuildingView = "exterior";
 
             let isBuildingViewTransitioning = false;
-
 
             // =====================================================
             // PHASE 8.2
@@ -6246,7 +6299,6 @@
             building.visible = false;
 
             exteriorBuilding.visible = true;
-
 
             // =====================================================
             // EXTERIOR HOLOGRAPHIC GLASS MATERIAL
@@ -6263,105 +6315,66 @@
             // RESTORED ORIGINAL HOLOGRAPHIC GLASS EFFECT
             // =====================================================
 
-            const exteriorMaterial =
-                new THREE.MeshPhysicalMaterial({
+            const exteriorMaterial = new THREE.MeshPhysicalMaterial({
+                color: 0x0c4a6e,
 
-                    color: 0x0c4a6e,
+                emissive: 0x063b52,
 
-                    emissive: 0x063b52,
+                emissiveIntensity: 0.35,
 
-                    emissiveIntensity: 0.35,
+                transparent: true,
 
-                    transparent: true,
+                opacity: 0.18,
 
-                    opacity: 0.18,
+                roughness: 0.15,
 
-                    roughness: 0.15,
+                metalness: 0.1,
 
-                    metalness: 0.1,
+                side: THREE.DoubleSide,
 
-                    side: THREE.DoubleSide,
-
-                    depthWrite: false
-
-                });
-
+                depthWrite: false,
+            });
 
             // =====================================================
             // EXTERIOR EDGE MATERIAL
             // RESTORED ORIGINAL CYAN ARCHITECTURAL WIREFRAME
             // =====================================================
 
-            const exteriorEdgeMaterial =
-                new THREE.LineBasicMaterial({
+            const exteriorEdgeMaterial = new THREE.LineBasicMaterial({
+                color: 0x67e8f9,
 
-                    color: 0x67e8f9,
+                transparent: true,
 
-                    transparent: true,
-
-                    opacity: 0.85
-
-                });
+                opacity: 0.85,
+            });
 
             // =====================================================
             // PHASE 8.1
             // HELPER FUNCTION TO CREATE BUILDING SECTIONS
             // =====================================================
 
-            function createExteriorSection(
-                width,
-                height,
-                depth,
-                x,
-                y,
-                z
-            ) {
-
-                const geometry =
-                    new THREE.BoxGeometry(
-                        width,
-                        height,
-                        depth
-                    );
-
+            function createExteriorSection(width, height, depth, x, y, z) {
+                const geometry = new THREE.BoxGeometry(width, height, depth);
 
                 // Main transparent building section
-                const mesh =
-                    new THREE.Mesh(
-                        geometry,
-                        exteriorMaterial.clone()
-                    );
+                const mesh = new THREE.Mesh(geometry, exteriorMaterial.clone());
 
-                mesh.position.set(
-                    x,
-                    y,
-                    z
-                );
+                mesh.position.set(x, y, z);
 
                 mesh.castShadow = true;
                 mesh.receiveShadow = true;
 
-
                 // Cyan wireframe outline
-                const edges =
-                    new THREE.EdgesGeometry(
-                        geometry
-                    );
+                const edges = new THREE.EdgesGeometry(geometry);
 
-                const outline =
-                    new THREE.LineSegments(
-                        edges,
-                        exteriorEdgeMaterial.clone()
-                    );
-
-                mesh.add(
-                    outline
+                const outline = new THREE.LineSegments(
+                    edges,
+                    exteriorEdgeMaterial.clone(),
                 );
 
+                mesh.add(outline);
 
-                exteriorBuilding.add(
-                    mesh
-                );
+                exteriorBuilding.add(mesh);
 
                 return mesh;
             }
@@ -6371,28 +6384,14 @@
             // CREATE CURVED FRONT ARCH
             // =====================================================
 
-            function createExteriorFrontArch(
-                width,
-                height,
-                depth,
-                x,
-                y,
-                z
-            ) {
-
+            function createExteriorFrontArch(width, height, depth, x, y, z) {
                 // =================================================
                 // ARCH GROUP
                 // =================================================
 
-                const archGroup =
-                    new THREE.Group();
+                const archGroup = new THREE.Group();
 
-                archGroup.position.set(
-                    x,
-                    y,
-                    z
-                );
-
+                archGroup.position.set(x, y, z);
 
                 // =================================================
                 // ARCH DIMENSIONS
@@ -6407,21 +6406,11 @@
                 // on the Robinsons front facade.
                 // =================================================
 
-                const columnWidth =
-                    Math.max(
-                        width * 0.16,
-                        0.35
-                    );
+                const columnWidth = Math.max(width * 0.16, 0.35);
 
-                const curveRadius =
-                    width / 2;
+                const curveRadius = width / 2;
 
-                const straightHeight =
-                    Math.max(
-                        height - curveRadius,
-                        height * 0.45
-                    );
-
+                const straightHeight = Math.max(height - curveRadius, height * 0.45);
 
                 // =================================================
                 // ARCH MATERIAL
@@ -6430,173 +6419,109 @@
                 // blueprint exterior style.
                 // =================================================
 
-                const archMaterial =
-                    new THREE.MeshBasicMaterial({
+                const archMaterial = new THREE.MeshBasicMaterial({
+                    color: 0x17375e,
 
-                        color: 0x17375e,
+                    transparent: true,
 
-                        transparent: true,
+                    opacity: 0.28,
 
-                        opacity: 0.28,
+                    side: THREE.DoubleSide,
 
-                        side: THREE.DoubleSide,
+                    depthWrite: false,
+                });
 
-                        depthWrite: false
+                const archEdgeMaterial = new THREE.LineBasicMaterial({
+                    color: 0x79cfff,
 
-                    });
+                    transparent: true,
 
-
-                const archEdgeMaterial =
-                    new THREE.LineBasicMaterial({
-
-                        color: 0x79cfff,
-
-                        transparent: true,
-
-                        opacity: 0.75
-
-                    });
-
+                    opacity: 0.75,
+                });
 
                 // =================================================
                 // LEFT VERTICAL COLUMN
                 // =================================================
 
-                const leftColumnGeometry =
-                    new THREE.BoxGeometry(
+                const leftColumnGeometry = new THREE.BoxGeometry(
+                    columnWidth,
 
-                        columnWidth,
+                    straightHeight,
 
-                        straightHeight,
+                    depth,
+                );
 
-                        depth
+                const leftColumn = new THREE.Mesh(
+                    leftColumnGeometry,
 
-                    );
-
-
-                const leftColumn =
-                    new THREE.Mesh(
-
-                        leftColumnGeometry,
-
-                        archMaterial.clone()
-
-                    );
-
+                    archMaterial.clone(),
+                );
 
                 leftColumn.position.set(
+                    -(width / 2) + columnWidth / 2,
 
-                    -(width / 2) +
-                        (columnWidth / 2),
+                    -(height / 2) + straightHeight / 2,
 
-                    -(height / 2) +
-                        (straightHeight / 2),
-
-                    0
-
+                    0,
                 );
 
-
-                archGroup.add(
-                    leftColumn
-                );
-
+                archGroup.add(leftColumn);
 
                 // =================================================
                 // LEFT COLUMN EDGES
                 // =================================================
 
-                const leftColumnEdges =
-                    new THREE.LineSegments(
+                const leftColumnEdges = new THREE.LineSegments(
+                    new THREE.EdgesGeometry(leftColumnGeometry),
 
-                        new THREE.EdgesGeometry(
-                            leftColumnGeometry
-                        ),
-
-                        archEdgeMaterial.clone()
-
-                    );
-
-
-                leftColumnEdges.position.copy(
-                    leftColumn.position
+                    archEdgeMaterial.clone(),
                 );
 
+                leftColumnEdges.position.copy(leftColumn.position);
 
-                archGroup.add(
-                    leftColumnEdges
-                );
-
+                archGroup.add(leftColumnEdges);
 
                 // =================================================
                 // RIGHT VERTICAL COLUMN
                 // =================================================
 
-                const rightColumnGeometry =
-                    new THREE.BoxGeometry(
+                const rightColumnGeometry = new THREE.BoxGeometry(
+                    columnWidth,
 
-                        columnWidth,
+                    straightHeight,
 
-                        straightHeight,
+                    depth,
+                );
 
-                        depth
+                const rightColumn = new THREE.Mesh(
+                    rightColumnGeometry,
 
-                    );
-
-
-                const rightColumn =
-                    new THREE.Mesh(
-
-                        rightColumnGeometry,
-
-                        archMaterial.clone()
-
-                    );
-
+                    archMaterial.clone(),
+                );
 
                 rightColumn.position.set(
+                    width / 2 - columnWidth / 2,
 
-                    (width / 2) -
-                        (columnWidth / 2),
+                    -(height / 2) + straightHeight / 2,
 
-                    -(height / 2) +
-                        (straightHeight / 2),
-
-                    0
-
+                    0,
                 );
 
-
-                archGroup.add(
-                    rightColumn
-                );
-
+                archGroup.add(rightColumn);
 
                 // =================================================
                 // RIGHT COLUMN EDGES
                 // =================================================
 
-                const rightColumnEdges =
-                    new THREE.LineSegments(
+                const rightColumnEdges = new THREE.LineSegments(
+                    new THREE.EdgesGeometry(rightColumnGeometry),
 
-                        new THREE.EdgesGeometry(
-                            rightColumnGeometry
-                        ),
-
-                        archEdgeMaterial.clone()
-
-                    );
-
-
-                rightColumnEdges.position.copy(
-                    rightColumn.position
+                    archEdgeMaterial.clone(),
                 );
 
+                rightColumnEdges.position.copy(rightColumn.position);
 
-                archGroup.add(
-                    rightColumnEdges
-                );
-
+                archGroup.add(rightColumnEdges);
 
                 // =================================================
                 // CURVED TOP
@@ -6607,47 +6532,33 @@
                 // inner opening instead of a solid semicircle.
                 // =================================================
 
-                const outerRadius =
-                    width / 2;
+                const outerRadius = width / 2;
 
+                const innerRadius = Math.max(
+                    outerRadius - columnWidth,
 
-                const innerRadius =
-                    Math.max(
+                    outerRadius * 0.55,
+                );
 
-                        outerRadius - columnWidth,
+                const archGeometry = new THREE.RingGeometry(
+                    innerRadius,
 
-                        outerRadius * 0.55
+                    outerRadius,
 
-                    );
+                    32,
 
+                    1,
 
-                const archGeometry =
-                    new THREE.RingGeometry(
+                    0,
 
-                        innerRadius,
+                    Math.PI,
+                );
 
-                        outerRadius,
+                const curvedArch = new THREE.Mesh(
+                    archGeometry,
 
-                        32,
-
-                        1,
-
-                        0,
-
-                        Math.PI
-
-                    );
-
-
-                const curvedArch =
-                    new THREE.Mesh(
-
-                        archGeometry,
-
-                        archMaterial.clone()
-
-                    );
-
+                    archMaterial.clone(),
+                );
 
                 // =================================================
                 // POSITION THE CURVE
@@ -6658,47 +6569,28 @@
                 // =================================================
 
                 curvedArch.position.set(
-
                     0,
 
-                    -(height / 2) +
-                        straightHeight,
+                    -(height / 2) + straightHeight,
 
-                    depth / 2 + 0.01
-
+                    depth / 2 + 0.01,
                 );
 
-
-                archGroup.add(
-                    curvedArch
-                );
-
+                archGroup.add(curvedArch);
 
                 // =================================================
                 // CURVED ARCH OUTLINE
                 // =================================================
 
-                const curvedArchEdges =
-                    new THREE.LineSegments(
+                const curvedArchEdges = new THREE.LineSegments(
+                    new THREE.EdgesGeometry(archGeometry),
 
-                        new THREE.EdgesGeometry(
-                            archGeometry
-                        ),
-
-                        archEdgeMaterial.clone()
-
-                    );
-
-
-                curvedArchEdges.position.copy(
-                    curvedArch.position
+                    archEdgeMaterial.clone(),
                 );
 
+                curvedArchEdges.position.copy(curvedArch.position);
 
-                archGroup.add(
-                    curvedArchEdges
-                );
-
+                archGroup.add(curvedArchEdges);
 
                 // =================================================
                 // MARK ALL OBJECTS AS EXTERIOR
@@ -6707,36 +6599,20 @@
                 // property for exterior clicking and interaction.
                 // =================================================
 
-                archGroup.traverse(
-                    child => {
-
-                        if (
-                            child.isMesh ||
-                            child.isLineSegments
-                        ) {
-
-                            child.userData.isBuildingExterior =
-                                true;
-
-                        }
-
+                archGroup.traverse((child) => {
+                    if (child.isMesh || child.isLineSegments) {
+                        child.userData.isBuildingExterior = true;
                     }
-                );
-
+                });
 
                 // =================================================
                 // ADD TO EXTERIOR BUILDING GROUP
                 // =================================================
 
-                exteriorBuilding.add(
-                    archGroup
-                );
-
+                exteriorBuilding.add(archGroup);
 
                 return archGroup;
-
             }
-
 
             // =====================================================
             // PHASE 8.1
@@ -6746,8 +6622,6 @@
             // of the STI College Ormoc building.
             // =====================================================
 
-
-
             // =====================================================
             // PHASE 8.1
             // SAVE IDENTIFICATION
@@ -6755,11 +6629,9 @@
             // =====================================================
 
             exteriorBuilding.userData = {
+                type: "exterior-building",
 
-                type: 'exterior-building',
-
-                name: 'STI College Ormoc'
-
+                name: "STI College Ormoc",
             };
 
             const raycaster = new THREE.Raycaster();
@@ -6778,75 +6650,47 @@
             // =====================================================
 
             function restoreRoomVisual(room) {
-
                 if (!room) {
                     return;
                 }
 
                 // Restore the room's original material appearance
                 if (room.userData.originalEmissive !== undefined) {
-
-                    room.material.emissive.setHex(
-                        room.userData.originalEmissive
-                    );
-
+                    room.material.emissive.setHex(room.userData.originalEmissive);
                 }
 
                 if (room.userData.originalEmissiveIntensity !== undefined) {
-
                     room.material.emissiveIntensity =
                         room.userData.originalEmissiveIntensity;
-
                 }
 
                 // Restore normal room size
-                room.scale.set(
-                    1,
-                    1,
-                    1
-                );
-
+                room.scale.set(1, 1, 1);
             }
 
-
             function applyRoomHoverVisual(room) {
-
                 if (!room || room === selectedRoom) {
                     return;
                 }
 
                 // Bright cyan hover effect
-                room.material.emissive.setHex(
-                    0x22d3ee
-                );
+                room.material.emissive.setHex(0x22d3ee);
 
-                room.material.emissiveIntensity =
-                    0.8;
-
+                room.material.emissiveIntensity = 0.8;
             }
 
-
             function applyRoomSelectedVisual(room) {
-
                 if (!room) {
                     return;
                 }
 
                 // Strong selected highlight
-                room.material.emissive.setHex(
-                    0xfacc15
-                );
+                room.material.emissive.setHex(0xfacc15);
 
-                room.material.emissiveIntensity =
-                    1;
+                room.material.emissiveIntensity = 1;
 
                 // Slightly enlarge selected room
-                room.scale.set(
-                    1.05,
-                    1.05,
-                    1.05
-                );
-
+                room.scale.set(1.05, 1.05, 1.05);
             }
 
             // =====================================================
@@ -6854,78 +6698,53 @@
             // ROOM DETAILS PANEL ELEMENTS
             // =====================================================
 
-            const roomDetailsPanel =
-                document.getElementById(
-                    'buildingRoomDetailsPanel'
-                );
+            const roomDetailsPanel = document.getElementById(
+                "buildingRoomDetailsPanel",
+            );
 
-            const roomDetailsName =
-                document.getElementById(
-                    'buildingRoomDetailsName'
-                );
+            const roomDetailsName = document.getElementById("buildingRoomDetailsName");
 
-            const roomDetailsFloor =
-                document.getElementById(
-                    'buildingRoomDetailsFloor'
-                );
+            const roomDetailsFloor = document.getElementById(
+                "buildingRoomDetailsFloor",
+            );
 
-            const roomDetailsStatus =
-                document.getElementById(
-                    'buildingRoomDetailsStatus'
-                );
+            const roomDetailsStatus = document.getElementById(
+                "buildingRoomDetailsStatus",
+            );
 
-            const roomDetailsActiveReports =
-                document.getElementById(
-                    'buildingRoomDetailsActiveReports'
-                );
+            const roomDetailsActiveReports = document.getElementById(
+                "buildingRoomDetailsActiveReports",
+            );
 
-            const roomDetailsUrgentReports =
-                document.getElementById(
-                    'buildingRoomDetailsUrgentReports'
-                );
+            const roomDetailsUrgentReports = document.getElementById(
+                "buildingRoomDetailsUrgentReports",
+            );
 
-            const roomDetailsMaintenance =
-                document.getElementById(
-                    'buildingRoomDetailsMaintenance'
-                );
+            const roomDetailsMaintenance = document.getElementById(
+                "buildingRoomDetailsMaintenance",
+            );
 
-            const roomDetailsClose =
-                document.getElementById(
-                    'buildingRoomDetailsClose'
-                );
+            const roomDetailsClose = document.getElementById(
+                "buildingRoomDetailsClose",
+            );
 
-            const roomDetailsView =
-                document.getElementById(
-                    'buildingRoomDetailsView'
-                );
+            const roomDetailsView = document.getElementById("buildingRoomDetailsView");
 
-            const roomTooltip =
-                document.getElementById(
-                    'buildingRoomTooltip'
-                );
+            const roomTooltip = document.getElementById("buildingRoomTooltip");
 
-            const roomTooltipName =
-                document.getElementById(
-                    'buildingRoomTooltipName'
-                );
+            const roomTooltipName = document.getElementById("buildingRoomTooltipName");
 
-            const roomTooltipFloor =
-                document.getElementById(
-                    'buildingRoomTooltipFloor'
-                );
+            const roomTooltipFloor = document.getElementById(
+                "buildingRoomTooltipFloor",
+            );
 
-            const roomTooltipStatus =
-                document.getElementById(
-                    'buildingRoomTooltipStatus'
-                );
+            const roomTooltipStatus = document.getElementById(
+                "buildingRoomTooltipStatus",
+            );
 
-            const roomTooltipDot =
-                document.getElementById(
-                    'buildingRoomTooltipDot'
-                );
+            const roomTooltipDot = document.getElementById("buildingRoomTooltipDot");
 
-            const buildingFloorGroups =
-                new Map();
+            const buildingFloorGroups = new Map();
 
             let cameraTransition = null;
 
@@ -6943,26 +6762,22 @@
             // =====================================================
 
             function formatRoomStatus(status) {
-
                 switch (status) {
+                    case "critical":
+                        return "Critical";
 
-                    case 'critical':
-                        return 'Critical';
+                    case "needs-repair":
+                        return "Needs Repair";
 
-                    case 'needs-repair':
-                        return 'Needs Repair';
+                    case "maintenance":
+                        return "Maintenance";
 
-                    case 'maintenance':
-                        return 'Maintenance';
-
-                    case 'available':
-                        return 'Available';
+                    case "available":
+                        return "Available";
 
                     default:
-                        return 'Available';
-
+                        return "Available";
                 }
-
             }
 
             // =====================================================
@@ -6970,111 +6785,63 @@
             // UPDATE TOOLTIP CONTENT
             // =====================================================
 
-            function updateRoomTooltip(
-                room,
-                mouseEvent
-            ) {
-
-                if (
-                    !roomTooltip ||
-                    !room
-                ) {
+            function updateRoomTooltip(room, mouseEvent) {
+                if (!roomTooltip || !room) {
                     return;
                 }
-
 
                 // =================================================
                 // ROOM INFORMATION
                 // =================================================
 
-                roomTooltipName.textContent =
-                    room.userData.roomName ||
-                    'Room';
+                roomTooltipName.textContent = room.userData.roomName || "Room";
 
-                roomTooltipFloor.textContent =
-                    room.userData.floorName ||
-                    'Floor';
+                roomTooltipFloor.textContent = room.userData.floorName || "Floor";
 
-                roomTooltipStatus.textContent =
-                    formatRoomStatus(
-                        room.userData.roomStatus
-                    );
-
+                roomTooltipStatus.textContent = formatRoomStatus(
+                    room.userData.roomStatus,
+                );
 
                 // =================================================
                 // STATUS DOT COLOR
                 // =================================================
 
-                if (
-                    room.userData.roomStatus ===
-                    'critical'
+                if (room.userData.roomStatus === "critical") {
+                    roomTooltipDot.style.background = "#ef4444";
+
+                    roomTooltipDot.style.boxShadow = "0 0 8px rgba(239, 68, 68, 0.9)";
+                } else if (
+                    room.userData.roomStatus === "needs-repair" ||
+                    room.userData.roomStatus === "maintenance"
                 ) {
+                    roomTooltipDot.style.background = "#f59e0b";
 
-                    roomTooltipDot.style.background =
-                        '#ef4444';
+                    roomTooltipDot.style.boxShadow = "0 0 8px rgba(245, 158, 11, 0.9)";
+                } else {
+                    roomTooltipDot.style.background = "#22d3ee";
 
-                    roomTooltipDot.style.boxShadow =
-                        '0 0 8px rgba(239, 68, 68, 0.9)';
-
+                    roomTooltipDot.style.boxShadow = "0 0 8px rgba(34, 211, 238, 0.9)";
                 }
-
-                else if (
-                    room.userData.roomStatus ===
-                    'needs-repair' ||
-                    room.userData.roomStatus ===
-                    'maintenance'
-                ) {
-
-                    roomTooltipDot.style.background =
-                        '#f59e0b';
-
-                    roomTooltipDot.style.boxShadow =
-                        '0 0 8px rgba(245, 158, 11, 0.9)';
-
-                }
-
-                else {
-
-                    roomTooltipDot.style.background =
-                        '#22d3ee';
-
-                    roomTooltipDot.style.boxShadow =
-                        '0 0 8px rgba(34, 211, 238, 0.9)';
-
-                }
-
 
                 // =================================================
                 // POSITION TOOLTIP
                 // =================================================
 
-                const viewRect =
-                    renderer.domElement
-                        .getBoundingClientRect();
+                const viewRect = renderer.domElement.getBoundingClientRect();
 
-                const mouseX =
-                    mouseEvent.clientX -
-                    viewRect.left;
+                const mouseX = mouseEvent.clientX - viewRect.left;
 
-                const mouseY =
-                    mouseEvent.clientY -
-                    viewRect.top;
+                const mouseY = mouseEvent.clientY - viewRect.top;
 
-                roomTooltip.style.left =
-                    `${mouseX}px`;
+                roomTooltip.style.left = `${mouseX}px`;
 
-                roomTooltip.style.top =
-                    `${mouseY}px`;
-
+                roomTooltip.style.top = `${mouseY}px`;
 
                 // =================================================
                 // SHOW TOOLTIP
                 // =================================================
 
-                roomTooltip.classList.add(
-                    'visible'
-                );
-
+                roomTooltip.classList.add("visible");
             }
 
             // =====================================================
@@ -7083,15 +6850,11 @@
             // =====================================================
 
             function hideRoomTooltip() {
-
                 if (!roomTooltip) {
                     return;
                 }
 
-                roomTooltip.classList.remove(
-                    'visible'
-                );
-
+                roomTooltip.classList.remove("visible");
             }
 
             // =====================================================
@@ -7100,63 +6863,43 @@
             // =====================================================
 
             function openRoomDetailsPanel(room) {
-
-                if (
-                    !room ||
-                    !roomDetailsPanel
-                ) {
+                if (!room || !roomDetailsPanel) {
                     return;
                 }
-
 
                 // =============================================
                 // UPDATE ROOM INFORMATION
                 // =============================================
 
-                roomDetailsName.textContent =
-                    room.roomName || 'Room';
+                roomDetailsName.textContent = room.roomName || "Room";
 
-                roomDetailsFloor.textContent =
-                    room.floorName || 'Unknown';
+                roomDetailsFloor.textContent = room.floorName || "Unknown";
 
-                roomDetailsStatus.textContent =
-                    formatRoomStatus(
-                        room.roomStatus
-                    );
-
+                roomDetailsStatus.textContent = formatRoomStatus(room.roomStatus);
 
                 // =============================================
                 // UPDATE MAINTENANCE COUNTS
                 // =============================================
 
-                roomDetailsActiveReports.textContent =
-                    room.activeReportCount || 0;
+                roomDetailsActiveReports.textContent = room.activeReportCount || 0;
 
-                roomDetailsUrgentReports.textContent =
-                    room.urgentReportCount || 0;
+                roomDetailsUrgentReports.textContent = room.urgentReportCount || 0;
 
                 roomDetailsMaintenance.textContent =
                     room.maintenanceEquipmentCount || 0;
-
 
                 // =============================================
                 // SAVE SELECTED ROOM ID
                 // =============================================
 
-                roomDetailsView.dataset.roomId =
-                    room.roomId;
-
+                roomDetailsView.dataset.roomId = room.roomId;
 
                 // =============================================
                 // SHOW PANEL
                 // =============================================
 
-                roomDetailsPanel.classList.add(
-                    'visible'
-                );
-
+                roomDetailsPanel.classList.add("visible");
             }
-
 
             // =====================================================
             // ROOM MATERIALS
@@ -7169,10 +6912,8 @@
             // =====================================================
 
             const roomMaterials = {
-
                 // NORMAL ROOM
                 normal: new THREE.MeshPhysicalMaterial({
-
                     color: 0x0c4a6e,
 
                     emissive: 0x062f46,
@@ -7189,14 +6930,11 @@
 
                     side: THREE.DoubleSide,
 
-                    depthWrite: true
-
+                    depthWrite: true,
                 }),
-
 
                 // MAINTENANCE / ACTIVE REPORT
                 warning: new THREE.MeshPhysicalMaterial({
-
                     color: 0x78350f,
 
                     emissive: 0xf59e0b,
@@ -7213,14 +6951,11 @@
 
                     side: THREE.DoubleSide,
 
-                    depthWrite: true
-
+                    depthWrite: true,
                 }),
-
 
                 // URGENT / CRITICAL
                 urgent: new THREE.MeshPhysicalMaterial({
-
                     color: 0x7f1d1d,
 
                     emissive: 0xef4444,
@@ -7237,29 +6972,22 @@
 
                     side: THREE.DoubleSide,
 
-                    depthWrite: true
-
-                })
-
+                    depthWrite: true,
+                }),
             };
-
 
             // =====================================================
             // ROOM BORDER MATERIAL
             // CYAN HOLOGRAPHIC OUTLINE
             // =====================================================
 
-            const roomEdgeMaterial =
-                new THREE.LineBasicMaterial({
+            const roomEdgeMaterial = new THREE.LineBasicMaterial({
+                color: 0x67e8f9,
 
-                    color: 0x67e8f9,
+                transparent: true,
 
-                    transparent: true,
-
-                    opacity: 0.9
-
-                });
-
+                opacity: 0.9,
+            });
 
             // =====================================================
             // CREATE INDIVIDUAL ROOM
@@ -7273,56 +7001,30 @@
             // status = normal, warning, or urgent
             // =====================================================
 
-            function createRoom(
-                name,
-                x,
-                y,
-                z,
-                width,
-                depth,
-                status = 'normal'
-            ) {
-
+            function createRoom(name, x, y, z, width, depth, status = "normal") {
                 // =================================================
                 // ROOM HEIGHT
                 // =================================================
 
                 const roomHeight = 1.8;
 
-
                 // =================================================
                 // CREATE ROOM GEOMETRY
                 // =================================================
 
-                const geometry =
-                    new THREE.BoxGeometry(
-                        width,
-                        roomHeight,
-                        depth
-                    );
-
+                const geometry = new THREE.BoxGeometry(width, roomHeight, depth);
 
                 // =================================================
                 // CREATE ROOM MESH
                 // =================================================
 
-                const room =
-                    new THREE.Mesh(
-                        geometry,
-                        roomMaterials[status].clone()
-                    );
-
+                const room = new THREE.Mesh(geometry, roomMaterials[status].clone());
 
                 // =================================================
                 // ROOM POSITION
                 // =================================================
 
-                room.position.set(
-                    x,
-                    y + 0.06 + (roomHeight / 2),
-                    z
-                );
-
+                room.position.set(x, y + 0.06 + roomHeight / 2, z);
 
                 // =================================================
                 // ENABLE SHADOWS
@@ -7332,56 +7034,39 @@
 
                 room.receiveShadow = true;
 
-
                 // =================================================
                 // SAVE ROOM INFORMATION
                 // THIS WILL BE USED IN PHASE 3 FOR CLICKING ROOMS
                 // =================================================
 
                 room.userData = {
-                    type: 'room',
+                    type: "room",
                     name: name,
-                    status: status
+                    status: status,
                 };
-
 
                 // =================================================
                 // ADD ROOM TO BUILDING
                 // =================================================
-
-                
-
 
                 // =================================================
                 // CREATE ROOM OUTLINE
                 // MAKES EACH ROOM EASIER TO SEE
                 // =================================================
 
-                const edges =
-                    new THREE.EdgesGeometry(
-                        geometry
-                    );
+                const edges = new THREE.EdgesGeometry(geometry);
 
-                const outline =
-                    new THREE.LineSegments(
-                        edges,
-                        roomEdgeMaterial
-                    );
+                const outline = new THREE.LineSegments(edges, roomEdgeMaterial);
 
-                room.add(
-                    outline
-                );
-
+                room.add(outline);
 
                 return room;
             }
-
 
             // =====================================================
             // PHASE 2.3
             // INDEPENDENT FLOOR ALIGNMENT AND STACKING
             // =====================================================
-
 
             // =====================================================
             // CONFIGURATION
@@ -7391,7 +7076,6 @@
             const BLUEPRINT_SCALE = 0.02;
 
             // Vertical distance between each floor.
-            
 
             // Minimum visible room size.
             const MIN_ROOM_SIZE = 0.5;
@@ -7407,104 +7091,73 @@
             // =====================================================
 
             function createFloorLabel(text) {
-
                 // Create canvas for the label
-                const canvas = document.createElement('canvas');
+                const canvas = document.createElement("canvas");
 
                 canvas.width = 512;
                 canvas.height = 128;
 
-                const context = canvas.getContext('2d');
-
+                const context = canvas.getContext("2d");
 
                 // =================================================
                 // LABEL BACKGROUND
                 // =================================================
 
-                context.fillStyle = 'rgba(2, 6, 23, 0.85)';
+                context.fillStyle = "rgba(2, 6, 23, 0.85)";
 
-                context.fillRect(
-                    0,
-                    0,
-                    canvas.width,
-                    canvas.height
-                );
-
+                context.fillRect(0, 0, canvas.width, canvas.height);
 
                 // =================================================
                 // LABEL BORDER
                 // =================================================
 
-                context.strokeStyle = '#22d3ee';
+                context.strokeStyle = "#22d3ee";
 
                 context.lineWidth = 4;
 
-                context.strokeRect(
-                    2,
-                    2,
-                    canvas.width - 4,
-                    canvas.height - 4
-                );
-
+                context.strokeRect(2, 2, canvas.width - 4, canvas.height - 4);
 
                 // =================================================
                 // LABEL TEXT
                 // =================================================
 
-                context.font = 'bold 48px Arial';
+                context.font = "bold 48px Arial";
 
-                context.fillStyle = '#ffffff';
+                context.fillStyle = "#ffffff";
 
-                context.textAlign = 'center';
+                context.textAlign = "center";
 
-                context.textBaseline = 'middle';
+                context.textBaseline = "middle";
 
-                context.fillText(
-                    text,
-                    canvas.width / 2,
-                    canvas.height / 2
-                );
-
+                context.fillText(text, canvas.width / 2, canvas.height / 2);
 
                 // =================================================
                 // CONVERT CANVAS INTO THREE.JS TEXTURE
                 // =================================================
 
-                const texture =
-                    new THREE.CanvasTexture(canvas);
+                const texture = new THREE.CanvasTexture(canvas);
 
-                texture.colorSpace =
-                    THREE.SRGBColorSpace;
-
+                texture.colorSpace = THREE.SRGBColorSpace;
 
                 // =================================================
                 // CREATE SPRITE MATERIAL
                 // =================================================
 
-                const material =
-                    new THREE.SpriteMaterial({
+                const material = new THREE.SpriteMaterial({
+                    map: texture,
 
-                        map: texture,
+                    transparent: true,
 
-                        transparent: true,
-
-                        depthTest: false
-
-                    });
-
+                    depthTest: false,
+                });
 
                 // =================================================
                 // CREATE SPRITE
                 // =================================================
 
-                const label =
-                    new THREE.Sprite(material);
+                const label = new THREE.Sprite(material);
 
-                label.scale.set(
-                    4,
-                    1,
-                    1
-                );
+                label.scale.set(4, 1, 1);
 
                 return label;
             }
@@ -7516,176 +7169,121 @@
             // =====================================================
 
             function createRoomLabel(text) {
-
                 // Create canvas for room name
-                const canvas = document.createElement('canvas');
+                const canvas = document.createElement("canvas");
 
                 canvas.width = 512;
                 canvas.height = 128;
 
-                const context =
-                    canvas.getContext('2d');
-
+                const context = canvas.getContext("2d");
 
                 // =================================================
                 // LABEL BACKGROUND
                 // =================================================
 
-                context.fillStyle =
-                    'rgba(2, 6, 23, 0.88)';
+                context.fillStyle = "rgba(2, 6, 23, 0.88)";
 
                 context.beginPath();
 
-                context.roundRect(
-                    4,
-                    4,
-                    canvas.width - 8,
-                    canvas.height - 8,
-                    24
-                );
+                context.roundRect(4, 4, canvas.width - 8, canvas.height - 8, 24);
 
                 context.fill();
-
 
                 // =================================================
                 // LABEL BORDER
                 // =================================================
 
-                context.strokeStyle =
-                    'rgba(34, 211, 238, 0.85)';
+                context.strokeStyle = "rgba(34, 211, 238, 0.85)";
 
                 context.lineWidth = 4;
 
                 context.stroke();
 
-
                 // =================================================
                 // ROOM NAME
                 // =================================================
 
-                context.font =
-                    'bold 42px Arial';
+                context.font = "bold 42px Arial";
 
-                context.fillStyle =
-                    '#ffffff';
+                context.fillStyle = "#ffffff";
 
-                context.textAlign =
-                    'center';
+                context.textAlign = "center";
 
-                context.textBaseline =
-                    'middle';
+                context.textBaseline = "middle";
 
-                context.fillText(
-                    text || 'Room',
-                    canvas.width / 2,
-                    canvas.height / 2
-                );
-
+                context.fillText(text || "Room", canvas.width / 2, canvas.height / 2);
 
                 // =================================================
                 // CONVERT CANVAS TO THREE.JS TEXTURE
                 // =================================================
 
-                const texture =
-                    new THREE.CanvasTexture(canvas);
+                const texture = new THREE.CanvasTexture(canvas);
 
-                texture.colorSpace =
-                    THREE.SRGBColorSpace;
-
+                texture.colorSpace = THREE.SRGBColorSpace;
 
                 // =================================================
                 // CREATE SPRITE
                 // =================================================
 
-                const material =
-                    new THREE.SpriteMaterial({
+                const material = new THREE.SpriteMaterial({
+                    map: texture,
 
-                        map: texture,
+                    transparent: true,
 
-                        transparent: true,
+                    depthTest: false,
 
-                        depthTest: false,
+                    depthWrite: false,
+                });
 
-                        depthWrite: false
-
-                    });
-
-
-                const label =
-                    new THREE.Sprite(material);
-
+                const label = new THREE.Sprite(material);
 
                 // =================================================
                 // PHASE 7.10
                 // IDENTIFY AS ROOM LABEL
                 // =================================================
 
-                label.userData.type =
-                    'room-label';
-
+                label.userData.type = "room-label";
 
                 // Smaller than floor labels
-                label.scale.set(
-                    2.8,
-                    0.7,
-                    1
-                );
-
+                label.scale.set(2.8, 0.7, 1);
 
                 // Hidden by default because All Floors is default
-                label.visible =
-                    false;
-
+                label.visible = false;
 
                 return label;
             }
-
 
             // =====================================================
             // LOOP THROUGH EACH DATABASE FLOOR
             // =====================================================
 
             building3DData.forEach((floorData, floorIndex) => {
-
                 // =====================================================
                 // PHASE 7.4
                 // CREATE GROUP FOR THIS FLOOR
                 // =====================================================
 
-                const floorGroup =
-                    new THREE.Group();
+                const floorGroup = new THREE.Group();
 
                 floorGroup.userData = {
-                    type: 'floor',
+                    type: "floor",
                     floorId: String(floorData.id),
-                    floorName: floorData.name
+                    floorName: floorData.name,
                 };
 
-                building.add(
-                    floorGroup
-                );
+                building.add(floorGroup);
 
-                buildingFloorGroups.set(
-                    String(floorData.id),
-                    floorGroup
-                );
+                buildingFloorGroups.set(String(floorData.id), floorGroup);
 
                 const floorY = floorIndex * FLOOR_VERTICAL_GAP;
-
 
                 // =================================================
                 // SKIP EMPTY FLOORS
                 // =================================================
 
-                if (
-                    !floorData.rooms ||
-                    floorData.rooms.length === 0
-                ) {
-
+                if (!floorData.rooms || floorData.rooms.length === 0) {
                     return;
-
                 }
-
 
                 // =================================================
                 // STEP 1
@@ -7698,201 +7296,127 @@
                 let floorMaxX = -Infinity;
                 let floorMaxY = -Infinity;
 
-
                 floorData.rooms.forEach((roomData) => {
+                    const roomX = Number(roomData.x) || 0;
 
-                    const roomX =
-                        Number(roomData.x) || 0;
+                    const roomY = Number(roomData.y) || 0;
 
-                    const roomY =
-                        Number(roomData.y) || 0;
+                    const roomWidth = Number(roomData.width) || 100;
 
-                    const roomWidth =
-                        Number(roomData.width) || 100;
+                    const roomHeight = Number(roomData.height) || 100;
 
-                    const roomHeight =
-                        Number(roomData.height) || 100;
+                    floorMinX = Math.min(floorMinX, roomX);
 
+                    floorMinY = Math.min(floorMinY, roomY);
 
-                    floorMinX =
-                        Math.min(
-                            floorMinX,
-                            roomX
-                        );
+                    floorMaxX = Math.max(floorMaxX, roomX + roomWidth);
 
-                    floorMinY =
-                        Math.min(
-                            floorMinY,
-                            roomY
-                        );
-
-
-                    floorMaxX =
-                        Math.max(
-                            floorMaxX,
-                            roomX + roomWidth
-                        );
-
-                    floorMaxY =
-                        Math.max(
-                            floorMaxY,
-                            roomY + roomHeight
-                        );
-
+                    floorMaxY = Math.max(floorMaxY, roomY + roomHeight);
                 });
-
 
                 // =================================================
                 // STEP 2
                 // CALCULATE THIS FLOOR'S CENTER
                 // =================================================
 
-                const floorCenterX =
-                    (
-                        floorMinX +
-                        floorMaxX
-                    ) / 2;
+                const floorCenterX = (floorMinX + floorMaxX) / 2;
 
-                const floorCenterY =
-                    (
-                        floorMinY +
-                        floorMaxY
-                    ) / 2;
-
-
-                
+                const floorCenterY = (floorMinY + floorMaxY) / 2;
 
                 // =================================================
                 // PHASE 7.1
                 // CALCULATE ACTUAL SIZE OF THIS FLOOR
                 // =================================================
 
-                const floorWidth =
-                    Math.max(
-                        (floorMaxX - floorMinX) * BLUEPRINT_SCALE,
-                        4
-                    );
+                const floorWidth = Math.max(
+                    (floorMaxX - floorMinX) * BLUEPRINT_SCALE,
+                    4,
+                );
 
-                const floorDepth =
-                    Math.max(
-                        (floorMaxY - floorMinY) * BLUEPRINT_SCALE,
-                        4
-                    );
-
+                const floorDepth = Math.max(
+                    (floorMaxY - floorMinY) * BLUEPRINT_SCALE,
+                    4,
+                );
 
                 // =================================================
                 // PHASE 7.1
                 // CREATE ARCHITECTURAL FLOOR SLAB
                 // =================================================
 
-                const slabGeometry =
-                    new THREE.BoxGeometry(
-                        floorWidth + 1,
-                        0.12,
-                        floorDepth + 1
-                    );
-
-                const slabMaterial =
-                    new THREE.MeshPhysicalMaterial({
-
-                        color: 0x063b52,
-
-                        emissive: 0x002b3d,
-
-                        emissiveIntensity: 0.25,
-
-                        transparent: true,
-
-                        opacity: 0.28,
-
-                        roughness: 0.2,
-
-                        metalness: 0.15,
-
-                        side: THREE.DoubleSide,
-
-                        depthWrite: false
-
-                    });
-
-                const floorSlab =
-                    new THREE.Mesh(
-                        slabGeometry,
-                        slabMaterial
-                    );
-
-                floorSlab.position.set(
-                    0,
-                    floorY,
-                    0
+                const slabGeometry = new THREE.BoxGeometry(
+                    floorWidth + 1,
+                    0.12,
+                    floorDepth + 1,
                 );
+
+                const slabMaterial = new THREE.MeshPhysicalMaterial({
+                    color: 0x063b52,
+
+                    emissive: 0x002b3d,
+
+                    emissiveIntensity: 0.25,
+
+                    transparent: true,
+
+                    opacity: 0.28,
+
+                    roughness: 0.2,
+
+                    metalness: 0.15,
+
+                    side: THREE.DoubleSide,
+
+                    depthWrite: false,
+                });
+
+                const floorSlab = new THREE.Mesh(slabGeometry, slabMaterial);
+
+                floorSlab.position.set(0, floorY, 0);
 
                 floorSlab.receiveShadow = true;
 
-                floorGroup.add(
-                    floorSlab
-                );
-
+                floorGroup.add(floorSlab);
 
                 // =================================================
                 // PHASE 7.1
                 // CREATE CYAN FLOOR PERIMETER
                 // =================================================
 
-                const slabEdges =
-                    new THREE.EdgesGeometry(
-                        slabGeometry
-                    );
+                const slabEdges = new THREE.EdgesGeometry(slabGeometry);
 
-                const slabEdgeMaterial =
-                    new THREE.LineBasicMaterial({
+                const slabEdgeMaterial = new THREE.LineBasicMaterial({
+                    color: 0x22d3ee,
 
-                        color: 0x22d3ee,
+                    transparent: true,
 
-                        transparent: true,
+                    opacity: 0.75,
+                });
 
-                        opacity: 0.75
-
-                    });
-
-                const slabOutline =
-                    new THREE.LineSegments(
-                        slabEdges,
-                        slabEdgeMaterial
-                    );
+                const slabOutline = new THREE.LineSegments(slabEdges, slabEdgeMaterial);
 
                 // =================================================
                 // FIX
                 // KEEP FLOOR BORDER AT THE SAME HEIGHT AS FLOOR SLAB
                 // =================================================
 
-                slabOutline.position.set(
-                    0,
-                    floorY,
-                    0
-                );
+                slabOutline.position.set(0, floorY, 0);
 
-                floorGroup.add(
-                    slabOutline
-                );
+                floorGroup.add(slabOutline);
 
                 // =================================================
                 // PHASE 7.3
                 // ADD DYNAMIC FLOATING FLOOR LABEL
                 // =================================================
 
-                const floorLabel =
-                    createFloorLabel(
-                        floorData.name || `Floor ${floorIndex + 1}`
-                    );
-
+                const floorLabel = createFloorLabel(
+                    floorData.name || `Floor ${floorIndex + 1}`,
+                );
 
                 // =================================================
                 // POSITION LABEL BESIDE THE FLOOR
                 // =================================================
 
                 floorLabel.position.set(
-
                     // Left side of the floor
                     -(floorWidth / 2) - 2.5,
 
@@ -7900,19 +7424,14 @@
                     floorY + 0.8,
 
                     // Center depth
-                    0
-
+                    0,
                 );
-
 
                 // =================================================
                 // ADD LABEL TO BUILDING
                 // =================================================
 
-                floorGroup.add(
-                    floorLabel
-                );
-
+                floorGroup.add(floorLabel);
 
                 // =================================================
                 // STEP 4
@@ -7920,45 +7439,33 @@
                 // =================================================
 
                 floorData.rooms.forEach((roomData) => {
-
-
                     // =============================================
                     // ORIGINAL 2D BLUEPRINT DATA
                     // =============================================
 
-                    const originalX =
-                        Number(roomData.x) || 0;
+                    const originalX = Number(roomData.x) || 0;
 
-                    const originalY =
-                        Number(roomData.y) || 0;
+                    const originalY = Number(roomData.y) || 0;
 
-                    const originalWidth =
-                        Number(roomData.width) || 100;
+                    const originalWidth = Number(roomData.width) || 100;
 
-                    const originalHeight =
-                        Number(roomData.height) || 100;
-
+                    const originalHeight = Number(roomData.height) || 100;
 
                     // =============================================
                     // CONVERT ROOM SIZE TO THREE.JS UNITS
                     // =============================================
 
-                    const roomWidth =
-                        Math.max(
-                            originalWidth *
-                            BLUEPRINT_SCALE,
+                    const roomWidth = Math.max(
+                        originalWidth * BLUEPRINT_SCALE,
 
-                            MIN_ROOM_SIZE
-                        );
+                        MIN_ROOM_SIZE,
+                    );
 
-                    const roomDepth =
-                        Math.max(
-                            originalHeight *
-                            BLUEPRINT_SCALE,
+                    const roomDepth = Math.max(
+                        originalHeight * BLUEPRINT_SCALE,
 
-                            MIN_ROOM_SIZE
-                        );
-
+                        MIN_ROOM_SIZE,
+                    );
 
                     // =============================================
                     // FIND CENTER OF ROOM IN 2D BLUEPRINT
@@ -7969,33 +7476,17 @@
                     // Three.js positions boxes from the center.
                     // =============================================
 
-                    const roomCenterX =
-                        originalX +
-                        originalWidth / 2;
+                    const roomCenterX = originalX + originalWidth / 2;
 
-                    const roomCenterY =
-                        originalY +
-                        originalHeight / 2;
-
+                    const roomCenterY = originalY + originalHeight / 2;
 
                     // =============================================
                     // CENTER ROOM RELATIVE TO ITS OWN FLOOR
                     // =============================================
 
-                    const roomX =
-                        (
-                            roomCenterX -
-                            floorCenterX
-                        ) *
-                        BLUEPRINT_SCALE;
+                    const roomX = (roomCenterX - floorCenterX) * BLUEPRINT_SCALE;
 
-                    const roomZ =
-                        (
-                            roomCenterY -
-                            floorCenterY
-                        ) *
-                        BLUEPRINT_SCALE;
-
+                    const roomZ = (roomCenterY - floorCenterY) * BLUEPRINT_SCALE;
 
                     // =============================================
                     // DETERMINE ROOM STATUS
@@ -8011,9 +7502,7 @@
                     // critical     = active urgent report
                     // =============================================
 
-                    let room3DStatus =
-                        'normal';
-
+                    let room3DStatus = "normal";
 
                     // =============================================
                     // ACTIVE REPORT
@@ -8021,70 +7510,48 @@
                     // =============================================
 
                     if (
-                        roomData.status === 'needs-repair' ||
-                        roomData.status === 'maintenance'
+                        roomData.status === "needs-repair" ||
+                        roomData.status === "maintenance"
                     ) {
-
-                        room3DStatus =
-                            'warning';
-
+                        room3DStatus = "warning";
                     }
-
 
                     // =============================================
                     // ACTIVE URGENT REPORT
                     // HIGHEST PRIORITY
                     // =============================================
 
-                    if (
-                        roomData.status === 'critical'
-                    ) {
-
-                        room3DStatus =
-                            'urgent';
-
+                    if (roomData.status === "critical") {
+                        room3DStatus = "urgent";
                     }
-
 
                     // =============================================
                     // CREATE ROOM
                     // =============================================
 
-                    const roomMesh =
-                        createRoom(
-                            roomData.name,
-                            roomX,
-                            floorY,
-                            roomZ,
-                            roomWidth,
-                            roomDepth,
-                            room3DStatus
-                        );
+                    const roomMesh = createRoom(
+                        roomData.name,
+                        roomX,
+                        floorY,
+                        roomZ,
+                        roomWidth,
+                        roomDepth,
+                        room3DStatus,
+                    );
 
                     // =================================================
                     // PHASE 7.10
                     // CREATE ROOM NAME LABEL
                     // =================================================
 
-                    const roomLabel =
-                        createRoomLabel(
-                            roomData.name
-                        );
-
+                    const roomLabel = createRoomLabel(roomData.name);
 
                     // Position label above the room
-                    roomLabel.position.set(
-                        0,
-                        1.8,
-                        0
-                    );
-
+                    roomLabel.position.set(0, 1.8, 0);
 
                     // Add label directly to room mesh
                     // This makes the label follow the room position
-                    roomMesh.add(
-                        roomLabel
-                    );
+                    roomMesh.add(roomLabel);
 
                     roomMesh.userData.originalEmissive =
                         roomMesh.material.emissive.getHex();
@@ -8097,10 +7564,7 @@
                     // ADD ROOM TO ITS FLOOR GROUP
                     // =================================================
 
-                    floorGroup.add(
-                        roomMesh
-                    );
-
+                    floorGroup.add(roomMesh);
 
                     // =============================================
                     // PHASE 7.8
@@ -8108,65 +7572,47 @@
                     // =============================================
 
                     roomMesh.userData = {
+                        type: "room",
 
-                        type: 'room',
+                        roomId: roomData.id,
 
-                        roomId:
-                            roomData.id,
+                        roomName: roomData.name,
 
-                        roomName:
-                            roomData.name,
+                        roomType: roomData.type,
 
-                        roomType:
-                            roomData.type,
+                        roomStatus: roomData.status,
 
-                        roomStatus:
-                            roomData.status,
+                        floorId: floorData.id,
 
-                        floorId:
-                            floorData.id,
-
-                        floorName:
-                            floorData.name,
+                        floorName: floorData.name,
 
                         // =========================================
                         // PHASE 7.8
                         // ROOM MAINTENANCE INFORMATION
                         // =========================================
 
-                        activeReportCount:
-                            roomData.activeReportCount || 0,
+                        activeReportCount: roomData.activeReportCount || 0,
 
-                        urgentReportCount:
-                            roomData.urgentReportCount || 0,
+                        urgentReportCount: roomData.urgentReportCount || 0,
 
                         maintenanceEquipmentCount:
                             roomData.maintenanceEquipmentCount || 0,
 
-                        originalEmissive:
-                            roomMesh.material.emissive.getHex(),
+                        originalEmissive: roomMesh.material.emissive.getHex(),
 
-                        originalEmissiveIntensity:
-                            roomMesh.material.emissiveIntensity
-
+                        originalEmissiveIntensity: roomMesh.material.emissiveIntensity,
                     };
 
-                    clickableRooms.push(
-                        roomMesh
-                    );
-
+                    clickableRooms.push(roomMesh);
 
                     // =============================================
                     // APPLY SAVED ROOM ROTATION
                     // =============================================
 
-                    roomMesh.rotation.y =
-                        THREE.MathUtils.degToRad(
-                            roomData.rotation || 0
-                        );
-
+                    roomMesh.rotation.y = THREE.MathUtils.degToRad(
+                        roomData.rotation || 0,
+                    );
                 });
-
             });
 
             // =====================================================
@@ -8175,12 +7621,9 @@
             // =====================================================
 
             function getBuildingInteriorBounds() {
-
                 building.updateMatrixWorld(true);
 
-                const bounds =
-                    new THREE.Box3()
-                        .setFromObject(building);
+                const bounds = new THREE.Box3().setFromObject(building);
 
                 if (bounds.isEmpty()) {
                     return null;
@@ -8188,7 +7631,6 @@
 
                 return bounds;
             }
-
 
             // =====================================================
             // PHASE 8.1 PART 2
@@ -8220,34 +7662,21 @@
             // =====================================================
 
             function createDynamicBuildingExterior() {
-
-                const bounds =
-                    getBuildingInteriorBounds();
+                const bounds = getBuildingInteriorBounds();
 
                 if (!bounds) {
-
-                    console.warn(
-                        'Could not calculate building interior bounds.'
-                    );
+                    console.warn("Could not calculate building interior bounds.");
 
                     return;
                 }
-
 
                 // =================================================
                 // GET COMPLETE INTERIOR SIZE AND CENTER
                 // =================================================
 
-                const size =
-                    bounds.getSize(
-                        new THREE.Vector3()
-                    );
+                const size = bounds.getSize(new THREE.Vector3());
 
-                const center =
-                    bounds.getCenter(
-                        new THREE.Vector3()
-                    );
-
+                const center = bounds.getCenter(new THREE.Vector3());
 
                 // =================================================
                 // EXTRA SPACE AROUND INTERIOR
@@ -8257,16 +7686,11 @@
                 const paddingY = 1.5;
                 const paddingZ = 2.5;
 
+                const buildingWidth = size.x + paddingX;
 
-                const buildingWidth =
-                    size.x + paddingX;
+                const buildingHeight = size.y + paddingY;
 
-                const buildingHeight =
-                    size.y + paddingY;
-
-                const buildingDepth =
-                    size.z + paddingZ;
-
+                const buildingDepth = size.z + paddingZ;
 
                 // =================================================
                 // BUILDING DIRECTION
@@ -8280,12 +7704,9 @@
                 // STI entrance will eventually be located at -Z.
                 // =================================================
 
-                const frontZ =
-                    center.z + (buildingDepth / 2);
+                const frontZ = center.z + buildingDepth / 2;
 
-                const backZ =
-                    center.z - (buildingDepth / 2);
-
+                const backZ = center.z - buildingDepth / 2;
 
                 // =================================================
                 // 1. MAIN LONG BUILDING BODY
@@ -8301,26 +7722,21 @@
                 // STI College Ormoc
                 // =================================================
 
-                const exteriorMainBuilding =
-                    createExteriorSection(
+                const exteriorMainBuilding = createExteriorSection(
+                    buildingWidth,
 
-                        buildingWidth,
+                    buildingHeight,
 
-                        buildingHeight,
+                    buildingDepth,
 
-                        buildingDepth,
+                    center.x,
 
-                        center.x,
+                    center.y,
 
-                        center.y,
+                    center.z,
+                );
 
-                        center.z
-
-                    );
-
-                exteriorMainBuilding.userData.isBuildingExterior =
-                    true;
-
+                exteriorMainBuilding.userData.isBuildingExterior = true;
 
                 // =================================================
                 // 2. FRONT GROUND FLOOR COMMERCIAL BAND
@@ -8332,41 +7748,25 @@
                 // This is NOT the STI College entrance.
                 // =================================================
 
-                const commercialBandHeight =
-                    Math.max(
-                        buildingHeight * 0.28,
-                        1.2
-                    );
+                const commercialBandHeight = Math.max(buildingHeight * 0.28, 1.2);
 
-                const commercialBandDepth =
-                    Math.max(
-                        buildingDepth * 0.08,
-                        0.6
-                    );
+                const commercialBandDepth = Math.max(buildingDepth * 0.08, 0.6);
 
-                const commercialBand =
-                    createExteriorSection(
+                const commercialBand = createExteriorSection(
+                    buildingWidth * 0.96,
 
-                        buildingWidth * 0.96,
+                    commercialBandHeight,
 
-                        commercialBandHeight,
+                    commercialBandDepth,
 
-                        commercialBandDepth,
+                    center.x,
 
-                        center.x,
+                    center.y - buildingHeight / 2 + commercialBandHeight / 2,
 
-                        center.y -
-                            (buildingHeight / 2) +
-                            (commercialBandHeight / 2),
+                    frontZ + commercialBandDepth / 2,
+                );
 
-                        frontZ +
-                            (commercialBandDepth / 2)
-
-                    );
-
-                commercialBand.userData.isBuildingExterior =
-                    true;
-
+                commercialBand.userData.isBuildingExterior = true;
 
                 // =================================================
                 // 3. SECOND FLOOR FRONT FACADE
@@ -8375,39 +7775,25 @@
                 // occupied partly by STI College.
                 // =================================================
 
-                const upperFacadeHeight =
-                    Math.max(
-                        buildingHeight * 0.22,
-                        1
-                    );
+                const upperFacadeHeight = Math.max(buildingHeight * 0.22, 1);
 
-                const upperFacadeDepth =
-                    Math.max(
-                        buildingDepth * 0.035,
-                        0.3
-                    );
+                const upperFacadeDepth = Math.max(buildingDepth * 0.035, 0.3);
 
-                const secondFloorFacade =
-                    createExteriorSection(
+                const secondFloorFacade = createExteriorSection(
+                    buildingWidth * 0.94,
 
-                        buildingWidth * 0.94,
+                    upperFacadeHeight,
 
-                        upperFacadeHeight,
+                    upperFacadeDepth,
 
-                        upperFacadeDepth,
+                    center.x,
 
-                        center.x,
+                    center.y,
 
-                        center.y,
+                    frontZ + upperFacadeDepth / 2,
+                );
 
-                        frontZ +
-                            (upperFacadeDepth / 2)
-
-                    );
-
-                secondFloorFacade.userData.isBuildingExterior =
-                    true;
-
+                secondFloorFacade.userData.isBuildingExterior = true;
 
                 // =================================================
                 // 4. THIRD FLOOR / UPPER FACADE BAND
@@ -8416,28 +7802,21 @@
                 // along the entire building.
                 // =================================================
 
-                const thirdFloorFacade =
-                    createExteriorSection(
+                const thirdFloorFacade = createExteriorSection(
+                    buildingWidth * 0.96,
 
-                        buildingWidth * 0.96,
+                    upperFacadeHeight * 0.8,
 
-                        upperFacadeHeight * 0.8,
+                    upperFacadeDepth,
 
-                        upperFacadeDepth,
+                    center.x,
 
-                        center.x,
+                    center.y + buildingHeight * 0.3,
 
-                        center.y +
-                            (buildingHeight * 0.30),
+                    frontZ + upperFacadeDepth / 2,
+                );
 
-                        frontZ +
-                            (upperFacadeDepth / 2)
-
-                    );
-
-                thirdFloorFacade.userData.isBuildingExterior =
-                    true;
-
+                thirdFloorFacade.userData.isBuildingExterior = true;
 
                 // =================================================
                 // 5. FRONT CENTRAL ROBINSONS ARCH FEATURE
@@ -8454,47 +7833,29 @@
                 // of the building.
                 // =================================================
 
-                const frontFeatureWidth =
-                    Math.max(
-                        buildingWidth * 0.18,
-                        3
-                    );
+                const frontFeatureWidth = Math.max(buildingWidth * 0.18, 3);
 
-                const frontFeatureDepth =
-                    Math.max(
-                        buildingDepth * 0.05,
-                        0.4
-                    );
+                const frontFeatureDepth = Math.max(buildingDepth * 0.05, 0.4);
 
-                const frontFeatureHeight =
-                    buildingHeight * 1.12;
-
+                const frontFeatureHeight = buildingHeight * 1.12;
 
                 // =================================================
                 // CREATE THE CURVED FRONT ARCH
                 // =================================================
 
-                const frontCentralArch =
-                    createExteriorFrontArch(
+                const frontCentralArch = createExteriorFrontArch(
+                    frontFeatureWidth,
 
-                        frontFeatureWidth,
+                    frontFeatureHeight,
 
-                        frontFeatureHeight,
+                    frontFeatureDepth,
 
-                        frontFeatureDepth,
+                    center.x,
 
-                        center.x,
+                    center.y + (frontFeatureHeight - buildingHeight) / 2,
 
-                        center.y +
-                            (
-                                frontFeatureHeight -
-                                buildingHeight
-                            ) / 2,
-
-                        frontZ +
-                            (frontFeatureDepth / 2)
-
-                    );
+                    frontZ + frontFeatureDepth / 2,
+                );
 
                 // =================================================
                 // CENTRAL GLASS FACADE
@@ -8505,43 +7866,27 @@
                 // This is only a simplified blueprint representation.
                 // =================================================
 
-                const glassWidth =
-                    frontFeatureWidth * 0.62;
+                const glassWidth = frontFeatureWidth * 0.62;
 
-                const glassHeight =
-                    frontFeatureHeight * 0.58;
+                const glassHeight = frontFeatureHeight * 0.58;
 
-                const glassDepth =
-                    0.08;
+                const glassDepth = 0.08;
 
+                const frontGlassFacade = createExteriorSection(
+                    glassWidth,
 
-                const frontGlassFacade =
-                    createExteriorSection(
+                    glassHeight,
 
-                        glassWidth,
+                    glassDepth,
 
-                        glassHeight,
+                    center.x,
 
-                        glassDepth,
+                    center.y + frontFeatureHeight * 0.02,
 
-                        center.x,
+                    frontZ + frontFeatureDepth + 0.02,
+                );
 
-                        center.y +
-                            (frontFeatureHeight * 0.02),
-
-                        frontZ +
-                            frontFeatureDepth +
-                            0.02
-
-                    );
-
-
-                frontGlassFacade.userData.isBuildingExterior =
-                    true;
-
-
-                
-
+                frontGlassFacade.userData.isBuildingExterior = true;
 
                 // =================================================
                 // PHASE 8.3 PART 2
@@ -8551,95 +7896,67 @@
                 // visible across the Robinsons Ormoc facade.
                 // =================================================
 
-                const facadeBandDepth =
-                    Math.max(
-                        buildingDepth * 0.045,
-                        0.35
-                    );
-
+                const facadeBandDepth = Math.max(buildingDepth * 0.045, 0.35);
 
                 // =================================================
                 // LOWER FRONT BAND
                 // =================================================
 
-                const lowerFacadeBand =
-                    createExteriorSection(
+                const lowerFacadeBand = createExteriorSection(
+                    buildingWidth * 0.98,
 
-                        buildingWidth * 0.98,
+                    0.32,
 
-                        0.32,
+                    facadeBandDepth,
 
-                        facadeBandDepth,
+                    center.x,
 
-                        center.x,
+                    center.y - buildingHeight * 0.18,
 
-                        center.y -
-                            (buildingHeight * 0.18),
+                    frontZ + facadeBandDepth / 2 + 0.05,
+                );
 
-                        frontZ +
-                            (facadeBandDepth / 2) +
-                            0.05
-
-                    );
-
-                lowerFacadeBand.userData.isBuildingExterior =
-                    true;
-
+                lowerFacadeBand.userData.isBuildingExterior = true;
 
                 // =================================================
                 // MIDDLE FRONT BAND
                 // =================================================
 
-                const middleFacadeBand =
-                    createExteriorSection(
+                const middleFacadeBand = createExteriorSection(
+                    buildingWidth * 0.96,
 
-                        buildingWidth * 0.96,
+                    0.22,
 
-                        0.22,
+                    facadeBandDepth * 0.8,
 
-                        facadeBandDepth * 0.8,
+                    center.x,
 
-                        center.x,
+                    center.y + buildingHeight * 0.1,
 
-                        center.y +
-                            (buildingHeight * 0.10),
+                    frontZ + facadeBandDepth / 2 + 0.03,
+                );
 
-                        frontZ +
-                            (facadeBandDepth / 2) +
-                            0.03
-
-                    );
-
-                middleFacadeBand.userData.isBuildingExterior =
-                    true;
-
+                middleFacadeBand.userData.isBuildingExterior = true;
 
                 // =================================================
                 // UPPER FRONT BAND
                 // =================================================
 
-                const upperFacadeBand =
-                    createExteriorSection(
+                const upperFacadeBand = createExteriorSection(
+                    buildingWidth * 0.98,
 
-                        buildingWidth * 0.98,
+                    0.28,
 
-                        0.28,
+                    facadeBandDepth,
 
-                        facadeBandDepth,
+                    center.x,
 
-                        center.x,
+                    center.y + buildingHeight * 0.38,
 
-                        center.y +
-                            (buildingHeight * 0.38),
+                    frontZ + facadeBandDepth / 2 + 0.05,
+                );
 
-                        frontZ +
-                            (facadeBandDepth / 2) +
-                            0.05
-
-                    );
-
-                upperFacadeBand.userData.isBuildingExterior =
-                    true;
+                upperFacadeBand.userData.isBuildingExterior = true;
 
                 // =================================================
                 // PHASE 8.3 PART 2.1
@@ -8657,24 +7974,16 @@
                 // -Z = BACK
                 // =================================================
 
-
                 // =================================================
                 // SHARED BAND POSITIONS
                 // Must match the existing front facade bands.
                 // =================================================
 
-                const lowerBandY =
-                    center.y -
-                    (buildingHeight * 0.18);
+                const lowerBandY = center.y - buildingHeight * 0.18;
 
-                const middleBandY =
-                    center.y +
-                    (buildingHeight * 0.10);
+                const middleBandY = center.y + buildingHeight * 0.1;
 
-                const upperBandY =
-                    center.y +
-                    (buildingHeight * 0.38);
-
+                const upperBandY = center.y + buildingHeight * 0.38;
 
                 // =================================================
                 // SIDE BAND THICKNESS
@@ -8683,119 +7992,88 @@
                 // the thin dimension is now X instead of Z.
                 // =================================================
 
-                const sideBandThickness =
-                    facadeBandDepth;
-
+                const sideBandThickness = facadeBandDepth;
 
                 // =================================================
                 // BACK BAND OFFSET
                 // Places the bands slightly outside the back wall.
                 // =================================================
 
-                const backBandZ =
-                    backZ -
-                    (facadeBandDepth / 2) -
-                    0.05;
-
+                const backBandZ = backZ - facadeBandDepth / 2 - 0.05;
 
                 // =================================================
                 // LEFT SIDE POSITION
                 // =================================================
 
                 const leftBandX =
-                    center.x -
-                    (buildingWidth / 2) -
-                    (sideBandThickness / 2) -
-                    0.05;
-
+                    center.x - buildingWidth / 2 - sideBandThickness / 2 - 0.05;
 
                 // =================================================
                 // RIGHT SIDE POSITION
                 // =================================================
 
                 const rightBandX =
-                    center.x +
-                    (buildingWidth / 2) +
-                    (sideBandThickness / 2) +
-                    0.05;
-
+                    center.x + buildingWidth / 2 + sideBandThickness / 2 + 0.05;
 
                 // =================================================
                 // 1. LOWER BACK BAND
                 // =================================================
 
-                const lowerBackFacadeBand =
-                    createExteriorSection(
+                const lowerBackFacadeBand = createExteriorSection(
+                    buildingWidth * 0.98,
 
-                        buildingWidth * 0.98,
+                    0.32,
 
-                        0.32,
+                    facadeBandDepth,
 
-                        facadeBandDepth,
+                    center.x,
 
-                        center.x,
+                    lowerBandY,
 
-                        lowerBandY,
+                    backBandZ,
+                );
 
-                        backBandZ
-
-                    );
-
-                lowerBackFacadeBand.userData.isBuildingExterior =
-                    true;
-
+                lowerBackFacadeBand.userData.isBuildingExterior = true;
 
                 // =================================================
                 // 2. MIDDLE BACK BAND
                 // =================================================
 
-                const middleBackFacadeBand =
-                    createExteriorSection(
+                const middleBackFacadeBand = createExteriorSection(
+                    buildingWidth * 0.96,
 
-                        buildingWidth * 0.96,
+                    0.22,
 
-                        0.22,
+                    facadeBandDepth * 0.8,
 
-                        facadeBandDepth * 0.8,
+                    center.x,
 
-                        center.x,
+                    middleBandY,
 
-                        middleBandY,
+                    backZ - (facadeBandDepth * 0.8) / 2 - 0.03,
+                );
 
-                        backZ -
-                        ((facadeBandDepth * 0.8) / 2) -
-                        0.03
-
-                    );
-
-                middleBackFacadeBand.userData.isBuildingExterior =
-                    true;
-
+                middleBackFacadeBand.userData.isBuildingExterior = true;
 
                 // =================================================
                 // 3. UPPER BACK BAND
                 // =================================================
 
-                const upperBackFacadeBand =
-                    createExteriorSection(
+                const upperBackFacadeBand = createExteriorSection(
+                    buildingWidth * 0.98,
 
-                        buildingWidth * 0.98,
+                    0.28,
 
-                        0.28,
+                    facadeBandDepth,
 
-                        facadeBandDepth,
+                    center.x,
 
-                        center.x,
+                    upperBandY,
 
-                        upperBandY,
+                    backBandZ,
+                );
 
-                        backBandZ
-
-                    );
-
-                upperBackFacadeBand.userData.isBuildingExterior =
-                    true;
-
+                upperBackFacadeBand.userData.isBuildingExterior = true;
 
                 // =================================================
                 // 4. LOWER LEFT SIDE BAND
@@ -8806,162 +8084,121 @@
                 // Depth runs almost the entire building length.
                 // =================================================
 
-                const lowerLeftFacadeBand =
-                    createExteriorSection(
+                const lowerLeftFacadeBand = createExteriorSection(
+                    sideBandThickness,
 
-                        sideBandThickness,
+                    0.32,
 
-                        0.32,
+                    buildingDepth * 0.98,
 
-                        buildingDepth * 0.98,
+                    leftBandX,
 
-                        leftBandX,
+                    lowerBandY,
 
-                        lowerBandY,
+                    center.z,
+                );
 
-                        center.z
-
-                    );
-
-                lowerLeftFacadeBand.userData.isBuildingExterior =
-                    true;
-
+                lowerLeftFacadeBand.userData.isBuildingExterior = true;
 
                 // =================================================
                 // 5. MIDDLE LEFT SIDE BAND
                 // =================================================
 
-                const middleLeftFacadeBand =
-                    createExteriorSection(
+                const middleLeftFacadeBand = createExteriorSection(
+                    sideBandThickness * 0.8,
 
-                        sideBandThickness * 0.8,
+                    0.22,
 
-                        0.22,
+                    buildingDepth * 0.96,
 
-                        buildingDepth * 0.96,
+                    center.x - buildingWidth / 2 - (sideBandThickness * 0.8) / 2 - 0.03,
 
-                        center.x -
-                        (buildingWidth / 2) -
-                        ((sideBandThickness * 0.8) / 2) -
-                        0.03,
+                    middleBandY,
 
-                        middleBandY,
+                    center.z,
+                );
 
-                        center.z
-
-                    );
-
-                middleLeftFacadeBand.userData.isBuildingExterior =
-                    true;
-
+                middleLeftFacadeBand.userData.isBuildingExterior = true;
 
                 // =================================================
                 // 6. UPPER LEFT SIDE BAND
                 // =================================================
 
-                const upperLeftFacadeBand =
-                    createExteriorSection(
+                const upperLeftFacadeBand = createExteriorSection(
+                    sideBandThickness,
 
-                        sideBandThickness,
+                    0.28,
 
-                        0.28,
+                    buildingDepth * 0.98,
 
-                        buildingDepth * 0.98,
+                    leftBandX,
 
-                        leftBandX,
+                    upperBandY,
 
-                        upperBandY,
+                    center.z,
+                );
 
-                        center.z
-
-                    );
-
-                upperLeftFacadeBand.userData.isBuildingExterior =
-                    true;
-
+                upperLeftFacadeBand.userData.isBuildingExterior = true;
 
                 // =================================================
                 // 7. LOWER RIGHT SIDE BAND
                 // =================================================
 
-                const lowerRightFacadeBand =
-                    createExteriorSection(
+                const lowerRightFacadeBand = createExteriorSection(
+                    sideBandThickness,
 
-                        sideBandThickness,
+                    0.32,
 
-                        0.32,
+                    buildingDepth * 0.98,
 
-                        buildingDepth * 0.98,
+                    rightBandX,
 
-                        rightBandX,
+                    lowerBandY,
 
-                        lowerBandY,
+                    center.z,
+                );
 
-                        center.z
-
-                    );
-
-                lowerRightFacadeBand.userData.isBuildingExterior =
-                    true;
-
+                lowerRightFacadeBand.userData.isBuildingExterior = true;
 
                 // =================================================
                 // 8. MIDDLE RIGHT SIDE BAND
                 // =================================================
 
-                const middleRightFacadeBand =
-                    createExteriorSection(
+                const middleRightFacadeBand = createExteriorSection(
+                    sideBandThickness * 0.8,
 
-                        sideBandThickness * 0.8,
+                    0.22,
 
-                        0.22,
+                    buildingDepth * 0.96,
 
-                        buildingDepth * 0.96,
+                    center.x + buildingWidth / 2 + (sideBandThickness * 0.8) / 2 + 0.03,
 
-                        center.x +
-                        (buildingWidth / 2) +
-                        ((sideBandThickness * 0.8) / 2) +
-                        0.03,
+                    middleBandY,
 
-                        middleBandY,
+                    center.z,
+                );
 
-                        center.z
-
-                    );
-
-                middleRightFacadeBand.userData.isBuildingExterior =
-                    true;
-
+                middleRightFacadeBand.userData.isBuildingExterior = true;
 
                 // =================================================
                 // 9. UPPER RIGHT SIDE BAND
                 // =================================================
 
-                const upperRightFacadeBand =
-                    createExteriorSection(
+                const upperRightFacadeBand = createExteriorSection(
+                    sideBandThickness,
 
-                        sideBandThickness,
+                    0.28,
 
-                        0.28,
+                    buildingDepth * 0.98,
 
-                        buildingDepth * 0.98,
+                    rightBandX,
 
-                        rightBandX,
+                    upperBandY,
 
-                        upperBandY,
+                    center.z,
+                );
 
-                        center.z
-
-                    );
-
-                upperRightFacadeBand.userData.isBuildingExterior =
-                    true;
-
-                
-                
-
-
-                
+                upperRightFacadeBand.userData.isBuildingExterior = true;
 
                 // =================================================
                 // PHASE 8.3 PART 3
@@ -8986,29 +8223,15 @@
                 // occupy the central rear section.
                 // =================================================
 
-
                 // =================================================
                 // WINDOW CONFIGURATION
                 // =================================================
 
-                const windowHeight =
-                    Math.max(
-                        buildingHeight * 0.11,
-                        0.55
-                    );
+                const windowHeight = Math.max(buildingHeight * 0.11, 0.55);
 
-                const windowDepth =
-                    Math.max(
-                        facadeBandDepth * 0.35,
-                        0.08
-                    );
+                const windowDepth = Math.max(facadeBandDepth * 0.35, 0.08);
 
-                const windowGap =
-                    Math.max(
-                        buildingWidth * 0.012,
-                        0.18
-                    );
-
+                const windowGap = Math.max(buildingWidth * 0.012, 0.18);
 
                 // =================================================
                 // FLOOR WINDOW Y POSITIONS
@@ -9016,14 +8239,9 @@
                 // These sit between the horizontal facade bands.
                 // =================================================
 
-                const secondFloorWindowY =
-                    center.y -
-                    (buildingHeight * 0.03);
+                const secondFloorWindowY = center.y - buildingHeight * 0.03;
 
-                const thirdFloorWindowY =
-                    center.y +
-                    (buildingHeight * 0.25);
-
+                const thirdFloorWindowY = center.y + buildingHeight * 0.25;
 
                 // =================================================
                 // FRONT WINDOW AREA
@@ -9033,12 +8251,7 @@
                 // facade already occupy this section.
                 // =================================================
 
-                const frontWindowSideWidth =
-                    (
-                        buildingWidth -
-                        frontFeatureWidth
-                    ) / 2;
-
+                const frontWindowSideWidth = (buildingWidth - frontFeatureWidth) / 2;
 
                 // =================================================
                 // HELPER FUNCTION
@@ -9053,125 +8266,72 @@
                     totalWidth,
                     y,
                     z,
-                    faceDirection
+                    faceDirection,
                 ) {
+                    const approximateWindowWidth = Math.max(buildingWidth * 0.055, 0.7);
 
-                    const approximateWindowWidth =
-                        Math.max(
-                            buildingWidth * 0.055,
-                            0.7
-                        );
+                    const windowCount = Math.max(
+                        2,
+                        Math.floor(totalWidth / (approximateWindowWidth + windowGap)),
+                    );
 
-                    const windowCount =
-                        Math.max(
-                            2,
-                            Math.floor(
-                                totalWidth /
-                                (
-                                    approximateWindowWidth +
-                                    windowGap
-                                )
-                            )
-                        );
+                    const usableWidth = totalWidth - windowGap * (windowCount - 1);
 
-                    const usableWidth =
-                        totalWidth -
-                        (
-                            windowGap *
-                            (windowCount - 1)
-                        );
+                    const actualWindowWidth = usableWidth / windowCount;
 
-                    const actualWindowWidth =
-                        usableWidth /
-                        windowCount;
-
-
-                    for (
-                        let i = 0;
-                        i < windowCount;
-                        i++
-                    ) {
-
+                    for (let i = 0; i < windowCount; i++) {
                         const windowX =
                             startX +
-                            (actualWindowWidth / 2) +
-                            i *
-                            (
-                                actualWindowWidth +
-                                windowGap
-                            );
+                            actualWindowWidth / 2 +
+                            i * (actualWindowWidth + windowGap);
 
+                        const windowSection = createExteriorSection(
+                            actualWindowWidth,
 
-                        const windowSection =
-                            createExteriorSection(
+                            windowHeight,
 
-                                actualWindowWidth,
+                            windowDepth,
 
-                                windowHeight,
+                            windowX,
 
-                                windowDepth,
+                            y,
 
-                                windowX,
+                            z,
+                        );
 
-                                y,
+                        windowSection.userData.isBuildingExterior = true;
 
-                                z
+                        windowSection.userData.isExteriorWindow = true;
 
-                            );
-
-
-                        windowSection.userData.isBuildingExterior =
-                            true;
-
-                        windowSection.userData.isExteriorWindow =
-                            true;
-
-                        windowSection.userData.windowFace =
-                            faceDirection;
-
+                        windowSection.userData.windowFace = faceDirection;
                     }
-
                 }
-
 
                 // =================================================
                 // FRONT WINDOW Z POSITION
                 // =================================================
 
-                const frontWindowZ =
-                    frontZ +
-                    (windowDepth / 2) +
-                    facadeBandDepth +
-                    0.04;
-
+                const frontWindowZ = frontZ + windowDepth / 2 + facadeBandDepth + 0.04;
 
                 // =================================================
                 // LEFT FRONT WINDOW SECTION
                 // =================================================
 
                 const leftFrontWindowStart =
-                    center.x -
-                    (buildingWidth / 2) +
-                    (buildingWidth * 0.03);
+                    center.x - buildingWidth / 2 + buildingWidth * 0.03;
 
                 const leftFrontWindowWidth =
-                    frontWindowSideWidth -
-                    (buildingWidth * 0.06);
-
+                    frontWindowSideWidth - buildingWidth * 0.06;
 
                 // =================================================
                 // RIGHT FRONT WINDOW SECTION
                 // =================================================
 
                 const rightFrontWindowStart =
-                    center.x +
-                    (frontFeatureWidth / 2) +
-                    (buildingWidth * 0.03);
+                    center.x + frontFeatureWidth / 2 + buildingWidth * 0.03;
 
                 const rightFrontWindowWidth =
-                    frontWindowSideWidth -
-                    (buildingWidth * 0.06);
-
+                    frontWindowSideWidth - buildingWidth * 0.06;
 
                 // =================================================
                 // SECOND FLOOR FRONT WINDOWS
@@ -9179,7 +8339,6 @@
                 // =================================================
 
                 createHorizontalWindowRow(
-
                     leftFrontWindowStart,
 
                     leftFrontWindowWidth,
@@ -9188,10 +8347,8 @@
 
                     frontWindowZ,
 
-                    'front'
-
+                    "front",
                 );
-
 
                 // =================================================
                 // SECOND FLOOR FRONT WINDOWS
@@ -9199,7 +8356,6 @@
                 // =================================================
 
                 createHorizontalWindowRow(
-
                     rightFrontWindowStart,
 
                     rightFrontWindowWidth,
@@ -9208,10 +8364,8 @@
 
                     frontWindowZ,
 
-                    'front'
-
+                    "front",
                 );
-
 
                 // =================================================
                 // THIRD FLOOR FRONT WINDOWS
@@ -9219,7 +8373,6 @@
                 // =================================================
 
                 createHorizontalWindowRow(
-
                     leftFrontWindowStart,
 
                     leftFrontWindowWidth,
@@ -9228,10 +8381,8 @@
 
                     frontWindowZ,
 
-                    'front'
-
+                    "front",
                 );
-
 
                 // =================================================
                 // THIRD FLOOR FRONT WINDOWS
@@ -9239,7 +8390,6 @@
                 // =================================================
 
                 createHorizontalWindowRow(
-
                     rightFrontWindowStart,
 
                     rightFrontWindowWidth,
@@ -9248,10 +8398,8 @@
 
                     frontWindowZ,
 
-                    'front'
-
+                    "front",
                 );
-
 
                 // =================================================
                 // BACK WINDOW CONFIGURATION
@@ -9260,51 +8408,28 @@
                 // and staircase architecture.
                 // =================================================
 
-                const backCenterClearance =
-                Math.max(
-                    buildingWidth * 0.225,
-                    3.75
-                );
-                const backWindowSideWidth =
-                    (
-                        buildingWidth -
-                        backCenterClearance
-                    ) / 2;
+                const backCenterClearance = Math.max(buildingWidth * 0.225, 3.75);
+                const backWindowSideWidth = (buildingWidth - backCenterClearance) / 2;
 
-                const backWindowZ =
-                    backZ -
-                    (windowDepth / 2) -
-                    facadeBandDepth -
-                    0.04;
-
+                const backWindowZ = backZ - windowDepth / 2 - facadeBandDepth - 0.04;
 
                 // =================================================
                 // LEFT BACK WINDOW SECTION
                 // =================================================
 
                 const leftBackWindowStart =
-                    center.x -
-                    (buildingWidth / 2) +
-                    (buildingWidth * 0.03);
+                    center.x - buildingWidth / 2 + buildingWidth * 0.03;
 
-                const leftBackWindowWidth =
-                    backWindowSideWidth -
-                    (buildingWidth * 0.06);
-
+                const leftBackWindowWidth = backWindowSideWidth - buildingWidth * 0.06;
 
                 // =================================================
                 // RIGHT BACK WINDOW SECTION
                 // =================================================
 
                 const rightBackWindowStart =
-                    center.x +
-                    (backCenterClearance / 2) +
-                    (buildingWidth * 0.03);
+                    center.x + backCenterClearance / 2 + buildingWidth * 0.03;
 
-                const rightBackWindowWidth =
-                    backWindowSideWidth -
-                    (buildingWidth * 0.06);
-
+                const rightBackWindowWidth = backWindowSideWidth - buildingWidth * 0.06;
 
                 // =================================================
                 // SECOND FLOOR BACK WINDOWS
@@ -9312,7 +8437,6 @@
                 // =================================================
 
                 createHorizontalWindowRow(
-
                     leftBackWindowStart,
 
                     leftBackWindowWidth,
@@ -9321,10 +8445,8 @@
 
                     backWindowZ,
 
-                    'back'
-
+                    "back",
                 );
-
 
                 // =================================================
                 // SECOND FLOOR BACK WINDOWS
@@ -9332,7 +8454,6 @@
                 // =================================================
 
                 createHorizontalWindowRow(
-
                     rightBackWindowStart,
 
                     rightBackWindowWidth,
@@ -9341,10 +8462,8 @@
 
                     backWindowZ,
 
-                    'back'
-
+                    "back",
                 );
-
 
                 // =================================================
                 // THIRD FLOOR BACK WINDOWS
@@ -9352,7 +8471,6 @@
                 // =================================================
 
                 createHorizontalWindowRow(
-
                     leftBackWindowStart,
 
                     leftBackWindowWidth,
@@ -9361,10 +8479,8 @@
 
                     backWindowZ,
 
-                    'back'
-
+                    "back",
                 );
-
 
                 // =================================================
                 // THIRD FLOOR BACK WINDOWS
@@ -9372,7 +8488,6 @@
                 // =================================================
 
                 createHorizontalWindowRow(
-
                     rightBackWindowStart,
 
                     rightBackWindowWidth,
@@ -9381,10 +8496,8 @@
 
                     backWindowZ,
 
-                    'back'
-
+                    "back",
                 );
-
 
                 // =================================================
                 // SIDE WINDOW HELPER
@@ -9392,100 +8505,49 @@
                 // Side windows run along the Z axis instead of X.
                 // =================================================
 
-                function createSideWindowRow(
-                    x,
-                    y,
-                    startZ,
-                    totalDepth,
-                    faceDirection
-                ) {
+                function createSideWindowRow(x, y, startZ, totalDepth, faceDirection) {
+                    const approximateWindowWidth = Math.max(buildingDepth * 0.08, 0.7);
 
-                    const approximateWindowWidth =
-                        Math.max(
-                            buildingDepth * 0.08,
-                            0.7
-                        );
+                    const sideWindowGap = Math.max(buildingDepth * 0.018, 0.18);
 
-                    const sideWindowGap =
-                        Math.max(
-                            buildingDepth * 0.018,
-                            0.18
-                        );
+                    const windowCount = Math.max(
+                        2,
+                        Math.floor(
+                            totalDepth / (approximateWindowWidth + sideWindowGap),
+                        ),
+                    );
 
+                    const usableDepth = totalDepth - sideWindowGap * (windowCount - 1);
 
-                    const windowCount =
-                        Math.max(
-                            2,
-                            Math.floor(
-                                totalDepth /
-                                (
-                                    approximateWindowWidth +
-                                    sideWindowGap
-                                )
-                            )
-                        );
+                    const actualWindowDepth = usableDepth / windowCount;
 
-
-                    const usableDepth =
-                        totalDepth -
-                        (
-                            sideWindowGap *
-                            (windowCount - 1)
-                        );
-
-
-                    const actualWindowDepth =
-                        usableDepth /
-                        windowCount;
-
-
-                    for (
-                        let i = 0;
-                        i < windowCount;
-                        i++
-                    ) {
-
+                    for (let i = 0; i < windowCount; i++) {
                         const windowZ =
                             startZ +
-                            (actualWindowDepth / 2) +
-                            i *
-                            (
-                                actualWindowDepth +
-                                sideWindowGap
-                            );
+                            actualWindowDepth / 2 +
+                            i * (actualWindowDepth + sideWindowGap);
 
+                        const windowSection = createExteriorSection(
+                            windowDepth,
 
-                        const windowSection =
-                            createExteriorSection(
+                            windowHeight,
 
-                                windowDepth,
+                            actualWindowDepth,
 
-                                windowHeight,
+                            x,
 
-                                actualWindowDepth,
+                            y,
 
-                                x,
+                            windowZ,
+                        );
 
-                                y,
+                        windowSection.userData.isBuildingExterior = true;
 
-                                windowZ
+                        windowSection.userData.isExteriorWindow = true;
 
-                            );
-
-
-                        windowSection.userData.isBuildingExterior =
-                            true;
-
-                        windowSection.userData.isExteriorWindow =
-                            true;
-
-                        windowSection.userData.windowFace =
-                            faceDirection;
-
+                        windowSection.userData.windowFace = faceDirection;
                     }
-
                 }
-
 
                 // =================================================
                 // SIDE WINDOW POSITIONS
@@ -9493,18 +8555,17 @@
 
                 const leftWindowX =
                     center.x -
-                    (buildingWidth / 2) -
+                    buildingWidth / 2 -
                     facadeBandDepth -
-                    (windowDepth / 2) -
+                    windowDepth / 2 -
                     0.04;
 
                 const rightWindowX =
                     center.x +
-                    (buildingWidth / 2) +
+                    buildingWidth / 2 +
                     facadeBandDepth +
-                    (windowDepth / 2) +
+                    windowDepth / 2 +
                     0.04;
-
 
                 // =================================================
                 // SIDE WINDOW DEPTH AREA
@@ -9514,13 +8575,9 @@
                 // corner architectural sections.
                 // =================================================
 
-                const sideWindowStartZ =
-                    backZ +
-                    (buildingDepth * 0.06);
+                const sideWindowStartZ = backZ + buildingDepth * 0.06;
 
-                const sideWindowTotalDepth =
-                    buildingDepth * 0.88;
-
+                const sideWindowTotalDepth = buildingDepth * 0.88;
 
                 // =================================================
                 // LEFT SIDE
@@ -9528,7 +8585,6 @@
                 // =================================================
 
                 createSideWindowRow(
-
                     leftWindowX,
 
                     secondFloorWindowY,
@@ -9537,10 +8593,8 @@
 
                     sideWindowTotalDepth,
 
-                    'left'
-
+                    "left",
                 );
-
 
                 // =================================================
                 // LEFT SIDE
@@ -9548,7 +8602,6 @@
                 // =================================================
 
                 createSideWindowRow(
-
                     leftWindowX,
 
                     thirdFloorWindowY,
@@ -9557,10 +8610,8 @@
 
                     sideWindowTotalDepth,
 
-                    'left'
-
+                    "left",
                 );
-
 
                 // =================================================
                 // RIGHT SIDE
@@ -9568,7 +8619,6 @@
                 // =================================================
 
                 createSideWindowRow(
-
                     rightWindowX,
 
                     secondFloorWindowY,
@@ -9577,10 +8627,8 @@
 
                     sideWindowTotalDepth,
 
-                    'right'
-
+                    "right",
                 );
-
 
                 // =================================================
                 // RIGHT SIDE
@@ -9588,7 +8636,6 @@
                 // =================================================
 
                 createSideWindowRow(
-
                     rightWindowX,
 
                     thirdFloorWindowY,
@@ -9597,10 +8644,8 @@
 
                     sideWindowTotalDepth,
 
-                    'right'
-
+                    "right",
                 );
-
 
                 // =================================================
                 // 6. MAIN TOP ROOF
@@ -9611,31 +8656,23 @@
                 // Those will be refined later.
                 // =================================================
 
-                const mainRoofThickness =
-                    0.25;
+                const mainRoofThickness = 0.25;
 
-                const exteriorRoof =
-                    createExteriorSection(
+                const exteriorRoof = createExteriorSection(
+                    buildingWidth + 0.5,
 
-                        buildingWidth + 0.5,
+                    mainRoofThickness,
 
-                        mainRoofThickness,
+                    buildingDepth + 0.5,
 
-                        buildingDepth + 0.5,
+                    center.x,
 
-                        center.x,
+                    center.y + buildingHeight / 2 + mainRoofThickness / 2,
 
-                        center.y +
-                            (buildingHeight / 2) +
-                            (mainRoofThickness / 2),
+                    center.z,
+                );
 
-                        center.z
-
-                    );
-
-                exteriorRoof.userData.isBuildingExterior =
-                    true;
-
+                exteriorRoof.userData.isBuildingExterior = true;
 
                 // =================================================
                 // 7. FRONT ROOF FASCIA
@@ -9644,42 +8681,25 @@
                 // the street-facing side of the real building.
                 // =================================================
 
-                const roofFasciaHeight =
-                    Math.max(
-                        buildingHeight * 0.10,
-                        0.5
-                    );
+                const roofFasciaHeight = Math.max(buildingHeight * 0.1, 0.5);
 
-                const roofFasciaDepth =
-                    Math.max(
-                        buildingDepth * 0.06,
-                        0.5
-                    );
+                const roofFasciaDepth = Math.max(buildingDepth * 0.06, 0.5);
 
+                const frontRoofFascia = createExteriorSection(
+                    buildingWidth + 0.3,
 
-                const frontRoofFascia =
-                    createExteriorSection(
+                    roofFasciaHeight,
 
-                        buildingWidth + 0.3,
+                    roofFasciaDepth,
 
-                        roofFasciaHeight,
+                    center.x,
 
-                        roofFasciaDepth,
+                    center.y + buildingHeight / 2 - roofFasciaHeight / 2,
 
-                        center.x,
+                    frontZ + roofFasciaDepth / 2,
+                );
 
-                        center.y +
-                            (buildingHeight / 2) -
-                            (roofFasciaHeight / 2),
-
-                        frontZ +
-                            (roofFasciaDepth / 2)
-
-                    );
-
-                frontRoofFascia.userData.isBuildingExterior =
-                    true;
-
+                frontRoofFascia.userData.isBuildingExterior = true;
 
                 // =================================================
                 // 8. LEFT SIDE CORNER MASS
@@ -9691,42 +8711,25 @@
                 // from the previous version.
                 // =================================================
 
-                const cornerWidth =
-                    Math.max(
-                        buildingWidth * 0.12,
-                        1.8
-                    );
+                const cornerWidth = Math.max(buildingWidth * 0.12, 1.8);
 
-                const cornerDepth =
-                    Math.max(
-                        buildingDepth * 0.10,
-                        0.8
-                    );
+                const cornerDepth = Math.max(buildingDepth * 0.1, 0.8);
 
+                const leftCornerSection = createExteriorSection(
+                    cornerWidth,
 
-                const leftCornerSection =
-                    createExteriorSection(
+                    buildingHeight * 0.95,
 
-                        cornerWidth,
+                    cornerDepth,
 
-                        buildingHeight * 0.95,
+                    center.x - buildingWidth / 2 + cornerWidth / 2,
 
-                        cornerDepth,
+                    center.y,
 
-                        center.x -
-                            (buildingWidth / 2) +
-                            (cornerWidth / 2),
+                    frontZ + cornerDepth / 2,
+                );
 
-                        center.y,
-
-                        frontZ +
-                            (cornerDepth / 2)
-
-                    );
-
-                leftCornerSection.userData.isBuildingExterior =
-                    true;
-
+                leftCornerSection.userData.isBuildingExterior = true;
 
                 // =================================================
                 // 9. RIGHT SIDE CORNER MASS
@@ -9734,29 +8737,21 @@
                 // Mirrors the left side.
                 // =================================================
 
-                const rightCornerSection =
-                    createExteriorSection(
+                const rightCornerSection = createExteriorSection(
+                    cornerWidth,
 
-                        cornerWidth,
+                    buildingHeight * 0.95,
 
-                        buildingHeight * 0.95,
+                    cornerDepth,
 
-                        cornerDepth,
+                    center.x + buildingWidth / 2 - cornerWidth / 2,
 
-                        center.x +
-                            (buildingWidth / 2) -
-                            (cornerWidth / 2),
+                    center.y,
 
-                        center.y,
+                    frontZ + cornerDepth / 2,
+                );
 
-                        frontZ +
-                            (cornerDepth / 2)
-
-                    );
-
-                rightCornerSection.userData.isBuildingExterior =
-                    true;
-
+                rightCornerSection.userData.isBuildingExterior = true;
 
                 // =================================================
                 // PHASE 8.3 PART 4
@@ -9779,22 +8774,13 @@
                 // -Z = BACK
                 // =================================================
 
-
                 // =================================================
                 // STI ENTRANCE DIMENSIONS
                 // =================================================
 
-                const stiEntranceWidth =
-                    Math.max(
-                        buildingWidth * 0.18,
-                        3
-                    );
+                const stiEntranceWidth = Math.max(buildingWidth * 0.18, 3);
 
-                const stiEntranceDepth =
-                    Math.max(
-                        buildingDepth * 0.10,
-                        1
-                    );
+                const stiEntranceDepth = Math.max(buildingDepth * 0.1, 1);
 
                 // =================================================
                 // PHASE 8.3 PART 2.2
@@ -9815,40 +8801,29 @@
                 // The third floor remains continuous.
                 // =================================================
 
-
                 // =================================================
                 // REAR STI ENTRANCE FACADE OPENING
                 //
                 // Creates extra clearance around the STI entrance.
                 // =================================================
 
-                const rearEntranceOpeningWidth =
-                    stiEntranceWidth + 0.8;
-
+                const rearEntranceOpeningWidth = stiEntranceWidth + 0.8;
 
                 // =================================================
                 // SHARED SIDE FACADE THICKNESS
                 // =================================================
 
-                const sideFacadeThickness =
-                    upperFacadeDepth;
-
+                const sideFacadeThickness = upperFacadeDepth;
 
                 // =================================================
                 // 1. REAR GROUND FLOOR COMMERCIAL BAND
                 // SPLIT AROUND STI ENTRANCE
                 // =================================================
 
-                const rearCommercialTotalWidth =
-                    buildingWidth * 0.96;
-
+                const rearCommercialTotalWidth = buildingWidth * 0.96;
 
                 const rearCommercialSideWidth =
-                    (
-                        rearCommercialTotalWidth -
-                        rearEntranceOpeningWidth
-                    ) / 2;
-
+                    (rearCommercialTotalWidth - rearEntranceOpeningWidth) / 2;
 
                 // =================================================
                 // LEFT AND RIGHT X POSITIONS
@@ -9856,147 +8831,105 @@
 
                 const rearCommercialLeftX =
                     center.x -
-                    (rearEntranceOpeningWidth / 2) -
-                    (rearCommercialSideWidth / 2);
-
+                    rearEntranceOpeningWidth / 2 -
+                    rearCommercialSideWidth / 2;
 
                 const rearCommercialRightX =
                     center.x +
-                    (rearEntranceOpeningWidth / 2) +
-                    (rearCommercialSideWidth / 2);
-
+                    rearEntranceOpeningWidth / 2 +
+                    rearCommercialSideWidth / 2;
 
                 // =================================================
                 // REAR COMMERCIAL BAND
                 // LEFT SECTION
                 // =================================================
 
-                const rearCommercialBandLeft =
-                    createExteriorSection(
+                const rearCommercialBandLeft = createExteriorSection(
+                    rearCommercialSideWidth,
 
-                        rearCommercialSideWidth,
+                    commercialBandHeight,
 
-                        commercialBandHeight,
+                    commercialBandDepth,
 
-                        commercialBandDepth,
+                    rearCommercialLeftX,
 
-                        rearCommercialLeftX,
+                    center.y - buildingHeight / 2 + commercialBandHeight / 2,
 
-                        center.y -
-                            (buildingHeight / 2) +
-                            (commercialBandHeight / 2),
+                    backZ - commercialBandDepth / 2,
+                );
 
-                        backZ -
-                            (commercialBandDepth / 2)
-
-                    );
-
-                rearCommercialBandLeft.userData.isBuildingExterior =
-                    true;
-
+                rearCommercialBandLeft.userData.isBuildingExterior = true;
 
                 // =================================================
                 // REAR COMMERCIAL BAND
                 // RIGHT SECTION
                 // =================================================
 
-                const rearCommercialBandRight =
-                    createExteriorSection(
+                const rearCommercialBandRight = createExteriorSection(
+                    rearCommercialSideWidth,
 
-                        rearCommercialSideWidth,
+                    commercialBandHeight,
 
-                        commercialBandHeight,
+                    commercialBandDepth,
 
-                        commercialBandDepth,
+                    rearCommercialRightX,
 
-                        rearCommercialRightX,
+                    center.y - buildingHeight / 2 + commercialBandHeight / 2,
 
-                        center.y -
-                            (buildingHeight / 2) +
-                            (commercialBandHeight / 2),
+                    backZ - commercialBandDepth / 2,
+                );
 
-                        backZ -
-                            (commercialBandDepth / 2)
-
-                    );
-
-                rearCommercialBandRight.userData.isBuildingExterior =
-                    true;
-
+                rearCommercialBandRight.userData.isBuildingExterior = true;
 
                 // =================================================
                 // 2. LEFT GROUND FLOOR COMMERCIAL BAND
                 // =================================================
 
-                const leftCommercialBand =
-                    createExteriorSection(
+                const leftCommercialBand = createExteriorSection(
+                    commercialBandDepth,
 
-                        commercialBandDepth,
+                    commercialBandHeight,
 
-                        commercialBandHeight,
+                    buildingDepth * 0.96,
 
-                        buildingDepth * 0.96,
+                    center.x - buildingWidth / 2 - commercialBandDepth / 2,
 
-                        center.x -
-                            (buildingWidth / 2) -
-                            (commercialBandDepth / 2),
+                    center.y - buildingHeight / 2 + commercialBandHeight / 2,
 
-                        center.y -
-                            (buildingHeight / 2) +
-                            (commercialBandHeight / 2),
+                    center.z,
+                );
 
-                        center.z
-
-                    );
-
-                leftCommercialBand.userData.isBuildingExterior =
-                    true;
-
+                leftCommercialBand.userData.isBuildingExterior = true;
 
                 // =================================================
                 // 3. RIGHT GROUND FLOOR COMMERCIAL BAND
                 // =================================================
 
-                const rightCommercialBand =
-                    createExteriorSection(
+                const rightCommercialBand = createExteriorSection(
+                    commercialBandDepth,
 
-                        commercialBandDepth,
+                    commercialBandHeight,
 
-                        commercialBandHeight,
+                    buildingDepth * 0.96,
 
-                        buildingDepth * 0.96,
+                    center.x + buildingWidth / 2 + commercialBandDepth / 2,
 
-                        center.x +
-                            (buildingWidth / 2) +
-                            (commercialBandDepth / 2),
+                    center.y - buildingHeight / 2 + commercialBandHeight / 2,
 
-                        center.y -
-                            (buildingHeight / 2) +
-                            (commercialBandHeight / 2),
+                    center.z,
+                );
 
-                        center.z
-
-                    );
-
-                rightCommercialBand.userData.isBuildingExterior =
-                    true;
-
+                rightCommercialBand.userData.isBuildingExterior = true;
 
                 // =================================================
                 // 4. REAR SECOND FLOOR FACADE
                 // SPLIT AROUND STI ENTRANCE
                 // =================================================
 
-                const rearSecondFacadeTotalWidth =
-                    buildingWidth * 0.94;
-
+                const rearSecondFacadeTotalWidth = buildingWidth * 0.94;
 
                 const rearSecondFacadeSideWidth =
-                    (
-                        rearSecondFacadeTotalWidth -
-                        rearEntranceOpeningWidth
-                    ) / 2;
-
+                    (rearSecondFacadeTotalWidth - rearEntranceOpeningWidth) / 2;
 
                 // =================================================
                 // LEFT AND RIGHT X POSITIONS
@@ -10004,123 +8937,95 @@
 
                 const rearSecondLeftX =
                     center.x -
-                    (rearEntranceOpeningWidth / 2) -
-                    (rearSecondFacadeSideWidth / 2);
-
+                    rearEntranceOpeningWidth / 2 -
+                    rearSecondFacadeSideWidth / 2;
 
                 const rearSecondRightX =
                     center.x +
-                    (rearEntranceOpeningWidth / 2) +
-                    (rearSecondFacadeSideWidth / 2);
-
+                    rearEntranceOpeningWidth / 2 +
+                    rearSecondFacadeSideWidth / 2;
 
                 // =================================================
                 // REAR SECOND FLOOR FACADE
                 // LEFT SECTION
                 // =================================================
 
-                const rearSecondFloorFacadeLeft =
-                    createExteriorSection(
+                const rearSecondFloorFacadeLeft = createExteriorSection(
+                    rearSecondFacadeSideWidth,
 
-                        rearSecondFacadeSideWidth,
+                    upperFacadeHeight,
 
-                        upperFacadeHeight,
+                    upperFacadeDepth,
 
-                        upperFacadeDepth,
+                    rearSecondLeftX,
 
-                        rearSecondLeftX,
+                    center.y,
 
-                        center.y,
+                    backZ - upperFacadeDepth / 2,
+                );
 
-                        backZ -
-                            (upperFacadeDepth / 2)
-
-                    );
-
-                rearSecondFloorFacadeLeft.userData.isBuildingExterior =
-                    true;
-
+                rearSecondFloorFacadeLeft.userData.isBuildingExterior = true;
 
                 // =================================================
                 // REAR SECOND FLOOR FACADE
                 // RIGHT SECTION
                 // =================================================
 
-                const rearSecondFloorFacadeRight =
-                    createExteriorSection(
+                const rearSecondFloorFacadeRight = createExteriorSection(
+                    rearSecondFacadeSideWidth,
 
-                        rearSecondFacadeSideWidth,
+                    upperFacadeHeight,
 
-                        upperFacadeHeight,
+                    upperFacadeDepth,
 
-                        upperFacadeDepth,
+                    rearSecondRightX,
 
-                        rearSecondRightX,
+                    center.y,
 
-                        center.y,
+                    backZ - upperFacadeDepth / 2,
+                );
 
-                        backZ -
-                            (upperFacadeDepth / 2)
-
-                    );
-
-                rearSecondFloorFacadeRight.userData.isBuildingExterior =
-                    true;
-
+                rearSecondFloorFacadeRight.userData.isBuildingExterior = true;
 
                 // =================================================
                 // 5. LEFT SECOND FLOOR FACADE
                 // =================================================
 
-                const leftSecondFloorFacade =
-                    createExteriorSection(
+                const leftSecondFloorFacade = createExteriorSection(
+                    sideFacadeThickness,
 
-                        sideFacadeThickness,
+                    upperFacadeHeight,
 
-                        upperFacadeHeight,
+                    buildingDepth * 0.94,
 
-                        buildingDepth * 0.94,
+                    center.x - buildingWidth / 2 - sideFacadeThickness / 2,
 
-                        center.x -
-                            (buildingWidth / 2) -
-                            (sideFacadeThickness / 2),
+                    center.y,
 
-                        center.y,
+                    center.z,
+                );
 
-                        center.z
-
-                    );
-
-                leftSecondFloorFacade.userData.isBuildingExterior =
-                    true;
-
+                leftSecondFloorFacade.userData.isBuildingExterior = true;
 
                 // =================================================
                 // 6. RIGHT SECOND FLOOR FACADE
                 // =================================================
 
-                const rightSecondFloorFacade =
-                    createExteriorSection(
+                const rightSecondFloorFacade = createExteriorSection(
+                    sideFacadeThickness,
 
-                        sideFacadeThickness,
+                    upperFacadeHeight,
 
-                        upperFacadeHeight,
+                    buildingDepth * 0.94,
 
-                        buildingDepth * 0.94,
+                    center.x + buildingWidth / 2 + sideFacadeThickness / 2,
 
-                        center.x +
-                            (buildingWidth / 2) +
-                            (sideFacadeThickness / 2),
+                    center.y,
 
-                        center.y,
+                    center.z,
+                );
 
-                        center.z
-
-                    );
-
-                rightSecondFloorFacade.userData.isBuildingExterior =
-                    true;
-
+                rightSecondFloorFacade.userData.isBuildingExterior = true;
 
                 // =================================================
                 // 7. REAR THIRD FLOOR FACADE
@@ -10129,84 +9034,61 @@
                 // opening only needs to affect the lower levels.
                 // =================================================
 
-                const rearThirdFloorFacade =
-                    createExteriorSection(
+                const rearThirdFloorFacade = createExteriorSection(
+                    buildingWidth * 0.96,
 
-                        buildingWidth * 0.96,
+                    upperFacadeHeight * 0.8,
 
-                        upperFacadeHeight * 0.8,
+                    upperFacadeDepth,
 
-                        upperFacadeDepth,
+                    center.x,
 
-                        center.x,
+                    center.y + buildingHeight * 0.3,
 
-                        center.y +
-                            (buildingHeight * 0.30),
+                    backZ - upperFacadeDepth / 2,
+                );
 
-                        backZ -
-                            (upperFacadeDepth / 2)
-
-                    );
-
-                rearThirdFloorFacade.userData.isBuildingExterior =
-                    true;
-
+                rearThirdFloorFacade.userData.isBuildingExterior = true;
 
                 // =================================================
                 // 8. LEFT THIRD FLOOR FACADE
                 // =================================================
 
-                const leftThirdFloorFacade =
-                    createExteriorSection(
+                const leftThirdFloorFacade = createExteriorSection(
+                    sideFacadeThickness,
 
-                        sideFacadeThickness,
+                    upperFacadeHeight * 0.8,
 
-                        upperFacadeHeight * 0.8,
+                    buildingDepth * 0.96,
 
-                        buildingDepth * 0.96,
+                    center.x - buildingWidth / 2 - sideFacadeThickness / 2,
 
-                        center.x -
-                            (buildingWidth / 2) -
-                            (sideFacadeThickness / 2),
+                    center.y + buildingHeight * 0.3,
 
-                        center.y +
-                            (buildingHeight * 0.30),
+                    center.z,
+                );
 
-                        center.z
-
-                    );
-
-                leftThirdFloorFacade.userData.isBuildingExterior =
-                    true;
-
+                leftThirdFloorFacade.userData.isBuildingExterior = true;
 
                 // =================================================
                 // 9. RIGHT THIRD FLOOR FACADE
                 // =================================================
 
-                const rightThirdFloorFacade =
-                    createExteriorSection(
+                const rightThirdFloorFacade = createExteriorSection(
+                    sideFacadeThickness,
 
-                        sideFacadeThickness,
+                    upperFacadeHeight * 0.8,
 
-                        upperFacadeHeight * 0.8,
+                    buildingDepth * 0.96,
 
-                        buildingDepth * 0.96,
+                    center.x + buildingWidth / 2 + sideFacadeThickness / 2,
 
-                        center.x +
-                            (buildingWidth / 2) +
-                            (sideFacadeThickness / 2),
+                    center.y + buildingHeight * 0.3,
 
-                        center.y +
-                            (buildingHeight * 0.30),
+                    center.z,
+                );
 
-                        center.z
-
-                    );
-
-                rightThirdFloorFacade.userData.isBuildingExterior =
-                    true;
-
+                rightThirdFloorFacade.userData.isBuildingExterior = true;
 
                 // =================================================
                 // ESTIMATED FLOOR HEIGHT
@@ -10217,18 +9099,13 @@
                 // We use this to calculate the second-floor height.
                 // =================================================
 
-                const estimatedFloorHeight =
-                    buildingHeight / 3;
-
+                const estimatedFloorHeight = buildingHeight / 3;
 
                 // =================================================
                 // GROUND LEVEL
                 // =================================================
 
-                const buildingBottomY =
-                    center.y -
-                    (buildingHeight / 2);
-
+                const buildingBottomY = center.y - buildingHeight / 2;
 
                 // =================================================
                 // SECOND FLOOR ENTRANCE HEIGHT
@@ -10236,10 +9113,7 @@
                 // This is one floor above ground level.
                 // =================================================
 
-                const secondFloorEntranceY =
-                    buildingBottomY +
-                    estimatedFloorHeight;
-
+                const secondFloorEntranceY = buildingBottomY + estimatedFloorHeight;
 
                 // =================================================
                 // 1. SECOND FLOOR STI ENTRANCE LANDING
@@ -10250,40 +9124,27 @@
                 // The staircase will connect directly to it.
                 // =================================================
 
-                const stiLandingThickness =
-                    0.22;
+                const stiLandingThickness = 0.22;
 
-                const stiLandingDepth =
-                    Math.max(
-                        buildingDepth * 0.12,
-                        1.4
-                    );
+                const stiLandingDepth = Math.max(buildingDepth * 0.12, 1.4);
 
+                const stiEntranceLanding = createExteriorSection(
+                    stiEntranceWidth,
 
-                const stiEntranceLanding =
-                    createExteriorSection(
+                    stiLandingThickness,
 
-                        stiEntranceWidth,
+                    stiLandingDepth,
 
-                        stiLandingThickness,
+                    center.x,
 
-                        stiLandingDepth,
+                    secondFloorEntranceY,
 
-                        center.x,
+                    backZ - stiLandingDepth / 2,
+                );
 
-                        secondFloorEntranceY,
+                stiEntranceLanding.userData.isBuildingExterior = true;
 
-                        backZ -
-                        (stiLandingDepth / 2)
-
-                    );
-
-                stiEntranceLanding.userData.isBuildingExterior =
-                    true;
-
-                stiEntranceLanding.userData.isStiEntrance =
-                    true;
-
+                stiEntranceLanding.userData.isStiEntrance = true;
 
                 // =================================================
                 // 2. STI SECOND FLOOR ENTRANCE FRAME
@@ -10293,51 +9154,29 @@
                 // This is the actual school entrance position.
                 // =================================================
 
-                const stiDoorWidth =
-                    Math.max(
-                        stiEntranceWidth * 0.45,
-                        1.2
-                    );
+                const stiDoorWidth = Math.max(stiEntranceWidth * 0.45, 1.2);
 
-                const stiDoorHeight =
-                    Math.max(
-                        estimatedFloorHeight * 0.58,
-                        1.5
-                    );
+                const stiDoorHeight = Math.max(estimatedFloorHeight * 0.58, 1.5);
 
-                const stiDoorDepth =
-                    Math.max(
-                        buildingDepth * 0.025,
-                        0.18
-                    );
+                const stiDoorDepth = Math.max(buildingDepth * 0.025, 0.18);
 
+                const stiEntranceFrame = createExteriorSection(
+                    stiDoorWidth,
 
-                const stiEntranceFrame =
-                    createExteriorSection(
+                    stiDoorHeight,
 
-                        stiDoorWidth,
+                    stiDoorDepth,
 
-                        stiDoorHeight,
+                    center.x,
 
-                        stiDoorDepth,
+                    secondFloorEntranceY + stiDoorHeight / 2,
 
-                        center.x,
+                    backZ - stiDoorDepth / 2 - 0.04,
+                );
 
-                        secondFloorEntranceY +
-                        (stiDoorHeight / 2),
+                stiEntranceFrame.userData.isBuildingExterior = true;
 
-                        backZ -
-                        (stiDoorDepth / 2) -
-                        0.04
-
-                    );
-
-                stiEntranceFrame.userData.isBuildingExterior =
-                    true;
-
-                stiEntranceFrame.userData.isStiEntrance =
-                    true;
-
+                stiEntranceFrame.userData.isStiEntrance = true;
 
                 // =================================================
                 // 3. STAIRCASE CONFIGURATION
@@ -10359,34 +9198,19 @@
 
                 const stairDirection = -1;
 
-                const stairWidth =
-                    Math.max(
-                        stiEntranceDepth * 0.85,
-                        1.8
-                    );
+                const stairWidth = Math.max(stiEntranceDepth * 0.85, 1.8);
 
-                const stairRun =
-                    Math.max(
-                        buildingWidth * 0.32,
-                        4
-                    );
+                const stairRun = Math.max(buildingWidth * 0.32, 4);
 
-                const stairStepCount =
-                    12;
-
+                const stairStepCount = 12;
 
                 // =================================================
                 // CALCULATE STAIR STEP DIMENSIONS
                 // =================================================
 
-                const stairStepHeight =
-                    estimatedFloorHeight /
-                    stairStepCount;
+                const stairStepHeight = estimatedFloorHeight / stairStepCount;
 
-                const stairStepRun =
-                    stairRun /
-                    stairStepCount;
-
+                const stairStepRun = stairRun / stairStepCount;
 
                 // =================================================
                 // STAIRCASE Z POSITION
@@ -10395,10 +9219,7 @@
                 // and aligned with the STI entrance landing.
                 // =================================================
 
-                const staircaseZ =
-                    backZ -
-                    stiLandingDepth -
-                    (stairWidth / 2);
+                const staircaseZ = backZ - stiLandingDepth - stairWidth / 2;
 
                 // =================================================
                 // STAIRCASE TOP CONNECTION POINT
@@ -10406,10 +9227,7 @@
                 // Keep the existing staircase direction unchanged
                 // =================================================
 
-                const stairTopX =
-                    center.x +
-                    (stiEntranceWidth / 2);
-
+                const stairTopX = center.x + stiEntranceWidth / 2;
 
                 // =================================================
                 // CREATE SIDEWAYS STAIR STEPS
@@ -10422,25 +9240,14 @@
                 // stairDirection = -1 -> left side
                 // =================================================
 
-                for (
-                    let i = 0;
-                    i < stairStepCount;
-                    i++
-                ) {
-
-                    const currentStepHeight =
-                        stairStepHeight *
-                        (i + 1);
-
+                for (let i = 0; i < stairStepCount; i++) {
+                    const currentStepHeight = stairStepHeight * (i + 1);
 
                     // =================================================
                     // STEP HEIGHT
                     // =================================================
 
-                    const stepY =
-                        buildingBottomY +
-                        (currentStepHeight / 2);
-
+                    const stepY = buildingBottomY + currentStepHeight / 2;
 
                     // =================================================
                     // STEP X POSITION
@@ -10450,20 +9257,9 @@
                     // Final step ends near the center landing.
                     // =================================================
 
-                    const distanceFromLanding =
-                        stairRun -
-                        (
-                            stairStepRun *
-                            (i + 0.5)
-                        );
+                    const distanceFromLanding = stairRun - stairStepRun * (i + 0.5);
 
-                    const stepX =
-                        stairTopX +
-                        (
-                            distanceFromLanding *
-                            stairDirection
-                        );
-
+                    const stepX = stairTopX + distanceFromLanding * stairDirection;
 
                     // =================================================
                     // CREATE STEP
@@ -10472,60 +9268,37 @@
                     // Stair width is now along Z.
                     // =================================================
 
-                    const stairStep =
-                        createExteriorSection(
+                    const stairStep = createExteriorSection(
+                        stairStepRun,
 
-                            stairStepRun,
+                        currentStepHeight,
 
-                            currentStepHeight,
+                        stairWidth,
 
-                            stairWidth,
+                        stepX,
 
-                            stepX,
+                        stepY,
 
-                            stepY,
+                        staircaseZ,
+                    );
 
-                            staircaseZ
+                    stairStep.userData.isBuildingExterior = true;
 
-                        );
-
-
-                    stairStep.userData.isBuildingExterior =
-                        true;
-
-                    stairStep.userData.isStiStaircase =
-                        true;
-
+                    stairStep.userData.isStiStaircase = true;
                 }
-
 
                 // =================================================
                 // 4. BACK STAIR RAILING
                 // FIXED FOR SIDEWAYS STAIRCASE
                 // =================================================
 
-                const railingThickness =
-                    0.08;
+                const railingThickness = 0.08;
 
-                const railingHeight =
-                    Math.max(
-                        estimatedFloorHeight * 0.30,
-                        0.8
-                    );
+                const railingHeight = Math.max(estimatedFloorHeight * 0.3, 0.8);
 
-                const stairSlopeAngle =
-                    Math.atan2(
-                        estimatedFloorHeight,
-                        stairRun
-                    );
+                const stairSlopeAngle = Math.atan2(estimatedFloorHeight, stairRun);
 
-                const staircaseCenterX =
-                    stairTopX +
-                    (
-                        (stairRun / 2) *
-                        stairDirection
-                    );
-
+                const staircaseCenterX = stairTopX + (stairRun / 2) * stairDirection;
 
                 // =================================================
                 // FIX:
@@ -10536,147 +9309,101 @@
                 // stairDirection is positive.
                 // =================================================
 
-                const railingRotationZ =
-                    -stairDirection *
-                    stairSlopeAngle;
-
+                const railingRotationZ = -stairDirection * stairSlopeAngle;
 
                 // =================================================
                 // BACK STAIR RAILING
                 // =================================================
 
-                const backStairRailing =
-                    createExteriorSection(
+                const backStairRailing = createExteriorSection(
+                    stairRun,
 
-                        stairRun,
+                    railingThickness,
 
-                        railingThickness,
+                    railingHeight,
 
-                        railingHeight,
+                    staircaseCenterX,
 
-                        staircaseCenterX,
+                    buildingBottomY + estimatedFloorHeight / 2 + railingHeight / 2,
 
-                        buildingBottomY +
-                        (estimatedFloorHeight / 2) +
-                        (railingHeight / 2),
+                    staircaseZ - stairWidth / 2,
+                );
 
-                        staircaseZ -
-                        (stairWidth / 2)
+                backStairRailing.rotation.z = railingRotationZ;
 
-                    );
+                backStairRailing.userData.isBuildingExterior = true;
 
-                backStairRailing.rotation.z =
-                    railingRotationZ;
-
-                backStairRailing.userData.isBuildingExterior =
-                    true;
-
-                backStairRailing.userData.isStiStaircase =
-                    true;
-
+                backStairRailing.userData.isStiStaircase = true;
 
                 // =================================================
                 // 5. FRONT STAIR RAILING
                 // =================================================
 
-                const frontStairRailing =
-                    createExteriorSection(
+                const frontStairRailing = createExteriorSection(
+                    stairRun,
 
-                        stairRun,
+                    railingThickness,
 
-                        railingThickness,
+                    railingHeight,
 
-                        railingHeight,
+                    staircaseCenterX,
 
-                        staircaseCenterX,
+                    buildingBottomY + estimatedFloorHeight / 2 + railingHeight / 2,
 
-                        buildingBottomY +
-                        (estimatedFloorHeight / 2) +
-                        (railingHeight / 2),
+                    staircaseZ + stairWidth / 2,
+                );
 
-                        staircaseZ +
-                        (stairWidth / 2)
+                frontStairRailing.rotation.z = railingRotationZ;
 
-                    );
+                frontStairRailing.userData.isBuildingExterior = true;
 
-                frontStairRailing.rotation.z =
-                    railingRotationZ;
-
-                frontStairRailing.userData.isBuildingExterior =
-                    true;
-
-                frontStairRailing.userData.isStiStaircase =
-                    true;
-
+                frontStairRailing.userData.isStiStaircase = true;
 
                 // =================================================
                 // 6. LEFT LANDING RAILING
                 // =================================================
 
-                const landingRailingHeight =
-                    Math.max(
-                        estimatedFloorHeight * 0.25,
-                        0.7
-                    );
+                const landingRailingHeight = Math.max(estimatedFloorHeight * 0.25, 0.7);
 
+                const leftLandingRailing = createExteriorSection(
+                    railingThickness,
 
-                const leftLandingRailing =
-                    createExteriorSection(
+                    landingRailingHeight,
 
-                        railingThickness,
+                    stiLandingDepth,
 
-                        landingRailingHeight,
+                    center.x - stiEntranceWidth / 2,
 
-                        stiLandingDepth,
+                    secondFloorEntranceY + landingRailingHeight / 2,
 
-                        center.x -
-                        (stiEntranceWidth / 2),
+                    backZ - stiLandingDepth / 2,
+                );
 
-                        secondFloorEntranceY +
-                        (landingRailingHeight / 2),
+                leftLandingRailing.userData.isBuildingExterior = true;
 
-                        backZ -
-                        (stiLandingDepth / 2)
-
-                    );
-
-                leftLandingRailing.userData.isBuildingExterior =
-                    true;
-
-                leftLandingRailing.userData.isStiEntrance =
-                    true;
-
+                leftLandingRailing.userData.isStiEntrance = true;
 
                 // =================================================
                 // 7. RIGHT LANDING RAILING
                 // =================================================
 
-                const rightLandingRailing =
-                    createExteriorSection(
+                const rightLandingRailing = createExteriorSection(
+                    railingThickness,
 
-                        railingThickness,
+                    landingRailingHeight,
 
-                        landingRailingHeight,
+                    stiLandingDepth,
 
-                        stiLandingDepth,
+                    center.x + stiEntranceWidth / 2,
 
-                        center.x +
-                        (stiEntranceWidth / 2),
+                    secondFloorEntranceY + landingRailingHeight / 2,
 
-                        secondFloorEntranceY +
-                        (landingRailingHeight / 2),
+                    backZ - stiLandingDepth / 2,
+                );
 
-                        backZ -
-                        (stiLandingDepth / 2)
+                rightLandingRailing.userData.isBuildingExterior = true;
 
-                    );
-
-                rightLandingRailing.userData.isBuildingExterior =
-                    true;
-
-                rightLandingRailing.userData.isStiEntrance =
-                    true;
-
+                rightLandingRailing.userData.isStiEntrance = true;
 
                 // =================================================
                 // 8. STI ENTRANCE CANOPY
@@ -10688,47 +9415,30 @@
                 // exterior.
                 // =================================================
 
-                const stiCanopyWidth =
-                    stiEntranceWidth * 0.75;
+                const stiCanopyWidth = stiEntranceWidth * 0.75;
 
-                const stiCanopyDepth =
-                    Math.max(
-                        stiLandingDepth * 0.65,
-                        0.8
-                    );
+                const stiCanopyDepth = Math.max(stiLandingDepth * 0.65, 0.8);
 
-                const stiCanopyThickness =
-                    0.12;
+                const stiCanopyThickness = 0.12;
 
+                const stiEntranceCanopy = createExteriorSection(
+                    stiCanopyWidth,
 
-                const stiEntranceCanopy =
-                    createExteriorSection(
+                    stiCanopyThickness,
 
-                        stiCanopyWidth,
+                    stiCanopyDepth,
 
-                        stiCanopyThickness,
+                    center.x,
 
-                        stiCanopyDepth,
+                    secondFloorEntranceY + stiDoorHeight + 0.25,
 
-                        center.x,
+                    backZ - stiCanopyDepth / 2,
+                );
 
-                        secondFloorEntranceY +
-                        stiDoorHeight +
-                        0.25,
+                stiEntranceCanopy.userData.isBuildingExterior = true;
 
-                        backZ -
-                        (stiCanopyDepth / 2)
-
-                    );
-
-                stiEntranceCanopy.userData.isBuildingExterior =
-                    true;
-
-                stiEntranceCanopy.userData.isStiEntrance =
-                    true;
-
+                stiEntranceCanopy.userData.isStiEntrance = true;
             }
-
 
             // =====================================================
             // PHASE 8.1 PART 2
@@ -10742,20 +9452,18 @@
             // GENERATE FLOOR FILTER BUTTONS
             // =====================================================
 
-            const floorFilterButtonContainer =
-                document.getElementById(
-                    'buildingFloorFilterButtons'
-                );
+            const floorFilterButtonContainer = document.getElementById(
+                "buildingFloorFilterButtons",
+            );
 
             // =====================================================
             // PHASE 8.2 PART 4
             // BACK TO BUILDING OVERVIEW BUTTON
             // =====================================================
 
-            const backToBuildingOverviewButton =
-                document.getElementById(
-                    'backToBuildingOverview'
-                );
+            const backToBuildingOverviewButton = document.getElementById(
+                "backToBuildingOverview",
+            );
 
             // =====================================================
             // PHASE 8.2
@@ -10763,43 +9471,24 @@
             // =====================================================
 
             if (floorFilterButtonContainer) {
-
                 floorFilterButtonContainer.style.display =
-                    currentBuildingView === 'exterior'
-                        ? 'none'
-                        : '';
-
+                    currentBuildingView === "exterior" ? "none" : "";
             }
 
             if (floorFilterButtonContainer) {
+                building3DData.forEach((floorData) => {
+                    const button = document.createElement("button");
 
-                building3DData.forEach(
-                    floorData => {
+                    button.type = "button";
 
-                        const button =
-                            document.createElement(
-                                'button'
-                            );
+                    button.className = "building-floor-filter";
 
-                        button.type =
-                            'button';
+                    button.dataset.floorFilter = String(floorData.id);
 
-                        button.className =
-                            'building-floor-filter';
+                    button.textContent = floorData.name;
 
-                        button.dataset.floorFilter =
-                            String(floorData.id);
-
-                        button.textContent =
-                            floorData.name;
-
-                        floorFilterButtonContainer.appendChild(
-                            button
-                        );
-
-                    }
-                );
-
+                    floorFilterButtonContainer.appendChild(button);
+                });
             }
 
             // =====================================================
@@ -10813,7 +9502,6 @@
             // =====================================================
 
             function focusCameraOnObject(object) {
-
                 if (!object) {
                     return;
                 }
@@ -10822,57 +9510,35 @@
                 // GET OBJECT BOUNDS
                 // =================================================
 
-                const bounds =
-                    new THREE.Box3().setFromObject(object);
+                const bounds = new THREE.Box3().setFromObject(object);
 
                 if (bounds.isEmpty()) {
                     return;
                 }
 
-                const size =
-                    bounds.getSize(
-                        new THREE.Vector3()
-                    );
+                const size = bounds.getSize(new THREE.Vector3());
 
-                const center =
-                    bounds.getCenter(
-                        new THREE.Vector3()
-                    );
-
+                const center = bounds.getCenter(new THREE.Vector3());
 
                 // =================================================
                 // CALCULATE CAMERA DISTANCE
                 // =================================================
 
-                const maxDimension =
-                    Math.max(
-                        size.x,
-                        size.y,
-                        size.z
-                    );
+                const maxDimension = Math.max(size.x, size.y, size.z);
 
-                const distance =
-                    Math.max(
-                        maxDimension * 1.8,
-                        10
-                    );
-
+                const distance = Math.max(maxDimension * 1.8, 10);
 
                 // =================================================
                 // CALCULATE TARGET CAMERA POSITION
                 // =================================================
 
-                const targetPosition =
-                    new THREE.Vector3(
+                const targetPosition = new THREE.Vector3(
+                    center.x + distance,
 
-                        center.x + distance,
+                    center.y + distance * 0.75,
 
-                        center.y + distance * 0.75,
-
-                        center.z + distance
-
-                    );
-
+                    center.z + distance,
+                );
 
                 // =================================================
                 // PHASE 7.6
@@ -10880,27 +9546,18 @@
                 // =================================================
 
                 cameraTransition = {
+                    startPosition: camera.position.clone(),
 
-                    startPosition:
-                        camera.position.clone(),
+                    endPosition: targetPosition.clone(),
 
-                    endPosition:
-                        targetPosition.clone(),
+                    startTarget: controls.target.clone(),
 
-                    startTarget:
-                        controls.target.clone(),
+                    endTarget: center.clone(),
 
-                    endTarget:
-                        center.clone(),
+                    startTime: performance.now(),
 
-                    startTime:
-                        performance.now(),
-
-                    duration:
-                        800
-
+                    duration: 800,
                 };
-
             }
 
             // =====================================================
@@ -10908,156 +9565,91 @@
             // FLOOR FILTERING
             // =====================================================
 
-            const floorFilterButtons =
-                document.querySelectorAll(
-                    '.building-floor-filter'
-                );
-
-            floorFilterButtons.forEach(
-                button => {
-
-                    button.addEventListener(
-                        'click',
-                        function () {
-
-                            const selectedFloor =
-                                this.dataset.floorFilter;
-
-
-                            // =========================================
-                            // UPDATE ACTIVE BUTTON
-                            // =========================================
-
-                            floorFilterButtons.forEach(
-                                filterButton => {
-
-                                    filterButton.classList.remove(
-                                        'active'
-                                    );
-
-                                }
-                            );
-
-                            this.classList.add(
-                                'active'
-                            );
-
-
-                            // =========================================
-                            // PHASE 7.10
-                            // SHOW / HIDE FLOORS AND ROOM LABELS
-                            // =========================================
-
-                            buildingFloorGroups.forEach(
-                                (floorGroup, floorId) => {
-
-                                    const isAllFloors =
-                                        selectedFloor === 'all';
-
-                                    const isSelectedFloor =
-                                        floorId === selectedFloor;
-
-
-                                    // =====================================
-                                    // FLOOR VISIBILITY
-                                    // =====================================
-
-                                    floorGroup.visible =
-                                        isAllFloors ||
-                                        isSelectedFloor;
-
-
-                                    // =====================================
-                                    // ROOM LABEL VISIBILITY
-                                    // =====================================
-
-                                    floorGroup.traverse(
-                                        child => {
-
-                                            if (
-                                                child.userData.type ===
-                                                'room-label'
-                                            ) {
-
-                                                // Hide labels on All Floors
-                                                // Show labels only on selected floor
-
-                                                child.visible =
-                                                    !isAllFloors &&
-                                                    isSelectedFloor;
-
-                                            }
-
-                                        }
-                                    );
-
-                                }
-                            );
-
-                            // =========================================
-                            // PHASE 7.5
-                            // AUTO FOCUS CAMERA
-                            // =========================================
-
-                            if (
-                                selectedFloor === 'all'
-                            ) {
-
-                                // Focus on the complete building
-                                focusCameraOnObject(
-                                    building
-                                );
-
-                            } else {
-
-                                // Get the selected floor group
-                                const selectedFloorGroup =
-                                    buildingFloorGroups.get(
-                                        selectedFloor
-                                    );
-
-                                // Focus only on the selected floor
-                                if (selectedFloorGroup) {
-
-                                    focusCameraOnObject(
-                                        selectedFloorGroup
-                                    );
-
-                                }
-
-                            }
-
-
-                            // =========================================
-                            // CLEAR HOVERED ROOM
-                            // =========================================
-
-                            if (hoveredRoom) {
-
-                                hoveredRoom = null;
-
-                            }
-
-
-                            renderer.domElement.style.cursor =
-                                'grab';
-
-                        }
-                    );
-
-                }
+            const floorFilterButtons = document.querySelectorAll(
+                ".building-floor-filter",
             );
 
+            floorFilterButtons.forEach((button) => {
+                button.addEventListener("click", function () {
+                    const selectedFloor = this.dataset.floorFilter;
+
+                    // =========================================
+                    // UPDATE ACTIVE BUTTON
+                    // =========================================
+
+                    floorFilterButtons.forEach((filterButton) => {
+                        filterButton.classList.remove("active");
+                    });
+
+                    this.classList.add("active");
+
+                    // =========================================
+                    // PHASE 7.10
+                    // SHOW / HIDE FLOORS AND ROOM LABELS
+                    // =========================================
+
+                    buildingFloorGroups.forEach((floorGroup, floorId) => {
+                        const isAllFloors = selectedFloor === "all";
+
+                        const isSelectedFloor = floorId === selectedFloor;
+
+                        // =====================================
+                        // FLOOR VISIBILITY
+                        // =====================================
+
+                        floorGroup.visible = isAllFloors || isSelectedFloor;
+
+                        // =====================================
+                        // ROOM LABEL VISIBILITY
+                        // =====================================
+
+                        floorGroup.traverse((child) => {
+                            if (child.userData.type === "room-label") {
+                                // Hide labels on All Floors
+                                // Show labels only on selected floor
+
+                                child.visible = !isAllFloors && isSelectedFloor;
+                            }
+                        });
+                    });
+
+                    // =========================================
+                    // PHASE 7.5
+                    // AUTO FOCUS CAMERA
+                    // =========================================
+
+                    if (selectedFloor === "all") {
+                        // Focus on the complete building
+                        focusCameraOnObject(building);
+                    } else {
+                        // Get the selected floor group
+                        const selectedFloorGroup =
+                            buildingFloorGroups.get(selectedFloor);
+
+                        // Focus only on the selected floor
+                        if (selectedFloorGroup) {
+                            focusCameraOnObject(selectedFloorGroup);
+                        }
+                    }
+
+                    // =========================================
+                    // CLEAR HOVERED ROOM
+                    // =========================================
+
+                    if (hoveredRoom) {
+                        hoveredRoom = null;
+                    }
+
+                    renderer.domElement.style.cursor = "grab";
+                });
+            });
 
             // =====================================================
             // PHASE 2.3
             // CALCULATE FINAL 3D BUILDING BOUNDS
             // =====================================================
 
-            const buildingBounds =
-                new THREE.Box3()
-                    .setFromObject(building);
-
+            const buildingBounds = new THREE.Box3().setFromObject(building);
 
             // =====================================================
             // PHASE 2.3
@@ -11065,81 +9657,49 @@
             // =====================================================
 
             if (!buildingBounds.isEmpty()) {
+                const buildingSize = buildingBounds.getSize(new THREE.Vector3());
 
-                const buildingSize =
-                    buildingBounds.getSize(
-                        new THREE.Vector3()
-                    );
-
-                const buildingCenter =
-                    buildingBounds.getCenter(
-                        new THREE.Vector3()
-                    );
-
+                const buildingCenter = buildingBounds.getCenter(new THREE.Vector3());
 
                 // =================================================
                 // CAMERA LOOKS AT CENTER OF COMPLETE BUILDING
                 // =================================================
 
-                controls.target.copy(
-                    buildingCenter
-                );
-
+                controls.target.copy(buildingCenter);
 
                 // =================================================
                 // CALCULATE APPROPRIATE CAMERA DISTANCE
                 // =================================================
 
-                const maxDimension =
-                    Math.max(
-                        buildingSize.x,
-                        buildingSize.y,
-                        buildingSize.z
-                    );
+                const maxDimension = Math.max(
+                    buildingSize.x,
+                    buildingSize.y,
+                    buildingSize.z,
+                );
 
-
-                const cameraDistance =
-                    Math.max(
-                        maxDimension * 2,
-                        12
-                    );
-
+                const cameraDistance = Math.max(maxDimension * 2, 12);
 
                 // =================================================
                 // POSITION CAMERA AT ISOMETRIC ANGLE
                 // =================================================
 
                 camera.position.set(
+                    buildingCenter.x + cameraDistance,
 
-                    buildingCenter.x +
-                        cameraDistance,
+                    buildingCenter.y + cameraDistance * 0.75,
 
-                    buildingCenter.y +
-                        cameraDistance *
-                        0.75,
-
-                    buildingCenter.z +
-                        cameraDistance
-
+                    buildingCenter.z + cameraDistance,
                 );
 
-
                 controls.update();
-
             }
-
 
             // =====================================================
             // PHASE 2.3 COMPLETE
             // EACH FLOOR IS NOW CENTERED AND STACKED
             // =====================================================
 
-           
             // =====================================================
-
-
-            
-
 
             // =====================================================
             // PHASE 2.1 COMPLETE
@@ -11152,23 +9712,11 @@
             // =====================================================
 
             function getViewerMousePosition(event) {
+                const rect = renderer.domElement.getBoundingClientRect();
 
-                const rect =
-                    renderer.domElement.getBoundingClientRect();
+                mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
 
-                mouse.x =
-                    (
-                        (event.clientX - rect.left) /
-                        rect.width
-                    ) * 2 - 1;
-
-                mouse.y =
-                    -(
-                        (
-                            event.clientY - rect.top
-                        ) /
-                        rect.height
-                    ) * 2 + 1;
+                mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
             }
 
             // =====================================================
@@ -11177,30 +9725,19 @@
             // =====================================================
 
             function getVisibleClickableRooms() {
-
-                return clickableRooms.filter(
-                    room => {
-
-                        // Room must be visible
-                        if (!room.visible) {
-                            return false;
-                        }
-
-                        // Floor group must also be visible
-                        if (
-                            room.parent &&
-                            room.parent.userData.type === 'floor'
-                        ) {
-
-                            return room.parent.visible;
-
-                        }
-
-                        return true;
-
+                return clickableRooms.filter((room) => {
+                    // Room must be visible
+                    if (!room.visible) {
+                        return false;
                     }
-                );
 
+                    // Floor group must also be visible
+                    if (room.parent && room.parent.userData.type === "floor") {
+                        return room.parent.visible;
+                    }
+
+                    return true;
+                });
             }
 
             // =====================================================
@@ -11209,37 +9746,25 @@
             // =====================================================
 
             function getExteriorIntersection(event) {
-
-                if (currentBuildingView !== 'exterior') {
+                if (currentBuildingView !== "exterior") {
                     return null;
                 }
 
-                const rect =
-                    renderer.domElement.getBoundingClientRect();
+                const rect = renderer.domElement.getBoundingClientRect();
 
-                mouse.x =
-                    ((event.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
 
-                mouse.y =
-                    -((event.clientY - rect.top) / rect.height) * 2 + 1;
+                mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
-                raycaster.setFromCamera(
-                    mouse,
-                    camera
-                );
+                raycaster.setFromCamera(mouse, camera);
 
-                const intersections =
-                    raycaster.intersectObject(
-                        exteriorBuilding,
-                        true
-                    );
+                const intersections = raycaster.intersectObject(exteriorBuilding, true);
 
                 if (intersections.length === 0) {
                     return null;
                 }
 
                 return intersections[0];
-
             }
 
             // =====================================================
@@ -11250,115 +9775,54 @@
             function fadeExteriorBuilding(
                 targetOpacity,
                 duration = 500,
-                onComplete = null
+                onComplete = null,
             ) {
-
                 const materials = [];
 
-                exteriorBuilding.traverse(
-                    object => {
+                exteriorBuilding.traverse((object) => {
+                    if (object.material) {
+                        const objectMaterials = Array.isArray(object.material)
+                            ? object.material
+                            : [object.material];
 
-                        if (
-                            object.material
-                        ) {
+                        objectMaterials.forEach((material) => {
+                            materials.push({
+                                material: material,
 
-                            const objectMaterials =
-                                Array.isArray(
-                                    object.material
-                                )
-                                    ? object.material
-                                    : [object.material];
-
-                            objectMaterials.forEach(
-                                material => {
-
-                                    materials.push({
-
-                                        material:
-                                            material,
-
-                                        startOpacity:
-                                            material.opacity
-
-                                    });
-
-                                }
-                            );
-
-                        }
-
+                                startOpacity: material.opacity,
+                            });
+                        });
                     }
-                );
+                });
 
+                const startTime = performance.now();
 
-                const startTime =
-                    performance.now();
+                function animateFade(currentTime) {
+                    const elapsed = currentTime - startTime;
 
-
-                function animateFade(
-                    currentTime
-                ) {
-
-                    const elapsed =
-                        currentTime -
-                        startTime;
-
-                    const progress =
-                        Math.min(
-                            elapsed / duration,
-                            1
-                        );
-
+                    const progress = Math.min(elapsed / duration, 1);
 
                     // Smooth easing
-                    const eased =
-                        progress *
-                        progress *
-                        (
-                            3 -
-                            2 * progress
+                    const eased = progress * progress * (3 - 2 * progress);
+
+                    materials.forEach((item) => {
+                        item.material.opacity = THREE.MathUtils.lerp(
+                            item.startOpacity,
+                            targetOpacity,
+                            eased,
                         );
+                    });
 
-
-                    materials.forEach(
-                        item => {
-
-                            item.material.opacity =
-                                THREE.MathUtils.lerp(
-                                    item.startOpacity,
-                                    targetOpacity,
-                                    eased
-                                );
-
-                        }
-                    );
-
-
-                    if (
-                        progress < 1
-                    ) {
-
-                        requestAnimationFrame(
-                            animateFade
-                        );
-
+                    if (progress < 1) {
+                        requestAnimationFrame(animateFade);
                     } else {
-
                         if (onComplete) {
-
                             onComplete();
-
                         }
-
                     }
-
                 }
 
-
-                requestAnimationFrame(
-                    animateFade
-                );
-
+                requestAnimationFrame(animateFade);
             }
 
             // =====================================================
@@ -11367,57 +9831,27 @@
             // =====================================================
 
             function getExteriorFocusView() {
+                const box = new THREE.Box3().setFromObject(exteriorBuilding);
 
-                const box =
-                    new THREE.Box3()
-                        .setFromObject(
-                            exteriorBuilding
-                        );
+                const center = box.getCenter(new THREE.Vector3());
 
-                const center =
-                    box.getCenter(
-                        new THREE.Vector3()
-                    );
+                const size = box.getSize(new THREE.Vector3());
 
-                const size =
-                    box.getSize(
-                        new THREE.Vector3()
-                    );
+                const distance = Math.max(size.x, size.y, size.z);
 
+                const position = new THREE.Vector3(
+                    center.x + distance * 0.75,
 
-                const distance =
-                    Math.max(
-                        size.x,
-                        size.y,
-                        size.z
-                    );
+                    center.y + distance * 0.5,
 
-
-                const position =
-                    new THREE.Vector3(
-
-                        center.x +
-                            distance * 0.75,
-
-                        center.y +
-                            distance * 0.5,
-
-                        center.z +
-                            distance * 0.9
-
-                    );
-
+                    center.z + distance * 0.9,
+                );
 
                 return {
+                    position: position,
 
-                    position:
-                        position,
-
-                    target:
-                        center
-
+                    target: center,
                 };
-
             }
 
             // =====================================================
@@ -11431,40 +9865,27 @@
             // =====================================================
 
             function enterInteriorMode() {
-
-                if (
-                    currentBuildingView ===
-                    'interior'
-                ) {
+                if (currentBuildingView === "interior") {
                     return;
                 }
 
-
-                if (
-                    isBuildingViewTransitioning
-                ) {
+                if (isBuildingViewTransitioning) {
                     return;
                 }
-
 
                 // =================================================
                 // LOCK INTERACTION DURING TRANSITION
                 // =================================================
 
-                isBuildingViewTransitioning =
-                    true;
+                isBuildingViewTransitioning = true;
 
-                renderer.domElement.style.cursor =
-                    'default';
-
+                renderer.domElement.style.cursor = "default";
 
                 // =================================================
                 // GET CINEMATIC EXTERIOR FOCUS POSITION
                 // =================================================
 
-                const exteriorView =
-                    getExteriorFocusView();
-
+                const exteriorView = getExteriorFocusView();
 
                 // =================================================
                 // FIRST CAMERA MOVEMENT
@@ -11472,131 +9893,80 @@
                 // =================================================
 
                 cameraTransition = {
+                    startPosition: camera.position.clone(),
 
-                    startPosition:
-                        camera.position.clone(),
+                    endPosition: exteriorView.position.clone(),
 
-                    endPosition:
-                        exteriorView.position.clone(),
+                    startTarget: controls.target.clone(),
 
-                    startTarget:
-                        controls.target.clone(),
+                    endTarget: exteriorView.target.clone(),
 
-                    endTarget:
-                        exteriorView.target.clone(),
+                    startTime: performance.now(),
 
-                    startTime:
-                        performance.now(),
-
-                    duration:
-                        700
-
+                    duration: 700,
                 };
-
 
                 // =================================================
                 // WAIT FOR CAMERA APPROACH
                 // =================================================
 
-                setTimeout(
-                    () => {
+                setTimeout(() => {
+                    // =============================================
+                    // FADE EXTERIOR BUILDING
+                    // =============================================
 
-                        // =============================================
-                        // FADE EXTERIOR BUILDING
-                        // =============================================
+                    fadeExteriorBuilding(0, 450, () => {
+                        // =====================================
+                        // HIDE EXTERIOR
+                        // =====================================
 
-                        fadeExteriorBuilding(
-                            0,
-                            450,
-                            () => {
+                        exteriorBuilding.visible = false;
 
-                                // =====================================
-                                // HIDE EXTERIOR
-                                // =====================================
+                        // =====================================
+                        // SHOW INTERIOR
+                        // =====================================
 
-                                exteriorBuilding.visible =
-                                    false;
+                        building.visible = true;
 
+                        // =====================================
+                        // CHANGE VIEW MODE
+                        // =====================================
 
-                                // =====================================
-                                // SHOW INTERIOR
-                                // =====================================
+                        currentBuildingView = "interior";
 
-                                building.visible =
-                                    true;
+                        // =====================================
+                        // SHOW FLOOR FILTERS
+                        // =====================================
 
+                        if (floorFilterButtonContainer) {
+                            floorFilterButtonContainer.style.display = "";
+                        }
 
-                                // =====================================
-                                // CHANGE VIEW MODE
-                                // =====================================
+                        if (backToBuildingOverviewButton) {
+                            backToBuildingOverviewButton.style.display = "";
+                        }
 
-                                currentBuildingView =
-                                    'interior';
+                        // =====================================
+                        // FOCUS CAMERA ON INTERIOR
+                        // =====================================
 
+                        focusCameraOnObject(building);
 
-                                // =====================================
-                                // SHOW FLOOR FILTERS
-                                // =====================================
+                        // =====================================
+                        // UNLOCK INTERACTION
+                        //
+                        // Wait for the interior camera
+                        // transition to mostly finish.
+                        // =====================================
 
-                                if (
-                                    floorFilterButtonContainer
-                                ) {
+                        setTimeout(() => {
+                            isBuildingViewTransitioning = false;
 
-                                    floorFilterButtonContainer
-                                        .style
-                                        .display = '';
-
-                                }
-
-                                if (
-                                    backToBuildingOverviewButton
-                                ) {
-
-                                    backToBuildingOverviewButton
-                                        .style
-                                        .display = '';
-
-                                }
-
-
-                                // =====================================
-                                // FOCUS CAMERA ON INTERIOR
-                                // =====================================
-
-                                focusCameraOnObject(
-                                    building
-                                );
-
-
-                                // =====================================
-                                // UNLOCK INTERACTION
-                                //
-                                // Wait for the interior camera
-                                // transition to mostly finish.
-                                // =====================================
-
-                                setTimeout(
-                                    () => {
-
-                                        isBuildingViewTransitioning =
-                                            false;
-
-                                        renderer.domElement.style.cursor =
-                                            'grab';
-
-                                    },
-                                    850
-                                );
-
-                            }
-                        );
-
-                    },
-                    700
-                );
-
+                            renderer.domElement.style.cursor = "grab";
+                        }, 850);
+                    });
+                }, 700);
             }
-
 
             // =====================================================
             // PHASE 8.2 PART 4
@@ -11604,234 +9974,143 @@
             // =====================================================
 
             function returnToExteriorMode() {
-
                 // Do nothing if already outside
-                if (
-                    currentBuildingView ===
-                    'exterior'
-                ) {
+                if (currentBuildingView === "exterior") {
                     return;
                 }
-
 
                 // Prevent multiple transitions
-                if (
-                    isBuildingViewTransitioning
-                ) {
+                if (isBuildingViewTransitioning) {
                     return;
                 }
-
 
                 // =================================================
                 // LOCK INTERACTION
                 // =================================================
 
-                isBuildingViewTransitioning =
-                    true;
+                isBuildingViewTransitioning = true;
 
-                renderer.domElement.style.cursor =
-                    'default';
-
+                renderer.domElement.style.cursor = "default";
 
                 // =================================================
                 // CLEAR ROOM HOVER AND SELECTION
                 // =================================================
 
                 if (hoveredRoom) {
-
-                    if (
-                        hoveredRoom !==
-                        selectedRoom
-                    ) {
-
-                        restoreRoomVisual(
-                            hoveredRoom
-                        );
-
+                    if (hoveredRoom !== selectedRoom) {
+                        restoreRoomVisual(hoveredRoom);
                     }
 
                     hoveredRoom = null;
-
                 }
-
 
                 if (selectedRoom) {
-
-                    restoreRoomVisual(
-                        selectedRoom
-                    );
+                    restoreRoomVisual(selectedRoom);
 
                     selectedRoom = null;
-
                 }
-
 
                 hideRoomTooltip();
 
-                roomDetailsPanel?.classList.remove(
-                    'visible'
-                );
-
+                roomDetailsPanel?.classList.remove("visible");
 
                 // =================================================
                 // HIDE INTERIOR CONTROLS
                 // =================================================
 
-                if (
-                    floorFilterButtonContainer
-                ) {
-
-                    floorFilterButtonContainer
-                        .style
-                        .display = 'none';
-
+                if (floorFilterButtonContainer) {
+                    floorFilterButtonContainer.style.display = "none";
                 }
 
-
-                if (
-                    backToBuildingOverviewButton
-                ) {
-
-                    backToBuildingOverviewButton
-                        .style
-                        .display = 'none';
-
+                if (backToBuildingOverviewButton) {
+                    backToBuildingOverviewButton.style.display = "none";
                 }
-
 
                 // =================================================
                 // GET EXTERIOR CAMERA VIEW
                 // =================================================
 
-                const exteriorView =
-                    getExteriorFocusView();
-
+                const exteriorView = getExteriorFocusView();
 
                 // =================================================
                 // MOVE CAMERA TOWARD EXTERIOR VIEW
                 // =================================================
 
                 cameraTransition = {
+                    startPosition: camera.position.clone(),
 
-                    startPosition:
-                        camera.position.clone(),
+                    endPosition: exteriorView.position.clone(),
 
-                    endPosition:
-                        exteriorView.position.clone(),
+                    startTarget: controls.target.clone(),
 
-                    startTarget:
-                        controls.target.clone(),
+                    endTarget: exteriorView.target.clone(),
 
-                    endTarget:
-                        exteriorView.target.clone(),
+                    startTime: performance.now(),
 
-                    startTime:
-                        performance.now(),
-
-                    duration:
-                        800
-
+                    duration: 800,
                 };
-
 
                 // =================================================
                 // WAIT FOR CAMERA MOVEMENT
                 // =================================================
 
-                setTimeout(
-                    () => {
+                setTimeout(() => {
+                    // =========================================
+                    // HIDE INTERIOR
+                    // =========================================
 
-                        // =========================================
-                        // HIDE INTERIOR
-                        // =========================================
+                    building.visible = false;
 
-                        building.visible =
-                            false;
+                    // =========================================
+                    // SHOW EXTERIOR
+                    // =========================================
 
+                    exteriorBuilding.visible = true;
 
-                        // =========================================
-                        // SHOW EXTERIOR
-                        // =========================================
+                    // =========================================
+                    // CHANGE VIEW MODE
+                    // IMPORTANT:
+                    // getExteriorIntersection() only works
+                    // when currentBuildingView is "exterior"
+                    // =========================================
 
-                        exteriorBuilding.visible =
-                            true;
+                    currentBuildingView = "exterior";
 
+                    // =========================================
+                    // RESTORE EXTERIOR MATERIAL OPACITY
+                    // Phase 8.2 Part 3 faded everything to 0
+                    // =========================================
 
-                        // =========================================
-                        // CHANGE VIEW MODE
-                        // IMPORTANT:
-                        // getExteriorIntersection() only works
-                        // when currentBuildingView is "exterior"
-                        // =========================================
+                    exteriorBuilding.traverse((object) => {
+                        if (!object.material) {
+                            return;
+                        }
 
-                        currentBuildingView =
-                            'exterior';
+                        const materials = Array.isArray(object.material)
+                            ? object.material
+                            : [object.material];
 
-
-                        // =========================================
-                        // RESTORE EXTERIOR MATERIAL OPACITY
-                        // Phase 8.2 Part 3 faded everything to 0
-                        // =========================================
-
-                        exteriorBuilding.traverse(
-                            object => {
-
-                                if (!object.material) {
-                                    return;
-                                }
-
-                                const materials =
-                                    Array.isArray(
-                                        object.material
-                                    )
-                                        ? object.material
-                                        : [object.material];
-
-
-                                materials.forEach(
-                                    material => {
-
-                                        // Exterior mesh material
-                                        if (
-                                            material.isMeshPhysicalMaterial
-                                        ) {
-
-                                            material.opacity =
-                                                0.18;
-
-                                        }
-
-                                        // Exterior cyan wireframe
-                                        if (
-                                            material.isLineBasicMaterial
-                                        ) {
-
-                                            material.opacity =
-                                                0.85;
-
-                                        }
-
-                                    }
-                                );
-
+                        materials.forEach((material) => {
+                            // Exterior mesh material
+                            if (material.isMeshPhysicalMaterial) {
+                                material.opacity = 0.18;
                             }
-                        );
 
+                            // Exterior cyan wireframe
+                            if (material.isLineBasicMaterial) {
+                                material.opacity = 0.85;
+                            }
+                        });
+                    });
 
-                        // =========================================
-                        // UNLOCK INTERACTION
-                        // =========================================
+                    // =========================================
+                    // UNLOCK INTERACTION
+                    // =========================================
 
-                        isBuildingViewTransitioning =
-                            false;
+                    isBuildingViewTransitioning = false;
 
-                        renderer.domElement.style.cursor =
-                            'grab';
-
-                    },
-                    850
-                );
-
+                    renderer.domElement.style.cursor = "grab";
+                }, 850);
             }
 
             // =====================================================
@@ -11839,406 +10118,265 @@
             // BACK TO BUILDING OVERVIEW BUTTON CLICK
             // =====================================================
 
-            backToBuildingOverviewButton
-                ?.addEventListener(
-                    'click',
-                    () => {
-
-                        returnToExteriorMode();
-
-                    }
-                );
-
+            backToBuildingOverviewButton?.addEventListener("click", () => {
+                returnToExteriorMode();
+            });
 
             // =====================================================
             // PHASE 3
             // ROOM HOVER
             // =====================================================
 
-            renderer.domElement.addEventListener(
-                'pointermove',
-                function (event) {
+            renderer.domElement.addEventListener("pointermove", function (event) {
+                // =====================================================
+                // PHASE 8.2 PART 3
+                // IGNORE HOVER DURING CINEMATIC TRANSITION
+                // =====================================================
 
-                    // =====================================================
-                    // PHASE 8.2 PART 3
-                    // IGNORE HOVER DURING CINEMATIC TRANSITION
-                    // =====================================================
+                if (isBuildingViewTransitioning) {
+                    renderer.domElement.style.cursor = "default";
 
-                    if (
-                        isBuildingViewTransitioning
-                    ) {
-
-                        renderer.domElement.style.cursor =
-                            'default';
-
-                        return;
-
-                    }
-
-                    
-
-                    // =====================================================
-                    // PHASE 8.2 PART 2
-                    // EXTERIOR BUILDING HOVER
-                    // =====================================================
-
-                    if (currentBuildingView === 'exterior') {
-
-                        const exteriorHit =
-                            getExteriorIntersection(event);
-
-                        renderer.domElement.style.cursor =
-                            exteriorHit
-                                ? 'pointer'
-                                : 'grab';
-
-                        // Stop here while viewing the exterior.
-                        // The room hover code below should only run
-                        // when we are inside the building.
-                        return;
-                    }
-
-
-                    // =====================================================
-                    // EXISTING ROOM HOVER CODE
-                    // =====================================================
-
-                    getViewerMousePosition(event);
-
-                    raycaster.setFromCamera(
-                        mouse,
-                        camera
-                    );
-
-                    // =================================================
-                    // PHASE 7.4
-                    // ONLY RAYCAST VISIBLE FLOOR ROOMS
-                    // =================================================
-
-                    const intersections =
-                        raycaster.intersectObjects(
-                            getVisibleClickableRooms(),
-                            false
-                        );
-
-
-                    // ==============================================
-                    // RESET PREVIOUS HOVER
-                    // ==============================================
-
-                    if (
-                        hoveredRoom &&
-                        hoveredRoom !== selectedRoom
-                    ) {
-
-                        restoreRoomVisual(
-                            hoveredRoom
-                        );
-
-                    }
-
-
-                    // ==============================================
-                    // ROOM IS BEING HOVERED
-                    // ==============================================
-
-                    if (intersections.length > 0) {
-
-                        hoveredRoom =
-                            intersections[0].object;
-
-                        // =================================================
-                        // PHASE 7.7
-                        // SHOW ROOM TOOLTIP
-                        // =================================================
-
-                        updateRoomTooltip(
-                            hoveredRoom,
-                            event
-                        );
-
-                        renderer.domElement.style.cursor =
-                            'pointer';
-
-
-                        // ==============================================
-                        // PHASE 7.9
-                        // APPLY HOVER VISUAL
-                        // ==============================================
-
-                        if (
-                            hoveredRoom !== selectedRoom
-                        ) {
-
-                            applyRoomHoverVisual(
-                                hoveredRoom
-                            );
-
-                        }
-
-                    } else {
-
-                        hoveredRoom = null;
-
-                        renderer.domElement.style.cursor =
-                            'grab';
-
-                        hideRoomTooltip();
-
-                    }
-
+                    return;
                 }
-            );
+
+                // =====================================================
+                // PHASE 8.2 PART 2
+                // EXTERIOR BUILDING HOVER
+                // =====================================================
+
+                if (currentBuildingView === "exterior") {
+                    const exteriorHit = getExteriorIntersection(event);
+
+                    renderer.domElement.style.cursor = exteriorHit ? "pointer" : "grab";
+
+                    // Stop here while viewing the exterior.
+                    // The room hover code below should only run
+                    // when we are inside the building.
+                    return;
+                }
+
+                // =====================================================
+                // EXISTING ROOM HOVER CODE
+                // =====================================================
+
+                getViewerMousePosition(event);
+
+                raycaster.setFromCamera(mouse, camera);
+
+                // =================================================
+                // PHASE 7.4
+                // ONLY RAYCAST VISIBLE FLOOR ROOMS
+                // =================================================
+
+                const intersections = raycaster.intersectObjects(
+                    getVisibleClickableRooms(),
+                    false,
+                );
+
+                // ==============================================
+                // RESET PREVIOUS HOVER
+                // ==============================================
+
+                if (hoveredRoom && hoveredRoom !== selectedRoom) {
+                    restoreRoomVisual(hoveredRoom);
+                }
+
+                // ==============================================
+                // ROOM IS BEING HOVERED
+                // ==============================================
+
+                if (intersections.length > 0) {
+                    hoveredRoom = intersections[0].object;
+
+                    // =================================================
+                    // PHASE 7.7
+                    // SHOW ROOM TOOLTIP
+                    // =================================================
+
+                    updateRoomTooltip(hoveredRoom, event);
+
+                    renderer.domElement.style.cursor = "pointer";
+
+                    // ==============================================
+                    // PHASE 7.9
+                    // APPLY HOVER VISUAL
+                    // ==============================================
+
+                    if (hoveredRoom !== selectedRoom) {
+                        applyRoomHoverVisual(hoveredRoom);
+                    }
+                } else {
+                    hoveredRoom = null;
+
+                    renderer.domElement.style.cursor = "grab";
+
+                    hideRoomTooltip();
+                }
+            });
 
             // =====================================================
             // PHASE 7.7
             // HIDE TOOLTIP WHEN POINTER LEAVES 3D VIEW
             // =====================================================
 
-            renderer.domElement.addEventListener(
-                'pointerleave',
-                () => {
-
-                    hideRoomTooltip();
-
-                }
-            );
-
+            renderer.domElement.addEventListener("pointerleave", () => {
+                hideRoomTooltip();
+            });
 
             // =====================================================
             // PHASE 3
             // ROOM CLICK SELECTION
             // =====================================================
 
-            renderer.domElement.addEventListener(
-                'click',
-                function (event) {
+            renderer.domElement.addEventListener("click", function (event) {
+                // =====================================================
+                // PHASE 8.2 PART 2
+                // EXTERIOR BUILDING CLICK
+                // =====================================================
 
-                    // =====================================================
-                    // PHASE 8.2 PART 2
-                    // EXTERIOR BUILDING CLICK
-                    // =====================================================
+                if (currentBuildingView === "exterior") {
+                    const exteriorHit = getExteriorIntersection(event);
 
-                    if (currentBuildingView === 'exterior') {
-
-                        const exteriorHit =
-                            getExteriorIntersection(event);
-
-                        if (exteriorHit) {
-
-                            enterInteriorMode();
-
-                        }
-
-                        // Prevent room selection from running
-                        // while in exterior mode.
-                        return;
+                    if (exteriorHit) {
+                        enterInteriorMode();
                     }
 
-                    getViewerMousePosition(event);
+                    // Prevent room selection from running
+                    // while in exterior mode.
+                    return;
+                }
 
-                    raycaster.setFromCamera(
-                        mouse,
-                        camera
-                    );
+                getViewerMousePosition(event);
 
-                    // =================================================
-                    // PHASE 7.4
-                    // ONLY CLICK ROOMS ON VISIBLE FLOORS
-                    // =================================================
+                raycaster.setFromCamera(mouse, camera);
 
-                    const intersections =
-                        raycaster.intersectObjects(
-                            getVisibleClickableRooms(),
-                            false
-                        );
+                // =================================================
+                // PHASE 7.4
+                // ONLY CLICK ROOMS ON VISIBLE FLOORS
+                // =================================================
 
+                const intersections = raycaster.intersectObjects(
+                    getVisibleClickableRooms(),
+                    false,
+                );
 
-                    if (
-                        intersections.length === 0
-                    ) {
+                if (intersections.length === 0) {
+                    if (selectedRoom) {
+                        restoreRoomVisual(selectedRoom);
 
-                        if (selectedRoom) {
-
-                            restoreRoomVisual(
-                                selectedRoom
-                            );
-
-                            selectedRoom = null;
-
-                        }
-
-                        roomDetailsPanel?.classList.remove(
-                            'visible'
-                        );
-
-                        return;
-
+                        selectedRoom = null;
                     }
 
+                    roomDetailsPanel?.classList.remove("visible");
 
-                    const roomMesh =
-                        intersections[0].object;
+                    return;
+                }
 
+                const roomMesh = intersections[0].object;
 
-                    // ==============================================
-                    // PHASE 7.9
-                    // RESTORE PREVIOUS SELECTED ROOM
-                    // ==============================================
+                // ==============================================
+                // PHASE 7.9
+                // RESTORE PREVIOUS SELECTED ROOM
+                // ==============================================
 
-                    if (
-                        selectedRoom &&
-                        selectedRoom !== roomMesh
-                    ) {
+                if (selectedRoom && selectedRoom !== roomMesh) {
+                    restoreRoomVisual(selectedRoom);
+                }
 
-                        restoreRoomVisual(
-                            selectedRoom
-                        );
+                // ==============================================
+                // SELECT NEW ROOM
+                // ==============================================
 
-                    }
+                selectedRoom = roomMesh;
 
+                applyRoomSelectedVisual(selectedRoom);
 
-                    // ==============================================
-                    // SELECT NEW ROOM
-                    // ==============================================
-
-                    selectedRoom =
-                        roomMesh;
-
-                    applyRoomSelectedVisual(
-                        selectedRoom
-                    );
-
-                    // =================================================
+                // =================================================
                 // SAVE CURRENT CAMERA VIEW BEFORE ROOM FOCUS
                 // =================================================
 
-                cameraPositionBeforeRoomSelection =
-                    camera.position.clone();
+                cameraPositionBeforeRoomSelection = camera.position.clone();
 
-                cameraTargetBeforeRoomSelection =
-                    controls.target.clone();
+                cameraTargetBeforeRoomSelection = controls.target.clone();
 
-                    focusCameraOnObject(
-                        selectedRoom
-                    );
+                focusCameraOnObject(selectedRoom);
 
+                // ==============================================
+                // TEST REAL DATABASE ROOM INFORMATION
+                // ==============================================
 
-                    // ==============================================
-                    // TEST REAL DATABASE ROOM INFORMATION
-                    // ==============================================
+                console.log("Selected 3D Room:", selectedRoom.userData);
 
-                    console.log(
-                        'Selected 3D Room:',
-                        selectedRoom.userData
-                    );
+                // =====================================================
+                // PHASE 7.8
+                // OPEN ROOM DETAILS PANEL
+                // =====================================================
 
-
-                    // =====================================================
-                    // PHASE 7.8
-                    // OPEN ROOM DETAILS PANEL
-                    // =====================================================
-
-                    openRoomDetailsPanel(
-                        selectedRoom.userData
-                    );
-
-                }
-            );
+                openRoomDetailsPanel(selectedRoom.userData);
+            });
 
             // =====================================================
             // PHASE 7.8
             // CLOSE ROOM DETAILS PANEL
             // =====================================================
 
-            roomDetailsClose?.addEventListener(
-                'click',
-                () => {
+            roomDetailsClose?.addEventListener("click", () => {
+                roomDetailsPanel?.classList.remove("visible");
 
-                    roomDetailsPanel?.classList.remove(
-                        'visible'
-                    );
+                // =================================================
+                // PHASE 7.9
+                // CLEAR SELECTED ROOM VISUAL
+                // =================================================
 
-                    // =================================================
-                    // PHASE 7.9
-                    // CLEAR SELECTED ROOM VISUAL
-                    // =================================================
+                if (selectedRoom) {
+                    restoreRoomVisual(selectedRoom);
 
-                    if (selectedRoom) {
-
-                        restoreRoomVisual(
-                            selectedRoom
-                        );
-
-                        selectedRoom = null;
-
-                    }
-
-                    // =================================================
-                    // PHASE 7.9
-                    // SMOOTHLY RETURN TO PREVIOUS CAMERA VIEW
-                    // =================================================
-
-                    if (
-                        cameraPositionBeforeRoomSelection &&
-                        cameraTargetBeforeRoomSelection
-                    ) {
-
-                        cameraTransition = {
-
-                            startPosition:
-                                camera.position.clone(),
-
-                            endPosition:
-                                cameraPositionBeforeRoomSelection.clone(),
-
-                            startTarget:
-                                controls.target.clone(),
-
-                            endTarget:
-                                cameraTargetBeforeRoomSelection.clone(),
-
-                            startTime:
-                                performance.now(),
-
-                            duration:
-                                800
-
-                        };
-
-
-                        // Clear saved camera state
-                        cameraPositionBeforeRoomSelection = null;
-                        cameraTargetBeforeRoomSelection = null;
-
-                    }
-
+                    selectedRoom = null;
                 }
-            );
 
+                // =================================================
+                // PHASE 7.9
+                // SMOOTHLY RETURN TO PREVIOUS CAMERA VIEW
+                // =================================================
+
+                if (
+                    cameraPositionBeforeRoomSelection &&
+                    cameraTargetBeforeRoomSelection
+                ) {
+                    cameraTransition = {
+                        startPosition: camera.position.clone(),
+
+                        endPosition: cameraPositionBeforeRoomSelection.clone(),
+
+                        startTarget: controls.target.clone(),
+
+                        endTarget: cameraTargetBeforeRoomSelection.clone(),
+
+                        startTime: performance.now(),
+
+                        duration: 800,
+                    };
+
+                    // Clear saved camera state
+                    cameraPositionBeforeRoomSelection = null;
+                    cameraTargetBeforeRoomSelection = null;
+                }
+            });
 
             // =====================================================
             // PHASE 7.8
             // VIEW FULL ROOM DETAILS
             // =====================================================
 
-            roomDetailsView?.addEventListener(
-                'click',
-                () => {
+            roomDetailsView?.addEventListener("click", () => {
+                const roomId = roomDetailsView.dataset.roomId;
 
-                    const roomId =
-                        roomDetailsView.dataset.roomId;
-
-                    if (!roomId) {
-                        return;
-                    }
-
-                    window.location.href =
-                        `/maintenance/infrastructure?room=${encodeURIComponent(roomId)}`;
-
+                if (!roomId) {
+                    return;
                 }
-            );
 
+                window.location.href = `/maintenance/infrastructure?room=${encodeURIComponent(roomId)}`;
+            });
 
             // =====================================================
             // PHASE 3
@@ -12246,16 +10384,14 @@
             // =====================================================
 
             function open3DRoomInspector(room) {
-
                 // ==============================================
                 // MAKE SURE THE ROOM HAS A DATABASE ID
                 // ==============================================
 
                 if (!room || !room.roomId) {
-
                     console.error(
-                        'Selected 3D room does not have a valid room ID:',
-                        room
+                        "Selected 3D room does not have a valid room ID:",
+                        room,
                     );
 
                     return;
@@ -12268,8 +10404,7 @@
                 // /maintenance/infrastructure?room=11
                 // ==============================================
 
-                const monitorUrl =
-                    `/maintenance/infrastructure?room=${encodeURIComponent(room.roomId)}`;
+                const monitorUrl = `/maintenance/infrastructure?room=${encodeURIComponent(room.roomId)}`;
 
                 // ==============================================
                 // OPEN INFRASTRUCTURE MONITOR
@@ -12282,150 +10417,83 @@
             // GRID
             // =====================================================
 
-            
-
-
             // =====================================================
             // ZOOM BUTTONS
             // =====================================================
 
-            document
-                .getElementById('buildingZoomIn')
-                ?.addEventListener(
-                    'click',
-                    () => {
+            document.getElementById("buildingZoomIn")?.addEventListener("click", () => {
+                camera.position.multiplyScalar(0.85);
 
-                        camera.position.multiplyScalar(
-                            0.85
-                        );
-
-                        controls.update();
-
-                    }
-                );
-
+                controls.update();
+            });
 
             document
-                .getElementById('buildingZoomOut')
-                ?.addEventListener(
-                    'click',
-                    () => {
+                .getElementById("buildingZoomOut")
+                ?.addEventListener("click", () => {
+                    camera.position.multiplyScalar(1.15);
 
-                        camera.position.multiplyScalar(
-                            1.15
-                        );
-
-                        controls.update();
-
-                    }
-                );
-
+                    controls.update();
+                });
 
             // =====================================================
             // RESET BUTTON
             // =====================================================
 
-            document
-                .getElementById('buildingReset')
-                ?.addEventListener(
-                    'click',
-                    () => {
+            document.getElementById("buildingReset")?.addEventListener("click", () => {
+                // =================================================
+                // PHASE 7.9
+                // CLEAR ROOM SELECTION
+                // =================================================
 
-                        // =================================================
-                        // PHASE 7.9
-                        // CLEAR ROOM SELECTION
-                        // =================================================
+                if (selectedRoom) {
+                    restoreRoomVisual(selectedRoom);
 
-                        if (selectedRoom) {
+                    selectedRoom = null;
+                }
 
-                            restoreRoomVisual(
-                                selectedRoom
-                            );
+                hoveredRoom = null;
 
-                            selectedRoom = null;
+                hideRoomTooltip();
 
-                        }
+                roomDetailsPanel?.classList.remove("visible");
 
-                        hoveredRoom = null;
+                cameraTransition = null;
 
-                        hideRoomTooltip();
+                camera.position.set(18, 14, 20);
 
-                        roomDetailsPanel?.classList.remove(
-                            'visible'
-                        );
+                controls.target.set(0, 2.5, 0);
 
-                        cameraTransition = null;
-
-                        camera.position.set(
-                            18,
-                            14,
-                            20
-                        );
-
-                        controls.target.set(
-                            0,
-                            2.5,
-                            0
-                        );
-
-                        controls.update();
-
-                    }
-                );
-
+                controls.update();
+            });
 
             // =====================================================
             // RESPONSIVE RESIZE
             // =====================================================
 
-            const resizeObserver =
-                new ResizeObserver(() => {
+            const resizeObserver = new ResizeObserver(() => {
+                const width = container.clientWidth;
 
-                    const width =
-                        container.clientWidth;
+                const height = container.clientHeight;
 
-                    const height =
-                        container.clientHeight;
+                if (width === 0 || height === 0) {
+                    return;
+                }
 
+                camera.aspect = width / height;
 
-                    if (
-                        width === 0 ||
-                        height === 0
-                    ) {
-                        return;
-                    }
+                camera.updateProjectionMatrix();
 
+                renderer.setSize(width, height, false);
+            });
 
-                    camera.aspect =
-                        width / height;
-
-                    camera.updateProjectionMatrix();
-
-
-                    renderer.setSize(
-                        width,
-                        height,
-                        false
-                    );
-
-                });
-
-
-            resizeObserver.observe(
-                container
-            );
-
+            resizeObserver.observe(container);
 
             // =====================================================
             // ANIMATION
             // =====================================================
 
             function animate() {
-
-                requestAnimationFrame(
-                    animate
-                );
-
+                requestAnimationFrame(animate);
 
                 // =================================================
                 // PHASE 7.6
@@ -12433,21 +10501,11 @@
                 // =================================================
 
                 if (cameraTransition) {
+                    const elapsed = performance.now() - cameraTransition.startTime;
 
-                    const elapsed =
-                        performance.now() -
-                        cameraTransition.startTime;
+                    let progress = elapsed / cameraTransition.duration;
 
-                    let progress =
-                        elapsed /
-                        cameraTransition.duration;
-
-                    progress =
-                        Math.min(
-                            progress,
-                            1
-                        );
-
+                    progress = Math.min(progress, 1);
 
                     // =================================================
                     // SMOOTH EASE IN AND EASE OUT
@@ -12456,12 +10514,7 @@
                     const easedProgress =
                         progress < 0.5
                             ? 2 * progress * progress
-                            : 1 -
-                                Math.pow(
-                                    -2 * progress + 2,
-                                    2
-                                ) / 2;
-
+                            : 1 - Math.pow(-2 * progress + 2, 2) / 2;
 
                     // =================================================
                     // MOVE CAMERA SMOOTHLY
@@ -12470,9 +10523,8 @@
                     camera.position.lerpVectors(
                         cameraTransition.startPosition,
                         cameraTransition.endPosition,
-                        easedProgress
+                        easedProgress,
                     );
-
 
                     // =================================================
                     // MOVE CAMERA TARGET SMOOTHLY
@@ -12481,39 +10533,27 @@
                     controls.target.lerpVectors(
                         cameraTransition.startTarget,
                         cameraTransition.endTarget,
-                        easedProgress
+                        easedProgress,
                     );
-
 
                     // =================================================
                     // END TRANSITION
                     // =================================================
 
                     if (progress >= 1) {
-
                         cameraTransition = null;
-
                     }
-
                 }
-
 
                 controls.update();
 
                 composer.render();
-
             }
-
 
             animate();
 
-
-            console.log(
-                'Three.js building viewer started successfully.'
-            );
-
+            console.log("Three.js building viewer started successfully.");
         }
-
     </script>
 
     <script>

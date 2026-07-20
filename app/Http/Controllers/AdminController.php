@@ -1156,10 +1156,28 @@ class AdminController extends Controller
     // ADDED RIS ADMIN APPROVAL: SHOW SUBMITTED RIS RECORDS
     // =====================================================
 
-    public function risApprovals(Request $request): View
-{
-    return $this->procurementReview($request);
-}
+    public function risApprovals(Request $request)
+    {
+        // ADDED RIS ADMIN APPROVAL: submitted means Pending with requested date filled.
+        $risRecords = DB::table('requisition_issue_slip_table')
+            ->leftJoin('procurement_requests_table', 'requisition_issue_slip_table.ris_procurement_request_id', '=', 'procurement_requests_table.procurement_request_id')
+            ->leftJoin('reports_table', 'procurement_requests_table.procurement_request_report_id', '=', 'reports_table.report_id')
+            ->leftJoin('equipment_table', 'reports_table.report_equipment_id', '=', 'equipment_table.equipment_id')
+            ->select(
+                'requisition_issue_slip_table.*',
+                'procurement_requests_table.procurement_request_id',
+                'reports_table.report_id',
+                'reports_table.report_unlisted_equipment_name',
+                'equipment_table.equipment_name'
+            )
+            ->where('requisition_issue_slip_table.ris_status', 'Pending')
+            ->whereNotNull('requisition_issue_slip_table.ris_requested_by_date')
+            ->whereNull('requisition_issue_slip_table.ris_approved_by_date')
+            ->orderByDesc('requisition_issue_slip_table.ris_requested_by_date')
+            ->paginate(10);
+
+        return view('admin.procurement-review.index', compact('risRecords'));
+    }
 
     // =====================================================
     // ADDED RIS ADMIN APPROVAL: APPROVE RIS
@@ -1184,8 +1202,8 @@ class AdminController extends Controller
             DB::table('requisition_issue_slip_table')
                 ->where('ris_id', $risId)
                 ->update([
-                    'ris_status' => 'Approved',
-                    'ris_approved_by_signature' => $adminName,
+                    'ris_status' => 'Pending',
+                    'ris_approved_by_signature' => Auth::user()->user_full_name ?? 'Admin',
                     'ris_approved_by_date' => now()->toDateString(),
                 ]);
 
