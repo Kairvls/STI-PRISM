@@ -566,6 +566,163 @@
                     white-space: nowrap;
                 }
 
+
+                /* ===================================================== */
+                /* QUICK ACTION BUTTON */
+                /* ===================================================== */
+
+                .dashboard-quick-action {
+                    position: relative;
+
+                    min-height: 42px;
+
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+
+                    gap: 4px;
+
+                    padding: 4px;
+
+                    border: 1px solid #e5e7eb;
+                    border-radius: 12px;
+
+                    background: #ffffff;
+
+                    color: #374151;
+
+                    font-family: "Inter", sans-serif;
+                    font-size: 12px;
+                    font-weight: 600;
+
+                    text-decoration: none;
+                    white-space: nowrap;
+
+                    box-shadow:
+                        0 1px 2px rgba(15, 23, 42, 0.03),
+                        0 1px 3px rgba(15, 23, 42, 0.04);
+
+                    transition:
+                        transform 0.18s ease,
+                        background 0.18s ease,
+                        border-color 0.18s ease,
+                        color 0.18s ease,
+                        box-shadow 0.18s ease;
+                }
+
+
+                /* ===================================================== */
+                /* QUICK ACTION ICON */
+                /* ===================================================== */
+
+                .dashboard-quick-action-icon {
+                    
+
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+
+                    flex-shrink: 0;
+
+                    border-radius: 8px;
+
+                    background: #f8fafc;
+
+                    color: #64748b;
+
+                    transition:
+                        background 0.18s ease,
+                        color 0.18s ease;
+                }
+
+
+                .dashboard-quick-action-icon svg {
+                    
+
+                    stroke-width: 1.8;
+                }
+
+
+                /* ===================================================== */
+                /* QUICK ACTION HOVER */
+                /* ===================================================== */
+
+                .dashboard-quick-action:hover {
+                    transform: translateY(-1px);
+
+                    background: #ffffff;
+
+                    border-color: #d1d5db;
+
+                    color: #111827;
+
+                    box-shadow:
+                        0 4px 8px rgba(15, 23, 42, 0.05),
+                        0 2px 4px rgba(15, 23, 42, 0.04);
+                }
+
+
+                .dashboard-quick-action:hover .dashboard-quick-action-icon {
+                    background: #fef9c3;
+
+                    color: #ca8a04;
+                }
+
+
+                /* ===================================================== */
+                /* QUICK ACTION ACTIVE */
+                /* ===================================================== */
+
+                .dashboard-quick-action:active {
+                    transform: translateY(0);
+
+                    box-shadow:
+                        0 1px 2px rgba(15, 23, 42, 0.05);
+                }
+
+
+                /* ===================================================== */
+                /* QUICK ACTION FOCUS */
+                /* ===================================================== */
+
+                .dashboard-quick-action:focus-visible {
+                    outline: none;
+
+                    border-color: #eab308;
+
+                    box-shadow:
+                        0 0 0 3px rgba(234, 179, 8, 0.12);
+                }
+
+
+                /* ===================================================== */
+                /* RESPONSIVE */
+                /* ===================================================== */
+
+                @media (max-width: 768px) {
+
+                    .dashboard-toolbar-actions {
+                        width: 100%;
+
+                        overflow-x: auto;
+
+                        padding-bottom: 2px;
+
+                        scrollbar-width: none;
+                    }
+
+
+                    .dashboard-toolbar-actions::-webkit-scrollbar {
+                        display: none;
+                    }
+
+
+                    .dashboard-quick-action {
+                        flex-shrink: 0;
+                    }
+
+                }
+
                 .button {
                     --h-button: 48px;
                     --w-button: 102px;
@@ -815,7 +972,7 @@
 
                     gap: 7px;
 
-                    padding: 0 20px;
+                    padding: 0 10px;
 
                     border: 1px solid #e2e8f0;
 
@@ -3561,7 +3718,14 @@
             width: 100%;
             max-width: 24px;
 
-            background: #9ca3af;
+            /* GRADIENT: WHITE BOTTOM TO BLUE TOP */
+            background: linear-gradient(
+                to top,
+                #ffffff 0%,
+                #dbeafe 25%,
+                #60a5fa 60%,
+                #0751d1 100%
+            );
 
             border-radius: 4px 4px 0 0;
 
@@ -3830,23 +3994,31 @@
         /* THREE.JS RENDER CONTAINER */
 
         #building3DViewport {
-            position: absolute;
-            inset: 0;
+            position: relative;
 
             width: 100%;
-            height: 100%;
+
+            height: clamp(360px, 45vw, 520px);
+
+            min-height: 360px;
+
+            overflow: hidden;
+
+            background: #020b14;
         }
 
 
+        /* ===================================================== */
         /* THREE.JS CANVAS */
+        /* ALWAYS FILL THE VIEWPORT */
+        /* ===================================================== */
 
         #building3DViewport canvas {
             display: block;
 
             width: 100% !important;
-            height: 100% !important;
 
-            cursor: grab;
+            height: 100% !important;
         }
 
         #building3DViewport canvas:active {
@@ -3858,9 +4030,16 @@
         3D CONTROLS
         ===================================================== */
 
+        /* =====================================================
+        3D VIEWPORT CONTROLS WRAPPER
+        Keep the same bottom-right placement
+        Matches Enter Building / Return button design
+        ===================================================== */
+
         .building-3d-controls {
             position: absolute;
 
+            /* KEEP CURRENT PLACEMENT */
             right: 20px;
             bottom: 20px;
 
@@ -3871,20 +4050,89 @@
 
             gap: 6px;
 
-            padding: 2px;
+            padding: 4px;
 
-            background: rgba(255, 255, 255, 0.9);
+            /* MATCH ENTER BUILDING / RETURN DESIGN */
+            background: rgba(2, 11, 20, 0.82);
 
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
 
-            border: 1px solid rgba(226, 232, 240, 0.9);
-            border-radius: 12px;
+            
+
+            border-radius: 10px;
 
             box-shadow:
-                0 4px 16px rgba(15, 23, 42, 0.08);
+                0 8px 24px rgba(0, 0, 0, 0.18);
         }
 
+        /* =====================================================
+        ENTER BUILDING BUTTON
+        Top right control inside the 3D viewport
+        ===================================================== */
+
+        .building-enter-btn {
+            position: absolute;
+
+            top: 20px;
+            right: 20px;
+
+            z-index: 20;
+
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+
+            gap: 8px;
+
+            padding: 10px 16px;
+
+            border: 1px solid rgba(103, 232, 249, 0.35);
+
+            border-radius: 10px;
+
+            background: rgba(2, 11, 20, 0.82);
+
+            color: #e6faff;
+
+            font-size: 13px;
+            font-weight: 600;
+
+            cursor: pointer;
+
+            backdrop-filter: blur(10px);
+
+            transition:
+                background 0.2s ease,
+                border-color 0.2s ease,
+                transform 0.2s ease;
+        }
+
+        .building-enter-btn:hover {
+            background: rgba(8, 47, 73, 0.92);
+
+            border-color: rgba(103, 232, 249, 0.7);
+
+            transform: translateY(-1px);
+        }
+
+        .building-enter-btn i {
+            width: 16px;
+            height: 16px;
+        }
+
+
+
+
+
+        
+
+
+        /* =====================================================
+        3D VIEWPORT CONTROLS
+        Same placement and size
+        Matches Enter Building / Return button design
+        ===================================================== */
 
         .building-3d-control {
             width: 34px;
@@ -3894,25 +4142,44 @@
             align-items: center;
             justify-content: center;
 
-            border: 0;
+            /* SAME DARK CYAN DESIGN */
+            border: 1px solid rgba(103, 232, 249, 0.35);
             border-radius: 8px;
 
-            background: transparent;
+            background: rgba(2, 11, 20, 0.82);
 
-            color: #475569;
+            color: #e6faff;
 
             cursor: pointer;
 
-            transition: 0.2s ease;
+            backdrop-filter: blur(10px);
+
+            transition:
+                background 0.2s ease,
+                border-color 0.2s ease,
+                color 0.2s ease,
+                transform 0.2s ease;
         }
 
+
+        /* =====================================================
+        HOVER
+        ===================================================== */
 
         .building-3d-control:hover {
-            background: #f1f5f9;
+            background: rgba(8, 47, 73, 0.92);
 
-            color: #0f172a;
+            border-color: rgba(103, 232, 249, 0.7);
+
+            color: #ffffff;
+
+            transform: translateY(-1px);
         }
 
+
+        /* =====================================================
+        CONTROL ICON
+        ===================================================== */
 
         .building-3d-control svg {
             width: 15px;
@@ -4406,38 +4673,75 @@
         BACK TO BUILDING OVERVIEW BUTTON
         ===================================================== */
 
+        /* =====================================================
+        ENTER BUILDING + RETURN BUTTON
+        Both use the exact same position and design
+        ===================================================== */
+
+        .building-enter-btn,
         .building-back-overview-btn {
             position: absolute;
-            left: 24px;
-            bottom: 24px;
+
+            /* SAME TOP RIGHT POSITION */
+            top: 24px;
+            right: 24px;
+
             z-index: 20;
 
-            display: flex;
+            display: inline-flex;
             align-items: center;
-            gap: 8px;
+            justify-content: center;
+            gap: 6px;
 
-            padding: 10px 16px;
+            padding: 10px 14px;
 
-            background: rgba(255, 255, 255, 0.95);
-            border: 1px solid rgba(148, 163, 184, 0.3);
-            border-radius: 999px;
+            /* DARK GLASS DESIGN */
+            background: rgba(2, 11, 20, 0.82);
 
-            color: #334155;
+            border: 1px solid rgba(103, 232, 249, 0.35);
+            border-radius: 10px;
+
+            color: #e6faff;
+
             font-size: 13px;
             font-weight: 600;
 
             cursor: pointer;
 
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
 
             transition:
                 transform 0.2s ease,
-                background 0.2s ease;
+                background 0.2s ease,
+                border-color 0.2s ease;
         }
 
+
+        /* =====================================================
+        HOVER
+        ===================================================== */
+
+        .building-enter-btn:hover,
         .building-back-overview-btn:hover {
             transform: translateY(-2px);
-            background: #ffffff;
+
+            background: rgba(8, 47, 73, 0.92);
+
+            border-color: rgba(103, 232, 249, 0.7);
+        }
+
+
+        /* =====================================================
+        ICON SIZE
+        ===================================================== */
+
+        .building-enter-btn i,
+        .building-back-overview-btn i {
+            width: 17px;
+            height: 17px;
         }
 
 
@@ -4518,53 +4822,36 @@
                     >
                 </button>
 
-                <button type="button" class="button">
-                    <span class="fold"></span>
+                {{-- ===================================================== --}}
+                {{-- ADD SCHEDULE --}}
+                {{-- ===================================================== --}}
 
-                    <div class="points_wrapper">
-                        <i class="point"></i>
-                        <i class="point"></i>
-                        <i class="point"></i>
-                        <i class="point"></i>
-                        <i class="point"></i>
-                        <i class="point"></i>
-                        <i class="point"></i>
-                        <i class="point"></i>
-                        <i class="point"></i>
-                        <i class="point"></i>
-                    </div>
+                <a
+                    href="{{ url('/maintenance/schedules/create') }}"
+                    class="dashboard-quick-action"
+                >
+                    <span class="dashboard-quick-action-icon">
+                        <i data-lucide="calendar-plus" class="h-4 w-4"></i>
+                    </span>
 
-                    <span class="inner"
-                        ><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-patch-plus" viewBox="0 0 16 16">
-                        <path fill-rule="evenodd" d="M8 5.5a.5.5 0 0 1 .5.5v1.5H10a.5.5 0 0 1 0 1H8.5V10a.5.5 0 0 1-1 0V8.5H6a.5.5 0 0 1 0-1h1.5V6a.5.5 0 0 1 .5-.5"/>
-                        <path d="m10.273 2.513-.921-.944.715-.698.622.637.89-.011a2.89 2.89 0 0 1 2.924 2.924l-.01.89.636.622a2.89 2.89 0 0 1 0 4.134l-.637.622.011.89a2.89 2.89 0 0 1-2.924 2.924l-.89-.01-.622.636a2.89 2.89 0 0 1-4.134 0l-.622-.637-.89.011a2.89 2.89 0 0 1-2.924-2.924l.01-.89-.636-.622a2.89 2.89 0 0 1 0-4.134l.637-.622-.011-.89a2.89 2.89 0 0 1 2.924-2.924l.89.01.622-.636a2.89 2.89 0 0 1 4.134 0l-.715.698a1.89 1.89 0 0 0-2.704 0l-.92.944-1.32-.016a1.89 1.89 0 0 0-1.911 1.912l.016 1.318-.944.921a1.89 1.89 0 0 0 0 2.704l.944.92-.016 1.32a1.89 1.89 0 0 0 1.912 1.911l1.318-.016.921.944a1.89 1.89 0 0 0 2.704 0l.92-.944 1.32.016a1.89 1.89 0 0 0 1.911-1.912l-.016-1.318.944-.921a1.89 1.89 0 0 0 0-2.704l-.944-.92.016-1.32a1.89 1.89 0 0 0-1.912-1.911z"/>
-                        </svg>Schedule</span
-                    >
-                </button>
+                    <span>Schedule</span>
+                </a>
 
-                <button type="button" class="button">
-                    <span class="fold"></span>
 
-                    <div class="points_wrapper">
-                        <i class="point"></i>
-                        <i class="point"></i>
-                        <i class="point"></i>
-                        <i class="point"></i>
-                        <i class="point"></i>
-                        <i class="point"></i>
-                        <i class="point"></i>
-                        <i class="point"></i>
-                        <i class="point"></i>
-                        <i class="point"></i>
-                    </div>
+                {{-- ===================================================== --}}
+                {{-- ADD BORROWING --}}
+                {{-- ===================================================== --}}
 
-                    <span class="inner"
-                        ><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-patch-plus" viewBox="0 0 16 16">
-                        <path fill-rule="evenodd" d="M8 5.5a.5.5 0 0 1 .5.5v1.5H10a.5.5 0 0 1 0 1H8.5V10a.5.5 0 0 1-1 0V8.5H6a.5.5 0 0 1 0-1h1.5V6a.5.5 0 0 1 .5-.5"/>
-                        <path d="m10.273 2.513-.921-.944.715-.698.622.637.89-.011a2.89 2.89 0 0 1 2.924 2.924l-.01.89.636.622a2.89 2.89 0 0 1 0 4.134l-.637.622.011.89a2.89 2.89 0 0 1-2.924 2.924l-.89-.01-.622.636a2.89 2.89 0 0 1-4.134 0l-.622-.637-.89.011a2.89 2.89 0 0 1-2.924-2.924l.01-.89-.636-.622a2.89 2.89 0 0 1 0-4.134l.637-.622-.011-.89a2.89 2.89 0 0 1 2.924-2.924l.89.01.622-.636a2.89 2.89 0 0 1 4.134 0l-.715.698a1.89 1.89 0 0 0-2.704 0l-.92.944-1.32-.016a1.89 1.89 0 0 0-1.911 1.912l.016 1.318-.944.921a1.89 1.89 0 0 0 0 2.704l.944.92-.016 1.32a1.89 1.89 0 0 0 1.912 1.911l1.318-.016.921.944a1.89 1.89 0 0 0 2.704 0l.92-.944 1.32.016a1.89 1.89 0 0 0 1.911-1.912l-.016-1.318.944-.921a1.89 1.89 0 0 0 0-2.704l-.944-.92.016-1.32a1.89 1.89 0 0 0-1.912-1.911z"/>
-                        </svg>Borrowing</span
-                    >
-                </button>
+                <a
+                    href="{{ url('/maintenance/borrowing/create') }}"
+                    class="dashboard-quick-action"
+                >
+                    <span class="dashboard-quick-action-icon">
+                        <i data-lucide="clipboard-plus" class="h-4 w-4"></i>
+                    </span>
+
+                    <span>Borrowing</span>
+                </a>
             </div>
         </div>
 
@@ -4601,7 +4888,7 @@
                             <div class="flow-header">
                                 <div>
                                     <div class="maintenance-hero-eyebrows">
-                                        MAINTENANCE OPERATIONS
+                                        TECHNICAL OPERATIONS
                                     </div>
 
                                     <h2 class="flow-title">
@@ -5181,6 +5468,21 @@
                         <div id="building3DViewport"></div>
 
                         {{-- ===================================================== --}}
+                        {{-- ENTER BUILDING BUTTON --}}
+                        {{-- Opens the interior without clicking the 3D shell --}}
+                        {{-- ===================================================== --}}
+
+                        <button
+                            type="button"
+                            id="enterBuildingBtn"
+                            class="building-enter-btn"
+                        >
+                            <i data-lucide="door-open" class="h-4 w-4"></i>
+
+                            <span class="text-xs">Enter Building</span>
+                        </button>
+
+                        {{-- ===================================================== --}}
                         {{-- PHASE 7.8: COMPACT ROOM DETAILS PANEL --}}
                         {{-- ===================================================== --}}
 
@@ -5343,8 +5645,9 @@
                             style="display: none"
                             class="building-back-overview-btn"
                         >
+                             <i data-lucide="chevrons-left" class="h-4 w-4"></i>
                             
-                            <span>Return</span>
+                            <span class="text-xs">Return</span>
                         </button>
 
                         {{-- 3D CONTROLS --}}
@@ -9448,6 +9751,69 @@
             createDynamicBuildingExterior();
 
             // =====================================================
+            // CENTER EXTERIOR BUILDING ON THE WORLD GRID
+            // MAKES THE BUILDING CENTER MATCH X = 0 AND Z = 0
+            // =====================================================
+
+            function centerExteriorBuildingOnGrid() {
+
+                // Make sure all transforms are calculated
+                exteriorBuilding.updateMatrixWorld(true);
+
+                // Get complete exterior building bounds
+                const bounds = new THREE.Box3().setFromObject(exteriorBuilding);
+
+                if (bounds.isEmpty()) {
+                    return;
+                }
+
+                // Get current center of the building
+                const center = bounds.getCenter(new THREE.Vector3());
+
+                // =================================================
+                // MOVE BUILDING CENTER TO WORLD CENTER
+                //
+                // X = 0 means center horizontally
+                // Z = 0 means center along depth
+                //
+                // We DO NOT change Y because Y controls height
+                // =================================================
+
+                exteriorBuilding.position.x -= center.x;
+                exteriorBuilding.position.z -= center.z;
+
+                // Update position immediately
+                exteriorBuilding.updateMatrixWorld(true);
+            }
+
+
+            // =====================================================
+            // APPLY CENTERING
+            // =====================================================
+
+            centerExteriorBuildingOnGrid();
+
+            // =====================================================
+            // SET DEFAULT CAMERA TO REAR EXTERIOR VIEW
+            // =====================================================
+
+            const defaultExteriorView = getExteriorFocusView();
+
+            camera.position.copy(defaultExteriorView.position);
+
+            controls.target.copy(defaultExteriorView.target);
+
+            controls.update();
+
+            // =====================================================
+            // ENTER BUILDING BUTTON
+            // =====================================================
+
+            const enterBuildingButton = document.getElementById(
+                "enterBuildingBtn",
+            );
+
+            // =====================================================
             // PHASE 7.4
             // GENERATE FLOOR FILTER BUTTONS
             // =====================================================
@@ -9656,43 +10022,7 @@
             // AUTOMATIC CAMERA FIT
             // =====================================================
 
-            if (!buildingBounds.isEmpty()) {
-                const buildingSize = buildingBounds.getSize(new THREE.Vector3());
-
-                const buildingCenter = buildingBounds.getCenter(new THREE.Vector3());
-
-                // =================================================
-                // CAMERA LOOKS AT CENTER OF COMPLETE BUILDING
-                // =================================================
-
-                controls.target.copy(buildingCenter);
-
-                // =================================================
-                // CALCULATE APPROPRIATE CAMERA DISTANCE
-                // =================================================
-
-                const maxDimension = Math.max(
-                    buildingSize.x,
-                    buildingSize.y,
-                    buildingSize.z,
-                );
-
-                const cameraDistance = Math.max(maxDimension * 2, 12);
-
-                // =================================================
-                // POSITION CAMERA AT ISOMETRIC ANGLE
-                // =================================================
-
-                camera.position.set(
-                    buildingCenter.x + cameraDistance,
-
-                    buildingCenter.y + cameraDistance * 0.75,
-
-                    buildingCenter.z + cameraDistance,
-                );
-
-                controls.update();
-            }
+            
 
             // =====================================================
             // PHASE 2.3 COMPLETE
@@ -9830,156 +10160,218 @@
             // GET CINEMATIC CAMERA POSITION NEAR EXTERIOR
             // =====================================================
 
+            // =====================================================
+            // DEFAULT EXTERIOR CAMERA VIEW
+            // REAR SIDE OF BUILDING
+            // =====================================================
+
+            // =====================================================
+            // DEFAULT EXTERIOR CAMERA VIEW
+            // REAR SIDE OF BUILDING
+            // =====================================================
+
+            // =====================================================
+            // DEFAULT EXTERIOR CAMERA VIEW
+            // REAR EXTERIOR ANGLE
+            // MATCHES THE DESIRED IMAGE 2 VIEW
+            // =====================================================
+
             function getExteriorFocusView() {
+
+                // Make sure exterior transforms are updated
+                exteriorBuilding.updateMatrixWorld(true);
+
+                // Get complete exterior building bounds
                 const box = new THREE.Box3().setFromObject(exteriorBuilding);
 
+                // Get building center and size
                 const center = box.getCenter(new THREE.Vector3());
-
                 const size = box.getSize(new THREE.Vector3());
 
-                const distance = Math.max(size.x, size.y, size.z);
+                // Responsive camera distance
+                const distance = Math.max(
+                    size.x,
+                    size.y,
+                    size.z
+                );
+
+                // =================================================
+                // REAR EXTERIOR CAMERA POSITION
+                //
+                // +X = view from right corner
+                // +Y = elevated camera
+                // -Z = BACK / REAR of your building
+                //
+                // THIS IS THE ANGLE SHOWN IN IMAGE 2
+                // =================================================
 
                 const position = new THREE.Vector3(
-                    center.x + distance * 0.75,
+                    center.x - distance * 0.65,
+                    center.y + distance * 0.50,
+                    center.z - distance * 0.95
+                );
 
-                    center.y + distance * 0.5,
+                // =================================================
+                // CAMERA LOOK TARGET
+                // Keep camera looking toward center of building
+                // =================================================
 
-                    center.z + distance * 0.9,
+                const target = new THREE.Vector3(
+                    center.x,
+                    center.y + size.y * 0.08,
+                    center.z
                 );
 
                 return {
                     position: position,
-
-                    target: center,
+                    target: target,
                 };
             }
 
+
             // =====================================================
-            // PHASE 8.2 PART 2
-            // ENTER INTERIOR BUILDING MODE
+            // INTERIOR DEFAULT CAMERA VIEW
+            // MATCHES THE ANGLE SHOWN IN YOUR SCREENSHOT
             // =====================================================
 
             // =====================================================
-            // PHASE 8.2 PART 3
-            // CINEMATICALLY ENTER INTERIOR BUILDING MODE
+            // INTERIOR DEFAULT CAMERA VIEW
+            //
+            // REAR -> FRONT VIEW
+            //
+            // Blueprint orientation:
+            //
+            // +Z = FRONT
+            // -Z = REAR
+            //
+            // Therefore the camera must stay on -Z
+            // so we are viewing from the REAR toward the FRONT.
+            // =====================================================
+
+            // =====================================================
+            // INTERIOR DEFAULT CAMERA VIEW
+            // CORRECT REAR VIEW
+            // =====================================================
+
+            function getInteriorFocusView() {
+
+                // =================================================
+                // MAKE SURE BUILDING TRANSFORMS ARE UPDATED
+                // =================================================
+
+                building.updateMatrixWorld(true);
+
+
+                // =================================================
+                // GET COMPLETE INTERIOR BOUNDS
+                // =================================================
+
+                const box = new THREE.Box3().setFromObject(building);
+
+
+                // =================================================
+                // FALLBACK
+                // =================================================
+
+                if (box.isEmpty()) {
+
+                    return {
+                        position: new THREE.Vector3(
+                            18,
+                            14,
+                            20
+                        ),
+
+                        target: new THREE.Vector3(
+                            0,
+                            3,
+                            0
+                        ),
+                    };
+                }
+
+
+                // =================================================
+                // GET CENTER AND SIZE
+                // =================================================
+
+                const center = box.getCenter(
+                    new THREE.Vector3()
+                );
+
+                const size = box.getSize(
+                    new THREE.Vector3()
+                );
+
+
+                // =================================================
+                // CAMERA DISTANCE
+                // =================================================
+
+                const distance = Math.max(
+                    size.x,
+                    size.z
+                );
+
+
+                // =================================================
+                // CORRECT INTERIOR CAMERA POSITION
+                //
+                // +X = keep the correct left/right orientation
+                //
+                // +Z = view from the opposite side
+                //
+                // Higher Y = elevated overview
+                // =================================================
+
+                const position = new THREE.Vector3(
+
+                    center.x + distance * 0.85,
+
+                    center.y + distance * 0.75,
+
+                    center.z + distance * 1.20
+
+                );
+
+
+                // =================================================
+                // TARGET
+                //
+                // Slightly above center so the floors remain
+                // vertically centered in the viewport
+                // =================================================
+
+                const target = new THREE.Vector3(
+
+                    center.x,
+
+                    center.y + size.y * 0.08,
+
+                    center.z
+
+                );
+
+
+                return {
+                    position,
+                    target,
+                };
+            }
+
+            
+
+            // =====================================================
+            // ENTER INTERIOR MODE
+            // Exterior -> Interior
             // =====================================================
 
             function enterInteriorMode() {
+
                 if (currentBuildingView === "interior") {
                     return;
                 }
 
-                if (isBuildingViewTransitioning) {
-                    return;
-                }
-
-                // =================================================
-                // LOCK INTERACTION DURING TRANSITION
-                // =================================================
-
-                isBuildingViewTransitioning = true;
-
-                renderer.domElement.style.cursor = "default";
-
-                // =================================================
-                // GET CINEMATIC EXTERIOR FOCUS POSITION
-                // =================================================
-
-                const exteriorView = getExteriorFocusView();
-
-                // =================================================
-                // FIRST CAMERA MOVEMENT
-                // MOVE TOWARD EXTERIOR
-                // =================================================
-
-                cameraTransition = {
-                    startPosition: camera.position.clone(),
-
-                    endPosition: exteriorView.position.clone(),
-
-                    startTarget: controls.target.clone(),
-
-                    endTarget: exteriorView.target.clone(),
-
-                    startTime: performance.now(),
-
-                    duration: 700,
-                };
-
-                // =================================================
-                // WAIT FOR CAMERA APPROACH
-                // =================================================
-
-                setTimeout(() => {
-                    // =============================================
-                    // FADE EXTERIOR BUILDING
-                    // =============================================
-
-                    fadeExteriorBuilding(0, 450, () => {
-                        // =====================================
-                        // HIDE EXTERIOR
-                        // =====================================
-
-                        exteriorBuilding.visible = false;
-
-                        // =====================================
-                        // SHOW INTERIOR
-                        // =====================================
-
-                        building.visible = true;
-
-                        // =====================================
-                        // CHANGE VIEW MODE
-                        // =====================================
-
-                        currentBuildingView = "interior";
-
-                        // =====================================
-                        // SHOW FLOOR FILTERS
-                        // =====================================
-
-                        if (floorFilterButtonContainer) {
-                            floorFilterButtonContainer.style.display = "";
-                        }
-
-                        if (backToBuildingOverviewButton) {
-                            backToBuildingOverviewButton.style.display = "";
-                        }
-
-                        // =====================================
-                        // FOCUS CAMERA ON INTERIOR
-                        // =====================================
-
-                        focusCameraOnObject(building);
-
-                        // =====================================
-                        // UNLOCK INTERACTION
-                        //
-                        // Wait for the interior camera
-                        // transition to mostly finish.
-                        // =====================================
-
-                        setTimeout(() => {
-                            isBuildingViewTransitioning = false;
-
-                            renderer.domElement.style.cursor = "grab";
-                        }, 850);
-                    });
-                }, 700);
-            }
-
-            // =====================================================
-            // PHASE 8.2 PART 4
-            // CINEMATICALLY RETURN TO EXTERIOR BUILDING MODE
-            // =====================================================
-
-            function returnToExteriorMode() {
-                // Do nothing if already outside
-                if (currentBuildingView === "exterior") {
-                    return;
-                }
-
-                // Prevent multiple transitions
                 if (isBuildingViewTransitioning) {
                     return;
                 }
@@ -9992,96 +10384,74 @@
 
                 renderer.domElement.style.cursor = "default";
 
+                // Stop any previous camera animation
+                cameraTransition = null;
+
+
                 // =================================================
-                // CLEAR ROOM HOVER AND SELECTION
+                // GET THE CORRECT INTERIOR CAMERA VIEW
                 // =================================================
 
-                if (hoveredRoom) {
-                    if (hoveredRoom !== selectedRoom) {
-                        restoreRoomVisual(hoveredRoom);
-                    }
+                const interiorView = getInteriorFocusView();
 
-                    hoveredRoom = null;
+
+                // =================================================
+                // SHOW INTERIOR BEFORE MOVING CAMERA
+                // =================================================
+
+                building.visible = true;
+
+
+                // =================================================
+                // HIDE ENTER BUILDING BUTTON
+                // =================================================
+
+                if (enterBuildingButton) {
+                    enterBuildingButton.style.display = "none";
                 }
 
-                if (selectedRoom) {
-                    restoreRoomVisual(selectedRoom);
-
-                    selectedRoom = null;
-                }
-
-                hideRoomTooltip();
-
-                roomDetailsPanel?.classList.remove("visible");
 
                 // =================================================
-                // HIDE INTERIOR CONTROLS
-                // =================================================
-
-                if (floorFilterButtonContainer) {
-                    floorFilterButtonContainer.style.display = "none";
-                }
-
-                if (backToBuildingOverviewButton) {
-                    backToBuildingOverviewButton.style.display = "none";
-                }
-
-                // =================================================
-                // GET EXTERIOR CAMERA VIEW
-                // =================================================
-
-                const exteriorView = getExteriorFocusView();
-
-                // =================================================
-                // MOVE CAMERA TOWARD EXTERIOR VIEW
+                // START EXTERIOR -> INTERIOR CAMERA TRANSITION
                 // =================================================
 
                 cameraTransition = {
+
                     startPosition: camera.position.clone(),
 
-                    endPosition: exteriorView.position.clone(),
+                    endPosition: interiorView.position.clone(),
 
                     startTarget: controls.target.clone(),
 
-                    endTarget: exteriorView.target.clone(),
+                    endTarget: interiorView.target.clone(),
 
                     startTime: performance.now(),
 
-                    duration: 800,
+                    duration: 900,
                 };
 
+
                 // =================================================
-                // WAIT FOR CAMERA MOVEMENT
+                // FADE EXTERIOR WHILE ENTERING
                 // =================================================
 
-                setTimeout(() => {
-                    // =========================================
-                    // HIDE INTERIOR
-                    // =========================================
+                const fadeStart = performance.now();
 
-                    building.visible = false;
+                const fadeDuration = 650;
 
-                    // =========================================
-                    // SHOW EXTERIOR
-                    // =========================================
 
-                    exteriorBuilding.visible = true;
+                function fadeExterior() {
 
-                    // =========================================
-                    // CHANGE VIEW MODE
-                    // IMPORTANT:
-                    // getExteriorIntersection() only works
-                    // when currentBuildingView is "exterior"
-                    // =========================================
+                    const elapsed = performance.now() - fadeStart;
 
-                    currentBuildingView = "exterior";
+                    const progress = Math.min(
+                        elapsed / fadeDuration,
+                        1
+                    );
 
-                    // =========================================
-                    // RESTORE EXTERIOR MATERIAL OPACITY
-                    // Phase 8.2 Part 3 faded everything to 0
-                    // =========================================
 
                     exteriorBuilding.traverse((object) => {
+
                         if (!object.material) {
                             return;
                         }
@@ -10090,28 +10460,522 @@
                             ? object.material
                             : [object.material];
 
+
                         materials.forEach((material) => {
-                            // Exterior mesh material
+
+                            // Exterior transparent surfaces
                             if (material.isMeshPhysicalMaterial) {
-                                material.opacity = 0.18;
+
+                                material.transparent = true;
+
+                                material.opacity =
+                                    THREE.MathUtils.lerp(
+                                        0.18,
+                                        0,
+                                        progress
+                                    );
                             }
 
-                            // Exterior cyan wireframe
+
+                            // Exterior cyan lines
                             if (material.isLineBasicMaterial) {
-                                material.opacity = 0.85;
+
+                                material.transparent = true;
+
+                                material.opacity =
+                                    THREE.MathUtils.lerp(
+                                        0.85,
+                                        0,
+                                        progress
+                                    );
                             }
+
                         });
+
                     });
 
-                    // =========================================
+
+                    if (progress < 1) {
+
+                        requestAnimationFrame(
+                            fadeExterior
+                        );
+
+                    }
+
+                }
+
+
+                fadeExterior();
+
+
+                // =================================================
+                // FINISH INTERIOR MODE
+                // =================================================
+
+                setTimeout(() => {
+
+                    // Completely hide exterior
+                    exteriorBuilding.visible = false;
+
+                    // Keep interior visible
+                    building.visible = true;
+
+                    // Change mode
+                    currentBuildingView = "interior";
+
+
+                    // =================================================
+                    // SHOW FLOOR FILTERS
+                    // =================================================
+
+                    if (floorFilterButtonContainer) {
+                        floorFilterButtonContainer.style.display = "";
+                    }
+
+
+                    // =================================================
+                    // SHOW RETURN BUTTON
+                    // =================================================
+
+                    if (backToBuildingOverviewButton) {
+                        backToBuildingOverviewButton.style.display = "";
+                    }
+
+
+                    // =================================================
+                    // FORCE EXACT INTERIOR VIEW
+                    //
+                    // This prevents small transition differences
+                    // from leaving the camera at the wrong angle.
+                    // =================================================
+
+                    camera.position.copy(
+                        interiorView.position
+                    );
+
+                    controls.target.copy(
+                        interiorView.target
+                    );
+
+                    controls.update();
+
+
+                    // =================================================
                     // UNLOCK INTERACTION
-                    // =========================================
+                    // =================================================
+
+                    cameraTransition = null;
 
                     isBuildingViewTransitioning = false;
 
                     renderer.domElement.style.cursor = "grab";
-                }, 850);
+
+                }, 950);
             }
+
+            // =====================================================
+            // ENTER BUILDING BUTTON
+            // Uses the existing cinematic interior transition
+            // =====================================================
+
+            enterBuildingButton?.addEventListener("click", () => {
+
+                if (currentBuildingView !== "exterior") {
+                    return;
+                }
+
+                if (isBuildingViewTransitioning) {
+                    return;
+                }
+
+                enterInteriorMode();
+            });
+
+            // =====================================================
+            // RETURN TO EXTERIOR MODE
+            // Interior -> Exterior
+            // =====================================================
+
+            function returnToExteriorMode() {
+
+                // =================================================
+                // PREVENT RUNNING IF ALREADY EXTERIOR
+                // =================================================
+
+                if (currentBuildingView === "exterior") {
+                    return;
+                }
+
+
+                // =================================================
+                // PREVENT DOUBLE CLICK DURING TRANSITION
+                // =================================================
+
+                if (isBuildingViewTransitioning) {
+                    return;
+                }
+
+
+                // =================================================
+                // LOCK VIEWER DURING TRANSITION
+                // =================================================
+
+                isBuildingViewTransitioning = true;
+
+                renderer.domElement.style.cursor = "default";
+
+
+                // =================================================
+                // STOP ANY EXISTING CAMERA TRANSITION
+                // =================================================
+
+                cameraTransition = null;
+
+
+                // =================================================
+                // CLEAR HOVERED ROOM
+                // =================================================
+
+                if (hoveredRoom) {
+
+                    if (hoveredRoom !== selectedRoom) {
+
+                        restoreRoomVisual(
+                            hoveredRoom
+                        );
+
+                    }
+
+                    hoveredRoom = null;
+                }
+
+
+                // =================================================
+                // CLEAR SELECTED ROOM
+                // =================================================
+
+                if (selectedRoom) {
+
+                    restoreRoomVisual(
+                        selectedRoom
+                    );
+
+                    selectedRoom = null;
+                }
+
+
+                // =================================================
+                // HIDE ROOM UI
+                // =================================================
+
+                hideRoomTooltip();
+
+                roomDetailsPanel?.classList.remove(
+                    "visible"
+                );
+
+
+                // =================================================
+                // HIDE INTERIOR FLOOR FILTERS
+                // =================================================
+
+                if (floorFilterButtonContainer) {
+
+                    floorFilterButtonContainer.style.display =
+                        "none";
+
+                }
+
+
+                // =================================================
+                // HIDE RETURN BUTTON
+                // =================================================
+
+                if (backToBuildingOverviewButton) {
+
+                    backToBuildingOverviewButton.style.display =
+                        "none";
+
+                }
+
+
+                // =================================================
+                // GET EXTERIOR CAMERA VIEW
+                //
+                // IMPORTANT:
+                // This returns to the SAME exterior camera
+                // used by your default exterior view.
+                // =================================================
+
+                const exteriorView =
+                    getExteriorFocusView();
+
+
+                // =================================================
+                // MAKE EXTERIOR VISIBLE BEFORE TRANSITION
+                // =================================================
+
+                exteriorBuilding.visible = true;
+
+
+                // =================================================
+                // START EXTERIOR AT ZERO OPACITY
+                // =================================================
+
+                exteriorBuilding.traverse((object) => {
+
+                    if (!object.material) {
+                        return;
+                    }
+
+
+                    const materials =
+                        Array.isArray(object.material)
+                            ? object.material
+                            : [object.material];
+
+
+                    materials.forEach((material) => {
+
+                        material.transparent = true;
+
+
+                        // =========================================
+                        // EXTERIOR SURFACE
+                        // =========================================
+
+                        if (material.isMeshPhysicalMaterial) {
+
+                            material.opacity = 0;
+
+                        }
+
+
+                        // =========================================
+                        // EXTERIOR WIREFRAME
+                        // =========================================
+
+                        if (material.isLineBasicMaterial) {
+
+                            material.opacity = 0;
+
+                        }
+
+                    });
+
+                });
+
+
+                // =================================================
+                // CAMERA TRANSITION
+                //
+                // CURRENT INTERIOR POSITION
+                //          ↓
+                // DEFAULT EXTERIOR POSITION
+                // =================================================
+
+                cameraTransition = {
+
+                    startPosition:
+                        camera.position.clone(),
+
+                    endPosition:
+                        exteriorView.position.clone(),
+
+                    startTarget:
+                        controls.target.clone(),
+
+                    endTarget:
+                        exteriorView.target.clone(),
+
+                    startTime:
+                        performance.now(),
+
+                    duration: 1000,
+
+                };
+
+
+                // =================================================
+                // FADE EXTERIOR BACK IN
+                // =================================================
+
+                const fadeStart =
+                    performance.now();
+
+                const fadeDuration =
+                    750;
+
+
+                function fadeExteriorIn() {
+
+                    const elapsed =
+                        performance.now() -
+                        fadeStart;
+
+
+                    const progress =
+                        Math.min(
+                            elapsed / fadeDuration,
+                            1
+                        );
+
+
+                    exteriorBuilding.traverse((object) => {
+
+                        if (!object.material) {
+                            return;
+                        }
+
+
+                        const materials =
+                            Array.isArray(object.material)
+                                ? object.material
+                                : [object.material];
+
+
+                        materials.forEach((material) => {
+
+
+                            // =====================================
+                            // EXTERIOR TRANSPARENT SURFACES
+                            // =====================================
+
+                            if (material.isMeshPhysicalMaterial) {
+
+                                material.opacity =
+                                    THREE.MathUtils.lerp(
+                                        0,
+                                        0.18,
+                                        progress
+                                    );
+
+                            }
+
+
+                            // =====================================
+                            // CYAN WIREFRAME
+                            // =====================================
+
+                            if (material.isLineBasicMaterial) {
+
+                                material.opacity =
+                                    THREE.MathUtils.lerp(
+                                        0,
+                                        0.85,
+                                        progress
+                                    );
+
+                            }
+
+                        });
+
+                    });
+
+
+                    if (progress < 1) {
+
+                        requestAnimationFrame(
+                            fadeExteriorIn
+                        );
+
+                    }
+
+                }
+
+
+                // =================================================
+                // START FADE
+                // =================================================
+
+                fadeExteriorIn();
+
+
+                // =================================================
+                // FINISH RETURN TRANSITION
+                // =================================================
+
+                setTimeout(() => {
+
+
+                    // =============================================
+                    // HIDE INTERIOR
+                    // =============================================
+
+                    building.visible = false;
+
+
+                    // =============================================
+                    // KEEP EXTERIOR VISIBLE
+                    // =============================================
+
+                    exteriorBuilding.visible = true;
+
+
+                    // =============================================
+                    // UPDATE CURRENT MODE
+                    // =============================================
+
+                    currentBuildingView =
+                        "exterior";
+
+
+                    // =============================================
+                    // SHOW ENTER BUILDING BUTTON AGAIN
+                    // =============================================
+
+                    if (enterBuildingButton) {
+
+                        enterBuildingButton.style.display =
+                            "";
+
+                    }
+
+
+                    // =============================================
+                    // FORCE EXACT EXTERIOR POSITION
+                    //
+                    // Prevents transition rounding from leaving
+                    // the camera slightly off position.
+                    // =============================================
+
+                    camera.position.copy(
+                        exteriorView.position
+                    );
+
+
+                    controls.target.copy(
+                        exteriorView.target
+                    );
+
+
+                    controls.update();
+
+
+                    // =============================================
+                    // CLEAR TRANSITION
+                    // =============================================
+
+                    cameraTransition = null;
+
+
+                    // =============================================
+                    // UNLOCK VIEWER
+                    // =============================================
+
+                    isBuildingViewTransitioning =
+                        false;
+
+
+                    renderer.domElement.style.cursor =
+                        "grab";
+
+
+                }, 1050);
+            }
+
+            
 
             // =====================================================
             // PHASE 8.2 PART 4
@@ -10230,19 +11094,22 @@
 
             renderer.domElement.addEventListener("click", function (event) {
                 // =====================================================
-                // PHASE 8.2 PART 2
-                // EXTERIOR BUILDING CLICK
+                // EXTERIOR MODE
+                //
+                // IMPORTANT:
+                // Clicking the exterior building no longer opens
+                // the interior.
+                //
+                // The user can freely rotate and interact with the
+                // exterior.
+                //
+                // Interior is opened only through:
+                // "Enter Building" button.
                 // =====================================================
 
                 if (currentBuildingView === "exterior") {
-                    const exteriorHit = getExteriorIntersection(event);
 
-                    if (exteriorHit) {
-                        enterInteriorMode();
-                    }
-
-                    // Prevent room selection from running
-                    // while in exterior mode.
+                    // Do not run room selection while outside.
                     return;
                 }
 
@@ -10439,13 +11306,25 @@
             // RESET BUTTON
             // =====================================================
 
+            // =====================================================
+            // RESET VIEW BUTTON
+            //
+            // EXTERIOR MODE:
+            // Reset to the default exterior camera.
+            //
+            // INTERIOR MODE:
+            // Reset to the default interior angle shown when
+            // entering the building.
+            // =====================================================
+
             document.getElementById("buildingReset")?.addEventListener("click", () => {
+
                 // =================================================
-                // PHASE 7.9
-                // CLEAR ROOM SELECTION
+                // CLEAR SELECTED ROOM
                 // =================================================
 
                 if (selectedRoom) {
+
                     restoreRoomVisual(selectedRoom);
 
                     selectedRoom = null;
@@ -10457,36 +11336,145 @@
 
                 roomDetailsPanel?.classList.remove("visible");
 
+                // Stop any camera animation currently running
                 cameraTransition = null;
 
-                camera.position.set(18, 14, 20);
 
-                controls.target.set(0, 2.5, 0);
+                // =================================================
+                // INTERIOR MODE
+                //
+                // Reset to the default interior overview angle.
+                // This is the angle shown in your screenshot.
+                // =================================================
+
+                if (currentBuildingView === "interior") {
+
+                    const interiorView = getInteriorFocusView();
+
+                    camera.position.copy(
+                        interiorView.position
+                    );
+
+                    controls.target.copy(
+                        interiorView.target
+                    );
+
+                    controls.update();
+
+                    return;
+                }
+
+
+                // =================================================
+                // EXTERIOR MODE
+                //
+                // Reset to the default exterior/rear building view.
+                // =================================================
+
+                const exteriorView = getExteriorFocusView();
+
+                camera.position.copy(
+                    exteriorView.position
+                );
+
+                controls.target.copy(
+                    exteriorView.target
+                );
 
                 controls.update();
             });
 
             // =====================================================
-            // RESPONSIVE RESIZE
+            // RESPONSIVE 3D VIEWPORT RESIZE
+            // KEEPS THE BUILDING VISIBLE WHEN THE SCREEN CHANGES
             // =====================================================
 
-            const resizeObserver = new ResizeObserver(() => {
-                const width = container.clientWidth;
+            function resizeBuilding3DViewer() {
 
+                const width = container.clientWidth;
                 const height = container.clientHeight;
 
-                if (width === 0 || height === 0) {
+                if (width <= 0 || height <= 0) {
                     return;
                 }
 
-                camera.aspect = width / height;
+                // =================================================
+                // UPDATE CAMERA ASPECT RATIO
+                // =================================================
 
+                camera.aspect = width / height;
                 camera.updateProjectionMatrix();
 
+
+                // =================================================
+                // UPDATE THREE.JS RENDERER
+                // =================================================
+
                 renderer.setSize(width, height, false);
+
+
+                // =================================================
+                // UPDATE POST PROCESSING
+                // IMPORTANT BECAUSE YOU ARE USING EffectComposer
+                // =================================================
+
+                composer.setSize(width, height);
+
+
+                // =================================================
+                // UPDATE BLOOM EFFECT SIZE
+                // =================================================
+
+                bloomPass.setSize(width, height);
+            }
+
+
+            // =====================================================
+            // WATCH THE ACTUAL BUILDING VIEWPORT
+            // =====================================================
+
+            const resizeObserver = new ResizeObserver(() => {
+
+                requestAnimationFrame(() => {
+                    resizeBuilding3DViewer();
+                });
+
             });
 
             resizeObserver.observe(container);
+
+
+            // =====================================================
+            // ALSO HANDLE BROWSER / SCREEN RESIZE
+            // =====================================================
+
+            window.addEventListener("resize", () => {
+
+                requestAnimationFrame(() => {
+                    resizeBuilding3DViewer();
+                });
+
+            });
+
+
+            // =====================================================
+            // HANDLE PHONE / TABLET ORIENTATION CHANGE
+            // =====================================================
+
+            window.addEventListener("orientationchange", () => {
+
+                setTimeout(() => {
+                    resizeBuilding3DViewer();
+                }, 150);
+
+            });
+
+
+            // =====================================================
+            // INITIAL SIZE CHECK
+            // =====================================================
+
+            resizeBuilding3DViewer();
 
             // =====================================================
             // ANIMATION
@@ -10555,6 +11543,66 @@
             console.log("Three.js building viewer started successfully.");
         }
     </script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     <script>
         document.addEventListener("DOMContentLoaded", () => {
@@ -12953,7 +14001,7 @@
             // =================================================
 
             const barColors = reportActivityData.map(function (value, index) {
-                return index === highestIndex ? "#6d5ce7" : "#ddd6fe";
+                return index === highestIndex ? "#0751d1" : "#BBC0FC";
             });
 
             // =================================================
