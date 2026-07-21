@@ -34,10 +34,42 @@
 </div>
 
 {{-- ============================== --}}
-{{-- SEARCH & STATUS FILTER BUTTONS --}}
+{{-- FILTER BUTTONS + SEARCH --}}
 {{-- ============================== --}}
 <div class="mt-6 slide-up" style="animation-delay: 0.2s">
     <div class="flex flex-wrap items-center gap-3">
+        {{-- Status Filter Buttons --}}
+        <div class="flex items-center gap-2">
+            <button
+                type="button"
+                class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ !request('status') ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50' }}"
+                data-status=""
+            >
+                All
+            </button>
+            <button
+                type="button"
+                class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ request('status') == 'Pending' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-amber-700 border-amber-200 hover:bg-amber-50' }}"
+                data-status="Pending"
+            >
+                Pending
+            </button>
+            <button
+                type="button"
+                class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ request('status') == 'Approved' ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50' }}"
+                data-status="Approved"
+            >
+                Approved
+            </button>
+            <button
+                type="button"
+                class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ request('status') == 'Rejected' ? 'bg-rose-500 text-white border-rose-500' : 'bg-white text-rose-700 border-rose-200 hover:bg-rose-50' }}"
+                data-status="Rejected"
+            >
+                Rejected
+            </button>
+        </div>
+
         {{-- Live Search --}}
         <div class="relative flex-1 min-w-[220px]">
             <i data-lucide="search" class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"></i>
@@ -52,39 +84,7 @@
             />
         </div>
 
-        {{-- Status Filter Buttons --}}
-        <div class="flex items-center gap-2">
-            <button
-                type="button"
-                class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ !request('status') ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50' }}"
-                data-status=""
-            >
-                All
-            </button>
-            <button
-                type="button"
-                class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ request('status') == 'Pending' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50' }}"
-                data-status="Pending"
-            >
-                Pending
-            </button>
-            <button
-                type="button"
-                class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ request('status') == 'Approved' ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50' }}"
-                data-status="Approved"
-            >
-                Approved
-            </button>
-            <button
-                type="button"
-                class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ request('status') == 'Rejected' ? 'bg-rose-500 text-white border-rose-500' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50' }}"
-                data-status="Rejected"
-            >
-                Rejected
-            </button>
-        </div>
-
-        {{-- Hidden clear link --}}
+        {{-- Clear link --}}
         <a id="clearFiltersLink" href="{{ route('president.approvals') }}" class="inline-flex h-10 items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-600 transition-all duration-200 hover:bg-gray-50 active:scale-95 {{ request('search') || request('status') ? '' : 'hidden' }}">
             Clear
         </a>
@@ -507,10 +507,8 @@
         btn.addEventListener('click', function() {
             const status = this.getAttribute('data-status');
 
-            // Update active status tracker
             activeStatus = status;
 
-            // Update button visual states
             filterButtons.forEach(b => {
                 const btnStatus = b.getAttribute('data-status');
                 let classes = 'status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95';
@@ -526,12 +524,21 @@
                         classes += ' bg-rose-500 text-white border-rose-500';
                     }
                 } else {
-                    classes += ' bg-white text-gray-600 border-gray-200 hover:bg-gray-50';
+                    if (btnStatus === '') {
+                        classes += ' bg-white text-gray-600 border-gray-200 hover:bg-gray-50';
+                    } else if (btnStatus === 'Pending') {
+                        classes += ' bg-white text-amber-700 border-amber-200 hover:bg-amber-50';
+                    } else if (btnStatus === 'Approved') {
+                        classes += ' bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50';
+                    } else if (btnStatus === 'Rejected') {
+                        classes += ' bg-white text-rose-700 border-rose-200 hover:bg-rose-50';
+                    } else {
+                        classes += ' bg-white text-gray-600 border-gray-200 hover:bg-gray-50';
+                    }
                 }
                 b.className = classes;
             });
 
-            // Fetch with page 1
             fetchTableData(1);
         });
     });
@@ -541,30 +548,31 @@
         clearLink.addEventListener('click', function(e) {
             e.preventDefault();
 
-            // Clear search input
             if (searchInput) {
                 searchInput.value = '';
             }
 
-            // Reset active status to All
             activeStatus = '';
 
-            // Reset all buttons to inactive, then highlight All
             filterButtons.forEach(b => {
                 const btnStatus = b.getAttribute('data-status');
                 let classes = 'status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95';
                 if (btnStatus === '') {
                     classes += ' bg-gray-900 text-white border-gray-900';
+                } else if (btnStatus === 'Pending') {
+                    classes += ' bg-white text-amber-700 border-amber-200 hover:bg-amber-50';
+                } else if (btnStatus === 'Approved') {
+                    classes += ' bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50';
+                } else if (btnStatus === 'Rejected') {
+                    classes += ' bg-white text-rose-700 border-rose-200 hover:bg-rose-50';
                 } else {
                     classes += ' bg-white text-gray-600 border-gray-200 hover:bg-gray-50';
                 }
                 b.className = classes;
             });
 
-            // Hide clear link
             clearLink.classList.add('hidden');
 
-            // Fetch with page 1, no filters
             fetchTableData(1);
         });
     }

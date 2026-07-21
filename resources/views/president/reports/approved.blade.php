@@ -11,68 +11,48 @@
             View all RIS records marked as Approved, Rejected, or Pending.
         </p>
     </div>
-
-    <div class="flex items-center gap-2">
-        <a href="/president/reports/monthly-summary" class="inline-flex h-10 items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-900 transition hover:bg-gray-50 active:scale-95">
-            <i data-lucide="bar-chart-3" class="h-4 w-4"></i>
-            Monthly Summary
-        </a>
-    </div>
 </div>
 
 {{-- Summary Cards --}}
-<div class="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-7 slide-up" style="animation-delay: 0.05s">
-    <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-        <p class="text-xs font-semibold text-emerald-700">Approved Today</p>
-        <p class="mt-1 text-2xl font-bold text-emerald-900">{{ $approvedToday ?? 0 }}</p>
+<div class="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4 slide-up" style="animation-delay: 0.05s">
+    <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.05s">
+        <p class="text-xs font-semibold text-gray-500">Total Approved</p>
+        <p class="mt-2 text-3xl font-bold text-emerald-600 count-up" data-target="{{ $totalApproved ?? 0 }}">{{ $totalApproved ?? 0 }}</p>
     </div>
-    <div class="rounded-xl border border-rose-200 bg-rose-50 p-4">
-        <p class="text-xs font-semibold text-rose-700">Rejected Today</p>
-        <p class="mt-1 text-2xl font-bold text-rose-900">{{ $rejectedToday ?? 0 }}</p>
+    <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.1s">
+        <p class="text-xs font-semibold text-gray-500">Total Rejected</p>
+        <p class="mt-2 text-3xl font-bold text-rose-600 count-up" data-target="{{ $totalRejected ?? 0 }}">{{ $totalRejected ?? 0 }}</p>
     </div>
-    <div class="rounded-xl border border-amber-200 bg-amber-50 p-4">
-        <p class="text-xs font-semibold text-amber-700">Archived Today</p>
-        <p class="mt-1 text-2xl font-bold text-amber-900">{{ $archivedToday ?? 0 }}</p>
+    <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.15s">
+        <p class="text-xs font-semibold text-gray-500">Pending RIS</p>
+        <p class="mt-2 text-3xl font-bold text-amber-600 count-up" data-target="{{ $totalPending ?? 0 }}">{{ $totalPending ?? 0 }}</p>
     </div>
-    <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-        <p class="text-xs font-semibold text-emerald-700">Total Approved</p>
-        <p class="mt-1 text-2xl font-bold text-emerald-900">{{ $totalApproved ?? 0 }}</p>
-    </div>
-    <div class="rounded-xl border border-rose-200 bg-rose-50 p-4">
-        <p class="text-xs font-semibold text-rose-700">Total Rejected</p>
-        <p class="mt-1 text-2xl font-bold text-rose-900">{{ $totalRejected ?? 0 }}</p>
-    </div>
-    <div class="rounded-xl border border-amber-200 bg-amber-50 p-4">
-        <p class="text-xs font-semibold text-amber-700">Pending Today</p>
-        <p class="mt-1 text-2xl font-bold text-amber-900">{{ $pendingToday ?? 0 }}</p>
-    </div>
-    <div class="rounded-xl border border-gray-200 bg-white p-4">
-        <p class="text-xs font-semibold text-gray-700">Total Decisions</p>
-        <p class="mt-1 text-2xl font-bold text-gray-900">{{ $totalDecisions ?? 0 }}</p>
+    <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.2s">
+        <p class="text-xs font-semibold text-gray-500">Total Decisions</p>
+        <p class="mt-2 text-3xl font-bold text-gray-900 count-up" data-target="{{ $totalDecisions ?? 0 }}">{{ $totalDecisions ?? 0 }}</p>
     </div>
 </div>
 
-{{-- Filters --}}
-<div class="mt-6 slide-up" style="animation-delay: 0.08s">
+{{-- Filter Buttons + Search --}}
+<div class="mt-6 slide-up" style="animation-delay: 0.2s">
     <div class="flex flex-wrap items-center gap-3">
-        <a href="/president/reports/approved?filter=approved" class="inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition active:scale-95 {{ ($filter ?? 'approved') === 'approved' ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50' }}">
-            <i data-lucide="badge-check" class="h-4 w-4"></i>
-            RIS Approvals
-        </a>
-        <a href="/president/reports/approved?filter=rejected" class="inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition active:scale-95 {{ ($filter ?? 'approved') === 'rejected' ? 'border-rose-600 bg-rose-600 text-white' : 'border-rose-200 bg-white text-rose-700 hover:bg-rose-50' }}">
-            <i data-lucide="x-circle" class="h-4 w-4"></i>
-            RIS Rejections
-        </a>
-        <a href="/president/reports/approved?filter=pending" class="inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition active:scale-95 {{ ($filter ?? 'approved') === 'pending' ? 'border-amber-600 bg-amber-600 text-white' : 'border-amber-200 bg-white text-amber-700 hover:bg-amber-50' }}">
-            <i data-lucide="clock" class="h-4 w-4"></i>
-            Pending RIS
-        </a>
-    </div>
-</div>
+        {{-- Status Filter Buttons --}}
+        <div class="flex items-center gap-2">
+            <button type="button" class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ ($filter ?? 'all') === 'all' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50' }}" data-filter="all">
+                All
+            </button>
+            <button type="button" class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ ($filter ?? '') === 'pending' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-amber-700 border-amber-200 hover:bg-amber-50' }}" data-filter="pending">
+                Pending
+            </button>
+            <button type="button" class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ ($filter ?? '') === 'approved' ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50' }}" data-filter="approved">
+                Approved
+            </button>
+            <button type="button" class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ ($filter ?? '') === 'rejected' ? 'bg-rose-500 text-white border-rose-500' : 'bg-white text-rose-700 border-rose-200 hover:bg-rose-50' }}" data-filter="rejected">
+                Rejected
+            </button>
+        </div>
 
-{{-- Search --}}
-<div class="mt-4 slide-up" style="animation-delay: 0.1s">
-    <div class="flex flex-wrap items-center gap-3">
+        {{-- Live Search --}}
         <div class="relative flex-1 min-w-[220px]">
             <i data-lucide="search" class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"></i>
             <input
@@ -80,23 +60,51 @@
                 id="approvedSearch"
                 name="search"
                 value="{{ request('search') }}"
-                placeholder="Search by Reference No. or Purpose..."
+                placeholder="Search by Reference No., Purpose, or Status..."
                 class="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-900 outline-none focus:ring-4 focus:ring-amber-100 transition-all duration-200"
                 autocomplete="off"
             />
         </div>
+
+        {{-- Clear link --}}
+        @if (request('search') || request('filter'))
+            <button type="button" id="clearFiltersBtn" class="inline-flex h-10 items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-600 transition-all duration-200 hover:bg-gray-50 active:scale-95">
+                Clear
+            </button>
+        @endif
     </div>
 </div>
 
 {{-- Table --}}
 <div class="mt-4 grid grid-cols-1 gap-4">
+    @php
+        $currentFilter = $filter ?? 'all';
+        $badgeClasses = match ($currentFilter) {
+            'approved' => 'bg-emerald-50 text-emerald-800 border-emerald-200',
+            'rejected' => 'bg-rose-50 text-rose-800 border-rose-200',
+            'pending' => 'bg-amber-50 text-amber-800 border-amber-200',
+            default => 'bg-gray-50 text-gray-800 border-gray-200',
+        };
+        $listTitle = match ($currentFilter) {
+            'approved' => 'Approved decision list',
+            'rejected' => 'Rejected decision list',
+            'pending' => 'Pending decision list',
+            default => 'All decision list',
+        };
+        $listDescription = match ($currentFilter) {
+            'approved' => 'RIS records approved by the President.',
+            'rejected' => 'RIS records rejected by the President.',
+            'pending' => 'RIS records pending President\'s decision.',
+            default => 'All RIS records.',
+        };
+    @endphp
     <section class="rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.15s">
         <div class="flex items-center justify-between gap-4">
             <div>
-                <h2 class="text-sm font-semibold text-gray-900">{{ ($filter ?? 'approved') === 'approved' ? 'Approved decision list' : (($filter ?? 'approved') === 'rejected' ? 'Rejected decision list' : 'Pending decision list') }}</h2>
-                <p class="mt-1 text-xs text-gray-500">{{ ($filter ?? 'approved') === 'approved' ? 'RIS records approved by the President.' : (($filter ?? 'approved') === 'rejected' ? 'RIS records rejected by the President.' : 'RIS records pending President\'s decision.') }}</p>
+                <h2 class="text-sm font-semibold text-gray-900">{{ $listTitle }}</h2>
+                <p class="mt-1 text-xs text-gray-500">{{ $listDescription }}</p>
             </div>
-            <span id="approvedCount" class="inline-flex items-center rounded-lg {{ ($filter ?? 'approved') === 'approved' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : (($filter ?? 'approved') === 'rejected' ? 'bg-rose-50 text-rose-800 border-rose-200' : 'bg-amber-50 text-amber-800 border-amber-200') }} px-3 py-1 text-xs font-semibold border">
+            <span id="approvedCount" class="inline-flex items-center rounded-lg {{ $badgeClasses }} px-3 py-1 text-xs font-semibold border">
                 {{ $outcomeRecords->total() }} total
             </span>
         </div>
@@ -113,7 +121,7 @@
                     </tr>
                 </thead>
                 <tbody id="approvedTableBody">
-                    @include('president.reports._approved-table', ['approvedOutcomeRecords' => $outcomeRecords])
+                    @include('president.reports._approved-table', ['approvedOutcomeRecords' => $outcomeRecords, 'type' => $filter])
                 </tbody>
             </table>
         </div>
@@ -215,12 +223,11 @@
     }
 
     .outcome-row {
-        transition: background-color 0.2s ease, transform 0.2s ease;
+        transition: background-color 0.2s ease;
     }
 
     .outcome-row:hover {
         background-color: rgba(254, 252, 232, 0.4);
-        transform: translateX(2px);
     }
 
     .action-btn {
@@ -231,16 +238,50 @@
         transform: scale(0.95);
     }
 
-    #approvedTableBody {
-        transition: opacity 0.2s ease;
+    .status-filter-btn {
+        transition: all 0.2s ease;
     }
 
-    #approvedTableBody.updating {
-        opacity: 0.5;
+    .status-filter-btn:hover {
+        transform: translateY(-1px);
+    }
+
+    .status-filter-btn:active {
+        transform: scale(0.95);
+    }
+
+    #approvedTableBody {
+        transition: opacity 0.25s ease;
+    }
+
+    #approvedTableBody.loading {
+        opacity: 0.3;
+    }
+
+    .skeleton-row {
+        animation: skeletonPulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes skeletonPulse {
+        0%, 100% { opacity: 0.4; }
+        50% { opacity: 0.8; }
     }
 
     .backdroop-overlay {
         animation: overlayIn 0.2s ease-out forwards;
+    }
+
+    .card-hover {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .card-hover:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.06);
+    }
+
+    .count-up {
+        display: inline-block;
     }
 
     @media print {
@@ -348,32 +389,68 @@
         document.getElementById('remarksModal').classList.add('hidden');
     }
 
-    // Live search
+    // Live search + filter
     let searchTimeout = null;
     const searchInput = document.getElementById('approvedSearch');
+    const filterButtons = document.querySelectorAll('.status-filter-btn');
+    const clearBtn = document.getElementById('clearFiltersBtn');
+    let currentFilter = '{{ $filter ?? 'all' }}';
 
-    function fetchApprovedData(page) {
+    function updateFilterButtons(activeFilter) {
+        filterButtons.forEach(btn => {
+            const btnFilter = btn.getAttribute('data-filter');
+            if (btnFilter === activeFilter) {
+                if (btnFilter === 'all') {
+                    btn.className = 'status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 bg-gray-900 text-white border-gray-900';
+                } else if (btnFilter === 'pending') {
+                    btn.className = 'status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 bg-amber-500 text-white border-amber-500';
+                } else if (btnFilter === 'approved') {
+                    btn.className = 'status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 bg-emerald-500 text-white border-emerald-500';
+                } else if (btnFilter === 'rejected') {
+                    btn.className = 'status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 bg-rose-500 text-white border-rose-500';
+                }
+            } else {
+                if (btnFilter === 'all') {
+                    btn.className = 'status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 bg-white text-gray-600 border-gray-200 hover:bg-gray-50';
+                } else if (btnFilter === 'pending') {
+                    btn.className = 'status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 bg-white text-amber-700 border-amber-200 hover:bg-amber-50';
+                } else if (btnFilter === 'approved') {
+                    btn.className = 'status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50';
+                } else if (btnFilter === 'rejected') {
+                    btn.className = 'status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 bg-white text-rose-700 border-rose-200 hover:bg-rose-50';
+                }
+            }
+        });
+    }
+
+    function fetchApprovedData(page, filter) {
         const search = searchInput ? searchInput.value : '';
         page = page || 1;
+        filter = filter || currentFilter;
 
         const tbody = document.getElementById('approvedTableBody');
         const pagination = document.getElementById('approvedPagination');
         const totalSpan = document.getElementById('approvedCount');
 
-        if (tbody) tbody.classList.add('updating');
+        if (tbody) {
+            tbody.style.opacity = '0.4';
+            tbody.style.transition = 'opacity 0.2s ease';
+        }
 
         const params = new URLSearchParams();
         if (search) params.set('search', search);
         params.set('page', page);
-        const currentFilter = new URLSearchParams(window.location.search).get('filter') || 'approved';
-        params.set('filter', currentFilter);
+        params.set('filter', filter);
 
         fetch(`/president/reports/approved?${params.toString()}`, {
             headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
         })
         .then(res => res.json())
         .then(data => {
-            if (tbody) { tbody.innerHTML = data.table_html; tbody.classList.remove('updating'); }
+            if (tbody) {
+                tbody.innerHTML = data.table_html;
+                tbody.style.opacity = '1';
+            }
             if (totalSpan) totalSpan.textContent = data.total + ' total';
             if (pagination) {
                 if (data.last_page > 1) {
@@ -384,7 +461,10 @@
             }
             if (window.lucide) lucide.createIcons();
         })
-        .catch(err => { console.error(err); if (tbody) tbody.classList.remove('updating'); });
+        .catch(err => {
+            console.error(err);
+            if (tbody) tbody.style.opacity = '1';
+        });
     }
 
     function buildPagination(data, fnName) {
@@ -404,17 +484,75 @@
         return html;
     }
 
-    function goToApprovedPage(page) { fetchApprovedData(page); }
+    function goToApprovedPage(page) { fetchApprovedData(page, currentFilter); }
 
-    if (searchInput) {
-        searchInput.addEventListener('input', function() {
-            clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => fetchApprovedData(1), 300);
+    // Filter button click handlers
+    filterButtons.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const newFilter = this.getAttribute('data-filter');
+            currentFilter = newFilter;
+            updateFilterButtons(newFilter);
+            fetchApprovedData(1, newFilter);
+            
+            // Update URL without reload
+            const url = new URL(window.location);
+            if (newFilter === 'all') {
+                url.searchParams.delete('filter');
+            } else {
+                url.searchParams.set('filter', newFilter);
+            }
+            window.history.pushState({}, '', url);
+        });
+    });
+
+    // Clear button handler
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function() {
+            if (searchInput) searchInput.value = '';
+            currentFilter = 'all';
+            updateFilterButtons('all');
+            fetchApprovedData(1, 'all');
+            
+            const url = new URL(window.location);
+            url.searchParams.delete('search');
+            url.searchParams.delete('filter');
+            window.history.pushState({}, '', url);
         });
     }
 
+    // Search input handler
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => fetchApprovedData(1, currentFilter), 300);
+        });
+    }
+
+    // Handle browser back/forward
+    window.addEventListener('popstate', function() {
+        const params = new URLSearchParams(window.location.search);
+        const filter = params.get('filter') || 'all';
+        currentFilter = filter;
+        updateFilterButtons(filter);
+        fetchApprovedData(1, filter);
+    });
+
     document.addEventListener('DOMContentLoaded', () => {
         if (window.lucide) lucide.createIcons();
+        updateFilterButtons(currentFilter);
+
+        const counters = document.querySelectorAll('.count-up');
+        counters.forEach(el => {
+            const target = parseInt(el.dataset.target || el.textContent || '0', 10);
+            if (target === 0) return;
+            let current = 0;
+            const step = Math.max(1, Math.floor(target / 30));
+            const interval = setInterval(() => {
+                current += step;
+                if (current >= target) { current = target; clearInterval(interval); }
+                el.textContent = current;
+            }, 30);
+        });
     });
 </script>
 
