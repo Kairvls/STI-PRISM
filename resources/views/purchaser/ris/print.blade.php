@@ -56,11 +56,13 @@
         .purpose-lines { min-height: 58px; border-bottom: 1px solid #6b7280; line-height: 28px; font-weight: 400; }
         .signatures { margin-top: 28px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; font-size: 14px; }
         .signature-box { position: relative; }
-        .signature-box p { margin: 0 0 38px; }
+        .signature-box p { margin: 0 0 6px; }
         .signature-line { border-bottom: 1px solid #111827; min-height: 20px; text-align: center; font-size: 12px; }
-        .signature-image { display: block; max-height: 72px; margin: 0 auto 4px; }
-        .signature-name { margin-top: 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .date-row { margin-top: 16px; display: grid; grid-template-columns: 40px 1fr; gap: 6px; align-items: end; }
+        .signature-name-wrapper { position: relative; display: inline-block; width: 100%; text-align: center; }
+        .signature-name { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .signature-position { font-size: 10px; color: #4b5563; margin-top: 1px; }
+        .signature-image { max-height: 36px; width: auto; position: absolute; left: 50%; transform: translateX(-50%); bottom: 100%; margin-bottom: -8px; z-index: 10; }
+        .date-row { margin-top: 12px; display: grid; grid-template-columns: 40px 1fr; gap: 6px; align-items: end; }
 
         .approval-watermark {
             position: absolute;
@@ -69,7 +71,7 @@
             transform: translate(-50%, -50%) rotate(-45deg);
             font-size: 120px;
             font-weight: 900;
-            color: rgba(5, 150, 105, 0.12);
+            color: rgba(0, 0, 0, 0.08);
             letter-spacing: 8px;
             text-transform: uppercase;
             pointer-events: none;
@@ -170,22 +172,24 @@
             </div>
             <div class="signature-box">
                 <p>Approved by:</p>
-                <div class="signature-line">
+                <div class="signature-line"></div>
+                <div class="signature-name-wrapper">
+                    <div class="signature-name">{{ $ris->ris_approved_by_name ?? '' }}</div>
+                    <div class="signature-position">{{ $ris->ris_approved_by_position ?? '' }}</div>
                     @if (!empty($ris->ris_approved_by_signature) && strpos($ris->ris_approved_by_signature, 'data:image/png;base64,') === 0)
                         <img src="{{ $ris->ris_approved_by_signature }}" alt="Approved by signature" class="signature-image" />
-                    @else
-                        {{ $ris->ris_approved_by_signature }}
                     @endif
                 </div>
                 <div class="date-row"><span>Date:</span><div class="signature-line">{{ $ris->ris_approved_by_date }}</div></div>
             </div>
             <div class="signature-box">
                 <p>Issued by:</p>
-                <div class="signature-line">
+                <div class="signature-line"></div>
+                <div class="signature-name-wrapper">
+                    <div class="signature-name">{{ $ris->ris_issued_by_name ?? '' }}</div>
+                    <div class="signature-position">{{ $ris->ris_issued_by_position ?? '' }}</div>
                     @if (!empty($ris->ris_issued_by_signature) && strpos($ris->ris_issued_by_signature, 'data:image/png;base64,') === 0)
                         <img src="{{ $ris->ris_issued_by_signature }}" alt="Issued by signature" class="signature-image" />
-                    @else
-                        {{ $ris->ris_issued_by_signature }}
                     @endif
                 </div>
                 <div class="date-row"><span>Date:</span><div class="signature-line">{{ $ris->ris_issued_by_date }}</div></div>

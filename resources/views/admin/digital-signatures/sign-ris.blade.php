@@ -618,7 +618,7 @@
         const scaleX = viewportWidth / docWidthPx;
         const scaleY = viewportHeight / docHeightPx;
 
-        const scale = Math.min(scaleX, scaleY, 1);
+        const scale = Math.min(scaleX, scaleY, 1) * 0.9;
 
         iframe.style.transform = `scale(${scale})`;
         iframe.style.width = docWidthPx + 'px';
