@@ -4,6 +4,10 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use App\Http\Middleware\MaintenanceMiddleware;
+use App\Http\Middleware\PresidentMiddleware;
+use App\Http\Middleware\AdminMiddleware;
+use App\Http\Middleware\PurchaserMiddleware;
+use App\Http\Middleware\AccountingMiddleware;
 
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -23,6 +27,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
             'maintenance' => \App\Http\Middleware\MaintenanceMiddleware::class,
             'purchaser' => \App\Http\Middleware\PurchaserMiddleware::class,
+            'president' => \App\Http\Middleware\PresidentMiddleware::class,
+
+            'accounting' => \App\Http\Middleware\AccountingMiddleware::class,
+
+            'receiving' => \App\Http\Middleware\ReceivingMiddleware::class,
         ]);
 
         

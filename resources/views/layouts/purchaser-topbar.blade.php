@@ -1,921 +1,831 @@
-{{-- ===================================================== --}}
-{{-- PURCHASER TOPBAR --}}
-{{-- ===================================================== --}}
+<div class="topbar">
+    <!-- LEFT -->
 
-<div class="purchaser-topbar">
-
-
-    {{-- ===================================================== --}}
-    {{-- LEFT SIDE --}}
-    {{-- ===================================================== --}}
-
-    <div class="purchaser-topbar-left">
-
-
+    <div class="topbar-left">
         {{-- ================================================= --}}
         {{-- MOBILE SIDEBAR BUTTON --}}
-        {{-- USES toggleSidebar() FROM app.blade.php --}}
         {{-- ================================================= --}}
 
-        <button
-            type="button"
-            onclick="toggleSidebar()"
-            class="purchaser-mobile-sidebar-btn"
-            aria-label="Open sidebar"
-        >
-
+        <button onclick="toggleSidebar()" class="mobile-sidebar-btn">
             <i data-lucide="menu"></i>
-
         </button>
 
-
-
         {{-- ================================================= --}}
-        {{-- PAGE BREADCRUMB --}}
+        {{-- SEARCH BAR --}}
         {{-- ================================================= --}}
 
-        <div class="min-w-0">
+        <div class="dashboard-toolbar-search">
+            <i data-lucide="search" class="dashboard-toolbar-search-icon"></i>
 
-            <div class="flex min-w-0 items-center gap-2 text-sm text-gray-500">
+            <input
+                type="search"
+                id="dashboard-search"
+                placeholder="Search accounts, roles, settings..."
+                autocomplete="off"
+            />
 
-                <span class="shrink-0">
-                    Purchaser
-                </span>
-
-                <i
-                    data-lucide="chevron-right"
-                    class="h-4 w-4 shrink-0"
-                ></i>
-
-                <span class="truncate font-medium text-gray-700">
-
-                    @yield(
-                        "page-title",
-                        "Dashboard"
-                    )
-
-                </span>
-
-            </div>
-
-
-            {{-- ================================================= --}}
-            {{-- OPTIONAL PAGE SUBTITLE --}}
-            {{-- ================================================= --}}
-
-            <p class="mt-1 hidden max-w-[520px] truncate text-xs text-gray-400 lg:block">
-
-                @yield(
-                    "page-subtitle",
-                    "Procurement Management"
-                )
-
-            </p>
-
+            <kbd class="dashboard-search-shortcut"> Ctrl K </kbd>
         </div>
-
     </div>
 
-
-
-    {{-- ===================================================== --}}
-    {{-- RIGHT SIDE --}}
-    {{-- ===================================================== --}}
+    <!-- RIGHT -->
 
     <div class="flex items-center gap-2">
+        <!-- ===================================== -->
+        <!-- NOTIFICATIONS -->
+        <!-- ===================================== -->
 
+        {{-- ================================================= --}}
+        {{-- MAILBOX BUTTON --}}
+        {{-- BESIDE NOTIFICATION BUTTON --}}
+        {{-- ================================================= --}}
 
-        {{-- ===================================================== --}}
-        {{-- NOTIFICATIONS --}}
-        {{-- NOT CONNECTED YET --}}
-        {{-- ===================================================== --}}
+        <a
+            href="javascript:void(0)"
+            onclick="openMessagingModal()"
+            class="dashboard-icon-action"
+            aria-label="PRISM messages box"
+            title="PRISM messages box"
+        >
+            <i data-lucide="messages-square" class="h-[18px] w-[18px]"></i>
+
+            {{-- ================================================= --}}
+            {{-- OPTIONAL MAIL UNREAD DOT --}}
+            {{-- REMOVE THIS SPAN IF YOU DO NOT HAVE MAIL COUNTS --}}
+            {{-- ================================================= --}}
+
+            <span class="dashboard-notification-dot"></span>
+        </a>
 
         <div class="relative">
-
-
-            {{-- ================================================= --}}
-            {{-- NOTIFICATION BUTTON --}}
-            {{-- ================================================= --}}
+            <!-- ===================================== -->
+            <!-- NOTIFICATION BUTTON -->
+            <!-- ===================================== -->
 
             <button
                 type="button"
-                onclick="togglePurchaserNotifications()"
-
-                class="
-                    relative
-                    flex
-                    h-10
-                    w-10
-                    items-center
-                    justify-center
-                    rounded-full
-                    text-slate-500
-                    transition
-                    hover:bg-slate-100
-                    hover:text-slate-950
-                "
-
+                onclick="toggleNotifications()"
+                class="relative flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-950"
                 aria-label="Notifications"
             >
+                <i data-lucide="bell" class="h-5 w-5"></i>
 
-                <i
-                    data-lucide="bell"
-                    class="h-5 w-5"
-                ></i>
+                <!-- ===================================== -->
+                <!-- UNREAD INDICATOR -->
+                <!-- ONLY SHOW WHEN UNREAD EXISTS -->
+                <!-- ===================================== -->
 
+                @if (0 > 0)
+                    <span
+                        class="absolute right-[9px] top-[8px] h-2 w-2 rounded-full border-2 border-white bg-rose-500"
+                    ></span>
+
+                @endif
             </button>
 
-
-
-            {{-- ================================================= --}}
-            {{-- NOTIFICATION DROPDOWN --}}
-            {{-- PLACEHOLDER UNTIL BACKEND IS CONNECTED --}}
-            {{-- ================================================= --}}
+            <!-- ===================================== -->
+            <!-- NOTIFICATION DROPDOWN -->
+            <!-- ===================================== -->
 
             <div
-                id="purchaserNotificationDropdown"
-
-                class="
-                    absolute
-                    right-0
-                    top-[calc(100%+10px)]
-                    z-50
-                    hidden
-                    w-[360px]
-                    max-w-[calc(100vw-24px)]
-                    overflow-hidden
-                    rounded-2xl
-                    border
-                    border-black/5
-                    bg-white
-                    shadow-[0_20px_60px_rgba(0,0,0,0.14)]
-                "
+                id="notificationDropdown"
+                class="absolute right-0 top-[calc(100%+10px)] z-50 hidden w-[360px] overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_20px_60px_rgba(0,0,0,0.14)]"
             >
-
-
-                {{-- ================================================= --}}
-                {{-- DROPDOWN HEADER --}}
-                {{-- ================================================= --}}
+                <!-- ===================================== -->
+                <!-- DROPDOWN HEADER -->
+                <!-- ===================================== -->
 
                 <div
-                    class="
-                        flex
-                        items-center
-                        justify-between
-                        border-b
-                        border-slate-100
-                        px-5
-                        py-4
-                    "
+                    class="flex items-center justify-between border-b border-slate-100 px-5 py-4"
                 >
-
                     <div>
-
-                        <h3 class="text-sm font-semibold tracking-tight text-slate-950">
+                        <h3
+                            class="text-sm font-semibold tracking-tight text-slate-950"
+                        >
                             Notifications
                         </h3>
 
-                        <p class="mt-0.5 text-xs text-slate-500">
-                            Procurement activity requiring your attention
+                        <p class="mt-0.5 text-xs text-slate-500">Recent activity requiring your attention</p>
+                    </div>
+
+                    <!-- ===================================== -->
+                    <!-- UNREAD COUNT -->
+                    <!-- ===================================== -->
+
+                    <span
+                        class="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-600"
+                    >
+                        {{-- $headerUnreadCount --}} new
+                    </span>
+                </div>
+
+                <!-- ===================================== -->
+                <!-- NOTIFICATION LIST -->
+                <!-- ===================================== -->
+
+                <div class="max-h-[360px] overflow-y-auto">
+
+                    <div
+                        class="flex min-h-[220px] flex-col items-center justify-center px-6 text-center"
+                    >
+                        <div
+                            class="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-400"
+                        >
+                            <i data-lucide="bell-off" class="h-4 w-4"></i>
+                        </div>
+
+                        <h4 class="mt-3 text-sm font-medium text-slate-700">
+                            No notifications
+                        </h4>
+
+                        <p class="mt-1 text-xs text-slate-400">
+                            New system activity will appear here.
                         </p>
 
                     </div>
 
-
-                    <span
-                        class="
-                            rounded-full
-                            bg-slate-100
-                            px-2
-                            py-1
-                            text-[11px]
-                            font-medium
-                            text-slate-600
-                        "
-                    >
-                        0 new
-                    </span>
-
                 </div>
 
+                <!-- ===================================== -->
+                <!-- DROPDOWN FOOTER -->
+                <!-- ===================================== -->
 
-
-                {{-- ================================================= --}}
-                {{-- EMPTY STATE --}}
-                {{-- ================================================= --}}
-
-                <div
-                    class="
-                        flex
-                        min-h-[220px]
-                        flex-col
-                        items-center
-                        justify-center
-                        px-6
-                        text-center
-                    "
-                >
-
-                    <div
-                        class="
-                            flex
-                            h-10
-                            w-10
-                            items-center
-                            justify-center
-                            rounded-full
-                            bg-slate-100
-                            text-slate-400
-                        "
+                <div class="border-t border-slate-100 px-3 py-2">
+                    <a
+                        href="{{ url('/admin/notifications') }}"
+                        class="block w-full rounded-lg px-3 py-2 text-center text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
                     >
-
-                        <i
-                            data-lucide="bell-off"
-                            class="h-4 w-4"
-                        ></i>
-
-                    </div>
-
-
-                    <h4 class="mt-3 text-sm font-medium text-slate-700">
-                        No notifications
-                    </h4>
-
-
-                    <p class="mt-1 max-w-[240px] text-xs leading-5 text-slate-400">
-                        New procurement activity will appear here.
-                    </p>
-
+                        View all notifications
+                    </a>
                 </div>
-
             </div>
-
         </div>
 
-
-
-        {{-- ===================================================== --}}
-        {{-- PROFILE --}}
-        {{-- ===================================================== --}}
-
+        <!-- ===================================== -->
+        <!-- PROFILE -->
+        <!-- ===================================== -->
         <div class="relative">
-
-
-            {{-- ================================================= --}}
-            {{-- PROFILE BUTTON --}}
-            {{-- ================================================= --}}
-
+            <!-- PROFILE BUTTON -->
             <button
                 type="button"
-                onclick="togglePurchaserProfileDropdown()"
-
-                class="
-                    flex
-                    items-center
-                    gap-3
-                    rounded-xl
-                    px-2
-                    py-1.5
-                    text-left
-                    transition
-                    hover:bg-slate-100
-                "
+                onclick="toggleProfileDropdown()"
+                class="flex items-center gap-3 rounded-xl px-2 py-1.5 text-left transition hover:bg-slate-100"
             >
-
-
-                {{-- ================================================= --}}
-                {{-- AVATAR --}}
-                {{-- ================================================= --}}
-
+                <!-- AVATAR -->
                 <div
-                    class="
-                        flex
-                        h-9
-                        w-9
-                        shrink-0
-                        items-center
-                        justify-center
-                        rounded-full
-                        bg-slate-900
-                        text-sm
-                        font-medium
-                        text-white
-                    "
+                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-900 text-sm font-medium text-white"
                 >
-
-                    {{
-                        strtoupper(
-                            substr(
-                                auth()->user()?->user_full_name
-                                ?? auth()->user()?->name
-                                ?? 'P',
-                                0,
-                                1
-                            )
-                        )
-                    }}
-
+                    {{ strtoupper(substr(Auth::user()->user_full_name, 0, 1)) }}
                 </div>
 
-
-
-                {{-- ================================================= --}}
-                {{-- USER INFORMATION --}}
-                {{-- ================================================= --}}
-
+                <!-- PROFILE INFORMATION -->
                 <div class="hidden min-w-0 sm:block">
+                    <p
+                        class="max-w-[150px] truncate text-sm font-medium text-slate-900"
+                    >{{ Auth::user()->user_full_name }}</p>
 
-                    <p class="max-w-[150px] truncate text-sm font-medium text-slate-900">
-
-                        {{
-                            auth()->user()?->user_full_name
-                            ?? auth()->user()?->name
-                            ?? 'Purchaser'
-                        }}
-
-                    </p>
-
-                    <p class="mt-0.5 max-w-[150px] truncate text-xs text-slate-500">
-                        Purchaser
-                    </p>
-
+                    <p
+                        class="mt-0.5 max-w-[150px] truncate text-xs text-slate-500"
+                    >Purchaser</p>
                 </div>
 
-
-
-                {{-- ================================================= --}}
-                {{-- CHEVRON --}}
-                {{-- ================================================= --}}
-
+                <!-- CHEVRON -->
                 <i
                     data-lucide="chevron-down"
                     class="hidden h-4 w-4 shrink-0 text-slate-400 sm:block"
                 ></i>
-
             </button>
 
-
-
-            {{-- ===================================================== --}}
-            {{-- PROFILE DROPDOWN --}}
-            {{-- ===================================================== --}}
-
+            <!-- ===================================== -->
+            <!-- PROFILE DROPDOWN -->
+            <!-- ===================================== -->
             <div
-                id="purchaserProfileDropdown"
-
-                class="
-                    absolute
-                    right-0
-                    top-[calc(100%+10px)]
-                    z-50
-                    hidden
-                    w-[260px]
-                    overflow-hidden
-                    rounded-2xl
-                    border
-                    border-black/5
-                    bg-white
-                    shadow-[0_20px_60px_rgba(0,0,0,0.14)]
-                "
+                id="profileDropdown"
+                class="absolute right-0 top-[calc(100%+10px)] z-50 hidden w-[260px] overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_20px_60px_rgba(0,0,0,0.14)]"
             >
-
-
-                {{-- ================================================= --}}
-                {{-- PROFILE HEADER --}}
-                {{-- ================================================= --}}
-
+                <!-- PROFILE HEADER -->
                 <div class="border-b border-slate-100 px-4 py-4">
-
                     <div class="flex items-center gap-3">
-
-
-                        {{-- ============================================= --}}
-                        {{-- AVATAR --}}
-                        {{-- ============================================= --}}
-
+                        <!-- AVATAR -->
                         <div
-                            class="
-                                flex
-                                h-10
-                                w-10
-                                shrink-0
-                                items-center
-                                justify-center
-                                rounded-full
-                                bg-slate-900
-                                text-sm
-                                font-medium
-                                text-white
-                            "
+                            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-900 text-sm font-medium text-white"
                         >
-
-                            {{
-                                strtoupper(
-                                    substr(
-                                        auth()->user()?->user_full_name
-                                        ?? auth()->user()?->name
-                                        ?? 'P',
-                                        0,
-                                        1
-                                    )
-                                )
-                            }}
-
+                            {{ strtoupper(substr(Auth::user()->user_full_name, 0, 1)) }}
                         </div>
 
-
-
-                        {{-- ============================================= --}}
-                        {{-- USER DETAILS --}}
-                        {{-- ============================================= --}}
-
+                        <!-- USER INFORMATION -->
                         <div class="min-w-0">
+                            <p
+                                class="truncate text-sm font-medium text-slate-950"
+                            >{{ Auth::user()->user_full_name }}</p>
 
-                            <p class="truncate text-sm font-medium text-slate-950">
-
-                                {{
-                                    auth()->user()?->user_full_name
-                                    ?? auth()->user()?->name
-                                    ?? 'Purchaser'
-                                }}
-
-                            </p>
-
-
-                            <p class="mt-0.5 truncate text-xs text-slate-500">
-
-                                {{
-                                    auth()->user()?->email
-                                    ?? 'Purchaser Account'
-                                }}
-
-                            </p>
-
+                            <p
+                                class="mt-0.5 truncate text-xs text-slate-500"
+                            >{{ Auth::user()->user_email_address }}</p>
                         </div>
-
                     </div>
-
                 </div>
 
-
-
-                {{-- ================================================= --}}
-                {{-- PROFILE LINKS --}}
-                {{-- ROUTES NOT CONNECTED YET --}}
-                {{-- ================================================= --}}
-
+                <!-- ===================================== -->
+                <!-- PROFILE LINKS -->
+                <!-- ===================================== -->
                 <div class="p-2">
-
-
-                    {{-- ================================================= --}}
-                    {{-- PROFILE SETTINGS --}}
-                    {{-- ================================================= --}}
-
                     <a
-                        href="#"
-
-                        class="
-                            flex
-                            items-center
-                            gap-3
-                            rounded-lg
-                            px-3
-                            py-2.5
-                            text-sm
-                            text-slate-600
-                            transition
-                            hover:bg-slate-100
-                            hover:text-slate-950
-                        "
+                        href="{{ url('/admin/profile') }}"
+                        class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
                     >
-
                         <i
                             data-lucide="user-cog"
                             class="h-4 w-4 text-slate-400"
                         ></i>
 
                         Profile settings
-
                     </a>
 
-
-
-                    {{-- ================================================= --}}
-                    {{-- SECURITY SETTINGS --}}
-                    {{-- ================================================= --}}
-
                     <a
-                        href="#"
-
-                        class="
-                            flex
-                            items-center
-                            gap-3
-                            rounded-lg
-                            px-3
-                            py-2.5
-                            text-sm
-                            text-slate-600
-                            transition
-                            hover:bg-slate-100
-                            hover:text-slate-950
-                        "
+                        href="{{ url('/admin/security') }}"
+                        class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
                     >
-
                         <i
                             data-lucide="shield-check"
                             class="h-4 w-4 text-slate-400"
                         ></i>
 
                         Security settings
-
                     </a>
-
                 </div>
 
-
-
-                {{-- ================================================= --}}
-                {{-- LOGOUT --}}
-                {{-- ================================================= --}}
-
+                <!-- ===================================== -->
+                <!-- LOGOUT -->
+                <!-- ===================================== -->
                 <div class="border-t border-slate-100 p-2">
-
-                    <form
-                        method="POST"
-                        action="{{ route('logout') }}"
-                    >
-
+                    <form method="POST" action="{{ route('logout') }}">
                         @csrf
-
 
                         <button
                             type="submit"
-
-                            class="
-                                flex
-                                w-full
-                                items-center
-                                gap-3
-                                rounded-lg
-                                px-3
-                                py-2.5
-                                text-sm
-                                text-slate-600
-                                transition
-                                hover:bg-rose-50
-                                hover:text-rose-600
-                            "
+                            class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-rose-50 hover:text-rose-600"
                         >
-
-                            <i
-                                data-lucide="log-out"
-                                class="h-4 w-4"
-                            ></i>
+                            <i data-lucide="log-out" class="h-4 w-4"></i>
 
                             Log out
-
                         </button>
-
                     </form>
-
                 </div>
-
             </div>
-
         </div>
-
     </div>
-
 </div>
-
-
 
 <style>
 
-    /* ========================================================= */
-    /* PURCHASER TOPBAR */
-    /* SAME STRUCTURE AS MAINTENANCE TOPBAR */
-    /* ========================================================= */
+        :root{
+            --primary:#FFD400;
+            --primary-dark:#E6BF00;
+            --bg:#F8FAFC;
+            --card:#FFFFFF;
+            --text:#0F172A;
+            --muted:#64748B;
+            --border:#E5E7EB;
+        }
 
-    .purchaser-topbar {
 
-        height: 82px;
+        .topbar{
 
-        flex-shrink: 0;
+            height:82px;
+
+            background:white;
+
+            border-bottom:1px solid #E2E8F0;
+
+            box-shadow:
+                0 2px 10px rgba(15,23,42,.03);
+
+            display:flex;
+
+            align-items:center;
+
+            justify-content:space-between;
+
+            padding:0 28px;
+
+            position:sticky;
+
+            top:0;
+
+            z-index:10;
+
+        }
+
+        .topbar-left{
+            display:flex;
+            align-items:center;
+            gap:18px;
+        }
+
+        /* ======================================
+       TOPBAR SEARCH
+       KEEP THIS INSIDE maintenance-topbar.blade.php
+    ====================================== */
+
+    .dashboard-toolbar-search {
+        width: 320px;
+        height: 46px;
 
         display: flex;
-
-        align-items: center;
-
-        justify-content: space-between;
-
-        gap: 20px;
-
-        padding: 0 28px;
-
-        background: white;
-
-        border-bottom: 1px solid #e5e7eb;
-
-        position: relative;
-
-        z-index: 30;
-
-    }
-
-
-
-    /* ========================================================= */
-    /* LEFT SIDE */
-    /* ========================================================= */
-
-    .purchaser-topbar-left {
-
-        min-width: 0;
-
-        display: flex;
-
         align-items: center;
 
         gap: 12px;
 
+        padding: 0 12px 0 16px;
+
+        background: #ffffff;
+
+        border: 1px solid #e2e8f0;
+
+        border-radius: 14px;
+
+        color: #64748b;
     }
 
 
-
-    /* ========================================================= */
-    /* MOBILE SIDEBAR BUTTON */
-    /* ========================================================= */
-
-    .purchaser-mobile-sidebar-btn {
-
-        width: 40px;
-
-        height: 40px;
+    .dashboard-toolbar-search-icon {
+        width: 18px;
+        height: 18px;
 
         flex-shrink: 0;
 
-        display: none;
+        color: #94a3b8;
 
-        align-items: center;
+        stroke: currentColor;
+    }
 
-        justify-content: center;
 
-        border: 0;
+    .dashboard-toolbar-search input {
+        min-width: 0;
 
-        border-radius: 10px;
+        flex: 1;
+
+        border: none;
+
+        outline: none;
 
         background: transparent;
 
-        color: #64748b;
+        font-size: 14px;
 
-        cursor: pointer;
-
-        transition: all 0.2s ease;
-
+        color: #0f172a;
     }
 
 
-    .purchaser-mobile-sidebar-btn:hover {
+    .dashboard-toolbar-search input::placeholder {
+        color: #94a3b8;
+    }
 
+
+    .dashboard-search-shortcut {
+        flex-shrink: 0;
+
+        padding: 3px 7px;
+
+        border: 1px solid #e2e8f0;
+
+        border-radius: 6px;
+
+        background: #f8fafc;
+
+        color: #94a3b8;
+
+        font-size: 11px;
+
+        line-height: 1;
+    }
+
+
+    /* ======================================
+       MAILBOX BUTTON
+       KEEP THIS INSIDE maintenance-topbar.blade.php
+    ====================================== */
+
+    .dashboard-icon-action {
+        position: relative;
+
+        width: 40px;
+        height: 40px;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        flex-shrink: 0;
+
+        border-radius: 999px;
+
+        color: #64748b;
+
+        text-decoration: none;
+
+        transition:
+            background 0.2s ease,
+            color 0.2s ease;
+    }
+
+
+    .dashboard-icon-action:hover {
         background: #f1f5f9;
 
         color: #0f172a;
-
     }
 
 
-    .purchaser-mobile-sidebar-btn i {
+    .dashboard-icon-action svg {
+        width: 18px;
+        height: 18px;
 
-        width: 20px;
-
-        height: 20px;
-
+        stroke: currentColor;
     }
 
 
+    .dashboard-notification-dot {
+        position: absolute;
 
-    /* ========================================================= */
-    /* RESPONSIVE TOPBAR */
-    /* ========================================================= */
+        top: 8px;
+        right: 8px;
 
-    @media (max-width: 1279px) {
+        width: 6px;
+        height: 6px;
 
-        .purchaser-mobile-sidebar-btn {
+        border-radius: 999px;
 
-            display: flex;
+        background: #ef4444;
 
+        border: 1px solid #ffffff;
+    }
+
+        .mobile-sidebar-btn{
+            width:46px;
+            height:46px;
+            border-radius:16px;
+            border:none;
+            background:#F8FAFC;
+            display:none;
+            align-items:center;
+            justify-content:center;
+            cursor:pointer;
+            transition:.25s;
         }
 
-    }
-
-
-    @media (max-width: 639px) {
-
-        .purchaser-topbar {
-
-            height: 72px;
-
-            padding-left: 14px;
-
-            padding-right: 14px;
-
-            gap: 10px;
-
+        .mobile-sidebar-btn:hover{
+            background:var(--primary);
+            transform:translateY(-2px);
         }
 
-    }
+        .page-title{
+            font-size:22px;
+            font-weight:700;
+            color:var(--text);
+            letter-spacing:-0.5px;
+        }
 
+        .page-subtitle{
+            margin-top:3px;
+            font-size:13px;
+            color:var(--muted);
+        }
+
+        .topbar-right{
+            display:flex;
+            align-items:center;
+            gap:16px;
+        }
+
+        /* TIME */
+
+        .time-card{
+            background:#FFFDF3;
+            border:1px solid rgba(255,212,0,.25);
+            padding:12px 18px;
+            border-radius:18px;
+            display:flex;
+            align-items:center;
+            gap:12px;
+            transition:.25s;
+        }
+
+        .time-card:hover{
+            transform:translateY(-2px);
+            box-shadow:
+            0 10px 25px rgba(255,212,0,.15);
+        }
+
+        .time-card i{
+            width:18px;
+            height:18px;
+            color:#B38F00;
+        }
+
+        .time-label{
+            font-size:11px;
+            color:var(--muted);
+        }
+
+        .time-value{
+            font-size:13px;
+            font-weight:700;
+            color:var(--text);
+        }
+
+        /* ICON BUTTONS */
+
+        .icon-btn{
+            width:48px;
+            height:48px;
+            border:none;
+            border-radius:16px;
+            background:#F8FAFC;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            position:relative;
+            cursor:pointer;
+            transition:.25s;
+        }
+
+        .icon-btn:hover{
+            background:var(--primary);
+            transform:translateY(-2px);
+            box-shadow:
+            0 10px 25px rgba(255,212,0,.25);
+        }
+
+        .icon-btn i{
+            width:20px;
+            height:20px;
+            color:#334155;
+        }
+
+        .notification-dot{
+            width:10px;
+            height:10px;
+            border-radius:50%;
+            background:#EF4444;
+            border:2px solid white;
+            position:absolute;
+            top:10px;
+            right:10px;
+        }
+
+        /* PROFILE */
+
+        .profile-btn{
+            border:none;
+
+            padding:6px 14px;
+            border-radius:18px;
+            display:flex;
+            align-items:center;
+            gap:12px;
+            cursor:pointer;
+            transition:.25s;
+            box-shadow:
+            0 2px 10px rgba(15,23,42,.04);
+        }
+
+        .profile-btn:hover{
+            transform:translateY(-2px);
+            box-shadow:
+            0 12px 30px rgba(15,23,42,.08);
+        }
+
+        .profile-avatar{
+            width:35px;
+            height:35px;
+            border-radius:14px;
+
+
+            color:#111827;
+            font-weight:700;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            font-size:15px;
+        }
+
+        .profile-info h4{
+            font-size:14px;
+            font-weight:700;
+            color:var(--text);
+        }
+
+        .profile-info p{
+            font-size:12px;
+            color:var(--muted);
+        }
+
+        .profile-arrow{
+            width:18px;
+            height:18px;
+            color:#94A3B8;
+        }
+
+        /* DROPDOWNS */
+
+        .dropdown-panel,
+        .profile-dropdown{
+            position:absolute;
+            top:68px;
+            right:0;
+            width:360px;
+            background:rgba(255,255,255,.98);
+            backdrop-filter:blur(16px);
+            border:1px solid rgba(15,23,42,.08);
+            border-radius:22px;
+            overflow:hidden;
+            box-shadow:
+            0 25px 60px rgba(15,23,42,.12);
+            animation:dropdownFade .2s ease;
+        }
+
+        @keyframes dropdownFade{
+            from{
+                opacity:0;
+                transform:translateY(-10px);
+            }
+            to{
+                opacity:1;
+                transform:translateY(0);
+            }
+        }
+
+        .dropdown-header{
+            padding:20px;
+            font-weight:700;
+            font-size:15px;
+            color:var(--text);
+            border-bottom:1px solid #F1F5F9;
+        }
+
+        .notification-item{
+            display:flex;
+            gap:14px;
+            padding:18px;
+            transition:.2s;
+        }
+
+        .notification-item:hover{
+            background:#FAFAFA;
+        }
+
+        .notification-item h4{
+            font-size:14px;
+            font-weight:700;
+            color:var(--text);
+        }
+
+        .notification-item p{
+            font-size:12px;
+            color:var(--muted);
+            margin-top:4px;
+        }
+
+        .notification-item span{
+            font-size:11px;
+            color:#94A3B8;
+        }
+
+        .notification-icon{
+            width:46px;
+            height:46px;
+            border-radius:14px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+        }
+
+        .danger{
+            background:#FEE2E2;
+            color:#DC2626;
+        }
+
+        .success{
+            background:#DCFCE7;
+            color:#16A34A;
+        }
+
+        .profile-header{
+            padding:22px;
+            background:#FFFDF3;
+            border-bottom:1px solid rgba(255,212,0,.15);
+        }
+
+        .profile-header h4{
+            font-size:15px;
+            font-weight:700;
+        }
+
+        .profile-header p{
+            margin-top:5px;
+            font-size:12px;
+            color:var(--muted);
+        }
+
+        .profile-links{
+            padding:10px;
+        }
+
+        .topbar-link{
+            display:flex;
+            align-items:center;
+            gap:12px;
+            padding:14px;
+            border-radius:14px;
+            color:#475569;
+            text-decoration:none;
+            transition:.2s;
+        }
+
+        .topbar-link:hover{
+            background:#FFFBE6;
+            color:#111827;
+        }
+
+        .logout-area{
+            padding:14px;
+            border-top:1px solid #F1F5F9;
+        }
+
+        .logout-btn{
+            width:100%;
+            border:none;
+            padding:13px;
+            border-radius:14px;
+            background:#EF4444;
+            color:white;
+            font-weight:600;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            gap:10px;
+            cursor:pointer;
+            transition:.25s;
+        }
+
+        .logout-btn:hover{
+            background:#DC2626;
+            transform:translateY(-2px);
+        }
+
+        @media(max-width:1280px){
+
+            .mobile-sidebar-btn{
+                display:flex;
+            }
+
+            .time-card{
+                display:none;
+            }
+
+            .profile-info{
+                display:none;
+            }
+
+            .profile-dropdown,
+            .dropdown-panel{
+                width:320px;
+            }
+        }
 </style>
 
-
-
 <script>
+    function toggleNotifications() {
+        const dropdown = document.getElementById("notificationDropdown");
 
-    // =========================================================
-    // GET PURCHASER DROPDOWNS
-    // =========================================================
-
-    function getPurchaserNotificationDropdown() {
-
-        return document.getElementById(
-            'purchaserNotificationDropdown'
-        );
-
+        dropdown.classList.toggle("hidden");
     }
 
+    function toggleProfileDropdown() {
+        const dropdown = document.getElementById("profileDropdown");
 
-    function getPurchaserProfileDropdown() {
-
-        return document.getElementById(
-            'purchaserProfileDropdown'
-        );
-
+        dropdown.classList.toggle("hidden");
     }
 
+    window.addEventListener("click", function (e) {
+        const notif = document.getElementById("notificationDropdown");
 
-
-    // =========================================================
-    // TOGGLE NOTIFICATIONS
-    // =========================================================
-
-    function togglePurchaserNotifications() {
-
-        const notificationDropdown =
-            getPurchaserNotificationDropdown();
-
-        const profileDropdown =
-            getPurchaserProfileDropdown();
-
-
-        // =====================================================
-        // STOP IF DROPDOWN DOES NOT EXIST
-        // =====================================================
-
-        if (!notificationDropdown) {
-
-            return;
-
-        }
-
-
-        // =====================================================
-        // CLOSE PROFILE DROPDOWN
-        // =====================================================
-
-        if (profileDropdown) {
-
-            profileDropdown.classList.add('hidden');
-
-        }
-
-
-        // =====================================================
-        // TOGGLE NOTIFICATION DROPDOWN
-        // =====================================================
-
-        notificationDropdown.classList.toggle('hidden');
-
-    }
-
-
-
-    // =========================================================
-    // TOGGLE PROFILE DROPDOWN
-    // =========================================================
-
-    function togglePurchaserProfileDropdown() {
-
-        const notificationDropdown =
-            getPurchaserNotificationDropdown();
-
-        const profileDropdown =
-            getPurchaserProfileDropdown();
-
-
-        // =====================================================
-        // STOP IF DROPDOWN DOES NOT EXIST
-        // =====================================================
-
-        if (!profileDropdown) {
-
-            return;
-
-        }
-
-
-        // =====================================================
-        // CLOSE NOTIFICATION DROPDOWN
-        // =====================================================
-
-        if (notificationDropdown) {
-
-            notificationDropdown.classList.add('hidden');
-
-        }
-
-
-        // =====================================================
-        // TOGGLE PROFILE DROPDOWN
-        // =====================================================
-
-        profileDropdown.classList.toggle('hidden');
-
-    }
-
-
-
-    // =========================================================
-    // CLOSE DROPDOWNS WHEN CLICKING OUTSIDE
-    // =========================================================
-
-    document.addEventListener('click', function (event) {
-
-        const notificationDropdown =
-            getPurchaserNotificationDropdown();
-
-        const profileDropdown =
-            getPurchaserProfileDropdown();
-
-
-        // =====================================================
-        // CHECK NOTIFICATION AREA
-        // =====================================================
-
-        const clickedNotificationArea =
-            event.target.closest(
-                '#purchaserNotificationDropdown'
-            )
-            ||
-            event.target.closest(
-                '[onclick="togglePurchaserNotifications()"]'
-            );
-
-
-        // =====================================================
-        // CHECK PROFILE AREA
-        // =====================================================
-
-        const clickedProfileArea =
-            event.target.closest(
-                '#purchaserProfileDropdown'
-            )
-            ||
-            event.target.closest(
-                '[onclick="togglePurchaserProfileDropdown()"]'
-            );
-
-
-        // =====================================================
-        // CLOSE NOTIFICATIONS
-        // =====================================================
+        const profile = document.getElementById("profileDropdown");
 
         if (
-            notificationDropdown
-            &&
-            !clickedNotificationArea
+            !e.target.closest("#notificationDropdown") &&
+            !e.target.closest('[onclick="toggleNotifications()"]')
         ) {
-
-            notificationDropdown.classList.add('hidden');
-
+            notif.classList.add("hidden");
         }
-
-
-        // =====================================================
-        // CLOSE PROFILE
-        // =====================================================
 
         if (
-            profileDropdown
-            &&
-            !clickedProfileArea
+            !e.target.closest("#profileDropdown") &&
+            !e.target.closest('[onclick="toggleProfileDropdown()"]')
         ) {
-
-            profileDropdown.classList.add('hidden');
-
+            profile.classList.add("hidden");
         }
-
     });
-
 </script>

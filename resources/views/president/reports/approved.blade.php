@@ -1,0 +1,559 @@
+@extends('layouts.president-layout')
+
+@section('title', 'RIS Status')
+
+@section('content')
+
+<div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between fade-in">
+    <div>
+        <h1 class="text-2xl font-semibold tracking-tight text-gray-900">RIS Status</h1>
+        <p class="mt-1 text-sm leading-6 text-gray-500">
+            View all RIS records marked as Approved, Rejected, or Pending.
+        </p>
+    </div>
+</div>
+
+{{-- Summary Cards --}}
+<div class="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4 slide-up" style="animation-delay: 0.05s">
+    <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.05s">
+        <p class="text-xs font-semibold text-gray-500">Total Approved</p>
+        <p class="mt-2 text-3xl font-bold text-emerald-600 count-up" data-target="{{ $totalApproved ?? 0 }}">{{ $totalApproved ?? 0 }}</p>
+    </div>
+    <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.1s">
+        <p class="text-xs font-semibold text-gray-500">Total Rejected</p>
+        <p class="mt-2 text-3xl font-bold text-rose-600 count-up" data-target="{{ $totalRejected ?? 0 }}">{{ $totalRejected ?? 0 }}</p>
+    </div>
+    <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.15s">
+        <p class="text-xs font-semibold text-gray-500">Pending RIS</p>
+        <p class="mt-2 text-3xl font-bold text-amber-600 count-up" data-target="{{ $totalPending ?? 0 }}">{{ $totalPending ?? 0 }}</p>
+    </div>
+    <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.2s">
+        <p class="text-xs font-semibold text-gray-500">Total Decisions</p>
+        <p class="mt-2 text-3xl font-bold text-gray-900 count-up" data-target="{{ $totalDecisions ?? 0 }}">{{ $totalDecisions ?? 0 }}</p>
+    </div>
+</div>
+
+{{-- Filter Buttons + Search --}}
+<div class="mt-6 slide-up" style="animation-delay: 0.2s">
+    <div class="flex flex-wrap items-center gap-3">
+        {{-- Status Filter Buttons --}}
+        <div class="flex items-center gap-2">
+            <button type="button" class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ ($filter ?? 'all') === 'all' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50' }}" data-filter="all">
+                All
+            </button>
+            <button type="button" class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ ($filter ?? '') === 'pending' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-amber-700 border-amber-200 hover:bg-amber-50' }}" data-filter="pending">
+                Pending
+            </button>
+            <button type="button" class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ ($filter ?? '') === 'approved' ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50' }}" data-filter="approved">
+                Approved
+            </button>
+            <button type="button" class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ ($filter ?? '') === 'rejected' ? 'bg-rose-500 text-white border-rose-500' : 'bg-white text-rose-700 border-rose-200 hover:bg-rose-50' }}" data-filter="rejected">
+                Rejected
+            </button>
+        </div>
+
+        {{-- Live Search --}}
+        <div class="relative flex-1 min-w-[220px]">
+            <i data-lucide="search" class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"></i>
+            <input
+                type="text"
+                id="approvedSearch"
+                name="search"
+                value="{{ request('search') }}"
+                placeholder="Search by Reference No., Purpose, or Status..."
+                class="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-900 outline-none focus:ring-4 focus:ring-amber-100 transition-all duration-200"
+                autocomplete="off"
+            />
+        </div>
+
+        {{-- Clear link --}}
+        @if (request('search') || request('filter'))
+            <button type="button" id="clearFiltersBtn" class="inline-flex h-10 items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-600 transition-all duration-200 hover:bg-gray-50 active:scale-95">
+                Clear
+            </button>
+        @endif
+    </div>
+</div>
+
+{{-- Table --}}
+<div class="mt-4 grid grid-cols-1 gap-4">
+    @php
+        $currentFilter = $filter ?? 'all';
+        $badgeClasses = match ($currentFilter) {
+            'approved' => 'bg-emerald-50 text-emerald-800 border-emerald-200',
+            'rejected' => 'bg-rose-50 text-rose-800 border-rose-200',
+            'pending' => 'bg-amber-50 text-amber-800 border-amber-200',
+            default => 'bg-gray-50 text-gray-800 border-gray-200',
+        };
+        $listTitle = match ($currentFilter) {
+            'approved' => 'Approved decision list',
+            'rejected' => 'Rejected decision list',
+            'pending' => 'Pending decision list',
+            default => 'All decision list',
+        };
+        $listDescription = match ($currentFilter) {
+            'approved' => 'RIS records approved by the President.',
+            'rejected' => 'RIS records rejected by the President.',
+            'pending' => 'RIS records pending President\'s decision.',
+            default => 'All RIS records.',
+        };
+    @endphp
+    <section class="rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.15s">
+        <div class="flex items-center justify-between gap-4">
+            <div>
+                <h2 class="text-sm font-semibold text-gray-900">{{ $listTitle }}</h2>
+                <p class="mt-1 text-xs text-gray-500">{{ $listDescription }}</p>
+            </div>
+            <span id="approvedCount" class="inline-flex items-center rounded-lg {{ $badgeClasses }} px-3 py-1 text-xs font-semibold border">
+                {{ $outcomeRecords->total() }} total
+            </span>
+        </div>
+
+        <div class="mt-4 overflow-x-auto">
+            <table class="min-w-full">
+                <thead>
+                    <tr class="border-b border-gray-100">
+                        <th class="px-3 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Reference No.</th>
+                        <th class="px-3 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Date</th>
+                        <th class="px-3 py-3 text-center text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Total Amount</th>
+                        <th class="px-3 py-3 text-center text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Remarks</th>
+                        <th class="px-3 py-3 text-center text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="approvedTableBody">
+                    @include('president.reports._approved-table', ['approvedOutcomeRecords' => $outcomeRecords, 'type' => $filter])
+                </tbody>
+            </table>
+        </div>
+
+        {{-- Pagination --}}
+        @if ($outcomeRecords->hasPages())
+            <div id="approvedPagination" class="mt-4 border-t border-gray-100 pt-4">
+                {{ $outcomeRecords->links() }}
+            </div>
+        @endif
+    </section>
+</div>
+
+{{-- ============================== --}}
+{{-- REMARKS MODAL --}}
+{{-- ============================== --}}
+<div id="remarksModal" class="fixed inset-0 z-50 hidden">
+    <div class="flex min-h-screen items-center justify-center bg-black/30 p-4 backdrop-blur-[2px] modal-overlay" onclick="closeRemarksModal()">
+        <div class="w-full max-w-md overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)] modal-content" onclick="event.stopPropagation()">
+            <div class="border-b border-gray-100 px-6 py-5">
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-950">Remarks</h3>
+                        <p class="mt-1 text-sm text-slate-600">Decision remarks from the President.</p>
+                    </div>
+                    <button type="button" class="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition-all duration-200 hover:bg-slate-100 hover:text-slate-900 active:scale-90" onclick="closeRemarksModal()" aria-label="Close">
+                        <i data-lucide="x" class="h-4 w-4"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="px-6 py-5">
+                <p id="remarksContent" class="text-sm text-slate-700 leading-relaxed"></p>
+            </div>
+            <div class="flex items-center justify-end border-t border-gray-100 px-6 py-4">
+                <button type="button" class="action-btn rounded-lg px-4 py-2.5 text-sm font-medium text-slate-600 transition-all duration-200 hover:bg-slate-100 hover:text-slate-950 active:scale-95" onclick="closeRemarksModal()">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- ============================== --}}
+{{-- RIS VIEW MODAL --}}
+{{-- ============================== --}}
+<div id="risViewModal" class="fixed inset-0 z-50 hidden">
+    <div class="flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 backdroop-overlay" onclick="closeRisViewModal()">
+        <div class="relative flex items-center justify-center" onclick="event.stopPropagation()">
+            <div id="risViewContainer" class="relative">
+                <iframe id="risViewIframe" class="bg-white shadow-2xl" style="width: 11in; height: 8.5in; border: 1px solid #e5e7eb; transform-origin: center center;" src="about:blank"></iframe>
+            </div>
+            <div class="fixed top-4 right-4 z-10 flex items-center gap-2">
+                <button type="button" class="print-btn inline-flex h-9 items-center justify-center rounded-lg bg-white border border-gray-200 px-3 text-xs font-semibold text-gray-700 shadow-sm transition-all duration-200 hover:bg-gray-50 active:scale-95" onclick="printRis()" title="Print RIS">
+                    <i data-lucide="printer" class="h-4 w-4"></i>
+                    <span class="ml-1.5">Print</span>
+                </button>
+                <button type="button" class="flex h-9 w-9 items-center justify-center rounded-full bg-white border border-gray-200 text-slate-400 shadow-sm transition-all duration-200 hover:bg-slate-100 hover:text-slate-900 active:scale-90" onclick="closeRisViewModal()" aria-label="Close">
+                    <i data-lucide="x" class="h-4 w-4"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    @keyframes slideUp {
+        from { opacity: 0; transform: translateY(16px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes modalIn {
+        from { opacity: 0; transform: scale(0.95) translateY(10px); }
+        to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+
+    @keyframes overlayIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    .fade-in {
+        animation: fadeIn 0.4s ease-out forwards;
+    }
+
+    .slide-up {
+        opacity: 0;
+        animation: slideUp 0.5s ease-out forwards;
+    }
+
+    .modal-overlay {
+        animation: overlayIn 0.2s ease-out forwards;
+    }
+
+    .modal-content {
+        animation: modalIn 0.25s ease-out forwards;
+    }
+
+    .outcome-row {
+        transition: background-color 0.2s ease;
+    }
+
+    .outcome-row:hover {
+        background-color: rgba(254, 252, 232, 0.4);
+    }
+
+    .action-btn {
+        transition: all 0.2s ease;
+    }
+
+    .action-btn:active {
+        transform: scale(0.95);
+    }
+
+    .status-filter-btn {
+        transition: all 0.2s ease;
+    }
+
+    .status-filter-btn:hover {
+        transform: translateY(-1px);
+    }
+
+    .status-filter-btn:active {
+        transform: scale(0.95);
+    }
+
+    #approvedTableBody {
+        transition: opacity 0.25s ease;
+    }
+
+    #approvedTableBody.loading {
+        opacity: 0.3;
+    }
+
+    .skeleton-row {
+        animation: skeletonPulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes skeletonPulse {
+        0%, 100% { opacity: 0.4; }
+        50% { opacity: 0.8; }
+    }
+
+    .backdroop-overlay {
+        animation: overlayIn 0.2s ease-out forwards;
+    }
+
+    .card-hover {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .card-hover:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.06);
+    }
+
+    .count-up {
+        display: inline-block;
+    }
+
+    @media print {
+        body * {
+            visibility: hidden;
+        }
+        #risViewModal, #risViewModal * {
+            visibility: visible;
+        }
+        #risViewModal {
+            position: static;
+            background: white;
+            backdrop-filter: none;
+        }
+        #risViewContainer {
+            transform: scale(1) !important;
+        }
+        .print-btn {
+            display: none !important;
+        }
+    }
+</style>
+
+<script>
+    function openRisViewModal(risId) {
+        const modal = document.getElementById('risViewModal');
+        const iframe = document.getElementById('risViewIframe');
+        if (!modal || !iframe) return;
+        iframe.src = `/president/ris/${risId}/view?ts=${Date.now()}`;
+        modal.classList.remove('hidden');
+        scaleRisToFit();
+    }
+
+    function closeRisViewModal() {
+        const modal = document.getElementById('risViewModal');
+        const iframe = document.getElementById('risViewIframe');
+        if (iframe) iframe.src = 'about:blank';
+        if (modal) modal.classList.add('hidden');
+    }
+
+    function scaleRisToFit() {
+        const iframe = document.getElementById('risViewIframe');
+        if (!iframe) return;
+
+        // Document dimensions in inches (landscape)
+        const docWidthInches = 11;
+        const docHeightInches = 8.5;
+        
+        // Convert to pixels (96 DPI)
+        const docWidthPx = docWidthInches * 96;
+        const docHeightPx = docHeightInches * 96;
+
+        // Calculate available viewport (with margins)
+        const viewportWidth = window.innerWidth - 64;
+        const viewportHeight = window.innerHeight - 64;
+
+        // Calculate scale to fit
+        const scaleX = viewportWidth / docWidthPx;
+        const scaleY = viewportHeight / docHeightPx;
+        const scale = Math.min(scaleX, scaleY, 1);
+
+        // Apply CSS transform to the iframe
+        iframe.style.transform = `scale(${scale})`;
+        iframe.style.width = docWidthPx + 'px';
+        iframe.style.height = docHeightPx + 'px';
+    }
+
+    window.addEventListener('resize', function() {
+        const modal = document.getElementById('risViewModal');
+        if (modal && !modal.classList.contains('hidden')) {
+            scaleRisToFit();
+        }
+    });
+
+    function printRis() {
+        const iframe = document.getElementById('risViewIframe');
+        if (!iframe || !iframe.contentWindow) return;
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+    }
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            const risModal = document.getElementById('risViewModal');
+            const remarksModal = document.getElementById('remarksModal');
+            if (risModal && !risModal.classList.contains('hidden')) {
+                closeRisViewModal();
+            }
+            if (remarksModal && !remarksModal.classList.contains('hidden')) {
+                closeRemarksModal();
+            }
+        }
+    });
+
+    function openRemarksModal(remarks) {
+        const modal = document.getElementById('remarksModal');
+        const content = document.getElementById('remarksContent');
+        if (content) content.textContent = remarks;
+        if (modal) modal.classList.remove('hidden');
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function closeRemarksModal() {
+        document.getElementById('remarksModal').classList.add('hidden');
+    }
+
+    // Live search + filter
+    let searchTimeout = null;
+    const searchInput = document.getElementById('approvedSearch');
+    const filterButtons = document.querySelectorAll('.status-filter-btn');
+    const clearBtn = document.getElementById('clearFiltersBtn');
+    let currentFilter = '{{ $filter ?? 'all' }}';
+
+    function updateFilterButtons(activeFilter) {
+        filterButtons.forEach(btn => {
+            const btnFilter = btn.getAttribute('data-filter');
+            if (btnFilter === activeFilter) {
+                if (btnFilter === 'all') {
+                    btn.className = 'status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 bg-gray-900 text-white border-gray-900';
+                } else if (btnFilter === 'pending') {
+                    btn.className = 'status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 bg-amber-500 text-white border-amber-500';
+                } else if (btnFilter === 'approved') {
+                    btn.className = 'status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 bg-emerald-500 text-white border-emerald-500';
+                } else if (btnFilter === 'rejected') {
+                    btn.className = 'status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 bg-rose-500 text-white border-rose-500';
+                }
+            } else {
+                if (btnFilter === 'all') {
+                    btn.className = 'status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 bg-white text-gray-600 border-gray-200 hover:bg-gray-50';
+                } else if (btnFilter === 'pending') {
+                    btn.className = 'status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 bg-white text-amber-700 border-amber-200 hover:bg-amber-50';
+                } else if (btnFilter === 'approved') {
+                    btn.className = 'status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50';
+                } else if (btnFilter === 'rejected') {
+                    btn.className = 'status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 bg-white text-rose-700 border-rose-200 hover:bg-rose-50';
+                }
+            }
+        });
+    }
+
+    function fetchApprovedData(page, filter) {
+        const search = searchInput ? searchInput.value : '';
+        page = page || 1;
+        filter = filter || currentFilter;
+
+        const tbody = document.getElementById('approvedTableBody');
+        const pagination = document.getElementById('approvedPagination');
+        const totalSpan = document.getElementById('approvedCount');
+
+        if (tbody) {
+            tbody.style.opacity = '0.4';
+            tbody.style.transition = 'opacity 0.2s ease';
+        }
+
+        const params = new URLSearchParams();
+        if (search) params.set('search', search);
+        params.set('page', page);
+        params.set('filter', filter);
+
+        fetch(`/president/reports/approved?${params.toString()}`, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (tbody) {
+                tbody.innerHTML = data.table_html;
+                tbody.style.opacity = '1';
+            }
+            if (totalSpan) totalSpan.textContent = data.total + ' total';
+            if (pagination) {
+                if (data.last_page > 1) {
+                    let html = buildPagination(data, 'goToApprovedPage');
+                    pagination.innerHTML = html;
+                    pagination.classList.remove('hidden');
+                } else { pagination.innerHTML = ''; }
+            }
+            if (window.lucide) lucide.createIcons();
+        })
+        .catch(err => {
+            console.error(err);
+            if (tbody) tbody.style.opacity = '1';
+        });
+    }
+
+    function buildPagination(data, fnName) {
+        let html = '<nav class="flex items-center justify-between"><div class="text-sm text-gray-500">Showing ' + data.from + ' to ' + data.to + ' of ' + data.total + ' results</div><ul class="flex items-center gap-1">';
+        const prevDisabled = data.current_page <= 1;
+        html += '<li class="' + (prevDisabled ? 'opacity-50 pointer-events-none' : '') + '"><button onclick="' + fnName + '(' + (data.current_page - 1) + ')" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-sm text-gray-600 hover:bg-gray-50">&laquo;</button></li>';
+        for (let i = 1; i <= data.last_page; i++) {
+            if (i === data.current_page) {
+                html += '<li><span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-gray-900 text-sm font-semibold text-white">' + i + '</span></li>';
+            } else {
+                html += '<li><button onclick="' + fnName + '(' + i + ')" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-sm text-gray-600 hover:bg-gray-50">' + i + '</button></li>';
+            }
+        }
+        const nextDisabled = data.current_page >= data.last_page;
+        html += '<li class="' + (nextDisabled ? 'opacity-50 pointer-events-none' : '') + '"><button onclick="' + fnName + '(' + (data.current_page + 1) + ')" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-sm text-gray-600 hover:bg-gray-50">&raquo;</button></li>';
+        html += '</ul></nav>';
+        return html;
+    }
+
+    function goToApprovedPage(page) { fetchApprovedData(page, currentFilter); }
+
+    // Filter button click handlers
+    filterButtons.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const newFilter = this.getAttribute('data-filter');
+            currentFilter = newFilter;
+            updateFilterButtons(newFilter);
+            fetchApprovedData(1, newFilter);
+            
+            // Update URL without reload
+            const url = new URL(window.location);
+            if (newFilter === 'all') {
+                url.searchParams.delete('filter');
+            } else {
+                url.searchParams.set('filter', newFilter);
+            }
+            window.history.pushState({}, '', url);
+        });
+    });
+
+    // Clear button handler
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function() {
+            if (searchInput) searchInput.value = '';
+            currentFilter = 'all';
+            updateFilterButtons('all');
+            fetchApprovedData(1, 'all');
+            
+            const url = new URL(window.location);
+            url.searchParams.delete('search');
+            url.searchParams.delete('filter');
+            window.history.pushState({}, '', url);
+        });
+    }
+
+    // Search input handler
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => fetchApprovedData(1, currentFilter), 300);
+        });
+    }
+
+    // Handle browser back/forward
+    window.addEventListener('popstate', function() {
+        const params = new URLSearchParams(window.location.search);
+        const filter = params.get('filter') || 'all';
+        currentFilter = filter;
+        updateFilterButtons(filter);
+        fetchApprovedData(1, filter);
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+        if (window.lucide) lucide.createIcons();
+        updateFilterButtons(currentFilter);
+
+        const counters = document.querySelectorAll('.count-up');
+        counters.forEach(el => {
+            const target = parseInt(el.dataset.target || el.textContent || '0', 10);
+            if (target === 0) return;
+            let current = 0;
+            const step = Math.max(1, Math.floor(target / 30));
+            const interval = setInterval(() => {
+                current += step;
+                if (current >= target) { current = target; clearInterval(interval); }
+                el.textContent = current;
+            }, 30);
+        });
+    });
+</script>
+
+@endsection

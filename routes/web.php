@@ -12,6 +12,13 @@ use App\Http\Controllers\QRController;
 use App\Http\Controllers\PurchaserController;
 use App\Http\Controllers\AuthorityToPurchaseController;
 use App\Http\Controllers\ReplacementRequestController;
+<<<<<<< HEAD
+=======
+use App\Http\Controllers\PresidentController;
+use App\Http\Controllers\AccountingController;
+use App\Http\Controllers\ReceivingController;
+use App\Http\Controllers\MessageController;
+>>>>>>> c4a35edc5d072bfc8cb72a8a88f1cc1b610c0f67
 
 /*
 |--------------------------------------------------------------------------
@@ -45,43 +52,18 @@ Route::get('/', function () {
 
 Route::get('/dashboard', function () {
 
-    if (Auth::user()->user_role_id == 1) {
+    // Only authenticated users can reach this due to middleware('auth').
+    $roleId = auth()->user()?->user_role_id;
 
-        return redirect('/admin/dashboard');
-
-    }
-
-    elseif (Auth::user()->user_role_id == 2) {
-
-        return redirect('/maintenance/dashboard');
-
-    }
-
-    elseif (Auth::user()->user_role_id == 3) {
-
-        return redirect('/purchaser/dashboard');
-
-    }
-
-    elseif (Auth::user()->user_role_id == 4) {
-
-        return redirect('/president/dashboard');
-
-    }
-
-    elseif (Auth::user()->user_role_id == 5) {
-
-        return redirect('/accounting/dashboard');
-
-    }
-
-    elseif (Auth::user()->user_role_id == 6) {
-
-        return redirect('/receiving/dashboard');
-
-    }
-
-    abort(403);
+    return match ((int) $roleId) {
+        1 => redirect('/admin/dashboard'),
+        2 => redirect('/maintenance/dashboard'),
+        3 => redirect('/purchaser/dashboard'),
+        4 => redirect('/president/dashboard'),
+        5 => redirect('/accounting/dashboard'),
+        6 => redirect('/receiving/dashboard'),
+        default => abort(403),
+    };
 
 })->middleware(['auth'])->name('dashboard');
 
@@ -108,19 +90,205 @@ Route::middleware('auth')->group(function () {
 
 
 
-
 // =====================================================
-// PUT HERE THE ADMIN ROUTES BELOW
+// ADMIN ROUTES
 // =====================================================
 
-Route::middleware(['auth', 'admin'])->group(function () {
+Route::middleware(['auth', 'admin'])
+    ->prefix('admin')
+    ->name('admin.')
+    ->group(function () {
 
-    Route::get('/admin/dashboard', function () {
+        // ==========================================
+        // DASHBOARD
+        // ==========================================
 
-        return view('admin.dashboard');
+        Route::get(
+            '/dashboard',
+            [AdminController::class, 'dashboard']
+        )->name('dashboard');
+
+        // ==========================================
+        // PROCUREMENT REVIEW
+        // ==========================================
+
+        Route::get(
+            '/procurement-review',
+            [AdminController::class, 'procurementReview']
+        )->name('procurement-review');
+
+        // ==========================================
+        // DIGITAL SIGNATURES
+        // ==========================================
+
+        Route::get(
+            '/digital-signatures/sign-ris',
+            [AdminController::class, 'signRis']
+        )->name('digital-signatures.sign-ris');
+
+        Route::get(
+            '/digital-signatures/history',
+            [AdminController::class, 'signatureHistory']
+        )->name('digital-signatures.history');
+
+        Route::post(
+            '/digital-signatures/ris/decide',
+            [AdminController::class, 'decideRis']
+        )->name('digital-signatures.ris.decide');
+
+        // ==========================================
+        // NOTIFICATIONS
+        // ==========================================
+
+        Route::get(
+            '/notifications',
+            [AdminController::class, 'notifications']
+        )->name('notifications');
+
+        Route::get(
+            '/notifications/create',
+            [AdminController::class, 'createNotification']
+        )->name('notifications.create');
+
+        Route::get(
+            '/notifications/view',
+            [AdminController::class, 'viewNotification']
+        )->name('notifications.view');
+
+        Route::get(
+            '/notifications/sent-history',
+            [AdminController::class, 'sentNotificationHistory']
+        )->name('notifications.sent-history');
+
+        // ==========================================
+        // USERS
+        // ==========================================
+
+        Route::get(
+            '/users',
+            [AdminController::class, 'users']
+        )->name('users');
+
+        Route::get(
+            '/users/create',
+            [AdminController::class, 'createUser']
+        )->name('users.create');
+
+        Route::post(
+            '/users/store',
+            [AdminController::class, 'storeUser']
+        )->name('users.store');
+
+        Route::get(
+            '/users/edit',
+            [AdminController::class, 'editUser']
+        )->name('users.edit');
+
+        Route::get(
+            '/users/view',
+            [AdminController::class, 'viewUser']
+        )->name('users.view');
+
+        Route::get(
+            '/users/reset-password',
+            [AdminController::class, 'resetPassword']
+        )->name('users.reset-password');
+
+        Route::get(
+            '/users/activity-logs',
+            [AdminController::class, 'userActivityLogs']
+        )->name('users.activity-logs');
+
+        // ==========================================
+        // REPORTS
+        // ==========================================
+
+        Route::get(
+            '/reports/approval-logs',
+            [AdminController::class, 'approvalLogs']
+        )->name('reports.approval-logs');
+
+        Route::get(
+            '/reports/audit-logs',
+            [AdminController::class, 'auditLogs']
+        )->name('reports.audit-logs');
+
+        Route::get(
+            '/reports/maintenance-history',
+            [AdminController::class, 'maintenanceHistory']
+        )->name('reports.maintenance-history');
+
+        Route::get(
+            '/reports/procurement-history',
+            [AdminController::class, 'procurementHistory']
+        )->name('reports.procurement-history');
+
+        Route::get(
+            '/reports/user-login-logs',
+            [AdminController::class, 'userLoginLogs']
+        )->name('reports.user-login-logs');
+
+        // ==========================================
+        // SETTINGS
+        // ==========================================
+
+        Route::get(
+            '/settings/campus-setup-pin',
+            [AdminController::class, 'campusSetupPin']
+        )->name('settings.campus-setup-pin');
+
+        Route::post(
+            '/settings/campus-setup-pin',
+            [AdminController::class, 'updateCampusSetupPin']
+        )->name('settings.campus-setup-pin.update');
+
+        Route::get(
+            '/settings/maintenance-settings',
+            [AdminController::class, 'maintenanceSettings']
+        )->name('settings.maintenance-settings');
+
+        Route::get(
+            '/settings/notification-settings',
+            [AdminController::class, 'notificationSettings']
+        )->name('settings.notification-settings');
+
+        Route::get(
+            '/settings/system-settings',
+            [AdminController::class, 'systemSettings']
+        )->name('settings.system-settings');
+
+        // ==========================================
+        // PROCUREMENT REVIEW RIS APPROVALS
+        // ==========================================
+
+        Route::get(
+            '/procurement-review/ris',
+            [AdminController::class, 'risApprovals']
+        )->name('procurement-review.ris');
+
+        Route::post(
+            '/procurement-review/ris/{ris}/approve',
+            [AdminController::class, 'approveRis']
+        )->name('procurement-review.ris.approve');
+
+        Route::post(
+    '/procurement-review/ris/{ris}/direct-approve',
+    [AdminController::class, 'directApproveRis']
+)->name('procurement-review.ris.direct-approve');
+
+        Route::post(
+            '/procurement-review/ris/{ris}/reject',
+            [AdminController::class, 'rejectRis']
+        )->name('procurement-review.ris.reject');
+
+        Route::get(
+            '/procurement-review/ris/{ris}/print',
+            [PurchaserController::class, 'printRis']
+        )->name('procurement-review.ris.print');
 
     });
 
+<<<<<<< HEAD
     Route::get('/admin/users', function () {
 
         return view('admin.users.index');
@@ -166,6 +334,8 @@ Route::middleware(['auth', 'admin'])->group(function () {
 
 });
 
+=======
+>>>>>>> c4a35edc5d072bfc8cb72a8a88f1cc1b610c0f67
 
 
 
@@ -1065,6 +1235,7 @@ Route::middleware([
             ->name('ris.index');
 
         Route::post(
+<<<<<<< HEAD
                     '/ris',
                     [PurchaserController::class, 'storeRis']
                 )
@@ -1076,6 +1247,12 @@ Route::middleware([
                     [PurchaserController::class, 'updateRis']
                 )
                     ->name('ris.update');
+=======
+            '/ris',
+            [PurchaserController::class, 'storeRis']
+        )
+            ->name('ris.store');
+>>>>>>> c4a35edc5d072bfc8cb72a8a88f1cc1b610c0f67
 
         Route::post(
             '/ris/{risId}/submit',
@@ -1188,7 +1365,39 @@ Route::middleware([
         )
         ->name('suppliers.store');
 
+<<<<<<< HEAD
 
+=======
+        Route::get(
+            '/suppliers/{id}/edit',
+            [\App\Http\Controllers\SupplierController::class, 'edit']
+        )
+        ->name('suppliers.edit');
+
+        Route::get(
+            '/suppliers/{id}',
+            [\App\Http\Controllers\SupplierController::class, 'show']
+        )
+        ->name('suppliers.show');
+
+        Route::put(
+            '/suppliers/{id}',
+            [\App\Http\Controllers\SupplierController::class, 'update']
+        )
+        ->name('suppliers.update');
+
+        Route::post(
+            '/suppliers/{id}/deactivate',
+            [\App\Http\Controllers\SupplierController::class, 'deactivate']
+        )
+        ->name('suppliers.deactivate');
+
+        Route::post(
+            '/suppliers/{id}/activate',
+            [\App\Http\Controllers\SupplierController::class, 'activate']
+        )
+        ->name('suppliers.activate');
+>>>>>>> c4a35edc5d072bfc8cb72a8a88f1cc1b610c0f67
 
         // =====================================================
         // PURCHASER URGENT REPORT ROUTES
@@ -1270,6 +1479,33 @@ Route::middleware([
                 'reports.urgent.restore'
             );
 
+        // =====================================================
+        // PURCHASER RIS ROUTES
+        // =====================================================
+
+        Route::get(
+            '/ris',
+            [PurchaserController::class, 'risIndex']
+        )
+            ->name('ris.index');
+
+        Route::post(
+            '/ris',
+            [PurchaserController::class, 'storeRis']
+        )
+            ->name('ris.store');
+
+        Route::post(
+            '/ris/{ris}/submit',
+            [PurchaserController::class, 'submitRis']
+        )
+            ->name('ris.submit');
+
+        Route::get(
+            '/ris/{ris}/print',
+            [PurchaserController::class, 'printRis']
+        )
+            ->name('ris.print');
 
     });
 
@@ -1281,7 +1517,119 @@ Route::middleware([
 // PUT HERE THE PRESIDENT ROUTES BELOW
 // =====================================================
 
+// =====================================================
+// PRESIDENT ROUTES
+// =====================================================
 
+Route::middleware([
+    'auth',
+    'president',
+])
+    ->prefix('president')
+    ->name('president.')
+    ->group(function () {
+
+
+        // =====================================================
+        // DASHBOARD
+        // =====================================================
+
+        Route::get(
+            '/dashboard',
+            [PresidentController::class, 'dashboard']
+        )->name('dashboard');
+
+        // =====================================================
+        // APPROVALS
+        // =====================================================
+
+        Route::get(
+            '/approvals',
+            [PresidentController::class, 'approvals']
+        )->name('approvals');
+
+        Route::get(
+            '/approvals/history',
+            [PresidentController::class, 'approvalHistory']
+        )->name('approvals.history');
+
+        Route::get(
+            '/approvals/digital-signature',
+            [PresidentController::class, 'digitalSignature']
+        )->name('approvals.digital-signature');
+
+        // =====================================================
+        // REPORTS
+        // =====================================================
+
+        Route::get(
+            '/reports/approved',
+            [PresidentController::class, 'approvedReports']
+        )->name('reports.approved');
+
+        Route::get(
+            '/reports/monthly-summary',
+            [PresidentController::class, 'monthlySummary']
+        )->name('reports.monthly-summary');
+
+        // =====================================================
+        // APPROVAL DECISION ENDPOINTS
+        // =====================================================
+
+        Route::post(
+            '/approvals/ris/decide',
+            [PresidentController::class, 'decideRis']
+        )->name('approvals.ris.decide');
+
+        Route::post(
+            '/approvals/procurement/decide',
+            [PresidentController::class, 'decideProcurement']
+        )->name('approvals.procurement.decide');
+
+        // =====================================================
+        // NOTIFICATIONS
+        // =====================================================
+
+        Route::get(
+            '/notifications',
+            [PresidentController::class, 'notifications']
+        )->name('notifications');
+
+        Route::get(
+            '/notifications/rejection-history',
+            [PresidentController::class, 'rejectionHistory']
+        )->name('notifications.rejection-history');
+
+        // =====================================================
+        // PROFILE
+        // =====================================================
+
+        Route::get(
+            '/profile',
+            [PresidentController::class, 'profile']
+        )->name('profile');
+        
+        // =====================================================
+        // PRESIDENT: PRINTABLE RIS FOR APPROVAL PREVIEW
+        // Exposes the Purchaser printable RIS view under the
+        // president prefix so the president can preview RIS forms.
+        // =====================================================
+        Route::get(
+            '/ris/{ris}/print',
+            [PurchaserController::class, 'printRis']
+        )
+            ->name('ris.print');
+
+        // =====================================================
+        // PRESIDENT: RIS VIEWER (for preview)
+        // =====================================================
+        Route::get(
+            '/ris/{ris}/view',
+            [PresidentController::class, 'viewRis']
+        )
+            ->name('ris.view');
+     
+     });
 
 
 
@@ -1290,7 +1638,43 @@ Route::middleware([
 // PUT HERE THE ACCOUNTING ROUTES BELOW
 // =====================================================
 
+Route::middleware(['auth', 'accounting'])
+    ->prefix('accounting')
+    ->group(function () {
 
+        Route::get(
+            '/dashboard',
+            [AccountingController::class, 'dashboard']
+        );
+
+        Route::get(
+            '/request-check',
+            [AccountingController::class, 'requestCheck']
+        );
+
+        Route::get(
+            '/authority-to-purchase',
+            [AccountingController::class, 'authorityToPurchase']
+        );
+
+        Route::get(
+            '/financial-records',
+            [AccountingController::class, 'financialRecords']
+        );
+
+        Route::get(
+            '/liquidation-reports',
+            [AccountingController::class, 'liquidationReports']
+        );
+
+        Route::get(
+            '/notifications',
+            [AccountingController::class, 'notifications']
+        );
+
+        
+
+    });
 
 
 
@@ -1298,6 +1682,89 @@ Route::middleware([
 // =====================================================
 // PUT HERE THE RECEIVING ROUTES BELOW
 // =====================================================
+
+Route::middleware(['auth', 'receiving'])
+    ->prefix('receiving')
+    ->group(function () {
+
+        Route::get('/dashboard', [ReceivingController::class, 'dashboard']);
+
+        Route::get('/reports', [ReceivingController::class, 'reports']);
+
+        Route::get('/delivered-items', [ReceivingController::class, 'deliveredItems']);
+
+        Route::get('/inventory-update', [ReceivingController::class, 'inventoryUpdate']);
+
+        Route::get('/official-receipts', [ReceivingController::class, 'officialReceipts']);
+
+        Route::get('/supplier-records', [ReceivingController::class, 'supplierRecords']);
+
+        Route::get('/history', [ReceivingController::class, 'history']);
+
+        Route::get('/notifications', [ReceivingController::class, 'notifications']);
+
+        
+        
+    });
+
+
+
+// =====================================================
+// MESSAGING ROUTES
+// =====================================================
+
+Route::middleware(['auth'])
+    ->prefix('messages')
+    ->name('messages.')
+    ->group(function () {
+
+        Route::get(
+            '/conversations',
+            [MessageController::class, 'index']
+        )->name('conversations.index');
+
+        Route::get(
+            '/users',
+            [MessageController::class, 'users']
+        )->name('users');
+
+        Route::get(
+            '/conversations/{conversation}',
+            [MessageController::class, 'show']
+        )->name('conversations.show');
+
+        Route::get(
+            '/conversations/{conversation}/messages',
+            [MessageController::class, 'messages']
+        )->name('conversations.messages');
+
+        Route::post(
+            '/conversations/{conversation}/send',
+            [MessageController::class, 'store']
+        )->name('conversations.send');
+
+        Route::post(
+            '/conversations/{conversation}/read',
+            [MessageController::class, 'markAsRead']
+        )->name('conversations.read');
+
+        Route::post(
+            '/conversations',
+            [MessageController::class, 'storeConversation']
+        )->name('conversations.store');
+
+        Route::delete(
+            '/conversations/{conversation}',
+            [MessageController::class, 'destroy']
+        )->name('conversations.destroy');
+
+        Route::post(
+            '/upload',
+            [MessageController::class, 'uploadAttachment']
+        )->name('upload');
+
+    });
+
 
 
 require __DIR__.'/auth.php';

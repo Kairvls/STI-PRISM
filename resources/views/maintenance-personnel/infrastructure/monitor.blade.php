@@ -2462,6 +2462,63 @@
                                 lucide.createIcons();
                             }
                         });
+
+                        // =====================================================
+                        // PHASE 3.1
+                        // CHECK IF DASHBOARD SENT A ROOM ID
+                        // =====================================================
+
+                        const urlParams =
+                            new URLSearchParams(
+                                window.location.search
+                            );
+
+                        const dashboardRoomId =
+                            urlParams.get('room');
+
+                        // =====================================================
+                        // AUTOMATICALLY OPEN ROOM INSPECTOR
+                        // =====================================================
+
+                        if (dashboardRoomId) {
+
+                            const roomId =
+                                Number(dashboardRoomId);
+
+                            // ==============================================
+                            // MAKE SURE THE ROOM EXISTS
+                            // ==============================================
+
+                            const roomExists =
+                                this.rooms.some(
+                                    room =>
+                                        Number(room.room_id) === roomId
+                                );
+
+                            if (roomExists) {
+
+                                // ==========================================
+                                // OPEN EXISTING ROOM INSPECTOR
+                                // selectedRoom uses the room ID
+                                // ==========================================
+
+                                this.selectedRoom =
+                                    roomId;
+
+                                console.log(
+                                    'Room Inspector opened from Dashboard:',
+                                    roomId
+                                );
+
+                            } else {
+
+                                console.error(
+                                    'Dashboard room ID was not found:',
+                                    roomId
+                                );
+
+                            }
+                        }
                     },
                     selectFloor(id) {
                         this.activeFloor = id;
