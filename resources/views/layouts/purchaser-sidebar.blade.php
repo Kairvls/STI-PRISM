@@ -402,31 +402,6 @@
 
 
         {{-- ===================================================== --}}
-<<<<<<< HEAD
-=======
-        {{-- AUTHORITY TO PURCHASE --}}
-        {{-- ===================================================== --}}
-
-        <a
-            href="{{ route('purchaser.atp.index') }}"
-            class="menu-item mt-1 {{ request()->routeIs('purchaser.atp*') ? 'active' : '' }}"
-        >
-
-            <i
-                data-lucide="file-check-2"
-                class="h-5 w-5"
-            ></i>
-
-            <span>
-                Authority to Purchase
-            </span>
-
-        </a>
-
-
-
-        {{-- ===================================================== --}}
->>>>>>> c4a35edc5d072bfc8cb72a8a88f1cc1b610c0f67
         {{-- RECEIVING REPORTS --}}
         {{-- ===================================================== --}}
 
@@ -446,41 +421,6 @@
 
         </a>
 
-<<<<<<< HEAD
-=======
-
-
-        {{-- ===================================================== --}}
-        {{-- RIS --}}
-        {{-- ===================================================== --}}
-
-        <a
-            href="{{ route('purchaser.ris.index') }}"
-            class="
-                menu-item mt-1
-
-                {{
-                    request()->routeIs('purchaser.ris*')
-                        ? 'active'
-                        : ''
-                }}
-            "
-        >
-
-            <i
-                data-lucide="package-open"
-                class="h-5 w-5"
-            ></i>
-
-            <span>
-                RIS
-            </span>
-
-        </a>
-
-
-
->>>>>>> c4a35edc5d072bfc8cb72a8a88f1cc1b610c0f67
         {{-- ===================================================== --}}
         {{-- LIQUIDATION REPORTS --}}
         {{-- ===================================================== --}}
@@ -503,83 +443,12 @@
 
 
 
-<<<<<<< HEAD
-=======
-        {{-- ===================================================== --}}
-        {{-- SYSTEM SECTION --}}
-        {{-- ===================================================== --}}
-
-        <div class="menu-title" id="system-section">
-            SYSTEM
-        </div>
-
-
-        {{-- ===================================================== --}}
-        {{-- NOTIFICATIONS --}}
-        {{-- ===================================================== --}}
-
-        <a
-            href="#"
-            class="menu-item"
-        >
-
-            <i
-                data-lucide="bell"
-                class="h-5 w-5"
-            ></i>
-
-            <span>
-                Notifications
-            </span>
-
-        </a>
->>>>>>> c4a35edc5d072bfc8cb72a8a88f1cc1b610c0f67
 
 
     </div>
 
 
 
-    {{-- ===================================================== --}}
-    {{-- SIDEBAR FOOTER --}}
-    {{-- ===================================================== --}}
-
-    <div class="sidebar-footer">
-
-        <div class="footer-avatar">
-
-            {{
-                strtoupper(
-                    substr(
-                        Auth::user()->user_full_name
-                            ?? 'P',
-                        0,
-                        1
-                    )
-                )
-            }}
-
-        </div>
-
-
-        <div class="min-w-0 flex-1">
-
-            <p class="footer-name">
-
-                {{
-                    Auth::user()->user_full_name
-                        ?? 'Purchaser'
-                }}
-
-            </p>
-
-            <p class="footer-role">
-                Purchaser
-            </p>
-
-        </div>
-
-    </div>
 
 </div>
 

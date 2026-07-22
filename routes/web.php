@@ -12,13 +12,10 @@ use App\Http\Controllers\QRController;
 use App\Http\Controllers\PurchaserController;
 use App\Http\Controllers\AuthorityToPurchaseController;
 use App\Http\Controllers\ReplacementRequestController;
-<<<<<<< HEAD
-=======
 use App\Http\Controllers\PresidentController;
 use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\ReceivingController;
 use App\Http\Controllers\MessageController;
->>>>>>> c4a35edc5d072bfc8cb72a8a88f1cc1b610c0f67
 
 /*
 |--------------------------------------------------------------------------
@@ -288,7 +285,6 @@ Route::middleware(['auth', 'admin'])
 
     });
 
-<<<<<<< HEAD
     Route::get('/admin/users', function () {
 
         return view('admin.users.index');
@@ -332,10 +328,7 @@ Route::middleware(['auth', 'admin'])
     // END ADDED RIS ADMIN APPROVAL ROUTES
     // =====================================================
 
-});
 
-=======
->>>>>>> c4a35edc5d072bfc8cb72a8a88f1cc1b610c0f67
 
 
 
@@ -1235,7 +1228,6 @@ Route::middleware([
             ->name('ris.index');
 
         Route::post(
-<<<<<<< HEAD
                     '/ris',
                     [PurchaserController::class, 'storeRis']
                 )
@@ -1247,12 +1239,6 @@ Route::middleware([
                     [PurchaserController::class, 'updateRis']
                 )
                     ->name('ris.update');
-=======
-            '/ris',
-            [PurchaserController::class, 'storeRis']
-        )
-            ->name('ris.store');
->>>>>>> c4a35edc5d072bfc8cb72a8a88f1cc1b610c0f67
 
         Route::post(
             '/ris/{risId}/submit',
@@ -1365,39 +1351,6 @@ Route::middleware([
         )
         ->name('suppliers.store');
 
-<<<<<<< HEAD
-
-=======
-        Route::get(
-            '/suppliers/{id}/edit',
-            [\App\Http\Controllers\SupplierController::class, 'edit']
-        )
-        ->name('suppliers.edit');
-
-        Route::get(
-            '/suppliers/{id}',
-            [\App\Http\Controllers\SupplierController::class, 'show']
-        )
-        ->name('suppliers.show');
-
-        Route::put(
-            '/suppliers/{id}',
-            [\App\Http\Controllers\SupplierController::class, 'update']
-        )
-        ->name('suppliers.update');
-
-        Route::post(
-            '/suppliers/{id}/deactivate',
-            [\App\Http\Controllers\SupplierController::class, 'deactivate']
-        )
-        ->name('suppliers.deactivate');
-
-        Route::post(
-            '/suppliers/{id}/activate',
-            [\App\Http\Controllers\SupplierController::class, 'activate']
-        )
-        ->name('suppliers.activate');
->>>>>>> c4a35edc5d072bfc8cb72a8a88f1cc1b610c0f67
 
         // =====================================================
         // PURCHASER URGENT REPORT ROUTES
