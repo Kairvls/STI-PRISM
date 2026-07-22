@@ -1682,6 +1682,32 @@ class PurchaserController extends Controller
     }
 
     // =====================================================
+    // RIS PRINT / PREVIEW
+    // Used by both Purchaser and Admin routes.
+    // =====================================================
+
+    public function printRis($risId)
+    {
+        $ris = DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $risId)
+            ->first();
+
+        if (!$ris) {
+            abort(404, 'RIS not found');
+        }
+
+        $risItems = DB::table('requisition_issue_slip_items_table')
+            ->where('ris_id', $risId)
+            ->orderBy('ris_item_id')
+            ->get();
+
+        return view('purchaser.ris.print', [
+            'ris' => $ris,
+            'risItems' => $risItems,
+        ]);
+    }
+
+    // =====================================================
     // END ADDED RIS MODULE
     // =====================================================
 }

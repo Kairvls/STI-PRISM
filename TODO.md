@@ -1,10 +1,21 @@
-# RIS Procurement Review AJAX Smooth Search/Filter/Pagination
+# RIS Preview Fix Plan
 
-## Steps
-- [x] 1. Analyze current implementation and create plan
-- [x] 2. Create `_content.blade.php` partial with stat cards + filter/search + table + pagination
-- [x] 3. Update `index.blade.php` to use the new partial and add AJAX JS
-- [x] 4. Update `AdminController.php` to handle AJAX requests and return only the partial
-- [x] 5. Update `_table.blade.php` to add `data-page` attributes and `.ris-pagination-link` class
-- [x] 6. Remove script block from `_content.blade.php` (scripts don't execute via innerHTML)
+## Step 1: ✅ Added `printRis()` method to `PurchaserController.php`
+- Fetches RIS + items and returns the print preview view
+
+## Step 2: ✅ Created `resources/views/purchaser/ris/print.blade.php`
+- Standalone HTML preview matching president's viewer design
+- Same form layout, signatures, 10-row item grid, APPROVED watermark
+- Includes print @media rules for landscape printing
+
+## Step 3: ✅ Updated admin's preview modal in `index.blade.php`
+- Replaced old modal header + scrollable area with president-style centered iframe
+- Added `scaleRisPreviewToFit()` on open and window resize
+- Added Print button in the modal header
+- Updated backdrop to `bg-black/60 backdrop-blur-sm`
+- Added proper 11in x 8.5in fixed iframe dimensions with CSS scaling
+
+## Step 4: ✅ Tooltips verified
+- `_table.blade.php`: All buttons/data cells have `title` attributes (already present)
+- `_content.blade.php`: Filter buttons, search input, stat cards all have `title` attributes (already present)
 

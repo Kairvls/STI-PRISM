@@ -74,88 +74,52 @@
     >
 
         <div
-            class="flex h-screen items-center justify-center bg-black/30 p-2 backdrop-blur-[2px]"
+            class="flex h-screen items-center justify-center bg-black/60 p-2 backdrop-blur-sm"
             onclick="closeRisPreviewModal()"
         >
 
             <div
-                class="h-[calc(100vh-1rem)] w-full max-w-6xl overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
+                class="relative flex items-center justify-center"
                 onclick="event.stopPropagation()"
             >
 
-
-                {{-- ===================================================== --}}
-                {{-- MODAL HEADER --}}
-                {{-- ===================================================== --}}
-
-                <div class="border-b border-gray-100 px-6 py-5">
-
-                    <div class="flex items-start justify-between gap-4">
-
-                        <div>
-
-                            <h3 class="text-lg font-bold text-slate-950">
-                                RIS Form Preview
-                            </h3>
-
-                            <p
-                                id="risPreviewModalSubtitle"
-                                class="mt-1 text-sm text-slate-600"
-                            >
-                                Requisition and Issue Slip
-                            </p>
-
-                        </div>
-
-
-                        {{-- ===================================================== --}}
-                        {{-- CLOSE BUTTON --}}
-                        {{-- ===================================================== --}}
-
-                        <button
-                            type="button"
-                            class="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
-                            onclick="closeRisPreviewModal()"
-                            title="Close RIS preview"
-                            aria-label="Close"
-                        >
-
-                            <svg
-                                class="h-4 w-4"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M6 18L18 6M6 6l12 12"
-                                ></path>
-
-                            </svg>
-
-                        </button>
-
-                    </div>
-
-                </div>
-
-
-                {{-- ===================================================== --}}
-                {{-- RIS PREVIEW IFRAME --}}
-                {{-- ===================================================== --}}
-
-                <div class="h-full overflow-auto bg-gray-50">
+                <div id="risViewContainer" class="relative">
 
                     <iframe
                         id="risPreviewIframe"
-                        class="h-full w-full"
-                        style="min-height: calc(100vh - 140px);"
+                        class="bg-white shadow-2xl"
+                        style="width: 11in; height: 8.5in; border: 1px solid #e5e7eb; transform-origin: center center;"
                         src="about:blank"
                         title="RIS Form Preview"
                     ></iframe>
+
+                </div>
+
+                <div class="fixed top-4 right-4 z-10 flex items-center gap-2">
+
+                    <button
+                        type="button"
+                        class="inline-flex h-9 items-center justify-center rounded-lg bg-white border border-gray-200 px-3 text-xs font-semibold text-gray-700 shadow-sm transition-all duration-200 hover:bg-gray-50 active:scale-95"
+                        onclick="printRisPreview()"
+                        title="Print this RIS form"
+                    >
+                        <svg class="h-4 w-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                        </svg>
+                        Print
+                    </button>
+
+                    <button
+                        type="button"
+                        class="flex h-9 w-9 items-center justify-center rounded-full bg-white border border-gray-200 text-slate-400 shadow-sm transition-all duration-200 hover:bg-slate-100 hover:text-slate-900 active:scale-90"
+                        onclick="closeRisPreviewModal()"
+                        title="Close RIS preview"
+                        aria-label="Close"
+                    >
+                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
 
                 </div>
 
@@ -426,25 +390,10 @@
         const iframe =
             document.getElementById('risPreviewIframe');
 
-        const subtitle =
-            document.getElementById('risPreviewModalSubtitle');
-
 
         if (!modal || !iframe) {
 
             return;
-
-        }
-
-
-        // =====================================================
-        // UPDATE MODAL TITLE
-        // =====================================================
-
-        if (subtitle) {
-
-            subtitle.textContent =
-                `RIS #${risId}`;
 
         }
 
@@ -466,6 +415,13 @@
         // =====================================================
 
         modal.classList.remove('hidden');
+
+
+        // =====================================================
+        // SCALE RIS TO FIT VIEWPORT
+        // =====================================================
+
+        setTimeout(scaleRisPreviewToFit, 100);
 
     }
 
@@ -505,6 +461,112 @@
         }
 
     }
+
+
+    // =====================================================
+    // SCALE RIS IFRAME TO FIT VIEWPORT
+    // =====================================================
+
+    function scaleRisPreviewToFit() {
+
+        const iframe =
+            document.getElementById('risPreviewIframe');
+
+        if (!iframe) {
+
+            return;
+
+        }
+
+
+        // =====================================================
+        // DOCUMENT DIMENSIONS IN INCHES (LANDSCAPE)
+        // =====================================================
+
+        const docWidthInches = 11;
+        const docHeightInches = 8.5;
+
+
+        // =====================================================
+        // CONVERT TO PIXELS (96 DPI)
+        // =====================================================
+
+        const docWidthPx = docWidthInches * 96;
+        const docHeightPx = docHeightInches * 96;
+
+
+        // =====================================================
+        // CALCULATE AVAILABLE VIEWPORT (WITH MARGINS)
+        // =====================================================
+
+        const viewportWidth = window.innerWidth - 64;
+        const viewportHeight = window.innerHeight - 64;
+
+
+        // =====================================================
+        // CALCULATE SCALE TO FIT
+        // =====================================================
+
+        const scaleX = viewportWidth / docWidthPx;
+        const scaleY = viewportHeight / docHeightPx;
+
+        const scale = Math.min(scaleX, scaleY, 1);
+
+
+        // =====================================================
+        // APPLY CSS TRANSFORM TO THE IFRAME
+        // =====================================================
+
+        iframe.style.transform = `scale(${scale})`;
+        iframe.style.width = docWidthPx + 'px';
+        iframe.style.height = docHeightPx + 'px';
+
+    }
+
+
+    // =====================================================
+    // PRINT RIS FORM
+    // =====================================================
+
+    function printRisPreview() {
+
+        const iframe =
+            document.getElementById('risPreviewIframe');
+
+        if (!iframe || !iframe.contentWindow) {
+
+            return;
+
+        }
+
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+
+    }
+
+
+    // =====================================================
+    // RESCALE ON WINDOW RESIZE
+    // =====================================================
+
+    window.addEventListener(
+        'resize',
+        function () {
+
+            const modal =
+                document.getElementById('risPreviewModal');
+
+            if (
+                modal &&
+                !modal.classList.contains('hidden')
+            ) {
+
+                scaleRisPreviewToFit();
+
+            }
+
+        }
+    );
 
 
     // =====================================================
