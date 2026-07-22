@@ -377,28 +377,265 @@ class AdminController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    public function signRis(): View
-    {
-        // Get RIS records approved by Admin but not yet signed by Admin (for signature)
-        $signableRisRecords = DB::table('requisition_issue_slip_table')
-            ->leftJoin('procurement_requests_table', 'requisition_issue_slip_table.ris_procurement_request_id', '=', 'procurement_requests_table.procurement_request_id')
-            ->leftJoin('reports_table', 'procurement_requests_table.procurement_request_report_id', '=', 'reports_table.report_id')
-            ->leftJoin('equipment_table', 'reports_table.report_equipment_id', '=', 'equipment_table.equipment_id')
-            ->select(
-                'requisition_issue_slip_table.*',
-                'procurement_requests_table.procurement_request_id',
-                'reports_table.report_id',
-                'reports_table.report_unlisted_equipment_name',
-                'equipment_table.equipment_name'
-            )
-            ->where('requisition_issue_slip_table.ris_status', 'Approved')
-            ->whereNotNull('requisition_issue_slip_table.ris_approved_by_date')
-            ->whereNull('requisition_issue_slip_table.ris_issued_by_date')
-            ->orderByDesc('requisition_issue_slip_table.ris_approved_by_date')
-            ->get();
+    public function signRis(Request $request)
+{
+    // =====================================================
+    // SIGN RIS - Only RIS forms that have been President-approved
+    // President approval = ris_approved_by_signature is a base64 image
+    // (starts with 'data:image')
+    // =====================================================
 
-        return view('admin.digital-signatures.sign-ris', compact('signableRisRecords'));
+    // Get selected status filter.
+    $filter = strtolower($request->query('filter', 'all'));
+
+    // Get live search value.
+    $search = trim($request->query('search', ''));
+
+    // Only allow these filter values.
+    if (!in_array($filter, ['all', 'for_cosign', 'cosigned'], true)) {
+        $filter = 'all';
     }
+
+
+    // =====================================================
+    // BASE QUERY - Only President-approved RIS
+    // (ris_approved_by_signature starts with 'data:image')
+    // =====================================================
+
+    $baseQuery = DB::table('requisition_issue_slip_table')
+
+        ->leftJoin(
+            'procurement_requests_table',
+            'requisition_issue_slip_table.ris_procurement_request_id',
+            '=',
+            'procurement_requests_table.procurement_request_id'
+        )
+
+        ->leftJoin(
+            'reports_table',
+            'procurement_requests_table.procurement_request_report_id',
+            '=',
+            'reports_table.report_id'
+        )
+
+        ->leftJoin(
+            'equipment_table',
+            'reports_table.report_equipment_id',
+            '=',
+            'equipment_table.equipment_id'
+        )
+
+        // LEFT JOIN RIS ITEMS SUBQUERY - computed total
+        ->leftJoin(
+            DB::raw('(SELECT ris_id, SUM(COALESCE(ris_total_amount, 0)) as ris_calculated_total FROM requisition_issue_slip_items_table GROUP BY ris_id) as ris_items_sum'),
+            'requisition_issue_slip_table.ris_id',
+            '=',
+            'ris_items_sum.ris_id'
+        )
+
+        // LEFT JOIN RIS ITEMS SUBQUERY - concatenated item names
+        ->leftJoin(
+            DB::raw('(SELECT ris_id, GROUP_CONCAT(COALESCE(ris_item_name_description, "N/A") SEPARATOR ", ") as ris_item_names FROM requisition_issue_slip_items_table GROUP BY ris_id) as ris_items_names'),
+            'requisition_issue_slip_table.ris_id',
+            '=',
+            'ris_items_names.ris_id'
+        )
+
+        ->select(
+            'requisition_issue_slip_table.*',
+            'procurement_requests_table.procurement_request_id',
+            'reports_table.report_id',
+            'reports_table.report_unlisted_equipment_name',
+            'equipment_table.equipment_name',
+            'ris_items_sum.ris_calculated_total',
+            'ris_items_names.ris_item_names'
+        )
+
+        // Only RIS approved by President (has base64 signature)
+        ->where(
+            'requisition_issue_slip_table.ris_status',
+            'Approved'
+        )
+        ->whereNotNull(
+            'requisition_issue_slip_table.ris_approved_by_date'
+        )
+        ->where(
+            'requisition_issue_slip_table.ris_approved_by_signature',
+            'like',
+            'data:image%'
+        );
+
+
+    // =====================================================
+    // DASHBOARD CARD COUNTS - NOT affected by filter
+    // =====================================================
+
+    $totalForSigning = (clone $baseQuery)->count();
+
+    $forCosignCount = (clone $baseQuery)
+        ->whereNull(
+            'requisition_issue_slip_table.ris_issued_by_date'
+        )
+        ->count();
+
+    $cosignedCount = (clone $baseQuery)
+        ->whereNotNull(
+            'requisition_issue_slip_table.ris_issued_by_date'
+        )
+        ->count();
+
+    // Total amount for For Co-sign (pending)
+    $forCosignAmount = (clone $baseQuery)
+        ->whereNull('requisition_issue_slip_table.ris_issued_by_date')
+        ->sum('ris_items_sum.ris_calculated_total');
+
+    // Total amount for Co-signed
+    $cosignedAmount = (clone $baseQuery)
+        ->whereNotNull('requisition_issue_slip_table.ris_issued_by_date')
+        ->sum('ris_items_sum.ris_calculated_total');
+
+    // Total amount for all
+    $totalAmount = (clone $baseQuery)
+        ->sum('ris_items_sum.ris_calculated_total');
+
+
+    // =====================================================
+    // TABLE QUERY
+    // =====================================================
+
+    $query = clone $baseQuery;
+
+
+    // =====================================================
+    // STATUS FILTER
+    // =====================================================
+
+    if ($filter === 'for_cosign') {
+
+        $query->whereNull(
+            'requisition_issue_slip_table.ris_issued_by_date'
+        );
+
+    } elseif ($filter === 'cosigned') {
+
+        $query->whereNotNull(
+            'requisition_issue_slip_table.ris_issued_by_date'
+        );
+
+    }
+    // 'all' shows both
+
+
+    // =====================================================
+    // SEARCH
+    // =====================================================
+
+    if ($search !== '') {
+
+        $query->where(function ($searchQuery) use ($search) {
+
+            $searchQuery
+
+                ->where(
+                    'requisition_issue_slip_table.ris_form_number',
+                    'like',
+                    '%' . $search . '%'
+                )
+                ->orWhere(
+                    'requisition_issue_slip_table.ris_requested_by_signature',
+                    'like',
+                    '%' . $search . '%'
+                )
+                ->orWhere(
+                    'equipment_table.equipment_name',
+                    'like',
+                    '%' . $search . '%'
+                )
+                ->orWhere(
+                    'reports_table.report_unlisted_equipment_name',
+                    'like',
+                    '%' . $search . '%'
+                )
+                ->orWhere(
+                    'requisition_issue_slip_table.ris_purpose_description',
+                    'like',
+                    '%' . $search . '%'
+                );
+
+        });
+    }
+
+
+    // =====================================================
+    // SORTING
+    //
+    // For Co-sign (pending) appear first.
+    // Newest For Co-sign appear at the very top.
+    // =====================================================
+
+    $signableRisRecords = $query
+
+        ->orderByRaw("
+            CASE
+                WHEN requisition_issue_slip_table.ris_issued_by_date IS NULL THEN 0
+                ELSE 1
+            END
+        ")
+
+        ->orderByDesc(
+            'requisition_issue_slip_table.ris_approved_by_date'
+        )
+
+        ->orderByDesc(
+            'requisition_issue_slip_table.ris_id'
+        )
+
+        ->paginate(10)
+
+        ->appends([
+            'filter' => $filter,
+            'search' => $search,
+        ]);
+
+
+    // =====================================================
+    // RETURN VIEW
+    // =====================================================
+
+    if ($request->ajax() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
+
+        return view(
+            'admin.digital-signatures._sign-ris-content',
+            compact(
+                'signableRisRecords',
+                'filter',
+                'search',
+                'totalForSigning',
+                'forCosignCount',
+                'cosignedCount',
+                'forCosignAmount',
+                'cosignedAmount',
+                'totalAmount'
+            )
+        );
+
+    }
+
+    return view(
+        'admin.digital-signatures.sign-ris',
+        compact(
+            'signableRisRecords',
+            'filter',
+            'search',
+            'totalForSigning',
+            'forCosignCount',
+            'cosignedCount',
+            'forCosignAmount',
+            'cosignedAmount',
+            'totalAmount'
+        )
+    );
+}
 
     public function signatureHistory(): View
     {
@@ -422,7 +659,7 @@ class AdminController extends Controller
     }
 
     // =====================================================
-    // ADMIN RIS DECISION WITH DIGITAL SIGNATURE
+    // ADMIN RIS CO-SIGN WITH DIGITAL SIGNATURE
     // =====================================================
 
     public function decideRis(Request $request)
@@ -444,25 +681,35 @@ class AdminController extends Controller
             return back()->with('error', 'RIS not found.');
         }
 
-        // Check if RIS is eligible for signing
-        if ($target->ris_status !== 'Approved' || empty($target->ris_approved_by_date)) {
-            return back()->with('error', 'Only RIS records approved by President can be signed.');
+        // Check if RIS is eligible for co-signing:
+        // Must be Approved, have approved_by_date, AND have President's base64 signature
+        if (
+            $target->ris_status !== 'Approved' ||
+            empty($target->ris_approved_by_date) ||
+            empty($target->ris_approved_by_signature) ||
+            !str_starts_with($target->ris_approved_by_signature, 'data:image')
+        ) {
+            return back()->with('error', 'Only RIS records approved by the President can be co-signed.');
+        }
+
+        // Check if already co-signed
+        if (!empty($target->ris_issued_by_date)) {
+            return back()->with('error', 'This RIS has already been co-signed.');
         }
 
         $updateValues = [
-            'ris_status' => $decision === 'Approved' ? 'Approved' : 'Rejected',
+            'ris_status' => 'Approved',
         ];
 
         if ($decision === 'Approved') {
             $signatureData = $request->input('signature_data');
             if (empty($signatureData)) {
-                return back()->with('error', 'Admin signature is required to approve the RIS.');
+                return back()->with('error', 'Admin signature is required to co-sign the RIS.');
             }
             $updateValues['ris_issued_by_signature'] = $signatureData;
             $updateValues['ris_issued_by_date'] = now()->toDateString();
         } else {
-            // For rejection, just update status
-            $updateValues['ris_status'] = 'Rejected';
+            return back()->with('error', 'Only co-signing (approval) is supported for President-approved RIS.');
         }
 
         DB::table('requisition_issue_slip_table')
@@ -474,17 +721,19 @@ class AdminController extends Controller
             DB::table('approval_logs_table')->insert([
                 'approval_log_reference_type' => 'RIS',
                 'approval_log_reference_id' => (int) $targetId,
-                'approval_log_level' => 'Admin',
+                'approval_log_level' => 'Admin Co-sign',
                 'approval_log_approved_by' => Auth::id(),
-                'approval_log_approval_status' => $decision,
-                'approval_log_approval_remarks' => $remarks,
+                'approval_log_approval_status' => 'Co-signed',
+                'approval_log_approval_remarks' => $remarks ?: 'RIS co-signed by Admin after President approval.',
                 'approval_log_approved_at' => now(),
             ]);
         } catch (\Throwable $e) {
             // ignore logging failures
         }
 
-        return redirect('/admin/digital-signatures/sign-ris')->with('success', 'RIS decision saved successfully.');
+        return redirect()
+            ->route('admin.digital-signatures.sign-ris')
+            ->with('success', 'RIS co-signed successfully.');
     }
 
     /*

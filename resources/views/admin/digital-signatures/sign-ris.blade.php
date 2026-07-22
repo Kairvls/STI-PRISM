@@ -5,312 +5,764 @@
 @section('content')
 
 <div class="space-y-6">
+
+
+    {{-- ===================================================== --}}
+    {{-- PAGE HEADER --}}
+    {{-- ===================================================== --}}
+
     <div>
-        <h1 class="text-2xl font-bold text-gray-900">Sign RIS</h1>
-        <p class="mt-1 text-sm text-gray-600">Review and digitally sign approved Requisition and Issue Slips from the President.</p>
+
+        <h1 class="text-2xl font-bold text-gray-900">
+            Sign RIS
+        </h1>
+
+        <p class="mt-1 text-sm text-gray-600">
+            Review and co-sign President-approved Requisition Issue Slips.
+        </p>
+
     </div>
 
+
+    {{-- ===================================================== --}}
+    {{-- SUCCESS MESSAGE --}}
+    {{-- ===================================================== --}}
+
     @if(session('success'))
+
         <div class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
             {{ session('success') }}
         </div>
+
     @endif
 
+
+    {{-- ===================================================== --}}
+    {{-- ERROR MESSAGE --}}
+    {{-- ===================================================== --}}
+
     @if(session('error'))
+
         <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {{ session('error') }}
         </div>
+
     @endif
 
-    <div class="overflow-hidden rounded-lg border border-gray-200 bg-white">
-        <div class="overflow-x-auto">
-            <table class="w-full min-w-[1000px]">
-                <thead class="border-b border-gray-200 bg-gray-50">
-                    <tr>
-                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">RIS No.</th>
-                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Request</th>
-                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Equipment</th>
-                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Requested By</th>
-                        <th class="px-4 py-3 text-left text-xs font-semibold text-gray-500">Action</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-100">
-                    @forelse($signableRisRecords as $ris)
-                        <tr>
-                            <td class="px-4 py-4 text-sm font-medium text-gray-900">
-                                {{ $ris->ris_form_number ?? 'RIS-' . $ris->ris_id }}
-                            </td>
-                            <td class="px-4 py-4 text-sm text-gray-600">
-                                Request #{{ $ris->procurement_request_id ?? 'N/A' }}<br>
-                                <span class="text-xs text-gray-400">Report #{{ $ris->report_id ?? 'N/A' }}</span>
-                            </td>
-                            <td class="px-4 py-4 text-sm text-gray-600">
-                                {{ $ris->equipment_name ?? $ris->report_unlisted_equipment_name ?? 'Unknown Equipment' }}
-                            </td>
-                            <td class="px-4 py-4 text-sm text-gray-600">
-                                {{ $ris->ris_requested_by_signature ?? 'Purchaser' }}<br>
-                                <span class="text-xs text-gray-400">{{ $ris->ris_requested_by_date }}</span>
-                            </td>
-                            <td class="px-4 py-4 text-sm">
-                                <div class="flex flex-wrap gap-2">
-                                    <button
-                                        type="button"
-                                        class="rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700"
-                                        onclick="openRisPreviewModal('{{ $ris->ris_id }}')"
-                                    >
-                                        Preview
-                                    </button>
 
-                                    @if($ris->ris_status === 'Approved')
-                                        <button
-                                            type="button"
-                                            class="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-medium text-white hover:bg-emerald-700"
-                                            onclick="openSignatureModal('{{ $ris->ris_id }}', 'approve')"
-                                        >
-                                            Approve
-                                        </button>
+    {{-- ===================================================== --}}
+    {{-- SIGN RIS CONTENT (STATS + FILTERS + TABLE + PAGINATION) --}}
+    {{-- LOADED VIA AJAX OR INCLUDED DIRECTLY --}}
+    {{-- ===================================================== --}}
 
-                                        <button
-                                            type="button"
-                                            class="rounded-lg bg-rose-600 px-3 py-2 text-xs font-medium text-white hover:bg-rose-700"
-                                            onclick="openSignatureModal('{{ $ris->ris_id }}', 'reject')"
-                                        >
-                                            Reject
-                                        </button>
-                                    @endif
-                                </div>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="5" class="px-4 py-12 text-center text-sm text-gray-500">
-                                No RIS records available for signing.
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
+    <div id="signRisContentContainer">
+
+        @include('admin.digital-signatures._sign-ris-content')
+
     </div>
-</div>
 
-{{-- ===================================================== --}}
-{{-- RIS PREVIEW MODAL --}}
-{{-- ===================================================== --}}
-<div id="risPreviewModal" class="fixed inset-0 z-50 hidden">
-    <div class="flex h-screen items-center justify-center bg-black/30 p-2 backdrop-blur-[2px]" onclick="closeRisPreviewModal()">
-        <div class="w-full max-w-6xl h-[calc(100vh-1rem)] overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]" onclick="event.stopPropagation()">
-            <div class="border-b border-gray-100 px-6 py-5">
-                <div class="flex items-start justify-between gap-4">
-                    <div>
-                        <h3 class="text-lg font-bold text-slate-950">RIS Form Preview</h3>
-                        <p id="risPreviewModalSubtitle" class="mt-1 text-sm text-slate-600">Requisition and Issue Slip</p>
-                    </div>
-                    <button type="button" class="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" onclick="closeRisPreviewModal()" aria-label="Close">
+
+    {{-- ===================================================== --}}
+    {{-- RIS PREVIEW MODAL --}}
+    {{-- ===================================================== --}}
+
+    <div
+        id="risPreviewModal"
+        class="fixed inset-0 z-50 hidden"
+    >
+
+        <div
+            class="flex h-screen items-center justify-center bg-black/60 p-2 backdrop-blur-sm"
+            onclick="closeSignRisPreviewModal()"
+        >
+
+            <div
+                class="relative flex items-center justify-center"
+                onclick="event.stopPropagation()"
+            >
+
+                <div id="signRisViewContainer" class="relative">
+
+                    <iframe
+                        id="signRisPreviewIframe"
+                        class="bg-white shadow-2xl"
+                        style="width: 11in; height: 8.5in; border: 1px solid #e5e7eb; transform-origin: center center;"
+                        src="about:blank"
+                        title="RIS Form Preview"
+                    ></iframe>
+
+                </div>
+
+                <div class="fixed top-4 right-4 z-10 flex items-center gap-2">
+
+                    <button
+                        type="button"
+                        class="inline-flex h-9 items-center justify-center rounded-lg bg-white border border-gray-200 px-3 text-xs font-semibold text-gray-700 shadow-sm transition-all duration-200 hover:bg-gray-50 active:scale-95"
+                        onclick="exportSignRisPdf()"
+                        title="Download this RIS as PDF"
+                    >
+                        <svg class="h-4 w-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        Export PDF
+                    </button>
+
+                    <button
+                        type="button"
+                        class="inline-flex h-9 items-center justify-center rounded-lg bg-white border border-gray-200 px-3 text-xs font-semibold text-gray-700 shadow-sm transition-all duration-200 hover:bg-gray-50 active:scale-95"
+                        onclick="printSignRisPreview()"
+                        title="Print this RIS form"
+                    >
+                        <svg class="h-4 w-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+                        </svg>
+                        Print
+                    </button>
+
+                    <button
+                        type="button"
+                        class="flex h-9 w-9 items-center justify-center rounded-full bg-white border border-gray-200 text-slate-400 shadow-sm transition-all duration-200 hover:bg-slate-100 hover:text-slate-900 active:scale-90"
+                        onclick="closeSignRisPreviewModal()"
+                        title="Close RIS preview"
+                        aria-label="Close"
+                    >
                         <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
                     </button>
+
                 </div>
+
             </div>
 
-            <div class="h-full overflow-auto bg-gray-50">
-                <iframe id="risPreviewIframe" class="w-full h-full" style="min-height: calc(100vh - 140px);" src="about:blank"></iframe>
-            </div>
         </div>
+
     </div>
-</div>
 
-{{-- ===================================================== --}}
-{{-- SIGNATURE DECISION MODAL --}}
-{{-- ===================================================== --}}
-<div id="signatureModal" class="fixed inset-0 z-50 hidden">
-    <div class="flex min-h-screen items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]" onclick="closeSignatureModal()">
-        <div class="w-full max-w-lg overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]" onclick="event.stopPropagation()">
-            <div class="border-b border-gray-100 px-6 py-5">
-                <div class="flex items-start justify-between gap-4">
-                    <div>
-                        <h3 id="signatureModalTitle" class="text-lg font-bold text-slate-950">Approve RIS</h3>
-                        <p id="signatureModalSubtitle" class="mt-1 text-sm text-slate-600">Sign and submit your decision</p>
+
+    {{-- ===================================================== --}}
+    {{-- CO-SIGN MODAL (Two-column: RIS preview + Co-sign form) --}}
+    {{-- ===================================================== --}}
+
+    <div
+        id="coSignModal"
+        class="fixed inset-0 z-50 hidden"
+    >
+
+        <div
+            class="flex h-screen items-center justify-center bg-black/60 p-2 backdrop-blur-sm"
+            onclick="closeCoSignModal()"
+        >
+
+            <div
+                class="relative flex w-[95vw] max-w-6xl gap-4"
+                onclick="event.stopPropagation()"
+            >
+
+                {{-- LEFT: RIS PREVIEW --}}
+
+                <div class="flex-1 overflow-hidden rounded-2xl bg-white shadow-2xl">
+
+                    <div class="border-b border-gray-100 px-5 py-3">
+                        <h3 class="text-sm font-semibold text-gray-900">RIS Preview</h3>
                     </div>
-                    <button type="button" class="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" onclick="closeSignatureModal()" aria-label="Close">
-                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
+
+                    <div class="overflow-auto bg-gray-50 p-3">
+                        <iframe
+                            id="coSignPreviewIframe"
+                            class="bg-white shadow-md"
+                            style="width: 100%; height: 75vh; border: 1px solid #e5e7eb;"
+                            src="about:blank"
+                            title="RIS Form Preview"
+                        ></iframe>
+                    </div>
+
                 </div>
-            </div>
 
-            <form id="signatureForm" method="POST" action="">
-                @csrf
-                <div class="px-6 py-5">
-                    <input type="hidden" name="target_id" id="targetId" value="" />
-                    <input type="hidden" name="decision" id="targetDecision" value="" />
-                    <input type="hidden" name="signature_data" id="signatureData" value="" />
-                    <input type="hidden" name="signature_used" id="signatureUsed" value="0" />
+                {{-- RIGHT: CO-SIGN FORM --}}
 
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700">Remarks (optional)</label>
-                            <textarea name="remarks" rows="3" placeholder="Add remarks for your decision..." class="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-blue-500"></textarea>
-                        </div>
+                <div class="w-[380px] overflow-hidden rounded-2xl bg-white shadow-2xl">
 
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700">Sign here (mouse / touch)</label>
-                            <div class="mt-2 rounded-lg border border-gray-200 bg-white p-2">
-                                <canvas
-                                    id="signatureCanvas"
-                                    width="520"
-                                    height="150"
-                                    class="w-full rounded-md border border-gray-100 bg-white"
-                                    style="touch-action: none;"
-                                ></canvas>
+                    <div class="border-b border-gray-100 px-5 py-4">
+                        <h3 class="text-lg font-bold text-gray-900">Co-sign RIS</h3>
+                        <p class="mt-1 text-sm text-gray-500">Sign to co-sign this President-approved RIS.</p>
+                    </div>
 
-                                <div class="mt-3 flex items-center justify-between gap-2">
-                                    <button type="button" class="rounded-lg bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 border border-slate-200 hover:bg-slate-100" onclick="clearSignature()">
-                                        Clear
-                                    </button>
-                                    <span id="signatureStatus" class="text-xs text-slate-500"></span>
-                                </div>
+                    <form id="coSignForm" method="POST" action="{{ route('admin.digital-signatures.ris.decide') }}">
+                        @csrf
 
-                                <div class="mt-4 hidden" id="signatureHelpText">
-                                    <p class="text-sm text-slate-600 font-medium">✓ Signature captured and ready</p>
+                        <div class="space-y-5 px-5 py-5">
+
+                            <input type="hidden" name="target_id" id="coSignTargetId" value="" />
+                            <input type="hidden" name="decision" value="Approved" />
+                            <input type="hidden" name="signature_data" id="coSignSignatureData" value="" />
+                            <input type="hidden" name="signature_used" id="coSignSignatureUsed" value="0" />
+
+                            {{-- Remarks --}}
+
+                            <div>
+                                <label for="coSignRemarks" class="block text-sm font-medium text-gray-700">
+                                    Remarks (optional)
+                                </label>
+                                <textarea
+                                    id="coSignRemarks"
+                                    name="remarks"
+                                    rows="3"
+                                    placeholder="Add remarks for your co-sign..."
+                                    class="mt-1.5 block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-gray-400 focus:ring-2 focus:ring-gray-100"
+                                ></textarea>
+                            </div>
+
+                            {{-- Signature Canvas --}}
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">
+                                    Sign here (mouse / touch) <span class="text-red-500">*</span>
+                                </label>
+                                <div class="mt-2 rounded-lg border border-gray-200 bg-white p-2">
+                                    <canvas
+                                        id="coSignCanvas"
+                                        width="520"
+                                        height="150"
+                                        class="w-full rounded-md border border-gray-100 bg-white"
+                                        style="touch-action: none;"
+                                    ></canvas>
+
+                                    <div class="mt-3 flex items-center justify-between gap-2">
+                                        <button type="button" class="rounded-lg bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 border border-slate-200 hover:bg-slate-100" onclick="clearCoSignSignature()">
+                                            Clear
+                                        </button>
+                                        <span id="coSignSignatureStatus" class="text-xs text-slate-500">Draw your signature</span>
+                                    </div>
+
+                                    <div class="mt-2 hidden" id="coSignSignatureHelpText">
+                                        <p class="text-sm text-green-600 font-medium">✓ Signature captured and ready</p>
+                                    </div>
                                 </div>
                             </div>
+
+                            {{-- Info Box --}}
+
+                            <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                                <div class="flex gap-2">
+                                    <svg class="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <p class="text-xs text-amber-800">
+                                        This RIS has been approved by the President. Your co-sign will finalize the document.
+                                    </p>
+                                </div>
+                            </div>
+
                         </div>
 
-                        <div class="text-xs text-slate-500">
-                            By signing, you confirm your decision on this RIS request.
+                        <div class="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-4">
+                            <button
+                                type="button"
+                                onclick="closeCoSignModal()"
+                                title="Cancel co-sign"
+                                class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                title="Co-sign this RIS"
+                                class="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800"
+                            >
+                                Confirm Co-sign
+                            </button>
                         </div>
-                    </div>
+
+                    </form>
+
                 </div>
 
-                <div class="flex items-center justify-end gap-2 border-t border-gray-100 px-6 py-4">
-                    <button type="button" class="rounded-lg px-3.5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950" onclick="closeSignatureModal()">Cancel</button>
-                    <button type="submit" class="rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700">Submit Decision</button>
-                </div>
-            </form>
+                {{-- Close button --}}
+
+                <button
+                    type="button"
+                    class="absolute -top-3 -right-3 flex h-8 w-8 items-center justify-center rounded-full bg-white border border-gray-200 text-slate-400 shadow-md transition-all duration-200 hover:bg-slate-100 hover:text-slate-900"
+                    onclick="closeCoSignModal()"
+                    title="Close co-sign modal"
+                    aria-label="Close"
+                >
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+
+            </div>
+
         </div>
+
     </div>
+
+
 </div>
 
+
+{{-- ===================================================== --}}
+{{-- SIGN RIS JAVASCRIPT --}}
+{{-- (SEARCH, FILTERS, PAGINATION & PREVIEW & CO-SIGN) --}}
+{{-- ===================================================== --}}
+
 <script>
-    // ===================================================== 
-    // RIS PREVIEW MODAL FUNCTIONS
-    // ===================================================== 
-    function openRisPreviewModal(risId) {
-        const modal = document.getElementById('risPreviewModal');
-        const iframe = document.getElementById('risPreviewIframe');
-        const subtitle = document.getElementById('risPreviewModalSubtitle');
-        
-        if (!modal || !iframe) return;
 
-        subtitle.textContent = `RIS #${risId}`;
-        iframe.src = `/admin/procurement-review/ris/${risId}/print?ts=${Date.now()}`;
-        modal.classList.remove('hidden');
-    }
 
-    function closeRisPreviewModal() {
-        const modal = document.getElementById('risPreviewModal');
-        const iframe = document.getElementById('risPreviewIframe');
-        
-        if (iframe) iframe.src = 'about:blank';
-        if (modal) modal.classList.add('hidden');
-    }
+    // =====================================================
+    // SIGN RIS AJAX STATE
+    // =====================================================
 
-    // ===================================================== 
-    // SIGNATURE MODAL FUNCTIONS
-    // ===================================================== 
-    function openSignatureModal(risId, action) {
-        const modal = document.getElementById('signatureModal');
-        const title = document.getElementById('signatureModalTitle');
-        const subtitle = document.getElementById('signatureModalSubtitle');
-        const targetId = document.getElementById('targetId');
-        const targetDecision = document.getElementById('targetDecision');
-        const form = document.getElementById('signatureForm');
-        const signatureCanvas = document.getElementById('signatureCanvas');
-        const signatureData = document.getElementById('signatureData');
-        const signatureUsed = document.getElementById('signatureUsed');
+    let signRisSearchTimer = null;
+    let currentFilter = '{{ $filter ?? 'all' }}';
+    let currentSearch = '{{ $search ?? '' }}';
 
-        // Reset canvas
-        if (signatureCanvas) {
-            const ctx = signatureCanvas.getContext('2d');
-            ctx.clearRect(0, 0, signatureCanvas.width, signatureCanvas.height);
+
+    // =====================================================
+    // FETCH SIGN RIS DATA VIA AJAX
+    // =====================================================
+
+    function fetchSignRisData(filter, search, page) {
+
+        const params = new URLSearchParams();
+
+        params.set('filter', filter || 'all');
+
+        if (search) {
+            params.set('search', search);
         }
 
-        // Reset form fields
-        signatureData.value = '';
-        signatureUsed.value = '0';
-        document.querySelector('textarea[name="remarks"]').value = '';
+        if (page) {
+            params.set('page', page);
+        }
 
-        // Set modal values
+        // Show loading indicator on the table.
+        const tableContainer =
+            document.getElementById('signRisTableContainer');
+
+        if (tableContainer) {
+            tableContainer.innerHTML =
+                '<div class="flex items-center justify-center px-5 py-16"><div class="flex items-center gap-3"><svg class="h-5 w-5 animate-spin text-gray-400" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg><span class="text-sm text-gray-500">Loading...</span></div></div>';
+        }
+
+        // Fetch the updated content.
+        fetch(
+            '{{ route('admin.digital-signatures.sign-ris') }}?' +
+            params.toString(),
+            {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'text/html',
+                },
+            }
+        )
+
+        .then(function (response) {
+
+            if (!response.ok) {
+                throw new Error(
+                    'Server responded with ' +
+                    response.status
+                );
+            }
+
+            return response.text();
+
+        })
+
+        .then(function (html) {
+
+            // Replace the entire content area.
+            const contentContainer =
+                document.getElementById('signRisContentContainer');
+
+            if (contentContainer) {
+                contentContainer.innerHTML = html;
+            }
+
+            // Re-bind event listeners after DOM update.
+            bindSignRisEventListeners();
+
+            // Update URL without reloading the page.
+            const url =
+                '{{ route('admin.digital-signatures.sign-ris') }}?' +
+                params.toString();
+
+            window.history.replaceState(
+                { filter: filter, search: search, page: page },
+                '',
+                url
+            );
+
+        })
+
+        .catch(function (error) {
+
+            console.error(
+                'Sign RIS fetch error:',
+                error
+            );
+
+            if (tableContainer) {
+                tableContainer.innerHTML =
+                    '<div class="px-5 py-16 text-center text-sm text-red-600">Failed to load data. Please try again.</div>';
+            }
+
+        });
+
+    }
+
+
+    // =====================================================
+    // BIND SIGN RIS EVENT LISTENERS
+    // =====================================================
+
+    function bindSignRisEventListeners() {
+
+        // =====================================================
+        // SEARCH INPUT
+        // =====================================================
+
+        const searchInput =
+            document.getElementById('signRisLiveSearch');
+
+        if (searchInput) {
+
+            searchInput.addEventListener(
+                'input',
+                function () {
+
+                    clearTimeout(signRisSearchTimer);
+
+                    const value = this.value;
+
+                    signRisSearchTimer =
+                        setTimeout(
+                            function () {
+                                currentSearch = value;
+                                fetchSignRisData(
+                                    currentFilter,
+                                    currentSearch,
+                                    null
+                                );
+                            },
+                            400
+                        );
+
+                }
+            );
+
+        }
+
+        // =====================================================
+        // FILTER BUTTONS
+        // =====================================================
+
+        const filterButtons =
+            document.querySelectorAll('.sign-ris-filter-btn');
+
+        filterButtons.forEach(function (btn) {
+
+            btn.addEventListener(
+                'click',
+                function () {
+
+                    const filter =
+                        this.getAttribute('data-filter');
+
+                    if (filter === currentFilter) {
+                        return;
+                    }
+
+                    currentFilter = filter;
+
+                    fetchSignRisData(
+                        currentFilter,
+                        currentSearch,
+                        null
+                    );
+
+                }
+            );
+
+        });
+
+        // =====================================================
+        // PAGINATION LINKS
+        // =====================================================
+
+        const paginationLinks =
+            document.querySelectorAll(
+                '.sign-ris-pagination-link'
+            );
+
+        paginationLinks.forEach(function (link) {
+
+            link.addEventListener(
+                'click',
+                function (event) {
+
+                    event.preventDefault();
+
+                    const page =
+                        this.getAttribute('data-page');
+
+                    if (!page) {
+                        return;
+                    }
+
+                    fetchSignRisData(
+                        currentFilter,
+                        currentSearch,
+                        page
+                    );
+
+                }
+            );
+
+        });
+
+    }
+
+
+    // =====================================================
+    // OPEN SIGN RIS PREVIEW
+    // =====================================================
+
+    function openSignRisPreviewModal(risId) {
+
+        const modal =
+            document.getElementById('risPreviewModal');
+
+        const iframe =
+            document.getElementById('signRisPreviewIframe');
+
+        if (!modal || !iframe) {
+            return;
+        }
+
+        iframe.src =
+            `/admin/procurement-review/ris/${risId}/print?ts=${Date.now()}`;
+
+        modal.classList.remove('hidden');
+
+        setTimeout(scaleSignRisPreviewToFit, 100);
+
+    }
+
+
+    // =====================================================
+    // CLOSE SIGN RIS PREVIEW
+    // =====================================================
+
+    function closeSignRisPreviewModal() {
+
+        const modal =
+            document.getElementById('risPreviewModal');
+
+        const iframe =
+            document.getElementById('signRisPreviewIframe');
+
+        if (iframe) {
+            iframe.src = 'about:blank';
+        }
+
+        if (modal) {
+            modal.classList.add('hidden');
+        }
+
+    }
+
+
+    // =====================================================
+    // SCALE RIS IFRAME TO FIT VIEWPORT
+    // =====================================================
+
+    function scaleSignRisPreviewToFit() {
+
+        const iframe =
+            document.getElementById('signRisPreviewIframe');
+
+        if (!iframe) {
+            return;
+        }
+
+        const docWidthInches = 11;
+        const docHeightInches = 8.5;
+
+        const docWidthPx = docWidthInches * 96;
+        const docHeightPx = docHeightInches * 96;
+
+        const viewportWidth = window.innerWidth - 64;
+        const viewportHeight = window.innerHeight - 64;
+
+        const scaleX = viewportWidth / docWidthPx;
+        const scaleY = viewportHeight / docHeightPx;
+
+        const scale = Math.min(scaleX, scaleY, 1);
+
+        iframe.style.transform = `scale(${scale})`;
+        iframe.style.width = docWidthPx + 'px';
+        iframe.style.height = docHeightPx + 'px';
+
+    }
+
+
+    // =====================================================
+    // PRINT RIS FORM
+    // =====================================================
+
+    function printSignRisPreview() {
+
+        const iframe =
+            document.getElementById('signRisPreviewIframe');
+
+        if (!iframe || !iframe.contentWindow) {
+            return;
+        }
+
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+
+    }
+
+
+    // =====================================================
+    // EXPORT RIS AS PDF
+    // =====================================================
+
+    function exportSignRisPdf() {
+
+        const iframe =
+            document.getElementById('signRisPreviewIframe');
+
+        if (!iframe || !iframe.contentWindow) {
+            return;
+        }
+
+        iframe.contentWindow.focus();
+
+        setTimeout(function () {
+            iframe.contentWindow.print();
+        }, 300);
+
+    }
+
+
+    // =====================================================
+    // RESCALE ON WINDOW RESIZE
+    // =====================================================
+
+    window.addEventListener(
+        'resize',
+        function () {
+
+            const modal =
+                document.getElementById('risPreviewModal');
+
+            if (
+                modal &&
+                !modal.classList.contains('hidden')
+            ) {
+                scaleSignRisPreviewToFit();
+            }
+
+        }
+    );
+
+
+    // =====================================================
+    // CO-SIGN MODAL
+    // =====================================================
+
+    function openCoSignModal(risId) {
+
+        const modal =
+            document.getElementById('coSignModal');
+
+        const iframe =
+            document.getElementById('coSignPreviewIframe');
+
+        const form =
+            document.getElementById('coSignForm');
+
+        const targetId =
+            document.getElementById('coSignTargetId');
+
+        if (!modal || !iframe || !form || !targetId) {
+            return;
+        }
+
+        // Load RIS form in preview
+        iframe.src =
+            `/admin/procurement-review/ris/${risId}/print?ts=${Date.now()}`;
+
+        // Set form values
         targetId.value = risId;
-        targetDecision.value = action === 'approve' ? 'Approved' : 'Rejected';
 
-        // Update title and subtitle
-        if (action === 'approve') {
-            title.textContent = 'Approve RIS';
-            subtitle.textContent = `Sign and approve this RIS #${risId}`;
-            form.action = `/admin/digital-signatures/ris/decide`;
-        } else {
-            title.textContent = 'Reject RIS';
-            subtitle.textContent = `Sign and reject this RIS #${risId}`;
-            form.action = `/admin/digital-signatures/ris/decide`;
+        // Reset signature canvas
+        const canvas = document.getElementById('coSignCanvas');
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        document.getElementById('coSignSignatureData').value = '';
+        document.getElementById('coSignSignatureUsed').value = '0';
+        document.getElementById('coSignRemarks').value = '';
+
+        const helpText = document.getElementById('coSignSignatureHelpText');
+        if (helpText) helpText.classList.add('hidden');
+
+        const status = document.getElementById('coSignSignatureStatus');
+        if (status) {
+            status.textContent = 'Draw your signature';
+            status.className = 'text-xs text-slate-500';
         }
 
         // Show modal
         modal.classList.remove('hidden');
+
     }
 
-    function closeSignatureModal() {
-        const modal = document.getElementById('signatureModal');
-        if (modal) modal.classList.add('hidden');
-    }
 
-    function clearSignature() {
-        const canvas = document.getElementById('signatureCanvas');
-        const signatureData = document.getElementById('signatureData');
-        const signatureUsed = document.getElementById('signatureUsed');
-        const signatureHelpText = document.getElementById('signatureHelpText');
-        
-        if (!canvas) return;
-        
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        signatureData.value = '';
-        signatureUsed.value = '0';
-        
-        if (signatureHelpText) signatureHelpText.classList.add('hidden');
-        updateSignatureStatus();
-    }
+    // =====================================================
+    // CLOSE CO-SIGN MODAL
+    // =====================================================
 
-    function updateSignatureStatus() {
-        const status = document.getElementById('signatureStatus');
-        const signatureUsed = document.getElementById('signatureUsed');
-        
-        if (signatureUsed.value === '1') {
-            status.textContent = '✓ Signature ready';
-            status.className = 'text-xs text-green-600 font-medium';
-        } else {
-            status.textContent = 'Draw your signature';
-            status.className = 'text-xs text-slate-500';
+    function closeCoSignModal() {
+
+        const modal =
+            document.getElementById('coSignModal');
+
+        const iframe =
+            document.getElementById('coSignPreviewIframe');
+
+        if (iframe) {
+            iframe.src = 'about:blank';
         }
+
+        if (modal) {
+            modal.classList.add('hidden');
+        }
+
     }
 
-    // ===================================================== 
-    // SIGNATURE CANVAS - Transparent PNG
-    // ===================================================== 
-    (function initSignatureCanvas() {
-        const canvas = document.getElementById('signatureCanvas');
+
+    // =====================================================
+    // CO-SIGN SIGNATURE CANVAS
+    // =====================================================
+
+    (function initCoSignCanvas() {
+
+        const canvas = document.getElementById('coSignCanvas');
         if (!canvas) return;
-        
+
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        
-        // Clear to transparent
+
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // Styling
+
         ctx.lineWidth = 2.5;
         ctx.lineJoin = 'round';
         ctx.lineCap = 'round';
@@ -349,7 +801,7 @@
 
         function end() {
             drawing = false;
-            captureAndStoreSignature();
+            captureCoSignSignature();
         }
 
         canvas.addEventListener('mousedown', start);
@@ -360,34 +812,58 @@
         canvas.addEventListener('touchstart', (e) => { e.preventDefault(); start(e); }, { passive: false });
         canvas.addEventListener('touchmove', (e) => { e.preventDefault(); move(e); }, { passive: false });
         canvas.addEventListener('touchend', end);
+
     })();
 
-    // Form submission handler
-    document.getElementById('signatureForm')?.addEventListener('submit', function (event) {
-        const signatureUsed = document.getElementById('signatureUsed')?.value;
 
-        if (signatureUsed !== '1') {
-            event.preventDefault();
-            alert('Please sign before submitting your decision.');
-            return false;
+    // =====================================================
+    // CLEAR CO-SIGN SIGNATURE
+    // =====================================================
+
+    function clearCoSignSignature() {
+
+        const canvas = document.getElementById('coSignCanvas');
+        const signatureData = document.getElementById('coSignSignatureData');
+        const signatureUsed = document.getElementById('coSignSignatureUsed');
+        const helpText = document.getElementById('coSignSignatureHelpText');
+
+        if (!canvas) return;
+
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        signatureData.value = '';
+        signatureUsed.value = '0';
+
+        if (helpText) helpText.classList.add('hidden');
+
+        const status = document.getElementById('coSignSignatureStatus');
+        if (status) {
+            status.textContent = 'Draw your signature';
+            status.className = 'text-xs text-slate-500';
         }
-    });
 
-    // Capture signature as transparent PNG
-    function captureAndStoreSignature() {
-        const canvas = document.getElementById('signatureCanvas');
-        const signatureData = document.getElementById('signatureData');
-        const signatureUsed = document.getElementById('signatureUsed');
-        const signatureHelpText = document.getElementById('signatureHelpText');
-        
+    }
+
+
+    // =====================================================
+    // CAPTURE CO-SIGN SIGNATURE
+    // =====================================================
+
+    function captureCoSignSignature() {
+
+        const canvas = document.getElementById('coSignCanvas');
+        const signatureData = document.getElementById('coSignSignatureData');
+        const signatureUsed = document.getElementById('coSignSignatureUsed');
+        const helpText = document.getElementById('coSignSignatureHelpText');
+
         if (!canvas || !signatureData) return;
 
-        // Check if signature is empty
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const data = imageData.data;
         let hasDrawn = false;
-        
+
         for (let i = 3; i < data.length; i += 4) {
             if (data[i] > 128) {
                 hasDrawn = true;
@@ -397,15 +873,69 @@
 
         if (!hasDrawn) return;
 
-        // Export as transparent PNG
         const dataUrl = canvas.toDataURL('image/png');
         signatureData.value = dataUrl;
         signatureUsed.value = '1';
-        if (signatureHelpText) signatureHelpText.classList.remove('hidden');
-        updateSignatureStatus();
-        
+
+        if (helpText) helpText.classList.remove('hidden');
+
+        const status = document.getElementById('coSignSignatureStatus');
+        if (status) {
+            status.textContent = '✓ Signature ready';
+            status.className = 'text-xs text-green-600 font-medium';
+        }
+
         return true;
+
     }
+
+
+    // =====================================================
+    // CO-SIGN FORM SUBMISSION VALIDATION
+    // =====================================================
+
+    document.getElementById('coSignForm')?.addEventListener('submit', function (event) {
+
+        const signatureUsed = document.getElementById('coSignSignatureUsed')?.value;
+
+        if (signatureUsed !== '1') {
+            event.preventDefault();
+            alert('Please sign before co-signing the RIS.');
+            return false;
+        }
+
+    });
+
+
+    // =====================================================
+    // CLOSE MODALS WITH ESCAPE KEY
+    // =====================================================
+
+    document.addEventListener(
+        'keydown',
+        function (event) {
+
+            if (event.key === 'Escape') {
+                closeSignRisPreviewModal();
+                closeCoSignModal();
+            }
+
+        }
+    );
+
+
+    // =====================================================
+    // INITIALISE EVENT LISTENERS ON PAGE LOAD
+    // =====================================================
+
+    document.addEventListener(
+        'DOMContentLoaded',
+        function () {
+            bindSignRisEventListeners();
+        }
+    );
+
+
 </script>
 
 @endsection
