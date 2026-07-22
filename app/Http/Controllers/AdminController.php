@@ -139,7 +139,7 @@ class AdminController extends Controller
         )
         ->count();
 
-    // "Approved for President" = Approved AND has approved_by_date
+    // "Forwarded to President" = Approved AND has approved_by_date AND (no signature OR base64 signature from President)
     $approvedRis = (clone $baseQuery)
         ->where(
             'requisition_issue_slip_table.ris_status',
@@ -148,16 +148,28 @@ class AdminController extends Controller
         ->whereNotNull(
             'requisition_issue_slip_table.ris_approved_by_date'
         )
+        ->where(function ($q) {
+            $q->whereNull('requisition_issue_slip_table.ris_approved_by_signature')
+              ->orWhere('requisition_issue_slip_table.ris_approved_by_signature', 'like', 'data:image%');
+        })
         ->count();
 
-    // "Direct Approval" = Approved BUT NULL approved_by_date
+    // "Direct Approved" = Approved AND has approved_by_date AND has plain-text signature (admin name)
     $directApprovedRis = (clone $baseQuery)
         ->where(
             'requisition_issue_slip_table.ris_status',
             'Approved'
         )
-        ->whereNull(
+        ->whereNotNull(
             'requisition_issue_slip_table.ris_approved_by_date'
+        )
+        ->whereNotNull(
+            'requisition_issue_slip_table.ris_approved_by_signature'
+        )
+        ->where(
+            'requisition_issue_slip_table.ris_approved_by_signature',
+            'not like',
+            'data:image%'
         )
         ->count();
 
@@ -188,7 +200,11 @@ class AdminController extends Controller
         )
         ->whereNotNull(
             'requisition_issue_slip_table.ris_approved_by_date'
-        );
+        )
+        ->where(function ($q) {
+            $q->whereNull('requisition_issue_slip_table.ris_approved_by_signature')
+              ->orWhere('requisition_issue_slip_table.ris_approved_by_signature', 'like', 'data:image%');
+        });
 
     } elseif ($filter === 'direct_approved') {
 
@@ -196,8 +212,16 @@ class AdminController extends Controller
             'requisition_issue_slip_table.ris_status',
             'Approved'
         )
-        ->whereNull(
+        ->whereNotNull(
             'requisition_issue_slip_table.ris_approved_by_date'
+        )
+        ->whereNotNull(
+            'requisition_issue_slip_table.ris_approved_by_signature'
+        )
+        ->where(
+            'requisition_issue_slip_table.ris_approved_by_signature',
+            'not like',
+            'data:image%'
         );
 
     } elseif ($filter === 'rejected') {
@@ -694,9 +718,18 @@ class AdminController extends Controller
         });
     }
 
-    public function directApproveRis($risId)
+    public function directApproveRis(Request $request, $risId)
 {
-    return DB::transaction(function () use ($risId) {
+    return DB::transaction(function () use ($request, $risId) {
+
+        // =====================================================
+        // VALIDATE INPUT
+        // =====================================================
+
+        $validated = $request->validate([
+            'admin_name' => ['required', 'string', 'max:255'],
+            'admin_date' => ['required', 'date'],
+        ]);
 
         // =====================================================
         // GET AND LOCK RIS
@@ -727,14 +760,16 @@ class AdminController extends Controller
         // =====================================================
         // DIRECTLY APPROVE RIS
         //
-        // Do NOT fill ris_approved_by_date here.
-        // The normal Sign RIS queue requires that date.
+        // Store admin name as plain-text signature and date.
+        // This differentiates from President's base64 signature.
         // =====================================================
 
         DB::table('requisition_issue_slip_table')
             ->where('ris_id', $risId)
             ->update([
                 'ris_status' => 'Approved',
+                'ris_approved_by_signature' => $validated['admin_name'],
+                'ris_approved_by_date' => $validated['admin_date'],
             ]);
 
         // =====================================================
@@ -750,7 +785,7 @@ class AdminController extends Controller
                 'approval_log_level' => 'Admin Direct Approval',
                 'approval_log_approved_by' => Auth::id(),
                 'approval_log_approval_status' => 'Approved',
-                'approval_log_approval_remarks' => 'RIS directly approved and returned to Purchaser.',
+                'approval_log_approval_remarks' => 'RIS directly approved by ' . $validated['admin_name'] . ' and returned to Purchaser.',
                 'approval_log_approved_at' => now(),
             ]);
 

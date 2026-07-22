@@ -96,16 +96,16 @@
 
 
         {{-- ================================================= --}}
-        {{-- APPROVED FOR PRESIDENT --}}
+        {{-- FORWARDED TO PRESIDENT --}}
         {{-- ================================================= --}}
 
         <div
             class="rounded-xl border border-gray-200 bg-white px-5 py-5"
-            title="RIS forms approved and forwarded to the President"
+            title="RIS forms forwarded to the President for final approval"
         >
 
             <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Approved for President
+                Forwarded to President
             </p>
 
             <div class="mt-3">
@@ -120,16 +120,16 @@
 
 
         {{-- ================================================= --}}
-        {{-- DIRECT APPROVAL --}}
+        {{-- DIRECT APPROVED --}}
         {{-- ================================================= --}}
 
         <div
             class="rounded-xl border border-gray-200 bg-white px-5 py-5"
-            title="RIS forms that have been directly approved and returned to Purchaser"
+            title="RIS forms that have been directly approved"
         >
 
             <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Direct Approval
+                Direct Approved
             </p>
 
             <div class="mt-3">
@@ -262,12 +262,12 @@
                         </button>
 
 
-                        {{-- APPROVED FOR PRESIDENT --}}
+                        {{-- FORWARDED TO PRESIDENT --}}
 
                         <button
                             type="button"
                             data-filter="approved"
-                            title="Show only RIS records approved for the President"
+                            title="Show only RIS records forwarded to the President"
                             class="ris-filter-btn rounded-lg px-4 py-2 text-sm font-semibold transition
                                 {{ $filter === 'approved'
                                     ? 'border border-emerald-300 bg-emerald-50 text-emerald-700'
@@ -275,11 +275,11 @@
                                 }}
                             "
                         >
-                            Approved for President
+                            Forwarded to President
                         </button>
 
 
-                        {{-- DIRECT APPROVAL --}}
+                        {{-- DIRECT APPROVED --}}
 
                         <button
                             type="button"
@@ -292,7 +292,7 @@
                                 }}
                             "
                         >
-                            Direct Approval
+                            Direct Approved
                         </button>
 
                     </div>

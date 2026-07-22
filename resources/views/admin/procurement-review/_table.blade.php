@@ -174,28 +174,28 @@
 
 
                     {{-- DIRECT APPROVED --}}
-                    {{-- (Approved BUT ris_approved_by_date is NULL) --}}
+                    {{-- (Approved WITH plain-text signature from admin) --}}
 
-                    @elseif($ris->ris_status === 'Approved' && empty($ris->ris_approved_by_date))
+                    @elseif($ris->ris_status === 'Approved' && !empty($ris->ris_approved_by_date) && !empty($ris->ris_approved_by_signature) && !str_starts_with($ris->ris_approved_by_signature, 'data:image'))
 
                         <span
                             class="inline-flex items-center rounded-lg border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-900"
-                            title="This RIS has been directly approved and returned to Purchaser"
+                            title="This RIS has been directly approved by Admin"
                         >
                             Direct Approved
                         </span>
 
 
-                    {{-- APPROVED FOR PRESIDENT --}}
-                    {{-- (Approved AND ris_approved_by_date is NOT NULL) --}}
+                    {{-- FORWARDED TO PRESIDENT --}}
+                    {{-- (Approved AND has approved_by_date, but no signature or base64 sig) --}}
 
                     @elseif($ris->ris_status === 'Approved' && !empty($ris->ris_approved_by_date))
 
                         <span
                             class="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700"
-                            title="This RIS has been approved and forwarded to the President"
+                            title="This RIS has been forwarded to the President"
                         >
-                            Approved for President
+                            Forwarded to President
                         </span>
 
 
@@ -298,7 +298,7 @@
 
 
                             {{-- ================================================= --}}
-                            {{-- APPROVED FOR PRESIDENT --}}
+                            {{-- FORWARD TO PRESIDENT --}}
                             {{-- ================================================= --}}
 
                             <form
@@ -310,55 +310,46 @@
 
                                 <button
                                     type="submit"
-                                    title="Approve this RIS and forward it to the President for final approval"
-                                    onclick="return confirm('Approve this RIS and forward it to the President for final approval?')"
+                                    title="Forward this RIS to the President for final approval"
+                                    onclick="return confirm('Forward this RIS to the President for final approval?')"
                                     class="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
                                 >
-                                    Approved for President
+                                    Forward to President
                                 </button>
 
                             </form>
 
 
                             {{-- ================================================= --}}
-                            {{-- DIRECT APPROVAL --}}
+                            {{-- DIRECT APPROVAL (opens modal) --}}
                             {{-- ================================================= --}}
 
-                            <form
-                                method="POST"
-                                action="{{ route('admin.procurement-review.ris.direct-approve', $ris->ris_id) }}"
+                            <button
+                                type="button"
+                                title="Directly approve this RIS and return it to the Purchaser"
+                                onclick="openDirectApproveModal('{{ $ris->ris_id }}')"
+                                class="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
                             >
 
-                                @csrf
-
-                                <button
-                                    type="submit"
-                                    title="Immediately approve this RIS and return it to the Purchaser"
-                                    onclick="return confirm('Directly approve this RIS and return it to the Purchaser? This will bypass the normal signing stage.')"
-                                    class="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+                                <svg
+                                    class="h-3.5 w-3.5"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
                                 >
 
-                                    <svg
-                                        class="h-3.5 w-3.5"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                    >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M5 13l4 4L19 7"
+                                    ></path>
 
-                                        <path
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                            stroke-width="2"
-                                            d="M5 13l4 4L19 7"
-                                        ></path>
+                                </svg>
 
-                                    </svg>
+                                Direct Approval
 
-                                    Direct Approval
-
-                                </button>
-
-                            </form>
+                            </button>
 
 
                             {{-- ================================================= --}}

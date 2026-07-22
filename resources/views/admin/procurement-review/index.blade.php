@@ -100,6 +100,18 @@
                     <button
                         type="button"
                         class="inline-flex h-9 items-center justify-center rounded-lg bg-white border border-gray-200 px-3 text-xs font-semibold text-gray-700 shadow-sm transition-all duration-200 hover:bg-gray-50 active:scale-95"
+                        onclick="exportRisPdf()"
+                        title="Download this RIS as PDF"
+                    >
+                        <svg class="h-4 w-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                        Export PDF
+                    </button>
+
+                    <button
+                        type="button"
+                        class="inline-flex h-9 items-center justify-center rounded-lg bg-white border border-gray-200 px-3 text-xs font-semibold text-gray-700 shadow-sm transition-all duration-200 hover:bg-gray-50 active:scale-95"
                         onclick="printRisPreview()"
                         title="Print this RIS form"
                     >
@@ -122,6 +134,166 @@
                     </button>
 
                 </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    {{-- ===================================================== --}}
+    {{-- DIRECT APPROVAL MODAL --}}
+    {{-- ===================================================== --}}
+
+    <div
+        id="directApproveModal"
+        class="fixed inset-0 z-50 hidden"
+    >
+
+        <div
+            class="flex h-screen items-center justify-center bg-black/60 p-2 backdrop-blur-sm"
+            onclick="closeDirectApproveModal()"
+        >
+
+            <div
+                class="relative flex w-[95vw] max-w-6xl gap-4"
+                onclick="event.stopPropagation()"
+            >
+
+                {{-- LEFT: RIS PREVIEW --}}
+
+                <div class="flex-1 overflow-hidden rounded-2xl bg-white shadow-2xl">
+
+                    <div class="border-b border-gray-100 px-5 py-3">
+                        <h3 class="text-sm font-semibold text-gray-900">RIS Preview</h3>
+                    </div>
+
+                    <div class="overflow-auto bg-gray-50 p-3">
+                        <iframe
+                            id="directApproveIframe"
+                            class="bg-white shadow-md"
+                            style="width: 100%; height: 75vh; border: 1px solid #e5e7eb;"
+                            src="about:blank"
+                            title="RIS Form Preview"
+                        ></iframe>
+                    </div>
+
+                </div>
+
+                {{-- RIGHT: APPROVAL FORM --}}
+
+                <div class="w-[380px] overflow-hidden rounded-2xl bg-white shadow-2xl">
+
+                    <div class="border-b border-gray-100 px-5 py-4">
+                        <h3 class="text-lg font-bold text-gray-900">Direct Approval</h3>
+                        <p class="mt-1 text-sm text-gray-500">Fill in the details to approve and return to Purchaser.</p>
+                    </div>
+
+                    <form id="directApproveForm" method="POST" action="">
+                        @csrf
+
+                        <div class="space-y-5 px-5 py-5">
+
+                            {{-- Admin Name --}}
+
+                            <div>
+                                <label for="da_admin_name" class="block text-sm font-medium text-gray-700">
+                                    Admin Name <span class="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    id="da_admin_name"
+                                    name="admin_name"
+                                    required
+                                    placeholder="Enter admin name"
+                                    title="Enter the name of the admin approving this RIS"
+                                    class="mt-1.5 block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-gray-400 focus:ring-2 focus:ring-gray-100"
+                                >
+                            </div>
+
+                            {{-- Date --}}
+
+                            <div>
+                                <label for="da_admin_date" class="block text-sm font-medium text-gray-700">
+                                    Date <span class="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="date"
+                                    id="da_admin_date"
+                                    name="admin_date"
+                                    required
+                                    value="{{ date('Y-m-d') }}"
+                                    title="Select the date of approval"
+                                    class="mt-1.5 block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-gray-400 focus:ring-2 focus:ring-gray-100"
+                                >
+                            </div>
+
+                            {{-- Signature Display (visual only) --}}
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">
+                                    Signature
+                                </label>
+                                <div
+                                    title="This shows the signature preview (display only)"
+                                    class="mt-1.5 flex h-20 items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-gray-50"
+                                >
+                                    <span class="text-sm text-gray-400 italic">Admin Signature (display only)</span>
+                                </div>
+                                <p class="mt-1 text-xs text-gray-400">Signature preview area. The admin name above will be used as the signature.</p>
+                            </div>
+
+                            {{-- Preview Info --}}
+
+                            <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+                                <div class="flex gap-2">
+                                    <svg class="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <p class="text-xs text-amber-800">
+                                        This will immediately approve the RIS and return it to the Purchaser, bypassing the President.
+                                    </p>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <div class="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-4">
+                            <button
+                                type="button"
+                                onclick="closeDirectApproveModal()"
+                                title="Cancel direct approval"
+                                class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                title="Confirm direct approval and return to Purchaser"
+                                class="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800"
+                            >
+                                Confirm Approval
+                            </button>
+                        </div>
+
+                    </form>
+
+                </div>
+
+                {{-- Close button --}}
+
+                <button
+                    type="button"
+                    class="absolute -top-3 -right-3 flex h-8 w-8 items-center justify-center rounded-full bg-white border border-gray-200 text-slate-400 shadow-md transition-all duration-200 hover:bg-slate-100 hover:text-slate-900"
+                    onclick="closeDirectApproveModal()"
+                    title="Close direct approval modal"
+                    aria-label="Close"
+                >
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
 
             </div>
 
@@ -546,6 +718,126 @@
 
 
     // =====================================================
+    // EXPORT RIS AS PDF
+    // =====================================================
+
+    function exportRisPdf() {
+
+        const iframe =
+            document.getElementById('risPreviewIframe');
+
+        if (!iframe || !iframe.contentWindow) {
+
+            return;
+
+        }
+
+        iframe.contentWindow.focus();
+
+        // Add a small delay for the iframe to be ready, then print
+        setTimeout(function () {
+            iframe.contentWindow.print();
+        }, 300);
+
+    }
+
+
+    // =====================================================
+    // DIRECT APPROVAL MODAL
+    // =====================================================
+
+    function openDirectApproveModal(risId) {
+
+        const modal =
+            document.getElementById('directApproveModal');
+
+        const iframe =
+            document.getElementById('directApproveIframe');
+
+        const form =
+            document.getElementById('directApproveForm');
+
+        if (!modal || !iframe || !form) {
+
+            return;
+
+        }
+
+
+        // =====================================================
+        // LOAD RIS FORM IN PREVIEW
+        // =====================================================
+
+        iframe.src =
+            `/admin/procurement-review/ris/${risId}/print?ts=${Date.now()}`;
+
+
+        // =====================================================
+        // SET FORM ACTION URL
+        // =====================================================
+
+        form.action =
+            `/admin/procurement-review/ris/${risId}/direct-approve`;
+
+
+        // =====================================================
+        // RESET FORM FIELDS
+        // =====================================================
+
+        document.getElementById('da_admin_name').value =
+            '{{ Auth::user()->user_full_name ?? '' }}';
+
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('da_admin_date').value = today;
+
+
+        // =====================================================
+        // SHOW MODAL
+        // =====================================================
+
+        modal.classList.remove('hidden');
+
+    }
+
+
+    // =====================================================
+    // CLOSE DIRECT APPROVAL MODAL
+    // =====================================================
+
+    function closeDirectApproveModal() {
+
+        const modal =
+            document.getElementById('directApproveModal');
+
+        const iframe =
+            document.getElementById('directApproveIframe');
+
+
+        // =====================================================
+        // CLEAR PREVIEW
+        // =====================================================
+
+        if (iframe) {
+
+            iframe.src = 'about:blank';
+
+        }
+
+
+        // =====================================================
+        // HIDE MODAL
+        // =====================================================
+
+        if (modal) {
+
+            modal.classList.add('hidden');
+
+        }
+
+    }
+
+
+    // =====================================================
     // RESCALE ON WINDOW RESIZE
     // =====================================================
 
@@ -580,6 +872,7 @@
             if (event.key === 'Escape') {
 
                 closeRisPreviewModal();
+                closeDirectApproveModal();
 
             }
 

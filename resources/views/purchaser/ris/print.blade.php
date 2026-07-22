@@ -7,6 +7,32 @@
     <style>
         * { box-sizing: border-box; font-family: Arial, Helvetica, sans-serif; }
         body { margin: 0; padding: 0; background: transparent; }
+        .toolbar {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            padding: 12px 24px;
+            background: #f9fafb;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .toolbar button {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: 1px solid #d1d5db;
+            background: white;
+            font-size: 13px;
+            font-weight: 600;
+            color: #374151;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .toolbar button:hover {
+            background: #f3f4f6;
+            border-color: #9ca3af;
+        }
         .ris-document {
             width: 11in;
             min-height: 8.5in;
@@ -54,6 +80,7 @@
 
         @media print {
             body { background: white; }
+            .toolbar { display: none !important; }
             .ris-document {
                 width: 100%;
                 min-height: auto;
@@ -72,6 +99,23 @@
     </style>
 </head>
 <body>
+
+    {{-- Toolbar --}}
+    <div class="toolbar">
+        <button onclick="window.print()" title="Download this RIS as PDF">
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+            Download PDF
+        </button>
+        <button onclick="window.print()" title="Print this RIS form">
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+            </svg>
+            Print
+        </button>
+    </div>
+
     <main class="ris-document">
         @if ($ris->ris_status === 'Approved')
             <div class="approval-watermark">APPROVED</div>

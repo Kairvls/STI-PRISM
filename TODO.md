@@ -1,25 +1,32 @@
-# TODO: Procurement Review Table Changes
+# Implementation Plan - COMPLETED ✅
 
-## 1. `AdminController.php` - Backend Changes
-- [x] Add LEFT JOIN subquery for RIS item names (concatenated)
-- [x] Add `directApprovedRis` count (status='Approved' AND ris_approved_by_date IS NULL)
-- [x] Update `approvedRis` count to check ris_approved_by_date IS NOT NULL
-- [x] Add `direct_approved` filter handling
-- [x] Update `approved` filter to include ris_approved_by_date IS NOT NULL
-- [x] Pass new variables to view
+## Step 1: AdminController.php Updates ✅
+- [x] Rename comments: "Approved for President" → "Forward to President" / "Forwarded to President"
+- [x] Update `directApproveRis()` to accept `admin_name` and `admin_date` from request
+- [x] Update counts/filters logic for differentiation:
+  - "Forwarded to President": Approved + ris_approved_by_date NOT NULL + (signature IS NULL OR base64)
+  - "Direct Approved": Approved + ris_approved_by_date NOT NULL + plain-text signature
 
-## 2. `_content.blade.php` - Stats & Filters
-- [x] Rename "Approved" stat card → "Approved for President"
-- [x] Add "Direct Approval" stat card
-- [x] Rename "Approved" filter toggle → "Approved for President"
-- [x] Add "Direct Approval" filter toggle
+## Step 2: _content.blade.php Updates ✅
+- [x] Rename "Approved for President" → "Forwarded to President" in card
+- [x] Rename "Direct Approval" → "Direct Approved" in card
+- [x] Rename filter button texts
+- [x] Add `title` tooltips to all interactive elements
 
-## 3. `_table.blade.php` - Table Columns & Status
-- [x] Change "RIS No." header → "Reference No."
-- [x] Change "Request" header → "Purpose", display ris_purpose_description
-- [x] Replace single equipment with RIS items from subquery
-- [x] Add "Direct Approved" status badge
-- [x] Rename "Approved" status badge → "Approved for President"
+## Step 3: _table.blade.php Updates ✅
+- [x] Update status badge logic for Forwarded to President / Direct Approved
+- [x] Rename action button "Approved for President" → "Forward to President"
+- [x] Replace direct approval form with modal-triggering button
+- [x] Add tooltips to all buttons and pagination
 
-## ✅ All changes implemented!
+## Step 4: index.blade.php - Direct Approval Modal + PDF Export ✅
+- [x] Add direct approval modal with:
+  - Left: iframe RIS preview
+  - Right: Admin Name input, Date input, Signature display (visual only, shows "Admin Signature (display only)")
+  - Submit → POST to direct-approve route
+- [x] Add PDF export button in the preview modal
+- [x] Update ESC key to close both modals
+
+## Step 5: print.blade.php - PDF Export Button ✅
+- [x] Add toolbar with "Download PDF" and "Print" buttons (hidden during print)
 
