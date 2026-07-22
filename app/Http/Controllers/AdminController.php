@@ -30,38 +30,246 @@ class AdminController extends Controller
     */
 
     public function procurementReview(Request $request): View
-    {
-        $filter = $request->query('filter', 'all'); // Default to 'all'
-        
-        $query = DB::table('requisition_issue_slip_table')
-            ->leftJoin('procurement_requests_table', 'requisition_issue_slip_table.ris_procurement_request_id', '=', 'procurement_requests_table.procurement_request_id')
-            ->leftJoin('reports_table', 'procurement_requests_table.procurement_request_report_id', '=', 'reports_table.report_id')
-            ->leftJoin('equipment_table', 'reports_table.report_equipment_id', '=', 'equipment_table.equipment_id')
-            ->select(
-                'requisition_issue_slip_table.*',
-                'procurement_requests_table.procurement_request_id',
-                'reports_table.report_id',
-                'reports_table.report_unlisted_equipment_name',
-                'equipment_table.equipment_name'
-            )
-            ->whereNotNull('requisition_issue_slip_table.ris_requested_by_date');
+{
+    // =====================================================
+    // PROCUREMENT REVIEW
+    // =====================================================
 
-        // Apply filter
-        if ($filter === 'approved') {
-            $query->where('requisition_issue_slip_table.ris_status', 'Approved');
-        } elseif ($filter === 'rejected') {
-            $query->where('requisition_issue_slip_table.ris_status', 'Rejected');
-        } else {
-            // Show all records
-            $query->whereIn('requisition_issue_slip_table.ris_status', ['Pending', 'Approved', 'Rejected']);
-        }
+    // Get selected status filter.
+    // Default is "all".
+    $filter = strtolower($request->query('filter', 'all'));
 
-        $risRecords = $query->orderByDesc('requisition_issue_slip_table.ris_requested_by_date')
-            ->paginate(10)
-            ->appends(request()->query()); // Preserve filter in pagination links
+    // Get live search value.
+    $search = trim($request->query('search', ''));
 
-        return view('admin.procurement-review.index', compact('risRecords', 'filter'));
+    // Only allow these filter values.
+    if (!in_array($filter, ['all', 'pending', 'approved', 'rejected'], true)) {
+        $filter = 'all';
     }
+
+
+    // =====================================================
+    // BASE RIS QUERY
+    // =====================================================
+
+    $baseQuery = DB::table('requisition_issue_slip_table')
+
+        ->leftJoin(
+            'procurement_requests_table',
+            'requisition_issue_slip_table.ris_procurement_request_id',
+            '=',
+            'procurement_requests_table.procurement_request_id'
+        )
+
+        ->leftJoin(
+            'reports_table',
+            'procurement_requests_table.procurement_request_report_id',
+            '=',
+            'reports_table.report_id'
+        )
+
+        ->leftJoin(
+            'equipment_table',
+            'reports_table.report_equipment_id',
+            '=',
+            'equipment_table.equipment_id'
+        )
+
+        ->select(
+            'requisition_issue_slip_table.*',
+            'procurement_requests_table.procurement_request_id',
+            'reports_table.report_id',
+            'reports_table.report_unlisted_equipment_name',
+            'equipment_table.equipment_name'
+        )
+
+        // Only RIS forms already submitted by Purchaser.
+        ->whereNotNull(
+            'requisition_issue_slip_table.ris_requested_by_date'
+        );
+
+
+    // =====================================================
+    // DASHBOARD CARD COUNTS
+    // These counts are NOT affected by the selected filter.
+    // =====================================================
+
+    $totalRis = (clone $baseQuery)->count();
+
+    $pendingRis = (clone $baseQuery)
+        ->where(
+            'requisition_issue_slip_table.ris_status',
+            'Pending'
+        )
+        ->count();
+
+    // "Amend" is only the UI name.
+    // Database still uses "Rejected".
+    $amendRis = (clone $baseQuery)
+        ->where(
+            'requisition_issue_slip_table.ris_status',
+            'Rejected'
+        )
+        ->count();
+
+    $approvedRis = (clone $baseQuery)
+        ->where(
+            'requisition_issue_slip_table.ris_status',
+            'Approved'
+        )
+        ->count();
+
+
+    // =====================================================
+    // TABLE QUERY
+    // =====================================================
+
+    $query = clone $baseQuery;
+
+
+    // =====================================================
+    // STATUS FILTER
+    // =====================================================
+
+    if ($filter === 'pending') {
+
+        $query->where(
+            'requisition_issue_slip_table.ris_status',
+            'Pending'
+        );
+
+    } elseif ($filter === 'approved') {
+
+        $query->where(
+            'requisition_issue_slip_table.ris_status',
+            'Approved'
+        );
+
+    } elseif ($filter === 'rejected') {
+
+        // Database still stores Rejected.
+        // The Blade page displays this as Amend.
+        $query->where(
+            'requisition_issue_slip_table.ris_status',
+            'Rejected'
+        );
+
+    } else {
+
+        // All statuses shown by this Procurement Review page.
+        $query->whereIn(
+            'requisition_issue_slip_table.ris_status',
+            [
+                'Pending',
+                'Approved',
+                'Rejected',
+            ]
+        );
+    }
+
+
+    // =====================================================
+    // SEARCH
+    // =====================================================
+
+    if ($search !== '') {
+
+        $query->where(function ($searchQuery) use ($search) {
+
+            $searchQuery
+
+                // Search RIS number.
+                ->where(
+                    'requisition_issue_slip_table.ris_form_number',
+                    'like',
+                    '%' . $search . '%'
+                )
+
+                // Search person who sent/requested the RIS.
+                ->orWhere(
+                    'requisition_issue_slip_table.ris_requested_by_signature',
+                    'like',
+                    '%' . $search . '%'
+                )
+
+                // Search equipment from equipment table.
+                ->orWhere(
+                    'equipment_table.equipment_name',
+                    'like',
+                    '%' . $search . '%'
+                )
+
+                // Search manually entered/unlisted equipment.
+                ->orWhere(
+                    'reports_table.report_unlisted_equipment_name',
+                    'like',
+                    '%' . $search . '%'
+                )
+
+                // Search status.
+                ->orWhere(
+                    'requisition_issue_slip_table.ris_status',
+                    'like',
+                    '%' . $search . '%'
+                );
+
+        });
+    }
+
+
+    // =====================================================
+    // SORTING
+    //
+    // Pending RIS always appear first in All.
+    // Newest Pending RIS appear first.
+    // =====================================================
+
+    $risRecords = $query
+
+        ->orderByRaw("
+            CASE
+                WHEN requisition_issue_slip_table.ris_status = 'Pending' THEN 0
+                WHEN requisition_issue_slip_table.ris_status = 'Approved' THEN 1
+                WHEN requisition_issue_slip_table.ris_status = 'Rejected' THEN 2
+                ELSE 3
+            END
+        ")
+
+        ->orderByDesc(
+            'requisition_issue_slip_table.ris_requested_by_date'
+        )
+
+        ->orderByDesc(
+            'requisition_issue_slip_table.ris_id'
+        )
+
+        // Exactly 10 RIS requests per page.
+        ->paginate(10)
+
+        // Preserve filter and search when changing pages.
+        ->appends([
+            'filter' => $filter,
+            'search' => $search,
+        ]);
+
+
+    // =====================================================
+    // RETURN VIEW
+    // =====================================================
+
+    return view(
+        'admin.procurement-review.index',
+        compact(
+            'risRecords',
+            'filter',
+            'search',
+            'totalRis',
+            'pendingRis',
+            'amendRis',
+            'approvedRis'
+        )
+    );
+}
 
     /*
     |--------------------------------------------------------------------------
@@ -376,28 +584,10 @@ class AdminController extends Controller
     // ADDED RIS ADMIN APPROVAL: SHOW SUBMITTED RIS RECORDS
     // =====================================================
 
-    public function risApprovals(Request $request)
-    {
-        // ADDED RIS ADMIN APPROVAL: submitted means Pending with requested date filled.
-        $risRecords = DB::table('requisition_issue_slip_table')
-            ->leftJoin('procurement_requests_table', 'requisition_issue_slip_table.ris_procurement_request_id', '=', 'procurement_requests_table.procurement_request_id')
-            ->leftJoin('reports_table', 'procurement_requests_table.procurement_request_report_id', '=', 'reports_table.report_id')
-            ->leftJoin('equipment_table', 'reports_table.report_equipment_id', '=', 'equipment_table.equipment_id')
-            ->select(
-                'requisition_issue_slip_table.*',
-                'procurement_requests_table.procurement_request_id',
-                'reports_table.report_id',
-                'reports_table.report_unlisted_equipment_name',
-                'equipment_table.equipment_name'
-            )
-            ->where('requisition_issue_slip_table.ris_status', 'Pending')
-            ->whereNotNull('requisition_issue_slip_table.ris_requested_by_date')
-            ->whereNull('requisition_issue_slip_table.ris_approved_by_date')
-            ->orderByDesc('requisition_issue_slip_table.ris_requested_by_date')
-            ->paginate(10);
-
-        return view('admin.procurement-review.index', compact('risRecords'));
-    }
+    public function risApprovals(Request $request): View
+{
+    return $this->procurementReview($request);
+}
 
     // =====================================================
     // ADDED RIS ADMIN APPROVAL: APPROVE RIS
@@ -421,13 +611,93 @@ class AdminController extends Controller
                 ->where('ris_id', $risId)
                 ->update([
                     'ris_status' => 'Approved',
-                    'ris_approved_by_signature' => Auth::user()->user_full_name ?? 'Admin',
                     'ris_approved_by_date' => now()->toDateString(),
                 ]);
 
-            return back()->with('success', 'RIS approved successfully.');
+            return back()->with('success', 'RIS approved and forwarded to the President for final approval.');
         });
     }
+
+    public function directApproveRis($risId)
+{
+    return DB::transaction(function () use ($risId) {
+
+        // =====================================================
+        // GET AND LOCK RIS
+        // =====================================================
+
+        $ris = DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $risId)
+            ->lockForUpdate()
+            ->first();
+
+        abort_if(!$ris, 404);
+
+        // =====================================================
+        // VALIDATE RIS
+        // Only submitted Pending RIS can be directly approved
+        // =====================================================
+
+        if (
+            $ris->ris_status !== 'Pending' ||
+            empty($ris->ris_requested_by_date)
+        ) {
+            return back()->with(
+                'error',
+                'Only submitted pending RIS records can be directly approved.'
+            );
+        }
+
+        // =====================================================
+        // DIRECTLY APPROVE RIS
+        //
+        // Do NOT fill ris_approved_by_date here.
+        // The normal Sign RIS queue requires that date.
+        // =====================================================
+
+        DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $risId)
+            ->update([
+                'ris_status' => 'Approved',
+            ]);
+
+        // =====================================================
+        // APPROVAL LOG
+        // Keep a record that this was a Direct Approval
+        // =====================================================
+
+        try {
+
+            DB::table('approval_logs_table')->insert([
+                'approval_log_reference_type' => 'RIS',
+                'approval_log_reference_id' => (int) $risId,
+                'approval_log_level' => 'Admin Direct Approval',
+                'approval_log_approved_by' => Auth::id(),
+                'approval_log_approval_status' => 'Approved',
+                'approval_log_approval_remarks' => 'RIS directly approved and returned to Purchaser.',
+                'approval_log_approved_at' => now(),
+            ]);
+
+        } catch (\Throwable $e) {
+
+            // Approval must still succeed even if logging fails.
+
+        }
+
+        // =====================================================
+        // RETURN TO PROCUREMENT REQUEST TABLE
+        // =====================================================
+
+        return redirect()
+            ->route('admin.procurement-review.ris', [
+                'filter' => 'all'
+            ])
+            ->with(
+                'success',
+                'RIS directly approved successfully and returned to the Purchaser.'
+            );
+    });
+}
 
     // =====================================================
     // ADDED RIS ADMIN APPROVAL: REJECT RIS
@@ -447,11 +717,18 @@ class AdminController extends Controller
                 return back()->with('error', 'Only submitted pending RIS records can be rejected.');
             }
 
+            // Reset submission fields so the Purchaser can edit and resubmit
             DB::table('requisition_issue_slip_table')
                 ->where('ris_id', $risId)
-                ->update(['ris_status' => 'Rejected']);
+                ->update([
+                    'ris_status' => 'Pending',
+                    'ris_requested_by_signature' => null,
+                    'ris_requested_by_date' => null,
+                    'ris_submitted_by' => null,
+                    'ris_submitted_at' => null,
+                ]);
 
-            return back()->with('success', 'RIS rejected successfully. prism.sql has no rejection reason column yet.');
+            return back()->with('success', 'RIS returned to Purchaser for amendment.');
         });
     }
 }
