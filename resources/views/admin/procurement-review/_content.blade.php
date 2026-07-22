@@ -96,22 +96,46 @@
 
 
         {{-- ================================================= --}}
-        {{-- APPROVED --}}
+        {{-- APPROVED FOR PRESIDENT --}}
         {{-- ================================================= --}}
 
         <div
             class="rounded-xl border border-gray-200 bg-white px-5 py-5"
-            title="RIS forms that have been approved"
+            title="RIS forms approved and forwarded to the President"
         >
 
             <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Approved
+                Approved for President
             </p>
 
             <div class="mt-3">
 
                 <span class="text-3xl font-bold text-emerald-600">
                     {{ $approvedRis }}
+                </span>
+
+            </div>
+
+        </div>
+
+
+        {{-- ================================================= --}}
+        {{-- DIRECT APPROVAL --}}
+        {{-- ================================================= --}}
+
+        <div
+            class="rounded-xl border border-gray-200 bg-white px-5 py-5"
+            title="RIS forms that have been directly approved and returned to Purchaser"
+        >
+
+            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Direct Approval
+            </p>
+
+            <div class="mt-3">
+
+                <span class="text-3xl font-bold text-slate-900">
+                    {{ $directApprovedRis }}
                 </span>
 
             </div>
@@ -238,12 +262,12 @@
                         </button>
 
 
-                        {{-- APPROVED --}}
+                        {{-- APPROVED FOR PRESIDENT --}}
 
                         <button
                             type="button"
                             data-filter="approved"
-                            title="Show only Approved RIS records"
+                            title="Show only RIS records approved for the President"
                             class="ris-filter-btn rounded-lg px-4 py-2 text-sm font-semibold transition
                                 {{ $filter === 'approved'
                                     ? 'border border-emerald-300 bg-emerald-50 text-emerald-700'
@@ -251,7 +275,24 @@
                                 }}
                             "
                         >
-                            Approved
+                            Approved for President
+                        </button>
+
+
+                        {{-- DIRECT APPROVAL --}}
+
+                        <button
+                            type="button"
+                            data-filter="direct_approved"
+                            title="Show only Directly Approved RIS records"
+                            class="ris-filter-btn rounded-lg px-4 py-2 text-sm font-semibold transition
+                                {{ $filter === 'direct_approved'
+                                    ? 'border border-slate-400 bg-slate-100 text-slate-900'
+                                    : 'border border-gray-200 bg-white text-gray-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900'
+                                }}
+                            "
+                        >
+                            Direct Approval
                         </button>
 
                     </div>

@@ -43,7 +43,7 @@ class AdminController extends Controller
     $search = trim($request->query('search', ''));
 
     // Only allow these filter values.
-    if (!in_array($filter, ['all', 'pending', 'approved', 'rejected'], true)) {
+    if (!in_array($filter, ['all', 'pending', 'approved', 'rejected', 'direct_approved'], true)) {
         $filter = 'all';
     }
 
@@ -88,13 +88,26 @@ class AdminController extends Controller
             'ris_items_sum.ris_id'
         )
 
+        // =====================================================
+        // LEFT JOIN RIS ITEMS SUBQUERY
+        // Gets the concatenated item names/descriptions per RIS
+        // =====================================================
+
+        ->leftJoin(
+            DB::raw('(SELECT ris_id, GROUP_CONCAT(COALESCE(ris_item_name_description, "N/A") SEPARATOR ", ") as ris_item_names FROM requisition_issue_slip_items_table GROUP BY ris_id) as ris_items_names'),
+            'requisition_issue_slip_table.ris_id',
+            '=',
+            'ris_items_names.ris_id'
+        )
+
         ->select(
             'requisition_issue_slip_table.*',
             'procurement_requests_table.procurement_request_id',
             'reports_table.report_id',
             'reports_table.report_unlisted_equipment_name',
             'equipment_table.equipment_name',
-            'ris_items_sum.ris_calculated_total'
+            'ris_items_sum.ris_calculated_total',
+            'ris_items_names.ris_item_names'
         )
 
         // Only RIS forms already submitted by Purchaser.
@@ -126,10 +139,25 @@ class AdminController extends Controller
         )
         ->count();
 
+    // "Approved for President" = Approved AND has approved_by_date
     $approvedRis = (clone $baseQuery)
         ->where(
             'requisition_issue_slip_table.ris_status',
             'Approved'
+        )
+        ->whereNotNull(
+            'requisition_issue_slip_table.ris_approved_by_date'
+        )
+        ->count();
+
+    // "Direct Approval" = Approved BUT NULL approved_by_date
+    $directApprovedRis = (clone $baseQuery)
+        ->where(
+            'requisition_issue_slip_table.ris_status',
+            'Approved'
+        )
+        ->whereNull(
+            'requisition_issue_slip_table.ris_approved_by_date'
         )
         ->count();
 
@@ -157,6 +185,19 @@ class AdminController extends Controller
         $query->where(
             'requisition_issue_slip_table.ris_status',
             'Approved'
+        )
+        ->whereNotNull(
+            'requisition_issue_slip_table.ris_approved_by_date'
+        );
+
+    } elseif ($filter === 'direct_approved') {
+
+        $query->where(
+            'requisition_issue_slip_table.ris_status',
+            'Approved'
+        )
+        ->whereNull(
+            'requisition_issue_slip_table.ris_approved_by_date'
         );
 
     } elseif ($filter === 'rejected') {
@@ -284,7 +325,8 @@ class AdminController extends Controller
                 'totalRis',
                 'pendingRis',
                 'amendRis',
-                'approvedRis'
+                'approvedRis',
+                'directApprovedRis'
             )
         );
 
@@ -299,7 +341,8 @@ class AdminController extends Controller
             'totalRis',
             'pendingRis',
             'amendRis',
-            'approvedRis'
+            'approvedRis',
+            'directApprovedRis'
         )
     );
 }

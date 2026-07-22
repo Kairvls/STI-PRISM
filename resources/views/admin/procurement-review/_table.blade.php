@@ -14,11 +14,11 @@
         <tr>
 
             <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                RIS No.
+                Reference No.
             </th>
 
             <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Request
+                Purpose
             </th>
 
             <th class="px-5 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -89,17 +89,17 @@
 
 
                 {{-- ================================================= --}}
-                {{-- REQUEST --}}
+                {{-- PURPOSE --}}
                 {{-- ================================================= --}}
 
                 <td class="px-5 py-4">
 
                     <div
-                        class="text-sm font-medium {{ $ris->ris_status !== 'Pending' ? 'text-gray-500' : 'text-gray-700' }}"
-                        title="Person who requested this RIS"
+                        class="max-w-[220px] truncate text-sm font-medium {{ $ris->ris_status !== 'Pending' ? 'text-gray-500' : 'text-gray-700' }}"
+                        title="{{ $ris->ris_purpose_description ?? 'N/A' }}"
                     >
 
-                        {{ $ris->ris_requested_by_signature ?? 'Purchaser' }}
+                        {{ $ris->ris_purpose_description ?? 'N/A' }}
 
                     </div>
 
@@ -113,15 +113,11 @@
                 <td class="px-5 py-4">
 
                     <div
-                        class="max-w-[220px] text-sm {{ $ris->ris_status !== 'Pending' ? 'text-gray-500' : 'text-gray-700' }}"
-                        title="Equipment included in this RIS"
+                        class="max-w-[220px] truncate text-sm {{ $ris->ris_status !== 'Pending' ? 'text-gray-500' : 'text-gray-700' }}"
+                        title="Items / Equipment included in this RIS"
                     >
 
-                        {{
-                            $ris->equipment_name
-                            ?? $ris->report_unlisted_equipment_name
-                            ?? 'Unknown Equipment'
-                        }}
+                        {{ $ris->ris_item_names ?? ($ris->equipment_name ?? $ris->report_unlisted_equipment_name ?? 'Unknown Equipment') }}
 
                     </div>
 
@@ -177,15 +173,29 @@
                         </span>
 
 
-                    {{-- APPROVED --}}
+                    {{-- DIRECT APPROVED --}}
+                    {{-- (Approved BUT ris_approved_by_date is NULL) --}}
 
-                    @elseif($ris->ris_status === 'Approved')
+                    @elseif($ris->ris_status === 'Approved' && empty($ris->ris_approved_by_date))
+
+                        <span
+                            class="inline-flex items-center rounded-lg border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-900"
+                            title="This RIS has been directly approved and returned to Purchaser"
+                        >
+                            Direct Approved
+                        </span>
+
+
+                    {{-- APPROVED FOR PRESIDENT --}}
+                    {{-- (Approved AND ris_approved_by_date is NOT NULL) --}}
+
+                    @elseif($ris->ris_status === 'Approved' && !empty($ris->ris_approved_by_date))
 
                         <span
                             class="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700"
-                            title="This RIS has been approved"
+                            title="This RIS has been approved and forwarded to the President"
                         >
-                            Approved
+                            Approved for President
                         </span>
 
 

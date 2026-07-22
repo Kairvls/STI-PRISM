@@ -1,21 +1,25 @@
-# RIS Preview Fix Plan
+# TODO: Procurement Review Table Changes
 
-## Step 1: ✅ Added `printRis()` method to `PurchaserController.php`
-- Fetches RIS + items and returns the print preview view
+## 1. `AdminController.php` - Backend Changes
+- [x] Add LEFT JOIN subquery for RIS item names (concatenated)
+- [x] Add `directApprovedRis` count (status='Approved' AND ris_approved_by_date IS NULL)
+- [x] Update `approvedRis` count to check ris_approved_by_date IS NOT NULL
+- [x] Add `direct_approved` filter handling
+- [x] Update `approved` filter to include ris_approved_by_date IS NOT NULL
+- [x] Pass new variables to view
 
-## Step 2: ✅ Created `resources/views/purchaser/ris/print.blade.php`
-- Standalone HTML preview matching president's viewer design
-- Same form layout, signatures, 10-row item grid, APPROVED watermark
-- Includes print @media rules for landscape printing
+## 2. `_content.blade.php` - Stats & Filters
+- [x] Rename "Approved" stat card → "Approved for President"
+- [x] Add "Direct Approval" stat card
+- [x] Rename "Approved" filter toggle → "Approved for President"
+- [x] Add "Direct Approval" filter toggle
 
-## Step 3: ✅ Updated admin's preview modal in `index.blade.php`
-- Replaced old modal header + scrollable area with president-style centered iframe
-- Added `scaleRisPreviewToFit()` on open and window resize
-- Added Print button in the modal header
-- Updated backdrop to `bg-black/60 backdrop-blur-sm`
-- Added proper 11in x 8.5in fixed iframe dimensions with CSS scaling
+## 3. `_table.blade.php` - Table Columns & Status
+- [x] Change "RIS No." header → "Reference No."
+- [x] Change "Request" header → "Purpose", display ris_purpose_description
+- [x] Replace single equipment with RIS items from subquery
+- [x] Add "Direct Approved" status badge
+- [x] Rename "Approved" status badge → "Approved for President"
 
-## Step 4: ✅ Tooltips verified
-- `_table.blade.php`: All buttons/data cells have `title` attributes (already present)
-- `_content.blade.php`: Filter buttons, search input, stat cards all have `title` attributes (already present)
+## ✅ All changes implemented!
 
