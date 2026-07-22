@@ -175,7 +175,7 @@ class MessageController extends Controller
 
         $query = User::where('user_id', '!=', $userId)
             ->select('user_id', 'user_full_name', 'user_email_address', 'user_role_id')
-            ->with(['role:id,role_name']);
+            ->with(['role:role_id,role_name']);
 
         if ($search !== '') {
             $query->where(function ($q) use ($search) {
