@@ -5,9 +5,13 @@
     request()->is("maintenance/reports/urgent")
         ? "Urgent Reports"
         : (
-            request()->is("maintenance/reports/today")
-                ? "Today's Reports"
-                : "All Reports"
+            request()->is("maintenance/reports/pending")
+                ? "Pending Reports"
+                : (
+                    request()->is("maintenance/reports/today")
+                        ? "Today's Reports"
+                        : "All Reports"
+                )
         )
 )
 
@@ -17,9 +21,14 @@
         // CURRENT REPORT PAGE TYPE
         // =====================================================
 
-        $isUrgentPage = request()->is('maintenance/reports/urgent');
+        $isUrgentPage =
+            request()->is('maintenance/reports/urgent');
 
-        $isTodayPage = request()->is('maintenance/reports/today');
+        $isPendingPage =
+            request()->is('maintenance/reports/pending');
+
+        $isTodayPage =
+            request()->is('maintenance/reports/today');
 
 
         // =====================================================
@@ -28,11 +37,17 @@
 
         $pageTitle = match (true) {
 
-            $isUrgentPage => 'Urgent Reports',
+            $isUrgentPage =>
+                'Urgent Reports',
 
-            $isTodayPage => "Today's Reports",
+            $isPendingPage =>
+                'Pending Reports',
 
-            default => 'Reports',
+            $isTodayPage =>
+                "Today's Reports",
+
+            default =>
+                'Reports',
 
         };
 
@@ -45,6 +60,9 @@
 
             $isUrgentPage =>
                 'View and manage urgent maintenance reports requiring immediate attention.',
+
+            $isPendingPage =>
+                'View and manage maintenance reports waiting for review and action.',
 
             $isTodayPage =>
                 'View and manage maintenance reports submitted today.',
@@ -61,11 +79,17 @@
 
         $countLabel = match (true) {
 
-            $isUrgentPage => 'Urgent Reports',
+            $isUrgentPage =>
+                'Urgent Reports',
 
-            $isTodayPage => 'Reports Today',
+            $isPendingPage =>
+                'Pending Reports',
 
-            default => 'On This Page',
+            $isTodayPage =>
+                'Reports Today',
+
+            default =>
+                'On This Page',
 
         };
     @endphp
@@ -150,8 +174,23 @@
             <div
                 class="shadow-3xs inline-flex items-center gap-2 rounded-xl border border-gray-200/60 bg-gray-100/80 px-3.5 py-2"
             >
+                @php
+                    $countDotClass = match (true) {
+
+                        $isUrgentPage =>
+                            'bg-red-500',
+
+                        $isPendingPage =>
+                            'bg-amber-500',
+
+                        default =>
+                            'bg-emerald-500',
+
+                    };
+                @endphp
+
                 <span
-                    class="w-2 h-2 rounded-full {{ $isUrgentPage ? 'bg-red-500' : 'bg-emerald-500' }} animate-pulse"
+                    class="h-2 w-2 rounded-full {{ $countDotClass }} animate-pulse"
                 ></span>
 
                 {{-- ===================================================== --}}

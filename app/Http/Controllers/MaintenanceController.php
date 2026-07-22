@@ -61,6 +61,19 @@ class MaintenanceController extends Controller
             )
             ->count();
 
+        // =====================================================
+        // TOTAL EQUIPMENT
+        // USED BY EQUIPMENT STATISTICS CARD
+        // =====================================================
+
+        $totalEquipment = DB::table('equipment_table')
+            ->where(
+                'equipment_inventory_status',
+                '!=',
+                'Disposed'
+            )
+            ->count();
+
 
         $borrowedEquipment = DB::table('borrowing_records_table')
             ->where('borrowing_status', 'Borrowed')
@@ -416,6 +429,53 @@ class MaintenanceController extends Controller
             return $room;
 
         });
+
+        // =====================================================
+        // DASHBOARD QUICK ACTION MODAL DATA
+        // =====================================================
+
+
+        // =====================================================
+        // EQUIPMENT CATEGORIES
+        // USED BY ADD EQUIPMENT MODAL
+        // =====================================================
+
+        $categories = DB::table('equipment_categories_table')
+            ->orderBy('equipment_category_name', 'asc')
+            ->get();
+
+
+        // =====================================================
+        // EQUIPMENT
+        // USED BY SCHEDULE AND BORROWING MODALS
+        // =====================================================
+
+        $equipment = DB::table('equipment_table')
+
+            ->leftJoin(
+                'rooms_table',
+                'equipment_table.equipment_room_id',
+                '=',
+                'rooms_table.room_id'
+            )
+
+            ->select(
+                'equipment_table.*',
+                'rooms_table.room_name'
+            )
+
+            ->where(
+                'equipment_table.equipment_inventory_status',
+                '!=',
+                'Disposed'
+            )
+
+            ->orderBy(
+                'equipment_table.equipment_name',
+                'asc'
+            )
+
+            ->get();
 
 
         // =====================================================
@@ -855,297 +915,122 @@ class MaintenanceController extends Controller
         // LATEST 5 RECORDS
         // =====================================================
 
-        $recentActivities = DB::table('reports_table')
+        // =====================================================
+        // RECENT ACTIVITIES
+        // REAL MAINTENANCE PERSONNEL AUDIT LOGS
+        // =====================================================
 
-            ->leftJoin(
-                'rooms_table',
-                'reports_table.report_room_id',
-                '=',
-                'rooms_table.room_id'
-            )
+        $recentActivities = DB::table('audit_logs_table')
 
-            ->leftJoin(
-                'equipment_table',
-                'reports_table.report_equipment_id',
-                '=',
-                'equipment_table.equipment_id'
-            )
+            // =================================================
+            // ONLY ACTIVITIES PERFORMED BY CURRENT USER
+            // =================================================
 
             ->where(
-                'reports_table.report_is_archived',
-                false
+                'audit_log_user_id',
+                Auth::id()
             )
 
-            ->select(
-                'reports_table.report_id',
+            // =================================================
+            // ONLY MAINTENANCE RELATED ACTIVITIES
+            //
+            // THIS PREVENTS PURCHASER OR OTHER MODULE LOGS
+            // FROM APPEARING HERE.
+            // =================================================
 
-                'reports_table.report_current_status',
-
-                'reports_table.report_urgency_level',
-
-                'reports_table.report_problem_description',
-
-                'reports_table.report_submitted_at',
-
-                'reports_table.report_updated_at',
-
-                'rooms_table.room_name',
-
-                'equipment_table.equipment_name'
+            ->whereNotNull(
+                'audit_log_module'
             )
 
-            ->orderBy(
-                'reports_table.report_updated_at',
-                'desc'
+            // =================================================
+            // NEWEST ACTIVITIES FIRST
+            // =================================================
+
+            ->orderByDesc(
+                'audit_log_created_at'
             )
 
             ->limit(5)
 
             ->get()
 
-            ->map(function ($report) {
+            // =================================================
+            // CONVERT AUDIT LOG DATA INTO THE FORMAT EXPECTED
+            // BY YOUR EXISTING DASHBOARD.BLADE.PHP
+            // =================================================
+
+            ->map(function ($activity) {
+
+                // =================================================
+                // BASIC ACTIVITY INFORMATION
+                // =================================================
+
+                $activity->title =
+                    $activity->audit_log_action
+                    ?? 'System Activity';
+
+                $activity->description =
+                    $activity->audit_log_description
+                    ?? 'Activity recorded.';
+
+                $activity->created_at =
+                    $activity->audit_log_created_at;
 
 
                 // =================================================
-                // DEFAULT ACTIVITY
+                // REPORT ID
+                //
+                // ONLY SET THIS WHEN THE ACTIVITY BELONGS
+                // TO REPORTS_TABLE.
                 // =================================================
 
-                $title =
-                    'Report Submitted';
-
-
-                $icon =
-                    'file-plus';
-
-
-                $background =
-                    '#dbeafe';
-
-
-                $color =
-                    '#0037c7';
-
-
-                $activityDate =
-                    $report->report_submitted_at;
+                $activity->report_id =
+                    $activity->audit_log_table_name === 'reports_table'
+                        ? $activity->audit_log_reference_id
+                        : null;
 
 
                 // =================================================
-                // URGENT PENDING REPORT
+                // ICON BASED ON MODULE
                 // =================================================
 
-                if (
-
-                    $report->report_urgency_level
-                    ===
-                    'Urgent'
-
-                    &&
-
-                    $report->report_current_status
-                    ===
-                    'Pending'
-
+                $activity->icon = match (
+                    $activity->audit_log_module
                 ) {
 
-                    $title =
-                        'Urgent Report Submitted';
+                    'Reports' =>
+                        'clipboard-list',
 
+                    'Equipment' =>
+                        'monitor',
 
-                    $icon =
-                        'alert-triangle';
+                    'Schedules' =>
+                        'calendar',
 
+                    'Borrowing' =>
+                        'package',
 
-                    $background =
-                        '#fee2e2';
+                    'Infrastructure' =>
+                        'building-2',
 
-
-                    $color =
-                        '#dc2626';
-
-                }
-
-
-                // =================================================
-                // PROCESSING
-                // =================================================
-
-                if (
-                    $report->report_current_status
-                    ===
-                    'Processing'
-                ) {
-
-                    $title =
-                        'Report Processing Started';
-
-
-                    $icon =
-                        'wrench';
-
-
-                    $background =
-                        '#fef3c7';
-
-
-                    $color =
-                        '#d97706';
-
-
-                    $activityDate =
-                        $report->report_updated_at;
-
-                }
+                    default =>
+                        'activity',
+                };
 
 
                 // =================================================
-                // RESOLVED
+                // DEFAULT ICON APPEARANCE
                 // =================================================
 
-                if (
-                    $report->report_current_status
-                    ===
-                    'Resolved'
-                ) {
+                $activity->background =
+                    '#f3f4f6';
 
-                    $title =
-                        'Report Resolved';
+                $activity->color =
+                    '#374151';
 
 
-                    $icon =
-                        'check-circle';
-
-
-                    $background =
-                        '#d1fae5';
-
-
-                    $color =
-                        '#16a34a';
-
-
-                    $activityDate =
-                        $report->report_updated_at;
-
-                }
-
-
-                // =================================================
-                // FOR REPLACEMENT
-                // =================================================
-
-                if (
-                    $report->report_current_status
-                    ===
-                    'For Replacement'
-                ) {
-
-                    $title =
-                        'Replacement Requested';
-
-
-                    $icon =
-                        'package-search';
-
-
-                    $background =
-                        '#fef3c7';
-
-
-                    $color =
-                        '#d97706';
-
-
-                    $activityDate =
-                        $report->report_updated_at;
-
-                }
-
-
-                // =================================================
-                // REJECTED
-                // =================================================
-
-                if (
-                    $report->report_current_status
-                    ===
-                    'Rejected'
-                ) {
-
-                    $title =
-                        'Report Rejected';
-
-
-                    $icon =
-                        'x-circle';
-
-
-                    $background =
-                        '#fee2e2';
-
-
-                    $color =
-                        '#dc2626';
-
-
-                    $activityDate =
-                        $report->report_updated_at;
-
-                }
-
-
-                // =================================================
-                // ACTIVITY DESCRIPTION
-                // =================================================
-
-                $equipmentName =
-                    $report->equipment_name
-                    ?? 'Unlisted Equipment';
-
-
-                $roomName =
-                    $report->room_name
-                    ?? 'Unknown Room';
-
-
-                $description =
-                    $equipmentName
-                    . ' at '
-                    . $roomName;
-
-
-                return (object) [
-
-                    'report_id' =>
-                        $report->report_id,
-
-                    'title' =>
-                        $title,
-
-                    'description' =>
-                        $description,
-
-                    'icon' =>
-                        $icon,
-
-                    'background' =>
-                        $background,
-
-                    'color' =>
-                        $color,
-
-                    'created_at' =>
-                        $activityDate,
-
-                ];
-
-            })
-
-            ->sortByDesc(
-                'created_at'
-            )
-
-            ->values();
+                return $activity;
+            });
 
         // =====================================================
         // CURRENT CALENDAR MONTH
@@ -2239,6 +2124,8 @@ class MaintenanceController extends Controller
 
                 'urgentReports',
 
+                'totalEquipment',
+
                 'underMaintenance',
 
                 'borrowedEquipment',
@@ -2312,6 +2199,12 @@ class MaintenanceController extends Controller
                 'maintenanceChartData',
 
                 'borrowedChartData',
+
+                'categories',
+
+                'rooms',
+
+                'equipment'
 
             )
 
@@ -3116,12 +3009,20 @@ class MaintenanceController extends Controller
 
         $report = DB::table('reports_table')
 
+            // =====================================================
+            // ROOM
+            // =====================================================
+
             ->leftJoin(
                 'rooms_table',
                 'reports_table.report_room_id',
                 '=',
                 'rooms_table.room_id'
             )
+
+            // =====================================================
+            // FLOOR
+            // =====================================================
 
             ->leftJoin(
                 'floors_table',
@@ -3130,12 +3031,20 @@ class MaintenanceController extends Controller
                 'floors_table.floor_id'
             )
 
+            // =====================================================
+            // BUILDING
+            // =====================================================
+
             ->leftJoin(
                 'buildings_table',
                 'floors_table.floor_building_id',
                 '=',
                 'buildings_table.building_id'
             )
+
+            // =====================================================
+            // EQUIPMENT
+            // =====================================================
 
             ->leftJoin(
                 'equipment_table',
@@ -3144,6 +3053,10 @@ class MaintenanceController extends Controller
                 'equipment_table.equipment_id'
             )
 
+            // =====================================================
+            // REPORTER
+            // =====================================================
+
             ->leftJoin(
                 'reporters_table',
                 'reports_table.report_reporter_employee_id',
@@ -3151,17 +3064,48 @@ class MaintenanceController extends Controller
                 'reporters_table.reporter_employee_id'
             )
 
+            // =====================================================
+            // SELECT REPORT INFORMATION
+            // =====================================================
+
             ->select(
+
+                // =================================================
+                // REPORT
+                // =================================================
 
                 'reports_table.*',
 
+                // =================================================
+                // ROOM
+                // =================================================
+
                 'rooms_table.room_name',
 
+                // =================================================
+                // FLOOR
+                // THIS WAS MISSING
+                // =================================================
+
+                'floors_table.floor_level',
+
+                // =================================================
+                // BUILDING
+                // =================================================
+
                 'buildings_table.building_name',
+
+                // =================================================
+                // EQUIPMENT
+                // =================================================
 
                 'equipment_table.equipment_name',
 
                 'equipment_table.equipment_inventory_status',
+
+                // =================================================
+                // REPORTER
+                // =================================================
 
                 'reporters_table.reporter_full_name',
 
@@ -3171,6 +3115,10 @@ class MaintenanceController extends Controller
 
             )
 
+            // =====================================================
+            // FIND REPORT
+            // =====================================================
+
             ->where(
                 'reports_table.report_id',
                 $id
@@ -3178,13 +3126,30 @@ class MaintenanceController extends Controller
 
             ->first();
 
+
+        /*
+        |--------------------------------------------------------------------------
+        | REPORT NOT FOUND
+        |--------------------------------------------------------------------------
+        */
+
+        if (!$report) {
+
+            abort(
+                404,
+                'Report not found.'
+            );
+        }
+
+
         /*
         |--------------------------------------------------------------------------
         | DEBUG
         |--------------------------------------------------------------------------
         */
 
-        //dd($report);
+        // dd($report);
+
 
         /*
         |--------------------------------------------------------------------------
@@ -3193,6 +3158,13 @@ class MaintenanceController extends Controller
         */
 
         $relatedReports = collect();
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | RETURN REPORT DETAILS VIEW
+        |--------------------------------------------------------------------------
+        */
 
         return view(
             'maintenance-personnel.reports.report-details',
@@ -3727,6 +3699,14 @@ class MaintenanceController extends Controller
 
                     ]);
 
+                    $this->logActivity(
+                        'Returned report to pending',
+                        'Reports',
+                        'reports_table',
+                        (int) $id,
+                        'Returned Report #' . $id . ' from Processing to Pending.'
+                    );
+
 
                 return back()->with(
                     'success',
@@ -3870,6 +3850,14 @@ class MaintenanceController extends Controller
 
                         ]);
 
+                        $this->logActivity(
+                            'Started processing report',
+                            'Reports',
+                            'reports_table',
+                            (int) $id,
+                            'Started processing Report #' . $id . '.'
+                        );
+
 
                     return back()
 
@@ -3922,6 +3910,14 @@ class MaintenanceController extends Controller
                                 now(),
 
                         ]);
+
+                        $this->logActivity(
+                            'Rejected report',
+                            'Reports',
+                            'reports_table',
+                            (int) $id,
+                            'Rejected Report #' . $id . '.'
+                        );
 
 
                     return back()
@@ -4028,6 +4024,14 @@ class MaintenanceController extends Controller
 
                         ]);
 
+                        $this->logActivity(
+                            'Resolved report',
+                            'Reports',
+                            'reports_table',
+                            (int) $id,
+                            'Resolved Report #' . $id . '.'
+                        );
+
 
                     return back()
 
@@ -4089,6 +4093,14 @@ class MaintenanceController extends Controller
                                 now(),
 
                         ]);
+
+                        $this->logActivity(
+                            'Submitted report for replacement',
+                            'Reports',
+                            'reports_table',
+                            (int) $id,
+                            'Submitted Report #' . $id . ' for equipment replacement.'
+                        );
 
 
                     // =================================================
@@ -10717,5 +10729,46 @@ class MaintenanceController extends Controller
             });
 
         });
+    }
+
+    // =====================================================
+    // RECORD MAINTENANCE ACTIVITY
+    // =====================================================
+
+    private function logActivity(
+        string $action,
+        string $module,
+        string $tableName,
+        ?int $referenceId,
+        string $description
+    ): void
+    {
+        // =====================================================
+        // GET CURRENT LOGGED IN USER
+        // =====================================================
+
+        $user = Auth::user();
+
+        // =====================================================
+        // CREATE AUDIT / ACTIVITY LOG
+        // =====================================================
+
+        DB::table('audit_logs_table')->insert([
+            'audit_log_user_id' => $user?->user_id,
+
+            'audit_log_action' => $action,
+
+            'audit_log_module' => $module,
+
+            'audit_log_table_name' => $tableName,
+
+            'audit_log_reference_id' => $referenceId,
+
+            'audit_log_description' => $description,
+
+            'audit_log_ip_address' => request()->ip(),
+
+            'audit_log_created_at' => now(),
+        ]);
     }
 }
