@@ -134,27 +134,10 @@
 
         <div class="menu-title" id="dashboard-section">
 
-<<<<<<< HEAD
-        </form>
-        {{-- ===================================================== --}}
-        {{-- ADDED RIS ADMIN APPROVAL: SIDEBAR LINK --}}
-        {{-- ===================================================== --}}
-
-        <li>
-            <a href="{{ route('admin.procurement-review.index') }}">
-                RIS Approval
-            </a>
-        </li>
-
-=======
             DASHBOARD
->>>>>>> c4a35edc5d072bfc8cb72a8a88f1cc1b610c0f67
 
         </div>
 
-<<<<<<< HEAD
-</div>
-=======
         <a
             href="/admin/dashboard"
             class="menu-item {{ request()->is('admin/dashboard') ? 'active' : '' }}"
