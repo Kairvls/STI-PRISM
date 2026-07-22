@@ -95,7 +95,7 @@ return new class extends Migration
 
                 $table->bigIncrements('ris_attachment_id');
 
-                $table->unsignedBigInteger('ris_id');
+                $table->bigInteger('ris_id');
 
                 $table->string('ris_attachment_original_name');
 
