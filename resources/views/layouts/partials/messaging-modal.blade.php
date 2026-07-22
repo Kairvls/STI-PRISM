@@ -89,7 +89,7 @@
 
                     {{-- Users Grid --}}
                     <div id="modalUsersContainer" class="messaging-user-scroll flex-1 overflow-y-auto px-3 pb-3">
-                        <div id="modalUsersList" class="grid grid-cols-2 gap-2"></div>
+                        <div id="modalUsersList" class="flex flex-col gap-0.5"></div>
                         <div id="modalUsersEmpty" class="hidden py-12 text-center">
                             <div class="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-400 mb-2">
                                 <i data-lucide="users" class="h-5 w-5"></i>
@@ -442,7 +442,8 @@
         }
 
         const userId = {{ auth()->id() }};
-        const html = messages.data.map(msg => {
+        const orderedMessages = [...messages.data].reverse();
+        const html = orderedMessages.map(msg => {
             const isOwn = msg.sender?.user_id === userId;
             const time = formatMessageTime(msg.created_at);
             const senderName = msg.sender?.name || msg.sender?.user_full_name || 'Unknown';
@@ -578,29 +579,23 @@
         emptyState?.classList.add('hidden');
 
         container.innerHTML = users.map(user => `
-            <button type="button" data-user-id="${user.user_id}" class="user-card group w-full text-left rounded-2xl border border-gray-200 bg-white p-3 cursor-pointer transition-all duration-200 ease-out hover:border-gray-300 hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 active:scale-[0.98]">
-                <div class="flex flex-col items-center text-center gap-2.5">
-                    <div class="relative">
-                        <div class="h-11 w-11 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-sm font-bold text-gray-700 shadow-sm ring-2 ring-white transition-all duration-200 group-hover:shadow-md">
-                            ${user.initials}
-                        </div>
-                        <span class="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-500 shadow-sm"></span>
+            <button type="button" data-user-id="${user.user_id}" class="user-row w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left cursor-pointer transition-all duration-200 ease-out hover:bg-gray-50 active:bg-gray-100">
+                <div class="relative shrink-0">
+                    <div class="h-9 w-9 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-xs font-bold text-gray-700 shadow-sm ring-2 ring-white">
+                        ${user.initials}
                     </div>
-                    <div class="min-w-0 w-full space-y-0.5">
-                        <p class="text-xs font-semibold text-gray-900 truncate leading-tight">${user.name}</p>
-                        <span class="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600 truncate max-w-full">${user.role}</span>
-                    </div>
-                    <div class="inline-flex items-center gap-1 text-gray-900 pt-0.5">
-                        <i data-lucide="message-circle" class="h-3.5 w-3.5"></i>
-                        <span class="text-[10px] font-semibold">Message</span>
-                    </div>
+                    <span class="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-500 shadow-sm"></span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-semibold text-gray-900 truncate leading-tight">${user.name}</p>
+                    <p class="text-xs text-gray-500 truncate leading-tight">${user.role}</p>
                 </div>
             </button>
         `).join('');
 
-        container.querySelectorAll('.user-card').forEach(card => {
-            card.addEventListener('click', () => {
-                const userId = parseInt(card.getAttribute('data-user-id') || '0');
+        container.querySelectorAll('.user-row').forEach(row => {
+            row.addEventListener('click', () => {
+                const userId = parseInt(row.getAttribute('data-user-id') || '0');
                 if (userId) startConversationWithUser(userId);
             });
         });
