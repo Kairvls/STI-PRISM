@@ -318,6 +318,7 @@
         if (!conversations || conversations.data.length === 0) {
             container.innerHTML = '';
             emptyState?.classList.remove('hidden');
+            emptyState?.classList.add('animate-fade-in');
             return;
         }
 
@@ -334,19 +335,19 @@
             const activeClass = conv.conversation_id === currentConversationId ? 'bg-gray-100' : '';
 
             return `
-                <div class="conversation-item p-3 cursor-pointer transition hover:bg-gray-50 ${activeClass}" data-id="${conv.conversation_id}">
+                <div class="conversation-item p-3 cursor-pointer transition-all duration-200 ease-out hover:bg-gray-50 ${activeClass}" data-id="${conv.conversation_id}">
                     <div class="flex items-center gap-3">
-                        <div class="h-10 w-10 shrink-0 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-xs font-semibold text-gray-600">
+                        <div class="h-10 w-10 shrink-0 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-xs font-semibold text-gray-600 transition-all duration-200">
                             ${initials}
                         </div>
                         <div class="flex-1 min-w-0">
                             <div class="flex items-center justify-between gap-2">
-                                <span class="text-sm font-semibold text-gray-900 truncate">${name}</span>
-                                <span class="text-[11px] text-gray-400 shrink-0">${time}</span>
+                                <span class="text-sm font-semibold text-gray-900 truncate transition-colors duration-200">${name}</span>
+                                <span class="text-[11px] text-gray-400 shrink-0 transition-colors duration-200">${time}</span>
                             </div>
                             <div class="flex items-center justify-between gap-2 mt-0.5">
-                                <p class="text-xs text-gray-500 truncate">${preview}</p>
-                                ${unreadCount > 0 ? `<span class="shrink-0 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-gray-900 px-1.5 text-[10px] font-bold text-white">${unreadCount}</span>` : ''}
+                                <p class="text-xs text-gray-500 truncate transition-colors duration-200">${preview}</p>
+                                ${unreadCount > 0 ? `<span class="shrink-0 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-gray-900 px-1.5 text-[10px] font-bold text-white transition-all duration-200 hover:bg-gray-800">${unreadCount}</span>` : ''}
                             </div>
                         </div>
                     </div>
@@ -354,7 +355,9 @@
             `;
         }).join('');
 
-        container.querySelectorAll('.conversation-item').forEach(item => {
+        container.querySelectorAll('.conversation-item').forEach((item, index) => {
+            item.style.animation = 'conversationSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) both';
+            item.style.animationDelay = `${index * 30}ms`;
             item.addEventListener('click', () => {
                 const id = item.dataset.id;
                 openModalConversation(id);
@@ -578,17 +581,17 @@
 
         emptyState?.classList.add('hidden');
 
-        container.innerHTML = users.map(user => `
-            <button type="button" data-user-id="${user.user_id}" class="user-row w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left cursor-pointer transition-all duration-200 ease-out hover:bg-gray-50 active:bg-gray-100">
+        container.innerHTML = users.map((user, index) => `
+            <button type="button" data-user-id="${user.user_id}" class="user-row w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left cursor-pointer transition-all duration-200 ease-out hover:bg-gray-50 active:bg-gray-100" style="animation: userCardIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) both; animation-delay: ${index * 25}ms;">
                 <div class="relative shrink-0">
-                    <div class="h-9 w-9 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-xs font-bold text-gray-700 shadow-sm ring-2 ring-white">
+                    <div class="h-9 w-9 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-xs font-bold text-gray-700 shadow-sm ring-2 ring-white transition-all duration-200">
                         ${user.initials}
                     </div>
                     <span class="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-500 shadow-sm"></span>
                 </div>
                 <div class="flex-1 min-w-0">
-                    <p class="text-sm font-semibold text-gray-900 truncate leading-tight">${user.name}</p>
-                    <p class="text-xs text-gray-500 truncate leading-tight">${user.role}</p>
+                    <p class="text-sm font-semibold text-gray-900 truncate leading-tight transition-colors duration-200">${user.name}</p>
+                    <p class="text-xs text-gray-500 truncate leading-tight transition-colors duration-200">${user.role}</p>
                 </div>
             </button>
         `).join('');
@@ -711,6 +714,33 @@
 </script>
 
 <style>
+    @keyframes userCardIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes conversationSlideIn {
+        from {
+            opacity: 0;
+            transform: translateX(-8px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
     .message-bubble {
         animation: messageSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
@@ -726,19 +756,24 @@
         }
     }
 
-    .user-card {
-        animation: userCardIn 0.35s cubic-bezier(0.4, 0, 0.2, 1) both;
+    .conversation-item {
+        animation: conversationSlideIn 0.25s cubic-bezier(0.4, 0, 0.2, 1) both;
     }
 
-    @keyframes userCardIn {
-        from {
-            opacity: 0;
-            transform: translateY(12px) scale(0.96);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-        }
+    .user-row {
+        animation: userCardIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
+    }
+
+    .animate-fade-in {
+        animation: fadeIn 0.25s ease-out both;
+    }
+
+    #modalConversationSearch:focus {
+        box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.06);
+    }
+
+    #modalUserSearch:focus {
+        box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.06);
     }
 
     .messaging-user-scroll::-webkit-scrollbar {
@@ -791,11 +826,7 @@
         transition: background-color 0.15s ease, transform 0.15s ease;
     }
 
-    #modalUserSearch:focus {
-        box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.06);
-    }
-
-    #modalConversationSearch:focus {
-        box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.06);
+    #modalChatActive {
+        animation: fadeIn 0.2s ease-out;
     }
 </style>

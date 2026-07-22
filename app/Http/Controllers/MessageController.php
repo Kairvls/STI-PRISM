@@ -15,16 +15,29 @@ class MessageController extends Controller
     /**
      * Display a listing of the user's conversations.
      */
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
         $userId = Auth::id();
+        $search = trim((string) $request->get('search', ''));
 
         $conversations = Conversation::whereHas('participants', function ($query) use ($userId) {
-            $query->where('user_id', $userId);
-        })
-        ->with(['lastMessage.sender', 'participants.user'])
-        ->orderByDesc('last_message_at')
-        ->paginate(20);
+                $query->where('user_id', $userId);
+            })
+            ->with(['lastMessage.sender', 'participants.user'])
+            ->orderByDesc('last_message_at');
+
+        if ($search !== '') {
+            $conversations->whereHas('participants.user', function ($query) use ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('user_full_name', 'like', "%{$search}%")
+                      ->orWhereHas('role', function ($roleQuery) use ($search) {
+                          $roleQuery->where('role_name', 'like', "%{$search}%");
+                      });
+                });
+            });
+        }
+
+        $conversations = $conversations->paginate(20);
 
         return response()->json([
             'data' => $conversations,
