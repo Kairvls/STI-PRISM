@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class MessageController extends Controller
 {
@@ -74,11 +75,24 @@ class MessageController extends Controller
 
         $validated = $request->validate([
             'message_content' => ['required', 'string', 'max:5000'],
+            'attachment' => ['nullable', 'string'],
         ]);
 
-        $message = new Message($validated);
-        $message->conversation_id = $conversation->conversation_id;
-        $message->sender_id = $userId;
+        $attachment = null;
+
+        if (!empty($validated['attachment'])) {
+            $decoded = json_decode($validated['attachment'], true);
+
+            if (is_array($decoded)) {
+                $attachment = $decoded;
+            }
+        }
+
+        $message = new Message([
+            'conversation_id' => $conversation->conversation_id,
+            'sender_id' => $userId,
+            'message_content' => $validated['message_content'],
+        ]);
         $message->save();
 
         $conversation->update([
@@ -88,10 +102,16 @@ class MessageController extends Controller
 
         $message->load('sender');
 
-        return response()->json([
+        $response = [
             'message' => 'Message sent successfully.',
             'data' => $message,
-        ], 201);
+        ];
+
+        if ($attachment) {
+            $response['data']->setAttribute('attachment', $attachment);
+        }
+
+        return response()->json($response, 201);
     }
 
     /**
@@ -265,6 +285,73 @@ class MessageController extends Controller
         return response()->json([
             'message' => 'Conversation created successfully.',
             'data' => $conversation,
+        ], 201);
+    }
+
+    /**
+     * Delete a conversation and all its messages.
+     */
+    public function destroy(Conversation $conversation): JsonResponse
+    {
+        $userId = Auth::id();
+
+        $this->authorizeConversation($conversation, $userId);
+
+        $conversation->messages()->delete();
+        ConversationParticipant::where('conversation_id', $conversation->conversation_id)->delete();
+        $conversation->delete();
+
+        return response()->json([
+            'message' => 'Conversation deleted successfully.',
+        ]);
+    }
+
+    /**
+     * Upload a file attachment for a conversation message.
+     */
+    public function uploadAttachment(Request $request): JsonResponse
+    {
+        $userId = Auth::id();
+
+        $request->validate([
+            'conversation_id' => ['required', 'integer', 'exists:conversations,conversation_id'],
+            'file' => ['required', 'file', 'max:25600'],
+        ]);
+
+        $conversation = Conversation::findOrFail($request->input('conversation_id'));
+
+        $isParticipant = ConversationParticipant::where('conversation_id', $conversation->conversation_id)
+            ->where('user_id', $userId)
+            ->exists();
+
+        if (! $isParticipant) {
+            abort(403, 'You are not authorized to upload files to this conversation.');
+        }
+
+        $file = $request->file('file');
+        $mimeType = $file->getMimeType();
+        $extension = strtolower($file->getClientOriginalExtension());
+        $fileName = time() . '_' . uniqid() . '.' . $extension;
+        $path = $file->storeAs("messaging/{$conversation->conversation_id}", $fileName, 'public');
+
+        if (! $path) {
+            return response()->json([
+                'message' => 'Failed to upload file.',
+            ], 500);
+        }
+
+        $url = asset('storage/' . $path);
+
+        return response()->json([
+            'message' => 'File uploaded successfully.',
+            'data' => [
+                'name' => $file->getClientOriginalName(),
+                'path' => $path,
+                'url' => $url,
+                'size' => $file->getSize(),
+                'type' => $mimeType,
+                'extension' => $extension,
+            ],
         ], 201);
     }
 }

@@ -14,28 +14,27 @@
 {{-- ======================================== --}}
 {{-- EXECUTIVE INSIGHTS --}}
 {{-- ======================================== --}}
-<div class="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
-    <div class="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-5 slide-up" style="animation-delay: 0.05s">
-        <div class="flex items-center gap-2">
-            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100">
-                <i data-lucide="check-circle" class="h-4 w-4 text-emerald-700"></i>
+    <div class="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
+        <div class="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-5 slide-up" style="animation-delay: 0.05s">
+            <div class="flex items-center gap-2">
+                <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100">
+                    <i data-lucide="check-circle" class="h-4 w-4 text-emerald-700"></i>
+                </div>
+                <p class="text-xs font-medium text-emerald-700">Decision Rate</p>
             </div>
-            <p class="text-xs font-medium text-emerald-700">Approval Rate</p>
-        </div>
-        <p class="mt-3 text-2xl font-semibold tracking-tight text-emerald-900">{{ $insights['approval_rate'] ?? 0 }}%</p>
-    </div>
-
-    <div class="rounded-xl border border-rose-200 bg-gradient-to-br from-rose-50 to-white p-5 slide-up" style="animation-delay: 0.1s">
-        <div class="flex items-center gap-2">
-            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-100">
-                <i data-lucide="x-circle" class="h-4 w-4 text-rose-700"></i>
+            <div class="mt-3 space-y-1">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs text-emerald-700">Approved</span>
+                    <span class="text-sm font-semibold text-emerald-900">{{ $insights['approval_rate'] ?? 0 }}%</span>
+                </div>
+                <div class="flex items-center justify-between">
+                    <span class="text-xs text-rose-700">Rejected</span>
+                    <span class="text-sm font-semibold text-rose-900">{{ $insights['rejection_rate'] ?? 0 }}%</span>
+                </div>
             </div>
-            <p class="text-xs font-medium text-rose-700">Rejection Rate</p>
         </div>
-        <p class="mt-3 text-2xl font-semibold tracking-tight text-rose-900">{{ $insights['rejection_rate'] ?? 0 }}%</p>
-    </div>
 
-    <div class="rounded-xl border border-gray-200 bg-gradient-to-br from-gray-50 to-white p-5 slide-up" style="animation-delay: 0.15s">
+        <div class="rounded-xl border border-gray-200 bg-gradient-to-br from-gray-50 to-white p-5 slide-up" style="animation-delay: 0.15s">
         <div class="flex items-center gap-2">
             <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100">
                 <i data-lucide="wallet" class="h-4 w-4 text-gray-700"></i>
@@ -137,12 +136,8 @@
                         <th class="px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-black bg-gray-50">Total Received</th>
                         <th class="px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-black bg-gray-50">Approved</th>
                         <th class="px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-black bg-gray-50">Rejected</th>
-                        <th class="px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-black bg-gray-50">Approval Rate</th>
-                        <th class="px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-black bg-gray-50">Rejection Rate</th>
                         <th class="px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider text-black bg-gray-50">Approved Value</th>
                         <th class="px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider text-black bg-gray-50">Rejected Value</th>
-                        <th class="px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-black bg-gray-50">Avg Processing</th>
-                        <th class="px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-black bg-gray-50">Trend</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -152,28 +147,12 @@
                             <td class="px-4 py-4 text-center text-sm font-semibold text-gray-900">{{ $row['total'] ?? ($row['approved'] + $row['rejected'] + $row['pending']) }}</td>
                             <td class="px-4 py-4 text-center text-sm text-emerald-700 font-semibold">{{ $row['approved'] }}</td>
                             <td class="px-4 py-4 text-center text-sm text-rose-700 font-semibold">{{ $row['rejected'] }}</td>
-                            <td class="px-4 py-4 text-center">
-                                <span class="inline-flex rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">{{ $row['approval_rate'] }}%</span>
-                            </td>
-                            <td class="px-4 py-4 text-center">
-                                <span class="inline-flex rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-800">{{ $row['rejection_rate'] }}%</span>
-                            </td>
-                            <td class="px-4 py-4 text-right text-sm text-gray-700">₱{{ number_format((float)($row['approved_amount'] ?? 0), 2) }}</td>
-                            <td class="px-4 py-4 text-right text-sm text-gray-700">₱{{ number_format((float)($row['rejected_amount'] ?? 0), 2) }}</td>
-                            <td class="px-4 py-4 text-center text-sm text-gray-600">{{ $row['avg_processing_time'] ?? 'N/A' }} {{ isset($row['avg_processing_time']) ? 'days' : '' }}</td>
-                            <td class="px-4 py-4 text-center">
-                                @php
-                                    $trend = $row['trend'] ?? '➜ No Change';
-                                    $trendColor = str_contains($trend, 'Improved') ? 'text-emerald-700 bg-emerald-50' : (str_contains($trend, 'Declined') ? 'text-rose-700 bg-rose-50' : 'text-gray-600 bg-gray-100');
-                                @endphp
-                                <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold {{ $trendColor }}">
-                                    {{ $trend }}
-                                </span>
-                            </td>
+                            <td class="px-4 py-4 text-right tabular-nums text-gray-700">₱{{ number_format((float)($row['approved_amount'] ?? 0), 2) }}</td>
+                            <td class="px-4 py-4 text-right tabular-nums text-gray-700">₱{{ number_format((float)($row['rejected_amount'] ?? 0), 2) }}</td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="10" class="px-2 py-12 text-center">
+                            <td colspan="6" class="px-2 py-12 text-center">
                                 <p class="text-sm font-semibold text-gray-800">No weekly data available.</p>
                             </td>
                         </tr>
@@ -271,12 +250,8 @@
                         <th class="px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-black bg-gray-50">Total Received</th>
                         <th class="px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-black bg-gray-50">Approved</th>
                         <th class="px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-black bg-gray-50">Rejected</th>
-                        <th class="px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-black bg-gray-50">Approval Rate</th>
-                        <th class="px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-black bg-gray-50">Rejection Rate</th>
                         <th class="px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider text-black bg-gray-50">Approved Value</th>
                         <th class="px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider text-black bg-gray-50">Rejected Value</th>
-                        <th class="px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-black bg-gray-50">Avg Processing</th>
-                        <th class="px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider text-black bg-gray-50">Trend</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -286,28 +261,12 @@
                             <td class="px-4 py-4 text-center text-sm font-semibold text-gray-900">{{ $row['total'] ?? ($row['approved'] + $row['rejected'] + $row['pending']) }}</td>
                             <td class="px-4 py-4 text-center text-sm text-emerald-700 font-semibold">{{ $row['approved'] }}</td>
                             <td class="px-4 py-4 text-center text-sm text-rose-700 font-semibold">{{ $row['rejected'] }}</td>
-                            <td class="px-4 py-4 text-center">
-                                <span class="inline-flex rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-semibold text-emerald-800">{{ $row['approval_rate'] }}%</span>
-                            </td>
-                            <td class="px-4 py-4 text-center">
-                                <span class="inline-flex rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-semibold text-rose-800">{{ $row['rejection_rate'] }}%</span>
-                            </td>
-                            <td class="px-4 py-4 text-right text-sm text-gray-700">₱{{ number_format((float)($row['approved_amount'] ?? 0), 2) }}</td>
-                            <td class="px-4 py-4 text-right text-sm text-gray-700">₱{{ number_format((float)($row['rejected_amount'] ?? 0), 2) }}</td>
-                            <td class="px-4 py-4 text-center text-sm text-gray-600">{{ $row['avg_processing_time'] ?? 'N/A' }} {{ isset($row['avg_processing_time']) ? 'days' : '' }}</td>
-                            <td class="px-4 py-4 text-center">
-                                @php
-                                    $trend = $row['trend'] ?? '➜ No Change';
-                                    $trendColor = str_contains($trend, 'Improved') ? 'text-emerald-700 bg-emerald-50' : (str_contains($trend, 'Declined') ? 'text-rose-700 bg-rose-50' : 'text-gray-600 bg-gray-100');
-                                @endphp
-                                <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold {{ $trendColor }}">
-                                    {{ $trend }}
-                                </span>
-                            </td>
+                            <td class="px-4 py-4 text-right tabular-nums text-gray-700">₱{{ number_format((float)($row['approved_amount'] ?? 0), 2) }}</td>
+                            <td class="px-4 py-4 text-right tabular-nums text-gray-700">₱{{ number_format((float)($row['rejected_amount'] ?? 0), 2) }}</td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="10" class="px-2 py-12 text-center">
+                            <td colspan="6" class="px-2 py-12 text-center">
                                 <p class="text-sm font-semibold text-gray-800">No monthly data available.</p>
                             </td>
                         </tr>

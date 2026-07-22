@@ -1684,6 +1684,16 @@ Route::middleware(['auth'])
             [MessageController::class, 'storeConversation']
         )->name('conversations.store');
 
+        Route::delete(
+            '/conversations/{conversation}',
+            [MessageController::class, 'destroy']
+        )->name('conversations.destroy');
+
+        Route::post(
+            '/upload',
+            [MessageController::class, 'uploadAttachment']
+        )->name('upload');
+
     });
 
 
