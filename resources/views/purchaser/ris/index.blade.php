@@ -556,6 +556,20 @@
                             <p class="mt-1 text-sm text-slate-700">{{ $ris->ris_purpose_description ?? '-' }}</p>
                         </div>
 
+                        {{-- ===================================================== --}}
+                        {{-- AMENDMENT REMARKS (REJECTION REASON) --}}
+                        {{-- Only shown when the RIS has been returned for amendment --}}
+                        {{-- ===================================================== --}}
+
+                        @if($ris->ris_status === 'Rejected' && !empty($ris->ris_rejection_reason))
+                            <div class="md:col-span-2">
+                                <dt class="text-xs uppercase tracking-wide text-gray-500">Amendment Remarks</dt>
+                                <div class="mt-1 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2">
+                                    <p class="text-sm text-rose-700">{{ $ris->ris_rejection_reason }}</p>
+                                </div>
+                            </div>
+                        @endif
+
                     </div>
 
                     <div>

@@ -707,12 +707,30 @@ class AdminController extends Controller
                 return back()->with('error', 'Only submitted pending RIS records can be approved.');
             }
 
+            $adminName = Auth::user()->user_full_name ?? 'Admin';
+
             DB::table('requisition_issue_slip_table')
                 ->where('ris_id', $risId)
                 ->update([
                     'ris_status' => 'Approved',
+                    'ris_approved_by_signature' => $adminName,
                     'ris_approved_by_date' => now()->toDateString(),
                 ]);
+
+            // Log the approval activity
+            try {
+                DB::table('approval_logs_table')->insert([
+                    'approval_log_reference_type' => 'RIS',
+                    'approval_log_reference_id' => (int) $risId,
+                    'approval_log_level' => 'Admin',
+                    'approval_log_approved_by' => Auth::id(),
+                    'approval_log_approval_status' => 'Approved',
+                    'approval_log_approval_remarks' => 'RIS forwarded to President by ' . $adminName,
+                    'approval_log_approved_at' => now(),
+                ]);
+            } catch (\Throwable $e) {
+                // Ignore logging failures
+            }
 
             return back()->with('success', 'RIS approved and forwarded to the President for final approval.');
         });
@@ -814,9 +832,9 @@ class AdminController extends Controller
     // ADDED RIS ADMIN APPROVAL: REJECT RIS
     // =====================================================
 
-    public function rejectRis($risId)
+    public function rejectRis(Request $request, $risId)
     {
-        return DB::transaction(function () use ($risId) {
+        return DB::transaction(function () use ($request, $risId) {
             $ris = DB::table('requisition_issue_slip_table')
                 ->where('ris_id', $risId)
                 ->lockForUpdate()
@@ -828,6 +846,12 @@ class AdminController extends Controller
                 return back()->with('error', 'Only submitted pending RIS records can be rejected.');
             }
 
+            // Validate amendment remarks
+            $remarks = $request->input('remarks', '');
+            if (empty(trim($remarks))) {
+                return back()->with('error', 'Please provide amendment remarks to inform the Purchaser what needs to be revised.');
+            }
+
             // Reset submission fields so the Purchaser can edit and resubmit
             DB::table('requisition_issue_slip_table')
                 ->where('ris_id', $risId)
@@ -837,9 +861,25 @@ class AdminController extends Controller
                     'ris_requested_by_date' => null,
                     'ris_submitted_by' => null,
                     'ris_submitted_at' => null,
+                    'ris_rejection_reason' => $remarks,
                 ]);
 
-            return back()->with('success', 'RIS returned to Purchaser for amendment.');
+            // Log the amendment activity
+            try {
+                DB::table('approval_logs_table')->insert([
+                    'approval_log_reference_type' => 'RIS',
+                    'approval_log_reference_id' => (int) $risId,
+                    'approval_log_level' => 'Admin',
+                    'approval_log_approved_by' => Auth::id(),
+                    'approval_log_approval_status' => 'Rejected',
+                    'approval_log_approval_remarks' => $remarks,
+                    'approval_log_approved_at' => now(),
+                ]);
+            } catch (\Throwable $e) {
+                // Ignore logging failures
+            }
+
+            return back()->with('success', 'RIS returned to Purchaser for amendment with your remarks.');
         });
     }
 }

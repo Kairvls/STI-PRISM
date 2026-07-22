@@ -143,6 +143,122 @@
 
 
     {{-- ===================================================== --}}
+    {{-- AMEND MODAL --}}
+    {{-- ===================================================== --}}
+
+    <div
+        id="amendModal"
+        class="fixed inset-0 z-50 hidden"
+    >
+
+        <div
+            class="flex h-screen items-center justify-center bg-black/60 p-2 backdrop-blur-sm"
+            onclick="closeAmendModal()"
+        >
+
+            <div
+                class="relative w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl"
+                onclick="event.stopPropagation()"
+            >
+
+                {{-- Modal Header --}}
+
+                <div class="border-b border-gray-100 px-6 py-4">
+
+                    <h3 class="text-lg font-bold text-gray-900">
+                        Return for Amendment
+                    </h3>
+
+                    <p class="mt-1 text-sm text-gray-500">
+                        Inform the Purchaser what parts of the form need to be changed and revised.
+                    </p>
+
+                </div>
+
+                {{-- Modal Body --}}
+
+                <form id="amendForm" method="POST" action="">
+                    @csrf
+
+                    <div class="space-y-5 px-6 py-5">
+
+                        {{-- Remarks Textarea --}}
+
+                        <div>
+
+                            <label for="amend_remarks" class="block text-sm font-medium text-gray-700">
+                                Amendment Remarks <span class="text-red-500">*</span>
+                            </label>
+
+                            <textarea
+                                id="amend_remarks"
+                                name="remarks"
+                                rows="5"
+                                required
+                                placeholder="Describe in detail what needs to be revised, e.g. incorrect quantities, missing supporting documents, wrong unit cost, etc."
+                                class="mt-1.5 block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-gray-400 focus:ring-2 focus:ring-gray-100"
+                            ></textarea>
+
+                            <p class="mt-1.5 text-xs text-gray-400">
+                                These remarks will be visible to the Purchaser when they view this RIS.
+                            </p>
+
+                        </div>
+
+                        {{-- Preview Info --}}
+
+                        <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+
+                            <div class="flex gap-2">
+
+                                <svg class="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+
+                                <p class="text-xs text-amber-800">
+                                    This will immediately return the RIS to the Purchaser as a draft. The Purchaser
+                                    must address the remarks above before resubmitting.
+                                </p>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    {{-- Modal Footer --}}
+
+                    <div class="flex items-center justify-end gap-2 border-t border-gray-100 px-6 py-4">
+
+                        <button
+                            type="button"
+                            onclick="closeAmendModal()"
+                            title="Cancel amendment"
+                            class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                        >
+                            Cancel
+                        </button>
+
+                        <button
+                            type="submit"
+                            title="Return this RIS to the Purchaser with the amendment remarks"
+                            class="rounded-lg bg-rose-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-rose-700"
+                        >
+                            Confirm Amend
+                        </button>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    {{-- ===================================================== --}}
     {{-- DIRECT APPROVAL MODAL --}}
     {{-- ===================================================== --}}
 
@@ -743,6 +859,79 @@
 
 
     // =====================================================
+    // AMEND MODAL
+    // =====================================================
+
+    function openAmendModal(risId) {
+
+        const modal =
+            document.getElementById('amendModal');
+
+        const form =
+            document.getElementById('amendForm');
+
+        const textarea =
+            document.getElementById('amend_remarks');
+
+        if (!modal || !form || !textarea) {
+
+            return;
+
+        }
+
+
+        // =====================================================
+        // SET FORM ACTION URL
+        // =====================================================
+
+        form.action =
+            `/admin/procurement-review/ris/${risId}/reject`;
+
+
+        // =====================================================
+        // RESET TEXTAREA
+        // =====================================================
+
+        textarea.value = '';
+
+
+        // =====================================================
+        // SHOW MODAL
+        // =====================================================
+
+        modal.classList.remove('hidden');
+
+
+        // =====================================================
+        // FOCUS TEXTAREA
+        // =====================================================
+
+        setTimeout(function () {
+            textarea.focus();
+        }, 200);
+
+    }
+
+
+    // =====================================================
+    // CLOSE AMEND MODAL
+    // =====================================================
+
+    function closeAmendModal() {
+
+        const modal =
+            document.getElementById('amendModal');
+
+        if (modal) {
+
+            modal.classList.add('hidden');
+
+        }
+
+    }
+
+
+    // =====================================================
     // DIRECT APPROVAL MODAL
     // =====================================================
 
@@ -873,6 +1062,7 @@
 
                 closeRisPreviewModal();
                 closeDirectApproveModal();
+                closeAmendModal();
 
             }
 

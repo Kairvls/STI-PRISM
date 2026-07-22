@@ -1,32 +1,26 @@
-# Implementation Plan - COMPLETED ✅
+# Amend Modal & Forward to President - Implementation Plan ✅
 
-## Step 1: AdminController.php Updates ✅
-- [x] Rename comments: "Approved for President" → "Forward to President" / "Forwarded to President"
-- [x] Update `directApproveRis()` to accept `admin_name` and `admin_date` from request
-- [x] Update counts/filters logic for differentiation:
-  - "Forwarded to President": Approved + ris_approved_by_date NOT NULL + (signature IS NULL OR base64)
-  - "Direct Approved": Approved + ris_approved_by_date NOT NULL + plain-text signature
+## Step 1: AdminController.php - Update rejectRis() to store amendment remarks ✅
+- [x] Accept `$request->input('remarks')` and store in `ris_rejection_reason` column
+- [x] Added validation requiring amendment remarks
+- [x] Added approval log entry to track the amendment
 
-## Step 2: _content.blade.php Updates ✅
-- [x] Rename "Approved for President" → "Forwarded to President" in card
-- [x] Rename "Direct Approval" → "Direct Approved" in card
-- [x] Rename filter button texts
-- [x] Add `title` tooltips to all interactive elements
+## Step 2: AdminController.php - Update approveRis() to store admin name ✅
+- [x] Store `Auth::user()->user_full_name` as `ris_approved_by_signature` (plain text)
+- [x] Add approval log entry for admin approval record
 
-## Step 3: _table.blade.php Updates ✅
-- [x] Update status badge logic for Forwarded to President / Direct Approved
-- [x] Rename action button "Approved for President" → "Forward to President"
-- [x] Replace direct approval form with modal-triggering button
-- [x] Add tooltips to all buttons and pagination
+## Step 3: _table.blade.php - Replace Amend form with modal-triggering button ✅
+- [x] Replace `<form>` with a `<button>` that opens `openAmendModal()`
+- [x] Keep existing styling and tooltip
 
-## Step 4: index.blade.php - Direct Approval Modal + PDF Export ✅
-- [x] Add direct approval modal with:
-  - Left: iframe RIS preview
-  - Right: Admin Name input, Date input, Signature display (visual only, shows "Admin Signature (display only)")
-  - Submit → POST to direct-approve route
-- [x] Add PDF export button in the preview modal
-- [x] Update ESC key to close both modals
+## Step 4: index.blade.php - Add Amend Modal with textarea ✅
+- [x] Add modal overlay with textarea for amendment remarks
+- [x] POST to existing reject route with remarks field
+- [x] Cancel and Confirm buttons
+- [x] ESC key closes the modal
+- [x] JavaScript functions for open/close
 
-## Step 5: print.blade.php - PDF Export Button ✅
-- [x] Add toolbar with "Download PDF" and "Print" buttons (hidden during print)
+## Step 5: Purchaser ris/index.blade.php - Show rejection reason in View modal ✅
+- [x] In the View RIS details modal, add display of `ris_rejection_reason` when status is "Rejected"
+- [x] Rose-colored background to highlight amendment remarks
 

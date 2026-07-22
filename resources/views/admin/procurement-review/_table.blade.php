@@ -353,26 +353,17 @@
 
 
                             {{-- ================================================= --}}
-                            {{-- AMEND --}}
+                            {{-- AMEND (opens modal for remarks) --}}
                             {{-- ================================================= --}}
 
-                            <form
-                                method="POST"
-                                action="{{ route('admin.procurement-review.ris.reject', $ris->ris_id) }}"
+                            <button
+                                type="button"
+                                title="Return this RIS to the Purchaser for amendment with revision notes"
+                                onclick="openAmendModal('{{ $ris->ris_id }}')"
+                                class="inline-flex items-center rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-100"
                             >
-
-                                @csrf
-
-                                <button
-                                    type="submit"
-                                    title="Return this RIS to the Purchaser for amendment"
-                                    onclick="return confirm('Return this RIS to the Purchaser for amendment?')"
-                                    class="inline-flex items-center rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-100"
-                                >
-                                    Amend
-                                </button>
-
-                            </form>
+                                Amend
+                            </button>
 
                         @endif
 
