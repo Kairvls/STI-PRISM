@@ -15,6 +15,7 @@ use App\Http\Controllers\ReplacementRequestController;
 use App\Http\Controllers\PresidentController;
 use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\ReceivingController;
+use App\Http\Controllers\MessageController;
 
 /*
 |--------------------------------------------------------------------------
@@ -1634,6 +1635,54 @@ Route::middleware(['auth', 'receiving'])
         Route::get('/notifications', [ReceivingController::class, 'notifications']);
 
         
+        
+    });
+
+
+
+// =====================================================
+// MESSAGING ROUTES
+// =====================================================
+
+Route::middleware(['auth'])
+    ->prefix('messages')
+    ->name('messages.')
+    ->group(function () {
+
+        Route::get(
+            '/conversations',
+            [MessageController::class, 'index']
+        )->name('conversations.index');
+
+        Route::get(
+            '/users',
+            [MessageController::class, 'users']
+        )->name('users');
+
+        Route::get(
+            '/conversations/{conversation}',
+            [MessageController::class, 'show']
+        )->name('conversations.show');
+
+        Route::get(
+            '/conversations/{conversation}/messages',
+            [MessageController::class, 'messages']
+        )->name('conversations.messages');
+
+        Route::post(
+            '/conversations/{conversation}/send',
+            [MessageController::class, 'store']
+        )->name('conversations.send');
+
+        Route::post(
+            '/conversations/{conversation}/read',
+            [MessageController::class, 'markAsRead']
+        )->name('conversations.read');
+
+        Route::post(
+            '/conversations',
+            [MessageController::class, 'storeConversation']
+        )->name('conversations.store');
 
     });
 

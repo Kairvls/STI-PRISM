@@ -968,6 +968,9 @@
     @stack('scripts')
 
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
+
+    @include('layouts.partials.messaging-modal')
+
 </body>
 
 </html>

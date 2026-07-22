@@ -41,7 +41,8 @@
         {{-- ================================================= --}}
 
         <a
-            href="{{ url('/admin/messages') }}"
+            href="javascript:void(0)"
+            onclick="openMessagingModal()"
             class="dashboard-icon-action"
             aria-label="PRISM messages box"
             title="PRISM messages box"

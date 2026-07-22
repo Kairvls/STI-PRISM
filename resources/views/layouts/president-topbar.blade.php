@@ -31,9 +31,27 @@
     <!-- RIGHT -->
 
     <div class="flex items-center gap-2">
-        <!-- ===================================== -->
-        <!-- NOTIFICATIONS -->
-        <!-- ===================================== -->
+        {{-- ================================================= --}}
+        {{-- MAILBOX BUTTON --}}
+        {{-- BESIDE NOTIFICATION BUTTON --}}
+        {{-- ================================================= --}}
+
+        <a
+            href="javascript:void(0)"
+            onclick="openMessagingModal()"
+            class="dashboard-icon-action"
+            aria-label="PRISM messages box"
+            title="PRISM messages box"
+        >
+            <i data-lucide="messages-square" class="h-[18px] w-[18px]"></i>
+
+            {{-- ================================================= --}}
+            {{-- OPTIONAL MAIL UNREAD DOT --}}
+            {{-- REMOVE THIS SPAN IF YOU DO NOT HAVE MAIL COUNTS --}}
+            {{-- ================================================= --}}
+
+            <span class="dashboard-notification-dot"></span>
+        </a>
 
         <div class="relative">
             <!-- ===================================== -->
