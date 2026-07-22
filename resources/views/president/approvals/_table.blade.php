@@ -1,6 +1,5 @@
 @forelse ($pendingRis as $ris)
     <tr class="border-b border-gray-100 approval-row transition-all duration-200">
-        <td class="px-2 py-4 text-sm font-semibold text-gray-600">RIS#{{ $ris->ris_id }}</td>
         <td class="px-2 py-4 text-sm font-medium text-gray-800">{{ $ris->ris_form_number ?? '—' }}</td>
         <td class="px-2 py-4 text-sm text-gray-700 max-w-[200px] truncate" title="{{ $ris->ris_purpose_description ?? '' }}">
             {{ $ris->ris_purpose_description ? Str::limit($ris->ris_purpose_description, 50) : '—' }}
@@ -60,7 +59,7 @@
     </tr>
 @empty
     <tr>
-        <td colspan="7" class="px-2 py-10 text-center fade-in">
+        <td colspan="6" class="px-2 py-10 text-center fade-in">
             <p class="text-sm font-semibold text-gray-800">No RIS records found</p>
             <p class="mt-1 text-xs text-gray-500">
                 @if (request('search') || request('status'))

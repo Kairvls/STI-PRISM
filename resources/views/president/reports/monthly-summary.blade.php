@@ -111,11 +111,15 @@
     </div>
 
     {{-- Weekly Chart --}}
-    <div class="mt-6 rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.25s">
-        <h2 class="text-sm font-semibold text-gray-900">Weekly Trend</h2>
-        <p class="mt-1 text-xs text-gray-500">Last 4 weeks RIS decisions.</p>
-        <div class="mt-4" style="height: 320px;">
-            <canvas id="weeklyChart"></canvas>
+    <div class="mt-6 rounded-xl border border-gray-200 bg-white slide-up" style="animation-delay: 0.25s">
+        <div class="p-5 pb-3">
+            <h2 class="text-sm font-semibold text-gray-900">Weekly Trend</h2>
+            <p class="mt-1 text-xs text-gray-500">Last 4 weeks RIS decisions.</p>
+        </div>
+        <div class="px-5 pb-5">
+            <div style="height: 340px;">
+                <canvas id="weeklyChart"></canvas>
+            </div>
         </div>
     </div>
 
@@ -381,18 +385,18 @@
                             borderColor: '#10b981',
                             backgroundColor: (context) => {
                                 const ctx = context.chart.ctx;
-                                const gradient = ctx.createLinearGradient(0, 0, 0, 320);
-                                gradient.addColorStop(0, 'rgba(16, 185, 129, 0.2)');
-                                gradient.addColorStop(1, 'rgba(16, 185, 129, 0.02)');
+                                const gradient = ctx.createLinearGradient(0, 0, 0, 340);
+                                gradient.addColorStop(0, 'rgba(16, 185, 129, 0.28)');
+                                gradient.addColorStop(1, 'rgba(16, 185, 129, 0.04)');
                                 return gradient;
                             },
                             fill: true,
                             tension: 0.4,
-                            pointBackgroundColor: '#10b981',
-                            pointBorderColor: '#ffffff',
+                            pointBackgroundColor: '#ffffff',
+                            pointBorderColor: '#10b981',
                             pointBorderWidth: 3,
-                            pointRadius: 5,
-                            pointHoverRadius: 7,
+                            pointRadius: 6,
+                            pointHoverRadius: 8,
                             pointHoverBackgroundColor: '#10b981',
                             pointHoverBorderColor: '#ffffff',
                             pointHoverBorderWidth: 3,
@@ -404,18 +408,18 @@
                             borderColor: '#f43f5e',
                             backgroundColor: (context) => {
                                 const ctx = context.chart.ctx;
-                                const gradient = ctx.createLinearGradient(0, 0, 0, 320);
-                                gradient.addColorStop(0, 'rgba(244, 63, 94, 0.2)');
-                                gradient.addColorStop(1, 'rgba(244, 63, 94, 0.02)');
+                                const gradient = ctx.createLinearGradient(0, 0, 0, 340);
+                                gradient.addColorStop(0, 'rgba(244, 63, 94, 0.28)');
+                                gradient.addColorStop(1, 'rgba(244, 63, 94, 0.04)');
                                 return gradient;
                             },
                             fill: true,
                             tension: 0.4,
-                            pointBackgroundColor: '#f43f5e',
-                            pointBorderColor: '#ffffff',
+                            pointBackgroundColor: '#ffffff',
+                            pointBorderColor: '#f43f5e',
                             pointBorderWidth: 3,
-                            pointRadius: 5,
-                            pointHoverRadius: 7,
+                            pointRadius: 6,
+                            pointHoverRadius: 8,
                             pointHoverBackgroundColor: '#f43f5e',
                             pointHoverBorderColor: '#ffffff',
                             pointHoverBorderWidth: 3,
@@ -427,7 +431,7 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     animation: {
-                        duration: 1500,
+                        duration: 1600,
                         easing: 'easeInOutQuart',
                     },
                     interaction: {
@@ -444,18 +448,18 @@
                                 pointStyle: 'circle',
                                 boxWidth: 8,
                                 boxHeight: 8,
-                                padding: 20,
+                                padding: 24,
                                 font: {
                                     size: 12,
-                                    weight: '500'
+                                    weight: '600'
                                 },
-                                color: '#64748b'
+                                color: '#475569'
                             }
                         },
                         tooltip: {
                             backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                            titleColor: '#f1f5f9',
-                            bodyColor: '#cbd5e1',
+                            titleColor: '#f8fafc',
+                            bodyColor: '#e2e8f0',
                             titleFont: {
                                 size: 13,
                                 weight: '600'
@@ -487,7 +491,7 @@
                                     weight: '500'
                                 },
                                 color: '#64748b',
-                                padding: 10
+                                padding: 12
                             },
                             grid: {
                                 color: 'rgba(0, 0, 0, 0.04)',
@@ -508,7 +512,7 @@
                                     weight: '500'
                                 },
                                 color: '#64748b',
-                                padding: 10
+                                padding: 12
                             },
                             border: {
                                 display: false
