@@ -1,29 +1,31 @@
-# ✅ Complete - Co-sign Modal Modification
+# Signature History - Fixes
 
-## Changes Made
+## Issues
+1. Total RIS card includes active (Pending) forms, doesn't equal combined individual counts
+2. Table defaults to "procurement_review" toggle instead of unified "all" view
+3. Active/pending RIS forms are included in history
 
-### 1. `resources/views/admin/digital-signatures/sign-ris.blade.php`
-- **Removed** the Remarks textarea field
-- **Replaced with** Name text input + Date input (both required)
-- **Kept** the pen signature canvas as **display-only** (visual reference, optional)
-- **Removed** hidden fields `signature_data` and `signature_used`
-- **Updated** `openCoSignModal()` to prefill name (from Auth user) and date (today)
-- **Removed** the canvas signature form submission validation (no longer required)
-- **Updated** `clearCoSignSignature()` and `captureCoSignSignature()` to remove references to deleted hidden fields
+## Plan
 
-### 2. `app/Http/Controllers/AdminController.php`
-- **Updated** `decideRis()` to accept `admin_name` and `admin_date` instead of `signature_data`
-- **Stores** `admin_name` as plain text in `ris_issued_by_signature`
-- **Stores** `admin_date` as provided date in `ris_issued_by_date`
-- **Removed** the check that required the canvas signature to be filled
+- [x] 1. `AdminController@signatureHistory`:
+       - Default filter: unified view (remove procurement_review/sign_ris toggle)
+       - Base query: exclude `ris_status = 'Pending'` (active forms)
+       - `$totalRis`: count only finished forms (= Direct Approved + Signed + Co-signed + Amended)
+       - Remove toggle branching in table query
 
-### 3. Print view (`purchaser/ris/print.blade.php`)
-- **Already handles** plain text in the "Issued by" section - no changes needed
+- [x] 2. `_signature-history-content.blade.php`:
+       - Remove toggle buttons (Procurement Review / Sign RIS)
+       - Show single unified filter state (default "All")
+       - Add "Amended" card to the stats row
+       - Updated card descriptions
 
-### Flow
-1. Admin opens co-sign modal → sees Name (prefilled) + Date (prefilled = today) + Optional display signature canvas
-2. Admin fills name/date, optionally draws on canvas, clicks "Confirm Co-sign"
-3. Name and date are stored in the database as `ris_issued_by_signature` and `ris_issued_by_date`
-4. RIS print view shows the admin name in the **"Issued by"** section
-5. RIS is returned to the Purchaser (appears as Approved in their list)
+- [x] 3. `_signature-history-table.blade.php`:
+       - Simplify status badges (no toggle context needed)
+       - Each row shows its actual status: Direct Approved, Signed, Co-signed, Amended
+       - Fixed empty state text (removed $filter reference)
+
+- [x] 4. `signature-history.blade.php`:
+       - Updated page description
+       - Removed toggle filter JS logic
+       - Kept search + pagination + preview modal
 

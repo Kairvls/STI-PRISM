@@ -637,25 +637,241 @@ class AdminController extends Controller
     );
 }
 
-    public function signatureHistory(): View
+    public function signatureHistory(Request $request): View
     {
-        // Get RIS records that have been signed by Admin
-        $signatureHistory = DB::table('requisition_issue_slip_table')
-            ->leftJoin('procurement_requests_table', 'requisition_issue_slip_table.ris_procurement_request_id', '=', 'procurement_requests_table.procurement_request_id')
-            ->leftJoin('reports_table', 'procurement_requests_table.procurement_request_report_id', '=', 'reports_table.report_id')
-            ->leftJoin('equipment_table', 'reports_table.report_equipment_id', '=', 'equipment_table.equipment_id')
+        // =====================================================
+        // SIGNATURE HISTORY
+        // Shows history of all FINISHED/COMPLETED RIS forms.
+        // Active (Pending) RIS forms are excluded — only those
+        // that have reached a final state are shown.
+        //
+        // Finished states:
+        //   - Direct Approved (Approved + admin plain-text sig)
+        //   - Signed / Forwarded to President (Approved + President base64 sig)
+        //   - Co-signed (has issued_by_date)
+        //   - Amended (Rejected)
+        // =====================================================
+
+        // Get search value (default empty).
+        $search = trim($request->query('search', ''));
+
+
+        // =====================================================
+        // BASE QUERY - Only FINISHED RIS forms
+        // Excludes Pending (active) forms.
+        // =====================================================
+
+        $baseQuery = DB::table('requisition_issue_slip_table')
+
+            ->leftJoin(
+                'procurement_requests_table',
+                'requisition_issue_slip_table.ris_procurement_request_id',
+                '=',
+                'procurement_requests_table.procurement_request_id'
+            )
+
+            ->leftJoin(
+                'reports_table',
+                'procurement_requests_table.procurement_request_report_id',
+                '=',
+                'reports_table.report_id'
+            )
+
+            ->leftJoin(
+                'equipment_table',
+                'reports_table.report_equipment_id',
+                '=',
+                'equipment_table.equipment_id'
+            )
+
+            // LEFT JOIN RIS ITEMS SUBQUERY - computed total
+            ->leftJoin(
+                DB::raw('(SELECT ris_id, SUM(COALESCE(ris_total_amount, 0)) as ris_calculated_total FROM requisition_issue_slip_items_table GROUP BY ris_id) as ris_items_sum'),
+                'requisition_issue_slip_table.ris_id',
+                '=',
+                'ris_items_sum.ris_id'
+            )
+
+            // LEFT JOIN RIS ITEMS SUBQUERY - concatenated item names
+            ->leftJoin(
+                DB::raw('(SELECT ris_id, GROUP_CONCAT(COALESCE(ris_item_name_description, "N/A") SEPARATOR ", ") as ris_item_names FROM requisition_issue_slip_items_table GROUP BY ris_id) as ris_items_names'),
+                'requisition_issue_slip_table.ris_id',
+                '=',
+                'ris_items_names.ris_id'
+            )
+
             ->select(
                 'requisition_issue_slip_table.*',
                 'procurement_requests_table.procurement_request_id',
                 'reports_table.report_id',
                 'reports_table.report_unlisted_equipment_name',
-                'equipment_table.equipment_name'
+                'equipment_table.equipment_name',
+                'ris_items_sum.ris_calculated_total',
+                'ris_items_names.ris_item_names'
             )
-            ->whereNotNull('requisition_issue_slip_table.ris_issued_by_date')
-            ->orderByDesc('requisition_issue_slip_table.ris_issued_by_date')
-            ->paginate(10);
 
-        return view('admin.digital-signatures.signature-history', compact('signatureHistory'));
+            // Only RIS forms that have been submitted
+            ->whereNotNull(
+                'requisition_issue_slip_table.ris_requested_by_date'
+            )
+
+            // EXCLUDE active (Pending) forms — only finished ones
+            ->where(
+                'requisition_issue_slip_table.ris_status',
+                '!=',
+                'Pending'
+            );
+
+
+        // =====================================================
+        // DASHBOARD CARD COUNTS
+        // Each card counts a mutually-exclusive finished state.
+        // Total = sum of all individual cards (no overlap).
+        // =====================================================
+
+        // Direct Approved = Approved + plain-text admin name (NOT base64), NOT co-signed
+        $directApprovedCount = (clone $baseQuery)
+            ->where('requisition_issue_slip_table.ris_status', 'Approved')
+            ->whereNotNull('requisition_issue_slip_table.ris_approved_by_date')
+            ->whereNotNull('requisition_issue_slip_table.ris_approved_by_signature')
+            ->where('requisition_issue_slip_table.ris_approved_by_signature', 'not like', 'data:image%')
+            ->whereNull('requisition_issue_slip_table.ris_issued_by_date')
+            ->count();
+
+        // Signed = Approved + base64 President signature, NOT co-signed (forwarded to President)
+        $signedCount = (clone $baseQuery)
+            ->where('requisition_issue_slip_table.ris_status', 'Approved')
+            ->whereNotNull('requisition_issue_slip_table.ris_approved_by_date')
+            ->where('requisition_issue_slip_table.ris_approved_by_signature', 'like', 'data:image%')
+            ->whereNull('requisition_issue_slip_table.ris_issued_by_date')
+            ->count();
+
+        // Co-signed = has ris_issued_by_date set
+        $cosignedCount = (clone $baseQuery)
+            ->whereNotNull('requisition_issue_slip_table.ris_issued_by_date')
+            ->count();
+
+        // Amended = Rejected status
+        $amendedCount = (clone $baseQuery)
+            ->where('requisition_issue_slip_table.ris_status', 'Rejected')
+            ->count();
+
+        // Total = sum of all finished states (should equal directApproved + signed + cosigned + amended)
+        $totalRis = $directApprovedCount + $signedCount + $cosignedCount + $amendedCount;
+
+
+        // =====================================================
+        // TABLE QUERY
+        // =====================================================
+
+        $query = clone $baseQuery;
+
+
+        // =====================================================
+        // SEARCH
+        // =====================================================
+
+        if ($search !== '') {
+
+            $query->where(function ($searchQuery) use ($search) {
+
+                $searchQuery
+                    ->where(
+                        'requisition_issue_slip_table.ris_form_number',
+                        'like',
+                        '%' . $search . '%'
+                    )
+                    ->orWhere(
+                        'requisition_issue_slip_table.ris_requested_by_signature',
+                        'like',
+                        '%' . $search . '%'
+                    )
+                    ->orWhere(
+                        'equipment_table.equipment_name',
+                        'like',
+                        '%' . $search . '%'
+                    )
+                    ->orWhere(
+                        'reports_table.report_unlisted_equipment_name',
+                        'like',
+                        '%' . $search . '%'
+                    )
+                    ->orWhere(
+                        'requisition_issue_slip_table.ris_issued_by_signature',
+                        'like',
+                        '%' . $search . '%'
+                    )
+                    ->orWhere(
+                        'requisition_issue_slip_table.ris_purpose_description',
+                        'like',
+                        '%' . $search . '%'
+                    );
+
+            });
+        }
+
+
+        // =====================================================
+        // SORTING - Most recent / latest first
+        // Uses COALESCE to pick the latest relevant date
+        // =====================================================
+
+        $signatureHistory = $query
+
+            ->orderByRaw("
+                COALESCE(
+                    requisition_issue_slip_table.ris_updated_at,
+                    requisition_issue_slip_table.ris_issued_by_date,
+                    requisition_issue_slip_table.ris_approved_by_date,
+                    requisition_issue_slip_table.ris_requested_by_date,
+                    requisition_issue_slip_table.ris_created_at
+                ) DESC
+            ")
+            ->orderByDesc(
+                'requisition_issue_slip_table.ris_id'
+            )
+
+            ->paginate(10)
+
+            ->appends([
+                'search' => $search,
+            ]);
+
+
+        // =====================================================
+        // RETURN VIEW
+        // =====================================================
+
+        // AJAX requests return only the content partial
+        if ($request->ajax() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
+
+            return view(
+                'admin.digital-signatures._signature-history-content',
+                compact(
+                    'signatureHistory',
+                    'search',
+                    'totalRis',
+                    'directApprovedCount',
+                    'signedCount',
+                    'cosignedCount',
+                    'amendedCount'
+                )
+            );
+
+        }
+
+        return view(
+            'admin.digital-signatures.signature-history',
+            compact(
+                'signatureHistory',
+                'search',
+                'totalRis',
+                'directApprovedCount',
+                'signedCount',
+                'cosignedCount',
+                'amendedCount'
+            )
+        );
     }
 
     // =====================================================
