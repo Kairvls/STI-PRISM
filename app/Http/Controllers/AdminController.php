@@ -271,6 +271,25 @@ class AdminController extends Controller
     // RETURN VIEW
     // =====================================================
 
+    // AJAX requests return only the content partial
+    // so the page does not fully reload.
+    if ($request->ajax() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
+
+        return view(
+            'admin.procurement-review._content',
+            compact(
+                'risRecords',
+                'filter',
+                'search',
+                'totalRis',
+                'pendingRis',
+                'amendRis',
+                'approvedRis'
+            )
+        );
+
+    }
+
     return view(
         'admin.procurement-review.index',
         compact(

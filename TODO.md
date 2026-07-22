@@ -1,9 +1,10 @@
-# Procurement Table - Amount Column Implementation
+# RIS Procurement Review AJAX Smooth Search/Filter/Pagination
 
 ## Steps
-- [x] 1. Analysis complete
-- [x] 2. Plan approved
-- [x] 3. Edit AdminController.php - Add LEFT JOIN subquery for SUM of ris_total_amount from items table
-- [x] 4. Edit index.blade.php - Update to use ris_calculated_total
-- [x] 5. Verify _table.blade.php uses correct field (already uses ris_calculated_total)
+- [x] 1. Analyze current implementation and create plan
+- [x] 2. Create `_content.blade.php` partial with stat cards + filter/search + table + pagination
+- [x] 3. Update `index.blade.php` to use the new partial and add AJAX JS
+- [x] 4. Update `AdminController.php` to handle AJAX requests and return only the partial
+- [x] 5. Update `_table.blade.php` to add `data-page` attributes and `.ris-pagination-link` class
+- [x] 6. Remove script block from `_content.blade.php` (scripts don't execute via innerHTML)
 

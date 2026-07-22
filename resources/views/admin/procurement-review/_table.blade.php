@@ -469,8 +469,9 @@
 
                 <a
                     href="{{ $risRecords->previousPageUrl() }}"
+                    data-page="{{ $risRecords->currentPage() - 1 }}"
                     title="Previous page"
-                    class="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-sm font-semibold text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
+                    class="ris-pagination-link flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-sm font-semibold text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
                 >
                     <
                 </a>
@@ -500,8 +501,9 @@
 
                 <a
                     href="{{ $risRecords->nextPageUrl() }}"
+                    data-page="{{ $risRecords->currentPage() + 1 }}"
                     title="Next page"
-                    class="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-sm font-semibold text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
+                    class="ris-pagination-link flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-sm font-semibold text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
                 >
                     >
                 </a>
@@ -518,5 +520,7 @@
             @endif
 
         </div>
+
+    </div>
 
 @endif
