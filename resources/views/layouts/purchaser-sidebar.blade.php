@@ -270,8 +270,8 @@
         {{-- ===================================================== --}}
 
         <a
-            href="#"
-            class="menu-item mt-1"
+            href="{{ route('purchaser.suppliers.index') }}"
+            class="menu-item mt-1 {{ request()->routeIs('purchaser.suppliers.*') ? 'active' : '' }}"
         >
 
             <i
@@ -295,7 +295,53 @@
             PURCHASING WORKFLOW
         </div>
 
+        {{-- ===================================================== --}}
+        {{-- RIS --}}
+        {{-- ===================================================== --}}
 
+        <a
+            href="{{ route('purchaser.ris.index') }}"
+            class="
+                menu-item mt-1
+
+                {{
+                    request()->routeIs('purchaser.ris*')
+                        ? 'active'
+                        : ''
+                }}
+            "
+        >
+
+            <i
+                data-lucide="package-open"
+                class="h-5 w-5"
+            ></i>
+
+            <span>
+                RIS
+            </span>
+
+        </a>
+
+        {{-- ===================================================== --}}
+        {{-- AUTHORITY TO PURCHASE --}}
+        {{-- ===================================================== --}}
+
+        <a
+            href="{{ route('purchaser.atp.index') }}"
+            class="menu-item mt-1 {{ request()->routeIs('purchaser.atp*') ? 'active' : '' }}"
+        >
+
+            <i
+                data-lucide="file-check-2"
+                class="h-5 w-5"
+            ></i>
+
+            <span>
+                Authority to Purchase
+            </span>
+
+        </a>
         {{-- ===================================================== --}}
         {{-- REQUEST CHECK --}}
         {{-- ===================================================== --}}
@@ -312,28 +358,6 @@
 
             <span>
                 Request Check
-            </span>
-
-        </a>
-
-
-
-        {{-- ===================================================== --}}
-        {{-- AUTHORITY TO PURCHASE --}}
-        {{-- ===================================================== --}}
-
-        <a
-            href="#"
-            class="menu-item mt-1"
-        >
-
-            <i
-                data-lucide="file-check-2"
-                class="h-5 w-5"
-            ></i>
-
-            <span>
-                Authority to Purchase
             </span>
 
         </a>
@@ -360,30 +384,6 @@
 
         </a>
 
-
-
-        {{-- ===================================================== --}}
-        {{-- RIS --}}
-        {{-- ===================================================== --}}
-
-        <a
-            href="#"
-            class="menu-item mt-1"
-        >
-
-            <i
-                data-lucide="package-open"
-                class="h-5 w-5"
-            ></i>
-
-            <span>
-                RIS
-            </span>
-
-        </a>
-
-
-
         {{-- ===================================================== --}}
         {{-- LIQUIDATION REPORTS --}}
         {{-- ===================================================== --}}
@@ -406,34 +406,6 @@
 
 
 
-        {{-- ===================================================== --}}
-        {{-- SYSTEM SECTION --}}
-        {{-- ===================================================== --}}
-
-        <div class="menu-title">
-            SYSTEM
-        </div>
-
-
-        {{-- ===================================================== --}}
-        {{-- NOTIFICATIONS --}}
-        {{-- ===================================================== --}}
-
-        <a
-            href="#"
-            class="menu-item"
-        >
-
-            <i
-                data-lucide="bell"
-                class="h-5 w-5"
-            ></i>
-
-            <span>
-                Notifications
-            </span>
-
-        </a>
 
 
     </div>
