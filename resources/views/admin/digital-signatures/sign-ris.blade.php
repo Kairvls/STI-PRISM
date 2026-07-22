@@ -195,29 +195,46 @@
 
                             <input type="hidden" name="target_id" id="coSignTargetId" value="" />
                             <input type="hidden" name="decision" value="Approved" />
-                            <input type="hidden" name="signature_data" id="coSignSignatureData" value="" />
-                            <input type="hidden" name="signature_used" id="coSignSignatureUsed" value="0" />
 
-                            {{-- Remarks --}}
+                            {{-- Admin Name --}}
 
                             <div>
-                                <label for="coSignRemarks" class="block text-sm font-medium text-gray-700">
-                                    Remarks (optional)
+                                <label for="coSignAdminName" class="block text-sm font-medium text-gray-700">
+                                    Name <span class="text-red-500">*</span>
                                 </label>
-                                <textarea
-                                    id="coSignRemarks"
-                                    name="remarks"
-                                    rows="3"
-                                    placeholder="Add remarks for your co-sign..."
+                                <input
+                                    type="text"
+                                    id="coSignAdminName"
+                                    name="admin_name"
+                                    required
+                                    placeholder="Enter your full name"
+                                    title="Enter the name to display in the Issued by section"
                                     class="mt-1.5 block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-gray-400 focus:ring-2 focus:ring-gray-100"
-                                ></textarea>
+                                >
                             </div>
 
-                            {{-- Signature Canvas --}}
+                            {{-- Date --}}
+
+                            <div>
+                                <label for="coSignAdminDate" class="block text-sm font-medium text-gray-700">
+                                    Date <span class="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="date"
+                                    id="coSignAdminDate"
+                                    name="admin_date"
+                                    required
+                                    value="{{ date('Y-m-d') }}"
+                                    title="Select the date of co-sign"
+                                    class="mt-1.5 block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 outline-none transition focus:border-gray-400 focus:ring-2 focus:ring-gray-100"
+                                >
+                            </div>
+
+                            {{-- Signature Display (visual only) --}}
 
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">
-                                    Sign here (mouse / touch) <span class="text-red-500">*</span>
+                                    Digital Signature (display only)
                                 </label>
                                 <div class="mt-2 rounded-lg border border-gray-200 bg-white p-2">
                                     <canvas
@@ -239,6 +256,7 @@
                                         <p class="text-sm text-green-600 font-medium">✓ Signature captured and ready</p>
                                     </div>
                                 </div>
+                                <p class="mt-1 text-xs text-gray-400">Optional: draw a signature for visual display. The name above will be used as the primary signature.</p>
                             </div>
 
                             {{-- Info Box --}}
@@ -701,23 +719,32 @@
         // Set form values
         targetId.value = risId;
 
-        // Reset signature canvas
+        // Set default name from authenticated user
+        const nameInput = document.getElementById('coSignAdminName');
+        if (nameInput) {
+            nameInput.value = '{{ Auth::user()->user_full_name ?? '' }}';
+        }
+
+        // Set default date to today
+        const dateInput = document.getElementById('coSignAdminDate');
+        if (dateInput) {
+            const today = new Date().toISOString().split('T')[0];
+            dateInput.value = today;
+        }
+
+        // Reset signature canvas (display only)
         const canvas = document.getElementById('coSignCanvas');
         if (canvas) {
             const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
         }
 
-        document.getElementById('coSignSignatureData').value = '';
-        document.getElementById('coSignSignatureUsed').value = '0';
-        document.getElementById('coSignRemarks').value = '';
-
         const helpText = document.getElementById('coSignSignatureHelpText');
         if (helpText) helpText.classList.add('hidden');
 
         const status = document.getElementById('coSignSignatureStatus');
         if (status) {
-            status.textContent = 'Draw your signature';
+            status.textContent = 'Draw your signature (optional)';
             status.className = 'text-xs text-slate-500';
         }
 
@@ -823,23 +850,17 @@
     function clearCoSignSignature() {
 
         const canvas = document.getElementById('coSignCanvas');
-        const signatureData = document.getElementById('coSignSignatureData');
-        const signatureUsed = document.getElementById('coSignSignatureUsed');
-        const helpText = document.getElementById('coSignSignatureHelpText');
-
         if (!canvas) return;
 
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        signatureData.value = '';
-        signatureUsed.value = '0';
-
+        const helpText = document.getElementById('coSignSignatureHelpText');
         if (helpText) helpText.classList.add('hidden');
 
         const status = document.getElementById('coSignSignatureStatus');
         if (status) {
-            status.textContent = 'Draw your signature';
+            status.textContent = 'Draw your signature (optional)';
             status.className = 'text-xs text-slate-500';
         }
 
@@ -853,11 +874,7 @@
     function captureCoSignSignature() {
 
         const canvas = document.getElementById('coSignCanvas');
-        const signatureData = document.getElementById('coSignSignatureData');
-        const signatureUsed = document.getElementById('coSignSignatureUsed');
-        const helpText = document.getElementById('coSignSignatureHelpText');
-
-        if (!canvas || !signatureData) return;
+        if (!canvas) return;
 
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -873,15 +890,12 @@
 
         if (!hasDrawn) return;
 
-        const dataUrl = canvas.toDataURL('image/png');
-        signatureData.value = dataUrl;
-        signatureUsed.value = '1';
-
+        const helpText = document.getElementById('coSignSignatureHelpText');
         if (helpText) helpText.classList.remove('hidden');
 
         const status = document.getElementById('coSignSignatureStatus');
         if (status) {
-            status.textContent = '✓ Signature ready';
+            status.textContent = '✓ Signature drawn (display only)';
             status.className = 'text-xs text-green-600 font-medium';
         }
 
@@ -890,21 +904,7 @@
     }
 
 
-    // =====================================================
-    // CO-SIGN FORM SUBMISSION VALIDATION
-    // =====================================================
-
-    document.getElementById('coSignForm')?.addEventListener('submit', function (event) {
-
-        const signatureUsed = document.getElementById('coSignSignatureUsed')?.value;
-
-        if (signatureUsed !== '1') {
-            event.preventDefault();
-            alert('Please sign before co-signing the RIS.');
-            return false;
-        }
-
-    });
+    {{-- Canvas signature validation removed -- now using Name + Date fields --}}
 
 
     // =====================================================

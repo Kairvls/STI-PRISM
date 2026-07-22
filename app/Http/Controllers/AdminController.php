@@ -666,11 +666,21 @@ class AdminController extends Controller
     {
         $targetId = $request->input('target_id');
         $decision = $request->input('decision');
-        $remarks = $request->input('remarks');
+        $adminName = $request->input('admin_name');
+        $adminDate = $request->input('admin_date');
 
         // Basic validation
         if (empty($targetId) || !in_array($decision, ['Approved', 'Rejected'], true)) {
             return back()->with('error', 'Invalid RIS decision payload.');
+        }
+
+        // Validate admin name and date
+        if (empty(trim($adminName ?? ''))) {
+            return back()->with('error', 'Please provide your name to co-sign the RIS.');
+        }
+
+        if (empty($adminDate)) {
+            return back()->with('error', 'Please provide the date to co-sign the RIS.');
         }
 
         $target = DB::table('requisition_issue_slip_table')
@@ -702,12 +712,9 @@ class AdminController extends Controller
         ];
 
         if ($decision === 'Approved') {
-            $signatureData = $request->input('signature_data');
-            if (empty($signatureData)) {
-                return back()->with('error', 'Admin signature is required to co-sign the RIS.');
-            }
-            $updateValues['ris_issued_by_signature'] = $signatureData;
-            $updateValues['ris_issued_by_date'] = now()->toDateString();
+            // Store the admin name as plain text signature
+            $updateValues['ris_issued_by_signature'] = trim($adminName);
+            $updateValues['ris_issued_by_date'] = $adminDate;
         } else {
             return back()->with('error', 'Only co-signing (approval) is supported for President-approved RIS.');
         }
@@ -724,7 +731,7 @@ class AdminController extends Controller
                 'approval_log_level' => 'Admin Co-sign',
                 'approval_log_approved_by' => Auth::id(),
                 'approval_log_approval_status' => 'Co-signed',
-                'approval_log_approval_remarks' => $remarks ?: 'RIS co-signed by Admin after President approval.',
+                'approval_log_approval_remarks' => 'RIS co-signed by ' . trim($adminName) . ' after President approval.',
                 'approval_log_approved_at' => now(),
             ]);
         } catch (\Throwable $e) {
