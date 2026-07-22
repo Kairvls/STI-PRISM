@@ -157,7 +157,7 @@
 
             <i data-lucide="badge-check"></i>
 
-            <span>RIS Decisions</span>
+            <span>RIS Status</span>
 
         </a>
 

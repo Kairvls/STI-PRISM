@@ -10,99 +10,395 @@ class AuthorityToPurchaseController extends Controller
 {
     public function index(Request $request)
     {
+        // ============================================================
+        // ATP INDEX: Archive / Active View
+        // ============================================================
+
         $archiveView = $request->query('view') === 'archive';
 
+
+        // ============================================================
+        // ATP INDEX: Main ATP Query
+        // ============================================================
+
         $query = DB::table('authority_to_purchase_table')
-            ->leftJoin('requisition_issue_slip_table', 'authority_to_purchase_table.authority_purchase_ris_id', '=', 'requisition_issue_slip_table.ris_id')
-            ->leftJoin('procurement_requests_table', 'requisition_issue_slip_table.ris_procurement_request_id', '=', 'procurement_requests_table.procurement_request_id')
-            ->leftJoin('reports_table', 'procurement_requests_table.procurement_request_report_id', '=', 'reports_table.report_id')
-            ->leftJoin('equipment_table', 'reports_table.report_equipment_id', '=', 'equipment_table.equipment_id')
-            ->leftJoin('suppliers_table', 'authority_to_purchase_table.authority_purchase_supplier_id', '=', 'suppliers_table.supplier_id')
-            ->leftJoin('physical_suppliers_table', 'suppliers_table.supplier_id', '=', 'physical_suppliers_table.supplier_id')
-            ->leftJoin('online_suppliers_table', 'suppliers_table.supplier_id', '=', 'online_suppliers_table.supplier_id')
+            ->leftJoin(
+                'requisition_issue_slip_table',
+                'authority_to_purchase_table.authority_purchase_ris_id',
+                '=',
+                'requisition_issue_slip_table.ris_id'
+            )
+            ->leftJoin(
+                'procurement_requests_table',
+                'requisition_issue_slip_table.ris_procurement_request_id',
+                '=',
+                'procurement_requests_table.procurement_request_id'
+            )
+            ->leftJoin(
+                'reports_table',
+                'procurement_requests_table.procurement_request_report_id',
+                '=',
+                'reports_table.report_id'
+            )
+            ->leftJoin(
+                'equipment_table',
+                'reports_table.report_equipment_id',
+                '=',
+                'equipment_table.equipment_id'
+            )
+            ->leftJoin(
+                'suppliers_table',
+                'authority_to_purchase_table.authority_purchase_supplier_id',
+                '=',
+                'suppliers_table.supplier_id'
+            )
+            ->leftJoin(
+                'physical_suppliers_table',
+                'suppliers_table.supplier_id',
+                '=',
+                'physical_suppliers_table.supplier_id'
+            )
+            ->leftJoin(
+                'online_suppliers_table',
+                'suppliers_table.supplier_id',
+                '=',
+                'online_suppliers_table.supplier_id'
+            )
             ->select(
                 'authority_to_purchase_table.*',
+
                 'requisition_issue_slip_table.ris_form_number',
                 'requisition_issue_slip_table.ris_request_type',
                 'requisition_issue_slip_table.ris_manual_title',
+
                 'procurement_requests_table.procurement_request_id',
+
                 'reports_table.report_id',
-                'equipment_table.equipment_name',
                 'reports_table.report_unlisted_equipment_name',
+
+                'equipment_table.equipment_name',
+
                 'suppliers_table.supplier_store_type',
                 'physical_suppliers_table.company_name',
                 'online_suppliers_table.shop_name'
             );
 
+
+        // ============================================================
+        // ATP INDEX: Active / Archive Filter
+        // ============================================================
+
         if ($archiveView) {
-            $query->where('authority_to_purchase_table.authority_purchase_is_archived', 1);
+
+            $query->where(
+                'authority_to_purchase_table.authority_purchase_is_archived',
+                1
+            );
+
         } else {
+
             $query->where(function ($q) {
-                $q->whereNull('authority_to_purchase_table.authority_purchase_is_archived')
-                  ->orWhere('authority_to_purchase_table.authority_purchase_is_archived', 0);
+
+                $q->whereNull(
+                    'authority_to_purchase_table.authority_purchase_is_archived'
+                )
+                ->orWhere(
+                    'authority_to_purchase_table.authority_purchase_is_archived',
+                    0
+                );
+
             });
         }
+
+
+        // ============================================================
+        // ATP INDEX: Search
+        // ============================================================
 
         if ($request->filled('search')) {
+
             $query->where(function ($subQuery) use ($request) {
+
+                $search = '%' . $request->search . '%';
+
                 $subQuery
-                    ->where('authority_to_purchase_table.authority_purchase_form_number', 'LIKE', '%' . $request->search . '%')
-                    ->orWhere('requisition_issue_slip_table.ris_form_number', 'LIKE', '%' . $request->search . '%')
-                    ->orWhere('physical_suppliers_table.company_name', 'LIKE', '%' . $request->search . '%')
-                    ->orWhere('online_suppliers_table.shop_name', 'LIKE', '%' . $request->search . '%')
-                    ->orWhere('equipment_table.equipment_name', 'LIKE', '%' . $request->search . '%')
-                    ->orWhere('reports_table.report_unlisted_equipment_name', 'LIKE', '%' . $request->search . '%');
+                    ->where(
+                        'authority_to_purchase_table.authority_purchase_form_number',
+                        'LIKE',
+                        $search
+                    )
+                    ->orWhere(
+                        'requisition_issue_slip_table.ris_form_number',
+                        'LIKE',
+                        $search
+                    )
+                    ->orWhere(
+                        'physical_suppliers_table.company_name',
+                        'LIKE',
+                        $search
+                    )
+                    ->orWhere(
+                        'online_suppliers_table.shop_name',
+                        'LIKE',
+                        $search
+                    )
+                    ->orWhere(
+                        'equipment_table.equipment_name',
+                        'LIKE',
+                        $search
+                    )
+                    ->orWhere(
+                        'reports_table.report_unlisted_equipment_name',
+                        'LIKE',
+                        $search
+                    );
+
             });
         }
 
+
+        // ============================================================
+        // ATP INDEX: Status Filter
+        // ============================================================
+
         if ($request->filled('status')) {
-            $query->where('authority_to_purchase_table.authority_purchase_status', $request->status);
+
+            $query->where(
+                'authority_to_purchase_table.authority_purchase_status',
+                $request->status
+            );
         }
+
+
+        // ============================================================
+        // ATP INDEX: RIS Request Type Filter
+        // ============================================================
 
         if ($request->filled('request_type')) {
-            $query->where('requisition_issue_slip_table.ris_request_type', $request->request_type);
+
+            $query->where(
+                'requisition_issue_slip_table.ris_request_type',
+                $request->request_type
+            );
         }
 
+
+        // ============================================================
+        // ATP INDEX: Pagination
+        // ============================================================
+
         $atps = $query
-            ->orderByDesc('authority_to_purchase_table.authority_purchase_created_at')
+            ->orderByDesc(
+                'authority_to_purchase_table.authority_purchase_created_at'
+            )
             ->paginate(10)
             ->withQueryString();
 
+
+        // ============================================================
+        // ATP INDEX: Summary Cards
+        // ============================================================
+
         $atpSummary = [
+
             'draft' => DB::table('authority_to_purchase_table')
                 ->whereNull('authority_purchase_submitted_at')
                 ->where(function ($q) {
+
                     $q->whereNull('authority_purchase_is_archived')
-                      ->orWhere('authority_purchase_is_archived', 0);
+                        ->orWhere('authority_purchase_is_archived', 0);
+
                 })
                 ->count(),
+
+
             'submitted' => DB::table('authority_to_purchase_table')
                 ->whereNotNull('authority_purchase_submitted_at')
                 ->where('authority_purchase_status', 'Pending')
                 ->where(function ($q) {
+
                     $q->whereNull('authority_purchase_is_archived')
-                      ->orWhere('authority_purchase_is_archived', 0);
+                        ->orWhere('authority_purchase_is_archived', 0);
+
                 })
                 ->count(),
+
+
             'approved' => DB::table('authority_to_purchase_table')
                 ->where('authority_purchase_status', 'Approved')
                 ->where(function ($q) {
+
                     $q->whereNull('authority_purchase_is_archived')
-                      ->orWhere('authority_purchase_is_archived', 0);
+                        ->orWhere('authority_purchase_is_archived', 0);
+
                 })
                 ->count(),
+
+
             'rejected' => DB::table('authority_to_purchase_table')
                 ->where('authority_purchase_status', 'Rejected')
                 ->where(function ($q) {
+
                     $q->whereNull('authority_purchase_is_archived')
-                      ->orWhere('authority_purchase_is_archived', 0);
+                        ->orWhere('authority_purchase_is_archived', 0);
+
                 })
                 ->count(),
         ];
 
+
+        // ============================================================
+        // CREATE ATP MODAL: Eligible Approved RIS
+        // ============================================================
+
+        $eligibleRis = DB::table('requisition_issue_slip_table')
+
+            ->leftJoin(
+                'procurement_requests_table',
+                'requisition_issue_slip_table.ris_procurement_request_id',
+                '=',
+                'procurement_requests_table.procurement_request_id'
+            )
+
+            ->leftJoin(
+                'reports_table',
+                'procurement_requests_table.procurement_request_report_id',
+                '=',
+                'reports_table.report_id'
+            )
+
+            ->leftJoin(
+                'equipment_table',
+                'reports_table.report_equipment_id',
+                '=',
+                'equipment_table.equipment_id'
+            )
+
+            ->where(
+                'requisition_issue_slip_table.ris_status',
+                'Approved'
+            )
+
+            // Prevent creating another ATP for the same RIS
+            ->whereNotExists(function ($query) {
+
+                $query
+                    ->select(DB::raw(1))
+                    ->from('authority_to_purchase_table')
+                    ->whereColumn(
+                        'authority_to_purchase_table.authority_purchase_ris_id',
+                        'requisition_issue_slip_table.ris_id'
+                    );
+
+            })
+
+            ->select(
+                'requisition_issue_slip_table.ris_id',
+                'requisition_issue_slip_table.ris_form_number',
+                'requisition_issue_slip_table.ris_request_type',
+                'requisition_issue_slip_table.ris_manual_title',
+
+                'procurement_requests_table.procurement_request_id',
+
+                'equipment_table.equipment_name',
+
+                'reports_table.report_unlisted_equipment_name'
+            )
+
+            ->orderByDesc(
+                'requisition_issue_slip_table.ris_created_at'
+            )
+
+            ->get();
+
+
+        // ============================================================
+        // CREATE / EDIT ATP MODALS: Active Suppliers
+        // ============================================================
+
+        $suppliers = DB::table('suppliers_table')
+
+            ->leftJoin(
+                'physical_suppliers_table',
+                'suppliers_table.supplier_id',
+                '=',
+                'physical_suppliers_table.supplier_id'
+            )
+
+            ->leftJoin(
+                'online_suppliers_table',
+                'suppliers_table.supplier_id',
+                '=',
+                'online_suppliers_table.supplier_id'
+            )
+
+            ->select(
+                'suppliers_table.supplier_id',
+                'suppliers_table.supplier_store_type',
+                'suppliers_table.supplier_is_active',
+
+                'physical_suppliers_table.company_name',
+
+                'online_suppliers_table.shop_name'
+            )
+
+            ->where(
+                'suppliers_table.supplier_is_active',
+                1
+            )
+
+            ->orderBy(
+                'suppliers_table.supplier_id'
+            )
+
+            ->get();
+
+
+        // ============================================================
+        // VIEW / EDIT ATP MODALS: Load Items for Current ATP Page
+        // ============================================================
+
+        $atpIds = $atps
+            ->getCollection()
+            ->pluck('authority_purchase_id');
+
+
+        $atpItems = DB::table('authority_to_purchase_items_table')
+
+            ->whereIn(
+                'authority_purchase_id',
+                $atpIds
+            )
+
+            ->orderBy('atp_item_id')
+
+            ->get()
+
+            ->groupBy('authority_purchase_id');
+
+
+        // ============================================================
+        // CREATE ATP MODAL: Optional Preselected RIS
+        // ============================================================
+
+        $selectedRisId = $request->query('selected_ris');
+
+
+        // ============================================================
+        // RETURN EVERYTHING TO THE SINGLE INDEX.BLADE.PHP
+        // ============================================================
+
         return view(
             'purchaser.authority-to-purchase.index',
-            compact('atps', 'archiveView', 'atpSummary')
+            compact(
+                'atps',
+                'archiveView',
+                'atpSummary',
+                'eligibleRis',
+                'suppliers',
+                'atpItems',
+                'selectedRisId'
+            )
         );
     }
 
@@ -359,7 +655,9 @@ class AuthorityToPurchaseController extends Controller
                 ]);
             }
 
-            return redirect()->route('purchaser.atp.show', $id)->with('success', 'Authority to Purchase draft updated successfully.');
+            return redirect()
+                ->route('purchaser.atp.index')
+                ->with('success', 'Authority to Purchase draft updated successfully.');
         });
     }
 

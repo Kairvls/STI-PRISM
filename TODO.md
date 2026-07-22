@@ -1,6 +1,31 @@
-# TODO - President Dashboard Wiring
+# Signature History - Fixes
 
-- [ ] Update `app/Http/Controllers/PresidentController.php` to pass procurement decision/approval and notification counts to the President dashboard view.
-- [ ] Update `resources/views/president/dashboard.blade.php` to replace placeholders (`—`, “Pending supplier comparison connection”, “Placeholder until backend wiring is ready.”) with real count values.
-- [ ] Smoke test in browser for `/president/dashboard`.
+## Issues
+1. Total RIS card includes active (Pending) forms, doesn't equal combined individual counts
+2. Table defaults to "procurement_review" toggle instead of unified "all" view
+3. Active/pending RIS forms are included in history
+
+## Plan
+
+- [x] 1. `AdminController@signatureHistory`:
+       - Default filter: unified view (remove procurement_review/sign_ris toggle)
+       - Base query: exclude `ris_status = 'Pending'` (active forms)
+       - `$totalRis`: count only finished forms (= Direct Approved + Signed + Co-signed + Amended)
+       - Remove toggle branching in table query
+
+- [x] 2. `_signature-history-content.blade.php`:
+       - Remove toggle buttons (Procurement Review / Sign RIS)
+       - Show single unified filter state (default "All")
+       - Add "Amended" card to the stats row
+       - Updated card descriptions
+
+- [x] 3. `_signature-history-table.blade.php`:
+       - Simplify status badges (no toggle context needed)
+       - Each row shows its actual status: Direct Approved, Signed, Co-signed, Amended
+       - Fixed empty state text (removed $filter reference)
+
+- [x] 4. `signature-history.blade.php`:
+       - Updated page description
+       - Removed toggle filter JS logic
+       - Kept search + pagination + preview modal
 

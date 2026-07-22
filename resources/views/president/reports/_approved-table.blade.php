@@ -1,13 +1,17 @@
-@forelse ($approvedOutcomeRecords as $row)
+@php
+    $records = $approvedOutcomeRecords ?? $outcomeRecords ?? collect();
+    $type = $type ?? 'approved';
+@endphp
+@forelse ($records as $row)
     @php
         $reference = $row->ris_form_number ?? ('RIS #' . $row->ris_id);
         $decisionDate = $row->decided_at ?? $row->ris_created_at ?? null;
         $remarks = $row->remarks ?? null;
         $risId = $row->ris_id ?? null;
-        $type = $type ?? 'approved';
+        $statusLower = strtolower($row->ris_status ?? '');
     @endphp
 
-    <tr class="border-b border-gray-100 outcome-row transition-all duration-200">
+    <tr class="border-b border-gray-100 outcome-row transition-all duration-200 hover:bg-yellow-50/40">
         <td class="px-3 py-4 text-sm font-semibold text-gray-700">{{ $reference }}</td>
         <td class="px-3 py-4 text-sm text-gray-700">
             {{ $decisionDate ? \Carbon\Carbon::parse($decisionDate)->format('F j, Y') : '—' }}
@@ -35,8 +39,8 @@
 @empty
     <tr>
         <td colspan="5" class="px-2 py-12 text-center">
-            <p class="text-sm font-semibold text-gray-800">{{ $type === 'rejected' ? 'No rejected outcomes found.' : 'No approved outcomes found.' }}</p>
-            <p class="mt-1 text-xs text-gray-500">{{ $type === 'rejected' ? 'Rejected RIS records will appear here.' : 'Approved RIS records will appear here.' }}</p>
+            <p class="text-sm font-semibold text-gray-800">{{ $type === 'rejected' ? 'No rejected outcomes found.' : ($type === 'pending' ? 'No pending outcomes found.' : ($type === 'all' ? 'No RIS records found.' : 'No approved outcomes found.')) }}</p>
+            <p class="mt-1 text-xs text-gray-500">{{ $type === 'rejected' ? 'Rejected RIS records will appear here.' : ($type === 'pending' ? 'Pending RIS records will appear here.' : ($type === 'all' ? 'RIS records will appear here.' : 'Approved RIS records will appear here.')) }}</p>
         </td>
     </tr>
 @endforelse

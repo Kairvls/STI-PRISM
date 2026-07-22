@@ -332,73 +332,6 @@
             PURCHASING WORKFLOW
         </div>
 
-
-        {{-- ===================================================== --}}
-        {{-- REQUEST CHECK --}}
-        {{-- ===================================================== --}}
-
-        <a
-            href="#"
-            class="menu-item"
-        >
-
-            <i
-                data-lucide="clipboard-check"
-                class="h-5 w-5"
-            ></i>
-
-            <span>
-                Request Check
-            </span>
-
-        </a>
-
-
-
-        {{-- ===================================================== --}}
-        {{-- AUTHORITY TO PURCHASE --}}
-        {{-- ===================================================== --}}
-
-        <a
-            href="{{ route('purchaser.atp.index') }}"
-            class="menu-item mt-1 {{ request()->routeIs('purchaser.atp*') ? 'active' : '' }}"
-        >
-
-            <i
-                data-lucide="file-check-2"
-                class="h-5 w-5"
-            ></i>
-
-            <span>
-                Authority to Purchase
-            </span>
-
-        </a>
-
-
-
-        {{-- ===================================================== --}}
-        {{-- RECEIVING REPORTS --}}
-        {{-- ===================================================== --}}
-
-        <a
-            href="#"
-            class="menu-item mt-1"
-        >
-
-            <i
-                data-lucide="package-check"
-                class="h-5 w-5"
-            ></i>
-
-            <span>
-                Receiving Reports
-            </span>
-
-        </a>
-
-
-
         {{-- ===================================================== --}}
         {{-- RIS --}}
         {{-- ===================================================== --}}
@@ -427,7 +360,66 @@
 
         </a>
 
+        {{-- ===================================================== --}}
+        {{-- AUTHORITY TO PURCHASE --}}
+        {{-- ===================================================== --}}
 
+        <a
+            href="{{ route('purchaser.atp.index') }}"
+            class="menu-item mt-1 {{ request()->routeIs('purchaser.atp*') ? 'active' : '' }}"
+        >
+
+            <i
+                data-lucide="file-check-2"
+                class="h-5 w-5"
+            ></i>
+
+            <span>
+                Authority to Purchase
+            </span>
+
+        </a>
+        {{-- ===================================================== --}}
+        {{-- REQUEST CHECK --}}
+        {{-- ===================================================== --}}
+
+        <a
+            href="#"
+            class="menu-item"
+        >
+
+            <i
+                data-lucide="clipboard-check"
+                class="h-5 w-5"
+            ></i>
+
+            <span>
+                Request Check
+            </span>
+
+        </a>
+
+
+
+        {{-- ===================================================== --}}
+        {{-- RECEIVING REPORTS --}}
+        {{-- ===================================================== --}}
+
+        <a
+            href="#"
+            class="menu-item mt-1"
+        >
+
+            <i
+                data-lucide="package-check"
+                class="h-5 w-5"
+            ></i>
+
+            <span>
+                Receiving Reports
+            </span>
+
+        </a>
 
         {{-- ===================================================== --}}
         {{-- LIQUIDATION REPORTS --}}
@@ -451,80 +443,12 @@
 
 
 
-        {{-- ===================================================== --}}
-        {{-- SYSTEM SECTION --}}
-        {{-- ===================================================== --}}
-
-        <div class="menu-title" id="system-section">
-            SYSTEM
-        </div>
-
-
-        {{-- ===================================================== --}}
-        {{-- NOTIFICATIONS --}}
-        {{-- ===================================================== --}}
-
-        <a
-            href="#"
-            class="menu-item"
-        >
-
-            <i
-                data-lucide="bell"
-                class="h-5 w-5"
-            ></i>
-
-            <span>
-                Notifications
-            </span>
-
-        </a>
 
 
     </div>
 
 
 
-    {{-- ===================================================== --}}
-    {{-- SIDEBAR FOOTER --}}
-    {{-- ===================================================== --}}
-
-    <div class="sidebar-footer">
-
-        <div class="footer-avatar">
-
-            {{
-                strtoupper(
-                    substr(
-                        Auth::user()->user_full_name
-                            ?? 'P',
-                        0,
-                        1
-                    )
-                )
-            }}
-
-        </div>
-
-
-        <div class="min-w-0 flex-1">
-
-            <p class="footer-name">
-
-                {{
-                    Auth::user()->user_full_name
-                        ?? 'Purchaser'
-                }}
-
-            </p>
-
-            <p class="footer-role">
-                Purchaser
-            </p>
-
-        </div>
-
-    </div>
 
 </div>
 

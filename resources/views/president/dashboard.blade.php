@@ -10,10 +10,6 @@
         <h1 class="text-3xl font-bold tracking-tight text-gray-900">Dashboard</h1>
         <p class="mt-1 text-sm text-gray-500">Monitor RIS approvals and decisions</p>
     </div>
-    <a href="/president/approvals" class="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-gray-900 px-5 text-sm font-semibold text-white transition hover:bg-gray-800 active:scale-95 shadow-sm">
-        <i data-lucide="clipboard-check" class="h-4 w-4"></i>
-        Review Approvals
-    </a>
 </div>
 
 {{-- Stats Cards --}}

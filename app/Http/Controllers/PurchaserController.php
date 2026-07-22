@@ -9,97 +9,35 @@ use Illuminate\Support\Facades\Storage;
 
 class PurchaserController extends Controller
 {
-    // =====================================================
     // PURCHASER DASHBOARD
-    // =====================================================
-
     public function dashboard()
     {
-        // =====================================================
-        // COUNT PENDING REPLACEMENT REQUESTS HERE
-        // =====================================================
-
-        $pendingReplacementRequests = DB::table(
-            'procurement_requests_table'
-        )
-            ->where(
-                'procurement_request_status',
-                'Pending'
-            )
+        // Count pending replacement requests
+        $pendingReplacementRequests = DB::table('procurement_requests_table')
+            ->where('procurement_request_status', 'Pending')
             ->count();
 
-
-        // =====================================================
-        // COUNT APPROVED REPLACEMENT REQUESTS HERE
-        // =====================================================
-
-        $approvedReplacementRequests = DB::table(
-            'procurement_requests_table'
-        )
-            ->where(
-                'procurement_request_status',
-                'Approved'
-            )
+        // Count approved replacement requests
+        $approvedReplacementRequests = DB::table('procurement_requests_table')
+            ->where('procurement_request_status', 'Approved')
             ->count();
 
-
-        // =====================================================
-        // COUNT COMPLETED REPLACEMENT REQUESTS HERE
-        // =====================================================
-
-        $completedReplacementRequests = DB::table(
-            'procurement_requests_table'
-        )
-            ->where(
-                'procurement_request_status',
-                'Completed'
-            )
+        // Count completed replacement requests
+        $completedReplacementRequests = DB::table('procurement_requests_table')
+            ->where('procurement_request_status', 'Completed')
             ->count();
 
-
-        // =====================================================
-        // COUNT AVAILABLE URGENT REPORTS HERE
-        //
-        // AVAILABLE MEANS:
-        // URGENT
-        // PENDING
-        // NOT ARCHIVED
-        // NOT CLAIMED BY MAINTENANCE
-        // NOT CLAIMED BY PURCHASER
-        // =====================================================
-
+        // Count available urgent reports
+        // Available = urgent, pending, not archived, unclaimed by maintenance or purchaser
         $availableUrgentReports = DB::table('reports_table')
-
-            ->where(
-                'report_urgency_level',
-                'Urgent'
-            )
-
-            ->where(
-                'report_current_status',
-                'Pending'
-            )
-
-            ->where(
-                'report_is_archived',
-                0
-            )
-
-            ->whereNull(
-                'report_assigned_personnel_id'
-            )
-
-            ->whereNull(
-                'report_assigned_purchaser_id'
-            )
-
+            ->where('report_urgency_level', 'Urgent')
+            ->where('report_current_status', 'Pending')
+            ->where('report_is_archived', 0)
+            ->whereNull('report_assigned_personnel_id')
+            ->whereNull('report_assigned_purchaser_id')
             ->count();
 
-
-        // =====================================================
-        // COUNT ATP READY RIS
-        // =====================================================
-
+        // Count RIS ready for ATP
         $risReadyForAtp = DB::table('requisition_issue_slip_table')
             ->where('ris_status', 'Approved')
             ->whereNotExists(function ($query) {
@@ -109,257 +47,77 @@ class PurchaserController extends Controller
             })
             ->count();
 
-        // =====================================================
-        // RETURN PURCHASER DASHBOARD HERE
-        // =====================================================
-
-        return view(
-            'purchaser.dashboard',
-            compact(
-                'pendingReplacementRequests',
-                'approvedReplacementRequests',
-                'completedReplacementRequests',
-                'availableUrgentReports',
-                'risReadyForAtp'
-            )
-        );
+        return view('purchaser.dashboard', compact(
+            'pendingReplacementRequests',
+            'approvedReplacementRequests',
+            'completedReplacementRequests',
+            'availableUrgentReports',
+            'risReadyForAtp'
+        ));
     }
 
-
-
-    // =====================================================
     // SHOW REPLACEMENT REQUESTS FROM MAINTENANCE
-    // =====================================================
-
     public function replacementRequests(Request $request)
     {
-        // =====================================================
-        // BUILD REPLACEMENT REQUEST QUERY HERE
-        // =====================================================
-
         $query = DB::table('procurement_requests_table')
-
-
-            // =====================================================
-            // JOIN MAINTENANCE REPORT HERE
-            // =====================================================
-
-            ->join(
-                'reports_table',
-                'procurement_requests_table.procurement_request_report_id',
-                '=',
-                'reports_table.report_id'
-            )
-
-
-            // =====================================================
-            // JOIN EQUIPMENT HERE
-            // =====================================================
-
-            ->leftJoin(
-                'equipment_table',
-                'reports_table.report_equipment_id',
-                '=',
-                'equipment_table.equipment_id'
-            )
-
-
-            // =====================================================
-            // JOIN ROOM HERE
-            // =====================================================
-
-            ->leftJoin(
-                'rooms_table',
-                'reports_table.report_room_id',
-                '=',
-                'rooms_table.room_id'
-            )
-
-            // =====================================================
-            // JOIN REPORTER HERE
-            // USED BY REPLACEMENT REQUEST CARDS AND VIEW MODAL
-            // =====================================================
-
-            ->leftJoin(
-                'reporters_table',
-                'reports_table.report_reporter_employee_id',
-                '=',
-                'reporters_table.reporter_employee_id'
-            )
-
-
-            // =====================================================
-            // JOIN MAINTENANCE PERSONNEL WHO CREATED REQUEST HERE
-            // procurement_request_created_by stores user_id
-            // =====================================================
-
-            ->leftJoin(
-                'users_table as request_creator',
-                'procurement_requests_table.procurement_request_created_by',
-                '=',
-                'request_creator.user_id'
-            )
-
-
-            // =====================================================
-            // SELECT DATA HERE
-            // =====================================================
-
+            ->join('reports_table', 'procurement_requests_table.procurement_request_report_id', '=', 'reports_table.report_id')
+            ->leftJoin('equipment_table', 'reports_table.report_equipment_id', '=', 'equipment_table.equipment_id')
+            ->leftJoin('rooms_table', 'reports_table.report_room_id', '=', 'rooms_table.room_id')
+            // Reporter, used by replacement request cards and view modal
+            ->leftJoin('reporters_table', 'reports_table.report_reporter_employee_id', '=', 'reporters_table.reporter_employee_id')
+            // Maintenance personnel who created request (procurement_request_created_by stores user_id)
+            ->leftJoin('users_table as request_creator', 'procurement_requests_table.procurement_request_created_by', '=', 'request_creator.user_id')
             ->select(
-
                 'procurement_requests_table.*',
-
                 'reports_table.report_id',
-
                 'reports_table.report_unlisted_equipment_name',
-
                 'reports_table.report_problem_description',
-
                 'reports_table.report_suggested_issue',
-
                 'reports_table.report_urgency_level',
-
                 'reports_table.report_replacement_notes',
-
                 'reports_table.report_replacement_image',
-
                 'reports_table.report_submitted_at',
-
                 'equipment_table.equipment_name',
-
                 'equipment_table.equipment_asset_tag',
-
                 'rooms_table.room_name',
-
-                // =====================================================
-                // REPORTER INFORMATION HERE
-                // =====================================================
-
                 'reporters_table.reporter_full_name',
-
                 'reporters_table.reporter_employee_id',
-
                 'reporters_table.reporter_contact_number',
-
-
-                // =====================================================
-                // MAINTENANCE PERSONNEL WHO SUBMITTED REPLACEMENT HERE
-                // =====================================================
-
-                'request_creator.user_full_name
-                    as request_creator_name',
-
-                // =====================================================
-                // ORIGINAL REPORT IMAGE HERE
-                // =====================================================
-
+                'request_creator.user_full_name as request_creator_name',
                 'reports_table.report_uploaded_image',
-
             );
 
-
-        // =====================================================
-        // SEARCH FILTER HERE
-        // =====================================================
-
+        // Search filter
         if ($request->filled('search')) {
-
             $query->where(function ($subQuery) use ($request) {
-
                 $subQuery
-
-                    ->where(
-                        'procurement_requests_table.procurement_request_id',
-                        'LIKE',
-                        '%' . $request->search . '%'
-                    )
-
-                    ->orWhere(
-                        'reports_table.report_id',
-                        'LIKE',
-                        '%' . $request->search . '%'
-                    )
-
-                    ->orWhere(
-                        'equipment_table.equipment_name',
-                        'LIKE',
-                        '%' . $request->search . '%'
-                    )
-
-                    ->orWhere(
-                        'rooms_table.room_name',
-                        'LIKE',
-                        '%' . $request->search . '%'
-                    );
-
+                    ->where('procurement_requests_table.procurement_request_id', 'LIKE', '%' . $request->search . '%')
+                    ->orWhere('reports_table.report_id', 'LIKE', '%' . $request->search . '%')
+                    ->orWhere('equipment_table.equipment_name', 'LIKE', '%' . $request->search . '%')
+                    ->orWhere('rooms_table.room_name', 'LIKE', '%' . $request->search . '%');
             });
-
         }
 
-
-        // =====================================================
-        // STATUS FILTER HERE
-        // =====================================================
-
+        // Status filter
         if ($request->filled('status')) {
-
-            $query->where(
-                'procurement_requests_table.procurement_request_status',
-                $request->status
-            );
-
+            $query->where('procurement_requests_table.procurement_request_status', $request->status);
         }
 
-
-        // =====================================================
-        // NEWEST REQUEST FIRST
-        // =====================================================
-
+        // Newest request first
         $replacementRequests = $query
-
-            ->orderByDesc(
-                'procurement_requests_table.procurement_request_created_at'
-            )
-
+            ->orderByDesc('procurement_requests_table.procurement_request_created_at')
             ->paginate(10)
-
             ->withQueryString();
 
-
-        // =====================================================
-        // RETURN REPLACEMENT REQUEST PAGE HERE
-        // =====================================================
-
-        return view(
-            'purchaser.procurement.replacement-requests',
-            compact('replacementRequests')
-        );
+        return view('purchaser.procurement.replacement-requests', compact('replacementRequests'));
     }
 
-
-
-    // =====================================================
     // SHOW URGENT REPORTS
-    // =====================================================
-
-    // =====================================================
-    // SHOW URGENT REPORTS
-    // =====================================================
-
     public function urgentReports(Request $request)
     {
-        // =====================================================
-        // CURRENT PURCHASER USER ID HERE
-        // =====================================================
-
         $purchaserId = Auth::id();
 
-
-        // =====================================================
-        // CHECK ACTIVE OR ARCHIVE VIEW HERE
-        //
-        // DEFAULT:
-        // ACTIVE
+        // Active or archive view (default: active)
         $archiveView = $request->query('view') === 'archive';
 
         $query = DB::table('reports_table')
@@ -399,949 +157,263 @@ class PurchaserController extends Controller
         }
 
         $urgentReports = $query
-
-            ->orderByDesc(
-                'reports_table.report_updated_at'
-            )
-
+            ->orderByDesc('reports_table.report_updated_at')
             ->paginate(10)
-
             ->withQueryString();
 
-
-        // =====================================================
-        // RETURN URGENT REPORT PAGE HERE
-        // =====================================================
-
-        return view(
-            'purchaser.reports.urgent-reports',
-            compact(
-                'urgentReports',
-                'archiveView'
-            )
-        );
+        return view('purchaser.reports.urgent-reports', compact('urgentReports', 'archiveView'));
     }
 
-
-
-    // =====================================================
     // PURCHASER ACCEPT URGENT REPORT
-    // =====================================================
-
     public function acceptUrgentReport($reportId)
     {
-        // =====================================================
-        // CURRENT PURCHASER USER ID HERE
-        // =====================================================
-
-        
         $purchaserId = Auth::id();
 
-
-        // =====================================================
-        // DATABASE TRANSACTION HERE
-        // =====================================================
-
-        return DB::transaction(function () use (
-            $reportId,
-            $purchaserId
-        ) {
-
-
-            // =================================================
-            // LOCK REPORT ROW HERE
-            // =================================================
+        return DB::transaction(function () use ($reportId, $purchaserId) {
 
             $report = DB::table('reports_table')
-
-                ->where(
-                    'report_id',
-                    $reportId
-                )
-
+                ->where('report_id', $reportId)
                 ->lockForUpdate()
-
                 ->first();
-
-
-            // =================================================
-            // STOP IF REPORT DOES NOT EXIST
-            // =================================================
 
             abort_if(!$report, 404);
 
-
-            // =================================================
-            // PURCHASER CAN ONLY ACCEPT URGENT REPORTS
-            // =================================================
-
-            abort_unless(
-                $report->report_urgency_level === 'Urgent',
-                403
-            );
-
-
-            // =================================================
-            // REPORT MUST NOT BE ARCHIVED
-            // =================================================
+            abort_unless($report->report_urgency_level === 'Urgent', 403);
 
             if ($report->report_is_archived) {
-
-                return back()->with(
-                    'error',
-                    'Archived reports cannot be accepted.'
-                );
-
+                return back()->with('error', 'Archived reports cannot be accepted.');
             }
 
-
-            // =================================================
-            // REPORT MUST STILL BE PENDING
-            // =================================================
-
-            if (
-                $report->report_current_status
-                !==
-                'Pending'
-            ) {
-
-                return back()->with(
-                    'error',
-                    'This urgent report is no longer available.'
-                );
-
+            if ($report->report_current_status !== 'Pending') {
+                return back()->with('error', 'This urgent report is no longer available.');
             }
 
-
-            // =================================================
-            // MAINTENANCE MUST NOT OWN REPORT
-            // =================================================
-
-            if (
-                $report->report_assigned_personnel_id
-                !==
-                null
-            ) {
-
-                return back()->with(
-                    'error',
-                    'Maintenance personnel is already handling this report.'
-                );
-
+            if ($report->report_assigned_personnel_id !== null) {
+                return back()->with('error', 'Maintenance personnel is already handling this report.');
             }
 
-
-            // =================================================
-            // PURCHASER MUST NOT ALREADY OWN REPORT
-            // =================================================
-
-            if (
-                $report->report_assigned_purchaser_id
-                !==
-                null
-            ) {
-
-                return back()->with(
-                    'error',
-                    'Another purchaser is already handling this report.'
-                );
-
+            if ($report->report_assigned_purchaser_id !== null) {
+                return back()->with('error', 'Another purchaser is already handling this report.');
             }
-
-
-            // =================================================
-            // ASSIGN REPORT TO PURCHASER
-            // =================================================
 
             DB::table('reports_table')
-
-                ->where(
-                    'report_id',
-                    $reportId
-                )
-
+                ->where('report_id', $reportId)
                 ->update([
-
-                    'report_current_status' =>
-                        'Processing',
-
-                    'report_assigned_purchaser_id' =>
-                        $purchaserId,
-
-                    'report_purchaser_assigned_at' =>
-                        now(),
-
+                    'report_current_status' => 'Processing',
+                    'report_assigned_purchaser_id' => $purchaserId,
+                    'report_purchaser_assigned_at' => now(),
                 ]);
 
-
-            // =================================================
-            // RETURN SUCCESS MESSAGE
-            // =================================================
-
-            return back()->with(
-                'success',
-                'Urgent report accepted successfully.'
-            );
-
+            return back()->with('success', 'Urgent report accepted successfully.');
         });
     }
 
-
-
-    // =====================================================
     // PURCHASER RESOLVE URGENT REPORT
-    // =====================================================
-
-    public function resolveUrgentReport(
-        Request $request,
-        $reportId
-    ) {
-        // =====================================================
-        // VALIDATE RESOLUTION DATA HERE
-        // =====================================================
-
+    public function resolveUrgentReport(Request $request, $reportId)
+    {
         $request->validate([
-
-            'resolution_notes' =>
-                'nullable|string|max:5000',
-
-            'resolution_image' =>
-                'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
-
+            'resolution_notes' => 'nullable|string|max:5000',
+            'resolution_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
         ]);
-
-
-        // =====================================================
-        // CURRENT PURCHASER USER ID HERE
-        // =====================================================
 
         $purchaserId = Auth::id();
 
-
-        // =====================================================
-        // SAVE RESOLUTION IMAGE BEFORE DATABASE TRANSACTION
-        //
-        // DO NOT HOLD THE DATABASE ROW LOCK WHILE
-        // STORING THE UPLOADED FILE.
-        // =====================================================
-
+        // Store file before the DB transaction so we don't hold the row lock while uploading
         $resolutionImagePath = null;
 
-
         if ($request->hasFile('resolution_image')) {
-
-            $resolutionImagePath = $request
-                ->file('resolution_image')
-                ->store(
-                    'report-resolutions',
-                    'public'
-                );
-
+            $resolutionImagePath = $request->file('resolution_image')->store('report-resolutions', 'public');
         }
 
-
-        // =====================================================
-        // DATABASE TRANSACTION HERE
-        // =====================================================
-
-        return DB::transaction(function () use (
-
-            $request,
-
-            $reportId,
-
-            $purchaserId,
-
-            $resolutionImagePath
-
-        ) {
-
-
-            // =================================================
-            // LOCK REPORT ROW HERE
-            //
-            // THIS PREVENTS ANOTHER REQUEST FROM CHANGING
-            // THE REPORT WHILE WE CHECK AND UPDATE IT.
-            // =================================================
+        return DB::transaction(function () use ($request, $reportId, $purchaserId, $resolutionImagePath) {
 
             $report = DB::table('reports_table')
-
-                ->where(
-                    'report_id',
-                    $reportId
-                )
-
+                ->where('report_id', $reportId)
                 ->lockForUpdate()
-
                 ->first();
-
-
-            // =================================================
-            // STOP IF REPORT DOES NOT EXIST
-            // =================================================
 
             abort_if(!$report, 404);
 
-
-            // =================================================
-            // REPORT MUST NOT BE ARCHIVED
-            // =================================================
-
             if ($report->report_is_archived) {
-
-                return back()->with(
-                    'error',
-                    'Archived reports cannot be resolved.'
-                );
-
+                return back()->with('error', 'Archived reports cannot be resolved.');
             }
 
-
-            // =================================================
-            // SECURITY AND OWNERSHIP CHECK HERE
-            //
-            // REPORT MUST:
-            //
-            // BE URGENT
-            // BE PROCESSING
-            // BELONG TO CURRENT PURCHASER
-            // NOT BELONG TO MAINTENANCE
-            // =================================================
-
+            // Report must be urgent, processing, owned by this purchaser, and not owned by maintenance
             if (
-
-                $report->report_urgency_level
-                    !==
-                'Urgent'
-
-                ||
-
-                $report->report_current_status
-                    !==
-                'Processing'
-
-                ||
-
-                (int) $report->report_assigned_purchaser_id
-                    !==
-                (int) $purchaserId
-
-                ||
-
-                $report->report_assigned_personnel_id
-                    !==
-                null
-
+                $report->report_urgency_level !== 'Urgent'
+                || $report->report_current_status !== 'Processing'
+                || (int) $report->report_assigned_purchaser_id !== (int) $purchaserId
+                || $report->report_assigned_personnel_id !== null
             ) {
-
-                return back()->with(
-                    'error',
-                    'You cannot resolve this urgent report.'
-                );
-
+                return back()->with('error', 'You cannot resolve this urgent report.');
             }
-
-
-            // =================================================
-            // RESOLVE REPORT HERE
-            // =================================================
 
             DB::table('reports_table')
-
-                ->where(
-                    'report_id',
-                    $reportId
-                )
-
+                ->where('report_id', $reportId)
                 ->update([
-
-                    'report_current_status' =>
-                        'Resolved',
-
-                    'report_resolution_notes' =>
-                        $request->resolution_notes,
-
-                    'report_resolution_image' =>
-                        $resolutionImagePath,
-
-                    'report_updated_at' =>
-                        now(),
-
+                    'report_current_status' => 'Resolved',
+                    'report_resolution_notes' => $request->resolution_notes,
+                    'report_resolution_image' => $resolutionImagePath,
+                    'report_updated_at' => now(),
                 ]);
 
-
-            // =================================================
-            // RETURN SUCCESS MESSAGE HERE
-            // =================================================
-
-            return back()->with(
-                'success',
-                'Urgent report resolved successfully.'
-            );
-
+            return back()->with('success', 'Urgent report resolved successfully.');
         });
     }
 
-
-
-    // =====================================================
     // PURCHASER SEND URGENT REPORT FOR REPLACEMENT
-    // =====================================================
-
-    public function replaceUrgentReport(
-        Request $request,
-        $reportId
-    ) {
-        // =====================================================
-        // VALIDATE REPLACEMENT DATA HERE
-        // =====================================================
-
+    public function replaceUrgentReport(Request $request, $reportId)
+    {
         $request->validate([
-
-            'replacement_notes' =>
-                'required|string|max:5000',
-
-            'replacement_image' =>
-                'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
-
+            'replacement_notes' => 'required|string|max:5000',
+            'replacement_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
         ]);
 
-
-        // =====================================================
-        // CURRENT PURCHASER USER ID HERE
-        // =====================================================
-
         $purchaserId = Auth::id();
 
-
-        // =====================================================
-        // SAVE REPLACEMENT IMAGE BEFORE DATABASE TRANSACTION
-        //
-        // DO NOT HOLD THE DATABASE ROW LOCK WHILE
-        // STORING THE UPLOADED FILE.
-        // =====================================================
-
+        // Store file before the DB transaction so we don't hold the row lock while uploading
         $replacementImagePath = null;
 
-
         if ($request->hasFile('replacement_image')) {
-
-            $replacementImagePath = $request
-                ->file('replacement_image')
-                ->store(
-                    'report-replacements',
-                    'public'
-                );
-
+            $replacementImagePath = $request->file('replacement_image')->store('report-replacements', 'public');
         }
 
-
-        // =====================================================
-        // DATABASE TRANSACTION HERE
-        // =====================================================
-
-        return DB::transaction(function () use (
-
-            $request,
-
-            $reportId,
-
-            $purchaserId,
-
-            $replacementImagePath
-
-        ) {
-
-
-            // =================================================
-            // LOCK REPORT ROW HERE
-            // =================================================
+        return DB::transaction(function () use ($request, $reportId, $purchaserId, $replacementImagePath) {
 
             $report = DB::table('reports_table')
-
-                ->where(
-                    'report_id',
-                    $reportId
-                )
-
+                ->where('report_id', $reportId)
                 ->lockForUpdate()
-
                 ->first();
-
-
-            // =================================================
-            // STOP IF REPORT DOES NOT EXIST
-            // =================================================
 
             abort_if(!$report, 404);
 
-
-            // =================================================
-            // REPORT MUST NOT BE ARCHIVED
-            // =================================================
-
             if ($report->report_is_archived) {
-
-                return back()->with(
-                    'error',
-                    'Archived reports cannot be sent for replacement.'
-                );
-
+                return back()->with('error', 'Archived reports cannot be sent for replacement.');
             }
 
-
-            // =================================================
-            // SECURITY AND OWNERSHIP CHECK HERE
-            //
-            // REPORT MUST:
-            //
-            // BE URGENT
-            // BE PROCESSING
-            // BELONG TO CURRENT PURCHASER
-            // NOT BELONG TO MAINTENANCE
-            // =================================================
-
+            // Report must be urgent, processing, owned by this purchaser, and not owned by maintenance
             if (
-
-                $report->report_urgency_level
-                    !==
-                'Urgent'
-
-                ||
-
-                $report->report_current_status
-                    !==
-                'Processing'
-
-                ||
-
-                (int) $report->report_assigned_purchaser_id
-                    !==
-                (int) $purchaserId
-
-                ||
-
-                $report->report_assigned_personnel_id
-                    !==
-                null
-
+                $report->report_urgency_level !== 'Urgent'
+                || $report->report_current_status !== 'Processing'
+                || (int) $report->report_assigned_purchaser_id !== (int) $purchaserId
+                || $report->report_assigned_personnel_id !== null
             ) {
-
-                return back()->with(
-                    'error',
-                    'You cannot send this urgent report for replacement.'
-                );
-
+                return back()->with('error', 'You cannot send this urgent report for replacement.');
             }
-
-
-            // =================================================
-            // UPDATE REPORT HERE
-            // =================================================
 
             DB::table('reports_table')
-
-                ->where(
-                    'report_id',
-                    $reportId
-                )
-
+                ->where('report_id', $reportId)
                 ->update([
-
-                    'report_current_status' =>
-                        'For Replacement',
-
-                    'report_replacement_notes' =>
-                        $request->replacement_notes,
-
-                    'report_replacement_image' =>
-                        $replacementImagePath,
-
-                    'report_replacement_submitted_to_purchaser' =>
-                        1,
-
-                    'report_updated_at' =>
-                        now(),
-
+                    'report_current_status' => 'For Replacement',
+                    'report_replacement_notes' => $request->replacement_notes,
+                    'report_replacement_image' => $replacementImagePath,
+                    'report_replacement_submitted_to_purchaser' => 1,
+                    'report_updated_at' => now(),
                 ]);
 
-
-            // =================================================
-            // CHECK IF PROCUREMENT REQUEST ALREADY EXISTS
-            // =================================================
-
-            $procurementRequestExists =
-                DB::table('procurement_requests_table')
-
-                    ->where(
-                        'procurement_request_report_id',
-                        $reportId
-                    )
-
-                    ->exists();
-
-
-            // =================================================
-            // CREATE PROCUREMENT REQUEST IF NEEDED
-            // =================================================
+            $procurementRequestExists = DB::table('procurement_requests_table')
+                ->where('procurement_request_report_id', $reportId)
+                ->exists();
 
             if (!$procurementRequestExists) {
-
-                DB::table('procurement_requests_table')
-
-                    ->insert([
-
-                        'procurement_request_report_id' =>
-                            $reportId,
-
-                        'procurement_request_status' =>
-                            'Pending',
-
-                        // =================================================
-                        // PURCHASER WHO CREATED PROCUREMENT REQUEST HERE
-                        // =================================================
-
-                        'procurement_request_created_by' =>
-                            $purchaserId,
-
-                        'procurement_request_created_at' =>
-                            now(),
-
-                    ]);
-
+                DB::table('procurement_requests_table')->insert([
+                    'procurement_request_report_id' => $reportId,
+                    'procurement_request_status' => 'Pending',
+                    'procurement_request_created_by' => $purchaserId,
+                    'procurement_request_created_at' => now(),
+                ]);
             }
 
-
-            // =================================================
-            // RETURN SUCCESS MESSAGE HERE
-            // =================================================
-
-            return back()->with(
-                'success',
-                'Urgent report sent for replacement successfully.'
-            );
-
+            return back()->with('success', 'Urgent report sent for replacement successfully.');
         });
     }
 
-    // =====================================================
     // PURCHASER ARCHIVE URGENT REPORT
-    // =====================================================
-
     public function archiveUrgentReport($reportId)
     {
-        // =====================================================
-        // CURRENT PURCHASER USER ID HERE
-        // =====================================================
-
         $purchaserId = Auth::id();
 
-
-        // =====================================================
-        // DATABASE TRANSACTION HERE
-        // =====================================================
-
-        return DB::transaction(function () use (
-            $reportId,
-            $purchaserId
-        ) {
-
-
-            // =================================================
-            // LOCK REPORT ROW HERE
-            // =================================================
+        return DB::transaction(function () use ($reportId, $purchaserId) {
 
             $report = DB::table('reports_table')
-
-                ->where(
-                    'report_id',
-                    $reportId
-                )
-
+                ->where('report_id', $reportId)
                 ->lockForUpdate()
-
                 ->first();
-
-
-            // =================================================
-            // STOP IF REPORT DOES NOT EXIST
-            // =================================================
 
             abort_if(!$report, 404);
 
-
-            // =================================================
-            // MUST BE AN URGENT REPORT
-            // =================================================
-
-            if (
-                $report->report_urgency_level
-                !==
-                'Urgent'
-            ) {
-
-                return back()->with(
-                    'error',
-                    'Only urgent reports can be archived here.'
-                );
-
+            if ($report->report_urgency_level !== 'Urgent') {
+                return back()->with('error', 'Only urgent reports can be archived here.');
             }
 
-
-            // =================================================
-            // REPORT MUST BELONG TO CURRENT PURCHASER
-            // =================================================
-
-            if (
-                (int) $report->report_assigned_purchaser_id
-                !==
-                (int) $purchaserId
-            ) {
-
-                return back()->with(
-                    'error',
-                    'You can only archive urgent reports assigned to you.'
-                );
-
+            if ((int) $report->report_assigned_purchaser_id !== (int) $purchaserId) {
+                return back()->with('error', 'You can only archive urgent reports assigned to you.');
             }
 
-
-            // =================================================
-            // MAINTENANCE MUST NOT OWN THE REPORT
-            // =================================================
-
-            if (
-                $report->report_assigned_personnel_id
-                !==
-                null
-            ) {
-
-                return back()->with(
-                    'error',
-                    'This report belongs to maintenance personnel.'
-                );
-
+            if ($report->report_assigned_personnel_id !== null) {
+                return back()->with('error', 'This report belongs to maintenance personnel.');
             }
 
-
-            // =================================================
-            // REPORT MUST BE FINISHED
-            //
-            // ALLOW:
-            //
-            // RESOLVED
-            // FOR REPLACEMENT
-            // =================================================
-
-            if (
-                !in_array(
-                    $report->report_current_status,
-                    [
-                        'Resolved',
-                        'For Replacement',
-                    ],
-                    true
-                )
-            ) {
-
-                return back()->with(
-                    'error',
-                    'Only completed urgent reports can be archived.'
-                );
-
+            // Report must be finished: Resolved or For Replacement
+            if (!in_array($report->report_current_status, ['Resolved', 'For Replacement'], true)) {
+                return back()->with('error', 'Only completed urgent reports can be archived.');
             }
-
-
-            // =================================================
-            // REPORT MUST NOT ALREADY BE ARCHIVED
-            // =================================================
 
             if ($report->report_is_archived) {
-
-                return back()->with(
-                    'error',
-                    'This urgent report is already archived.'
-                );
-
+                return back()->with('error', 'This urgent report is already archived.');
             }
 
-
-            // =================================================
-            // ARCHIVE REPORT HERE
-            // =================================================
-
             DB::table('reports_table')
-
-                ->where(
-                    'report_id',
-                    $reportId
-                )
-
+                ->where('report_id', $reportId)
                 ->update([
-
-                    'report_is_archived' =>
-                        1,
-
-                    'report_updated_at' =>
-                        now(),
-
+                    'report_is_archived' => 1,
+                    'report_updated_at' => now(),
                 ]);
 
-
-            // =================================================
-            // RETURN SUCCESS MESSAGE HERE
-            // =================================================
-
-            return back()->with(
-                'success',
-                'Urgent report archived successfully.'
-            );
-
+            return back()->with('success', 'Urgent report archived successfully.');
         });
     }
 
-    // =====================================================
     // PURCHASER RESTORE ARCHIVED URGENT REPORT
-    // =====================================================
-
     public function restoreUrgentReport($reportId)
     {
-        // =====================================================
-        // CURRENT PURCHASER USER ID HERE
-        // =====================================================
-
         $purchaserId = Auth::id();
 
-
-        // =====================================================
-        // DATABASE TRANSACTION HERE
-        // =====================================================
-
-        return DB::transaction(function () use (
-            $reportId,
-            $purchaserId
-        ) {
-
-
-            // =================================================
-            // LOCK REPORT ROW HERE
-            // =================================================
+        return DB::transaction(function () use ($reportId, $purchaserId) {
 
             $report = DB::table('reports_table')
-
-                ->where(
-                    'report_id',
-                    $reportId
-                )
-
+                ->where('report_id', $reportId)
                 ->lockForUpdate()
-
                 ->first();
-
-
-            // =================================================
-            // STOP IF REPORT DOES NOT EXIST
-            // =================================================
 
             abort_if(!$report, 404);
 
-
-            // =================================================
-            // SECURITY CHECK HERE
-            //
-            // MUST:
-            //
-            // BE URGENT
-            // BELONG TO CURRENT PURCHASER
-            // NOT BELONG TO MAINTENANCE
-            // BE ARCHIVED
-            // =================================================
-
+            // Must be urgent, belong to this purchaser, not owned by maintenance, and archived
             if (
-
-                $report->report_urgency_level
-                    !==
-                'Urgent'
-
-                ||
-
-                (int) $report->report_assigned_purchaser_id
-                    !==
-                (int) $purchaserId
-
-                ||
-
-                $report->report_assigned_personnel_id
-                    !==
-                null
-
-                ||
-
-                !$report->report_is_archived
-
+                $report->report_urgency_level !== 'Urgent'
+                || (int) $report->report_assigned_purchaser_id !== (int) $purchaserId
+                || $report->report_assigned_personnel_id !== null
+                || !$report->report_is_archived
             ) {
-
-                return back()->with(
-                    'error',
-                    'You cannot restore this urgent report.'
-                );
-
+                return back()->with('error', 'You cannot restore this urgent report.');
             }
 
-
-            // =================================================
-            // RESTORE REPORT HERE
-            // =================================================
-
             DB::table('reports_table')
-
-                ->where(
-                    'report_id',
-                    $reportId
-                )
-
+                ->where('report_id', $reportId)
                 ->update([
-
-                    'report_is_archived' =>
-                        0,
-
-                    'report_updated_at' =>
-                        now(),
-
+                    'report_is_archived' => 0,
+                    'report_updated_at' => now(),
                 ]);
 
-
-            // =================================================
-            // RETURN TO ARCHIVE VIEW HERE
-            // =================================================
-
             return redirect()
-
-                ->route(
-                    'purchaser.reports.urgent',
-                    [
-                        'view' =>
-                            'archive',
-                    ]
-                )
-
-                ->with(
-                    'success',
-                    'Urgent report restored successfully.'
-                );
-
+                ->route('purchaser.reports.urgent', ['view' => 'archive'])
+                ->with('success', 'Urgent report restored successfully.');
         });
     }
-    // =====================================================
-    // ADDED RIS MODULE: SHOW RIS DASHBOARD AND LIST
-    // =====================================================
 
+    // RIS MODULE: SHOW RIS DASHBOARD AND LIST
     public function risIndex(Request $request)
     {
-        // =====================================================
-        // ADDED RIS MODULE: GET RIS RECORDS WITH RELATED REQUEST DATA
-        // =====================================================
-
         $risQuery = DB::table('requisition_issue_slip_table')
             ->leftJoin('procurement_requests_table', 'requisition_issue_slip_table.ris_procurement_request_id', '=', 'procurement_requests_table.procurement_request_id')
             ->leftJoin('reports_table', 'procurement_requests_table.procurement_request_report_id', '=', 'reports_table.report_id')
@@ -1357,40 +429,26 @@ class PurchaserController extends Controller
                 'reports_table.report_unlisted_equipment_name',
                 'equipment_table.equipment_name',
                 'equipment_table.equipment_asset_tag',
-                'rooms_table.room_name'
+                'rooms_table.room_name',
             );
 
-        // =====================================================
-        // ADDED RIS MODULE: SEARCH FILTER
-        // =====================================================
-
+        // Search filter
         if ($request->filled('search')) {
             $risQuery->where(function ($query) use ($request) {
                 $query
                     ->where('requisition_issue_slip_table.ris_form_number', 'LIKE', '%' . $request->search . '%')
-                    ->orWhere('requisition_issue_slip_table.ris_manual_title', 'LIKE', '%' . $request->search . '%')
                     ->orWhere('procurement_requests_table.procurement_request_id', 'LIKE', '%' . $request->search . '%')
                     ->orWhere('equipment_table.equipment_name', 'LIKE', '%' . $request->search . '%')
                     ->orWhere('reports_table.report_unlisted_equipment_name', 'LIKE', '%' . $request->search . '%');
             });
         }
 
-        // =====================================================
-        // ADDED RIS MODULE: STATUS AND TYPE FILTERS
-        // =====================================================
-
+        // Status filter
         if ($request->filled('status')) {
             $risQuery->where('requisition_issue_slip_table.ris_status', $request->status);
         }
 
-        if ($request->filled('request_type')) {
-            $risQuery->where('requisition_issue_slip_table.ris_request_type', $request->request_type);
-        }
-
-        // =====================================================
-        // ADDED RIS MODULE: DATE FILTERS
-        // =====================================================
-
+        // Date filters
         if ($request->filled('date_from')) {
             $risQuery->whereDate('requisition_issue_slip_table.ris_created_at', '>=', $request->date_from);
         }
@@ -1399,19 +457,13 @@ class PurchaserController extends Controller
             $risQuery->whereDate('requisition_issue_slip_table.ris_created_at', '<=', $request->date_to);
         }
 
-        // =====================================================
-        // ADDED RIS MODULE: PAGINATED RIS LIST
-        // =====================================================
-
+        // Paginated RIS list
         $risRecords = $risQuery
             ->orderByDesc('requisition_issue_slip_table.ris_created_at')
             ->paginate(10)
             ->withQueryString();
 
-        // =====================================================
-        // ADDED RIS MODULE: SUPPORTING DOCUMENTS FOR LIST DOWNLOADS
-        // =====================================================
-
+        // Supporting documents for list downloads
         $attachmentsByRis = DB::table('ris_attachments_table')
             ->whereIn('ris_id', $risRecords->pluck('ris_id'))
             ->orderBy('ris_attachment_original_name')
@@ -1427,25 +479,84 @@ class PurchaserController extends Controller
         $risHasAtp = DB::table('authority_to_purchase_table')
             ->whereIn('authority_purchase_ris_id', $risRecords->pluck('ris_id'))
             ->pluck('authority_purchase_ris_id')
-            ->map(fn($id) => (int) $id)
+            ->map(fn ($id) => (int) $id)
             ->all();
 
-        // =====================================================
-        // ADDED RIS MODULE: APPROVED REPLACEMENT REQUESTS WITHOUT RIS YET
-        // =====================================================
+        // Revision history (Minor Revision notes from Admin)
+        $risRevisions = DB::table('ris_revision_notes_table as revisions')
+            ->leftJoin('users_table as users', 'users.user_id', '=', 'revisions.ris_revision_requested_by')
+            ->whereIn('revisions.ris_id', $risRecords->pluck('ris_id'))
+            ->select(
+                'revisions.*',
+                'users.user_full_name as revision_requested_by_name'
+            )
+            ->orderBy('revisions.ris_revision_created_at', 'desc')
+            ->get()
+            ->groupBy('ris_id');
 
-        $eligibleReplacementRequests = DB::table('procurement_requests_table')
-            ->join('reports_table', 'procurement_requests_table.procurement_request_report_id', '=', 'reports_table.report_id')
-            ->leftJoin('equipment_table', 'reports_table.report_equipment_id', '=', 'equipment_table.equipment_id')
-            ->leftJoin('rooms_table', 'reports_table.report_room_id', '=', 'rooms_table.room_id')
-            ->leftJoin('requisition_issue_slip_table', 'procurement_requests_table.procurement_request_id', '=', 'requisition_issue_slip_table.ris_procurement_request_id')
-            ->whereNull('requisition_issue_slip_table.ris_id')
-            ->where('reports_table.report_current_status', 'For Replacement')
-            ->where('procurement_requests_table.procurement_request_status', 'Approved')
+        // Attach items, attachments, revisions, and ATP status to each RIS
+        foreach ($risRecords as $ris) {
+            $ris->risItems = $itemsByRis->get($ris->ris_id, collect());
+            $ris->risAttachments = $attachmentsByRis->get($ris->ris_id, collect());
+            $ris->risRevisions = $risRevisions->get($ris->ris_id, collect());
+            $ris->has_atp = in_array($ris->ris_id, $risHasAtp);
+        }
+
+        // Dashboard counts
+        $risSummary = [
+            'total' => DB::table('requisition_issue_slip_table')->count(),
+
+            'draft' => DB::table('requisition_issue_slip_table')
+                ->where('ris_status', 'Draft')
+                ->count(),
+
+            'submitted' => DB::table('requisition_issue_slip_table')
+                ->whereIn('ris_status', ['Submitted', 'Under Review', 'Resubmitted'])
+                ->count(),
+
+            'approved' => DB::table('requisition_issue_slip_table')
+                ->where('ris_status', 'Approved')
+                ->count(),
+
+            'rejected' => DB::table('requisition_issue_slip_table')
+                ->where('ris_status', 'Rejected')
+                ->count(),
+        ];
+        // RIS MODULE: load approved replacement requests without an existing RIS
+        $availableReplacementRequests = DB::table('procurement_requests_table')
+            ->join(
+                'reports_table',
+                'procurement_requests_table.procurement_request_report_id',
+                '=',
+                'reports_table.report_id'
+            )
+            ->leftJoin(
+                'equipment_table',
+                'reports_table.report_equipment_id',
+                '=',
+                'equipment_table.equipment_id'
+            )
+            ->leftJoin(
+                'rooms_table',
+                'reports_table.report_room_id',
+                '=',
+                'rooms_table.room_id'
+            )
+            ->where(
+                'procurement_requests_table.procurement_request_status',
+                'Approved'
+            )
+            ->whereNotExists(function ($query) {
+                $query->select(DB::raw(1))
+                    ->from('requisition_issue_slip_table')
+                    ->whereColumn(
+                        'requisition_issue_slip_table.ris_procurement_request_id',
+                        'procurement_requests_table.procurement_request_id'
+                    );
+            })
             ->select(
                 'procurement_requests_table.procurement_request_id',
                 'procurement_requests_table.procurement_request_status',
-                'procurement_requests_table.procurement_request_created_at',
                 'reports_table.report_id',
                 'reports_table.report_problem_description',
                 'reports_table.report_replacement_notes',
@@ -1455,179 +566,317 @@ class PurchaserController extends Controller
                 'rooms_table.room_name'
             )
             ->orderByDesc('procurement_requests_table.procurement_request_created_at')
-            ->limit(20)
             ->get();
 
-        // =====================================================
-        // ADDED RIS MODULE: DASHBOARD COUNTS
-        // =====================================================
-
-        $risSummary = [
-            'total' => DB::table('requisition_issue_slip_table')->count(),
-            'draft' => DB::table('requisition_issue_slip_table')->where('ris_status', 'Pending')->whereNull('ris_requested_by_date')->count(),
-            'submitted' => DB::table('requisition_issue_slip_table')->where('ris_status', 'Pending')->whereNotNull('ris_requested_by_date')->count(),
-            'approved' => DB::table('requisition_issue_slip_table')->where('ris_status', 'Approved')->count(),
-            'rejected' => DB::table('requisition_issue_slip_table')->where('ris_status', 'Rejected')->count(),
-        ];
-
-        // =====================================================
-        // ADDED RIS MODULE: RETURN RIS INDEX PAGE
-        // =====================================================
-
-        return view(
-            'purchaser.ris.index',
-            compact('risRecords', 'eligibleReplacementRequests', 'risSummary', 'attachmentsByRis', 'itemsByRis', 'risHasAtp')
-        );
+        return view('purchaser.ris.index', compact(
+            'risRecords',
+            'risSummary',
+            'attachmentsByRis',
+            'itemsByRis',
+            'risHasAtp',
+            'availableReplacementRequests'
+        ));
     }
 
-
-    // =====================================================
-    // ADDED RIS MODULE: CREATE RIS FROM REPLACEMENT OR NEW PROCUREMENT
-    // =====================================================
-
+    // RIS MODULE: CREATE RIS AS DRAFT OR SUBMITTED
     public function storeRis(Request $request)
     {
-        // =====================================================
-        // ADDED RIS MODULE: VALIDATE TWO RIS ENTRY POINTS AND ATTACHMENTS
-        // =====================================================
+        // 1. Determine draft or submit
+        $saveAction = $request->input('save_action', 'draft');
+        $isDraft = $saveAction === 'draft';
 
+        // 2. Validate
+        // Draft allows incomplete RIS information; submit requires RIS number, purpose, and items.
         $validated = $request->validate([
-            'ris_request_type' => ['required', 'in:Replacement Procurement,New Procurement'],
-            'procurement_request_id' => ['nullable', 'integer', 'exists:procurement_requests_table,procurement_request_id'],
-            'ris_manual_title' => ['nullable', 'string', 'max:255'],
-            'ris_manual_description' => ['nullable', 'string', 'max:2000'],
-            'ris_manual_requested_for' => ['nullable', 'string', 'max:255'],
-            'ris_purpose_description' => ['required', 'string', 'max:2000'],
-            // ADDED RIS MODULE: match index.blade.php RIS item input names.
-            'ris_items' => ['required', 'array', 'min:1'],
+            'save_action' => ['required', 'in:draft,submit'],
+            // RIS MODULE: optional source replacement request
+            'ris_procurement_request_id' => [
+                'nullable',
+                'integer',
+                'exists:procurement_requests_table,procurement_request_id'
+            ],
+            'ris_form_number' => [$isDraft ? 'nullable' : 'required', 'string', 'max:100'],
+            'ris_purpose_description' => [$isDraft ? 'nullable' : 'required', 'string', 'max:5000'],
+
+            'ris_items' => ['nullable', 'array'],
             'ris_items.*.name_description' => ['nullable', 'string', 'max:2000'],
             'ris_items.*.quantity_requested' => ['nullable', 'integer', 'min:1'],
-            'ris_items.*.unit' => ['nullable', 'string', 'max:50'],
+            'ris_items.*.quantity_issued' => ['nullable', 'integer', 'min:0'],
             'ris_items.*.unit_cost' => ['nullable', 'numeric', 'min:0'],
-            // ADDED RIS MODULE: match index.blade.php supporting document input names.
+            'ris_items.*.total_amount' => ['nullable', 'numeric', 'min:0'],
+
+            'ris_requested_by' => ['nullable', 'string', 'max:255'],
+            'ris_requested_by_date' => ['nullable', 'date'],
+
+            'ris_approved_by' => ['nullable', 'string', 'max:255'],
+            'ris_approved_by_date' => ['nullable', 'date'],
+
+            'ris_issued_by' => ['nullable', 'string', 'max:255'],
+            'ris_issued_by_date' => ['nullable', 'date'],
+
+            'ris_received_by' => ['nullable', 'string', 'max:255'],
+            'ris_received_by_date' => ['nullable', 'date'],
+
             'ris_attachments' => ['nullable', 'array'],
             'ris_attachments.*' => ['file', 'mimes:doc,docx,xls,xlsx', 'max:10240'],
         ]);
 
-        if ($validated['ris_request_type'] === 'Replacement Procurement' && blank($validated['procurement_request_id'] ?? null)) {
-            return back()->withInput()->with('error', 'Please select an approved replacement request.');
-        }
-
-
-
-        // =====================================================
-        // ADDED RIS MODULE: REMOVE BLANK ITEM ROWS
-        // =====================================================
-
-        // ADDED RIS MODULE: read RIS rows from index.blade.php field names.
-        $items = collect($validated['ris_items'])
-            ->filter(function ($item) {
-                return filled($item['name_description'] ?? null);
-            })
+        // 3. Remove empty item rows
+        $items = collect($validated['ris_items'] ?? [])
+            ->filter(fn ($item) => filled($item['name_description'] ?? null))
             ->values();
 
-        if ($items->isEmpty()) {
-            return back()->withInput()->with('error', 'Please add at least one RIS item.');
+        // 4. Require items only for submission (draft allows zero items)
+        if (!$isDraft && $items->isEmpty()) {
+            return back()->withInput()->with('error', 'Please add at least one RIS item before submitting.');
         }
 
-        // =====================================================
-        // ADDED RIS MODULE: CREATE RIS SAFELY
-        // =====================================================
+        // RIS MODULE: validate replacement request source
+        $procurementRequestId = $validated['ris_procurement_request_id'] ?? null;
 
-        return DB::transaction(function () use ($request, $validated, $items) {
-            $procurementRequestId = null;
+        if ($procurementRequestId) {
+            $replacementRequest = DB::table('procurement_requests_table')
+                ->where('procurement_request_id', $procurementRequestId)
+                ->first();
 
-            if ($validated['ris_request_type'] === 'Replacement Procurement') {
-                $replacementRequest = DB::table('procurement_requests_table')
-                    ->join('reports_table', 'procurement_requests_table.procurement_request_report_id', '=', 'reports_table.report_id')
-                    ->where('procurement_requests_table.procurement_request_id', $validated['procurement_request_id'])
-                    ->where('procurement_requests_table.procurement_request_status', 'Approved')
-                    ->where('reports_table.report_current_status', 'For Replacement')
-                    ->lockForUpdate()
-                    ->first();
-
-                if (!$replacementRequest) {
-                    return back()->with('error', 'Only approved replacement requests can create a replacement RIS.');
-                }
-
-                $existingRis = DB::table('requisition_issue_slip_table')
-                    ->where('ris_procurement_request_id', $validated['procurement_request_id'])
-                    ->exists();
-
-                if ($existingRis) {
-                    return back()->with('error', 'This replacement request already has an RIS.');
-                }
-
-                $procurementRequestId = $validated['procurement_request_id'];
+            if (!$replacementRequest || $replacementRequest->procurement_request_status !== 'Approved') {
+                return back()
+                    ->withInput()
+                    ->with('error', 'Only approved replacement requests can be used to create an RIS.');
             }
 
-            $risId = DB::table('requisition_issue_slip_table')
-                ->insertGetId([
-                    'ris_procurement_request_id' => $procurementRequestId,
-                    'ris_request_type' => $validated['ris_request_type'],
-                    'ris_manual_title' => $validated['ris_manual_title'] ?? null,
-                    'ris_manual_description' => $validated['ris_manual_description'] ?? null,
-                    'ris_manual_requested_for' => $validated['ris_manual_requested_for'] ?? null,
-                    'ris_created_by' => Auth::id(),
-                    'ris_purpose_description' => $validated['ris_purpose_description'],
-                    'ris_status' => 'Pending',
-                    'ris_created_at' => now(),
-                    'ris_updated_at' => now(),
-                ]);
+            $existingRis = DB::table('requisition_issue_slip_table')
+                ->where('ris_procurement_request_id', $procurementRequestId)
+                ->exists();
 
-            DB::table('requisition_issue_slip_table')
-                ->where('ris_id', $risId)
-                ->update([
-                    'ris_form_number' => 'RIS-' . now()->format('Y') . '-' . str_pad($risId, 5, '0', STR_PAD_LEFT),
-                ]);
+            if ($existingRis) {
+                return back()
+                    ->withInput()
+                    ->with('error', 'This replacement request already has an RIS.');
+            }
+        }
+        // 5. Save RIS
+        return DB::transaction(function () use (
+            $request,
+            $validated,
+            $items,
+            $isDraft,
+            $procurementRequestId,
+        ) {
 
+            $risId = DB::table('requisition_issue_slip_table')->insertGetId([
+                // RIS information (drafts may be incomplete)
+                // RIS MODULE: source replacement request, null means manual RIS
+                'ris_procurement_request_id' => $procurementRequestId,
+                'ris_form_number' => $validated['ris_form_number'] ?? null,
+                'ris_purpose_description' => $validated['ris_purpose_description'] ?? null,
+
+                // Status: Save as Draft -> Draft, Submit RIS -> Submitted
+                'ris_status' => $isDraft ? 'Draft' : 'Submitted',
+
+                // Personnel information
+                'ris_requested_by_signature' => $validated['ris_requested_by'] ?? null,
+                'ris_requested_by_date' => $validated['ris_requested_by_date'] ?? null,
+                'ris_approved_by_signature' => $validated['ris_approved_by'] ?? null,
+                'ris_approved_by_date' => $validated['ris_approved_by_date'] ?? null,
+                'ris_issued_by_signature' => $validated['ris_issued_by'] ?? null,
+                'ris_issued_by_date' => $validated['ris_issued_by_date'] ?? null,
+                'ris_received_by_signature' => $validated['ris_received_by'] ?? null,
+                'ris_received_by_date' => $validated['ris_received_by_date'] ?? null,
+
+                // Submission tracking (draft has not entered the Admin workflow yet)
+                'ris_submitted_by' => $isDraft ? null : Auth::id(),
+                'ris_submitted_at' => $isDraft ? null : now(),
+
+                'ris_created_at' => now(),
+                'ris_updated_at' => now(),
+            ]);
+
+            // Save RIS items
             foreach ($items as $item) {
-                $quantityRequested = $item['quantity_requested'] ?? 1;
+                $quantityIssued = $item['quantity_issued'] ?? 0;
                 $unitCost = $item['unit_cost'] ?? 0;
 
-                DB::table('requisition_issue_slip_items_table')
-                    ->insert([
-                        'ris_id' => $risId,
-                        // ADDED RIS MODULE: save item description from index.blade.php field name.
-                        'ris_item_name_description' => $item['name_description'],
-                        'ris_quantity_requested' => $quantityRequested,
-                        'ris_quantity_issued' => 0,
-                        'ris_unit_cost' => $unitCost,
-                        'ris_total_amount' => $unitCost * $quantityRequested,
-                    ]);
+                DB::table('requisition_issue_slip_items_table')->insert([
+                    'ris_id' => $risId,
+                    'ris_item_name_description' => $item['name_description'] ?? null,
+                    'ris_quantity_requested' => $item['quantity_requested'] ?? null,
+                    'ris_quantity_issued' => $quantityIssued,
+                    'ris_unit_cost' => $item['unit_cost'] ?? null,
+                    // Use manually entered total when available, else quantity issued x unit cost
+                    'ris_total_amount' => $item['total_amount'] ?? ($quantityIssued * $unitCost),
+                ]);
             }
 
-            // =====================================================
-            // ADDED RIS MODULE: STORE MULTIPLE SUPPORTING DOCUMENTS
-            // =====================================================
-
-            // ADDED RIS MODULE: read supporting documents from index.blade.php field name.
+            // Store supporting documents
             foreach ($request->file('ris_attachments', []) as $document) {
                 $storedPath = $document->store('ris-supporting-documents/' . $risId, 'public');
 
-                DB::table('ris_attachments_table')
-                    ->insert([
-                        'ris_id' => $risId,
-                        'ris_attachment_original_name' => $document->getClientOriginalName(),
-                        'ris_attachment_path' => $storedPath,
-                        'ris_attachment_mime_type' => $document->getClientMimeType(),
-                        'ris_attachment_size' => $document->getSize(),
-                        'ris_attachment_uploaded_by' => Auth::id(),
-                        'ris_attachment_created_at' => now(),
-                    ]);
+                DB::table('ris_attachments_table')->insert([
+                    'ris_id' => $risId,
+                    'ris_attachment_original_name' => $document->getClientOriginalName(),
+                    'ris_attachment_path' => $storedPath,
+                    'ris_attachment_mime_type' => $document->getClientMimeType(),
+                    'ris_attachment_size' => $document->getSize(),
+                    'ris_attachment_uploaded_by' => Auth::id(),
+                    'ris_attachment_created_at' => now(),
+                ]);
             }
 
             return redirect()
                 ->route('purchaser.ris.index')
-                ->with('success', 'RIS created successfully.');
+                ->with('success', $isDraft ? 'RIS saved as draft.' : 'RIS submitted to Admin successfully.');
         });
     }
 
+    // RIS MODULE: UPDATE DRAFT OR MINOR REVISION RIS
+    public function updateRis(Request $request, $risId)
+    {
+        $ris = DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $risId)
+            ->first();
 
-    // =====================================================
-    // ADDED RIS MODULE: SUBMIT RIS TO ADMIN USING EXISTING COLUMNS
-    // =====================================================
+        abort_if(!$ris, 404);
 
+        // Only Draft (not yet in approval) and Minor Revision (returned by Admin) are editable
+        if (!in_array($ris->ris_status, ['Draft', 'Minor Revision'], true)) {
+            return back()->with('error', 'This RIS can no longer be edited.');
+        }
+
+        // Determine update action: save = save only, submit = submit draft, resubmit = resubmit revision
+        $saveAction = $request->input('save_action', 'save');
+        $isSaveOnly = $saveAction === 'save';
+
+        // Saving allows incomplete draft info; submitting/resubmitting requires RIS info
+        $validated = $request->validate([
+            'save_action' => ['required', 'in:save,submit,resubmit'],
+
+            'ris_form_number' => [$isSaveOnly ? 'nullable' : 'required', 'string', 'max:100'],
+            'ris_purpose_description' => [$isSaveOnly ? 'nullable' : 'required', 'string', 'max:5000'],
+
+            'ris_items' => ['nullable', 'array'],
+            'ris_items.*.name_description' => ['nullable', 'string', 'max:2000'],
+            'ris_items.*.quantity_requested' => ['nullable', 'integer', 'min:1'],
+            'ris_items.*.quantity_issued' => ['nullable', 'integer', 'min:0'],
+            'ris_items.*.unit_cost' => ['nullable', 'numeric', 'min:0'],
+            'ris_items.*.total_amount' => ['nullable', 'numeric', 'min:0'],
+
+            'ris_requested_by' => ['nullable', 'string', 'max:255'],
+            'ris_requested_by_date' => ['nullable', 'date'],
+
+            'ris_approved_by' => ['nullable', 'string', 'max:255'],
+            'ris_approved_by_date' => ['nullable', 'date'],
+
+            'ris_issued_by' => ['nullable', 'string', 'max:255'],
+            'ris_issued_by_date' => ['nullable', 'date'],
+
+            'ris_received_by' => ['nullable', 'string', 'max:255'],
+            'ris_received_by_date' => ['nullable', 'date'],
+
+            'ris_attachments' => ['nullable', 'array'],
+            'ris_attachments.*' => ['file', 'mimes:doc,docx,xls,xlsx', 'max:10240'],
+        ]);
+
+        // Remove empty item rows
+        $items = collect($validated['ris_items'] ?? [])
+            ->filter(fn ($item) => filled($item['name_description'] ?? null))
+            ->values();
+
+        // Require items when submitting or resubmitting
+        if (!$isSaveOnly && $items->isEmpty()) {
+            return back()->withInput()->with('error', 'Please add at least one RIS item before submitting.');
+        }
+
+        // Validate action against current status
+        if ($saveAction === 'submit' && $ris->ris_status !== 'Draft') {
+            return back()->with('error', 'Only a Draft RIS can be submitted.');
+        }
+
+        if ($saveAction === 'resubmit' && $ris->ris_status !== 'Minor Revision') {
+            return back()->with('error', 'Only an RIS under Minor Revision can be resubmitted.');
+        }
+
+        return DB::transaction(function () use ($request, $validated, $items, $ris, $risId, $saveAction) {
+
+            // Determine new status
+            $newStatus = $ris->ris_status;
+
+            if ($saveAction === 'submit') {
+                $newStatus = 'Submitted';
+            } elseif ($saveAction === 'resubmit') {
+                $newStatus = 'Resubmitted';
+            }
+
+            $updateData = [
+                'ris_form_number' => $validated['ris_form_number'] ?? null,
+                'ris_purpose_description' => $validated['ris_purpose_description'] ?? null,
+                'ris_status' => $newStatus,
+                'ris_requested_by_signature' => $validated['ris_requested_by'] ?? null,
+                'ris_requested_by_date' => $validated['ris_requested_by_date'] ?? null,
+                'ris_approved_by_signature' => $validated['ris_approved_by'] ?? null,
+                'ris_approved_by_date' => $validated['ris_approved_by_date'] ?? null,
+                'ris_issued_by_signature' => $validated['ris_issued_by'] ?? null,
+                'ris_issued_by_date' => $validated['ris_issued_by_date'] ?? null,
+                'ris_received_by_signature' => $validated['ris_received_by'] ?? null,
+                'ris_received_by_date' => $validated['ris_received_by_date'] ?? null,
+                'ris_updated_at' => now(),
+            ];
+
+            // Track submission when entering the approval workflow
+            if (in_array($saveAction, ['submit', 'resubmit'], true)) {
+                $updateData['ris_submitted_by'] = Auth::id();
+                $updateData['ris_submitted_at'] = now();
+            }
+
+            DB::table('requisition_issue_slip_table')
+                ->where('ris_id', $risId)
+                ->update($updateData);
+
+            // Replace RIS items: remove old rows, save current form rows again
+            DB::table('requisition_issue_slip_items_table')
+                ->where('ris_id', $risId)
+                ->delete();
+
+            foreach ($items as $item) {
+                $quantityIssued = $item['quantity_issued'] ?? 0;
+                $unitCost = $item['unit_cost'] ?? 0;
+
+                DB::table('requisition_issue_slip_items_table')->insert([
+                    'ris_id' => $risId,
+                    'ris_item_name_description' => $item['name_description'] ?? null,
+                    'ris_quantity_requested' => $item['quantity_requested'] ?? null,
+                    'ris_quantity_issued' => $quantityIssued,
+                    'ris_unit_cost' => $item['unit_cost'] ?? null,
+                    'ris_total_amount' => $item['total_amount'] ?? ($quantityIssued * $unitCost),
+                ]);
+            }
+
+            // Add new attachments (existing attachments are kept)
+            foreach ($request->file('ris_attachments', []) as $document) {
+                $storedPath = $document->store('ris-supporting-documents/' . $risId, 'public');
+
+                DB::table('ris_attachments_table')->insert([
+                    'ris_id' => $risId,
+                    'ris_attachment_original_name' => $document->getClientOriginalName(),
+                    'ris_attachment_path' => $storedPath,
+                    'ris_attachment_mime_type' => $document->getClientMimeType(),
+                    'ris_attachment_size' => $document->getSize(),
+                    'ris_attachment_uploaded_by' => Auth::id(),
+                    'ris_attachment_created_at' => now(),
+                ]);
+            }
+
+            $message = match ($saveAction) {
+                'submit' => 'RIS updated and submitted to Admin.',
+                'resubmit' => 'RIS corrections saved and resubmitted to Admin.',
+                default => 'RIS changes saved successfully.',
+            };
+
+            return redirect()->route('purchaser.ris.index')->with('success', $message);
+        });
+    }
+
+    // RIS MODULE: SUBMIT RIS TO ADMIN USING EXISTING COLUMNS
     public function submitRis($risId)
     {
         return DB::transaction(function () use ($risId) {
@@ -1660,11 +909,7 @@ class PurchaserController extends Controller
         });
     }
 
-
-    // =====================================================
-    // ADDED RIS MODULE: DOWNLOAD SUPPORTING DOCUMENT
-    // =====================================================
-
+    // RIS MODULE: DOWNLOAD SUPPORTING DOCUMENT
     public function downloadRisAttachment($attachmentId)
     {
         $attachment = DB::table('ris_attachments_table')
@@ -1672,7 +917,6 @@ class PurchaserController extends Controller
             ->first();
 
         abort_if(!$attachment, 404);
-
         abort_if(!Storage::disk('public')->exists($attachment->ris_attachment_path), 404);
 
         return Storage::disk('public')->download(
@@ -1680,12 +924,4 @@ class PurchaserController extends Controller
             $attachment->ris_attachment_original_name
         );
     }
-
-    // =====================================================
-    // END ADDED RIS MODULE
-    // =====================================================
 }
-
-
-
-

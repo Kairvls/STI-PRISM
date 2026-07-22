@@ -15,6 +15,7 @@ use App\Http\Controllers\ReplacementRequestController;
 use App\Http\Controllers\PresidentController;
 use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\ReceivingController;
+use App\Http\Controllers\MessageController;
 
 /*
 |--------------------------------------------------------------------------
@@ -268,6 +269,11 @@ Route::middleware(['auth', 'admin'])
         )->name('procurement-review.ris.approve');
 
         Route::post(
+    '/procurement-review/ris/{ris}/direct-approve',
+    [AdminController::class, 'directApproveRis']
+)->name('procurement-review.ris.direct-approve');
+
+        Route::post(
             '/procurement-review/ris/{ris}/reject',
             [AdminController::class, 'rejectRis']
         )->name('procurement-review.ris.reject');
@@ -278,6 +284,50 @@ Route::middleware(['auth', 'admin'])
         )->name('procurement-review.ris.print');
 
     });
+
+    Route::get('/admin/users', function () {
+
+        return view('admin.users.index');
+
+    });
+
+    Route::get('/admin/users/create', function () {
+
+        return view('admin.users.create');
+
+    });
+
+    Route::post('/admin/users/store',
+        [AdminController::class, 'storeUser']);
+
+    Route::get('/admin/settings/campus-setup-pin',
+        [AdminController::class, 'campusSetupPin']);
+
+    Route::post('/admin/settings/campus-setup-pin',
+        [AdminController::class, 'updateCampusSetupPin']);
+    // =====================================================
+    // ADDED RIS ADMIN APPROVAL ROUTES
+    // =====================================================
+
+    Route::get(
+        '/admin/procurement-review',
+        [AdminController::class, 'risApprovals']
+    )->name('admin.procurement-review.index');
+
+    Route::post(
+        '/admin/procurement-review/ris/{risId}/approve',
+        [AdminController::class, 'approveRis']
+    )->name('admin.procurement-review.ris.approve');
+
+    Route::post(
+        '/admin/procurement-review/ris/{risId}/reject',
+        [AdminController::class, 'rejectRis']
+    )->name('admin.procurement-review.ris.reject');
+
+    // =====================================================
+    // END ADDED RIS ADMIN APPROVAL ROUTES
+    // =====================================================
+
 
 
 
@@ -1183,10 +1233,17 @@ Route::middleware([
             ->name('ris.index');
 
         Route::post(
-            '/ris',
-            [PurchaserController::class, 'storeRis']
-        )
-            ->name('ris.store');
+                    '/ris',
+                    [PurchaserController::class, 'storeRis']
+                )
+                    ->name('ris.store');
+
+                // RIS MODULE: UPDATE DRAFT OR MINOR REVISION RIS
+                Route::put(
+                    '/ris/{risId}',
+                    [PurchaserController::class, 'updateRis']
+                )
+                    ->name('ris.update');
 
         Route::post(
             '/ris/{risId}/submit',
@@ -1299,35 +1356,6 @@ Route::middleware([
         )
         ->name('suppliers.store');
 
-        Route::get(
-            '/suppliers/{id}/edit',
-            [\App\Http\Controllers\SupplierController::class, 'edit']
-        )
-        ->name('suppliers.edit');
-
-        Route::get(
-            '/suppliers/{id}',
-            [\App\Http\Controllers\SupplierController::class, 'show']
-        )
-        ->name('suppliers.show');
-
-        Route::put(
-            '/suppliers/{id}',
-            [\App\Http\Controllers\SupplierController::class, 'update']
-        )
-        ->name('suppliers.update');
-
-        Route::post(
-            '/suppliers/{id}/deactivate',
-            [\App\Http\Controllers\SupplierController::class, 'deactivate']
-        )
-        ->name('suppliers.deactivate');
-
-        Route::post(
-            '/suppliers/{id}/activate',
-            [\App\Http\Controllers\SupplierController::class, 'activate']
-        )
-        ->name('suppliers.activate');
 
         // =====================================================
         // PURCHASER URGENT REPORT ROUTES
@@ -1634,6 +1662,64 @@ Route::middleware(['auth', 'receiving'])
         Route::get('/notifications', [ReceivingController::class, 'notifications']);
 
         
+        
+    });
+
+
+
+// =====================================================
+// MESSAGING ROUTES
+// =====================================================
+
+Route::middleware(['auth'])
+    ->prefix('messages')
+    ->name('messages.')
+    ->group(function () {
+
+        Route::get(
+            '/conversations',
+            [MessageController::class, 'index']
+        )->name('conversations.index');
+
+        Route::get(
+            '/users',
+            [MessageController::class, 'users']
+        )->name('users');
+
+        Route::get(
+            '/conversations/{conversation}',
+            [MessageController::class, 'show']
+        )->name('conversations.show');
+
+        Route::get(
+            '/conversations/{conversation}/messages',
+            [MessageController::class, 'messages']
+        )->name('conversations.messages');
+
+        Route::post(
+            '/conversations/{conversation}/send',
+            [MessageController::class, 'store']
+        )->name('conversations.send');
+
+        Route::post(
+            '/conversations/{conversation}/read',
+            [MessageController::class, 'markAsRead']
+        )->name('conversations.read');
+
+        Route::post(
+            '/conversations',
+            [MessageController::class, 'storeConversation']
+        )->name('conversations.store');
+
+        Route::delete(
+            '/conversations/{conversation}',
+            [MessageController::class, 'destroy']
+        )->name('conversations.destroy');
+
+        Route::post(
+            '/upload',
+            [MessageController::class, 'uploadAttachment']
+        )->name('upload');
 
     });
 

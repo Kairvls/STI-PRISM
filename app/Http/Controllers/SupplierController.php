@@ -57,6 +57,18 @@ class SupplierController extends Controller
         return redirect()->route('purchaser.suppliers.index')->with('success', 'Supplier created successfully.');
     }
 
+    // ADDED SUPPLIERS MODULE: reuse supplier creation from the RIS modal without duplicating database logic.
+    public function quickStore(SupplierRequest $request)
+    {
+        $supplierId = DB::transaction(function () use ($request) {
+            return $this->createSupplier($request);
+        });
+
+        return redirect()
+            ->route('purchaser.ris.index', ['selected_supplier' => $supplierId])
+            ->with('success', 'Supplier created successfully. You can now select it for this RIS.');
+    }
+
     public function edit($id)
     {
         $supplier = DB::table('suppliers_table')->where('supplier_id', $id)->first();

@@ -36,7 +36,7 @@
     </div>
 
     {{-- Weekly Stats Cards --}}
-    <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+    <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.1s">
             <p class="text-sm font-medium text-gray-500">Total RIS</p>
             <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900 count-up" data-target="{{ $totalRis ?? 0 }}">{{ $totalRis ?? 0 }}</p>
@@ -52,10 +52,6 @@
         <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.25s">
             <p class="text-sm font-medium text-gray-500">Pending</p>
             <p class="mt-3 text-3xl font-semibold tracking-tight text-amber-700 count-up" data-target="{{ $pending ?? 0 }}">{{ $pending ?? 0 }}</p>
-        </div>
-        <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.3s">
-            <p class="text-sm font-medium text-gray-500">Total Amount</p>
-            <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">₱{{ number_format((float)($totalAmount ?? 0), 2) }}</p>
         </div>
     </div>
 
@@ -119,7 +115,7 @@
     </div>
 
     {{-- Monthly Stats Cards --}}
-    <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+    <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.1s">
             <p class="text-sm font-medium text-gray-500">Total RIS</p>
             <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900 count-up" data-target="{{ $totalRis ?? 0 }}">{{ $totalRis ?? 0 }}</p>
@@ -135,10 +131,6 @@
         <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.25s">
             <p class="text-sm font-medium text-gray-500">Pending</p>
             <p class="mt-3 text-3xl font-semibold tracking-tight text-amber-700 count-up" data-target="{{ $pending ?? 0 }}">{{ $pending ?? 0 }}</p>
-        </div>
-        <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.3s">
-            <p class="text-sm font-medium text-gray-500">Total Amount</p>
-            <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">₱{{ number_format((float)($totalAmount ?? 0), 2) }}</p>
         </div>
     </div>
 
