@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
+use Illuminate\Support\Facades\Auth;
 
 class PresidentController extends Controller
 {
@@ -89,7 +90,7 @@ class PresidentController extends Controller
         // ================================
         $notificationsCount = 0;
         try {
-            $user = \Auth::user();
+            $user = Auth::user();
             if ($user) {
                 $notificationsCount = DB::table('notifications_table')
                     ->where('notification_user_id', $user->user_id)
@@ -346,7 +347,7 @@ class PresidentController extends Controller
                 'approval_log_reference_type' => 'RIS',
                 'approval_log_reference_id' => (int) $targetId,
                 'approval_log_level' => 'President',
-                'approval_log_approved_by' => \Auth::id(),
+                'approval_log_approved_by' => Auth::id(),
                 'approval_log_approval_status' => $decision,
                 'approval_log_approval_remarks' => $remarks,
                 'approval_log_approved_at' => now(),
@@ -387,7 +388,7 @@ class PresidentController extends Controller
                 'approval_log_reference_type' => 'ProcurementRequest',
                 'approval_log_reference_id' => (int) $targetId,
                 'approval_log_level' => 'President',
-                'approval_log_approved_by' => \Auth::id(),
+                'approval_log_approved_by' => Auth::id(),
                 'approval_log_approval_status' => $decision,
                 'approval_log_approval_remarks' => $remarks,
                 'approval_log_approved_at' => now(),

@@ -1093,26 +1093,49 @@
     }
 
     async function startConversationWithUser(userId) {
-        const response = await fetch('/messages/conversations', {
-            method: 'POST',
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': csrfToken
-            },
-            body: JSON.stringify({ user_id: userId })
-        });
 
-        if (!response.ok) return;
-        const data = await response.json();
-        const conversation = data.data;
+        console.log('Clicked user ID:', userId);
 
-        switchModalTab('conversations');
-        await loadModalConversations();
-        
-        setTimeout(() => {
+        try {
+
+            const response = await fetch('/messages/conversations', {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken
+                },
+                body: JSON.stringify({
+                    user_id: userId
+                })
+            });
+
+            console.log('Response status:', response.status);
+
+            const data = await response.json();
+
+            console.log('Server response:', data);
+
+            if (!response.ok) {
+                console.error('Failed to create/open conversation:', data);
+                return;
+            }
+
+            const conversation = data.data;
+
+            console.log('Conversation:', conversation);
+
+            switchModalTab('conversations');
+
+            await loadModalConversations();
+
             openModalConversation(conversation.conversation_id);
-        }, 150);
+
+        } catch (error) {
+
+            console.error('START CONVERSATION ERROR:', error);
+
+        }
     }
 
     async function markModalAsRead() {
