@@ -609,7 +609,7 @@
                                 title="Total amount of this RIS"
                             >
 
-                                ₱{{ number_format((float) ($ris->ris_total_amount ?? 0), 2) }}
+                            ₱{{ number_format((float) ($ris->ris_calculated_total ?? 0), 2) }}
 
                             </td>
 

@@ -75,12 +75,26 @@ class AdminController extends Controller
             'equipment_table.equipment_id'
         )
 
+        // =====================================================
+        // LEFT JOIN RIS ITEMS SUBQUERY
+        // Computes the total amount from RIS items
+        // (SUM of ris_total_amount per ris_id)
+        // =====================================================
+
+        ->leftJoin(
+            DB::raw('(SELECT ris_id, SUM(COALESCE(ris_total_amount, 0)) as ris_calculated_total FROM requisition_issue_slip_items_table GROUP BY ris_id) as ris_items_sum'),
+            'requisition_issue_slip_table.ris_id',
+            '=',
+            'ris_items_sum.ris_id'
+        )
+
         ->select(
             'requisition_issue_slip_table.*',
             'procurement_requests_table.procurement_request_id',
             'reports_table.report_id',
             'reports_table.report_unlisted_equipment_name',
-            'equipment_table.equipment_name'
+            'equipment_table.equipment_name',
+            'ris_items_sum.ris_calculated_total'
         )
 
         // Only RIS forms already submitted by Purchaser.
