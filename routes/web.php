@@ -690,6 +690,11 @@ Route::get(
     [QRController::class, 'printLabel']
 );
 
+Route::post(
+    '/maintenance/equipment/qr/scan',
+    [QRController::class, 'scanQr']
+)->name('maintenance.equipment.qr.scan');
+
 // =====================================================
 // EQUIPMENT CATEGORY ROUTES
 // =====================================================

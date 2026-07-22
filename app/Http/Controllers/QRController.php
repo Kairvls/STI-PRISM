@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Barryvdh\DomPDF\Facade\Pdf;
 
@@ -332,6 +333,202 @@ class QRController extends Controller
             'success',
             'QR generated successfully.'
         );
+    }
+
+    // =====================================================
+    // SCAN EQUIPMENT QR CODE
+    // DASHBOARD CAMERA SCANNER USES THIS METHOD
+    // =====================================================
+
+    public function scanQr(Request $request)
+    {
+        // =====================================================
+        // VALIDATE SCANNED QR VALUE
+        // =====================================================
+
+        $request->validate([
+            'qr_code' => [
+                'required',
+                'string',
+                'max:255',
+            ],
+        ]);
+
+
+        // =====================================================
+        // CLEAN QR VALUE
+        //
+        // NORMAL QR FORMAT:
+        // QR-000004
+        //
+        // SOME EXISTING QR LABELS MAY CONTAIN A FULL URL:
+        // /equipment/qr/QR-000004
+        //
+        // THIS ALLOWS BOTH FORMATS TO WORK.
+        // =====================================================
+
+        $scannedValue = trim($request->qr_code);
+
+        $qrCode = $scannedValue;
+
+
+        // =====================================================
+        // IF SCANNER READS A URL, GET ONLY THE QR ID
+        // =====================================================
+
+        if (filter_var($scannedValue, FILTER_VALIDATE_URL)) {
+
+            $path = parse_url(
+                $scannedValue,
+                PHP_URL_PATH
+            );
+
+            $qrCode = basename($path);
+        }
+
+
+        // =====================================================
+        // FIND EQUIPMENT USING QR CODE
+        // =====================================================
+
+        $equipment = DB::table('equipment_table')
+
+            ->leftJoin(
+                'equipment_categories_table',
+                'equipment_table.equipment_category_id',
+                '=',
+                'equipment_categories_table.equipment_category_id'
+            )
+
+            ->leftJoin(
+                'rooms_table',
+                'equipment_table.equipment_room_id',
+                '=',
+                'rooms_table.room_id'
+            )
+
+            ->where(
+                'equipment_table.equipment_qr_code',
+                $qrCode
+            )
+
+            ->select(
+                'equipment_table.*',
+
+                'equipment_categories_table.equipment_category_name',
+
+                'rooms_table.room_name'
+            )
+
+            ->first();
+
+
+        // =====================================================
+        // QR CODE DOES NOT BELONG TO EQUIPMENT
+        // =====================================================
+
+        if (!$equipment) {
+
+            return response()->json([
+                'success' => false,
+
+                'message' =>
+                    'No equipment was found for this QR code.',
+            ], 404);
+        }
+
+
+        // =====================================================
+        // RECORD SUCCESSFUL QR SCAN
+        // =====================================================
+
+        DB::table('qr_code_logs_table')->insert([
+
+            'qr_code_equipment_id' =>
+                $equipment->equipment_id,
+
+            'qr_code_scanned_by' =>
+                Auth::id(),
+
+            // CURRENT IP ADDRESS
+            'qr_code_scan_location' =>
+                $request->ip(),
+
+            // BROWSER / DEVICE INFORMATION
+            'qr_code_scan_device' =>
+                substr(
+                    (string) $request->userAgent(),
+                    0,
+                    255
+                ),
+
+            'qr_code_scanned_at' =>
+                now(),
+
+        ]);
+
+
+        // =====================================================
+        // RETURN EQUIPMENT INFORMATION TO DASHBOARD
+        // =====================================================
+
+        return response()->json([
+
+            'success' => true,
+
+            'message' =>
+                'Equipment found successfully.',
+
+            'equipment' => [
+
+                'id' =>
+                    $equipment->equipment_id,
+
+                'qr_code' =>
+                    $equipment->equipment_qr_code,
+
+                'asset_tag' =>
+                    $equipment->equipment_asset_tag,
+
+                'name' =>
+                    $equipment->equipment_name,
+
+                'brand' =>
+                    $equipment->equipment_brand_name,
+
+                'model' =>
+                    $equipment->equipment_model,
+
+                'serial_number' =>
+                    $equipment->equipment_serial_number,
+
+                'category' =>
+                    $equipment->equipment_category_name,
+
+                'room' =>
+                    $equipment->room_name,
+
+                'quantity' =>
+                    $equipment->equipment_quantity,
+
+                'condition' =>
+                    $equipment->equipment_condition_status,
+
+                'status' =>
+                    $equipment->equipment_inventory_status,
+
+                'purchase_date' =>
+                    $equipment->equipment_purchase_date,
+
+                'warranty_expiration' =>
+                    $equipment->equipment_warranty_expiration,
+
+                'borrowable' =>
+                    (bool) $equipment->equipment_is_borrowable,
+
+            ],
+
+        ]);
     }
 
     /*

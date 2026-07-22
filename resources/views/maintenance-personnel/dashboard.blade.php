@@ -17,6 +17,8 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+    <script src="https://unpkg.com/html5-qrcode"></script>
+
     <style>
                 *,
                 *::before,
@@ -4744,6 +4746,109 @@
             height: 17px;
         }
 
+        /* ===================================================== */
+        /* EQUIPMENT QR SCANNER MODAL */
+        /* ===================================================== */
+
+        .equipment-scanner-modal-card {
+            width: min(92vw, 520px);
+            max-height: 90vh;
+            overflow-y: auto;
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 22px;
+            box-shadow: 0 24px 70px rgba(15, 23, 42, 0.18);
+        }
+
+
+        /* ===================================================== */
+        /* SCANNER CAMERA AREA */
+        /* ===================================================== */
+
+        .equipment-scanner-camera {
+            overflow: hidden;
+            width: 100%;
+            min-height: 320px;
+            background: #0f172a;
+            border-radius: 16px;
+        }
+
+
+        /* ===================================================== */
+        /* HTML5 QR CODE VIDEO */
+        /* ===================================================== */
+
+        #equipmentQrReader video {
+            width: 100% !important;
+            border-radius: 16px;
+        }
+
+
+        /* ===================================================== */
+        /* SCANNER STATUS */
+        /* ===================================================== */
+
+        .equipment-scanner-status {
+            margin-top: 12px;
+            padding: 10px 12px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            color: #64748b;
+            font-size: 12px;
+            text-align: center;
+        }
+
+
+        /* ===================================================== */
+        /* EQUIPMENT RESULT */
+        /* ===================================================== */
+
+        .equipment-scan-result {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+
+        .equipment-scan-field {
+            min-width: 0;
+            padding: 12px;
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+        }
+
+
+        .equipment-scan-field-label {
+            display: block;
+            margin-bottom: 4px;
+            color: #94a3b8;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+
+        .equipment-scan-field-value {
+            display: block;
+            overflow: hidden;
+            color: #0f172a;
+            font-size: 12px;
+            font-weight: 600;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+
+        @media (max-width: 520px) {
+
+            .equipment-scan-result {
+                grid-template-columns: 1fr;
+            }
+
+        }
+
 
     </style>
 
@@ -4798,7 +4903,7 @@
                 {{-- ADD EQUIPMENT --}}
                 {{-- ===================================================== --}}
 
-                <button type="button" class="button">
+                <button type="button" class="button" onclick="openAddEquipmentModal()">
                     <span class="fold"></span>
 
                     <div class="points_wrapper">
@@ -4826,32 +4931,34 @@
                 {{-- ADD SCHEDULE --}}
                 {{-- ===================================================== --}}
 
-                <a
-                    href="{{ url('/maintenance/schedules/create') }}"
+                <button
+                    type="button"
                     class="dashboard-quick-action"
+                    onclick="openScheduleModal()"
                 >
                     <span class="dashboard-quick-action-icon">
                         <i data-lucide="calendar-plus" class="h-4 w-4"></i>
                     </span>
 
                     <span>Schedule</span>
-                </a>
+                </button>
 
 
                 {{-- ===================================================== --}}
                 {{-- ADD BORROWING --}}
                 {{-- ===================================================== --}}
 
-                <a
-                    href="{{ url('/maintenance/borrowing/create') }}"
+                <button
+                    type="button"
                     class="dashboard-quick-action"
+                    onclick="openBorrowModal()"
                 >
                     <span class="dashboard-quick-action-icon">
                         <i data-lucide="clipboard-plus" class="h-4 w-4"></i>
                     </span>
 
                     <span>Borrowing</span>
-                </a>
+                </button>
             </div>
         </div>
 
@@ -4906,18 +5013,21 @@
 
                             {{-- Statistics --}}
                             <div class="flow-stats">
+                                {{-- TOTAL EQUIPMENT --}}
                                 <div class="flow-stat">
-                                    <h2>{{ $urgentReports }}</h2>
+                                    <h2>{{ $totalEquipment }}</h2>
 
-                                    <p>Urgent Reports</p>
+                                    <p>Total Equipment</p>
                                 </div>
 
+                                {{-- UNDER MAINTENANCE --}}
                                 <div class="flow-stat">
                                     <h2>{{ $underMaintenance }}</h2>
 
                                     <p>Under Maintenance</p>
                                 </div>
 
+                                {{-- BORROWED EQUIPMENT --}}
                                 <div class="flow-stat">
                                     <h2>{{ $borrowedEquipment }}</h2>
 
@@ -5215,8 +5325,9 @@
                                     {{ $pendingReports }}
                                 </span>
 
+                                {{-- GO TO REPORTS --}}
                                 <a
-                                    href="{{ url('/maintenance/schedules') }}"
+                                    href="{{ url('/maintenance/reports/pending') }}"
                                     class="maintenance-summary-action"
                                 >
                                     View Reports
@@ -5233,6 +5344,7 @@
                                     {{ $overdueMaintenance }}
                                 </span>
 
+                                {{-- GO TO MAINTENANCE SCHEDULES --}}
                                 <a
                                     href="{{ url('/maintenance/schedules') }}"
                                     class="maintenance-summary-action"
@@ -5299,8 +5411,13 @@
                             </div>
 
                             <div class="maintenance-hero-actions">
+
+                                {{-- ===================================================== --}}
+                                {{-- REVIEW URGENT REPORTS --}}
+                                {{-- ===================================================== --}}
+
                                 <a
-                                    href="{{ url('/maintenance/reports') }}"
+                                    href="{{ url('/maintenance/reports/urgent') }}"
                                     class="maintenance-hero-primary"
                                 >
                                     Review Reports
@@ -5311,8 +5428,14 @@
                                     ></i>
                                 </a>
 
+
+                                {{-- ===================================================== --}}
+                                {{-- SCAN EQUIPMENT --}}
+                                {{-- ===================================================== --}}
+
                                 <button
                                     type="button"
+                                    onclick="openEquipmentScanner()"
                                     class="maintenance-hero-secondary"
                                 >
                                     <i
@@ -5322,6 +5445,7 @@
 
                                     Scan Equipment
                                 </button>
+
                             </div>
                         </div>
                     </section>
@@ -5982,19 +6106,119 @@
                                             </div>
                                         </div>
 
-                                        <a
-                                            href="{{ url(
-                                                '/maintenance/reports/details/'
-                                                . $report->report_id
-                                            ) }}"
+                                        {{-- ===================================================== --}}
+                                        {{-- PREPARE URGENT REPORT QUICK VIEW DATA --}}
+                                        {{-- ===================================================== --}}
+
+                                        @php
+                                            // =====================================================
+                                            // PREPARE URGENT REPORT QUICK VIEW DATA
+                                            // =====================================================
+
+                                            $urgentReportModalData = [
+
+                                                'id' =>
+                                                    $report->report_id,
+
+                                                'title' =>
+                                                    $report->equipment_name
+                                                    ?? $report->report_unlisted_equipment_name
+                                                    ?? 'Reported Issue',
+
+                                                'status' =>
+                                                    $report->report_current_status,
+
+                                                'urgency' =>
+                                                    $report->report_urgency_level,
+
+                                                // =====================================================
+                                                // REPORT ISSUE INFORMATION
+                                                // =====================================================
+
+                                                'description' =>
+                                                    $report->report_problem_description,
+
+                                                'suggested_issue' =>
+                                                    $report->report_suggested_issue,
+
+                                                // =====================================================
+                                                // LOCATION INFORMATION
+                                                // =====================================================
+
+                                                'room' =>
+                                                    $report->room_name,
+
+                                                'floor' =>
+                                                    $report->floor_level,
+
+                                                'building' =>
+                                                    $report->building_name,
+
+                                                // =====================================================
+                                                // EQUIPMENT INFORMATION
+                                                // =====================================================
+
+                                                'equipment' =>
+                                                    $report->equipment_name
+                                                    ?? $report->report_unlisted_equipment_name,
+
+                                                // =====================================================
+                                                // REPORTER INFORMATION
+                                                // =====================================================
+
+                                                'reporter' =>
+                                                    $report->reporter_full_name,
+
+                                                'employee_id' =>
+                                                    $report->report_reporter_employee_id,
+
+                                                // =====================================================
+                                                // DATE
+                                                // =====================================================
+
+                                                'submitted_at' =>
+                                                    $report->report_submitted_at,
+
+                                                // =====================================================
+                                                // EVIDENCE IMAGE
+                                                // =====================================================
+
+                                                'image' =>
+                                                    $report->report_uploaded_image
+                                                        ? asset(
+                                                            'storage/'
+                                                            . $report->report_uploaded_image
+                                                        )
+                                                        : null,
+
+                                                // =====================================================
+                                                // FULL REPORT PAGE
+                                                // =====================================================
+
+                                                'url' =>
+                                                    url(
+                                                        '/maintenance/reports/details/'
+                                                        . $report->report_id
+                                                    ),
+                                            ];
+                                        @endphp
+
+
+                                        {{-- ===================================================== --}}
+                                        {{-- QUICK VIEW URGENT REPORT BUTTON --}}
+                                        {{-- ===================================================== --}}
+
+                                        <button
+                                            type="button"
                                             class="urgent-media-view"
-                                            aria-label="View report"
+                                            aria-label="Quick view report"
+                                            onclick='openUrgentReportModal(@json($urgentReportModalData))'
                                         >
                                             <i
                                                 data-lucide="arrow-up-right"
                                                 class="h-4 w-4"
                                             ></i>
-                                        </a>
+                                        </button>
                                     </div>
                                 </div>
                             </article>
@@ -6215,13 +6439,2998 @@
 
                     <div class="activity-sidebar-footer">
                         <a href="{{ url('/maintenance/reports') }}">
-                            See All Activities
+                            View All Reports
                         </a>
                     </div>
                 </div>
             </aside>
         </div>
     </div>
+
+    <!-- ========================================================= -->
+    <!-- ADD EQUIPMENT MODAL -->
+    <!-- ========================================================= -->
+    <div
+    id="addEquipmentModal"
+    class="fixed inset-0 z-50 hidden items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]"
+>
+    <!-- ===================================== -->
+    <!-- ADD EQUIPMENT MODAL -->
+    <!-- ===================================== -->
+    <div
+        class="flex max-h-[70vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
+    >
+        <!-- ===================================== -->
+        <!-- MODAL HEADER -->
+        <!-- ===================================== -->
+        <div
+            class="flex shrink-0 items-start justify-between gap-6 px-6 pb-5 pt-6 border-b border-dashed border-slate-500"
+        >
+            <div class="min-w-0">
+                <p
+                    class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400"
+                >
+                    Equipment Inventory
+                </p>
+
+                <h2
+                    class="mt-1.5 text-lg font-bold tracking-tight text-slate-950"
+                >
+                    Add equipment
+                </h2>
+
+                <p class="mt-1 text-sm text-slate-500">
+                    Register equipment and assign its initial inventory details.
+                </p>
+            </div>
+
+            <!-- CLOSE BUTTON -->
+            <button
+                type="button"
+                onclick="closeAddEquipmentModal()"
+                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                aria-label="Close modal"
+            >
+                <i data-lucide="x" class="h-4 w-4"></i>
+            </button>
+        </div>
+
+        <!-- ===================================== -->
+        <!-- ADD EQUIPMENT FORM -->
+        <!-- ===================================== -->
+        <form
+            action="/maintenance/equipment/store"
+            method="POST"
+            class="flex min-h-0 flex-1 flex-col"
+        >
+            @csrf
+
+            <!-- ===================================== -->
+            <!-- SCROLLABLE FORM CONTENT -->
+            <!-- ===================================== -->
+            <div
+                class="min-h-0 flex-1 overflow-y-auto border-y border-slate-100 px-6 py-6"
+            >
+                <div class="space-y-8">
+
+                    <!-- ===================================== -->
+                    <!-- PLACEMENT -->
+                    <!-- ===================================== -->
+                    <section>
+                        <div class="mb-4">
+                            <h3 class="text-sm font-medium text-slate-900">
+                                Placement
+                            </h3>
+
+                            <p class="mt-1 text-sm text-slate-500">
+                                Assign the equipment category and room.
+                            </p>
+                        </div>
+
+                        <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+
+                            <!-- CATEGORY -->
+                            <div>
+                                <label
+                                    for="add_equipment_category"
+                                    class="mb-2 block text-sm font-medium text-slate-700"
+                                >
+                                    Category
+                                </label>
+
+                                <select
+                                    id="add_equipment_category"
+                                    name="equipment_category_id"
+                                    required
+                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                >
+                                    <option value="">
+                                        Select category
+                                    </option>
+
+                                    @foreach ($categories as $category)
+                                        <option
+                                            value="{{ $category->equipment_category_id }}"
+                                        >
+                                            {{ $category->equipment_category_name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <!-- ROOM -->
+                            <div>
+                                <label
+                                    for="add_equipment_room"
+                                    class="mb-2 block text-sm font-medium text-slate-700"
+                                >
+                                    Room
+                                </label>
+
+                                <select
+                                    id="add_equipment_room"
+                                    name="equipment_room_id"
+                                    required
+                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                >
+                                    <option value="">
+                                        Select room
+                                    </option>
+
+                                    @foreach ($rooms as $room)
+                                        <option value="{{ $room->room_id }}">
+                                            {{ $room->room_name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- ===================================== -->
+                    <!-- SECTION DIVIDER -->
+                    <!-- ===================================== -->
+                    <div class="border-t border-slate-100"></div>
+
+                    <!-- ===================================== -->
+                    <!-- EQUIPMENT DETAILS -->
+                    <!-- ===================================== -->
+                    <section>
+                        <div class="mb-4">
+                            <h3 class="text-sm font-medium text-slate-900">
+                                Equipment details
+                            </h3>
+
+                            <p class="mt-1 text-sm text-slate-500">
+                                Enter identification and technical information.
+                            </p>
+                        </div>
+
+                        <div
+                            class="grid grid-cols-1 gap-5 md:grid-cols-12"
+                        >
+                            <!-- EQUIPMENT NAME -->
+                            <div class="md:col-span-7">
+                                <label
+                                    for="add_equipment_name"
+                                    class="mb-2 block text-sm font-medium text-slate-700"
+                                >
+                                    Equipment name
+                                </label>
+
+                                <input
+                                    id="add_equipment_name"
+                                    type="text"
+                                    name="equipment_name"
+                                    required
+                                    placeholder="e.g. Dell OptiPlex Desktop"
+                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                />
+                            </div>
+
+                            <!-- ASSET TAG -->
+                            <div class="md:col-span-5">
+                                <div
+                                    class="mb-2 flex items-center justify-between gap-4"
+                                >
+                                    <label
+                                        for="add_equipment_asset_tag"
+                                        class="text-sm font-medium text-slate-700"
+                                    >
+                                        Asset tag
+                                    </label>
+
+                                    <span class="text-xs text-slate-400">
+                                        Optional
+                                    </span>
+                                </div>
+
+                                <input
+                                    id="add_equipment_asset_tag"
+                                    type="text"
+                                    name="equipment_asset_tag"
+                                    placeholder="e.g. STI-PC-001"
+                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                />
+                            </div>
+
+                            <!-- BRAND -->
+                            <div class="md:col-span-4">
+                                <label
+                                    for="add_equipment_brand"
+                                    class="mb-2 block text-sm font-medium text-slate-700"
+                                >
+                                    Brand
+                                </label>
+
+                                <input
+                                    id="add_equipment_brand"
+                                    type="text"
+                                    name="equipment_brand_name"
+                                    placeholder="e.g. Dell"
+                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                />
+                            </div>
+
+                            <!-- MODEL -->
+                            <div class="md:col-span-4">
+                                <label
+                                    for="add_equipment_model"
+                                    class="mb-2 block text-sm font-medium text-slate-700"
+                                >
+                                    Model
+                                </label>
+
+                                <input
+                                    id="add_equipment_model"
+                                    type="text"
+                                    name="equipment_model"
+                                    placeholder="e.g. OptiPlex 7010"
+                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                />
+                            </div>
+
+                            <!-- SERIAL NUMBER -->
+                            <div class="md:col-span-4">
+                                <label
+                                    for="add_equipment_serial"
+                                    class="mb-2 block text-sm font-medium text-slate-700"
+                                >
+                                    Serial number
+                                </label>
+
+                                <input
+                                    id="add_equipment_serial"
+                                    type="text"
+                                    name="equipment_serial_number"
+                                    placeholder="Enter serial number"
+                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                />
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- ===================================== -->
+                    <!-- SECTION DIVIDER -->
+                    <!-- ===================================== -->
+                    <div class="border-t border-slate-100"></div>
+
+                    <!-- ===================================== -->
+                    <!-- INVENTORY INFORMATION -->
+                    <!-- ===================================== -->
+                    <section>
+                        <div class="mb-4">
+                            <h3 class="text-sm font-medium text-slate-900">
+                                Inventory information
+                            </h3>
+
+                            <p class="mt-1 text-sm text-slate-500">
+                                Set the initial quantity and equipment condition.
+                            </p>
+                        </div>
+
+                        <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+
+                            <!-- QUANTITY -->
+                            <div>
+                                <label
+                                    for="add_equipment_quantity"
+                                    class="mb-2 block text-sm font-medium text-slate-700"
+                                >
+                                    Quantity
+                                </label>
+
+                                <input
+                                    id="add_equipment_quantity"
+                                    type="number"
+                                    min="1"
+                                    value="1"
+                                    name="equipment_quantity"
+                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                />
+                            </div>
+
+                            <!-- CONDITION -->
+                            <div>
+                                <label
+                                    for="add_equipment_condition"
+                                    class="mb-2 block text-sm font-medium text-slate-700"
+                                >
+                                    Condition
+                                </label>
+
+                                <select
+                                    id="add_equipment_condition"
+                                    name="equipment_condition_status"
+                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                >
+                                    <option value="Good">
+                                        Good
+                                    </option>
+
+                                    <option value="Damaged">
+                                        Damaged
+                                    </option>
+
+                                    <option value="Under Maintenance">
+                                        Under maintenance
+                                    </option>
+
+                                    <option value="Disposed">
+                                        Disposed
+                                    </option>
+                                </select>
+                            </div>
+
+                            <!-- ===================================== -->
+                            <!-- BORROWABLE -->
+                            <!-- Place below the Condition field -->
+                            <!-- ===================================== -->
+
+                            <div class="sm:col-span-2">
+                                <label
+                                    for="add_equipment_borrowable"
+                                    class="mb-2 block text-sm font-medium text-slate-700"
+                                >
+                                    Borrowable
+                                </label>
+
+                                <label
+                                    class="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 transition hover:border-slate-300"
+                                >
+                                    <div>
+                                        <p class="text-sm font-medium text-slate-900">
+                                            Allow equipment borrowing
+                                        </p>
+
+                                        <p class="mt-1 text-xs text-slate-500">
+                                            Enable this if the equipment can be borrowed by authorized users.
+                                        </p>
+                                    </div>
+
+                                    <input
+                                        id="add_equipment_borrowable"
+                                        type="checkbox"
+                                        name="equipment_is_borrowable"
+                                        value="1"
+                                        class="peer sr-only"
+                                    >
+
+                                    <div
+                                        class="relative h-6 w-11 rounded-full bg-slate-300 transition
+                                            peer-checked:bg-emerald-500
+                                            after:absolute after:left-0.5 after:top-0.5
+                                            after:h-5 after:w-5 after:rounded-full
+                                            after:bg-white after:transition-all
+                                            peer-checked:after:translate-x-5"
+                                    ></div>
+                                </label>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <div class="border-t border-dashed border-slate-500"></div>
+
+            <!-- ===================================== -->
+            <!-- MODAL FOOTER -->
+            <!-- ===================================== -->
+            <div
+                class="flex shrink-0 items-center justify-between gap-4 px-6 py-4"
+            >
+                <p class="hidden text-xs text-slate-400 sm:block">
+                    Required fields must be completed before saving.
+                </p>
+
+                <div class="flex items-center gap-2">
+                    <button
+                        type="button"
+                        onclick="closeAddEquipmentModal()"
+                        class="rounded-lg px-3.5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+                    >
+                        Cancel
+                    </button>
+
+                    <button
+                        type="submit"
+                        class="rounded-lg bg-[rgba(0,55,199,0.85)] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[rgba(0,44,155,0.85)] focus:outline-none focus:ring-4 focus:ring-slate-200 active:bg-black"
+                    >
+                        Add equipment
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div
+    id="scheduleModal"
+    class="fixed inset-0 z-[1300] hidden items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]"
+>
+    <!-- ===================================== -->
+    <!-- SCHEDULE MAINTENANCE MODAL -->
+    <!-- ===================================== -->
+    <div
+        class="flex max-h-[70vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
+    >
+        <!-- ===================================== -->
+        <!-- MODAL HEADER -->
+        <!-- ===================================== -->
+        <div
+            class="flex shrink-0 items-start justify-between gap-6 px-6 pb-5 pt-6 border-b border-dashed border-slate-500"
+        >
+            <div class="min-w-0">
+                <p
+                    class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400"
+                >
+                    Preventive Maintenance
+                </p>
+
+                <h2
+                    class="mt-1.5 text-lg font-semibold tracking-tight text-slate-950"
+                >
+                    Schedule maintenance
+                </h2>
+
+                <p class="mt-1 text-sm text-slate-500">
+                    Create a maintenance schedule for equipment.
+                </p>
+            </div>
+
+            <!-- CLOSE BUTTON -->
+            <button
+                type="button"
+                onclick="closeScheduleModal()"
+                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                aria-label="Close modal"
+            >
+                <i data-lucide="x" class="h-4 w-4"></i>
+            </button>
+        </div>
+
+        <!-- ===================================== -->
+        <!-- SCHEDULE FORM -->
+        <!-- ===================================== -->
+        <form
+            action="/maintenance/schedules/store"
+            method="POST"
+            class="flex min-h-0 flex-1 flex-col"
+        >
+            @csrf
+
+            <!-- ===================================== -->
+            <!-- SCROLLABLE FORM CONTENT -->
+            <!-- ===================================== -->
+            <div
+                class="min-h-0 flex-1 overflow-y-auto border-y border-slate-100 px-6 py-5"
+            >
+                <div class="space-y-5">
+
+                    <!-- ===================================== -->
+                    <!-- EQUIPMENT -->
+                    <!-- ===================================== -->
+                    <div>
+                        <label
+                            for="scheduleEquipment"
+                            class="mb-2 block text-sm font-medium text-slate-700"
+                        >
+                            Equipment
+                        </label>
+
+                        <select
+                            id="scheduleEquipment"
+                            name="equipment_id"
+                            required
+                            class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                        >
+                            <option value="">
+                                Select equipment
+                            </option>
+
+                            @foreach ($equipment as $item)
+                                <option value="{{ $item->equipment_id }}">
+                                    {{ $item->equipment_name }}{{ isset($item->room_name) && $item->room_name ? ' · '.$item->room_name : '' }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <!-- ===================================== -->
+                    <!-- MAINTENANCE TITLE -->
+                    <!-- ===================================== -->
+                    <div>
+                        <label
+                            for="scheduleTitle"
+                            class="mb-2 block text-sm font-medium text-slate-700"
+                        >
+                            Maintenance title
+                        </label>
+
+                        <input
+                            id="scheduleTitle"
+                            type="text"
+                            name="title"
+                            placeholder="e.g. Quarterly air conditioner inspection"
+                            required
+                            class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                        />
+                    </div>
+
+                    <!-- ===================================== -->
+                    <!-- DESCRIPTION -->
+                    <!-- ===================================== -->
+                    <div>
+                        <div
+                            class="mb-2 flex items-center justify-between gap-4"
+                        >
+                            <label
+                                for="scheduleDescription"
+                                class="text-sm font-medium text-slate-700"
+                            >
+                                Description
+                            </label>
+
+                            <span class="text-xs text-slate-400">
+                                Optional
+                            </span>
+                        </div>
+
+                        <textarea
+                            id="scheduleDescription"
+                            name="description"
+                            rows="3"
+                            placeholder="Add instructions or details about this maintenance schedule"
+                            class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                        ></textarea>
+                    </div>
+
+                    <!-- ===================================== -->
+                    <!-- SCHEDULE SETTINGS -->
+                    <!-- ===================================== -->
+                    <div class="grid gap-5 sm:grid-cols-2">
+
+                        <!-- FREQUENCY -->
+                        <div>
+                            <label
+                                for="scheduleFrequency"
+                                class="mb-2 block text-sm font-medium text-slate-700"
+                            >
+                                Frequency
+                            </label>
+
+                            <select
+                                id="scheduleFrequency"
+                                name="frequency"
+                                class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                            >
+                                <option value="Monthly">
+                                    Monthly
+                                </option>
+
+                                <option value="Quarterly">
+                                    Quarterly
+                                </option>
+
+                                <option value="Semi Annual">
+                                    Semi annual
+                                </option>
+
+                                <option value="Annual">
+                                    Annual
+                                </option>
+                            </select>
+                        </div>
+
+                        <!-- NEXT MAINTENANCE DATE -->
+                        <div>
+                            <label
+                                for="scheduleNextDate"
+                                class="mb-2 block text-sm font-medium text-slate-700"
+                            >
+                                Next maintenance date
+                            </label>
+
+                            <input
+                                id="scheduleNextDate"
+                                type="date"
+                                name="next_date"
+                                required
+                                class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                            />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="border-t border-dashed border-slate-500"></div>
+
+            <!-- ===================================== -->
+            <!-- MODAL FOOTER -->
+            <!-- ===================================== -->
+            <div
+                class="flex shrink-0 items-center justify-end gap-2 px-6 py-4"
+            >
+                <button
+                    type="button"
+                    onclick="closeScheduleModal()"
+                    class="rounded-lg px-3.5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+                >
+                    Cancel
+                </button>
+
+                <button
+                    type="submit"
+                    class="rounded-lg bg-[rgba(0,55,199,0.85)] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[rgba(0,44,155,0.85)] focus:outline-none focus:ring-4 focus:ring-slate-200 active:bg-black"
+                >
+                    Create schedule
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ===================================================== -->
+    <!-- BORROW MODAL -->
+    <!-- ===================================================== -->
+
+    <div
+    id="borrowModal"
+    class="fixed inset-0 z-50 hidden items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]"
+>
+    <!-- ===================================== -->
+    <!-- BORROW EQUIPMENT MODAL -->
+    <!-- ===================================== -->
+    <div
+        class="flex max-h-[70vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
+    >
+        <!-- ===================================== -->
+        <!-- MODAL HEADER -->
+        <!-- ===================================== -->
+        <div
+            class="flex shrink-0 items-start justify-between gap-6 px-6 pb-5 pt-6 border-b border-dashed border-slate-500"
+        >
+            <div>
+                <p
+                    class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400"
+                >
+                    Equipment Borrowing
+                </p>
+
+                <h2
+                    class="mt-1.5 text-lg font-semibold tracking-tight text-slate-950"
+                >
+                    Borrow equipment
+                </h2>
+            </div>
+
+            <!-- CLOSE BUTTON -->
+            <button
+                type="button"
+                onclick="closeBorrowModal()"
+                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                aria-label="Close modal"
+            >
+                <i data-lucide="x" class="h-4 w-4"></i>
+            </button>
+        </div>
+
+        <!-- ===================================== -->
+        <!-- BORROW FORM -->
+        <!-- ===================================== -->
+        <form
+            method="POST"
+            action="/maintenance/borrowing/store"
+            class="flex min-h-0 flex-1 flex-col"
+        >
+            @csrf
+
+            <!-- ===================================== -->
+            <!-- SCROLLABLE CONTENT -->
+            <!-- ===================================== -->
+            <div
+                class="min-h-0 flex-1 overflow-y-auto border-y border-slate-100 px-6 py-6"
+            >
+                <div class="space-y-8">
+
+                    <!-- ===================================== -->
+                    <!-- EQUIPMENT DETAILS -->
+                    <!-- ===================================== -->
+                    <section>
+                        <div class="mb-4">
+                            <h3
+                                class="text-sm font-semibold text-slate-900"
+                            >
+                                Equipment details
+                            </h3>
+
+                            <p class="mt-1 text-sm text-slate-500">
+                                Select the equipment and quantity to be borrowed.
+                            </p>
+                        </div>
+
+                        <div class="grid gap-5 md:grid-cols-2">
+                            <!-- EQUIPMENT -->
+                            <div>
+                                <label
+                                    for="borrowEquipment"
+                                    class="mb-2 block text-sm font-medium text-slate-700"
+                                >
+                                    Equipment
+                                </label>
+
+                                <select
+                                    id="borrowEquipment"
+                                    name="borrowing_equipment_id"
+                                    required
+                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                >
+                                    <option value="">
+                                        Select equipment
+                                    </option>
+
+                                    @foreach ($equipment as $item)
+                                        <option
+                                            value="{{ $item->equipment_id }}"
+                                        >
+                                            {{ $item->equipment_name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <!-- QUANTITY -->
+                            <div>
+                                <label
+                                    for="borrowQuantity"
+                                    class="mb-2 block text-sm font-medium text-slate-700"
+                                >
+                                    Quantity
+                                </label>
+
+                                <input
+                                    id="borrowQuantity"
+                                    type="number"
+                                    name="borrowing_quantity"
+                                    value="1"
+                                    min="1"
+                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                />
+                            </div>
+                        </div>
+                    </section>
+
+                    <div class="border-t border-slate-100"></div>
+
+                    <!-- ===================================== -->
+                    <!-- BORROWER INFORMATION -->
+                    <!-- ===================================== -->
+                    <section>
+                        <div class="mb-4">
+                            <h3
+                                class="text-sm font-semibold text-slate-900"
+                            >
+                                Borrower information
+                            </h3>
+
+                            <p class="mt-1 text-sm text-slate-500">
+                                Provide the details of the person borrowing the equipment.
+                            </p>
+                        </div>
+
+                        <div class="grid gap-5 md:grid-cols-2">
+                            <!-- BORROWER NAME -->
+                            <div>
+                                <label
+                                    for="borrowerName"
+                                    class="mb-2 block text-sm font-medium text-slate-700"
+                                >
+                                    Borrower name
+                                </label>
+
+                                <input
+                                    id="borrowerName"
+                                    type="text"
+                                    name="borrowing_borrower_name"
+                                    placeholder="Enter borrower name"
+                                    required
+                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                />
+                            </div>
+
+                            <!-- DEPARTMENT -->
+                            <div>
+                                <div class="mb-2 flex items-center justify-between">
+                                    <label
+                                        for="borrowDepartment"
+                                        class="text-sm font-medium text-slate-700"
+                                    >
+                                        Department
+                                    </label>
+
+                                    <span class="text-xs text-slate-400">
+                                        Optional
+                                    </span>
+                                </div>
+
+                                <input
+                                    id="borrowDepartment"
+                                    type="text"
+                                    name="borrowing_borrower_department"
+                                    placeholder="Enter department"
+                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                />
+                            </div>
+
+                            <!-- AUTHORIZED BY -->
+                            <div class="md:col-span-2">
+                                <div class="mb-2 flex items-center justify-between">
+                                    <label
+                                        for="borrowAuthorizedBy"
+                                        class="text-sm font-medium text-slate-700"
+                                    >
+                                        Authorized by
+                                    </label>
+
+                                    <span class="text-xs text-slate-400">
+                                        Optional
+                                    </span>
+                                </div>
+
+                                <input
+                                    id="borrowAuthorizedBy"
+                                    type="text"
+                                    name="borrowing_authorized_by"
+                                    placeholder="Enter authorizing personnel"
+                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                />
+                            </div>
+                        </div>
+                    </section>
+
+                    <div class="border-t border-slate-100"></div>
+
+                    <!-- ===================================== -->
+                    <!-- BORROWING SCHEDULE -->
+                    <!-- ===================================== -->
+                    <section>
+                        <div class="mb-4">
+                            <h3
+                                class="text-sm font-semibold text-slate-900"
+                            >
+                                Borrowing schedule
+                            </h3>
+
+                            <p class="mt-1 text-sm text-slate-500">
+                                Set the borrowing period and equipment condition.
+                            </p>
+                        </div>
+
+                        <div class="grid gap-5 md:grid-cols-2">
+                            <!-- BORROW DATE -->
+                            <div>
+                                <label
+                                    for="borrowDate"
+                                    class="mb-2 block text-sm font-medium text-slate-700"
+                                >
+                                    Borrow date
+                                </label>
+
+                                <input
+                                    id="borrowDate"
+                                    type="date"
+                                    name="borrowing_date"
+                                    required
+                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                />
+                            </div>
+
+                            <!-- EXPECTED RETURN DATE -->
+                            <div>
+                                <label
+                                    for="borrowExpectedReturn"
+                                    class="mb-2 block text-sm font-medium text-slate-700"
+                                >
+                                    Expected return date
+                                </label>
+
+                                <input
+                                    id="borrowExpectedReturn"
+                                    type="date"
+                                    name="borrowing_expected_return_date"
+                                    required
+                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                />
+                            </div>
+
+                            <!-- CONDITION -->
+                            <div class="md:col-span-2">
+                                <div class="mb-2 flex items-center justify-between">
+                                    <label
+                                        for="borrowCondition"
+                                        class="text-sm font-medium text-slate-700"
+                                    >
+                                        Equipment condition
+                                    </label>
+
+                                    <span class="text-xs text-slate-400">
+                                        Optional
+                                    </span>
+                                </div>
+
+                                <input
+                                    id="borrowCondition"
+                                    type="text"
+                                    name="borrowing_equipment_condition"
+                                    placeholder="e.g. Good condition"
+                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                />
+                            </div>
+                        </div>
+                    </section>
+
+                    <div class="border-t border-slate-100"></div>
+
+                    <!-- ===================================== -->
+                    <!-- ADDITIONAL DETAILS -->
+                    <!-- ===================================== -->
+                    <section>
+                        <div class="mb-4">
+                            <h3
+                                class="text-sm font-semibold text-slate-900"
+                            >
+                                Additional details
+                            </h3>
+
+                            <p class="mt-1 text-sm text-slate-500">
+                                Add the purpose, destination, or other relevant notes.
+                            </p>
+                        </div>
+
+                        <div class="space-y-5">
+                            <!-- PURPOSE -->
+                            <div>
+                                <div class="mb-2 flex items-center justify-between">
+                                    <label
+                                        for="borrowPurpose"
+                                        class="text-sm font-medium text-slate-700"
+                                    >
+                                        Purpose
+                                    </label>
+
+                                    <span class="text-xs text-slate-400">
+                                        Optional
+                                    </span>
+                                </div>
+
+                                <textarea
+                                    id="borrowPurpose"
+                                    name="borrowing_purpose"
+                                    rows="3"
+                                    placeholder="Describe why the equipment is being borrowed"
+                                    class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                ></textarea>
+                            </div>
+
+                            <!-- DESTINATION -->
+                            <div>
+                                <div class="mb-2 flex items-center justify-between">
+                                    <label
+                                        for="borrowDestination"
+                                        class="text-sm font-medium text-slate-700"
+                                    >
+                                        Destination
+                                    </label>
+
+                                    <span class="text-xs text-slate-400">
+                                        Optional
+                                    </span>
+                                </div>
+
+                                <input
+                                    id="borrowDestination"
+                                    type="text"
+                                    name="borrowing_destination_location"
+                                    placeholder="Enter destination location"
+                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                />
+                            </div>
+
+                            <!-- REMARKS -->
+                            <div>
+                                <div class="mb-2 flex items-center justify-between">
+                                    <label
+                                        for="borrowRemarks"
+                                        class="text-sm font-medium text-slate-700"
+                                    >
+                                        Remarks
+                                    </label>
+
+                                    <span class="text-xs text-slate-400">
+                                        Optional
+                                    </span>
+                                </div>
+
+                                <textarea
+                                    id="borrowRemarks"
+                                    name="borrowing_remarks"
+                                    rows="3"
+                                    placeholder="Add any additional notes"
+                                    class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                ></textarea>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <div class="border-t border-dashed border-slate-500"></div>
+
+            <!-- ===================================== -->
+            <!-- MODAL FOOTER -->
+            <!-- ===================================== -->
+            <div
+                class="flex shrink-0 items-center justify-end gap-2 px-6 py-4"
+            >
+                <button
+                    type="button"
+                    onclick="closeBorrowModal()"
+                    class="rounded-lg px-3.5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+                >
+                    Cancel
+                </button>
+
+                <button
+                    type="submit"
+                    class="rounded-lg bg-[rgba(0,55,199,0.85)] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[rgba(0,44,155,0.85)] focus:outline-none focus:ring-4 focus:ring-slate-200 active:bg-black"
+                >
+                    Create borrowing record
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{{-- ===================================================== --}}
+{{-- EQUIPMENT QR SCANNER MODAL --}}
+{{-- ===================================================== --}}
+
+<div
+    id="equipmentScannerModal"
+    class="fixed inset-0 z-[9999] hidden items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm"
+>
+    <div class="equipment-scanner-modal-card">
+
+        {{-- ===================================================== --}}
+        {{-- MODAL HEADER --}}
+        {{-- ===================================================== --}}
+
+        <div
+            class="flex items-center justify-between border-b border-slate-200 px-6 py-4"
+        >
+            <div>
+                <h2
+                    id="equipmentScannerTitle"
+                    class="font-['Outfit'] text-lg font-bold text-slate-900"
+                >
+                    Scan Equipment
+                </h2>
+
+                <p class="mt-1 text-xs text-slate-500">
+                    Point the camera at an equipment QR code.
+                </p>
+            </div>
+
+            <button
+                type="button"
+                onclick="closeEquipmentScanner()"
+                class="flex h-9 w-9 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+            >
+                <i data-lucide="x" class="h-5 w-5"></i>
+            </button>
+        </div>
+
+
+        {{-- ===================================================== --}}
+        {{-- MODAL BODY --}}
+        {{-- ===================================================== --}}
+
+        <div class="p-6">
+
+            {{-- ===================================================== --}}
+            {{-- CAMERA VIEW --}}
+            {{-- ===================================================== --}}
+
+            <div id="equipmentScannerCameraSection">
+
+                <div
+                    id="equipmentQrReader"
+                    class="equipment-scanner-camera"
+                ></div>
+
+                <div
+                    id="equipmentScannerStatus"
+                    class="equipment-scanner-status"
+                >
+                    Starting camera...
+                </div>
+
+            </div>
+
+
+            {{-- ===================================================== --}}
+            {{-- EQUIPMENT FOUND RESULT --}}
+            {{-- HIDDEN UNTIL A VALID QR IS SCANNED --}}
+            {{-- ===================================================== --}}
+
+            <div
+                id="equipmentScannerResultSection"
+                class="hidden"
+            >
+
+                <div class="mb-5 flex items-center gap-3">
+
+                    <div
+                        class="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-50 text-emerald-600"
+                    >
+                        <i
+                            data-lucide="circle-check"
+                            class="h-5 w-5"
+                        ></i>
+                    </div>
+
+                    <div>
+                        <p
+                            id="scanEquipmentName"
+                            class="font-['Outfit'] text-base font-bold text-slate-900"
+                        >
+                            Equipment
+                        </p>
+
+                        <p
+                            id="scanEquipmentQrCode"
+                            class="text-xs text-slate-500"
+                        >
+                            QR Code
+                        </p>
+                    </div>
+
+                </div>
+
+
+                {{-- ===================================================== --}}
+                {{-- EQUIPMENT INFORMATION --}}
+                {{-- ===================================================== --}}
+
+                <div class="equipment-scan-result">
+
+                    <div class="equipment-scan-field">
+                        <span class="equipment-scan-field-label">
+                            Asset Tag
+                        </span>
+
+                        <span
+                            id="scanEquipmentAssetTag"
+                            class="equipment-scan-field-value"
+                        >
+                            N/A
+                        </span>
+                    </div>
+
+
+                    <div class="equipment-scan-field">
+                        <span class="equipment-scan-field-label">
+                            Category
+                        </span>
+
+                        <span
+                            id="scanEquipmentCategory"
+                            class="equipment-scan-field-value"
+                        >
+                            N/A
+                        </span>
+                    </div>
+
+
+                    <div class="equipment-scan-field">
+                        <span class="equipment-scan-field-label">
+                            Brand
+                        </span>
+
+                        <span
+                            id="scanEquipmentBrand"
+                            class="equipment-scan-field-value"
+                        >
+                            N/A
+                        </span>
+                    </div>
+
+
+                    <div class="equipment-scan-field">
+                        <span class="equipment-scan-field-label">
+                            Model
+                        </span>
+
+                        <span
+                            id="scanEquipmentModel"
+                            class="equipment-scan-field-value"
+                        >
+                            N/A
+                        </span>
+                    </div>
+
+
+                    <div class="equipment-scan-field">
+                        <span class="equipment-scan-field-label">
+                            Serial Number
+                        </span>
+
+                        <span
+                            id="scanEquipmentSerial"
+                            class="equipment-scan-field-value"
+                        >
+                            N/A
+                        </span>
+                    </div>
+
+
+                    <div class="equipment-scan-field">
+                        <span class="equipment-scan-field-label">
+                            Room
+                        </span>
+
+                        <span
+                            id="scanEquipmentRoom"
+                            class="equipment-scan-field-value"
+                        >
+                            N/A
+                        </span>
+                    </div>
+
+
+                    <div class="equipment-scan-field">
+                        <span class="equipment-scan-field-label">
+                            Condition
+                        </span>
+
+                        <span
+                            id="scanEquipmentCondition"
+                            class="equipment-scan-field-value"
+                        >
+                            N/A
+                        </span>
+                    </div>
+
+
+                    <div class="equipment-scan-field">
+                        <span class="equipment-scan-field-label">
+                            Inventory Status
+                        </span>
+
+                        <span
+                            id="scanEquipmentStatus"
+                            class="equipment-scan-field-value"
+                        >
+                            N/A
+                        </span>
+                    </div>
+
+                </div>
+
+
+                {{-- ===================================================== --}}
+                {{-- RESULT ACTIONS --}}
+                {{-- ===================================================== --}}
+
+                <div
+                    class="mt-6 flex items-center justify-end gap-2 border-t border-slate-100 pt-4"
+                >
+                    <button
+                        type="button"
+                        onclick="restartEquipmentScanner()"
+                        class="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                    >
+                        <i
+                            data-lucide="scan-line"
+                            class="h-4 w-4"
+                        ></i>
+
+                        Scan Another
+                    </button>
+
+                    <button
+                        type="button"
+                        onclick="closeEquipmentScanner()"
+                        class="inline-flex h-10 items-center justify-center rounded-xl bg-slate-900 px-4 text-xs font-semibold text-white transition hover:bg-slate-800"
+                    >
+                        Done
+                    </button>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+</div>
+
+{{-- ===================================================== --}}
+{{-- URGENT REPORT QUICK VIEW MODAL --}}
+{{-- ===================================================== --}}
+
+<div
+    id="urgentReportModal"
+    class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]"
+    aria-hidden="true"
+>
+    {{-- ================================================= --}}
+    {{-- MODAL CONTAINER --}}
+    {{-- ================================================= --}}
+
+    <div
+        class="relative flex max-h-[80vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl"
+        onclick="event.stopPropagation()"
+    >
+        {{-- ================================================= --}}
+        {{-- MODAL HEADER --}}
+        {{-- ================================================= --}}
+
+        <div
+            class="flex items-start justify-between gap-4 border-b border-gray-200 px-6 py-5"
+        >
+            <div>
+                <div class="mb-2 flex flex-wrap items-center gap-2">
+
+                    <span
+                        id="urgentModalReportId"
+                        class="rounded-lg bg-gray-100 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-gray-600"
+                    >
+                        Report
+                    </span>
+
+                    <span
+                        id="urgentModalUrgency"
+                        class="rounded-full border px-2.5 py-1 text-xs font-semibold"
+                    >
+                        Urgent
+                    </span>
+
+                    <span
+                        id="urgentModalStatus"
+                        class="rounded-full border px-2.5 py-1 text-xs font-semibold"
+                    >
+                        Pending
+                    </span>
+
+                </div>
+
+                <h2
+                    id="urgentModalTitle"
+                    class="text-xl font-bold text-gray-900 sm:text-2xl"
+                >
+                    Report Details
+                </h2>
+
+                <p
+                    id="urgentModalSubmitted"
+                    class="mt-1 text-sm text-gray-500"
+                >
+                    Submitted date
+                </p>
+            </div>
+
+            <button
+                type="button"
+                onclick="closeUrgentReportModal()"
+                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                aria-label="Close report preview"
+            >
+                <i
+                    data-lucide="x"
+                    class="h-5 w-5"
+                ></i>
+            </button>
+        </div>
+
+
+        {{-- ================================================= --}}
+        {{-- MODAL BODY --}}
+        {{-- ================================================= --}}
+
+        <div class="overflow-y-auto px-6 py-6">
+
+            {{-- ===================================================== --}}
+            {{-- SUGGESTED ISSUE --}}
+            {{-- ===================================================== --}}
+
+            <div
+                id="urgentModalSuggestedIssueSection"
+                class="mb-6 hidden"
+            >
+                <p
+                    class="mb-2 text-xs font-bold uppercase tracking-wider text-gray-400"
+                >
+                    Suggested Issue
+                </p>
+
+                <div
+                    id="urgentModalSuggestedIssue"
+                    class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-medium leading-6 text-amber-900"
+                >
+                    No suggested issue.
+                </div>
+            </div>
+
+
+            {{-- ===================================================== --}}
+            {{-- PROBLEM DESCRIPTION --}}
+            {{-- ===================================================== --}}
+
+            <div class="mb-6">
+                <p
+                    class="mb-2 text-xs font-bold uppercase tracking-wider text-gray-400"
+                >
+                    Problem Description
+                </p>
+
+                <div
+                    id="urgentModalDescription"
+                    class="rounded-2xl bg-gray-50 p-4 text-sm leading-6 text-gray-700"
+                >
+                    No description provided.
+                </div>
+            </div>
+
+
+            {{-- ================================================= --}}
+            {{-- INFORMATION GRID --}}
+            {{-- ================================================= --}}
+
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+
+                {{-- ================================================= --}}
+                {{-- EQUIPMENT --}}
+                {{-- ================================================= --}}
+
+                <div class="rounded-2xl border border-gray-200 p-4">
+
+                    <div class="mb-3 flex items-center gap-2">
+
+                        <i
+                            data-lucide="monitor"
+                            class="h-4 w-4 text-gray-400"
+                        ></i>
+
+                        <span
+                            class="text-xs font-bold uppercase tracking-wider text-gray-400"
+                        >
+                            Equipment
+                        </span>
+
+                    </div>
+
+                    <p
+                        id="urgentModalEquipment"
+                        class="font-semibold text-gray-900"
+                    >
+                        Not specified
+                    </p>
+
+                </div>
+
+
+                {{-- ================================================= --}}
+                {{-- REPORTER --}}
+                {{-- ================================================= --}}
+
+                <div class="rounded-2xl border border-gray-200 p-4">
+
+                    <div class="mb-3 flex items-center gap-2">
+
+                        <i
+                            data-lucide="user"
+                            class="h-4 w-4 text-gray-400"
+                        ></i>
+
+                        <span
+                            class="text-xs font-bold uppercase tracking-wider text-gray-400"
+                        >
+                            Reporter
+                        </span>
+
+                    </div>
+
+                    <p
+                        id="urgentModalReporter"
+                        class="font-semibold text-gray-900"
+                    >
+                        Unknown reporter
+                    </p>
+
+                    {{-- EMPLOYEE ID --}}
+
+                    <p
+                        id="urgentModalEmployeeId"
+                        class="mt-1 text-sm text-gray-500"
+                    >
+                        Employee ID unavailable
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            {{-- ================================================= --}}
+            {{-- LOCATION --}}
+            {{-- ================================================= --}}
+
+            <div
+                class="mt-4 rounded-2xl border border-gray-200 p-4"
+            >
+
+                <div class="mb-3 flex items-center gap-2">
+
+                    <i
+                        data-lucide="map-pin"
+                        class="h-4 w-4 text-gray-400"
+                    ></i>
+
+                    <span
+                        class="text-xs font-bold uppercase tracking-wider text-gray-400"
+                    >
+                        Location
+                    </span>
+
+                </div>
+
+                {{-- ROOM NAME --}}
+
+                <p
+                    id="urgentModalRoom"
+                    class="font-semibold text-gray-900"
+                >
+                    Room not specified
+                </p>
+
+                {{-- FLOOR + BUILDING --}}
+
+                <p
+                    id="urgentModalLocation"
+                    class="mt-1 text-sm text-gray-500"
+                >
+                    Location information unavailable
+                </p>
+
+            </div>
+
+
+            {{-- ================================================= --}}
+            {{-- EVIDENCE --}}
+            {{-- HIDDEN WHEN REPORT HAS NO IMAGE --}}
+            {{-- ================================================= --}}
+
+            <div
+                id="urgentModalEvidenceSection"
+                class="mt-6 hidden"
+            >
+
+                <p
+                    class="mb-3 text-xs font-bold uppercase tracking-wider text-gray-400"
+                >
+                    Uploaded Evidence
+                </p>
+
+                <div
+                    class="overflow-hidden rounded-2xl border border-gray-200 bg-gray-50"
+                >
+
+                    <img
+                        id="urgentModalEvidence"
+                        src=""
+                        alt="Report evidence"
+                        class="max-h-[350px] w-full object-contain"
+                    >
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        {{-- ================================================= --}}
+        {{-- MODAL FOOTER --}}
+        {{-- ================================================= --}}
+
+        <div
+            class="flex flex-col-reverse gap-3 border-t border-gray-200 bg-gray-50/80 px-6 py-4 sm:flex-row sm:items-center sm:justify-end"
+        >
+
+            <button
+                type="button"
+                onclick="closeUrgentReportModal()"
+                class="rounded-xl border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-100"
+            >
+                Close
+            </button>
+
+            <a
+                id="urgentModalFullReportLink"
+                href="#"
+                class="inline-flex items-center justify-center gap-2 rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800"
+            >
+                View Full Report
+
+                <i
+                    data-lucide="arrow-up-right"
+                    class="h-4 w-4"
+                ></i>
+            </a>
+
+        </div>
+
+    </div>
+</div>
+
+    <script>
+
+        // =====================================================
+        // EQUIPMENT QR SCANNER
+        // =====================================================
+
+        let equipmentQrScanner = null;
+
+        let equipmentScannerRunning = false;
+
+        let equipmentScannerProcessing = false;
+
+
+        // =====================================================
+        // OPEN EQUIPMENT SCANNER MODAL
+        // =====================================================
+
+        async function openEquipmentScanner() {
+
+            const modal = document.getElementById(
+                'equipmentScannerModal'
+            );
+
+            if (!modal) {
+                console.error('Equipment scanner modal not found.');
+                return;
+            }
+
+
+            // =====================================================
+            // RESET MODAL TO CAMERA VIEW
+            // =====================================================
+
+            document
+                .getElementById('equipmentScannerCameraSection')
+                ?.classList.remove('hidden');
+
+            document
+                .getElementById('equipmentScannerResultSection')
+                ?.classList.add('hidden');
+
+
+            const title = document.getElementById(
+                'equipmentScannerTitle'
+            );
+
+            if (title) {
+                title.textContent = 'Scan Equipment';
+            }
+
+
+            const status = document.getElementById(
+                'equipmentScannerStatus'
+            );
+
+            if (status) {
+                status.textContent = 'Starting camera...';
+
+                status.className =
+                    'equipment-scanner-status';
+            }
+
+
+            // =====================================================
+            // SHOW MODAL
+            // =====================================================
+
+            modal.classList.remove('hidden');
+
+            modal.classList.add('flex');
+
+            document.body.style.overflow = 'hidden';
+
+
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+
+
+            // =====================================================
+            // START CAMERA
+            // =====================================================
+            equipmentScannerProcessing = false;
+
+            await startEquipmentScanner();
+
+            
+        }
+
+
+        // =====================================================
+        // START EQUIPMENT QR SCANNER
+        // =====================================================
+
+        async function startEquipmentScanner() {
+
+            const reader = document.getElementById(
+                'equipmentQrReader'
+            );
+
+            const status = document.getElementById(
+                'equipmentScannerStatus'
+            );
+
+
+            if (!reader) {
+                console.error('QR reader element not found.');
+                return;
+            }
+
+
+            // =====================================================
+            // CHECK IF QR LIBRARY LOADED
+            // =====================================================
+
+            if (typeof Html5Qrcode === 'undefined') {
+
+                if (status) {
+                    status.textContent =
+                        'QR scanner library failed to load.';
+                }
+
+                console.error(
+                    'Html5Qrcode library is not available.'
+                );
+
+                return;
+            }
+
+
+            // =====================================================
+            // PREVENT CAMERA FROM STARTING TWICE
+            // =====================================================
+
+            if (equipmentScannerRunning) {
+                return;
+            }
+
+
+            
+
+
+            try {
+
+                // =====================================================
+                // CREATE SCANNER INSTANCE
+                // =====================================================
+
+                if (!equipmentQrScanner) {
+
+                    equipmentQrScanner =
+                        new Html5Qrcode(
+                            'equipmentQrReader'
+                        );
+                }
+
+
+                if (status) {
+                    status.textContent =
+                        'Requesting camera access...';
+                }
+
+
+                // =====================================================
+                // START BACK CAMERA
+                //
+                // facingMode environment = rear camera when available
+                // =====================================================
+
+                await equipmentQrScanner.start(
+
+                    {
+                        facingMode: 'environment'
+                    },
+
+                    {
+                        fps: 10,
+
+                        qrbox: {
+                            width: 220,
+                            height: 220
+                        },
+
+                        aspectRatio: 1.333334
+                    },
+
+                    handleEquipmentQrScan,
+
+                    function () {
+                        // Ignore normal scan failures.
+                        // The scanner continuously checks frames.
+                    }
+
+                );
+
+
+                equipmentScannerRunning = true;
+
+
+                if (status) {
+                    status.textContent =
+                        'Camera ready. Point it at an equipment QR code.';
+                }
+
+            } catch (error) {
+
+                equipmentScannerRunning = false;
+
+
+                console.error(
+                    'Unable to start equipment scanner:',
+                    error
+                );
+
+
+                if (status) {
+
+                    status.textContent =
+                        'Unable to access the camera. Check your browser camera permission.';
+                }
+
+            }
+        }
+
+
+        // =====================================================
+        // HANDLE SUCCESSFUL QR SCAN
+        // =====================================================
+
+        async function handleEquipmentQrScan(
+            decodedText
+        ) {
+
+            // =====================================================
+            // PREVENT THE SAME QR FROM BEING SUBMITTED MANY TIMES
+            // =====================================================
+
+            if (equipmentScannerProcessing) {
+                return;
+            }
+
+
+            equipmentScannerProcessing = true;
+
+
+            const status = document.getElementById(
+                'equipmentScannerStatus'
+            );
+
+
+            if (status) {
+                status.textContent =
+                    'QR detected. Finding equipment...';
+            }
+
+
+            // =====================================================
+            // STOP CAMERA AFTER QR IS DETECTED
+            // =====================================================
+
+            await stopEquipmentScanner();
+
+
+            try {
+
+                // =====================================================
+                // SEND QR VALUE TO LARAVEL
+                // =====================================================
+
+                const response = await fetch(
+                    "{{ url('/maintenance/equipment/qr/scan') }}",
+                    {
+                        method: 'POST',
+
+                        headers: {
+                            'Content-Type':
+                                'application/json',
+
+                            'Accept':
+                                'application/json',
+
+                            'X-CSRF-TOKEN':
+                                document
+                                    .querySelector(
+                                        'meta[name="csrf-token"]'
+                                    )
+                                    ?.getAttribute('content')
+                                ?? ''
+                        },
+
+                        body: JSON.stringify({
+                            qr_code: decodedText
+                        })
+                    }
+                );
+
+
+                // =====================================================
+                // READ LARAVEL RESPONSE
+                // =====================================================
+
+                const data = await response.json();
+
+
+                // =====================================================
+                // EQUIPMENT NOT FOUND
+                // =====================================================
+
+                if (!response.ok || !data.success) {
+
+                    throw new Error(
+                        data.message ??
+                        'Equipment could not be found.'
+                    );
+                }
+
+
+                // =====================================================
+                // SHOW EQUIPMENT RESULT
+                // =====================================================
+
+                showScannedEquipment(
+                    data.equipment
+                );
+
+            } catch (error) {
+
+                console.error(
+                    'Equipment QR scan failed:',
+                    error
+                );
+
+
+                // =====================================================
+                // SHOW ERROR
+                // =====================================================
+
+                if (status) {
+
+                    status.textContent =
+                        error.message ??
+                        'Unable to process this QR code.';
+                }
+
+
+                // =====================================================
+                // ALLOW ANOTHER SCAN
+                // =====================================================
+
+                equipmentScannerProcessing = false;
+
+
+                // =====================================================
+                // RESTART CAMERA AFTER SHORT DELAY
+                // =====================================================
+
+                setTimeout(
+                    async function () {
+
+                        const modal =
+                            document.getElementById(
+                                'equipmentScannerModal'
+                            );
+
+
+                        // Only restart if modal is still open
+                        if (
+                            modal &&
+                            !modal.classList.contains('hidden')
+                        ) {
+
+                            await startEquipmentScanner();
+                        }
+
+                    },
+                    1500
+                );
+            }
+        }
+
+
+        // =====================================================
+        // DISPLAY SCANNED EQUIPMENT INFORMATION
+        // =====================================================
+
+        function showScannedEquipment(equipment) {
+
+            const cameraSection =
+                document.getElementById(
+                    'equipmentScannerCameraSection'
+                );
+
+            const resultSection =
+                document.getElementById(
+                    'equipmentScannerResultSection'
+                );
+
+            const title =
+                document.getElementById(
+                    'equipmentScannerTitle'
+                );
+
+
+            // =====================================================
+            // HIDE CAMERA
+            // SHOW RESULT
+            // =====================================================
+
+            cameraSection?.classList.add('hidden');
+
+            resultSection?.classList.remove('hidden');
+
+
+            if (title) {
+                title.textContent =
+                    'Equipment Found';
+            }
+
+
+            // =====================================================
+            // SMALL HELPER FUNCTION
+            //
+            // If database value is empty, show N/A.
+            // =====================================================
+
+            function setEquipmentValue(
+                elementId,
+                value
+            ) {
+
+                const element =
+                    document.getElementById(
+                        elementId
+                    );
+
+
+                if (!element) {
+                    return;
+                }
+
+
+                element.textContent =
+                    value !== null &&
+                    value !== undefined &&
+                    value !== ''
+                        ? value
+                        : 'N/A';
+            }
+
+
+            // =====================================================
+            // FILL EQUIPMENT INFORMATION
+            // =====================================================
+
+            setEquipmentValue(
+                'scanEquipmentName',
+                equipment.name
+            );
+
+            setEquipmentValue(
+                'scanEquipmentQrCode',
+                equipment.qr_code
+            );
+
+            setEquipmentValue(
+                'scanEquipmentAssetTag',
+                equipment.asset_tag
+            );
+
+            setEquipmentValue(
+                'scanEquipmentCategory',
+                equipment.category
+            );
+
+            setEquipmentValue(
+                'scanEquipmentBrand',
+                equipment.brand
+            );
+
+            setEquipmentValue(
+                'scanEquipmentModel',
+                equipment.model
+            );
+
+            setEquipmentValue(
+                'scanEquipmentSerial',
+                equipment.serial_number
+            );
+
+            setEquipmentValue(
+                'scanEquipmentRoom',
+                equipment.room
+            );
+
+            setEquipmentValue(
+                'scanEquipmentCondition',
+                equipment.condition
+            );
+
+            setEquipmentValue(
+                'scanEquipmentStatus',
+                equipment.status
+            );
+
+
+            // =====================================================
+            // REFRESH LUCIDE ICONS
+            // =====================================================
+
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        }
+
+
+        // =====================================================
+        // STOP EQUIPMENT SCANNER
+        // =====================================================
+
+        async function stopEquipmentScanner() {
+
+            if (
+                !equipmentQrScanner ||
+                !equipmentScannerRunning
+            ) {
+                return;
+            }
+
+
+            try {
+
+                await equipmentQrScanner.stop();
+
+            } catch (error) {
+
+                console.warn(
+                    'Scanner stop warning:',
+                    error
+                );
+
+            } finally {
+
+                equipmentScannerRunning = false;
+            }
+        }
+
+
+        // =====================================================
+        // SCAN ANOTHER EQUIPMENT
+        // =====================================================
+
+        async function restartEquipmentScanner() {
+
+            equipmentScannerProcessing = false;
+
+
+            const cameraSection =
+                document.getElementById(
+                    'equipmentScannerCameraSection'
+                );
+
+            const resultSection =
+                document.getElementById(
+                    'equipmentScannerResultSection'
+                );
+
+            const title =
+                document.getElementById(
+                    'equipmentScannerTitle'
+                );
+
+            const status =
+                document.getElementById(
+                    'equipmentScannerStatus'
+                );
+
+
+            // =====================================================
+            // SWITCH BACK TO CAMERA
+            // =====================================================
+
+            resultSection?.classList.add('hidden');
+
+            cameraSection?.classList.remove('hidden');
+
+
+            if (title) {
+                title.textContent =
+                    'Scan Equipment';
+            }
+
+
+            if (status) {
+                status.textContent =
+                    'Starting camera...';
+            }
+
+
+            // =====================================================
+            // START CAMERA AGAIN
+            // =====================================================
+
+            await startEquipmentScanner();
+        }
+
+
+        // =====================================================
+        // CLOSE EQUIPMENT SCANNER
+        // =====================================================
+
+        async function closeEquipmentScanner() {
+
+            const modal =
+                document.getElementById(
+                    'equipmentScannerModal'
+                );
+
+
+            // =====================================================
+            // STOP CAMERA FIRST
+            // =====================================================
+
+            await stopEquipmentScanner();
+
+
+            equipmentScannerProcessing = false;
+
+
+            // =====================================================
+            // HIDE MODAL
+            // =====================================================
+
+            if (modal) {
+
+                modal.classList.add('hidden');
+
+                modal.classList.remove('flex');
+            }
+
+
+            document.body.style.overflow = '';
+        }
+
+
+
+
+        // =====================================================
+        // OPEN URGENT REPORT QUICK VIEW MODAL
+        // =====================================================
+
+        function openUrgentReportModal(report) {
+
+            const modal =
+                document.getElementById('urgentReportModal');
+
+            if (!modal) {
+                console.error(
+                    'Urgent report modal was not found.'
+                );
+
+                return;
+            }
+
+
+            // =================================================
+            // REPORT ID
+            // =================================================
+
+            document.getElementById(
+                'urgentModalReportId'
+            ).textContent =
+                `Report #${report.id ?? ''}`;
+
+
+            // =================================================
+            // REPORT TITLE
+            // =================================================
+
+            document.getElementById(
+                'urgentModalTitle'
+            ).textContent =
+                report.title
+                || 'Reported Issue';
+
+            // =================================================
+            // SUGGESTED ISSUE
+            // =================================================
+
+            const suggestedIssueSection =
+                document.getElementById(
+                    'urgentModalSuggestedIssueSection'
+                );
+
+            const suggestedIssue =
+                document.getElementById(
+                    'urgentModalSuggestedIssue'
+                );
+
+            if (
+                report.suggested_issue &&
+                report.suggested_issue.trim() !== ''
+            ) {
+
+                suggestedIssue.textContent =
+                    report.suggested_issue;
+
+                suggestedIssueSection.classList.remove(
+                    'hidden'
+                );
+
+            } else {
+
+                suggestedIssue.textContent =
+                    'No suggested issue.';
+
+                suggestedIssueSection.classList.add(
+                    'hidden'
+                );
+            }
+
+
+            // =================================================
+            // DESCRIPTION
+            // =================================================
+
+            document.getElementById(
+                'urgentModalDescription'
+            ).textContent =
+                report.description
+                || 'No description provided.';
+
+            
+
+
+            // =================================================
+            // EQUIPMENT
+            // =================================================
+
+            document.getElementById(
+                'urgentModalEquipment'
+            ).textContent =
+                report.equipment
+                || 'Not specified';
+
+
+            // =================================================
+            // REPORTER
+            // =================================================
+
+            document.getElementById(
+                'urgentModalReporter'
+            ).textContent =
+                report.reporter
+                || 'Unknown reporter';
+
+            document.getElementById(
+                'urgentModalEmployeeId'
+            ).textContent =
+                report.employee_id
+                    ? `${report.employee_id}`
+                    : 'Employee ID unavailable';
+
+
+            // =================================================
+            // ROOM
+            // =================================================
+
+            document.getElementById(
+                'urgentModalRoom'
+            ).textContent =
+                report.room
+                || 'Room not specified';
+
+
+            // =================================================
+            // BUILD LOCATION TEXT
+            // Example:
+            // 2nd Floor · Main Building
+            // =================================================
+
+            const locationParts = [];
+
+            if (report.floor) {
+                locationParts.push(
+                    report.floor
+                );
+            }
+
+            if (report.building) {
+                locationParts.push(
+                    report.building
+                );
+            }
+
+            document.getElementById(
+                'urgentModalLocation'
+            ).textContent =
+                locationParts.length
+                    ? locationParts.join(' · ')
+                    : 'Location information unavailable';
+
+
+            // =================================================
+            // SUBMITTED DATE
+            // =================================================
+
+            const submittedElement =
+                document.getElementById(
+                    'urgentModalSubmitted'
+                );
+
+            if (report.submitted_at) {
+
+                const submittedDate =
+                    new Date(
+                        report.submitted_at
+                    );
+
+                if (!isNaN(
+                    submittedDate.getTime()
+                )) {
+
+                    submittedElement.textContent =
+                        'Submitted '
+                        + submittedDate.toLocaleString(
+                            undefined,
+                            {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                                hour: 'numeric',
+                                minute: '2-digit'
+                            }
+                        );
+
+                } else {
+
+                    submittedElement.textContent =
+                        report.submitted_at;
+                }
+
+            } else {
+
+                submittedElement.textContent =
+                    'Submission date unavailable';
+            }
+
+
+            // =================================================
+            // URGENCY BADGE
+            // =================================================
+
+            const urgencyBadge =
+                document.getElementById(
+                    'urgentModalUrgency'
+                );
+
+            urgencyBadge.textContent =
+                report.urgency
+                || 'Unknown';
+
+            urgencyBadge.className =
+                'rounded-full border px-2.5 py-1 text-xs font-semibold';
+
+            if (report.urgency === 'Urgent') {
+
+                urgencyBadge.classList.add(
+                    'border-red-200',
+                    'bg-red-50',
+                    'text-red-700'
+                );
+
+            } else {
+
+                urgencyBadge.classList.add(
+                    'border-gray-200',
+                    'bg-gray-50',
+                    'text-gray-700'
+                );
+            }
+
+
+            // =================================================
+            // STATUS BADGE
+            // =================================================
+
+            const statusBadge =
+                document.getElementById(
+                    'urgentModalStatus'
+                );
+
+            statusBadge.textContent =
+                report.status
+                || 'Unknown';
+
+            statusBadge.className =
+                'rounded-full border px-2.5 py-1 text-xs font-semibold';
+
+            switch (report.status) {
+
+                case 'Pending':
+
+                    statusBadge.classList.add(
+                        'border-amber-200',
+                        'bg-amber-50',
+                        'text-amber-700'
+                    );
+
+                    break;
+
+
+                case 'Processing':
+
+                    statusBadge.classList.add(
+                        'border-blue-200',
+                        'bg-blue-50',
+                        'text-blue-700'
+                    );
+
+                    break;
+
+
+                case 'Resolved':
+
+                    statusBadge.classList.add(
+                        'border-emerald-200',
+                        'bg-emerald-50',
+                        'text-emerald-700'
+                    );
+
+                    break;
+
+
+                case 'Rejected':
+
+                    statusBadge.classList.add(
+                        'border-red-200',
+                        'bg-red-50',
+                        'text-red-700'
+                    );
+
+                    break;
+
+
+                case 'For Replacement':
+
+                    statusBadge.classList.add(
+                        'border-orange-200',
+                        'bg-orange-50',
+                        'text-orange-700'
+                    );
+
+                    break;
+
+
+                default:
+
+                    statusBadge.classList.add(
+                        'border-gray-200',
+                        'bg-gray-50',
+                        'text-gray-700'
+                    );
+            }
+
+
+            // =================================================
+            // EVIDENCE IMAGE
+            // =================================================
+
+            const evidenceSection =
+                document.getElementById(
+                    'urgentModalEvidenceSection'
+                );
+
+            const evidenceImage =
+                document.getElementById(
+                    'urgentModalEvidence'
+                );
+
+            if (report.image) {
+
+                evidenceImage.src =
+                    report.image;
+
+                evidenceSection.classList.remove(
+                    'hidden'
+                );
+
+            } else {
+
+                evidenceImage.src = '';
+
+                evidenceSection.classList.add(
+                    'hidden'
+                );
+            }
+
+
+            // =================================================
+            // FULL REPORT DESTINATION
+            // =================================================
+
+            document.getElementById(
+                'urgentModalFullReportLink'
+            ).href =
+                report.url
+                || '#';
+
+
+            // =================================================
+            // SHOW MODAL
+            // =================================================
+
+            modal.classList.remove(
+                'hidden'
+            );
+
+            modal.classList.add(
+                'flex'
+            );
+
+            modal.setAttribute(
+                'aria-hidden',
+                'false'
+            );
+
+
+            // =================================================
+            // PREVENT PAGE FROM SCROLLING BEHIND MODAL
+            // =================================================
+
+            document.body.classList.add(
+                'overflow-hidden'
+            );
+
+
+            // =================================================
+            // REFRESH LUCIDE ICONS
+            // =================================================
+
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+        }
+
+
+        // =====================================================
+        // CLOSE URGENT REPORT QUICK VIEW MODAL
+        // =====================================================
+
+        function closeUrgentReportModal() {
+
+            const modal =
+                document.getElementById(
+                    'urgentReportModal'
+                );
+
+            if (!modal) {
+                return;
+            }
+
+            modal.classList.add(
+                'hidden'
+            );
+
+            modal.classList.remove(
+                'flex'
+            );
+
+            modal.setAttribute(
+                'aria-hidden',
+                'true'
+            );
+
+            document.body.classList.remove(
+                'overflow-hidden'
+            );
+        }
+
+        // =====================================================
+        // CLOSE URGENT REPORT MODAL WHEN CLICKING BACKDROP
+        // =====================================================
+
+        document
+            .getElementById(
+                'urgentReportModal'
+            )
+            ?.addEventListener(
+                'click',
+                function () {
+
+                    closeUrgentReportModal();
+
+                }
+            );
+
+
+        // =====================================================
+// DASHBOARD QUICK ACTION MODALS
+// =====================================================
+
+
+// =====================================================
+// ADD EQUIPMENT MODAL
+// =====================================================
+
+function openAddEquipmentModal() {
+
+    const modal = document.getElementById('addEquipmentModal');
+
+    if (!modal) {
+        console.error('Add Equipment modal not found.');
+        return;
+    }
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+
+    document.body.style.overflow = 'hidden';
+
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
+}
+
+
+function closeAddEquipmentModal() {
+
+    const modal = document.getElementById('addEquipmentModal');
+
+    if (!modal) {
+        return;
+    }
+
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+
+    document.body.style.overflow = '';
+}
+
+
+// =====================================================
+// SCHEDULE MODAL
+// =====================================================
+
+function openScheduleModal() {
+
+    const modal = document.getElementById('scheduleModal');
+
+    if (!modal) {
+        console.error('Schedule modal not found.');
+        return;
+    }
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+
+    document.body.style.overflow = 'hidden';
+
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
+}
+
+
+function closeScheduleModal() {
+
+    const modal = document.getElementById('scheduleModal');
+
+    if (!modal) {
+        return;
+    }
+
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+
+    document.body.style.overflow = '';
+}
+
+
+// =====================================================
+// BORROW MODAL
+// =====================================================
+
+function openBorrowModal() {
+
+    const modal = document.getElementById('borrowModal');
+
+    if (!modal) {
+        console.error('Borrow modal not found.');
+        return;
+    }
+
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+
+    document.body.style.overflow = 'hidden';
+
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
+}
+
+
+function closeBorrowModal() {
+
+    const modal = document.getElementById('borrowModal');
+
+    if (!modal) {
+        return;
+    }
+
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+
+    document.body.style.overflow = '';
+}
+
+
+// =====================================================
+// CLOSE MODALS WHEN CLICKING OUTSIDE
+// =====================================================
+
+document.addEventListener('click', function (event) {
+
+    const modalIds = [
+        'addEquipmentModal',
+        'scheduleModal',
+        'borrowModal'
+    ];
+
+    modalIds.forEach(function (modalId) {
+
+        const modal = document.getElementById(modalId);
+
+        if (!modal) {
+            return;
+        }
+
+        if (event.target === modal) {
+
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+
+            document.body.style.overflow = '';
+        }
+
+    });
+
+});
+
+// =====================================================
+// CLOSE EQUIPMENT SCANNER WHEN CLICKING BACKDROP
+// =====================================================
+
+document.addEventListener(
+    'click',
+    async function (event) {
+
+        const scannerModal =
+            document.getElementById(
+                'equipmentScannerModal'
+            );
+
+
+        if (
+            scannerModal &&
+            event.target === scannerModal
+        ) {
+
+            await closeEquipmentScanner();
+        }
+    }
+);
+
+
+// =====================================================
+// CLOSE MODALS WITH ESC KEY
+// =====================================================
+
+document.addEventListener('keydown', function (event) {
+
+    if (event.key !== 'Escape') {
+        return;
+    }
+
+    const modalIds = [
+        'addEquipmentModal',
+        'scheduleModal',
+        'borrowModal'
+    ];
+
+    modalIds.forEach(function (modalId) {
+
+        const modal = document.getElementById(modalId);
+
+        if (!modal) {
+            return;
+        }
+
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    });
+
+    document.body.style.overflow = '';
+
+});
+// =====================================================
+// CLOSE QR SCANNER WITH ESCAPE
+// =====================================================
+
+document.addEventListener(
+    'keydown',
+    async function (event) {
+
+        if (event.key !== 'Escape') {
+            return;
+        }
+
+
+        const scannerModal =
+            document.getElementById(
+                'equipmentScannerModal'
+            );
+
+
+        if (
+            scannerModal &&
+            !scannerModal.classList.contains('hidden')
+        ) {
+
+            await closeEquipmentScanner();
+        }
+    }
+);
+    </script>
+
+
 
     {{-- ===================================================== --}}
     {{-- THREE.JS --}}
@@ -11610,6 +14819,10 @@
         });
 
         function createRibbon() {
+            // =====================================================
+            // GET RIBBON SVG LAYERS
+            // =====================================================
+
             const glow = document.getElementById("glowLayer");
             const outer = document.getElementById("outerRibbon");
             const middle = document.getElementById("middleRibbon");
@@ -11621,75 +14834,168 @@
                 return;
             }
 
-            const total = {{
-            max(
-                1,
-                $urgentReports + $underMaintenance + $borrowedEquipment,
-            )
-        }};
+            // =====================================================
+            // REAL EQUIPMENT DATA
+            //
+            // LEFT   = AVAILABLE / OTHER EQUIPMENT
+            // MIDDLE = UNDER MAINTENANCE
+            // RIGHT  = BORROWED EQUIPMENT
+            // =====================================================
 
-            const urgent = {{ $urgentReports }} / total;
-            const maintenance = {{ $underMaintenance }} / total;
-            const borrowed = {{ $borrowedEquipment }} / total;
+            const total = Math.max(
+                1,
+                {{ $totalEquipment }}
+            );
+
+            const maintenanceCount = {{ $underMaintenance }};
+            const borrowedCount = {{ $borrowedEquipment }};
+
+            // =====================================================
+            // REMAINING EQUIPMENT
+            //
+            // EG:
+            // 16 TOTAL
+            // 2 MAINTENANCE
+            // 3 BORROWED
+            //
+            // 16 - 2 - 3 = 11 REMAINING
+            // =====================================================
+
+            const availableCount = Math.max(
+                0,
+                total - maintenanceCount - borrowedCount
+            );
+
+            // =====================================================
+            // CONVERT COUNTS INTO RIBBON PROPORTIONS
+            // =====================================================
+
+            const available = availableCount / total;
+            const maintenance = maintenanceCount / total;
+            const borrowed = borrowedCount / total;
+
+            // =====================================================
+            // RIBBON SIZE
+            // =====================================================
 
             const WIDTH = 1000;
             const CENTER = 110;
 
-            function smoothstep(x) {
-                return x * x * (3 - 2 * x);
-            }
+            // =====================================================
+            // BUILD RIBBON SHAPE
+            // =====================================================
 
             function build(offset, scale = 1) {
                 let path = "";
 
-                // ==========================
+                // =================================================
                 // TOP EDGE
-                // ==========================
+                // =================================================
 
                 for (let x = 0; x <= WIDTH; x += 8) {
                     const t = x / WIDTH;
 
                     const leftFade = Math.sin(
-                        ((Math.min(t, 0.12) / 0.12) * Math.PI) / 2,
+                        ((Math.min(t, 0.12) / 0.12) * Math.PI) / 2
                     );
 
                     const rightFade = Math.sin(
-                        ((Math.min(1 - t, 0.12) / 0.12) * Math.PI) / 2,
+                        ((Math.min(1 - t, 0.12) / 0.12) * Math.PI) / 2
                     );
 
-                    const taper = Math.min(leftFade, rightFade);
+                    const taper = Math.min(
+                        leftFade,
+                        rightFade
+                    );
+
+                    // =================================================
+                    // NATURAL RIBBON MOVEMENT
+                    // =================================================
 
                     const wave =
                         Math.sin(t * Math.PI * 2 + offset) * 5 +
                         Math.sin(t * Math.PI * 6 - offset * 1.2) * 2.5 +
                         Math.cos(t * Math.PI * 10) * 1.2;
 
-                    const pulse = Math.sin(offset + t * 6) * 4;
+                    const pulse =
+                        Math.sin(offset + t * 6) * 4;
+
+                    // =================================================
+                    // DATA BASED WIDTH
+                    // =================================================
 
                     const SCALE = 160;
                     const MIN = 3;
 
-                    const leftWidth = urgent > 0 ? MIN + urgent * SCALE : 0;
-                    const middleWidth = maintenance > 0 ? MIN + maintenance * SCALE : 0;
-                    const rightWidth = borrowed > 0 ? MIN + borrowed * SCALE : 0;
+                    const leftWidth =
+                        available > 0
+                            ? MIN + available * SCALE
+                            : 0;
 
-                    const hump1 = leftWidth * Math.exp(-Math.pow((t - 0.12) / 0.12, 2));
+                    const middleWidth =
+                        maintenance > 0
+                            ? MIN + maintenance * SCALE
+                            : 0;
+
+                    const rightWidth =
+                        borrowed > 0
+                            ? MIN + borrowed * SCALE
+                            : 0;
+
+                    // =================================================
+                    // THREE RIBBON HUMPS
+                    // =================================================
+
+                    const hump1 =
+                        leftWidth *
+                        Math.exp(
+                            -Math.pow(
+                                (t - 0.12) / 0.12,
+                                2
+                            )
+                        );
 
                     const hump2 =
-                        middleWidth * Math.exp(-Math.pow((t - 0.5) / 0.18, 2));
+                        middleWidth *
+                        Math.exp(
+                            -Math.pow(
+                                (t - 0.5) / 0.18,
+                                2
+                            )
+                        );
 
                     const hump3 =
-                        rightWidth * Math.exp(-Math.pow((t - 0.88) / 0.12, 2));
+                        rightWidth *
+                        Math.exp(
+                            -Math.pow(
+                                (t - 0.88) / 0.12,
+                                2
+                            )
+                        );
 
-                    const baseWidth = hump1 + hump2 + hump3;
+                    const baseWidth =
+                        hump1 +
+                        hump2 +
+                        hump3;
 
-                    const breathing = 1 + Math.sin(offset * 2) * 0.04;
+                    // =================================================
+                    // SUBTLE BREATHING ANIMATION
+                    // =================================================
 
-                    const MIN_WIDTH = 0;
+                    const breathing =
+                        1 +
+                        Math.sin(offset * 2) * 0.04;
 
-                    const width = Math.max(baseWidth, 0) * taper * breathing * scale;
+                    const width =
+                        Math.max(baseWidth, 0) *
+                        taper *
+                        breathing *
+                        scale;
 
-                    const y = CENTER + wave + pulse;
+                    const y =
+                        CENTER +
+                        wave +
+                        pulse;
 
                     if (x === 0) {
                         path = `M -30 ${CENTER}`;
@@ -11699,74 +15005,161 @@
                     }
                 }
 
-                // ==========================
+                // =================================================
                 // BOTTOM EDGE
-                // ==========================
+                // =================================================
 
                 for (let x = WIDTH; x >= 0; x -= 8) {
                     const t = x / WIDTH;
 
                     const leftFade = Math.sin(
-                        ((Math.min(t, 0.12) / 0.12) * Math.PI) / 2,
+                        ((Math.min(t, 0.12) / 0.12) * Math.PI) / 2
                     );
 
                     const rightFade = Math.sin(
-                        ((Math.min(1 - t, 0.12) / 0.12) * Math.PI) / 2,
+                        ((Math.min(1 - t, 0.12) / 0.12) * Math.PI) / 2
                     );
 
-                    const taper = Math.min(leftFade, rightFade);
+                    const taper = Math.min(
+                        leftFade,
+                        rightFade
+                    );
+
+                    // =================================================
+                    // SAME MOVEMENT AS TOP EDGE
+                    // =================================================
 
                     const wave =
                         Math.sin(t * Math.PI * 2 + offset) * 5 +
                         Math.sin(t * Math.PI * 6 - offset * 1.2) * 2.5 +
                         Math.cos(t * Math.PI * 10) * 1.2;
 
-                    const pulse = Math.sin(offset + t * 6) * 4;
+                    const pulse =
+                        Math.sin(offset + t * 6) * 4;
+
+                    // =================================================
+                    // SAME DATA BASED WIDTH
+                    // =================================================
 
                     const SCALE = 160;
                     const MIN = 3;
 
-                    const leftWidth = urgent > 0 ? MIN + urgent * SCALE : 0;
-                    const middleWidth = maintenance > 0 ? MIN + maintenance * SCALE : 0;
-                    const rightWidth = borrowed > 0 ? MIN + borrowed * SCALE : 0;
+                    const leftWidth =
+                        available > 0
+                            ? MIN + available * SCALE
+                            : 0;
 
-                    const hump1 = leftWidth * Math.exp(-Math.pow((t - 0.12) / 0.12, 2));
+                    const middleWidth =
+                        maintenance > 0
+                            ? MIN + maintenance * SCALE
+                            : 0;
+
+                    const rightWidth =
+                        borrowed > 0
+                            ? MIN + borrowed * SCALE
+                            : 0;
+
+                    // =================================================
+                    // THREE RIBBON HUMPS
+                    // =================================================
+
+                    const hump1 =
+                        leftWidth *
+                        Math.exp(
+                            -Math.pow(
+                                (t - 0.12) / 0.12,
+                                2
+                            )
+                        );
 
                     const hump2 =
-                        middleWidth * Math.exp(-Math.pow((t - 0.5) / 0.18, 2));
+                        middleWidth *
+                        Math.exp(
+                            -Math.pow(
+                                (t - 0.5) / 0.18,
+                                2
+                            )
+                        );
 
                     const hump3 =
-                        rightWidth * Math.exp(-Math.pow((t - 0.88) / 0.12, 2));
+                        rightWidth *
+                        Math.exp(
+                            -Math.pow(
+                                (t - 0.88) / 0.12,
+                                2
+                            )
+                        );
 
-                    const baseWidth = hump1 + hump2 + hump3;
+                    const baseWidth =
+                        hump1 +
+                        hump2 +
+                        hump3;
 
-                    const breathing = 1 + Math.sin(offset * 2) * 0.04;
+                    const breathing =
+                        1 +
+                        Math.sin(offset * 2) * 0.04;
 
-                    const MIN_WIDTH = 0;
+                    const width =
+                        Math.max(baseWidth, 0) *
+                        taper *
+                        breathing *
+                        scale;
 
-                    const width = Math.max(baseWidth, 0) * taper * breathing * scale;
-
-                    const y = CENTER + wave + pulse;
+                    const y =
+                        CENTER +
+                        wave +
+                        pulse;
 
                     path += ` L ${x} ${y + width}`;
                 }
+
+                // =================================================
+                // CLOSE RIBBON
+                // =================================================
 
                 path += ` L ${WIDTH + 30} ${CENTER} Z`;
 
                 return path;
             }
 
+            // =====================================================
+            // ANIMATION
+            // =====================================================
+
             let time = 0;
 
             function animate() {
                 time += 0.02;
 
-                glow.setAttribute("d", build(time - 0.22, 1.7));
-                outer.setAttribute("d", build(time - 0.12, 1.45));
-                middle.setAttribute("d", build(time - 0.05, 1.2));
-                ribbon.setAttribute("d", build(time, 1.0));
-                highlight.setAttribute("d", build(time + 0.04, 0.55));
-                bloom.setAttribute("d", build(time + 0.02, 1.55));
+                glow.setAttribute(
+                    "d",
+                    build(time - 0.22, 1.7)
+                );
+
+                outer.setAttribute(
+                    "d",
+                    build(time - 0.12, 1.45)
+                );
+
+                middle.setAttribute(
+                    "d",
+                    build(time - 0.05, 1.2)
+                );
+
+                ribbon.setAttribute(
+                    "d",
+                    build(time, 1.0)
+                );
+
+                highlight.setAttribute(
+                    "d",
+                    build(time + 0.04, 0.55)
+                );
+
+                bloom.setAttribute(
+                    "d",
+                    build(time + 0.02, 1.55)
+                );
 
                 requestAnimationFrame(animate);
             }
