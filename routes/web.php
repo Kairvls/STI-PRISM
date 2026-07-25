@@ -1732,6 +1732,11 @@ Route::middleware(['auth'])
         )->name('delivered');
 
         Route::post(
+            '/conversations/{conversation}/messages/{message}/reaction',
+            [MessageController::class, 'reactToMessage']
+        )->name('reaction');
+
+        Route::post(
             '/sync-delivered',
             [MessageController::class, 'syncDeliveredMessages']
         )->name('sync-delivered');

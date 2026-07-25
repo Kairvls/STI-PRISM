@@ -12,7 +12,7 @@
     {{-- Backdrop --}}
     <div id="messagingModalBackdrop" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm opacity-0 transition-opacity duration-300 ease-out">
         {{-- Modal Container --}}
-        <div id="messagingModalContainer" class="relative mx-4 w-full max-w-[960px] h-[85vh] max-h-[720px] bg-white rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.25)] overflow-hidden scale-[0.95] opacity-0 transition-all duration-300 ease-out flex">
+        <div id="messagingModalContainer" class="relative mx-4 w-full max-w-[960px] h-[78vh] max-h-[660px] bg-white rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.25)] overflow-hidden scale-[0.95] opacity-0 transition-all duration-300 ease-out flex">
 
             {{-- ===================================== --}}
             {{-- LEFT PANEL --}}
@@ -132,7 +132,7 @@
 
                     <div
                         id="modalMessagesContainer"
-                        class="hidden flex flex-col flex-1 overflow-y-auto min-h-0 gap-3 p-4"
+                        class="hidden flex flex-col flex-1 overflow-y-auto min-h-0 gap-2.5 px-4 py-3"
                     >
                         {{-- Messages are inserted here by JavaScript --}}
                     </div>
@@ -174,6 +174,52 @@
                 {{-- Composer --}}
                 <div id="modalComposer" class="hidden shrink-0 border-t border-gray-100">
                     <div class="p-4">
+                        {{-- ====================================== --}}
+                        {{-- REPLY PREVIEW --}}
+                        {{-- Shows when replying to a message --}}
+                        {{-- ====================================== --}}
+
+                        <div
+                            id="modalReplyPreview"
+                            class="hidden mb-3"
+                        >
+                            <div
+                                class="flex items-center gap-3 rounded-xl
+                                    border border-gray-200 bg-gray-50
+                                    px-3 py-2.5"
+                            >
+                                <div class="w-1 self-stretch rounded-full bg-gray-900"></div>
+
+                                <div class="min-w-0 flex-1">
+
+                                    <p
+                                        id="modalReplyName"
+                                        class="text-xs font-semibold text-gray-900"
+                                    >
+                                        Replying to
+                                    </p>
+
+                                    <p
+                                        id="modalReplyText"
+                                        class="mt-0.5 truncate text-xs text-gray-500"
+                                    ></p>
+
+                                </div>
+
+                                <button
+                                    type="button"
+                                    id="modalCancelReply"
+                                    class="flex h-7 w-7 shrink-0 items-center
+                                        justify-center rounded-full
+                                        text-gray-400 transition
+                                        hover:bg-gray-200 hover:text-gray-700"
+                                    title="Cancel reply"
+                                >
+                                    <i data-lucide="x" class="h-4 w-4"></i>
+                                </button>
+
+                            </div>
+                        </div>
                         <form id="modalMessageForm" class="flex items-end gap-2">
                             <textarea
                                 id="modalMessageInput"
@@ -238,6 +284,7 @@
         let hasMoreMessages = true;
         let userSearchTimeout = null;
         let selectedAttachment = null;
+        let replyingToMessage = null;
         let activeRealtimeConversationId = null;
         let typingTimeout = null;
         let globalTypingSent = false;
@@ -974,6 +1021,7 @@
         };
 
         function resetModalChat() {
+            cancelReply();
             currentConversationId = null;
             messagesPage = 1;
             isLoadingMessages = false;
@@ -1509,7 +1557,7 @@
         }
 
         async function openModalConversation(conversationId) {
-
+            cancelReply();
             currentConversationId = conversationId;
             messagesPage = 1;
             hasMoreMessages = true;
@@ -1886,42 +1934,281 @@
                 const senderName = msg.sender?.name || msg.sender?.user_full_name || 'Unknown';
                 const attachment = msg.attachment || null;
 
+                // =====================================================
+                // OWN MESSAGE
+                // =====================================================
+
                 if (isOwn) {
+
                     return `
-                    <div class="flex justify-end">
-                        <div class="max-w-[70%] rounded-2xl rounded-br-md bg-gray-900 text-white px-4 py-2.5">
-                            ${msg.message_content ? `<p class="text-sm whitespace-pre-wrap break-words">${msg.message_content}</p>` : ''}
-                            ${attachment ? getAttachmentPreviewHtml(attachment, time) : ''}
-                            ${!msg.message_content && !attachment ? '' : `
-                                <div class="mt-1 flex items-center justify-end gap-1.5">
+                        <div
+                            class="message-row group flex items-center justify-end gap-2"
+                            data-message-id="${msg.message_id}"
+                            data-message-sender="${escapeHtml(senderName)}"
+                            data-message-content="${escapeHtml(msg.message_content || '')}"
+                            data-message-created-at="${escapeHtml(msg.created_at || '')}"
+                        >
 
-                                    <span class="text-[10px] text-gray-400">
-                                        ${time}
-                                    </span>
+                            <!-- ====================================== -->
+                            <!-- OWN MESSAGE ACTIONS: EMOJI FIRST, REPLY NEXT -->
+                            <!-- ====================================== -->
 
-                                    <span
-                                        class="message-read-status text-[10px] text-gray-400 font-medium"
-                                        data-message-id="${msg.message_id}"
-                                    >
-                                        ${getMessageStatus(msg)}
-                                    </span>
+                            <div class="flex shrink-0 items-center gap-0.5">
+                                ${getReactionPickerHtml()}
 
-                                </div>
-                            `}
+                                <button
+                                    type="button"
+                                    class="message-reply-btn flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-400 opacity-0 transition group-hover:opacity-100 hover:bg-gray-100 hover:text-gray-700"
+                                    title="Reply"
+                                >
+                                    <i data-lucide="reply" class="h-4 w-4"></i>
+                                </button>
+                            </div>
+
+                            <!-- ====================================== -->
+                            <!-- MESSAGE BUBBLE WRAPPER -->
+                            <!-- Existing reaction stays under bubble -->
+                            <!-- ====================================== -->
+
+                            <div class="relative flex max-w-[62%] flex-col items-end">
+
+                            <!-- ====================================== -->
+                            <!-- MESSAGE BUBBLE -->
+                            <!-- ====================================== -->
+
+                            <div
+                                class="
+                                    w-fit max-w-full
+                                    rounded-2xl
+                                    rounded-br-md
+                                    bg-gray-900
+                                    text-white
+                                    px-4 py-2.5
+                                "
+                            >
+
+                                <!-- ====================================== -->
+                                <!-- ORIGINAL MESSAGE BEING REPLIED TO -->
+                                <!-- ====================================== -->
+
+                                ${getReplyQuoteHtml(msg.reply_to)}
+
+
+                                <!-- ====================================== -->
+                                <!-- MESSAGE CONTENT -->
+                                <!-- ====================================== -->
+
+                                ${
+                                    msg.message_content
+                                        ? `
+                                            <p class="text-sm whitespace-pre-wrap break-words">
+                                                ${escapeHtml(msg.message_content)}
+                                            </p>
+                                        `
+                                        : ''
+                                }
+
+
+                                <!-- ====================================== -->
+                                <!-- ATTACHMENT -->
+                                <!-- ====================================== -->
+
+                                ${
+                                    attachment
+                                        ? getAttachmentPreviewHtml(
+                                            attachment,
+                                            time
+                                        )
+                                        : ''
+                                }
+
+
+                                <!-- ====================================== -->
+                                <!-- TIME AND MESSAGE STATUS -->
+                                <!-- ====================================== -->
+
+                                ${
+                                    !msg.message_content && !attachment
+                                        ? ''
+                                        : `
+                                            <div class="mt-1 flex items-center justify-end gap-1.5">
+
+                                                <span class="text-[10px] text-gray-400">
+                                                    ${time}
+                                                </span>
+
+                                                <span
+                                                    class="message-read-status text-[10px] text-gray-400 font-medium"
+                                                    data-message-id="${msg.message_id}"
+                                                >
+                                                    ${getMessageStatus(msg)}
+                                                </span>
+
+                                            </div>
+                                        `
+                                    }
+
+                            </div>
+
+
+                            <!-- ====================================== -->
+                            <!-- STEP 2: OWN MESSAGE REACTIONS -->
+                            <!-- ====================================== -->
+
+                            <div class="mt-[-4px] mr-2 flex flex-col items-end relative z-10">
+                                ${getMessageReactionsHtml(msg.reactions)}
+                            </div>
+
+                            </div>
+
+
                         </div>
-                    </div>
-                `;
+                    `;
+
+
+                // =====================================================
+                // RECEIVED MESSAGE
+                // =====================================================
+
                 } else {
+
                     return `
-                    <div class="flex justify-start">
-                        <div class="max-w-[70%] rounded-2xl rounded-bl-md bg-gray-100 text-gray-900 px-4 py-2.5">
-                            <p class="text-[11px] font-semibold text-gray-500 mb-0.5">${senderName}</p>
-                            ${msg.message_content ? `<p class="text-sm whitespace-pre-wrap break-words">${msg.message_content}</p>` : ''}
-                            ${attachment ? getAttachmentPreviewHtml(attachment, time) : ''}
-                            ${!msg.message_content && !attachment ? '' : `<span class="text-[10px] text-gray-400 mt-1 block text-right">${time}</span>`}
+                        <div
+                            class="message-row group flex items-center justify-start gap-2"
+                            data-message-id="${msg.message_id}"
+                            data-message-sender="${escapeHtml(senderName)}"
+                            data-message-content="${escapeHtml(msg.message_content || '')}"
+                            data-message-created-at="${escapeHtml(msg.created_at || '')}"
+                        >
+
+                            <!-- ====================================== -->
+                            <!-- RECEIVED MESSAGE BUBBLE WRAPPER -->
+                            <!-- Existing reaction stays under bubble -->
+                            <!-- ====================================== -->
+
+                            <div class="relative flex max-w-[62%] flex-col items-start">
+
+                            <!-- ====================================== -->
+                            <!-- MESSAGE BUBBLE -->
+                            <!-- ====================================== -->
+
+                            <div
+                                class="
+                                    w-fit max-w-full
+                                    rounded-2xl
+                                    rounded-bl-md
+                                    bg-gray-100
+                                    text-gray-900
+                                    px-4 py-2.5
+                                "
+                            >
+
+                                <!-- ====================================== -->
+                                <!-- ORIGINAL MESSAGE BEING REPLIED TO -->
+                                <!-- ====================================== -->
+
+                                ${getReplyQuoteHtml(msg.reply_to)}
+
+
+                                <!-- ====================================== -->
+                                <!-- SENDER NAME -->
+                                <!-- ====================================== -->
+
+                                <p
+                                    class="
+                                        text-[11px]
+                                        font-semibold
+                                        text-gray-500
+                                        mb-0.5
+                                    "
+                                >
+                                    ${escapeHtml(senderName)}
+                                </p>
+
+
+                                <!-- ====================================== -->
+                                <!-- MESSAGE CONTENT -->
+                                <!-- ====================================== -->
+
+                                ${
+                                    msg.message_content
+                                        ? `
+                                            <p class="text-sm whitespace-pre-wrap break-words">
+                                                ${escapeHtml(msg.message_content)}
+                                            </p>
+                                        `
+                                        : ''
+                                }
+
+
+                                <!-- ====================================== -->
+                                <!-- ATTACHMENT -->
+                                <!-- ====================================== -->
+
+                                ${
+                                    attachment
+                                        ? getAttachmentPreviewHtml(
+                                            attachment,
+                                            time
+                                        )
+                                        : ''
+                                }
+
+
+                                <!-- ====================================== -->
+                                <!-- MESSAGE TIME -->
+                                <!-- ====================================== -->
+
+                                ${
+                                    !msg.message_content && !attachment
+                                        ? ''
+                                        : `
+                                            <span
+                                                class="
+                                                    text-[10px]
+                                                    text-gray-400
+                                                    mt-1
+                                                    block
+                                                    text-right
+                                                "
+                                            >
+                                                ${time}
+                                            </span>
+                                        `
+                                }
+
+                            </div>
+
+
+                            <!-- ====================================== -->
+                            <!-- RECEIVED MESSAGE REACTIONS -->
+                            <!-- ====================================== -->
+
+                            <div class="mt-[-4px] ml-2 flex flex-col items-start relative z-10">
+                                ${getMessageReactionsHtml(msg.reactions)}
+                            </div>
+
+                            </div>
+
+                            <!-- ====================================== -->
+                            <!-- RECEIVED ACTIONS: EMOJI FIRST, REPLY NEXT -->
+                            <!-- ====================================== -->
+
+                            <div class="flex shrink-0 items-center gap-0.5">
+                                ${getReactionPickerHtml()}
+
+                                <button
+                                    type="button"
+                                    class="message-reply-btn flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-400 opacity-0 transition group-hover:opacity-100 hover:bg-gray-100 hover:text-gray-700"
+                                    title="Reply"
+                                >
+                                    <i data-lucide="reply" class="h-4 w-4"></i>
+                                </button>
+                            </div>
+
+
                         </div>
-                    </div>
-                `;
+                    `;
                 }
             }).join('');
 
@@ -1931,9 +2218,146 @@
                 container.innerHTML = html;
             }
 
+            // =====================================================
+            // DATE SEPARATORS
+            // Rebuild after initial load and after older messages
+            // are prepended through pagination.
+            // =====================================================
+
+            refreshMessageDateSeparators();
+
             lucideCreateIcons();
             scrollToBottom(false, !append);
             isLoadingMessages = false;
+        }
+
+        // =====================================================
+        // SEND MESSAGE REACTION
+        // =====================================================
+
+        async function reactToMessage(
+            messageId,
+            reaction
+        ) {
+
+            if (
+                !currentConversationId ||
+                !messageId ||
+                !reaction
+            ) {
+                return;
+            }
+
+
+            try {
+
+                const response = await fetch(
+                    `/messages/conversations/${currentConversationId}/messages/${messageId}/reaction`,
+                    {
+                        method: 'POST',
+
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken,
+                        },
+
+                        body: JSON.stringify({
+                            reaction: reaction,
+                        }),
+                    }
+                );
+
+
+                if (!response.ok) {
+
+                    console.error(
+                        'Reaction request failed:',
+                        response.status
+                    );
+
+                    return;
+                }
+
+
+                const data =
+                    await response.json();
+
+
+                // =============================================
+                // UPDATE OUR OWN SCREEN IMMEDIATELY
+                //
+                // Other participant gets the Reverb event.
+                // =============================================
+
+                updateMessageReactions(
+                    data.message_id,
+                    data.reactions
+                );
+
+
+            } catch (error) {
+
+                console.error(
+                    'Unable to react to message:',
+                    error
+                );
+            }
+        }
+
+        // =====================================================
+        // UPDATE REACTIONS ON ONE MESSAGE
+        // =====================================================
+
+        function updateMessageReactions(
+            messageId,
+            reactions
+        ) {
+
+            const row =
+                document.querySelector(
+                    `.message-row[data-message-id="${messageId}"]`
+                );
+
+            if (!row) {
+                return;
+            }
+
+
+            const current =
+                row.querySelector(
+                    '.message-reactions'
+                );
+
+            if (!current) {
+                return;
+            }
+
+
+            // =============================================
+            // CREATE NEW REACTION HTML
+            // =============================================
+
+            const wrapper =
+                document.createElement('div');
+
+            wrapper.innerHTML =
+                getMessageReactionsHtml(
+                    reactions || []
+                );
+
+
+            const replacement =
+                wrapper.firstElementChild;
+
+            if (!replacement) {
+                return;
+            }
+
+
+            current.replaceWith(
+                replacement
+            );
         }
 
         // =====================================================
@@ -2099,6 +2523,344 @@
                     });
                 }
             }
+        }
+
+        // =====================================================
+        // MESSAGE REACTION EMOJI
+        // =====================================================
+
+        function getReactionEmoji(reaction) {
+
+            const reactions = {
+                like: '👍',
+                heart: '❤️',
+                check: '✓',
+            };
+
+            return reactions[reaction] || '';
+        }
+
+
+        // =====================================================
+        // CREATE REACTION DISPLAY
+        //
+        // Example:
+        //
+        // 👍 2   ❤️ 1
+        // =====================================================
+
+        function getMessageReactionsHtml(reactions = []) {
+
+            if (!Array.isArray(reactions) || reactions.length === 0) {
+                return `
+                    <div
+                        class="message-reactions hidden mt-1 flex flex-wrap gap-1"
+                    ></div>
+                `;
+            }
+
+
+            // =============================================
+            // GROUP SAME REACTIONS
+            // =============================================
+
+            const grouped = {};
+
+            reactions.forEach(reaction => {
+
+                const type = reaction.reaction;
+
+                if (!grouped[type]) {
+                    grouped[type] = [];
+                }
+
+                grouped[type].push(reaction);
+            });
+
+
+            const html = Object.entries(grouped)
+                .map(([type, items]) => {
+
+                    const emoji =
+                        getReactionEmoji(type);
+
+                    const reactedByMe =
+                        items.some(
+                            item =>
+                                Number(item.user_id) ===
+                                Number(currentUserId)
+                        );
+
+                    return `
+                        <button
+                            type="button"
+                            class="
+                                message-reaction-chip
+                                inline-flex
+                                items-center
+                                gap-1
+                                rounded-full
+                                border
+                                px-2
+                                py-0.5
+                                text-[11px]
+                                transition
+                                ${
+                                    reactedByMe
+                                        ? 'border-gray-400 bg-gray-100 text-gray-900'
+                                        : 'border-gray-200 bg-white text-gray-600'
+                                }
+                            "
+                            data-reaction="${type}"
+                            title="${items.length} reaction${items.length === 1 ? '' : 's'}"
+                        >
+                            <span>${emoji}</span>
+
+                            ${
+                                items.length > 1
+                                    ? `<span>${items.length}</span>`
+                                    : ''
+                            }
+                        </button>
+                    `;
+                })
+                .join('');
+
+
+            return `
+                <div
+                    class="message-reactions mt-1 flex flex-wrap gap-1"
+                >
+                    ${html}
+                </div>
+            `;
+        }
+
+
+        // =====================================================
+        // REACTION PICKER
+        //
+        // Appears beside Reply when hovering message.
+        // =====================================================
+
+        // =====================================================
+        // REACTION BUTTON + POPUP
+        //
+        // Normal state:
+        // Only shows the smile button beside Reply.
+        //
+        // When clicked:
+        // Opens the 3 reaction choices upward.
+        // =====================================================
+
+        function getReactionPickerHtml() {
+
+            return `
+                <div
+                    class="
+                        message-reaction-control
+                        relative
+                        flex
+                        shrink-0
+                        items-center
+                    "
+                >
+
+                    <!-- ====================================== -->
+                    <!-- REACTION TRIGGER BUTTON -->
+                    <!-- ====================================== -->
+
+                    <button
+                        type="button"
+                        class="
+                            message-reaction-trigger
+                            flex
+                            h-8 w-8
+                            items-center
+                            justify-center
+                            rounded-full
+                            text-gray-400
+                            opacity-0
+                            transition
+                            group-hover:opacity-100
+                            hover:bg-gray-100
+                            hover:text-gray-700
+                        "
+                        title="React"
+                    >
+                        <i
+                            data-lucide="smile"
+                            class="h-4 w-4"
+                        ></i>
+                    </button>
+
+
+                    <!-- ====================================== -->
+                    <!-- REACTION POPUP -->
+                    <!-- Opens upward like Messenger -->
+                    <!-- ====================================== -->
+
+                    <div
+                        class="
+                            message-reaction-picker
+                            absolute
+                            bottom-full
+                            left-1/2
+                            z-50
+                            mb-2
+                            hidden
+                            -translate-x-1/2
+                            items-center
+                            gap-1
+                            whitespace-nowrap
+                            rounded-full
+                            border
+                            border-gray-200
+                            bg-white
+                            px-2
+                            py-1.5
+                            shadow-lg
+                        "
+                    >
+
+                        <button
+                            type="button"
+                            class="
+                                message-reaction-option
+                                flex
+                                h-8 w-8
+                                items-center
+                                justify-center
+                                rounded-full
+                                text-lg
+                                transition
+                                hover:scale-125
+                                hover:bg-gray-100
+                            "
+                            data-reaction="like"
+                            title="Like"
+                        >
+                            👍
+                        </button>
+
+                        <button
+                            type="button"
+                            class="
+                                message-reaction-option
+                                flex
+                                h-8 w-8
+                                items-center
+                                justify-center
+                                rounded-full
+                                text-lg
+                                transition
+                                hover:scale-125
+                                hover:bg-gray-100
+                            "
+                            data-reaction="heart"
+                            title="Heart"
+                        >
+                            ❤️
+                        </button>
+
+                        <button
+                            type="button"
+                            class="
+                                message-reaction-option
+                                flex
+                                h-8 w-8
+                                items-center
+                                justify-center
+                                rounded-full
+                                text-lg
+                                transition
+                                hover:scale-125
+                                hover:bg-gray-100
+                            "
+                            data-reaction="check"
+                            title="Check"
+                        >
+                            ✓
+                        </button>
+
+                    </div>
+
+                </div>
+            `;
+        }
+
+        // =====================================================
+        // CREATE QUOTED REPLY BLOCK
+        //
+        // Used inside sent and received message bubbles.
+        // =====================================================
+
+        function getReplyQuoteHtml(replyTo) {
+
+            if (!replyTo) {
+                return '';
+            }
+
+
+            const senderName =
+                replyTo.sender?.user_full_name ||
+                'User';
+
+            let message =
+                replyTo.message_content ||
+                'Message';
+
+
+            // =============================================
+            // FRIENDLY ATTACHMENT TEXT
+            // =============================================
+
+            if (message === '[attachment:image]') {
+                message = 'Photo';
+            }
+
+            if (message === '[attachment:file]') {
+                message = 'File';
+            }
+
+
+            return `
+                <button
+                    type="button"
+                    class="
+                        reply-quote
+                        mb-2
+                        block
+                        w-full
+                        rounded-lg
+                        border-l-2
+                        border-gray-400
+                        bg-black/10
+                        px-3
+                        py-2
+                        text-left
+                        transition
+                        hover:bg-black/15
+                    "
+                    data-reply-message-id="${replyTo.message_id}"
+                >
+
+                    <p
+                        class="truncate text-[11px]
+                            font-semibold opacity-80"
+                    >
+                        ${escapeHtml(senderName)}
+                    </p>
+
+                    <p
+                        class="mt-0.5 truncate
+                            text-xs opacity-70"
+                    >
+                        ${escapeHtml(message)}
+                    </p>
+
+                </button>
+            `;
         }
 
         // =====================================================
@@ -2335,7 +3097,18 @@
                         return;
                     }
 
-                    clearTimeout(remoteTypingTimeout);
+                    if (remoteTypingTimeouts.has(conversationId)) {
+
+                        clearTimeout(
+                            remoteTypingTimeouts.get(
+                                conversationId
+                            )
+                        );
+
+                        remoteTypingTimeouts.delete(
+                            conversationId
+                        );
+                    }
 
                     hideConversationTyping(
                         conversationId
@@ -2399,59 +3172,132 @@
                     // =========================================
 
                     const html = `
-                    <div class="flex justify-start">
+
+                        <!-- ====================================== -->
+                        <!-- REALTIME RECEIVED MESSAGE -->
+                        <!-- ====================================== -->
 
                         <div
-                            class="max-w-[70%]
-                                rounded-2xl
-                                rounded-bl-md
-                                bg-gray-100
-                                text-gray-900
-                                px-4 py-2.5"
+                            class="message-row group flex items-center justify-start gap-2"
+                            data-message-id="${msg.message_id}"
+                            data-message-sender="${escapeHtml(senderName)}"
+                            data-message-content="${escapeHtml(msg.message_content || '')}"
+                            data-message-created-at="${escapeHtml(msg.created_at || '')}"
                         >
 
-                            <p
-                                class="text-[11px]
-                                    font-semibold
-                                    text-gray-500
-                                    mb-0.5"
-                            >
-                                ${escapeHtml(senderName)}
-                            </p>
+                            <!-- ====================================== -->
+                            <!-- RECEIVED MESSAGE BUBBLE WRAPPER -->
+                            <!-- Existing reaction stays under bubble -->
+                            <!-- ====================================== -->
 
-                            ${
-                                msg.message_content
-                                    ? `
-                                        <p
-                                            class="text-sm
-                                                whitespace-pre-wrap
-                                                break-words"
-                                        >
-                                            ${escapeHtml(msg.message_content)}
-                                        </p>
-                                    `
-                                    : ''
-                            }
+                            <div class="relative flex max-w-[62%] flex-col items-start">
 
-                            <span
-                                class="text-[10px]
-                                    text-gray-400
-                                    mt-1
-                                    block
-                                    text-right"
+                            <div class="relative flex max-w-[62%] flex-col items-start">
+
+                            <!-- ====================================== -->
+                            <!-- MESSAGE BUBBLE -->
+                            <!-- ====================================== -->
+
+                            <div
+                                class="
+                                    w-fit max-w-full
+                                    rounded-2xl
+                                    rounded-bl-md
+                                    bg-gray-100
+                                    text-gray-900
+                                    px-4 py-2.5
+                                "
                             >
-                                ${time}
-                            </span>
+
+                                <!-- ====================================== -->
+                                <!-- ORIGINAL MESSAGE BEING REPLIED TO -->
+                                <!-- THIS IS STEP 12 -->
+                                <!-- ====================================== -->
+
+                                ${getReplyQuoteHtml(msg.reply_to)}
+
+
+                                <!-- ====================================== -->
+                                <!-- SENDER -->
+                                <!-- ====================================== -->
+
+                                <p
+                                    class="
+                                        text-[11px]
+                                        font-semibold
+                                        text-gray-500
+                                        mb-0.5
+                                    "
+                                >
+                                    ${escapeHtml(senderName)}
+                                </p>
+
+
+                                <!-- ====================================== -->
+                                <!-- MESSAGE -->
+                                <!-- ====================================== -->
+
+                                ${
+                                    msg.message_content
+                                        ? `
+                                            <p
+                                                class="
+                                                    text-sm
+                                                    whitespace-pre-wrap
+                                                    break-words
+                                                "
+                                            >
+                                                ${escapeHtml(msg.message_content)}
+                                            </p>
+                                        `
+                                        : ''
+                                }
+
+
+                                <!-- ====================================== -->
+                                <!-- TIME -->
+                                <!-- ====================================== -->
+
+                                <span
+                                    class="
+                                        text-[10px]
+                                        text-gray-400
+                                        mt-1
+                                        block
+                                        text-right
+                                    "
+                                >
+                                    ${time}
+                                </span>
+
+                            </div>
+
+
+                            <!-- ====================================== -->
+                            <!-- REALTIME RECEIVED REACTIONS -->
+                            <!-- ====================================== -->
+
+                            <div class="mt-[-4px] ml-2 flex flex-col items-start relative z-10">
+                                ${getMessageReactionsHtml(msg.reactions)}
+                            </div>
+
+                            </div>
+
+                            <!-- ====================================== -->
+                            <!-- ACTIONS: EMOJI FIRST, REPLY NEXT -->
+                            <!-- ====================================== -->
+
+                            <div class="flex shrink-0 items-center gap-0.5">
+                                ${getReactionPickerHtml()}
+                                <button type="button" class="message-reply-btn flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-400 opacity-0 transition group-hover:opacity-100 hover:bg-gray-100 hover:text-gray-700" title="Reply">
+                                    <i data-lucide="reply" class="h-4 w-4"></i>
+                                </button>
+                            </div>
 
                         </div>
+                    `;
 
-                    </div>
-                `;
-
-                
-
-
-                    // =========================================
+// =========================================
                     // ADD MESSAGE WITHOUT REFRESHING
                     // =========================================
 
@@ -2459,6 +3305,13 @@
                         'beforeend',
                         html
                     );
+
+
+                    // =========================================
+                    // REFRESH DATE SEPARATORS
+                    // =========================================
+
+                    refreshMessageDateSeparators();
 
 
                     // =========================================
@@ -2487,6 +3340,42 @@
                     );
 
                 })
+
+                // =====================================================
+                // REALTIME MESSAGE REACTION
+                // =====================================================
+
+                .listen(
+                    '.message.reaction.updated',
+                    (event) => {
+
+                        if (!event) {
+                            return;
+                        }
+
+
+                        // =============================================
+                        // MAKE SURE EVENT BELONGS TO OPEN CHAT
+                        // =============================================
+
+                        if (
+                            Number(event.conversation_id) !==
+                            Number(activeRealtimeConversationId)
+                        ) {
+                            return;
+                        }
+
+
+                        // =============================================
+                        // UPDATE EXACT MESSAGE
+                        // =============================================
+
+                        updateMessageReactions(
+                            event.message_id,
+                            event.reactions || []
+                        );
+                    }
+                )
 
                 // =====================================================
                 // REALTIME DELIVERED RECEIPT
@@ -2657,10 +3546,124 @@
                     hideConversationTyping(
                         conversationId
                     );
-                });
+                })
+
+                
 
                 
         }
+
+        // =====================================================
+        // START REPLYING TO MESSAGE
+        // =====================================================
+
+        function startReplyToMessage(
+            messageId,
+            senderName,
+            messageContent
+        ) {
+
+            replyingToMessage = {
+                message_id: Number(messageId),
+                sender_name: senderName || 'User',
+                message_content:
+                    messageContent || 'Message'
+            };
+
+
+            const preview =
+                document.getElementById(
+                    'modalReplyPreview'
+                );
+
+            const name =
+                document.getElementById(
+                    'modalReplyName'
+                );
+
+            const text =
+                document.getElementById(
+                    'modalReplyText'
+                );
+
+
+            if (name) {
+
+                name.textContent =
+                    `Replying to ${replyingToMessage.sender_name}`;
+            }
+
+
+            if (text) {
+
+                text.textContent =
+                    replyingToMessage.message_content;
+            }
+
+
+            preview?.classList.remove('hidden');
+
+
+            // =============================================
+            // PUT CURSOR BACK INTO MESSAGE BOX
+            // =============================================
+
+            document.getElementById(
+                'modalMessageInput'
+            )?.focus();
+
+
+            lucideCreateIcons();
+        }
+
+
+        // =====================================================
+        // CANCEL REPLY
+        // =====================================================
+
+        function cancelReply() {
+
+            replyingToMessage = null;
+
+
+            const preview =
+                document.getElementById(
+                    'modalReplyPreview'
+                );
+
+            const name =
+                document.getElementById(
+                    'modalReplyName'
+                );
+
+            const text =
+                document.getElementById(
+                    'modalReplyText'
+                );
+
+
+            preview?.classList.add('hidden');
+
+
+            if (name) {
+                name.textContent = 'Replying to';
+            }
+
+
+            if (text) {
+                text.textContent = '';
+            }
+        }
+
+        // =====================================================
+        // EXPOSE REPLY FUNCTIONS TO MESSAGE BUTTONS
+        // =====================================================
+
+        window.startReplyToMessage =
+            startReplyToMessage;
+
+        window.cancelReply =
+            cancelReply;
 
         // =====================================================
         // ESCAPE USER TEXT BEFORE ADDING IT TO HTML
@@ -2684,6 +3687,163 @@
 
                 .replaceAll("'", '&#039;');
         }
+
+        // =====================================================
+        // MESSAGE DATE SEPARATORS
+        //
+        // Examples:
+        // Today
+        // Yesterday
+        // July 24, 2026
+        //
+        // This rebuilds the separators from the message rows that
+        // are currently inside the chat. Because of that, loading
+        // older pages will not create duplicate date labels.
+        // =====================================================
+
+        function getMessageDateKey(dateString) {
+
+            if (!dateString) {
+                return '';
+            }
+
+            const date = new Date(dateString);
+
+            if (Number.isNaN(date.getTime())) {
+                return '';
+            }
+
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+
+            return `${year}-${month}-${day}`;
+        }
+
+
+        function getMessageDateLabel(dateString) {
+
+            if (!dateString) {
+                return '';
+            }
+
+            const messageDate = new Date(dateString);
+
+            if (Number.isNaN(messageDate.getTime())) {
+                return '';
+            }
+
+            const today = new Date();
+
+            const todayStart = new Date(
+                today.getFullYear(),
+                today.getMonth(),
+                today.getDate()
+            );
+
+            const messageStart = new Date(
+                messageDate.getFullYear(),
+                messageDate.getMonth(),
+                messageDate.getDate()
+            );
+
+            const differenceInDays = Math.round(
+                (todayStart - messageStart) / 86400000
+            );
+
+            if (differenceInDays === 0) {
+                return 'Today';
+            }
+
+            if (differenceInDays === 1) {
+                return 'Yesterday';
+            }
+
+            return messageDate.toLocaleDateString('en-US', {
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric'
+            });
+        }
+
+
+        function refreshMessageDateSeparators() {
+
+            const container =
+                document.getElementById('modalMessagesContainer');
+
+            if (!container) {
+                return;
+            }
+
+
+            // =================================================
+            // REMOVE OLD LABELS FIRST
+            // Prevents duplicates after pagination or realtime.
+            // =================================================
+
+            container
+                .querySelectorAll('.message-date-separator')
+                .forEach(separator => separator.remove());
+
+
+            const messageRows = Array.from(
+                container.querySelectorAll('.message-row')
+            );
+
+            let previousDateKey = null;
+
+
+            messageRows.forEach(row => {
+
+                const createdAt =
+                    row.dataset.messageCreatedAt || '';
+
+                const currentDateKey =
+                    getMessageDateKey(createdAt);
+
+                if (!currentDateKey) {
+                    return;
+                }
+
+
+                // =================================================
+                // ONLY ADD A LABEL WHEN THE CALENDAR DAY CHANGES
+                // =================================================
+
+                if (currentDateKey !== previousDateKey) {
+
+                    const separator =
+                        document.createElement('div');
+
+                    separator.className =
+                        'message-date-separator flex items-center justify-center py-2';
+
+                    separator.innerHTML = `
+                        <span
+                            class="
+                                rounded-full
+                                bg-white
+                                px-3
+                                py-1
+                                text-[11px]
+                                font-medium
+                                text-gray-400
+                            "
+                        >
+                            ${escapeHtml(
+                                getMessageDateLabel(createdAt)
+                            )}
+                        </span>
+                    `;
+
+                    row.before(separator);
+                }
+
+                previousDateKey = currentDateKey;
+            });
+        }
+
 
         function scrollToBottom(smooth = false, force = false) {
             const container = document.getElementById('modalMessagesContainer');
@@ -2739,10 +3899,36 @@
             scrollToBottom(true, true);
 
             const formData = new FormData();
-            formData.append('message_content', content || '');
+
+            formData.append(
+                'message_content',
+                content || ''
+            );
+
+
+            // =====================================================
+            // MESSAGE BEING REPLIED TO
+            // =====================================================
+
+            if (replyingToMessage?.message_id) {
+
+                formData.append(
+                    'reply_to_message_id',
+                    replyingToMessage.message_id
+                );
+            }
+
+
+            // =====================================================
+            // ATTACHMENT
+            // =====================================================
 
             if (selectedAttachment) {
-                formData.append('attachment', JSON.stringify(selectedAttachment));
+
+                formData.append(
+                    'attachment',
+                    JSON.stringify(selectedAttachment)
+                );
             }
 
             const response = await fetch(`/messages/conversations/${currentConversationId}/send`, {
@@ -2763,39 +3949,200 @@
                 const msgTime = formatMessageTime(msg.created_at);
                 const attachment = msg.attachment || selectedAttachment;
                 const isFirstMessage = container.querySelector('.text-center.py-12') !== null;
+                // =====================================================
+                // CREATE REAL SENT MESSAGE
+                //
+                // This replaces the temporary sending bubble after
+                // Laravel successfully saves the message.
+                // =====================================================
+
                 const realHtml = `
-                <div class="flex justify-end" style="animation: messageSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1)">
-                    <div class="max-w-[70%] rounded-2xl rounded-br-md bg-gray-900 text-white px-4 py-2.5">
-                        ${msg.message_content ? `<p class="text-sm whitespace-pre-wrap break-words">${msg.message_content}</p>` : ''}
-                        ${attachment ? getAttachmentPreviewHtml(attachment, msgTime, false) : ''}
-                        ${!msg.message_content && !attachment ? `<p class="text-sm text-gray-400">Empty message</p>` : ''}
-                        ${msg.message_content || attachment ? `
-                            <div class="mt-1 flex items-center justify-end gap-1.5">
 
-                                <span class="text-[10px] text-gray-400">
-                                    ${msgTime}
-                                </span>
+                    <div
+                        class="message-row group flex items-center justify-end gap-2"
+                        data-message-id="${msg.message_id}"
+                        data-message-sender="You"
+                        data-message-content="${escapeHtml(msg.message_content || '')}"
+                        data-message-created-at="${escapeHtml(msg.created_at || '')}"
+                        style="
+                            animation:
+                                messageSlideIn
+                                0.3s
+                                cubic-bezier(0.4, 0, 0.2, 1);
+                        "
+                    >
 
-                                <span
-                                    class="message-read-status text-[10px] text-gray-400 font-medium"
-                                    data-message-id="${msg.message_id}"
-                                >
-                                    ${getMessageStatus(msg)}
-                                </span>
+                        <!-- ====================================== -->
+                        <!-- OWN ACTIONS: EMOJI FIRST, REPLY NEXT -->
+                        <!-- ====================================== -->
 
-                            </div>
-                        ` : ''}
+                        <div class="flex shrink-0 items-center gap-0.5">
+                            ${getReactionPickerHtml()}
+                            <button type="button" class="message-reply-btn flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-400 opacity-0 transition group-hover:opacity-100 hover:bg-gray-100 hover:text-gray-700" title="Reply">
+                                <i data-lucide="reply" class="h-4 w-4"></i>
+                            </button>
+                        </div>
+
+                        <div class="relative flex max-w-[62%] flex-col items-end">
+
+                        <!-- ====================================== -->
+                        <!-- MESSAGE BUBBLE -->
+                        <!-- ====================================== -->
+
+                        <div
+                            class="
+                                w-fit max-w-full
+                                rounded-2xl
+                                rounded-br-md
+                                bg-gray-900
+                                text-white
+                                px-4 py-2.5
+                            "
+                        >
+
+                            <!-- ====================================== -->
+                            <!-- ORIGINAL MESSAGE BEING REPLIED TO -->
+                            <!-- ====================================== -->
+
+                            ${getReplyQuoteHtml(msg.reply_to)}
+
+
+                            <!-- ====================================== -->
+                            <!-- MESSAGE CONTENT -->
+                            <!-- ====================================== -->
+
+                            ${
+                                msg.message_content
+                                    ? `
+                                        <p
+                                            class="
+                                                text-sm
+                                                whitespace-pre-wrap
+                                                break-words
+                                            "
+                                        >
+                                            ${escapeHtml(
+                                                msg.message_content
+                                            )}
+                                        </p>
+                                    `
+                                    : ''
+                            }
+
+
+                            <!-- ====================================== -->
+                            <!-- ATTACHMENT -->
+                            <!-- ====================================== -->
+
+                            ${
+                                attachment
+                                    ? getAttachmentPreviewHtml(
+                                        attachment,
+                                        msgTime,
+                                        false
+                                    )
+                                    : ''
+                            }
+
+
+                            <!-- ====================================== -->
+                            <!-- EMPTY MESSAGE FALLBACK -->
+                            <!-- ====================================== -->
+
+                            ${
+                                !msg.message_content &&
+                                !attachment
+                                    ? `
+                                        <p class="text-sm text-gray-400">
+                                            Empty message
+                                        </p>
+                                    `
+                                    : ''
+                            }
+
+
+                            <!-- ====================================== -->
+                            <!-- TIME + DELIVERED / SEEN STATUS -->
+                            <!-- ====================================== -->
+
+                            ${
+                                msg.message_content ||
+                                attachment
+                                    ? `
+                                        <div
+                                            class="
+                                                mt-1
+                                                flex
+                                                items-center
+                                                justify-end
+                                                gap-1.5
+                                            "
+                                        >
+
+                                            <span
+                                                class="
+                                                    text-[10px]
+                                                    text-gray-400
+                                                "
+                                            >
+                                                ${msgTime}
+                                            </span>
+
+                                            <span
+                                                class="
+                                                    message-read-status
+                                                    text-[10px]
+                                                    text-gray-400
+                                                    font-medium
+                                                "
+                                                data-message-id="${msg.message_id}"
+                                            >
+                                                ${getMessageStatus(msg)}
+                                            </span>
+
+                                        </div>
+                                    `
+                                    : ''
+                                }
+
+                        </div>
+
+
+                        <!-- ====================================== -->
+                        <!-- NEW SENT MESSAGE REACTIONS -->
+                        <!-- ====================================== -->
+
+                        <div class="mt-[-4px] mr-2 flex flex-col items-end relative z-10">
+                            ${getMessageReactionsHtml(msg.reactions)}
+                        </div>
+
+                        </div>
+
                     </div>
-                </div>
-            `;
+                `;
                 if (isFirstMessage) {
                     container.innerHTML = realHtml;
                 } else {
                     container.insertAdjacentHTML('beforeend', realHtml);
                 }
+
+                // =====================================================
+                // DATE SEPARATORS
+                // Also covers the first message sent on a new day.
+                // =====================================================
+
+                refreshMessageDateSeparators();
+
                 scrollToBottom(true, true);
 
                 clearSelectedAttachment();
+
+                // =====================================================
+                // CLEAR REPLY AFTER SUCCESSFUL SEND
+                // =====================================================
+
+                cancelReply();
+
                 input.value = '';
                 input.style.height = 'auto';
                 input.focus();
@@ -3541,6 +4888,23 @@
                 });
             }
 
+            // =====================================================
+            // CANCEL MESSAGE REPLY
+            // =====================================================
+
+            const cancelReplyButton =
+                document.getElementById(
+                    'modalCancelReply'
+                );
+
+            if (cancelReplyButton) {
+
+                cancelReplyButton.addEventListener(
+                    'click',
+                    cancelReply
+                );
+            }
+
             const messageForm = document.getElementById('modalMessageForm');
             if (messageForm) {
                 messageForm.addEventListener('submit', sendModalMessage);
@@ -3584,8 +4948,210 @@
                 });
             }
 
-            const messagesContainer = document.getElementById('modalMessagesContainer');
+            const messagesContainer =
+                document.getElementById('modalMessagesContainer');
+
             if (messagesContainer) {
+
+                messagesContainer.addEventListener(
+                    'click',
+                    async function (event) {
+                        // =========================================
+                        // OPEN / CLOSE REACTION POPUP
+                        // =========================================
+
+                        const reactionTrigger =
+                            event.target.closest(
+                                '.message-reaction-trigger'
+                            );
+
+                        if (reactionTrigger) {
+
+                            event.preventDefault();
+                            event.stopPropagation();
+
+                            const currentControl =
+                                reactionTrigger.closest(
+                                    '.message-reaction-control'
+                                );
+
+                            const currentPicker =
+                                currentControl?.querySelector(
+                                    '.message-reaction-picker'
+                                );
+
+                            if (!currentPicker) {
+                                return;
+                            }
+
+
+                            // =====================================
+                            // CHECK CURRENT STATE
+                            // =====================================
+
+                            const wasOpen =
+                                !currentPicker.classList.contains(
+                                    'hidden'
+                                );
+
+
+                            // =====================================
+                            // CLOSE OTHER OPEN REACTION PICKERS
+                            // =====================================
+
+                            messagesContainer
+                                .querySelectorAll(
+                                    '.message-reaction-picker'
+                                )
+                                .forEach(picker => {
+
+                                    picker.classList.add('hidden');
+                                    picker.classList.remove('flex');
+
+                                });
+
+
+                            // =====================================
+                            // OPEN THIS PICKER
+                            // =====================================
+
+                            if (!wasOpen) {
+
+                                currentPicker.classList.remove(
+                                    'hidden'
+                                );
+
+                                currentPicker.classList.add(
+                                    'flex'
+                                );
+                            }
+
+                            return;
+                        }
+
+                        // =========================================
+                        // REACTION PICKER BUTTON
+                        // =========================================
+
+                        const reactionButton =
+                            event.target.closest(
+                                '.message-reaction-option'
+                            );
+
+                        if (reactionButton) {
+
+                            event.preventDefault();
+                            event.stopPropagation();
+
+                            const row =
+                                reactionButton.closest(
+                                    '.message-row'
+                                );
+
+                            if (!row) {
+                                return;
+                            }
+
+                            const messageId =
+                                row.dataset.messageId;
+
+                            const reaction =
+                                reactionButton.dataset.reaction;
+
+
+                            // =====================================
+                            // CLOSE PICKER AFTER SELECTING
+                            // =====================================
+
+                            const picker =
+                                reactionButton.closest(
+                                    '.message-reaction-picker'
+                                );
+
+                            if (picker) {
+
+                                picker.classList.add('hidden');
+                                picker.classList.remove('flex');
+
+                            }
+
+
+                            // =====================================
+                            // SAVE REACTION
+                            // =====================================
+
+                            await reactToMessage(
+                                messageId,
+                                reaction
+                            );
+
+                            return;
+                        }
+
+
+                        // =========================================
+                        // EXISTING REACTION CHIP
+                        // =========================================
+
+                        const reactionChip =
+                            event.target.closest(
+                                '.message-reaction-chip'
+                            );
+
+                        if (reactionChip) {
+
+                            event.preventDefault();
+                            event.stopPropagation();
+
+                            const row =
+                                reactionChip.closest(
+                                    '.message-row'
+                                );
+
+                            if (!row) {
+                                return;
+                            }
+
+                            await reactToMessage(
+                                row.dataset.messageId,
+                                reactionChip.dataset.reaction
+                            );
+
+                            return;
+                        }
+
+
+                        // =========================================
+                        // EXISTING REPLY BUTTON
+                        // =========================================
+
+                        const replyButton =
+                            event.target.closest(
+                                '.message-reply-btn'
+                            );
+
+                        if (!replyButton) {
+                            return;
+                        }
+
+
+                        const messageRow =
+                            replyButton.closest(
+                                '.message-row'
+                            );
+
+                        if (!messageRow) {
+                            return;
+                        }
+
+
+                        startReplyToMessage(
+                            messageRow.dataset.messageId,
+                            messageRow.dataset.messageSender,
+                            messageRow.dataset.messageContent
+                        );
+                    }
+                );
                 messagesContainer.addEventListener('scroll', () => {
                     if (messagesContainer.scrollTop === 0 && hasMoreMessages && !isLoadingMessages) {
                         const prevHeight = messagesContainer.scrollHeight;

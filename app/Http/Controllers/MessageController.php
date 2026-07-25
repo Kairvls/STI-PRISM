@@ -6,6 +6,8 @@ use App\Events\MessageSent;
 use App\Events\MessagesRead;
 use App\Events\MessageDelivered;
 use App\Events\UserTyping;
+use App\Events\MessageReactionUpdated;
+use App\Models\MessageReaction;
 use App\Models\Conversation;
 use App\Models\ConversationParticipant;
 use App\Models\Message;
@@ -37,7 +39,7 @@ class MessageController extends Controller
             }
         )
         ->with([
-            'lastMessage:message_id,conversation_id,sender_id,message_content,is_read,read_at,delivered_at,created_at',
+            'lastMessage:message_id,conversation_id,sender_id,reply_to_message_id,message_content,is_read,read_at,delivered_at,created_at',
             'participants.user.role',
         ])
 
@@ -134,9 +136,43 @@ class MessageController extends Controller
         $this->authorizeConversation($conversation, $userId);
 
         $validated = $request->validate([
-            'message_content' => ['required', 'string', 'max:5000'],
-            'attachment' => ['nullable', 'string'],
+
+            'message_content' => [
+                'required',
+                'string',
+                'max:5000'
+            ],
+
+            'attachment' => [
+                'nullable',
+                'string'
+            ],
+
+            // =============================================
+            // OPTIONAL MESSAGE BEING REPLIED TO
+            // =============================================
+
+            'reply_to_message_id' => [
+                'nullable',
+                'integer',
+                'exists:messages,message_id',
+            ],
         ]);
+
+        $replyToMessage = null;
+
+        if (!empty($validated['reply_to_message_id'])) {
+
+            $replyToMessage = Message::where(
+                    'message_id',
+                    $validated['reply_to_message_id']
+                )
+                ->where(
+                    'conversation_id',
+                    $conversation->conversation_id
+                )
+                ->firstOrFail();
+        }
 
         $attachment = null;
 
@@ -192,11 +228,22 @@ class MessageController extends Controller
         // =====================================================
 
         $message = new Message([
+
             'conversation_id' =>
                 $conversation->conversation_id,
 
             'sender_id' =>
                 $userId,
+
+
+            // =============================================
+            // ORIGINAL MESSAGE BEING REPLIED TO
+            // NULL FOR NORMAL MESSAGES
+            // =============================================
+
+            'reply_to_message_id' =>
+                $replyToMessage?->message_id,
+
 
             'message_content' =>
                 $messageContent,
@@ -210,7 +257,16 @@ class MessageController extends Controller
             'last_message_at' => now(),
         ]);
 
-        $message->load('sender');
+        $message->load([
+            'sender',
+            'replyTo.sender',
+
+            // =============================================
+            // MESSAGE REACTIONS
+            // =============================================
+
+            'reactions.user',
+        ]);
 
         broadcast(
             new MessageSent($message)
@@ -299,6 +355,228 @@ class MessageController extends Controller
             'message' => 'Message marked as delivered.',
             'message_id' => $message->message_id,
             'delivered_at' => $message->delivered_at,
+        ]);
+    }
+
+    // =====================================================
+    // REACT TO MESSAGE
+    //
+    // BEHAVIOR:
+    //
+    // No existing reaction + click 👍
+    //     => add 👍
+    //
+    // Existing 👍 + click 👍
+    //     => remove 👍
+    //
+    // Existing 👍 + click ❤️
+    //     => change 👍 to ❤️
+    // =====================================================
+
+    public function reactToMessage(
+        Request $request,
+        Conversation $conversation,
+        Message $message
+    ): JsonResponse
+    {
+        $userId = Auth::id();
+
+
+        // =====================================================
+        // MAKE SURE USER BELONGS TO CONVERSATION
+        // =====================================================
+
+        $this->authorizeConversation(
+            $conversation,
+            $userId
+        );
+
+
+        // =====================================================
+        // MAKE SURE MESSAGE BELONGS TO THIS CONVERSATION
+        // =====================================================
+
+        if (
+            (int) $message->conversation_id !==
+            (int) $conversation->conversation_id
+        ) {
+            abort(404);
+        }
+
+
+        // =====================================================
+        // ONLY ALLOW OUR THREE REACTIONS
+        //
+        // like  = 👍
+        // heart = ❤️
+        // check = ✓
+        // =====================================================
+
+        $validated = $request->validate([
+            'reaction' => [
+                'required',
+                'string',
+                'in:like,heart,check',
+            ],
+        ]);
+
+
+        $reactionType =
+            $validated['reaction'];
+
+
+        // =====================================================
+        // CHECK CURRENT USER'S EXISTING REACTION
+        // =====================================================
+
+        $existingReaction = MessageReaction::where(
+                'message_id',
+                $message->message_id
+            )
+            ->where(
+                'user_id',
+                $userId
+            )
+            ->first();
+
+
+        // =====================================================
+        // SAME REACTION CLICKED AGAIN
+        //
+        // Example:
+        // Existing 👍 + click 👍
+        //
+        // Remove reaction.
+        // =====================================================
+
+        if (
+            $existingReaction &&
+            $existingReaction->reaction === $reactionType
+        ) {
+
+            $existingReaction->delete();
+
+        }
+
+
+        // =====================================================
+        // DIFFERENT REACTION
+        //
+        // Example:
+        // Existing 👍 + click ❤️
+        //
+        // Change it to ❤️.
+        // =====================================================
+
+        elseif ($existingReaction) {
+
+            $existingReaction->update([
+                'reaction' => $reactionType,
+            ]);
+
+        }
+
+
+        // =====================================================
+        // NO EXISTING REACTION
+        //
+        // Create one.
+        // =====================================================
+
+        else {
+
+            MessageReaction::create([
+                'message_id' =>
+                    $message->message_id,
+
+                'user_id' =>
+                    $userId,
+
+                'reaction' =>
+                    $reactionType,
+            ]);
+
+        }
+
+
+        // =====================================================
+        // GET UPDATED REACTIONS
+        // =====================================================
+
+        $reactions = MessageReaction::where(
+                'message_id',
+                $message->message_id
+            )
+            ->with([
+                'user:user_id,user_full_name',
+            ])
+            ->orderBy('created_at')
+            ->get();
+
+        // =====================================================
+        // PREPARE REACTIONS FOR REALTIME BROADCAST
+        // =====================================================
+
+        $reactionData = $reactions
+            ->map(function ($reaction) {
+
+                return [
+                    'message_reaction_id' =>
+                        $reaction->message_reaction_id,
+
+                    'message_id' =>
+                        $reaction->message_id,
+
+                    'user_id' =>
+                        $reaction->user_id,
+
+                    'reaction' =>
+                        $reaction->reaction,
+
+                    'user' => [
+                        'user_id' =>
+                            $reaction->user?->user_id,
+
+                        'user_full_name' =>
+                            $reaction->user?->user_full_name,
+                    ],
+                ];
+
+            })
+            ->values()
+            ->toArray();
+
+
+        // =====================================================
+        // BROADCAST UPDATED REACTIONS
+        //
+        // toOthers() means the person who clicked the reaction
+        // already gets the HTTP response.
+        //
+        // Everyone else receives this through Reverb.
+        // =====================================================
+
+        broadcast(
+            new MessageReactionUpdated(
+                (int) $conversation->conversation_id,
+                (int) $message->message_id,
+                $reactionData
+            )
+        )->toOthers();
+
+
+        // =====================================================
+        // RETURN UPDATED REACTION LIST
+        // =====================================================
+
+        return response()->json([
+            'success' => true,
+
+            'message_id' =>
+                $message->message_id,
+
+            'reactions' =>
+                $reactionData,
         ]);
     }
 
@@ -471,9 +749,25 @@ class MessageController extends Controller
         $this->authorizeConversation($conversation, $userId);
 
         $messages = $conversation->messages()
-            ->with('sender')
-            ->orderByDesc('created_at')
-            ->paginate(20);
+
+        // =============================================
+        // LOAD MESSAGE SENDER AND REPLIED MESSAGE
+        // =============================================
+
+        ->with([
+            'sender',
+
+            'replyTo.sender',
+
+            // =============================================
+            // LOAD MESSAGE REACTIONS AND WHO REACTED
+            // =============================================
+
+            'reactions.user',
+        ])
+
+        ->orderByDesc('created_at')
+        ->paginate(20);
 
         return response()->json([
             'data' => $messages,

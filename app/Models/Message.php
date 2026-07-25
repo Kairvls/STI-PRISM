@@ -16,6 +16,13 @@ class Message extends Model
     protected $fillable = [
         'conversation_id',
         'sender_id',
+
+        // =============================================
+        // MESSAGE THIS MESSAGE IS REPLYING TO
+        // =============================================
+
+        'reply_to_message_id',
+
         'message_content',
         'is_read',
         'read_at',
@@ -34,5 +41,46 @@ class Message extends Model
     public function sender(): BelongsTo
     {
         return $this->belongsTo(User::class, 'sender_id', 'user_id');
+    }
+
+    // =====================================================
+    // ORIGINAL MESSAGE THIS MESSAGE IS REPLYING TO
+    // =====================================================
+
+    public function replyTo(): BelongsTo
+    {
+        return $this->belongsTo(
+            Message::class,
+            'reply_to_message_id',
+            'message_id'
+        );
+    }
+
+
+    // =====================================================
+    // OPTIONAL:
+    // MESSAGES THAT REPLIED TO THIS MESSAGE
+    // =====================================================
+
+    public function replies()
+    {
+        return $this->hasMany(
+            Message::class,
+            'reply_to_message_id',
+            'message_id'
+        );
+    }
+
+    // =====================================================
+    // MESSAGE REACTIONS
+    // =====================================================
+
+    public function reactions()
+    {
+        return $this->hasMany(
+            MessageReaction::class,
+            'message_id',
+            'message_id'
+        );
     }
 }

@@ -132,6 +132,27 @@ class MessageSent implements ShouldBroadcastNow
                     'user_full_name'
                         => $this->message->sender?->user_full_name,
                 ],
+                'reply_to_message_id'
+                    => $this->message->reply_to_message_id,
+
+                'reply_to'
+                    => $this->message->replyTo
+                        ? [
+                            'message_id'
+                                => $this->message->replyTo->message_id,
+
+                            'message_content'
+                                => $this->message->replyTo->message_content,
+
+                            'sender' => [
+                                'user_id'
+                                    => $this->message->replyTo->sender?->user_id,
+
+                                'user_full_name'
+                                    => $this->message->replyTo->sender?->user_full_name,
+                            ],
+                        ]
+                        : null,
             ],
         ];
     }
