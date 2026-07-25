@@ -578,336 +578,1226 @@ class PurchaserController extends Controller
         ));
     }
 
-    // RIS MODULE: CREATE RIS AS DRAFT OR SUBMITTED
+// =====================================================
+// RIS MODULE: CREATE RIS AS DRAFT OR SUBMITTED
+// =====================================================
     public function storeRis(Request $request)
     {
-        // 1. Determine draft or submit
+        // =====================================================
+        // 1. DETERMINE ACTION
+        // draft = save without sending to Admin
+        // submit = validate everything and send to Admin
+        // =====================================================
         $saveAction = $request->input('save_action', 'draft');
         $isDraft = $saveAction === 'draft';
 
-        // 2. Validate
-        // Draft allows incomplete RIS information; submit requires RIS number, purpose, and items.
+
+        // =====================================================
+        // 2. VALIDATE BASIC RIS DATA
+        // Drafts are allowed to be incomplete.
+        // Submission requires the important RIS information.
+        // =====================================================
         $validated = $request->validate([
-            'save_action' => ['required', 'in:draft,submit'],
-            // RIS MODULE: optional source replacement request
+            'save_action' => [
+                'required',
+                'in:draft,submit',
+            ],
+
             'ris_procurement_request_id' => [
                 'nullable',
                 'integer',
-                'exists:procurement_requests_table,procurement_request_id'
+                'exists:procurement_requests_table,procurement_request_id',
             ],
-            'ris_form_number' => [$isDraft ? 'nullable' : 'required', 'string', 'max:100'],
-            'ris_purpose_description' => [$isDraft ? 'nullable' : 'required', 'string', 'max:5000'],
 
-            'ris_items' => ['nullable', 'array'],
-            'ris_items.*.name_description' => ['nullable', 'string', 'max:2000'],
-            'ris_items.*.quantity_requested' => ['nullable', 'integer', 'min:1'],
-            'ris_items.*.quantity_issued' => ['nullable', 'integer', 'min:0'],
-            'ris_items.*.unit_cost' => ['nullable', 'numeric', 'min:0'],
-            'ris_items.*.total_amount' => ['nullable', 'numeric', 'min:0'],
+            'ris_form_number' => [
+                $isDraft ? 'nullable' : 'required',
+                'string',
+                'max:100',
+            ],
 
-            'ris_requested_by' => ['nullable', 'string', 'max:255'],
-            'ris_requested_by_date' => ['nullable', 'date'],
+            'ris_purpose_description' => [
+                $isDraft ? 'nullable' : 'required',
+                'string',
+                'max:5000',
+            ],
 
-            'ris_approved_by' => ['nullable', 'string', 'max:255'],
-            'ris_approved_by_date' => ['nullable', 'date'],
+            // =============================================
+            // RIS ITEMS
+            // =============================================
+            'ris_items' => [
+                'nullable',
+                'array',
+                'max:50',
+            ],
 
-            'ris_issued_by' => ['nullable', 'string', 'max:255'],
-            'ris_issued_by_date' => ['nullable', 'date'],
+            'ris_items.*.name_description' => [
+                'nullable',
+                'string',
+                'max:2000',
+            ],
 
-            'ris_received_by' => ['nullable', 'string', 'max:255'],
-            'ris_received_by_date' => ['nullable', 'date'],
+            'ris_items.*.quantity_requested' => [
+                'nullable',
+                'integer',
+                'min:1',
+                'max:999999',
+            ],
 
-            'ris_attachments' => ['nullable', 'array'],
-            'ris_attachments.*' => ['file', 'mimes:doc,docx,xls,xlsx', 'max:10240'],
+            'ris_items.*.quantity_issued' => [
+                'nullable',
+                'integer',
+                'min:0',
+                'max:999999',
+            ],
+
+            'ris_items.*.unit_cost' => [
+                'nullable',
+                'numeric',
+                'min:0',
+                'max:999999999.99',
+            ],
+
+            // We still accept the field from the form,
+            // but we DO NOT trust its value.
+            // The server calculates the amount itself.
+            'ris_items.*.total_amount' => [
+                'nullable',
+                'numeric',
+                'min:0',
+            ],
+
+            // =============================================
+            // REQUESTED BY
+            // =============================================
+            'ris_requested_by' => [
+                $isDraft ? 'nullable' : 'required',
+                'string',
+                'max:255',
+            ],
+
+            // Browser calendar removed.
+            // User enters: dd/mm/yyyy
+            'ris_requested_by_date' => [
+                $isDraft ? 'nullable' : 'required',
+                'date_format:d/m/Y',
+            ],
+
+            // =============================================
+            // THESE ARE NOT ENTERED BY PURCHASER
+            // They are completed later in the workflow.
+            // =============================================
+            'ris_approved_by' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+
+            'ris_approved_by_date' => [
+                'nullable',
+            ],
+
+            'ris_issued_by' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+
+            'ris_issued_by_date' => [
+                'nullable',
+            ],
+
+            'ris_received_by' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+
+            'ris_received_by_date' => [
+                'nullable',
+            ],
+
+            // =============================================
+            // SUPPORTING DOCUMENTS
+            // Word and Excel only
+            // Maximum 10 MB each
+            // =============================================
+            'ris_attachments' => [
+                'nullable',
+                'array',
+                'max:10',
+            ],
+
+            'ris_attachments.*' => [
+                'file',
+                'mimes:doc,docx,xls,xlsx',
+                'max:10240',
+            ],
+        ], [
+            // =============================================
+            // FRIENDLIER VALIDATION MESSAGES
+            // =============================================
+            'ris_form_number.required' =>
+                'RIS number is required before submitting.',
+
+            'ris_purpose_description.required' =>
+                'Purpose is required before submitting.',
+
+            'ris_requested_by.required' =>
+                'Requested By is required before submitting.',
+
+            'ris_requested_by_date.required' =>
+                'Requested By date is required before submitting.',
+
+            'ris_requested_by_date.date_format' =>
+                'Requested By date must use dd/mm/yyyy format.',
+
+            'ris_items.*.quantity_requested.integer' =>
+                'Quantity Requested must be a whole number.',
+
+            'ris_items.*.quantity_requested.min' =>
+                'Quantity Requested must be at least 1.',
+
+            'ris_items.*.quantity_issued.integer' =>
+                'Quantity Issued must be a whole number.',
+
+            'ris_items.*.quantity_issued.min' =>
+                'Quantity Issued cannot be negative.',
+
+            'ris_items.*.unit_cost.numeric' =>
+                'Unit Cost must be a valid number.',
+
+            'ris_items.*.unit_cost.min' =>
+                'Unit Cost cannot be negative.',
+
+            'ris_attachments.max' =>
+                'You may upload a maximum of 10 supporting documents.',
+
+            'ris_attachments.*.mimes' =>
+                'Supporting documents must be Word or Excel files only.',
+
+            'ris_attachments.*.max' =>
+                'Each supporting document must not exceed 10 MB.',
         ]);
 
-        // 3. Remove empty item rows
+
+        // =====================================================
+        // 3. REMOVE COMPLETELY EMPTY ITEM ROWS
+        // =====================================================
         $items = collect($validated['ris_items'] ?? [])
-            ->filter(fn ($item) => filled($item['name_description'] ?? null))
+            ->filter(function ($item) {
+
+                return filled($item['name_description'] ?? null)
+                    || filled($item['quantity_requested'] ?? null)
+                    || filled($item['quantity_issued'] ?? null)
+                    || filled($item['unit_cost'] ?? null);
+
+            })
             ->values();
 
-        // 4. Require items only for submission (draft allows zero items)
-        if (!$isDraft && $items->isEmpty()) {
-            return back()->withInput()->with('error', 'Please add at least one RIS item before submitting.');
+
+        // =====================================================
+        // 4. STRICT ITEM VALIDATION WHEN SUBMITTING
+        // =====================================================
+        if (!$isDraft) {
+
+            if ($items->isEmpty()) {
+                return back()
+                    ->withInput()
+                    ->with(
+                        'error',
+                        'Please add at least one RIS item before submitting.'
+                    );
+            }
+
+            foreach ($items as $index => $item) {
+
+                $rowNumber = $index + 1;
+
+                if (blank($item['name_description'] ?? null)) {
+                    return back()
+                        ->withInput()
+                        ->with(
+                            'error',
+                            "Item {$rowNumber} needs an item description."
+                        );
+                }
+
+                if (blank($item['quantity_requested'] ?? null)) {
+                    return back()
+                        ->withInput()
+                        ->with(
+                            'error',
+                            "Item {$rowNumber} needs a Quantity Requested."
+                        );
+                }
+
+                if ((int) $item['quantity_requested'] < 1) {
+                    return back()
+                        ->withInput()
+                        ->with(
+                            'error',
+                            "Item {$rowNumber} Quantity Requested must be at least 1."
+                        );
+                }
+            }
         }
 
-        // RIS MODULE: validate replacement request source
-        $procurementRequestId = $validated['ris_procurement_request_id'] ?? null;
+
+        // =====================================================
+        // 5. CONVERT dd/mm/yyyy TO MYSQL DATE
+        //
+        // Example:
+        // 25/07/2026 becomes 2026-07-25
+        // =====================================================
+        $requestedByDate = null;
+
+        if (!empty($validated['ris_requested_by_date'])) {
+
+            $requestedByDate = \Carbon\Carbon::createFromFormat(
+                'd/m/Y',
+                $validated['ris_requested_by_date']
+            )->format('Y-m-d');
+        }
+
+
+        // =====================================================
+        // 6. VALIDATE REPLACEMENT REQUEST SOURCE
+        // =====================================================
+        $procurementRequestId =
+            $validated['ris_procurement_request_id'] ?? null;
 
         if ($procurementRequestId) {
-            $replacementRequest = DB::table('procurement_requests_table')
-                ->where('procurement_request_id', $procurementRequestId)
-                ->first();
 
-            if (!$replacementRequest || $replacementRequest->procurement_request_status !== 'Approved') {
+            $replacementRequest =
+                DB::table('procurement_requests_table')
+                    ->where(
+                        'procurement_request_id',
+                        $procurementRequestId
+                    )
+                    ->first();
+
+            if (
+                !$replacementRequest
+                || $replacementRequest->procurement_request_status
+                    !== 'Approved'
+            ) {
+
                 return back()
                     ->withInput()
-                    ->with('error', 'Only approved replacement requests can be used to create an RIS.');
+                    ->with(
+                        'error',
+                        'Only approved replacement requests can be used to create an RIS.'
+                    );
             }
 
-            $existingRis = DB::table('requisition_issue_slip_table')
-                ->where('ris_procurement_request_id', $procurementRequestId)
-                ->exists();
+
+            // Prevent duplicate RIS from the same replacement request
+            $existingRis =
+                DB::table('requisition_issue_slip_table')
+                    ->where(
+                        'ris_procurement_request_id',
+                        $procurementRequestId
+                    )
+                    ->exists();
 
             if ($existingRis) {
+
                 return back()
                     ->withInput()
-                    ->with('error', 'This replacement request already has an RIS.');
+                    ->with(
+                        'error',
+                        'This replacement request already has an RIS.'
+                    );
             }
         }
-        // 5. Save RIS
+
+
+        // =====================================================
+        // 7. SAVE RIS
+        // =====================================================
         return DB::transaction(function () use (
             $request,
             $validated,
             $items,
             $isDraft,
             $procurementRequestId,
+            $requestedByDate
         ) {
 
-            $risId = DB::table('requisition_issue_slip_table')->insertGetId([
-                // RIS information (drafts may be incomplete)
-                // RIS MODULE: source replacement request, null means manual RIS
-                'ris_procurement_request_id' => $procurementRequestId,
-                'ris_form_number' => $validated['ris_form_number'] ?? null,
-                'ris_purpose_description' => $validated['ris_purpose_description'] ?? null,
+            $risId =
+                DB::table('requisition_issue_slip_table')
+                    ->insertGetId([
 
-                // Status: Save as Draft -> Draft, Submit RIS -> Submitted
-                'ris_status' => $isDraft ? 'Draft' : 'Submitted',
+                        'ris_procurement_request_id' =>
+                            $procurementRequestId,
 
-                // Personnel information
-                'ris_requested_by_signature' => $validated['ris_requested_by'] ?? null,
-                'ris_requested_by_date' => $validated['ris_requested_by_date'] ?? null,
-                'ris_approved_by_signature' => $validated['ris_approved_by'] ?? null,
-                'ris_approved_by_date' => $validated['ris_approved_by_date'] ?? null,
-                'ris_issued_by_signature' => $validated['ris_issued_by'] ?? null,
-                'ris_issued_by_date' => $validated['ris_issued_by_date'] ?? null,
-                'ris_received_by_signature' => $validated['ris_received_by'] ?? null,
-                'ris_received_by_date' => $validated['ris_received_by_date'] ?? null,
+                        'ris_form_number' =>
+                            $validated['ris_form_number'] ?? null,
 
-                // Submission tracking (draft has not entered the Admin workflow yet)
-                'ris_submitted_by' => $isDraft ? null : Auth::id(),
-                'ris_submitted_at' => $isDraft ? null : now(),
+                        'ris_purpose_description' =>
+                            $validated['ris_purpose_description'] ?? null,
 
-                'ris_created_at' => now(),
-                'ris_updated_at' => now(),
-            ]);
+                        'ris_status' =>
+                            $isDraft
+                                ? 'Draft'
+                                : 'Submitted',
 
-            // Save RIS items
+                        // =========================================
+                        // REQUESTED BY
+                        // =========================================
+                        'ris_requested_by_signature' =>
+                            $validated['ris_requested_by'] ?? null,
+
+                        'ris_requested_by_date' =>
+                            $requestedByDate,
+
+                        // =========================================
+                        // APPROVED / ISSUED / RECEIVED
+                        // Purchaser cannot fill these during creation.
+                        // =========================================
+                        'ris_approved_by_signature' => null,
+                        'ris_approved_by_date' => null,
+
+                        'ris_issued_by_signature' => null,
+                        'ris_issued_by_date' => null,
+
+                        'ris_received_by_signature' => null,
+                        'ris_received_by_date' => null,
+
+                        // =========================================
+                        // SUBMISSION TRACKING
+                        // =========================================
+                        'ris_submitted_by' =>
+                            $isDraft
+                                ? null
+                                : Auth::id(),
+
+                        'ris_submitted_at' =>
+                            $isDraft
+                                ? null
+                                : now(),
+
+                        'ris_created_at' => now(),
+                        'ris_updated_at' => now(),
+                    ]);
+
+
+            // =====================================================
+            // 8. SAVE RIS ITEMS
+            // =====================================================
             foreach ($items as $item) {
-                $quantityIssued = $item['quantity_issued'] ?? 0;
-                $unitCost = $item['unit_cost'] ?? 0;
 
-                DB::table('requisition_issue_slip_items_table')->insert([
+                $quantityIssued =
+                    (int) ($item['quantity_issued'] ?? 0);
+
+                $unitCost =
+                    (float) ($item['unit_cost'] ?? 0);
+
+
+                // =============================================
+                // IMPORTANT:
+                // Never trust total_amount from the browser.
+                //
+                // Amount = Quantity Issued × Unit Cost
+                // =============================================
+                $totalAmount =
+                    round(
+                        $quantityIssued * $unitCost,
+                        2
+                    );
+
+
+                DB::table(
+                    'requisition_issue_slip_items_table'
+                )->insert([
+
                     'ris_id' => $risId,
-                    'ris_item_name_description' => $item['name_description'] ?? null,
-                    'ris_quantity_requested' => $item['quantity_requested'] ?? null,
-                    'ris_quantity_issued' => $quantityIssued,
-                    'ris_unit_cost' => $item['unit_cost'] ?? null,
-                    // Use manually entered total when available, else quantity issued x unit cost
-                    'ris_total_amount' => $item['total_amount'] ?? ($quantityIssued * $unitCost),
+
+                    'ris_item_name_description' =>
+                        $item['name_description'] ?? null,
+
+                    'ris_quantity_requested' =>
+                        $item['quantity_requested'] ?? null,
+
+                    'ris_quantity_issued' =>
+                        $quantityIssued,
+
+                    'ris_unit_cost' =>
+                        $item['unit_cost'] ?? null,
+
+                    'ris_total_amount' =>
+                        $totalAmount,
                 ]);
             }
 
-            // Store supporting documents
-            foreach ($request->file('ris_attachments', []) as $document) {
-                $storedPath = $document->store('ris-supporting-documents/' . $risId, 'public');
 
-                DB::table('ris_attachments_table')->insert([
-                    'ris_id' => $risId,
-                    'ris_attachment_original_name' => $document->getClientOriginalName(),
-                    'ris_attachment_path' => $storedPath,
-                    'ris_attachment_mime_type' => $document->getClientMimeType(),
-                    'ris_attachment_size' => $document->getSize(),
-                    'ris_attachment_uploaded_by' => Auth::id(),
-                    'ris_attachment_created_at' => now(),
-                ]);
+            // =====================================================
+            // 9. SAVE SUPPORTING DOCUMENTS
+            // =====================================================
+            foreach (
+                $request->file('ris_attachments', [])
+                as $document
+            ) {
+
+                $storedPath =
+                    $document->store(
+                        'ris-supporting-documents/' . $risId,
+                        'public'
+                    );
+
+                DB::table('ris_attachments_table')
+                    ->insert([
+
+                        'ris_id' => $risId,
+
+                        'ris_attachment_original_name' =>
+                            $document->getClientOriginalName(),
+
+                        'ris_attachment_path' =>
+                            $storedPath,
+
+                        'ris_attachment_mime_type' =>
+                            $document->getClientMimeType(),
+
+                        'ris_attachment_size' =>
+                            $document->getSize(),
+
+                        'ris_attachment_uploaded_by' =>
+                            Auth::id(),
+
+                        'ris_attachment_created_at' =>
+                            now(),
+                    ]);
             }
+
 
             return redirect()
                 ->route('purchaser.ris.index')
-                ->with('success', $isDraft ? 'RIS saved as draft.' : 'RIS submitted to Admin successfully.');
+                ->with(
+                    'success',
+                    $isDraft
+                        ? 'RIS saved as draft.'
+                        : 'RIS submitted to Admin successfully.'
+                );
         });
     }
 
-    // RIS MODULE: UPDATE DRAFT OR MINOR REVISION RIS
-    public function updateRis(Request $request, $risId)
+    // =====================================================
+    // RIS PRINT / PREVIEW
+    // Used by Purchaser, Admin, and President
+    // =====================================================
+
+    public function printRis($risId)
     {
+        // =====================================================
+        // GET RIS RECORD
+        // =====================================================
+
         $ris = DB::table('requisition_issue_slip_table')
             ->where('ris_id', $risId)
             ->first();
 
+        abort_if(!$ris, 404, 'RIS not found.');
+
+
+        // =====================================================
+        // RETURN RIS PRINT VIEW
+        // =====================================================
+
+        return view('purchaser.ris.print', [
+            'ris' => $ris,
+        ]);
+    }
+// =====================================================
+// RIS MODULE: UPDATE DRAFT OR MINOR REVISION RIS
+// =====================================================
+public function updateRis(Request $request, $risId)
+{
+    $ris = DB::table('requisition_issue_slip_table')
+        ->where('ris_id', $risId)
+        ->first();
+
+    abort_if(!$ris, 404);
+
+
+    // =====================================================
+    // ONLY DRAFT AND MINOR REVISION CAN BE EDITED
+    // =====================================================
+    if (
+        !in_array(
+            $ris->ris_status,
+            ['Draft', 'Minor Revision'],
+            true
+        )
+    ) {
+        return back()->with(
+            'error',
+            'This RIS can no longer be edited.'
+        );
+    }
+
+
+    // =====================================================
+    // DETERMINE ACTION
+    // =====================================================
+    $saveAction =
+        $request->input('save_action', 'save');
+
+    $isSaveOnly =
+        $saveAction === 'save';
+
+
+    // =====================================================
+    // VALIDATE
+    // =====================================================
+    $validated = $request->validate([
+
+        'save_action' => [
+            'required',
+            'in:save,submit,resubmit',
+        ],
+
+        'ris_form_number' => [
+            $isSaveOnly ? 'nullable' : 'required',
+            'string',
+            'max:100',
+        ],
+
+        'ris_purpose_description' => [
+            $isSaveOnly ? 'nullable' : 'required',
+            'string',
+            'max:5000',
+        ],
+
+
+        // =============================================
+        // ITEMS
+        // =============================================
+        'ris_items' => [
+            'nullable',
+            'array',
+            'max:50',
+        ],
+
+        'ris_items.*.name_description' => [
+            'nullable',
+            'string',
+            'max:2000',
+        ],
+
+        'ris_items.*.quantity_requested' => [
+            'nullable',
+            'integer',
+            'min:1',
+            'max:999999',
+        ],
+
+        'ris_items.*.quantity_issued' => [
+            'nullable',
+            'integer',
+            'min:0',
+            'max:999999',
+        ],
+
+        'ris_items.*.unit_cost' => [
+            'nullable',
+            'numeric',
+            'min:0',
+            'max:999999999.99',
+        ],
+
+        'ris_items.*.total_amount' => [
+            'nullable',
+            'numeric',
+            'min:0',
+        ],
+
+
+        // =============================================
+        // REQUESTED BY
+        // =============================================
+        'ris_requested_by' => [
+            $isSaveOnly ? 'nullable' : 'required',
+            'string',
+            'max:255',
+        ],
+
+        'ris_requested_by_date' => [
+            $isSaveOnly ? 'nullable' : 'required',
+            'date_format:d/m/Y',
+        ],
+
+
+        // =============================================
+        // ATTACHMENTS
+        // =============================================
+        'ris_attachments' => [
+            'nullable',
+            'array',
+            'max:10',
+        ],
+
+        'ris_attachments.*' => [
+            'file',
+            'mimes:doc,docx,xls,xlsx',
+            'max:10240',
+        ],
+
+    ], [
+
+        'ris_form_number.required' =>
+            'RIS number is required before submitting.',
+
+        'ris_purpose_description.required' =>
+            'Purpose is required before submitting.',
+
+        'ris_requested_by.required' =>
+            'Requested By is required before submitting.',
+
+        'ris_requested_by_date.required' =>
+            'Requested By date is required before submitting.',
+
+        'ris_requested_by_date.date_format' =>
+            'Requested By date must use dd/mm/yyyy format.',
+
+        'ris_items.*.quantity_requested.min' =>
+            'Quantity Requested must be at least 1.',
+
+        'ris_items.*.quantity_issued.min' =>
+            'Quantity Issued cannot be negative.',
+
+        'ris_items.*.unit_cost.min' =>
+            'Unit Cost cannot be negative.',
+
+        'ris_attachments.*.mimes' =>
+            'Supporting documents must be Word or Excel files only.',
+
+        'ris_attachments.*.max' =>
+            'Each supporting document must not exceed 10 MB.',
+    ]);
+
+
+    // =====================================================
+    // REMOVE COMPLETELY EMPTY ITEM ROWS
+    // =====================================================
+    $items = collect($validated['ris_items'] ?? [])
+        ->filter(function ($item) {
+
+            return filled($item['name_description'] ?? null)
+                || filled($item['quantity_requested'] ?? null)
+                || filled($item['quantity_issued'] ?? null)
+                || filled($item['unit_cost'] ?? null);
+
+        })
+        ->values();
+
+
+    // =====================================================
+    // STRICT VALIDATION WHEN SUBMITTING / RESUBMITTING
+    // =====================================================
+    if (!$isSaveOnly) {
+
+        if ($items->isEmpty()) {
+
+            return back()
+                ->withInput()
+                ->with(
+                    'error',
+                    'Please add at least one RIS item before submitting.'
+                );
+        }
+
+
+        foreach ($items as $index => $item) {
+
+            $rowNumber = $index + 1;
+
+            if (blank($item['name_description'] ?? null)) {
+
+                return back()
+                    ->withInput()
+                    ->with(
+                        'error',
+                        "Item {$rowNumber} needs an item description."
+                    );
+            }
+
+            if (blank($item['quantity_requested'] ?? null)) {
+
+                return back()
+                    ->withInput()
+                    ->with(
+                        'error',
+                        "Item {$rowNumber} needs a Quantity Requested."
+                    );
+            }
+        }
+    }
+
+
+    // =====================================================
+    // MAKE SURE ACTION MATCHES CURRENT STATUS
+    // =====================================================
+    if (
+        $saveAction === 'submit'
+        && $ris->ris_status !== 'Draft'
+    ) {
+        return back()->with(
+            'error',
+            'Only a Draft RIS can be submitted.'
+        );
+    }
+
+
+    if (
+        $saveAction === 'resubmit'
+        && $ris->ris_status !== 'Minor Revision'
+    ) {
+        return back()->with(
+            'error',
+            'Only an RIS under Minor Revision can be resubmitted.'
+        );
+    }
+
+
+    // =====================================================
+    // CONVERT REQUESTED DATE
+    // =====================================================
+    $requestedByDate = null;
+
+    if (!empty($validated['ris_requested_by_date'])) {
+
+        $requestedByDate =
+            \Carbon\Carbon::createFromFormat(
+                'd/m/Y',
+                $validated['ris_requested_by_date']
+            )->format('Y-m-d');
+    }
+
+
+    // =====================================================
+    // UPDATE
+    // =====================================================
+    return DB::transaction(function () use (
+        $request,
+        $validated,
+        $items,
+        $ris,
+        $risId,
+        $saveAction,
+        $requestedByDate
+    ) {
+
+        $newStatus =
+            $ris->ris_status;
+
+
+        if ($saveAction === 'submit') {
+
+            $newStatus = 'Submitted';
+
+        } elseif ($saveAction === 'resubmit') {
+
+            $newStatus = 'Resubmitted';
+        }
+
+
+        // =================================================
+        // IMPORTANT:
+        // Approved By, Issued By and Received By are
+        // intentionally NOT updated here.
+        //
+        // Existing values stay untouched.
+        // =================================================
+        $updateData = [
+
+            'ris_form_number' =>
+                $validated['ris_form_number'] ?? null,
+
+            'ris_purpose_description' =>
+                $validated['ris_purpose_description'] ?? null,
+
+            'ris_status' =>
+                $newStatus,
+
+            'ris_requested_by_signature' =>
+                $validated['ris_requested_by'] ?? null,
+
+            'ris_requested_by_date' =>
+                $requestedByDate,
+
+            'ris_updated_at' =>
+                now(),
+        ];
+
+
+        // =================================================
+        // SUBMISSION TRACKING
+        // =================================================
+        if (
+            in_array(
+                $saveAction,
+                ['submit', 'resubmit'],
+                true
+            )
+        ) {
+
+            $updateData['ris_submitted_by'] =
+                Auth::id();
+
+            $updateData['ris_submitted_at'] =
+                now();
+        }
+
+
+        DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $risId)
+            ->update($updateData);
+
+
+        // =================================================
+        // REPLACE CURRENT ITEMS
+        // =================================================
+        DB::table('requisition_issue_slip_items_table')
+            ->where('ris_id', $risId)
+            ->delete();
+
+
+        foreach ($items as $item) {
+
+            $quantityIssued =
+                (int) ($item['quantity_issued'] ?? 0);
+
+            $unitCost =
+                (float) ($item['unit_cost'] ?? 0);
+
+
+            // SERVER CALCULATES THE AMOUNT
+            $totalAmount =
+                round(
+                    $quantityIssued * $unitCost,
+                    2
+                );
+
+
+            DB::table(
+                'requisition_issue_slip_items_table'
+            )->insert([
+
+                'ris_id' =>
+                    $risId,
+
+                'ris_item_name_description' =>
+                    $item['name_description'] ?? null,
+
+                'ris_quantity_requested' =>
+                    $item['quantity_requested'] ?? null,
+
+                'ris_quantity_issued' =>
+                    $quantityIssued,
+
+                'ris_unit_cost' =>
+                    $item['unit_cost'] ?? null,
+
+                'ris_total_amount' =>
+                    $totalAmount,
+            ]);
+        }
+
+
+        // =================================================
+        // ADD NEW ATTACHMENTS
+        // Existing attachments remain.
+        // =================================================
+        foreach (
+            $request->file('ris_attachments', [])
+            as $document
+        ) {
+
+            $storedPath =
+                $document->store(
+                    'ris-supporting-documents/' . $risId,
+                    'public'
+                );
+
+
+            DB::table('ris_attachments_table')
+                ->insert([
+
+                    'ris_id' =>
+                        $risId,
+
+                    'ris_attachment_original_name' =>
+                        $document->getClientOriginalName(),
+
+                    'ris_attachment_path' =>
+                        $storedPath,
+
+                    'ris_attachment_mime_type' =>
+                        $document->getClientMimeType(),
+
+                    'ris_attachment_size' =>
+                        $document->getSize(),
+
+                    'ris_attachment_uploaded_by' =>
+                        Auth::id(),
+
+                    'ris_attachment_created_at' =>
+                        now(),
+                ]);
+        }
+
+
+        $message = match ($saveAction) {
+
+            'submit' =>
+                'RIS updated and submitted to Admin.',
+
+            'resubmit' =>
+                'RIS corrections saved and resubmitted to Admin.',
+
+            default =>
+                'RIS changes saved successfully.',
+        };
+
+
+        return redirect()
+            ->route('purchaser.ris.index')
+            ->with('success', $message);
+    });
+}
+
+// =====================================================
+// RIS MODULE: SUBMIT DRAFT RIS TO ADMIN
+// =====================================================
+public function submitRis($risId)
+{
+    return DB::transaction(function () use ($risId) {
+
+        // =================================================
+        // GET AND LOCK RIS
+        // =================================================
+        $ris = DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $risId)
+            ->lockForUpdate()
+            ->first();
+
         abort_if(!$ris, 404);
 
-        // Only Draft (not yet in approval) and Minor Revision (returned by Admin) are editable
-        if (!in_array($ris->ris_status, ['Draft', 'Minor Revision'], true)) {
-            return back()->with('error', 'This RIS can no longer be edited.');
+
+        // =================================================
+        // ONLY DRAFT RIS CAN BE SUBMITTED
+        // =================================================
+        if ($ris->ris_status !== 'Draft') {
+
+            return back()->with(
+                'error',
+                'Only Draft RIS records can be submitted.'
+            );
         }
 
-        // Determine update action: save = save only, submit = submit draft, resubmit = resubmit revision
-        $saveAction = $request->input('save_action', 'save');
-        $isSaveOnly = $saveAction === 'save';
 
-        // Saving allows incomplete draft info; submitting/resubmitting requires RIS info
-        $validated = $request->validate([
-            'save_action' => ['required', 'in:save,submit,resubmit'],
+        // =================================================
+        // RIS NUMBER REQUIRED
+        // =================================================
+        if (blank($ris->ris_form_number)) {
 
-            'ris_form_number' => [$isSaveOnly ? 'nullable' : 'required', 'string', 'max:100'],
-            'ris_purpose_description' => [$isSaveOnly ? 'nullable' : 'required', 'string', 'max:5000'],
-
-            'ris_items' => ['nullable', 'array'],
-            'ris_items.*.name_description' => ['nullable', 'string', 'max:2000'],
-            'ris_items.*.quantity_requested' => ['nullable', 'integer', 'min:1'],
-            'ris_items.*.quantity_issued' => ['nullable', 'integer', 'min:0'],
-            'ris_items.*.unit_cost' => ['nullable', 'numeric', 'min:0'],
-            'ris_items.*.total_amount' => ['nullable', 'numeric', 'min:0'],
-
-            'ris_requested_by' => ['nullable', 'string', 'max:255'],
-            'ris_requested_by_date' => ['nullable', 'date'],
-
-            'ris_approved_by' => ['nullable', 'string', 'max:255'],
-            'ris_approved_by_date' => ['nullable', 'date'],
-
-            'ris_issued_by' => ['nullable', 'string', 'max:255'],
-            'ris_issued_by_date' => ['nullable', 'date'],
-
-            'ris_received_by' => ['nullable', 'string', 'max:255'],
-            'ris_received_by_date' => ['nullable', 'date'],
-
-            'ris_attachments' => ['nullable', 'array'],
-            'ris_attachments.*' => ['file', 'mimes:doc,docx,xls,xlsx', 'max:10240'],
-        ]);
-
-        // Remove empty item rows
-        $items = collect($validated['ris_items'] ?? [])
-            ->filter(fn ($item) => filled($item['name_description'] ?? null))
-            ->values();
-
-        // Require items when submitting or resubmitting
-        if (!$isSaveOnly && $items->isEmpty()) {
-            return back()->withInput()->with('error', 'Please add at least one RIS item before submitting.');
+            return back()->with(
+                'error',
+                'RIS number is required before submitting.'
+            );
         }
 
-        // Validate action against current status
-        if ($saveAction === 'submit' && $ris->ris_status !== 'Draft') {
-            return back()->with('error', 'Only a Draft RIS can be submitted.');
+
+        // =================================================
+        // PURPOSE REQUIRED
+        // =================================================
+        if (blank($ris->ris_purpose_description)) {
+
+            return back()->with(
+                'error',
+                'RIS purpose is required before submitting.'
+            );
         }
 
-        if ($saveAction === 'resubmit' && $ris->ris_status !== 'Minor Revision') {
-            return back()->with('error', 'Only an RIS under Minor Revision can be resubmitted.');
+
+        // =================================================
+        // REQUESTED BY REQUIRED
+        // =================================================
+        if (blank($ris->ris_requested_by_signature)) {
+
+            return back()->with(
+                'error',
+                'Requested By is required before submitting.'
+            );
         }
 
-        return DB::transaction(function () use ($request, $validated, $items, $ris, $risId, $saveAction) {
 
-            // Determine new status
-            $newStatus = $ris->ris_status;
+        // =================================================
+        // REQUESTED DATE REQUIRED
+        // =================================================
+        if (blank($ris->ris_requested_by_date)) {
 
-            if ($saveAction === 'submit') {
-                $newStatus = 'Submitted';
-            } elseif ($saveAction === 'resubmit') {
-                $newStatus = 'Resubmitted';
+            return back()->with(
+                'error',
+                'Requested By date is required before submitting.'
+            );
+        }
+
+
+        // =================================================
+        // GET ALL RIS ITEMS
+        // =================================================
+        $items = DB::table(
+            'requisition_issue_slip_items_table'
+        )
+            ->where('ris_id', $risId)
+            ->orderBy('ris_item_id')
+            ->get();
+
+
+        // =================================================
+        // AT LEAST ONE ITEM REQUIRED
+        // =================================================
+        if ($items->isEmpty()) {
+
+            return back()->with(
+                'error',
+                'Please add at least one RIS item before submitting.'
+            );
+        }
+
+
+        // =================================================
+        // VALIDATE EVERY ITEM
+        // =================================================
+        foreach ($items as $index => $item) {
+
+            $rowNumber = $index + 1;
+
+
+            // =============================================
+            // ITEM DESCRIPTION
+            // =============================================
+            if (
+                blank(
+                    $item->ris_item_name_description
+                )
+            ) {
+
+                return back()->with(
+                    'error',
+                    "Item {$rowNumber} is missing its item description."
+                );
             }
 
-            $updateData = [
-                'ris_form_number' => $validated['ris_form_number'] ?? null,
-                'ris_purpose_description' => $validated['ris_purpose_description'] ?? null,
-                'ris_status' => $newStatus,
-                'ris_requested_by_signature' => $validated['ris_requested_by'] ?? null,
-                'ris_requested_by_date' => $validated['ris_requested_by_date'] ?? null,
-                'ris_approved_by_signature' => $validated['ris_approved_by'] ?? null,
-                'ris_approved_by_date' => $validated['ris_approved_by_date'] ?? null,
-                'ris_issued_by_signature' => $validated['ris_issued_by'] ?? null,
-                'ris_issued_by_date' => $validated['ris_issued_by_date'] ?? null,
-                'ris_received_by_signature' => $validated['ris_received_by'] ?? null,
-                'ris_received_by_date' => $validated['ris_received_by_date'] ?? null,
-                'ris_updated_at' => now(),
-            ];
 
-            // Track submission when entering the approval workflow
-            if (in_array($saveAction, ['submit', 'resubmit'], true)) {
-                $updateData['ris_submitted_by'] = Auth::id();
-                $updateData['ris_submitted_at'] = now();
+            // =============================================
+            // QUANTITY REQUESTED
+            // =============================================
+            if (
+                $item->ris_quantity_requested === null
+                || (int) $item->ris_quantity_requested < 1
+            ) {
+
+                return back()->with(
+                    'error',
+                    "Item {$rowNumber} must have a Quantity Requested of at least 1."
+                );
             }
 
-            DB::table('requisition_issue_slip_table')
-                ->where('ris_id', $risId)
-                ->update($updateData);
 
-            // Replace RIS items: remove old rows, save current form rows again
-            DB::table('requisition_issue_slip_items_table')
-                ->where('ris_id', $risId)
-                ->delete();
+            // =============================================
+            // QUANTITY ISSUED CANNOT BE NEGATIVE
+            // =============================================
+            if (
+                $item->ris_quantity_issued !== null
+                && (int) $item->ris_quantity_issued < 0
+            ) {
 
-            foreach ($items as $item) {
-                $quantityIssued = $item['quantity_issued'] ?? 0;
-                $unitCost = $item['unit_cost'] ?? 0;
-
-                DB::table('requisition_issue_slip_items_table')->insert([
-                    'ris_id' => $risId,
-                    'ris_item_name_description' => $item['name_description'] ?? null,
-                    'ris_quantity_requested' => $item['quantity_requested'] ?? null,
-                    'ris_quantity_issued' => $quantityIssued,
-                    'ris_unit_cost' => $item['unit_cost'] ?? null,
-                    'ris_total_amount' => $item['total_amount'] ?? ($quantityIssued * $unitCost),
-                ]);
+                return back()->with(
+                    'error',
+                    "Item {$rowNumber} has an invalid Quantity Issued."
+                );
             }
 
-            // Add new attachments (existing attachments are kept)
-            foreach ($request->file('ris_attachments', []) as $document) {
-                $storedPath = $document->store('ris-supporting-documents/' . $risId, 'public');
 
-                DB::table('ris_attachments_table')->insert([
-                    'ris_id' => $risId,
-                    'ris_attachment_original_name' => $document->getClientOriginalName(),
-                    'ris_attachment_path' => $storedPath,
-                    'ris_attachment_mime_type' => $document->getClientMimeType(),
-                    'ris_attachment_size' => $document->getSize(),
-                    'ris_attachment_uploaded_by' => Auth::id(),
-                    'ris_attachment_created_at' => now(),
-                ]);
+            // =============================================
+            // UNIT COST CANNOT BE NEGATIVE
+            // =============================================
+            if (
+                $item->ris_unit_cost !== null
+                && (float) $item->ris_unit_cost < 0
+            ) {
+
+                return back()->with(
+                    'error',
+                    "Item {$rowNumber} has an invalid Unit Cost."
+                );
             }
 
-            $message = match ($saveAction) {
-                'submit' => 'RIS updated and submitted to Admin.',
-                'resubmit' => 'RIS corrections saved and resubmitted to Admin.',
-                default => 'RIS changes saved successfully.',
-            };
 
-            return redirect()->route('purchaser.ris.index')->with('success', $message);
-        });
-    }
+            // =============================================
+            // RECALCULATE AMOUNT
+            // Never trust a manually supplied amount.
+            // =============================================
+            $quantityIssued =
+                (int) ($item->ris_quantity_issued ?? 0);
 
-    // RIS MODULE: SUBMIT RIS TO ADMIN USING EXISTING COLUMNS
-    public function submitRis($risId)
-    {
-        return DB::transaction(function () use ($risId) {
-            $ris = DB::table('requisition_issue_slip_table')
-                ->where('ris_id', $risId)
-                ->lockForUpdate()
-                ->first();
+            $unitCost =
+                (float) ($item->ris_unit_cost ?? 0);
 
-            abort_if(!$ris, 404);
+            $correctAmount = round(
+                $quantityIssued * $unitCost,
+                2
+            );
 
-            if ($ris->ris_status !== 'Pending') {
-                return back()->with('error', 'Only pending RIS records can be submitted.');
-            }
 
-            if ($ris->ris_requested_by_date !== null) {
-                return back()->with('error', 'This RIS has already been submitted to Admin.');
-            }
-
-            DB::table('requisition_issue_slip_table')
-                ->where('ris_id', $risId)
+            DB::table(
+                'requisition_issue_slip_items_table'
+            )
+                ->where(
+                    'ris_item_id',
+                    $item->ris_item_id
+                )
                 ->update([
-                    'ris_requested_by_signature' => Auth::user()->user_full_name ?? 'Purchaser',
-                    'ris_requested_by_date' => now()->toDateString(),
-                    'ris_submitted_by' => Auth::id(),
-                    'ris_submitted_at' => now(),
-                    'ris_updated_at' => now(),
-                ]);
 
-            return back()->with('success', 'RIS submitted to Admin for approval.');
-        });
-    }
+                    'ris_total_amount' =>
+                        $correctAmount,
+                ]);
+        }
+
+
+        // =================================================
+        // EVERYTHING IS VALID
+        // SEND RIS TO ADMIN
+        // =================================================
+        DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $risId)
+            ->update([
+
+                'ris_status' =>
+                    'Submitted',
+
+                'ris_submitted_by' =>
+                    Auth::id(),
+
+                'ris_submitted_at' =>
+                    now(),
+
+                'ris_updated_at' =>
+                    now(),
+            ]);
+
+
+        return redirect()
+            ->route('purchaser.ris.index')
+            ->with(
+                'success',
+                'RIS submitted to Admin successfully.'
+            );
+    });
+}
 
     // RIS MODULE: DOWNLOAD SUPPORTING DOCUMENT
     public function downloadRisAttachment($attachmentId)

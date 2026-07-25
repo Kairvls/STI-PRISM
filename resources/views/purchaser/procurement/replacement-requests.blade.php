@@ -42,6 +42,19 @@
             'Completed' => 'border-gray-200 bg-gray-100 text-gray-700',
         ];
 
+        // =====================================================
+        // RIS STATUS BADGE COLORS
+        // =====================================================
+        $risStatusClasses = [
+            'Draft' => 'border-gray-200 bg-gray-100 text-gray-700',
+            'Submitted' => 'border-amber-200 bg-amber-50 text-amber-700',
+            'Under Review' => 'border-amber-200 bg-amber-50 text-amber-700',
+            'Resubmitted' => 'border-amber-200 bg-amber-50 text-amber-700',
+            'Minor Revision' => 'border-orange-200 bg-orange-50 text-orange-700',
+            'Approved' => 'border-green-200 bg-green-50 text-green-700',
+            'Rejected' => 'border-red-200 bg-red-50 text-red-700',
+        ];
+
         $totalRequests = method_exists($replacementRequests, 'total')
             ? $replacementRequests->total()
             : $replacementRequests->count();
@@ -208,6 +221,8 @@
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Location</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Urgency</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Status</th>
+                        {{-- RIS COLUMN --}}
+                        <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">RIS</th>
                         <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wide text-gray-500">Submitted</th>
                         <th class="px-5 py-3 text-right text-xs font-medium uppercase tracking-wide text-gray-500">Action</th>
                     </tr>
@@ -222,6 +237,13 @@
                             $equipmentName = $request->equipment_name
                                 ?? $request->report_unlisted_equipment_name
                                 ?? 'Unknown Equipment';
+
+                            // =====================================================
+                            // RIS LINK STATE FOR THIS REQUEST
+                            // =====================================================
+                            $hasRis = !empty($request->ris_id);
+                            $canCreateRis = $request->procurement_request_status === 'Approved' && !$hasRis;
+                            $risStatusClass = $risStatusClasses[$request->ris_status ?? ''] ?? 'border-gray-200 bg-gray-100 text-gray-700';
                         @endphp
 
                         <tr
@@ -275,6 +297,20 @@
                                         </span>
                                     @endif
                                 </div>
+                            </td>
+
+                            {{-- RIS CELL --}}
+                            <td class="px-5 py-4">
+                                @if($hasRis)
+                                    <p class="text-xs font-semibold text-gray-800">
+                                        {{ $request->ris_form_number ?: 'RIS #' . $request->ris_id }}
+                                    </p>
+                                    <span class="mt-1 inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium {{ $risStatusClass }}">
+                                        {{ $request->ris_status }}
+                                    </span>
+                                @else
+                                    <span class="text-xs text-gray-400">Not created</span>
+                                @endif
                             </td>
 
                             <td class="whitespace-nowrap px-5 py-4">
@@ -345,6 +381,33 @@
                                                     <p class="text-sm font-semibold text-red-800">Urgent Replacement</p>
                                                     <p class="mt-1 text-xs leading-5 text-red-600">
                                                         This maintenance report was marked urgent and requires priority review.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        @endif
+
+                                        {{-- RIS STATUS BANNER --}}
+                                        @if($hasRis)
+                                            <div class="mb-5 flex items-start justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+                                                <div>
+                                                    <p class="text-sm font-semibold text-gray-800">
+                                                        Linked RIS: {{ $request->ris_form_number ?: '#' . $request->ris_id }}
+                                                    </p>
+                                                    <p class="mt-1 text-xs leading-5 text-gray-500">
+                                                        Procurement paperwork has started for this replacement request.
+                                                    </p>
+                                                </div>
+                                                <span class="inline-flex shrink-0 rounded-full border px-2.5 py-1 text-xs font-medium {{ $risStatusClass }}">
+                                                    {{ $request->ris_status }}
+                                                </span>
+                                            </div>
+                                        @elseif($request->procurement_request_status === 'Approved')
+                                            <div class="mb-5 flex items-start gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3">
+                                                <span class="mt-1 h-2 w-2 shrink-0 rounded-full bg-green-500"></span>
+                                                <div>
+                                                    <p class="text-sm font-semibold text-green-800">Ready for RIS</p>
+                                                    <p class="mt-1 text-xs leading-5 text-green-700">
+                                                        This request is approved and does not have an RIS yet.
                                                     </p>
                                                 </div>
                                             </div>
@@ -470,12 +533,35 @@
                                                     </form>
                                                 @endif
 
-                                                <form method="POST" action="{{ route('purchaser.procurement.replacement-requests.archive', $request->procurement_request_id) }}">
-                                                    @csrf
-                                                    <button type="submit" class="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-100">
-                                                        Archive
-                                                    </button>
-                                                </form>
+                                                {{-- CREATE RIS / VIEW RIS --}}
+                                                @if($hasRis)
+                                                    <a
+                                                        href="{{ route('purchaser.ris.index') }}?ris_id={{ $request->ris_id }}"
+                                                        class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50"
+                                                    >
+                                                        View RIS
+                                                    </a>
+                                                @elseif($canCreateRis)
+                                                    <a
+                                                        href="{{ route('purchaser.ris.index') }}?replacement_request={{ $request->procurement_request_id }}"
+                                                        class="inline-flex items-center rounded-lg bg-gray-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800"
+                                                    >
+                                                        Create RIS
+                                                    </a>
+                                                @endif
+
+                                                {{-- ===================================================== --}}
+                                                {{-- ARCHIVE REQUEST --}}
+                                                {{-- Only Approved or Rejected requests can be archived --}}
+                                                {{-- ===================================================== --}}
+                                                @if(in_array($request->procurement_request_status, ['Approved', 'Rejected']))
+                                                    <form method="POST" action="{{ route('purchaser.procurement.replacement-requests.archive', $request->procurement_request_id) }}">
+                                                        @csrf
+                                                        <button type="submit" class="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-100">
+                                                            Archive
+                                                        </button>
+                                                    </form>
+                                                @endif
                                             @else
                                                 <form method="POST" action="{{ route('purchaser.procurement.replacement-requests.restore', $request->procurement_request_id) }}">
                                                     @csrf
@@ -499,7 +585,7 @@
                         </template>
                     @empty
                         <tr>
-                            <td colspan="7" class="px-5 py-16 text-center">
+                            <td colspan="8" class="px-5 py-16 text-center">
                                 <div class="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-gray-100">
                                     <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.7" d="M20 7h-9m9 5h-9m9 5h-9M5 7h.01M5 12h.01M5 17h.01"/>

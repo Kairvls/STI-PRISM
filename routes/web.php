@@ -1786,7 +1786,3 @@ Route::post('/user/heartbeat', function () {
 
 
 require __DIR__.'/auth.php';
-
-
-
-

@@ -18,6 +18,15 @@ class ReplacementRequestController extends Controller
             ->leftJoin('rooms_table', 'reports_table.report_room_id', '=', 'rooms_table.room_id')
             ->leftJoin('reporters_table', 'reports_table.report_reporter_employee_id', '=', 'reporters_table.reporter_employee_id')
             ->leftJoin('users_table as request_creator', 'procurement_requests_table.procurement_request_created_by', '=', 'request_creator.user_id')
+            // =====================================================
+            // CHECK IF THIS REPLACEMENT REQUEST ALREADY HAS AN RIS
+            // =====================================================
+            ->leftJoin(
+                'requisition_issue_slip_table',
+                'procurement_requests_table.procurement_request_id',
+                '=',
+                'requisition_issue_slip_table.ris_procurement_request_id'
+            )
             ->select(
                 'procurement_requests_table.*',
                 'reports_table.report_id',
@@ -34,7 +43,13 @@ class ReplacementRequestController extends Controller
                 'reporters_table.reporter_full_name',
                 'reporters_table.reporter_employee_id',
                 'reporters_table.reporter_contact_number',
-                'request_creator.user_full_name as request_creator_name'
+                'request_creator.user_full_name as request_creator_name',
+                // =====================================================
+                // RIS INFORMATION
+                // =====================================================
+                'requisition_issue_slip_table.ris_id',
+                'requisition_issue_slip_table.ris_form_number',
+                'requisition_issue_slip_table.ris_status'
             );
 
         if (!$archiveView) {
