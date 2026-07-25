@@ -33,70 +33,12 @@
     </div>
 </div>
 
-{{-- ============================== --}}
-{{-- FILTER BUTTONS + SEARCH --}}
-{{-- ============================== --}}
-<div class="mt-6 slide-up" style="animation-delay: 0.2s">
-    <div class="flex flex-wrap items-center gap-3">
-        {{-- Status Filter Buttons --}}
-        <div class="flex items-center gap-2">
-            <button
-                type="button"
-                class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ !request('status') ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50' }}"
-                data-status=""
-            >
-                All
-            </button>
-            <button
-                type="button"
-                class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ request('status') == 'Pending' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-amber-700 border-amber-200 hover:bg-amber-50' }}"
-                data-status="Pending"
-            >
-                Pending
-            </button>
-            <button
-                type="button"
-                class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ request('status') == 'Approved' ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50' }}"
-                data-status="Approved"
-            >
-                Approved
-            </button>
-            <button
-                type="button"
-                class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ request('status') == 'Rejected' ? 'bg-rose-500 text-white border-rose-500' : 'bg-white text-rose-700 border-rose-200 hover:bg-rose-50' }}"
-                data-status="Rejected"
-            >
-                Rejected
-            </button>
-        </div>
-
-        {{-- Live Search --}}
-        <div class="relative flex-1 min-w-[220px]">
-            <i data-lucide="search" class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"></i>
-            <input
-                type="text"
-                id="liveSearch"
-                name="search"
-                value="{{ request('search') }}"
-                placeholder="Search by ID, Reference No., or Purpose..."
-                class="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-900 outline-none focus:ring-4 focus:ring-amber-100 transition-all duration-200"
-                autocomplete="off"
-            />
-        </div>
-
-        {{-- Clear link --}}
-        <a id="clearFiltersLink" href="{{ route('president.approvals') }}" class="inline-flex h-10 items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-600 transition-all duration-200 hover:bg-gray-50 active:scale-95 {{ request('search') || request('status') ? '' : 'hidden' }}">
-            Clear
-        </a>
-    </div>
-</div>
-
 <div class="mt-4 grid grid-cols-1 gap-4">
 
     {{-- ============================== --}}
     {{-- RIS APPROVALS TABLE --}}
     {{-- ============================== --}}
-    <section class="rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.25s">
+    <section class="rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.2s">
         <div class="flex items-center justify-between">
             <div>
                 <h2 class="text-sm font-semibold text-gray-900">RIS Records</h2>
@@ -105,6 +47,60 @@
             <span id="risTotalCount" class="inline-flex items-center rounded-lg bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800 border border-amber-200">
                 {{ $pendingRis->total() }} total
             </span>
+        </div>
+
+        {{-- Filters inside RIS Records --}}
+        <div class="mt-4 flex flex-wrap items-center gap-3">
+            {{-- Status Filter Buttons --}}
+            <div class="flex items-center gap-2">
+                <button
+                    type="button"
+                    class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ !request('status') ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50' }}"
+                    data-status=""
+                >
+                    All
+                </button>
+                <button
+                    type="button"
+                    class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ request('status') == 'Pending' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-amber-700 border-amber-200 hover:bg-amber-50' }}"
+                    data-status="Pending"
+                >
+                    Pending
+                </button>
+                <button
+                    type="button"
+                    class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ request('status') == 'Approved' ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50' }}"
+                    data-status="Approved"
+                >
+                    Approved
+                </button>
+                <button
+                    type="button"
+                    class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ request('status') == 'Rejected' ? 'bg-rose-500 text-white border-rose-500' : 'bg-white text-rose-700 border-rose-200 hover:bg-rose-50' }}"
+                    data-status="Rejected"
+                >
+                    Rejected
+                </button>
+            </div>
+
+            {{-- Live Search --}}
+            <div class="relative flex-1 min-w-[220px]">
+                <i data-lucide="search" class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"></i>
+                <input
+                    type="text"
+                    id="liveSearch"
+                    name="search"
+                    value="{{ request('search') }}"
+                    placeholder="Search by ID, Reference No., or Purpose..."
+                    class="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-900 outline-none focus:ring-4 focus:ring-amber-100 transition-all duration-200"
+                    autocomplete="off"
+                />
+            </div>
+
+            {{-- Clear link --}}
+            <a id="clearFiltersLink" href="{{ route('president.approvals') }}" class="inline-flex h-10 items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-600 transition-all duration-200 hover:bg-gray-50 active:scale-95 {{ request('search') || request('status') ? '' : 'hidden' }}">
+                Clear
+            </a>
         </div>
 
         <div class="mt-4 overflow-x-auto">

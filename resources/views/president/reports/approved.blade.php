@@ -33,48 +33,6 @@
     </div>
 </div>
 
-{{-- Filter Buttons + Search --}}
-<div class="mt-6 slide-up" style="animation-delay: 0.2s">
-    <div class="flex flex-wrap items-center gap-3">
-        {{-- Status Filter Buttons --}}
-        <div class="flex items-center gap-2">
-            <button type="button" class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ ($filter ?? 'all') === 'all' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50' }}" data-filter="all">
-                All
-            </button>
-            <button type="button" class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ ($filter ?? '') === 'pending' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-amber-700 border-amber-200 hover:bg-amber-50' }}" data-filter="pending">
-                Pending
-            </button>
-            <button type="button" class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ ($filter ?? '') === 'approved' ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50' }}" data-filter="approved">
-                Approved
-            </button>
-            <button type="button" class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ ($filter ?? '') === 'rejected' ? 'bg-rose-500 text-white border-rose-500' : 'bg-white text-rose-700 border-rose-200 hover:bg-rose-50' }}" data-filter="rejected">
-                Rejected
-            </button>
-        </div>
-
-        {{-- Live Search --}}
-        <div class="relative flex-1 min-w-[220px]">
-            <i data-lucide="search" class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"></i>
-            <input
-                type="text"
-                id="approvedSearch"
-                name="search"
-                value="{{ request('search') }}"
-                placeholder="Search by Reference No., Purpose, or Status..."
-                class="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-900 outline-none focus:ring-4 focus:ring-amber-100 transition-all duration-200"
-                autocomplete="off"
-            />
-        </div>
-
-        {{-- Clear link --}}
-        @if (request('search') || request('filter'))
-            <button type="button" id="clearFiltersBtn" class="inline-flex h-10 items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-600 transition-all duration-200 hover:bg-gray-50 active:scale-95">
-                Clear
-            </button>
-        @endif
-    </div>
-</div>
-
 {{-- Table --}}
 <div class="mt-4 grid grid-cols-1 gap-4">
     @php
@@ -107,6 +65,46 @@
             <span id="approvedCount" class="inline-flex items-center rounded-lg {{ $badgeClasses }} px-3 py-1 text-xs font-semibold border">
                 {{ $outcomeRecords->total() }} total
             </span>
+        </div>
+
+        {{-- Filters inside RIS Status --}}
+        <div class="mt-4 flex flex-wrap items-center gap-3">
+            {{-- Status Filter Buttons --}}
+            <div class="flex items-center gap-2">
+                <button type="button" class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ ($filter ?? 'all') === 'all' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50' }}" data-filter="all">
+                    All
+                </button>
+                <button type="button" class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ ($filter ?? '') === 'pending' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-amber-700 border-amber-200 hover:bg-amber-50' }}" data-filter="pending">
+                    Pending
+                </button>
+                <button type="button" class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ ($filter ?? '') === 'approved' ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50' }}" data-filter="approved">
+                    Approved
+                </button>
+                <button type="button" class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ ($filter ?? '') === 'rejected' ? 'bg-rose-500 text-white border-rose-500' : 'bg-white text-rose-700 border-rose-200 hover:bg-rose-50' }}" data-filter="rejected">
+                    Rejected
+                </button>
+            </div>
+
+            {{-- Live Search --}}
+            <div class="relative flex-1 min-w-[220px]">
+                <i data-lucide="search" class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"></i>
+                <input
+                    type="text"
+                    id="approvedSearch"
+                    name="search"
+                    value="{{ request('search') }}"
+                    placeholder="Search by Reference No., Purpose, or Status..."
+                    class="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-900 outline-none focus:ring-4 focus:ring-amber-100 transition-all duration-200"
+                    autocomplete="off"
+                />
+            </div>
+
+            {{-- Clear link --}}
+            @if (request('search') || request('filter'))
+                <button type="button" id="clearFiltersBtn" class="inline-flex h-10 items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-600 transition-all duration-200 hover:bg-gray-50 active:scale-95">
+                    Clear
+                </button>
+            @endif
         </div>
 
         <div class="mt-4 overflow-x-auto">
