@@ -989,6 +989,46 @@ class MaintenanceController extends Controller
                         ? $activity->audit_log_reference_id
                         : null;
 
+                // =================================================
+                // ACTIVITY DESTINATION
+                //
+                // DETERMINE WHERE THE VIEW BUTTON SHOULD GO
+                // BASED ON THE AUDIT LOG SOURCE.
+                // =================================================
+
+                $activity->url = match (
+                    $activity->audit_log_table_name
+                ) {
+
+                    'reports_table' =>
+                        $activity->audit_log_reference_id
+                            ? url(
+                                '/maintenance/reports/details/'
+                                . $activity->audit_log_reference_id
+                            )
+                            : null,
+
+                    'equipment_table' =>
+                        $activity->audit_log_reference_id
+                            ? url(
+                                '/maintenance/equipment/view/'
+                                . $activity->audit_log_reference_id
+                            )
+                            : null,
+
+                    'maintenance_schedules_table' =>
+                        url('/maintenance/schedules'),
+
+                    'borrowing_records_table' =>
+                        url('/maintenance/borrowing'),
+
+                    'rooms_table' =>
+                        url('/maintenance/infrastructure'),
+
+                    default =>
+                        null,
+                };
+
 
                 // =================================================
                 // ICON BASED ON MODULE
@@ -1027,6 +1067,132 @@ class MaintenanceController extends Controller
 
                 $activity->color =
                     '#374151';
+
+
+                return $activity;
+            });
+
+        // =====================================================
+        // ACTIVITY PREVIEW
+        // LATEST 15 ACTIVITIES FOR DASHBOARD MODAL
+        // =====================================================
+
+        $activityPreview = DB::table('audit_logs_table')
+
+            // =================================================
+            // ONLY CURRENT LOGGED IN MAINTENANCE PERSONNEL
+            // =================================================
+
+            ->where(
+                'audit_log_user_id',
+                Auth::id()
+            )
+
+            // =================================================
+            // ONLY MODULE BASED ACTIVITIES
+            // =================================================
+
+            ->whereNotNull(
+                'audit_log_module'
+            )
+
+            // =================================================
+            // NEWEST FIRST
+            // =================================================
+
+            ->orderByDesc(
+                'audit_log_created_at'
+            )
+
+            ->limit(15)
+
+            ->get()
+
+            // =================================================
+            // PREPARE FOR DASHBOARD MODAL
+            // =================================================
+
+            ->map(function ($activity) {
+
+                // =================================================
+                // ACTIVITY INFORMATION
+                // =================================================
+
+                $activity->title =
+                    $activity->audit_log_action
+                    ?? 'System Activity';
+
+                $activity->description =
+                    $activity->audit_log_description
+                    ?? 'Activity recorded.';
+
+                $activity->created_at =
+                    $activity->audit_log_created_at;
+
+
+                // =================================================
+                // ICON
+                // =================================================
+
+                $activity->icon = match (
+                    $activity->audit_log_module
+                ) {
+                    'Reports' =>
+                        'clipboard-list',
+
+                    'Equipment' =>
+                        'monitor',
+
+                    'Schedules' =>
+                        'calendar',
+
+                    'Borrowing' =>
+                        'package',
+
+                    'Infrastructure' =>
+                        'building-2',
+
+                    default =>
+                        'activity',
+                };
+
+
+                // =================================================
+                // ACTIVITY DESTINATION
+                // =================================================
+
+                $activity->url = match (
+                    $activity->audit_log_table_name
+                ) {
+
+                    'reports_table' =>
+                        $activity->audit_log_reference_id
+                            ? url(
+                                '/maintenance/reports/details/'
+                                . $activity->audit_log_reference_id
+                            )
+                            : null,
+
+                    'equipment_table' =>
+                        $activity->audit_log_reference_id
+                            ? url(
+                                '/maintenance/equipment/view/'
+                                . $activity->audit_log_reference_id
+                            )
+                            : null,
+
+                    'maintenance_schedules_table' =>
+                        url('/maintenance/schedules'),
+
+                    'borrowing_records_table' =>
+                        url('/maintenance/borrowing'),
+
+                    'rooms_table' =>
+                        url('/maintenance/infrastructure'),
+
+                    default =>
+                        null,
+                };
 
 
                 return $activity;
@@ -2146,6 +2312,8 @@ class MaintenanceController extends Controller
                 'roomsByFloor',
 
                 'recentActivities',
+
+                'activityPreview',
 
                 'reportActivityChart',
 
@@ -5478,6 +5646,10 @@ class MaintenanceController extends Controller
     */
     public function storeEquipment(Request $request)
     {
+        // =====================================================
+        // VALIDATE EQUIPMENT
+        // =====================================================
+
         $request->validate([
 
             'equipment_name' => 'required',
@@ -5490,52 +5662,93 @@ class MaintenanceController extends Controller
 
         ]);
 
-        DB::table('equipment_table')
-            ->insert([
 
-                'equipment_category_id'
-                    => $request->equipment_category_id,
+        // =====================================================
+        // START TRANSACTION
+        // =====================================================
 
-                'equipment_room_id'
-                    => $request->equipment_room_id,
+        DB::transaction(function () use ($request) {
 
-                'equipment_asset_tag'
-                    => $request->equipment_asset_tag,
+            // =================================================
+            // CREATE EQUIPMENT
+            //
+            // insertGetId() RETURNS THE NEW EQUIPMENT ID
+            // =================================================
 
-                'equipment_name'
-                    => $request->equipment_name,
+            $equipmentId = DB::table('equipment_table')
+                ->insertGetId([
 
-                'equipment_brand_name'
-                    => $request->equipment_brand_name,
+                    'equipment_category_id'
+                        => $request->equipment_category_id,
 
-                'equipment_model'
-                    => $request->equipment_model,
+                    'equipment_room_id'
+                        => $request->equipment_room_id,
 
-                'equipment_serial_number'
-                    => $request->equipment_serial_number,
+                    'equipment_asset_tag'
+                        => $request->equipment_asset_tag,
 
-                'equipment_quantity'
-                    => $request->equipment_quantity,
+                    'equipment_name'
+                        => $request->equipment_name,
 
-                'equipment_condition_status'
-                    => $request->equipment_condition_status,
+                    'equipment_brand_name'
+                        => $request->equipment_brand_name,
 
-                'equipment_inventory_status'
-                    => $request->equipment_inventory_status,
+                    'equipment_model'
+                        => $request->equipment_model,
 
-                'equipment_purchase_date'
-                    => $request->equipment_purchase_date,
+                    'equipment_serial_number'
+                        => $request->equipment_serial_number,
 
-                'equipment_warranty_expiration'
-                    => $request->equipment_warranty_expiration,
+                    'equipment_quantity'
+                        => $request->equipment_quantity,
 
-                'equipment_is_borrowable'
-                    => $request->has('equipment_is_borrowable'),
+                    'equipment_condition_status'
+                        => $request->equipment_condition_status,
 
-                'equipment_created_at'
-                    => now()
+                    'equipment_inventory_status'
+                        => $request->equipment_inventory_status,
 
-            ]);
+                    'equipment_purchase_date'
+                        => $request->equipment_purchase_date,
+
+                    'equipment_warranty_expiration'
+                        => $request->equipment_warranty_expiration,
+
+                    'equipment_is_borrowable'
+                        => $request->has('equipment_is_borrowable'),
+
+                    'equipment_created_at'
+                        => now()
+
+                ]);
+
+
+            // =================================================
+            // RECENT ACTIVITY
+            // =================================================
+
+            $this->logActivity(
+
+                'Added equipment',
+
+                'Equipment',
+
+                'equipment_table',
+
+                (int) $equipmentId,
+
+                'Added '
+                . $request->equipment_name
+                . ' to the equipment inventory.'
+
+            );
+
+        });
+
+
+        // =====================================================
+        // SUCCESS
+        // =====================================================
 
         return redirect(
             '/maintenance/equipment/inventory'
@@ -5557,49 +5770,119 @@ class MaintenanceController extends Controller
         $id
     )
     {
-        DB::table('equipment_table')
+        // =====================================================
+        // GET CURRENT EQUIPMENT
+        // =====================================================
+
+        $equipment = DB::table('equipment_table')
 
             ->where(
                 'equipment_id',
                 $id
             )
 
-            ->update([
+            ->first();
 
-                'equipment_category_id'
-                    => $request->equipment_category_id,
 
-                'equipment_room_id'
-                    => $request->equipment_room_id,
+        // =====================================================
+        // EQUIPMENT NOT FOUND
+        // =====================================================
 
-                'equipment_asset_tag'
-                    => $request->equipment_asset_tag,
+        if (!$equipment) {
 
-                'equipment_name'
-                    => $request->equipment_name,
+            return back()->with(
+                'error',
+                'Equipment not found.'
+            );
+        }
 
-                'equipment_brand_name'
-                    => $request->equipment_brand_name,
 
-                'equipment_model'
-                    => $request->equipment_model,
+        // =====================================================
+        // START TRANSACTION
+        // =====================================================
 
-                'equipment_serial_number'
-                    => $request->equipment_serial_number,
+        DB::transaction(function () use (
+            $request,
+            $id,
+            $equipment
+        ) {
 
-                'equipment_quantity'
-                    => $request->equipment_quantity,
+            // =================================================
+            // UPDATE EQUIPMENT
+            // =================================================
 
-                'equipment_condition_status'
-                    => $request->equipment_condition_status,
+            DB::table('equipment_table')
 
-                'equipment_inventory_status'
-                    => $request->equipment_inventory_status,
+                ->where(
+                    'equipment_id',
+                    $id
+                )
 
-                'equipment_is_borrowable'
-                    => $request->has('equipment_is_borrowable'),
+                ->update([
 
-            ]);
+                    'equipment_category_id'
+                        => $request->equipment_category_id,
+
+                    'equipment_room_id'
+                        => $request->equipment_room_id,
+
+                    'equipment_asset_tag'
+                        => $request->equipment_asset_tag,
+
+                    'equipment_name'
+                        => $request->equipment_name,
+
+                    'equipment_brand_name'
+                        => $request->equipment_brand_name,
+
+                    'equipment_model'
+                        => $request->equipment_model,
+
+                    'equipment_serial_number'
+                        => $request->equipment_serial_number,
+
+                    'equipment_quantity'
+                        => $request->equipment_quantity,
+
+                    'equipment_condition_status'
+                        => $request->equipment_condition_status,
+
+                    'equipment_inventory_status'
+                        => $request->equipment_inventory_status,
+
+                    'equipment_is_borrowable'
+                        => $request->has('equipment_is_borrowable'),
+
+                ]);
+
+
+            // =================================================
+            // RECENT ACTIVITY
+            // =================================================
+
+            $this->logActivity(
+
+                'Updated equipment',
+
+                'Equipment',
+
+                'equipment_table',
+
+                (int) $id,
+
+                'Updated equipment information for '
+                . ($request->equipment_name
+                    ?? $equipment->equipment_name)
+                . '.'
+
+            );
+
+        });
+
+
+        // =====================================================
+        // SUCCESS
+        // =====================================================
 
         return back()->with(
             'success',
@@ -6122,6 +6405,10 @@ class MaintenanceController extends Controller
 
     public function transferEquipment(Request $request)
     {
+        // =====================================================
+        // GET EQUIPMENT
+        // =====================================================
+
         $equipment = DB::table('equipment_table')
 
             ->where(
@@ -6131,6 +6418,11 @@ class MaintenanceController extends Controller
 
             ->first();
 
+
+        // =====================================================
+        // EQUIPMENT NOT FOUND
+        // =====================================================
+
         if (!$equipment) {
 
             return back()->with(
@@ -6139,42 +6431,203 @@ class MaintenanceController extends Controller
             );
         }
 
-        DB::table(
-            'equipment_transfer_history_table'
-        )
 
-        ->insert([
+        // =====================================================
+        // GET OLD ROOM
+        // =====================================================
 
-            'equipment_id' =>
-                $equipment->equipment_id,
-
-            'from_room_id' =>
-                $equipment->equipment_room_id,
-
-            'to_room_id' =>
-                $request->room_id,
-
-            'remarks' =>
-                $request->remarks,
-
-            'created_at' =>
-                now()
-
-        ]);
-
-        DB::table('equipment_table')
+        $oldRoom = DB::table('rooms_table')
 
             ->where(
-                'equipment_id',
-                $equipment->equipment_id
+                'room_id',
+                $equipment->equipment_room_id
             )
 
-            ->update([
+            ->first();
 
-                'equipment_room_id' =>
-                    $request->room_id
+
+        // =====================================================
+        // GET NEW ROOM
+        // =====================================================
+
+        $newRoom = DB::table('rooms_table')
+
+            ->where(
+                'room_id',
+                $request->room_id
+            )
+
+            ->first();
+
+
+        // =====================================================
+        // PREVENT TRANSFER TO SAME ROOM
+        // =====================================================
+
+        if (
+            (int) $equipment->equipment_room_id
+            ===
+            (int) $request->room_id
+        ) {
+
+            return back()->with(
+                'error',
+                'Equipment is already assigned to this room.'
+            );
+        }
+
+
+        // =====================================================
+        // START TRANSACTION
+        // =====================================================
+
+        DB::transaction(function () use (
+            $request,
+            $equipment,
+            $oldRoom,
+            $newRoom
+        ) {
+
+            // =================================================
+            // CREATE TRANSFER HISTORY
+            // =================================================
+
+            $transferId = DB::table(
+                'equipment_transfer_history_table'
+            )
+
+            ->insertGetId([
+
+                'equipment_id'
+                    => $equipment->equipment_id,
+
+                'from_room_id'
+                    => $equipment->equipment_room_id,
+
+                'to_room_id'
+                    => $request->room_id,
+
+                'remarks'
+                    => $request->remarks,
+
+                'created_at'
+                    => now(),
 
             ]);
+
+
+            // =================================================
+            // UPDATE EQUIPMENT LOCATION
+            // =================================================
+
+            DB::table('equipment_table')
+
+                ->where(
+                    'equipment_id',
+                    $equipment->equipment_id
+                )
+
+                ->update([
+
+                    'equipment_room_id'
+                        => $request->room_id,
+
+                ]);
+
+
+            // =================================================
+            // CREATE TRANSFER NOTIFICATION
+            // =================================================
+
+            DB::table('notifications_table')
+
+                ->insertOrIgnore([
+
+                    'notification_user_id'
+                        => null,
+
+                    'notification_target_role'
+                        => 'Maintenance Personnel',
+
+                    'notification_title'
+                        => 'Equipment Transferred',
+
+                    'notification_message'
+                        => ($equipment->equipment_name ?? 'Equipment')
+                        . ' was transferred from '
+                        . ($oldRoom->room_name ?? 'Unassigned Location')
+                        . ' to '
+                        . ($newRoom->room_name ?? 'Unknown Location')
+                        . '.',
+
+                    'notification_type'
+                        => 'equipment_transferred',
+
+                    'notification_category'
+                        => 'Equipment',
+
+                    'notification_reference_type'
+                        => 'equipment_transfer',
+
+                    'notification_reference_id'
+                        => $transferId,
+
+                    'notification_url'
+                        => '/maintenance/equipment/transfer',
+
+                    'notification_event_key'
+                        => 'equipment_transferred_' . $transferId,
+
+                    'notification_created_at'
+                        => now(),
+
+                ]);
+
+
+            // =================================================
+            // RECENT ACTIVITY
+            // =================================================
+
+            DB::table('audit_logs_table')->insert([
+
+                'audit_log_user_id'
+                    => Auth::id(),
+
+                'audit_log_action'
+                    => 'Transferred equipment',
+
+                'audit_log_module'
+                    => 'Equipment',
+
+                'audit_log_table_name'
+                    => 'equipment_table',
+
+                'audit_log_reference_id'
+                    => $equipment->equipment_id,
+
+                'audit_log_description'
+                    => 'Transferred '
+                    . ($equipment->equipment_name ?? 'equipment')
+                    . ' from '
+                    . ($oldRoom->room_name ?? 'Unassigned Location')
+                    . ' to '
+                    . ($newRoom->room_name ?? 'Unknown Location')
+                    . '.',
+
+                'audit_log_ip_address'
+                    => $request->ip(),
+
+                'audit_log_created_at'
+                    => now(),
+
+            ]);
+
+        });
+
+
+        // =====================================================
+        // SUCCESS
+        // =====================================================
 
         return back()->with(
             'success',
@@ -6920,64 +7373,190 @@ class MaintenanceController extends Controller
 
     public function storeBorrowing(Request $request)
     {
-        DB::table('borrowing_records_table')
+        // =====================================================
+        // START TRANSACTION
+        // =====================================================
 
-            ->insert([
+        DB::transaction(function () use ($request) {
 
-                'borrowing_equipment_id'
-                    => $request->borrowing_equipment_id,
+            // =====================================================
+            // GET EQUIPMENT INFORMATION
+            // =====================================================
 
-                'borrowing_borrower_name'
-                    => $request->borrowing_borrower_name,
+            $equipment = DB::table('equipment_table')
 
-                'borrowing_borrower_department'
-                    => $request->borrowing_borrower_department,
+                ->where(
+                    'equipment_id',
+                    $request->borrowing_equipment_id
+                )
 
-                'borrowing_quantity'
-                    => $request->borrowing_quantity,
+                ->first();
 
-                'borrowing_equipment_condition'
-                    => $request->borrowing_equipment_condition,
 
-                'borrowing_date'
-                    => $request->borrowing_date,
+            // =====================================================
+            // CREATE BORROWING RECORD
+            // =====================================================
 
-                'borrowing_expected_return_date'
-                    => $request->borrowing_expected_return_date,
+            $borrowingId = DB::table('borrowing_records_table')
 
-                'borrowing_purpose'
-                    => $request->borrowing_purpose,
+                ->insertGetId([
 
-                'borrowing_destination_location'
-                    => $request->borrowing_destination_location,
+                    'borrowing_equipment_id'
+                        => $request->borrowing_equipment_id,
 
-                'borrowing_authorized_by'
-                    => $request->borrowing_authorized_by,
+                    'borrowing_borrower_name'
+                        => $request->borrowing_borrower_name,
 
-                'borrowing_remarks'
-                    => $request->borrowing_remarks,
+                    'borrowing_borrower_department'
+                        => $request->borrowing_borrower_department,
 
-                'borrowing_status'
-                    => 'Borrowed',
+                    'borrowing_quantity'
+                        => $request->borrowing_quantity,
 
-                'borrowing_created_at'
-                    => now()
+                    'borrowing_equipment_condition'
+                        => $request->borrowing_equipment_condition,
+
+                    'borrowing_date'
+                        => $request->borrowing_date,
+
+                    'borrowing_expected_return_date'
+                        => $request->borrowing_expected_return_date,
+
+                    'borrowing_purpose'
+                        => $request->borrowing_purpose,
+
+                    'borrowing_destination_location'
+                        => $request->borrowing_destination_location,
+
+                    'borrowing_authorized_by'
+                        => $request->borrowing_authorized_by,
+
+                    'borrowing_remarks'
+                        => $request->borrowing_remarks,
+
+                    'borrowing_status'
+                        => 'Borrowed',
+
+                    'borrowing_created_at'
+                        => now(),
+
+                ]);
+
+
+            // =====================================================
+            // UPDATE EQUIPMENT STATUS
+            // =====================================================
+
+            DB::table('equipment_table')
+
+                ->where(
+                    'equipment_id',
+                    $request->borrowing_equipment_id
+                )
+
+                ->update([
+
+                    'equipment_inventory_status'
+                        => 'Borrowed',
+
+                ]);
+
+
+            // =====================================================
+            // CREATE EQUIPMENT BORROWED NOTIFICATION
+            // =====================================================
+
+            $eventKey =
+                'equipment_borrowed_'
+                . $borrowingId;
+
+
+            DB::table('notifications_table')
+
+                ->insertOrIgnore([
+
+                    'notification_user_id'
+                        => null,
+
+                    'notification_target_role'
+                        => 'Maintenance Personnel',
+
+                    'notification_title'
+                        => 'Equipment Borrowed',
+
+                    'notification_message'
+                        => ($equipment->equipment_name ?? 'Equipment')
+                        . ' was borrowed by '
+                        . $request->borrowing_borrower_name
+                        . '.',
+
+                    'notification_type'
+                        => 'equipment_borrowed',
+
+                    'notification_category'
+                        => 'Equipment',
+
+                    'notification_reference_type'
+                        => 'borrowing_record',
+
+                    'notification_reference_id'
+                        => $borrowingId,
+
+                    'notification_url'
+                        => '/maintenance/borrowing',
+
+                    'notification_event_key'
+                        => $eventKey,
+
+                    'notification_created_at'
+                        => now(),
+
+                ]);
+
+
+            // =====================================================
+            // RECENT ACTIVITY
+            // RECORD WHAT THE CURRENT USER ACTUALLY DID
+            // =====================================================
+
+            DB::table('audit_logs_table')->insert([
+
+                'audit_log_user_id'
+                    => Auth::id(),
+
+                'audit_log_action'
+                    => 'Borrowed equipment',
+
+                'audit_log_module'
+                    => 'Borrowing',
+
+                'audit_log_table_name'
+                    => 'borrowing_records_table',
+
+                'audit_log_reference_id'
+                    => $borrowingId,
+
+                'audit_log_description'
+                    => 'Borrowed '
+                    . ($equipment->equipment_name ?? 'equipment')
+                    . ' to '
+                    . $request->borrowing_borrower_name
+                    . '.',
+
+                'audit_log_ip_address'
+                    => $request->ip(),
+
+                'audit_log_created_at'
+                    => now(),
 
             ]);
 
-        DB::table('equipment_table')
+        });
 
-            ->where(
-                'equipment_id',
-                $request->borrowing_equipment_id
-            )
 
-            ->update([
-
-                'equipment_inventory_status'
-                    => 'Borrowed'
-
-            ]);
+        // =====================================================
+        // RETURN SUCCESS
+        // =====================================================
 
         return back()->with(
             'success',
@@ -6993,18 +7572,25 @@ class MaintenanceController extends Controller
 
     public function returnEquipment(Request $request)
     {
-        $record = DB::table(
-            'borrowing_records_table'
-        )
+        // =====================================================
+        // FIND BORROWING RECORD
+        // =====================================================
 
-        ->where(
-            'borrowing_record_id',
-            $request->borrowing_record_id
-        )
+        $record = DB::table('borrowing_records_table')
 
-        ->first();
+            ->where(
+                'borrowing_record_id',
+                $request->borrowing_record_id
+            )
 
-        if(!$record){
+            ->first();
+
+
+        // =====================================================
+        // BORROWING RECORD NOT FOUND
+        // =====================================================
+
+        if (!$record) {
 
             return back()->with(
                 'error',
@@ -7012,39 +7598,182 @@ class MaintenanceController extends Controller
             );
         }
 
-        DB::table(
-            'borrowing_records_table'
-        )
 
-        ->where(
-            'borrowing_record_id',
-            $request->borrowing_record_id
-        )
+        // =====================================================
+        // PREVENT RETURNING SAME RECORD TWICE
+        // =====================================================
 
-        ->update([
+        if ($record->borrowing_status === 'Returned') {
 
-            'borrowing_status'
-                => 'Returned',
+            return back()->with(
+                'error',
+                'This equipment has already been returned.'
+            );
+        }
 
-            'borrowing_actual_return_date'
-                => now()
 
-        ]);
+        // =====================================================
+        // GET EQUIPMENT INFORMATION
+        // =====================================================
 
-        DB::table('equipment_table')
+        $equipment = DB::table('equipment_table')
 
             ->where(
                 'equipment_id',
                 $record->borrowing_equipment_id
             )
 
-            ->update([
+            ->first();
 
-                'equipment_inventory_status' => 'Active',
 
-                'equipment_condition_status' => $request->return_condition
+        // =====================================================
+        // START TRANSACTION
+        // =====================================================
+
+        DB::transaction(function () use (
+            $request,
+            $record,
+            $equipment
+        ) {
+
+            // =================================================
+            // UPDATE BORROWING RECORD
+            // =================================================
+
+            DB::table('borrowing_records_table')
+
+                ->where(
+                    'borrowing_record_id',
+                    $record->borrowing_record_id
+                )
+
+                ->update([
+
+                    'borrowing_status'
+                        => 'Returned',
+
+                    'borrowing_actual_return_date'
+                        => now(),
+
+                ]);
+
+
+            // =================================================
+            // UPDATE EQUIPMENT STATUS
+            // =================================================
+
+            DB::table('equipment_table')
+
+                ->where(
+                    'equipment_id',
+                    $record->borrowing_equipment_id
+                )
+
+                ->update([
+
+                    'equipment_inventory_status'
+                        => 'Active',
+
+                    'equipment_condition_status'
+                        => $request->return_condition,
+
+                ]);
+
+
+            // =================================================
+            // CREATE NOTIFICATION
+            // =================================================
+
+            $eventKey =
+                'equipment_returned_'
+                . $record->borrowing_record_id;
+
+
+            DB::table('notifications_table')
+
+                ->insertOrIgnore([
+
+                    'notification_user_id'
+                        => null,
+
+                    'notification_target_role'
+                        => 'Maintenance Personnel',
+
+                    'notification_title'
+                        => 'Equipment Returned',
+
+                    'notification_message'
+                        => ($equipment->equipment_name ?? 'Equipment')
+                        . ' was returned by '
+                        . $record->borrowing_borrower_name
+                        . '.',
+
+                    'notification_type'
+                        => 'equipment_returned',
+
+                    'notification_category'
+                        => 'Equipment',
+
+                    'notification_reference_type'
+                        => 'borrowing_record',
+
+                    'notification_reference_id'
+                        => $record->borrowing_record_id,
+
+                    'notification_url'
+                        => '/maintenance/borrowing',
+
+                    'notification_event_key'
+                        => $eventKey,
+
+                    'notification_created_at'
+                        => now(),
+
+                ]);
+
+
+            // =================================================
+            // RECENT ACTIVITY
+            // =================================================
+
+            DB::table('audit_logs_table')->insert([
+
+                'audit_log_user_id'
+                    => Auth::id(),
+
+                'audit_log_action'
+                    => 'Returned equipment',
+
+                'audit_log_module'
+                    => 'Borrowing',
+
+                'audit_log_table_name'
+                    => 'borrowing_records_table',
+
+                'audit_log_reference_id'
+                    => $record->borrowing_record_id,
+
+                'audit_log_description'
+                    => 'Returned '
+                    . ($equipment->equipment_name ?? 'equipment')
+                    . ' from '
+                    . $record->borrowing_borrower_name
+                    . '.',
+
+                'audit_log_ip_address'
+                    => $request->ip(),
+
+                'audit_log_created_at'
+                    => now(),
 
             ]);
+
+        });
+
+
+        // =====================================================
+        // RETURN SUCCESS
+        // =====================================================
 
         return back()->with(
             'success',
@@ -7992,36 +8721,138 @@ class MaintenanceController extends Controller
 
     public function storeSchedule(Request $request)
     {
+        // =====================================================
+        // VALIDATE
+        // =====================================================
+
         $request->validate([
-            'equipment_id' => ['required', 'integer', 'exists:equipment_table,equipment_id'],
-            'title' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
-            'frequency' => ['required', 'string', 'max:100'],
-            'next_date' => ['required', 'date'],
+
+            'equipment_id' => [
+                'required',
+                'integer',
+                'exists:equipment_table,equipment_id'
+            ],
+
+            'title' => [
+                'required',
+                'string',
+                'max:255'
+            ],
+
+            'description' => [
+                'nullable',
+                'string'
+            ],
+
+            'frequency' => [
+                'required',
+                'string',
+                'max:100'
+            ],
+
+            'next_date' => [
+                'required',
+                'date'
+            ],
+
         ]);
 
-        DB::table('maintenance_schedules_table')
 
-            ->insert([
+        // =====================================================
+        // GET EQUIPMENT INFORMATION
+        // USED FOR RECENT ACTIVITY DESCRIPTION
+        // =====================================================
 
-                'maintenance_schedule_equipment_id'
-                    => $request->equipment_id,
+        $equipment = DB::table('equipment_table')
 
-                'maintenance_schedule_title'
-                    => $request->title,
+            ->where(
+                'equipment_id',
+                $request->equipment_id
+            )
 
-                'maintenance_schedule_description'
-                    => $request->description,
+            ->first();
 
-                'maintenance_schedule_frequency'
-                    => $request->frequency,
 
-                'maintenance_schedule_next_date'
-                    => $request->next_date,
+        // =====================================================
+        // START TRANSACTION
+        // =====================================================
 
-                'maintenance_schedule_status'
-                    => 'Active'
+        DB::transaction(function () use (
+            $request,
+            $equipment
+        ) {
+
+            // =================================================
+            // CREATE MAINTENANCE SCHEDULE
+            // =================================================
+
+            $scheduleId = DB::table('maintenance_schedules_table')
+
+                ->insertGetId([
+
+                    'maintenance_schedule_equipment_id'
+                        => $request->equipment_id,
+
+                    'maintenance_schedule_title'
+                        => $request->title,
+
+                    'maintenance_schedule_description'
+                        => $request->description,
+
+                    'maintenance_schedule_frequency'
+                        => $request->frequency,
+
+                    'maintenance_schedule_next_date'
+                        => $request->next_date,
+
+                    'maintenance_schedule_status'
+                        => 'Active',
+
+                ]);
+
+
+            // =================================================
+            // RECENT ACTIVITY
+            // =================================================
+
+            DB::table('audit_logs_table')->insert([
+
+                'audit_log_user_id'
+                    => Auth::id(),
+
+                'audit_log_action'
+                    => 'Created maintenance schedule',
+
+                'audit_log_module'
+                    => 'Schedules',
+
+                'audit_log_table_name'
+                    => 'maintenance_schedules_table',
+
+                'audit_log_reference_id'
+                    => $scheduleId,
+
+                'audit_log_description'
+                    => 'Created maintenance schedule "'
+                    . $request->title
+                    . '" for '
+                    . ($equipment->equipment_name ?? 'equipment')
+                    . '.',
+
+                'audit_log_ip_address'
+                    => $request->ip(),
+
+                'audit_log_created_at'
+                    => now(),
+
             ]);
+
+        });
+
+
+        // =====================================================
+        // SUCCESS
+        // =====================================================
 
         return redirect()
             ->back()
@@ -8039,32 +8870,95 @@ class MaintenanceController extends Controller
 
     public function completeSchedule(Request $request)
     {
+        // =====================================================
+        // VALIDATE REQUEST
+        // =====================================================
+
         $request->validate([
-            'schedule_id' => ['required', 'integer', 'exists:maintenance_schedules_table,maintenance_schedule_id'],
-            'findings' => ['required', 'string'],
-            'repair_action' => ['required', 'string'],
-            'maintenance_status' => ['required', 'string', 'max:100'],
-            'proof_image' => ['nullable', 'image', 'max:4096'],
+
+            'schedule_id' => [
+                'required',
+                'integer',
+                'exists:maintenance_schedules_table,maintenance_schedule_id'
+            ],
+
+            'findings' => [
+                'required',
+                'string'
+            ],
+
+            'repair_action' => [
+                'required',
+                'string'
+            ],
+
+            'maintenance_status' => [
+                'required',
+                'string',
+                'max:100'
+            ],
+
+            'proof_image' => [
+                'nullable',
+                'image',
+                'max:4096'
+            ],
+
         ]);
 
-        $schedule = DB::table(
-            'maintenance_schedules_table'
-        )
 
-        ->where(
-            'maintenance_schedule_id',
-            $request->schedule_id
-        )
+        // =====================================================
+        // GET MAINTENANCE SCHEDULE
+        // =====================================================
 
-        ->first();
+        $schedule = DB::table('maintenance_schedules_table')
+
+            ->where(
+                'maintenance_schedule_id',
+                $request->schedule_id
+            )
+
+            ->first();
+
+
+        // =====================================================
+        // PREVENT COMPLETING SAME SCHEDULE TWICE
+        // =====================================================
+
+        if ($schedule->maintenance_schedule_status === 'Completed') {
+
+            return redirect()
+                ->back()
+                ->with(
+                    'error',
+                    'This maintenance schedule has already been completed.'
+                );
+        }
+
+
+        // =====================================================
+        // GET EQUIPMENT INFORMATION
+        //
+        // USED FOR RECENT ACTIVITY DESCRIPTION
+        // =====================================================
+
+        $equipment = DB::table('equipment_table')
+
+            ->where(
+                'equipment_id',
+                $schedule->maintenance_schedule_equipment_id
+            )
+
+            ->first();
+
+
+        // =====================================================
+        // HANDLE PROOF IMAGE
+        // =====================================================
 
         $proofImage = null;
 
-        if(
-            $request->hasFile(
-                'proof_image'
-            )
-        ){
+        if ($request->hasFile('proof_image')) {
 
             $proofImage = $request
                 ->file('proof_image')
@@ -8074,60 +8968,123 @@ class MaintenanceController extends Controller
                 );
         }
 
-        DB::table(
-            'equipment_maintenance_history_table'
-        )
 
-        ->insert([
+        // =====================================================
+        // START TRANSACTION
+        // =====================================================
 
-            'equipment_maintenance_equipment_id'
-                => $schedule->maintenance_schedule_equipment_id,
+        DB::transaction(function () use (
+            $request,
+            $schedule,
+            $equipment,
+            $proofImage
+        ) {
 
-            'equipment_maintenance_personnel_id'
-                => 
+            // =================================================
+            // CREATE MAINTENANCE HISTORY RECORD
+            // =================================================
 
-                Auth::check()
-                    ? Auth::id()
-                    : null,
+            $maintenanceHistoryId = DB::table(
+                'equipment_maintenance_history_table'
+            )
 
-            'equipment_maintenance_findings'
-                => $request->findings,
+            ->insertGetId([
 
-            'equipment_maintenance_repair_action'
-                => $request->repair_action,
+                'equipment_maintenance_equipment_id'
+                    => $schedule->maintenance_schedule_equipment_id,
 
-            'equipment_maintenance_status'
-                => $request->maintenance_status,
+                'equipment_maintenance_personnel_id'
+                    => Auth::check()
+                        ? Auth::id()
+                        : null,
 
-            'equipment_maintenance_completed_at'
-                => now(),
+                'equipment_maintenance_findings'
+                    => $request->findings,
 
-            'equipment_maintenance_created_at'
-                => now(),
+                'equipment_maintenance_repair_action'
+                    => $request->repair_action,
 
-            'equipment_maintenance_proof_image'
-                => $proofImage
+                'equipment_maintenance_status'
+                    => $request->maintenance_status,
 
-        ]);
+                'equipment_maintenance_completed_at'
+                    => now(),
 
-        DB::table(
-            'maintenance_schedules_table'
-        )
+                'equipment_maintenance_created_at'
+                    => now(),
 
-        ->where(
-            'maintenance_schedule_id',
-            $request->schedule_id
-        )
+                'equipment_maintenance_proof_image'
+                    => $proofImage,
 
-        ->update([
+            ]);
 
-            'maintenance_schedule_status'
-                => 'Completed',
 
-            'maintenance_schedule_last_date'
-                => now()
+            // =================================================
+            // MARK SCHEDULE AS COMPLETED
+            // =================================================
 
-        ]);
+            DB::table('maintenance_schedules_table')
+
+                ->where(
+                    'maintenance_schedule_id',
+                    $schedule->maintenance_schedule_id
+                )
+
+                ->update([
+
+                    'maintenance_schedule_status'
+                        => 'Completed',
+
+                    'maintenance_schedule_last_date'
+                        => now(),
+
+                ]);
+
+
+            // =================================================
+            // RECENT ACTIVITY
+            //
+            // THIS WILL APPEAR ON THE DASHBOARD
+            // =================================================
+
+            DB::table('audit_logs_table')->insert([
+
+                'audit_log_user_id'
+                    => Auth::id(),
+
+                'audit_log_action'
+                    => 'Completed maintenance',
+
+                'audit_log_module'
+                    => 'Maintenance',
+
+                'audit_log_table_name'
+                    => 'equipment_maintenance_history_table',
+
+                'audit_log_reference_id'
+                    => $maintenanceHistoryId,
+
+                'audit_log_description'
+                    => 'Completed maintenance "'
+                    . ($schedule->maintenance_schedule_title ?? 'Maintenance')
+                    . '" for '
+                    . ($equipment->equipment_name ?? 'equipment')
+                    . '.',
+
+                'audit_log_ip_address'
+                    => $request->ip(),
+
+                'audit_log_created_at'
+                    => now(),
+
+            ]);
+
+        });
+
+
+        // =====================================================
+        // SUCCESS
+        // =====================================================
 
         return redirect()
             ->back()
@@ -8696,42 +9653,118 @@ class MaintenanceController extends Controller
 
     public function storeDisposal(Request $request)
     {
-        DB::table(
-            'disposal_records_table'
-        )
+        // =====================================================
+        // GET EQUIPMENT INFORMATION
+        // USED FOR RECENT ACTIVITY DESCRIPTION
+        // =====================================================
 
-        ->insert([
-
-            'disposal_equipment_id'
-                => $request->equipment_id,
-
-            'disposal_reason'
-                => $request->reason,
-
-            'disposal_area_location'
-                => $request->location,
-
-            'disposal_approved_by'
-                => Auth::id(),
-
-            'disposal_disposed_at'
-                => now()
-
-        ]);
-
-        DB::table('equipment_table')
+        $equipment = DB::table('equipment_table')
 
             ->where(
                 'equipment_id',
                 $request->equipment_id
             )
 
-            ->update([
+            ->first();
 
-                'equipment_inventory_status'
-                    => 'Disposed'
+
+        // =====================================================
+        // EQUIPMENT NOT FOUND
+        // =====================================================
+
+        if (!$equipment) {
+
+            return back()->with(
+                'error',
+                'Equipment not found.'
+            );
+        }
+
+
+        // =====================================================
+        // START TRANSACTION
+        // =====================================================
+
+        DB::transaction(function () use (
+            $request,
+            $equipment
+        ) {
+
+            // =================================================
+            // CREATE DISPOSAL RECORD
+            // =================================================
+
+            $disposalId = DB::table(
+                'disposal_records_table'
+            )
+
+            ->insertGetId([
+
+                'disposal_equipment_id'
+                    => $request->equipment_id,
+
+                'disposal_reason'
+                    => $request->reason,
+
+                'disposal_area_location'
+                    => $request->location,
+
+                'disposal_approved_by'
+                    => Auth::id(),
+
+                'disposal_disposed_at'
+                    => now(),
 
             ]);
+
+
+            // =================================================
+            // UPDATE EQUIPMENT STATUS
+            // =================================================
+
+            DB::table('equipment_table')
+
+                ->where(
+                    'equipment_id',
+                    $request->equipment_id
+                )
+
+                ->update([
+
+                    'equipment_inventory_status'
+                        => 'Disposed'
+
+                ]);
+
+
+            // =================================================
+            // RECENT ACTIVITY
+            // =================================================
+
+            $this->logActivity(
+
+                'Disposed equipment',
+
+                'Equipment',
+
+                'disposal_records_table',
+
+                $disposalId,
+
+                'Disposed '
+                . ($equipment->equipment_name ?? 'equipment')
+                . '. Reason: '
+                . ($request->reason ?? 'No reason provided')
+                . '.'
+
+            );
+
+        });
+
+
+        // =====================================================
+        // SUCCESS
+        // =====================================================
 
         return back()->with(
             'success',
@@ -9526,168 +10559,229 @@ class MaintenanceController extends Controller
     */
 
     public function storeReport(Request $request)
-    {
-        // =====================================================
-        // VALIDATE REPORT FORM
-        // =====================================================
+        {
+            // =====================================================
+            // VALIDATE REPORT FORM
+            // =====================================================
 
-        $request->validate([
-            'report_reporter_employee_id' => 'required|string',
-            'report_room_id' => 'required|integer',
-            'report_equipment_id' => 'nullable|integer',
-            'report_equipment_manual' => 'nullable|string|max:255',
-            'report_suggested_issue' => 'nullable|string|max:255',
-            'report_problem_description' => 'nullable|string',
-            'report_urgency_level' => 'required|in:Urgent,Non-Urgent',
-            'report_uploaded_image' => 'nullable|image|max:5120',
-        ]);
-
-
-        // =====================================================
-        // FIND REPORTER
-        // =====================================================
-
-        $reporter = DB::table('reporters_table')
-
-            ->where(
-                'reporter_employee_id',
-                $request->report_reporter_employee_id
-            )
-
-            ->first();
-
-
-        // =====================================================
-        // REPORTER DOES NOT EXIST
-        // =====================================================
-
-        if (!$reporter) {
-
-            return back()
-
-                ->withErrors([
-                    'report_reporter_employee_id'
-                        => 'Employee ID not recognized.',
-                ])
-
-                ->withInput();
-        }
-
-
-        // =====================================================
-        // BLOCK INACTIVE REPORTER
-        // =====================================================
-
-        if ($reporter->reporter_status !== 'Active') {
-
-            return back()
-
-                ->withErrors([
-                    'report_reporter_employee_id'
-                        => 'Reporter account is inactive. You cannot submit reports.',
-                ])
-
-                ->withInput();
-        }
-
-
-        // =====================================================
-        // VALIDATE EQUIPMENT SELECTION
-        // MUST SELECT EQUIPMENT OR ENTER MANUALLY
-        // =====================================================
-
-        if (
-            !$request->filled('report_equipment_id')
-            && !$request->filled('report_equipment_manual')
-        ) {
-
-            return back()
-
-                ->withErrors([
-                    'report_equipment_id'
-                        => 'Please select or enter an equipment.',
-                ])
-
-                ->withInput();
-        }
-
-
-        // =====================================================
-        // UPLOAD REPORT IMAGE
-        // =====================================================
-
-        $imagePath = null;
-
-        if ($request->hasFile('report_uploaded_image')) {
-
-            $imagePath = $request
-                ->file('report_uploaded_image')
-                ->store(
-                    'report-images',
-                    'public'
-                );
-        }
-
-
-        // =====================================================
-        // INSERT REPORT
-        // ONLY ACTIVE REPORTERS CAN REACH THIS PART
-        // =====================================================
-
-        DB::table('reports_table')
-            ->insert([
-
-                'report_reporter_employee_id'
-                    => $reporter->reporter_employee_id,
-
-                'report_room_id'
-                    => $request->report_room_id,
-
-                'report_equipment_id'
-                    => $request->report_equipment_id,
-
-                'report_unlisted_equipment_name'
-                    => $request->report_equipment_manual,
-
-                'report_problem_description'
-                    => $request->report_problem_description,
-
-                'report_suggested_issue'
-                    => $request->report_suggested_issue,
-
-                'report_urgency_level'
-                    => $request->report_urgency_level,
-
-                'report_current_status'
-                    => 'Pending',
-
-                'report_uploaded_image'
-                    => $imagePath,
-
-                'report_is_overdue'
-                    => false,
-
-                'report_is_archived'
-                    => false,
-
-                'report_submitted_at'
-                    => now(),
-
-                'report_updated_at'
-                    => now(),
-
+            $request->validate([
+                'report_reporter_employee_id' => 'required|string',
+                'report_room_id' => 'required|integer',
+                'report_equipment_id' => 'nullable|integer',
+                'report_equipment_manual' => 'nullable|string|max:255',
+                'report_suggested_issue' => 'nullable|string|max:255',
+                'report_problem_description' => 'nullable|string',
+                'report_urgency_level' => 'required|in:Urgent,Non-Urgent',
+                'report_uploaded_image' => 'nullable|image|max:5120',
             ]);
 
 
-        // =====================================================
-        // RETURN SUCCESS
-        // =====================================================
+            // =====================================================
+            // FIND REPORTER
+            // =====================================================
 
-        return back()->with(
-            'success',
-            'Report submitted successfully.'
-        );
-    }
+            $reporter = DB::table('reporters_table')
+                ->where(
+                    'reporter_employee_id',
+                    $request->report_reporter_employee_id
+                )
+                ->first();
+
+
+            // =====================================================
+            // REPORTER DOES NOT EXIST
+            // =====================================================
+
+            if (!$reporter) {
+
+                return back()
+                    ->withErrors([
+                        'report_reporter_employee_id'
+                            => 'Employee ID not recognized.',
+                    ])
+                    ->withInput();
+            }
+
+
+            // =====================================================
+            // BLOCK INACTIVE REPORTER
+            // =====================================================
+
+            if ($reporter->reporter_status !== 'Active') {
+
+                return back()
+                    ->withErrors([
+                        'report_reporter_employee_id'
+                            => 'Reporter account is inactive. You cannot submit reports.',
+                    ])
+                    ->withInput();
+            }
+
+
+            // =====================================================
+            // VALIDATE EQUIPMENT SELECTION
+            // MUST SELECT EQUIPMENT OR ENTER MANUALLY
+            // =====================================================
+
+            if (
+                !$request->filled('report_equipment_id')
+                && !$request->filled('report_equipment_manual')
+            ) {
+
+                return back()
+                    ->withErrors([
+                        'report_equipment_id'
+                            => 'Please select or enter an equipment.',
+                    ])
+                    ->withInput();
+            }
+
+
+            // =====================================================
+            // UPLOAD REPORT IMAGE
+            // =====================================================
+
+            $imagePath = null;
+
+            if ($request->hasFile('report_uploaded_image')) {
+
+                $imagePath = $request
+                    ->file('report_uploaded_image')
+                    ->store(
+                        'report-images',
+                        'public'
+                    );
+            }
+
+
+            // =====================================================
+            // INSERT REPORT
+            // CHANGED FROM insert() TO insertGetId()
+            // THIS GIVES US THE NEW REPORT ID
+            // =====================================================
+
+            $reportId = DB::table('reports_table')
+                ->insertGetId([
+
+                    'report_reporter_employee_id'
+                        => $reporter->reporter_employee_id,
+
+                    'report_room_id'
+                        => $request->report_room_id,
+
+                    'report_equipment_id'
+                        => $request->report_equipment_id,
+
+                    'report_unlisted_equipment_name'
+                        => $request->report_equipment_manual,
+
+                    'report_problem_description'
+                        => $request->report_problem_description,
+
+                    'report_suggested_issue'
+                        => $request->report_suggested_issue,
+
+                    'report_urgency_level'
+                        => $request->report_urgency_level,
+
+                    'report_current_status'
+                        => 'Pending',
+
+                    'report_uploaded_image'
+                        => $imagePath,
+
+                    'report_is_overdue'
+                        => false,
+
+                    'report_is_archived'
+                        => false,
+
+                    'report_submitted_at'
+                        => now(),
+
+                    'report_updated_at'
+                        => now(),
+
+                ], 'report_id');
+
+
+            // =====================================================
+            // CHECK IF REPORT IS URGENT
+            // =====================================================
+
+            $isUrgent =
+                $request->report_urgency_level === 'Urgent';
+
+
+            // =====================================================
+            // CREATE MAINTENANCE PERSONNEL ALERT
+            // THIS WILL APPEAR ON THE ALERTS PAGE
+            // =====================================================
+
+            DB::table('notifications_table')
+                ->insertOrIgnore([
+
+                    // NULL means this is not for one specific user
+                    'notification_user_id'
+                        => null,
+
+                    // Send this to Maintenance Personnel
+                    'notification_target_role'
+                        => 'Maintenance Personnel',
+
+                    // Different title depending on urgency
+                    'notification_title'
+                        => $isUrgent
+                            ? 'Urgent Report Requires Attention'
+                            : 'New Report Submitted',
+
+                    // Notification description
+                    'notification_message'
+                        => $isUrgent
+                            ? 'Urgent Report #' . $reportId . ' requires immediate attention.'
+                            : 'A new maintenance Report #' . $reportId . ' has been submitted.',
+
+                    // Used to identify the notification type
+                    'notification_type'
+                        => $isUrgent
+                            ? 'urgent_report'
+                            : 'new_report',
+
+                    // Used by your Alerts page filter
+                    'notification_category'
+                        => 'Reports',
+
+                    // Tells the system what record this notification belongs to
+                    'notification_reference_type'
+                        => 'report',
+
+                    // Actual report ID
+                    'notification_reference_id'
+                        => $reportId,
+
+                    // Destination when notification is opened
+                    'notification_url'
+                        => '/maintenance/reports/details/' . $reportId,
+
+                    // Prevent duplicate notification for the same submission
+                    'notification_event_key'
+                        => 'report_submitted_' . $reportId,
+
+                    'notification_created_at'
+                        => now(),
+
+                ]);
+
+
+            // =====================================================
+            // RETURN SUCCESS
+            // =====================================================
+
+            return back()->with(
+                'success',
+                'Report submitted successfully.'
+            );
+        }
 
     /*
     |--------------------------------------------------------------------------
@@ -10092,6 +11186,18 @@ class MaintenanceController extends Controller
         $category =
             $request->get('category', 'all');
 
+        // =====================================================
+        // CUSTOM CALENDAR FILTER
+        // =====================================================
+
+        $date = $request->get('date');
+
+        $weekDate = $request->get('week_date');
+
+        $month = $request->get('month');
+
+        $year = $request->get('year');
+
 
         // =====================================================
         // ALLOWED FILTERS
@@ -10178,59 +11284,157 @@ class MaintenanceController extends Controller
 
 
         // =====================================================
-        // PERIOD FILTER
+        // DATE / PERIOD FILTER
         // =====================================================
 
-        switch ($period) {
 
-            case 'week':
+        // =====================================================
+        // SPECIFIC DATE
+        // Example: July 24, 2026
+        // =====================================================
 
-                $query->whereBetween(
-                    'notifications_table.notification_created_at',
-                    [
-                        now()->startOfWeek(),
-                        now()->endOfWeek(),
-                    ]
+        if ($date) {
+
+            $query->whereDate(
+                'notifications_table.notification_created_at',
+                $date
+            );
+        }
+
+
+        // =====================================================
+        // SPECIFIC WEEK
+        // Uses the selected date and gets its entire week
+        // =====================================================
+
+        elseif ($weekDate) {
+
+            $selectedWeek =
+                \Carbon\Carbon::parse($weekDate);
+
+            $query->whereBetween(
+                'notifications_table.notification_created_at',
+                [
+                    $selectedWeek->copy()->startOfWeek(),
+                    $selectedWeek->copy()->endOfWeek(),
+                ]
+            );
+        }
+
+
+        // =====================================================
+        // SPECIFIC MONTH
+        // Example: July 2026
+        // =====================================================
+
+        elseif ($month) {
+
+            $selectedMonth =
+                \Carbon\Carbon::createFromFormat(
+                    'Y-m',
+                    $month
                 );
 
-                break;
+            $query
+                ->whereYear(
+                    'notifications_table.notification_created_at',
+                    $selectedMonth->year
+                )
+
+                ->whereMonth(
+                    'notifications_table.notification_created_at',
+                    $selectedMonth->month
+                );
+        }
 
 
-            case 'month':
+        // =====================================================
+        // SPECIFIC YEAR
+        // Example: 2025
+        // =====================================================
 
-                $query
-                    ->whereYear(
+        elseif ($year) {
+
+            $query->whereYear(
+                'notifications_table.notification_created_at',
+                $year
+            );
+        }
+
+
+        // =====================================================
+        // NO CUSTOM DATE SELECTED
+        // USE QUICK FILTERS
+        // =====================================================
+
+        else {
+
+            switch ($period) {
+
+                // =================================================
+                // CURRENT WEEK
+                // =================================================
+
+                case 'week':
+
+                    $query->whereBetween(
                         'notifications_table.notification_created_at',
-                        now()->year
-                    )
-
-                    ->whereMonth(
-                        'notifications_table.notification_created_at',
-                        now()->month
+                        [
+                            now()->startOfWeek(),
+                            now()->endOfWeek(),
+                        ]
                     );
 
-                break;
+                    break;
 
 
-            case 'year':
+                // =================================================
+                // CURRENT MONTH
+                // =================================================
 
-                $query->whereYear(
-                    'notifications_table.notification_created_at',
-                    now()->year
-                );
+                case 'month':
 
-                break;
+                    $query
+                        ->whereYear(
+                            'notifications_table.notification_created_at',
+                            now()->year
+                        )
+
+                        ->whereMonth(
+                            'notifications_table.notification_created_at',
+                            now()->month
+                        );
+
+                    break;
 
 
-            default:
+                // =================================================
+                // CURRENT YEAR
+                // =================================================
 
-                $query->whereDate(
-                    'notifications_table.notification_created_at',
-                    today()
-                );
+                case 'year':
 
-                break;
+                    $query->whereYear(
+                        'notifications_table.notification_created_at',
+                        now()->year
+                    );
 
+                    break;
+
+
+                // =================================================
+                // TODAY
+                // =================================================
+
+                default:
+
+                    $query->whereDate(
+                        'notifications_table.notification_created_at',
+                        today()
+                    );
+
+                    break;
+            }
         }
 
 
@@ -10272,7 +11476,7 @@ class MaintenanceController extends Controller
                 'notifications_table.notification_created_at'
             )
 
-            ->paginate(15)
+            ->paginate(10)
 
             ->withQueryString();
 
@@ -10381,6 +11585,78 @@ class MaintenanceController extends Controller
 
             ->count();
 
+        // =====================================================
+        // DASHBOARD SUMMARY CARDS
+        // =====================================================
+
+
+        // =====================================================
+        // URGENT REPORTS
+        // REPORTS THAT STILL REQUIRE ATTENTION
+        // =====================================================
+
+        $urgentReports = DB::table('reports_table')
+
+            ->where(
+                'report_urgency_level',
+                'Urgent'
+            )
+
+            ->whereIn(
+                'report_current_status',
+                [
+                    'Pending',
+                    'Processing',
+                ]
+            )
+
+            ->where(
+                'report_is_archived',
+                false
+            )
+
+            ->count();
+
+
+        // =====================================================
+        // MAINTENANCE DUE TODAY
+        // =====================================================
+
+        $dueToday = DB::table('maintenance_schedules_table')
+
+            ->whereDate(
+                'maintenance_schedule_next_date',
+                today()
+            )
+
+            ->where(
+                'maintenance_schedule_status',
+                'Active'
+            )
+
+            ->count();
+
+
+        // =====================================================
+        // OVERDUE MAINTENANCE
+        // DATE HAS ALREADY PASSED BUT SCHEDULE IS STILL ACTIVE
+        // =====================================================
+
+        $overdueMaintenance = DB::table('maintenance_schedules_table')
+
+            ->whereDate(
+                'maintenance_schedule_next_date',
+                '<',
+                today()
+            )
+
+            ->where(
+                'maintenance_schedule_status',
+                'Active'
+            )
+
+            ->count();
+
 
         // =====================================================
         // RETURN PAGE
@@ -10392,11 +11668,33 @@ class MaintenanceController extends Controller
                 'notifications',
                 'period',
                 'category',
+
+                // =============================================
+                // CUSTOM DATE FILTERS
+                // =============================================
+
+                'date',
+                'weekDate',
+                'month',
+                'year',
+
+                // =============================================
+                // PERIOD COUNTS
+                // =============================================
+
                 'todayCount',
                 'weekCount',
                 'monthCount',
                 'yearCount',
-                'unreadCount'
+                'unreadCount',
+
+                // =============================================
+                // SUMMARY CARDS
+                // =============================================
+
+                'urgentReports',
+                'dueToday',
+                'overdueMaintenance'
             )
         );
     }
@@ -10770,5 +12068,471 @@ class MaintenanceController extends Controller
 
             'audit_log_created_at' => now(),
         ]);
+    }
+
+    // =====================================================
+    // MAINTENANCE ACTIVITY HISTORY
+    // =====================================================
+
+    public function activities(Request $request)
+    {
+        // =====================================================
+        // START ACTIVITY QUERY
+        // ONLY SHOW THE LOGGED IN USER'S ACTIVITIES
+        // =====================================================
+
+        $query = DB::table('audit_logs_table')
+
+            ->where(
+                'audit_log_user_id',
+                Auth::id()
+            )
+
+            ->whereNotNull(
+                'audit_log_module'
+            );
+
+
+        // =====================================================
+        // SEARCH
+        //
+        // SEARCHES ACTION AND DESCRIPTION
+        // =====================================================
+
+        if ($request->filled('search')) {
+
+            $search = trim(
+                $request->input('search')
+            );
+
+            $query->where(function ($q) use ($search) {
+
+                $q->where(
+                    'audit_log_action',
+                    'like',
+                    '%' . $search . '%'
+                )
+
+                ->orWhere(
+                    'audit_log_description',
+                    'like',
+                    '%' . $search . '%'
+                );
+
+            });
+        }
+
+
+        // =====================================================
+        // MODULE FILTER
+        //
+        // EG: REPORTS, EQUIPMENT, SCHEDULES
+        // =====================================================
+
+        if ($request->filled('module')) {
+
+            $query->where(
+                'audit_log_module',
+                $request->input('module')
+            );
+        }
+
+
+        // =====================================================
+        // DATE FROM
+        // =====================================================
+
+        if ($request->filled('date_from')) {
+
+            $query->whereDate(
+                'audit_log_created_at',
+                '>=',
+                $request->input('date_from')
+            );
+        }
+
+
+        // =====================================================
+        // DATE TO
+        // =====================================================
+
+        if ($request->filled('date_to')) {
+
+            $query->whereDate(
+                'audit_log_created_at',
+                '<=',
+                $request->input('date_to')
+            );
+        }
+
+
+        // =====================================================
+        // GET AVAILABLE MODULES
+        //
+        // THIS MAKES THE FILTER AUTOMATIC.
+        // IF WE ADD A NEW MODULE LATER, IT CAN APPEAR HERE.
+        // =====================================================
+
+        $activityModules = DB::table('audit_logs_table')
+
+            ->where(
+                'audit_log_user_id',
+                Auth::id()
+            )
+
+            ->whereNotNull(
+                'audit_log_module'
+            )
+
+            ->distinct()
+
+            ->orderBy(
+                'audit_log_module'
+            )
+
+            ->pluck(
+                'audit_log_module'
+            );
+
+
+        // =====================================================
+        // GET PAGINATED ACTIVITIES
+        // =====================================================
+
+        $activities = $query
+
+            ->orderByDesc(
+                'audit_log_created_at'
+            )
+
+            ->paginate(15)
+
+            ->withQueryString();
+
+
+        // =====================================================
+        // ADD DISPLAY INFORMATION
+        // =====================================================
+
+        $activities->getCollection()
+            ->transform(function ($activity) {
+
+                // =================================================
+                // ICON
+                // =================================================
+
+                $activity->icon = match (
+                    $activity->audit_log_module
+                ) {
+
+                    'Reports' =>
+                        'clipboard-list',
+
+                    'Equipment' =>
+                        'monitor',
+
+                    'Schedules' =>
+                        'calendar',
+
+                    'Borrowing' =>
+                        'package',
+
+                    'Infrastructure' =>
+                        'building-2',
+
+                    default =>
+                        'activity',
+                };
+
+
+                // =================================================
+                // DESTINATION
+                // =================================================
+
+                $activity->url = match (
+                    $activity->audit_log_table_name
+                ) {
+
+                    'reports_table' =>
+                        $activity->audit_log_reference_id
+                            ? url(
+                                '/maintenance/reports/details/'
+                                . $activity->audit_log_reference_id
+                            )
+                            : null,
+
+                    'equipment_table' =>
+                        $activity->audit_log_reference_id
+                            ? url(
+                                '/maintenance/equipment/view/'
+                                . $activity->audit_log_reference_id
+                            )
+                            : null,
+
+                    'maintenance_schedules_table' =>
+                        url('/maintenance/schedules'),
+
+                    'borrowing_records_table' =>
+                        url('/maintenance/borrowing'),
+
+                    'rooms_table' =>
+                        url('/maintenance/infrastructure'),
+
+                    default =>
+                        null,
+                };
+
+
+                return $activity;
+            });
+
+
+        // =====================================================
+        // RETURN PAGE
+        // =====================================================
+
+        return view(
+            'maintenance-personnel.activities.index',
+            compact(
+                'activities',
+                'activityModules'
+            )
+        );
+    }
+
+
+    // =====================================================
+    // PROCESS MAINTENANCE SCHEDULE ALERTS
+    //
+    // CALLED AUTOMATICALLY BY LARAVEL SCHEDULER
+    // =====================================================
+
+    public function processMaintenanceScheduleAlerts(): void
+    {
+        // KEEP ALL THE MAINTENANCE ALERT LOGIC
+        // WE JUST CREATED INSIDE HERE.
+
+        $today = now()->startOfDay();
+
+        $dueSoonLimit = now()
+            ->startOfDay()
+            ->addDays(3);
+
+        $schedules = DB::table('maintenance_schedules_table')
+
+            ->leftJoin(
+                'equipment_table',
+                'maintenance_schedules_table.maintenance_schedule_equipment_id',
+                '=',
+                'equipment_table.equipment_id'
+            )
+
+            ->whereNotNull(
+                'maintenance_schedules_table.maintenance_schedule_next_date'
+            )
+
+            ->where(
+                'maintenance_schedules_table.maintenance_schedule_status',
+                '!=',
+                'Completed'
+            )
+
+            ->select(
+                'maintenance_schedules_table.*',
+                'equipment_table.equipment_name'
+            )
+
+            ->get();
+
+
+        foreach ($schedules as $schedule) {
+
+            $scheduleDate = \Carbon\Carbon::parse(
+                $schedule->maintenance_schedule_next_date
+            )->startOfDay();
+
+            $equipmentName =
+                $schedule->equipment_name
+                ?? 'Equipment';
+
+
+            // =================================================
+            // OVERDUE
+            // =================================================
+
+            if ($scheduleDate->lt($today)) {
+
+                if (
+                    $schedule->maintenance_schedule_status
+                    !== 'Overdue'
+                ) {
+
+                    DB::table('maintenance_schedules_table')
+
+                        ->where(
+                            'maintenance_schedule_id',
+                            $schedule->maintenance_schedule_id
+                        )
+
+                        ->update([
+                            'maintenance_schedule_status'
+                                => 'Overdue',
+                        ]);
+                }
+
+
+                DB::table('notifications_table')
+                    ->insertOrIgnore([
+
+                        'notification_user_id'
+                            => null,
+
+                        'notification_target_role'
+                            => 'Maintenance Personnel',
+
+                        'notification_title'
+                            => 'Maintenance Overdue',
+
+                        'notification_message'
+                            => $equipmentName
+                            . ' has an overdue maintenance schedule.',
+
+                        'notification_type'
+                            => 'maintenance_overdue',
+
+                        'notification_category'
+                            => 'Maintenance',
+
+                        'notification_reference_type'
+                            => 'maintenance_schedule',
+
+                        'notification_reference_id'
+                            => $schedule->maintenance_schedule_id,
+
+                        'notification_url'
+                            => '/maintenance/schedules',
+
+                        'notification_event_key'
+                            => 'maintenance_overdue_'
+                            . $schedule->maintenance_schedule_id,
+
+                        'notification_created_at'
+                            => now(),
+
+                    ]);
+
+                continue;
+            }
+
+
+            // =================================================
+            // DUE TODAY
+            // =================================================
+
+            if (
+                $scheduleDate->isSameDay($today)
+                &&
+                $schedule->maintenance_schedule_status === 'Active'
+            ) {
+
+                DB::table('notifications_table')
+                    ->insertOrIgnore([
+
+                        'notification_user_id'
+                            => null,
+
+                        'notification_target_role'
+                            => 'Maintenance Personnel',
+
+                        'notification_title'
+                            => 'Maintenance Due Today',
+
+                        'notification_message'
+                            => $equipmentName
+                            . ' is scheduled for maintenance today.',
+
+                        'notification_type'
+                            => 'maintenance_due_today',
+
+                        'notification_category'
+                            => 'Maintenance',
+
+                        'notification_reference_type'
+                            => 'maintenance_schedule',
+
+                        'notification_reference_id'
+                            => $schedule->maintenance_schedule_id,
+
+                        'notification_url'
+                            => '/maintenance/schedules',
+
+                        'notification_event_key'
+                            => 'maintenance_due_today_'
+                            . $schedule->maintenance_schedule_id,
+
+                        'notification_created_at'
+                            => now(),
+
+                    ]);
+
+                continue;
+            }
+
+
+            // =================================================
+            // DUE SOON
+            // =================================================
+
+            if (
+                $scheduleDate->gt($today)
+                &&
+                $scheduleDate->lte($dueSoonLimit)
+                &&
+                $schedule->maintenance_schedule_status === 'Active'
+            ) {
+
+                DB::table('notifications_table')
+                    ->insertOrIgnore([
+
+                        'notification_user_id'
+                            => null,
+
+                        'notification_target_role'
+                            => 'Maintenance Personnel',
+
+                        'notification_title'
+                            => 'Maintenance Due Soon',
+
+                        'notification_message'
+                            => $equipmentName
+                            . ' is scheduled for maintenance on '
+                            . $scheduleDate->format('M d, Y')
+                            . '.',
+
+                        'notification_type'
+                            => 'maintenance_upcoming',
+
+                        'notification_category'
+                            => 'Maintenance',
+
+                        'notification_reference_type'
+                            => 'maintenance_schedule',
+
+                        'notification_reference_id'
+                            => $schedule->maintenance_schedule_id,
+
+                        'notification_url'
+                            => '/maintenance/schedules',
+
+                        'notification_event_key'
+                            => 'maintenance_upcoming_'
+                            . $schedule->maintenance_schedule_id,
+
+                        'notification_created_at'
+                            => now(),
+
+                    ]);
+            }
+        }
     }
 }

@@ -57,12 +57,13 @@ class CheckMaintenanceAlerts extends Command
                 ]
             )
 
+            ->whereNotNull(
+                'maintenance_schedule_next_date'
+            )
+
             ->select(
-
                 'maintenance_schedules_table.*',
-
                 'equipment_table.equipment_name'
-
             )
 
             ->get();
@@ -74,39 +75,59 @@ class CheckMaintenanceAlerts extends Command
 
         foreach ($schedules as $schedule) {
 
+            // =================================================
+            // NEXT MAINTENANCE DATE
+            // =================================================
+
             $nextDate = Carbon::parse(
                 $schedule->maintenance_schedule_next_date
             )->startOfDay();
 
 
+            // =================================================
+            // EQUIPMENT NAME
+            // =================================================
+
+            $equipmentName =
+                $schedule->equipment_name
+                ?? 'Equipment';
+
+
             // =====================================================
-            // OVERDUE
+            // 1. OVERDUE
             // =====================================================
 
             if ($nextDate->lt($today)) {
 
-                // =====================================================
+                // =================================================
                 // UPDATE SCHEDULE STATUS
-                // =====================================================
+                // =================================================
 
-                DB::table('maintenance_schedules_table')
+                if (
+                    $schedule->maintenance_schedule_status
+                    !== 'Overdue'
+                ) {
 
-                    ->where(
-                        'maintenance_schedule_id',
-                        $schedule->maintenance_schedule_id
-                    )
+                    DB::table('maintenance_schedules_table')
 
-                    ->update([
+                        ->where(
+                            'maintenance_schedule_id',
+                            $schedule->maintenance_schedule_id
+                        )
 
-                        'maintenance_schedule_status' =>
-                            'Overdue',
+                        ->update([
+                            'maintenance_schedule_status'
+                                => 'Overdue',
+                        ]);
+                }
 
-                    ]);
 
-
-                // =====================================================
+                // =================================================
                 // UNIQUE EVENT KEY
-                // =====================================================
+                //
+                // EXAMPLE:
+                // maintenance_overdue_3_2026-07-13
+                // =================================================
 
                 $eventKey =
                     'maintenance_overdue_'
@@ -115,45 +136,51 @@ class CheckMaintenanceAlerts extends Command
                     . $nextDate->toDateString();
 
 
-                // =====================================================
-                // CREATE NOTIFICATION
-                // =====================================================
+                // =================================================
+                // CREATE OVERDUE NOTIFICATION
+                // =================================================
 
                 DB::table('notifications_table')
 
                     ->insertOrIgnore([
 
-                        'notification_user_id' =>
-                            null,
+                        'notification_user_id'
+                            => null,
 
-                        'notification_title' =>
-                            'Maintenance overdue',
+                        // =========================================
+                        // SEND TO MAINTENANCE PERSONNEL
+                        // =========================================
 
-                        'notification_message' =>
-                            ($schedule->equipment_name
-                                ?? 'Equipment')
+                        'notification_target_role'
+                            => 'Maintenance Personnel',
+
+                        'notification_title'
+                            => 'Maintenance Overdue',
+
+                        'notification_message'
+                            => $equipmentName
                             . ' has passed its scheduled maintenance date.',
 
-                        'notification_type' =>
-                            'maintenance_overdue',
+                        'notification_type'
+                            => 'maintenance_overdue',
 
-                        'notification_category' =>
-                            'Maintenance',
+                        'notification_category'
+                            => 'Maintenance',
 
-                        'notification_reference_type' =>
-                            'maintenance_schedule',
+                        'notification_reference_type'
+                            => 'maintenance_schedule',
 
-                        'notification_reference_id' =>
-                            $schedule->maintenance_schedule_id,
+                        'notification_reference_id'
+                            => $schedule->maintenance_schedule_id,
 
-                        'notification_url' =>
-                            '/maintenance/schedules',
+                        'notification_url'
+                            => '/maintenance/schedules',
 
-                        'notification_event_key' =>
-                            $eventKey,
+                        'notification_event_key'
+                            => $eventKey,
 
-                        'notification_is_read' =>
-                            false,
+                        'notification_created_at'
+                            => now(),
 
                     ]);
 
@@ -163,10 +190,18 @@ class CheckMaintenanceAlerts extends Command
 
 
             // =====================================================
-            // DUE TODAY
+            // 2. DUE TODAY
             // =====================================================
 
-            if ($nextDate->isSameDay($today)) {
+            if (
+                $nextDate->isSameDay($today)
+                &&
+                $schedule->maintenance_schedule_status === 'Active'
+            ) {
+
+                // =================================================
+                // UNIQUE EVENT KEY
+                // =================================================
 
                 $eventKey =
                     'maintenance_due_today_'
@@ -175,41 +210,47 @@ class CheckMaintenanceAlerts extends Command
                     . $nextDate->toDateString();
 
 
+                // =================================================
+                // CREATE DUE TODAY NOTIFICATION
+                // =================================================
+
                 DB::table('notifications_table')
 
                     ->insertOrIgnore([
 
-                        'notification_user_id' =>
-                            null,
+                        'notification_user_id'
+                            => null,
 
-                        'notification_title' =>
-                            'Maintenance due today',
+                        'notification_target_role'
+                            => 'Maintenance Personnel',
 
-                        'notification_message' =>
-                            ($schedule->equipment_name
-                                ?? 'Equipment')
+                        'notification_title'
+                            => 'Maintenance Due Today',
+
+                        'notification_message'
+                            => $equipmentName
                             . ' is scheduled for maintenance today.',
 
-                        'notification_type' =>
-                            'maintenance_due_today',
+                        'notification_type'
+                            => 'maintenance_due_today',
 
-                        'notification_category' =>
-                            'Maintenance',
+                        'notification_category'
+                            => 'Maintenance',
 
-                        'notification_reference_type' =>
-                            'maintenance_schedule',
+                        'notification_reference_type'
+                            => 'maintenance_schedule',
 
-                        'notification_reference_id' =>
-                            $schedule->maintenance_schedule_id,
+                        'notification_reference_id'
+                            => $schedule->maintenance_schedule_id,
 
-                        'notification_url' =>
-                            '/maintenance/schedules',
+                        'notification_url'
+                            => '/maintenance/schedules',
 
-                        'notification_event_key' =>
-                            $eventKey,
+                        'notification_event_key'
+                            => $eventKey,
 
-                        'notification_is_read' =>
-                            false,
+                        'notification_created_at'
+                            => now(),
 
                     ]);
 
@@ -219,7 +260,7 @@ class CheckMaintenanceAlerts extends Command
 
 
             // =====================================================
-            // UPCOMING MAINTENANCE WITHIN 7 DAYS
+            // 3. UPCOMING MAINTENANCE WITHIN 7 DAYS
             // =====================================================
 
             $daysUntilMaintenance =
@@ -230,14 +271,18 @@ class CheckMaintenanceAlerts extends Command
 
 
             if (
-                $daysUntilMaintenance > 0 &&
+                $daysUntilMaintenance > 0
+                &&
                 $daysUntilMaintenance <= 7
+                &&
+                $schedule->maintenance_schedule_status === 'Active'
             ) {
 
-                // =====================================================
+                // =================================================
                 // UNIQUE EVENT KEY
+                //
                 // ONE UPCOMING ALERT PER SCHEDULE DATE
-                // =====================================================
+                // =================================================
 
                 $eventKey =
                     'maintenance_upcoming_'
@@ -246,53 +291,54 @@ class CheckMaintenanceAlerts extends Command
                     . $nextDate->toDateString();
 
 
-                // =====================================================
-                // CREATE NOTIFICATION IF IT DOES NOT EXIST
-                // =====================================================
+                // =================================================
+                // CREATE UPCOMING NOTIFICATION
+                // =================================================
 
                 DB::table('notifications_table')
 
                     ->insertOrIgnore([
 
-                        'notification_user_id' =>
-                            null,
+                        'notification_user_id'
+                            => null,
 
-                        'notification_title' =>
-                            'Upcoming maintenance',
+                        'notification_target_role'
+                            => 'Maintenance Personnel',
 
-                        'notification_message' =>
-                            ($schedule->equipment_name ?? 'Equipment')
+                        'notification_title'
+                            => 'Upcoming Maintenance',
+
+                        'notification_message'
+                            => $equipmentName
                             . ' is scheduled for maintenance on '
                             . $nextDate->format('F j, Y')
                             . '. '
                             . $daysUntilMaintenance
                             . ' day(s) remaining.',
 
-                        'notification_type' =>
-                            'maintenance_upcoming',
+                        'notification_type'
+                            => 'maintenance_upcoming',
 
-                        'notification_category' =>
-                            'Maintenance',
+                        'notification_category'
+                            => 'Maintenance',
 
-                        'notification_reference_type' =>
-                            'maintenance_schedule',
+                        'notification_reference_type'
+                            => 'maintenance_schedule',
 
-                        'notification_reference_id' =>
-                            $schedule->maintenance_schedule_id,
+                        'notification_reference_id'
+                            => $schedule->maintenance_schedule_id,
 
-                        'notification_url' =>
-                            '/maintenance/schedules',
+                        'notification_url'
+                            => '/maintenance/schedules',
 
-                        'notification_event_key' =>
-                            $eventKey,
+                        'notification_event_key'
+                            => $eventKey,
 
-                        'notification_is_read' =>
-                            false,
+                        'notification_created_at'
+                            => now(),
 
                     ]);
-
             }
-
         }
 
 

@@ -2,18 +2,23 @@
 {{-- MESSAGING MODAL --}}
 {{-- Shared across all authenticated modules --}}
 {{-- ===================================================== --}}
+<div
+    id="messageToastContainer"
+    class="fixed bottom-5 right-5 z-[10000] flex w-[340px]
+           max-w-[calc(100vw-2rem)] flex-col gap-2"
+></div>
 
 <div id="messagingModal" class="hidden" aria-hidden="true">
     {{-- Backdrop --}}
     <div id="messagingModalBackdrop" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm opacity-0 transition-opacity duration-300 ease-out">
         {{-- Modal Container --}}
         <div id="messagingModalContainer" class="relative mx-4 w-full max-w-[960px] h-[85vh] max-h-[720px] bg-white rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.25)] overflow-hidden scale-[0.95] opacity-0 transition-all duration-300 ease-out flex">
-            
+
             {{-- ===================================== --}}
             {{-- LEFT PANEL --}}
             {{-- ===================================== --}}
             <aside class="w-full md:w-[340px] lg:w-[360px] shrink-0 border-r border-gray-200 flex flex-col bg-white">
-                
+
                 {{-- Header --}}
                 <div class="p-4 border-b border-gray-100">
                     <div>
@@ -45,8 +50,7 @@
                                 id="modalConversationSearch"
                                 placeholder="Search conversations..."
                                 class="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-10 pr-4 text-sm text-gray-900 outline-none focus:border-gray-900 focus:ring-4 focus:ring-gray-100 transition-all duration-200"
-                                autocomplete="off"
-                            />
+                                autocomplete="off" />
                         </div>
                     </div>
 
@@ -76,8 +80,7 @@
                                 id="modalUserSearch"
                                 placeholder="Search users by name or role..."
                                 class="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-4 text-sm text-gray-900 outline-none focus:border-gray-900 focus:ring-4 focus:ring-gray-100 transition-all duration-200"
-                                autocomplete="off"
-                            />
+                                autocomplete="off" />
                         </div>
                     </div>
 
@@ -99,7 +102,7 @@
             {{-- RIGHT PANEL --}}
             {{-- ===================================== --}}
             <main id="modalChatArea" class="hidden md:flex flex-1 flex-col min-h-0 bg-white">
-                
+
                 {{-- Chat Header --}}
                 <div id="modalChatHeader" class="hidden shrink-0 p-4 border-b border-gray-100 flex items-center gap-3">
                     <div id="modalChatAvatar" class="h-9 w-9 rounded-full bg-gradient-to-br from-emerald-100 to-emerald-200 flex items-center justify-center text-xs font-semibold text-emerald-700"></div>
@@ -111,7 +114,7 @@
 
                 {{-- Conversation Container --}}
                 <div id="modalConversationContainer" class="flex flex-col flex-1 overflow-hidden min-h-0">
-                    
+
                     {{-- Empty state --}}
                     <div id="modalChatEmptyState" class="flex items-center justify-center flex-1">
                         <div class="text-center p-8">
@@ -123,8 +126,48 @@
                         </div>
                     </div>
 
-                    {{-- Messages (scrollable) --}}
-                    <div id="modalMessagesContainer" class="hidden flex flex-col flex-1 overflow-y-auto min-h-0 gap-3 p-4">
+                    {{-- ====================================== --}}
+                    {{-- MESSAGES AREA --}}
+                    {{-- ====================================== --}}
+
+                    <div
+                        id="modalMessagesContainer"
+                        class="hidden flex flex-col flex-1 overflow-y-auto min-h-0 gap-3 p-4"
+                    >
+                        {{-- Messages are inserted here by JavaScript --}}
+                    </div>
+
+
+                    {{-- ====================================== --}}
+                    {{-- TYPING INDICATOR --}}
+                    {{-- KEEP OUTSIDE modalMessagesContainer --}}
+                    {{-- ====================================== --}}
+
+                    <div
+                        id="modalTypingIndicator"
+                        class="typing-indicator-wrapper shrink-0 px-4"
+                    >
+                        <div class="flex justify-start">
+
+                            <div
+                                class="inline-flex items-center gap-1
+                                    rounded-2xl rounded-bl-md
+                                    bg-gray-100 px-4 py-3"
+                            >
+                                <span
+                                    class="typing-dot h-1.5 w-1.5 rounded-full bg-gray-500"
+                                ></span>
+
+                                <span
+                                    class="typing-dot h-1.5 w-1.5 rounded-full bg-gray-500"
+                                ></span>
+
+                                <span
+                                    class="typing-dot h-1.5 w-1.5 rounded-full bg-gray-500"
+                                ></span>
+                            </div>
+
+                        </div>
                     </div>
                 </div>
 
@@ -137,22 +180,19 @@
                                 rows="1"
                                 placeholder="Type a message..."
                                 class="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-900 focus:ring-4 focus:ring-gray-100 transition-all duration-200 resize-none"
-                                style="min-height: 42px; max-height: 120px;"
-                            ></textarea>
+                                style="min-height: 42px; max-height: 120px;"></textarea>
                             <input type="file" id="modalAttachmentInput" class="hidden" />
                             <button
                                 type="button"
                                 id="modalAttachmentButton"
                                 class="h-10 w-10 shrink-0 flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 hover:text-gray-900"
-                                title="Attach file"
-                            >
+                                title="Attach file">
                                 <i data-lucide="paperclip" class="h-4 w-4"></i>
                             </button>
                             <button
                                 type="submit"
                                 class="h-10 w-10 shrink-0 flex items-center justify-center rounded-lg bg-gray-900 text-white transition hover:bg-gray-800 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                                id="modalSendButton"
-                            >
+                                id="modalSendButton">
                                 <i data-lucide="send" class="h-4 w-4"></i>
                             </button>
                         </form>
@@ -189,301 +229,1636 @@
 </div>
 
 <script>
-(function() {
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
-    const currentUserId = {{ auth()->id() }};
-    let currentConversationId = null;
-    let messagesPage = 1;
-    let isLoadingMessages = false;
-    let hasMoreMessages = true;
-    let userSearchTimeout = null;
-    let selectedAttachment = null;
+    (function() {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+        const currentUserId = {{ auth()->id() }};
+        let currentConversationId = null;
+        let messagesPage = 1;
+        let isLoadingMessages = false;
+        let hasMoreMessages = true;
+        let userSearchTimeout = null;
+        let selectedAttachment = null;
+        let activeRealtimeConversationId = null;
+        let typingTimeout = null;
+        let globalTypingSent = false;
+        const remoteTypingTimeouts = new Map();
+        let currentConversationUserName = '';
 
-    function lucideCreateIcons() {
-        if (window.lucide) {
-            lucide.createIcons();
+        // =====================================================
+        // USER ONLINE STATUS HEARTBEAT
+        //
+        // Tells Laravel that the current user is still
+        // actively using PRISM.
+        // =====================================================
+
+        async function sendUserHeartbeat() {
+
+            try {
+
+                await fetch('/user/heartbeat', {
+
+                    method: 'POST',
+
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken
+                    }
+
+                });
+
+            } catch (error) {
+
+                console.error(
+                    'Heartbeat failed:',
+                    error
+                );
+            }
         }
-    }
 
-    function getInitials(name) {
-        if (!name) return '?';
-        return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-    }
 
-    function formatTime(dateString) {
-        if (!dateString) return '';
-        const date = new Date(dateString);
-        const now = new Date();
-        const diff = now - date;
-        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        // =====================================================
+        // SYNC MESSAGES THAT ARRIVED WHILE USER WAS OFFLINE
+        // =====================================================
+
+        async function syncDeliveredMessages() {
+
+            try {
+
+                const response = await fetch(
+                    '/messages/sync-delivered',
+                    {
+                        method: 'POST',
+
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken
+                        }
+                    }
+                );
+
+                if (!response.ok) {
+
+                    console.error(
+                        'Delivery sync failed:',
+                        response.status
+                    );
+
+                    return;
+                }
+
+                const data = await response.json();
+
+                console.log(
+                    'Delivery sync complete:',
+                    data.delivered_count
+                );
+
+            } catch (error) {
+
+                console.error(
+                    'Delivery sync failed:',
+                    error
+                );
+            }
+        }
+
+
+        // =====================================================
+        // USER JUST LOADED PRISM
+        // =====================================================
+
+        sendUserHeartbeat();
+
+        syncDeliveredMessages();
+
+        // =====================================================
+        // USER'S INTERNET CONNECTION RETURNS
+        // =====================================================
+
+        window.addEventListener(
+            'online',
+            function () {
+
+                sendUserHeartbeat();
+
+                syncDeliveredMessages();
+            }
+        );
+
+
+        // =====================================================
+        // SEND AGAIN EVERY 60 SECONDS
+        // =====================================================
+
+        setInterval(
+            sendUserHeartbeat,
+            60000
+        );
+
+        // =====================================================
+        // FORMAT USER ONLINE STATUS
+        // =====================================================
+
+        function formatUserActivity(lastActiveAt) {
+
+            if (!lastActiveAt) {
+                return 'Offline';
+            }
+
+            const lastActive = new Date(lastActiveAt);
+            const now = new Date();
+
+            const diffMilliseconds =
+                now - lastActive;
+
+            const diffMinutes =
+                Math.floor(
+                    diffMilliseconds / 60000
+                );
+
+
+            // =========================================
+            // ACTIVE WITHIN LAST 2 MINUTES
+            // =========================================
+
+            if (diffMinutes <= 2) {
+                return 'Active now';
+            }
+
+
+            // =========================================
+            // MINUTES AGO
+            // =========================================
+
+            if (diffMinutes < 60) {
+                return `Active ${diffMinutes} minutes ago`;
+            }
+
+
+            const diffHours =
+                Math.floor(
+                    diffMinutes / 60
+                );
+
+
+            // =========================================
+            // HOURS AGO
+            // =========================================
+
+            if (diffHours < 24) {
+
+                return `Active ${diffHours} ${
+                diffHours === 1
+                    ? 'hour'
+                    : 'hours'
+            } ago`;
+            }
+
+
+            const diffDays =
+                Math.floor(
+                    diffHours / 24
+                );
+
+
+            // =========================================
+            // YESTERDAY
+            // =========================================
+
+            if (diffDays === 1) {
+                return 'Active yesterday';
+            }
+
+
+            // =========================================
+            // OLDER
+            // =========================================
+
+            return `Active ${diffDays} days ago`;
+        }
+
+        // =====================================================
+        // TOPBAR MESSAGE UNREAD COUNT
+        // PLACE ABOVE listenToUserMessagesRealtime()
+        // =====================================================
+
+        async function updateTopbarMessageBadge() {
+
+            try {
+
+                const response = await fetch('/messages/unread-count', {
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    return;
+                }
+
+                const data = await response.json();
+
+                const badge =
+                    document.getElementById('topbarMessageBadge');
+
+                if (!badge) {
+                    return;
+                }
+
+                const count =
+                    Number(data.unread_count || 0);
+
+
+                // =============================================
+                // NO UNREAD MESSAGES
+                // =============================================
+
+                if (count <= 0) {
+
+                    badge.textContent = '0';
+
+                    badge.classList.add('hidden');
+
+                    badge.classList.remove('flex');
+
+                    return;
+                }
+
+
+                // =============================================
+                // SHOW UNREAD COUNT
+                // 99+ prevents the badge becoming too large
+                // =============================================
+
+                badge.textContent =
+                    count > 99
+                        ? '99+'
+                        : String(count);
+
+                badge.classList.remove('hidden');
+
+                badge.classList.add('flex');
+
+            } catch (error) {
+
+                console.error(
+                    'Unable to load message unread count:',
+                    error
+                );
+            }
+        }
+
+
+        // =====================================================
+        // MESSAGE TOAST
+        // SHOWS WHEN A NEW MESSAGE ARRIVES
+        // PLACE ABOVE listenToUserMessagesRealtime()
+        // =====================================================
+
+        function showIncomingMessageToast(msg) {
+
+            const container =
+                document.getElementById('messageToastContainer');
+
+            if (!container || !msg) {
+                return;
+            }
+
+
+            // =============================================
+            // DO NOT SHOW TOAST IF USER IS ALREADY
+            // LOOKING AT THIS EXACT CONVERSATION
+            // =============================================
+
+            const messagingModal =
+                document.getElementById('messagingModal');
+
+            const modalIsOpen =
+                messagingModal &&
+                !messagingModal.classList.contains('hidden');
+
+            if (
+                modalIsOpen &&
+                Number(currentConversationId) ===
+                Number(msg.conversation_id)
+            ) {
+                return;
+            }
+
+
+            // =============================================
+            // GET SENDER NAME
+            // =============================================
+
+            const senderName =
+                msg.sender?.user_full_name ||
+                msg.sender_name ||
+                'New message';
+
+
+            // =============================================
+            // MESSAGE PREVIEW
+            // =============================================
+
+            let preview =
+                msg.message_content || 'Sent you a message';
+
+            if (preview === '[attachment:image]') {
+                preview = 'Sent you a photo';
+            }
+
+            if (preview === '[attachment:file]') {
+                preview = 'Sent you a file';
+            }
+
+            if (preview.length > 90) {
+                preview =
+                    preview.substring(0, 90) + '...';
+            }
+
+
+            // =============================================
+            // CREATE TOAST
+            // =============================================
+
+            const toast =
+                document.createElement('button');
+
+            toast.type = 'button';
+
+            toast.className = `
+                w-full rounded-xl border border-gray-200
+                bg-white p-4 text-left
+                shadow-[0_18px_50px_rgba(0,0,0,0.16)]
+                transition duration-200
+                hover:bg-gray-50
+            `;
+
+
+            // =============================================
+            // SAFE TEXT CONTENT
+            // =============================================
+
+            const header =
+                document.createElement('div');
+
+            header.className =
+                'flex items-center gap-2';
+
+
+            const icon =
+                document.createElement('div');
+
+            icon.className =
+                'flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white';
+
+            icon.innerHTML =
+                '<i data-lucide="message-circle" class="h-4 w-4"></i>';
+
+
+            const content =
+                document.createElement('div');
+
+            content.className =
+                'min-w-0 flex-1';
+
+
+            const name =
+                document.createElement('p');
+
+            name.className =
+                'truncate text-sm font-semibold text-gray-900';
+
+            name.textContent =
+                senderName;
+
+
+            const message =
+                document.createElement('p');
+
+            message.className =
+                'mt-0.5 line-clamp-2 text-xs leading-4 text-gray-500';
+
+            message.textContent =
+                preview;
+
+
+            content.appendChild(name);
+            content.appendChild(message);
+
+            header.appendChild(icon);
+            header.appendChild(content);
+
+            toast.appendChild(header);
+
+
+            // =============================================
+            // CLICK TO OPEN EXACT CONVERSATION
+            // =============================================
+
+            toast.addEventListener('click', async () => {
+
+                toast.remove();
+
+
+                // =============================================
+                // OPEN MESSAGE MODAL
+                // =============================================
+
+                openMessagingModal();
+
+
+                // =============================================
+                // DIRECTLY OPEN THE CONVERSATION
+                // THAT THIS MESSAGE CAME FROM
+                // =============================================
+
+                await openModalConversation(
+                    msg.conversation_id
+                );
+
+
+                // =============================================
+                // REFRESH UNREAD COUNT
+                // =============================================
+
+                await updateTopbarMessageBadge();
+            });
+
+
+            container.appendChild(toast);
+
+            lucideCreateIcons();
+
+
+            // =============================================
+            // REMOVE AFTER 5 SECONDS
+            // =============================================
+
+            setTimeout(() => {
+
+                toast.style.opacity = '0';
+                toast.style.transform =
+                    'translateY(8px)';
+
+                setTimeout(() => {
+                    toast.remove();
+                }, 200);
+
+            }, 8000);
+        }
+
+        // =====================================================
+        // GLOBAL USER MESSAGE LISTENER
+        //
+        // PURPOSE:
+        // Receives messages even when their conversation
+        // is not currently opened.
+        // =====================================================
+
+        function listenToUserMessagesRealtime() {
+
         
-        if (days === 0) {
-            return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-        } else if (days === 1) {
-            return 'Yesterday';
-        } else if (days < 7) {
-            return date.toLocaleDateString('en-US', { weekday: 'short' });
-        } else {
-            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        }
-    }
 
-    function formatMessageTime(dateString) {
-        if (!dateString) return '';
-        return new Date(dateString).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-    }
+            // =====================================================
+            // MAKE SURE LARAVEL ECHO EXISTS
+            // =====================================================
 
-    function formatFileSize(bytes) {
-        if (bytes === 0) return '0 Bytes';
-        const k = 1024;
-        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-    }
+            if (!window.Echo) {
 
-    function getFileIcon(type, extension) {
-        const ext = (extension || '').toLowerCase();
-        if (type.startsWith('image/')) {
-            return { icon: 'image', color: 'text-purple-600 bg-purple-50' };
-        } else if (type.startsWith('video/')) {
-            return { icon: 'film', color: 'text-indigo-600 bg-indigo-50' };
-        } else if (type.startsWith('audio/')) {
-            return { icon: 'music', color: 'text-pink-600 bg-pink-50' };
-        } else if (type === 'application/pdf') {
-            return { icon: 'file-text', color: 'text-red-600 bg-red-50' };
-        } else if (['doc', 'docx'].includes(ext)) {
-            return { icon: 'file-text', color: 'text-blue-600 bg-blue-50' };
-        } else if (['xls', 'xlsx'].includes(ext)) {
-            return { icon: 'file-spreadsheet', color: 'text-emerald-600 bg-emerald-50' };
-        } else if (['ppt', 'pptx'].includes(ext)) {
-            return { icon: 'presentation', color: 'text-orange-600 bg-orange-50' };
-        } else if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) {
-            return { icon: 'archive', color: 'text-yellow-600 bg-yellow-50' };
-        } else if (ext === 'txt') {
-            return { icon: 'file', color: 'text-gray-600 bg-gray-50' };
-        }
-        return { icon: 'file', color: 'text-gray-500 bg-gray-100' };
-    }
+                console.error(
+                    'Laravel Echo is not available.'
+                );
 
-    window.openMessagingModal = function() {
-        const modal = document.getElementById('messagingModal');
-        const backdrop = document.getElementById('messagingModalBackdrop');
-        const container = document.getElementById('messagingModalContainer');
+                return;
+            }
 
-        if (!modal || !backdrop || !container) return;
 
-        modal.classList.remove('hidden');
-        modal.setAttribute('aria-hidden', 'false');
-        document.body.style.overflow = 'hidden';
+            // =====================================================
+            // LISTEN TO CURRENT USER'S PRIVATE CHANNEL
+            // =====================================================
 
-        requestAnimationFrame(() => {
-            backdrop.classList.remove('opacity-0');
-            container.classList.remove('scale-[0.95]', 'opacity-0');
-            container.classList.add('scale-100', 'opacity-100');
-        });
+            window.Echo
+                .private(`user.${currentUserId}`)
+                .listen('.message.sent', (event) => {
 
-        lucideCreateIcons();
-        switchModalTab('conversations');
-    };
+                    const msg = event.message;
 
-    window.closeMessagingModal = function() {
-        const modal = document.getElementById('messagingModal');
-        const backdrop = document.getElementById('messagingModalBackdrop');
-        const container = document.getElementById('messagingModalContainer');
+                    if (!msg) {
+                        return;
+                    }
 
-        if (!modal || !backdrop || !container) return;
 
-        backdrop.classList.add('opacity-0');
-        container.classList.remove('scale-100', 'opacity-100');
-        container.classList.add('scale-[0.95]', 'opacity-0');
+                    // =====================================================
+                    // IGNORE OWN MESSAGES
+                    // =====================================================
 
-        setTimeout(() => {
-            modal.classList.add('hidden');
-            modal.setAttribute('aria-hidden', 'true');
-            document.body.style.overflow = '';
-            resetModalChat();
-        }, 300);
-    };
+                    if (
+                        Number(msg.sender_id) ===
+                        Number(currentUserId)
+                    ) {
+                        return;
+                    }
 
-    function resetModalChat() {
-        currentConversationId = null;
-        messagesPage = 1;
-        isLoadingMessages = false;
-        hasMoreMessages = true;
 
-        const chatEmpty = document.getElementById('modalChatEmptyState');
-        const messagesContainer = document.getElementById('modalMessagesContainer');
-        const chatHeader = document.getElementById('modalChatHeader');
-        const composer = document.getElementById('modalComposer');
-        const chatArea = document.getElementById('modalChatArea');
+                    // =====================================================
+                    // MARK MESSAGE AS DELIVERED
+                    //
+                    // The receiver does NOT need to open
+                    // the conversation for this.
+                    // =====================================================
 
-        if (chatEmpty) chatEmpty.classList.remove('hidden');
-        if (messagesContainer) {
-            messagesContainer.classList.add('hidden');
-            messagesContainer.innerHTML = '';
-        }
-        if (chatHeader) chatHeader.classList.add('hidden');
-        if (composer) composer.classList.add('hidden');
-        if (chatArea) {
-            chatArea.classList.remove('hidden');
-            chatArea.classList.add('md:flex');
-        }
-    }
+                    markMessageAsDelivered(
+                        msg.conversation_id,
+                        msg.message_id
+                    );
 
-    window.switchModalTab = function(tab) {
-        const conversationsSection = document.getElementById('modalConversationsSection');
-        const usersSection = document.getElementById('modalUsersSection');
-        const conversationsTab = document.getElementById('modalTabConversations');
-        const usersTab = document.getElementById('modalTabUsers');
 
-        if (tab === 'conversations') {
-            conversationsSection?.classList.remove('hidden');
-            usersSection?.classList.add('hidden');
-            conversationsTab?.classList.add('bg-white', 'text-gray-900', 'shadow-sm');
-            conversationsTab?.classList.remove('text-gray-500');
-            usersTab?.classList.remove('bg-white', 'text-gray-900', 'shadow-sm');
-            usersTab?.classList.add('text-gray-500');
-            loadModalConversations();
-        } else {
-            conversationsSection?.classList.add('hidden');
-            usersSection?.classList.remove('hidden');
-            usersTab?.classList.add('bg-white', 'text-gray-900', 'shadow-sm');
-            usersTab?.classList.remove('text-gray-500');
-            conversationsTab?.classList.remove('bg-white', 'text-gray-900', 'shadow-sm');
-            conversationsTab?.classList.add('text-gray-500');
-            loadModalUsers();
-        }
-    };
+                    // =====================================================
+                    // UPDATE CONVERSATION LIST
+                    //
+                    // This updates:
+                    // unread count
+                    // latest message
+                    // latest message time
+                    // conversation ordering
+                    // =====================================================
 
-    async function loadModalConversations() {
-        const search = document.getElementById('modalConversationSearch')?.value || '';
-        const params = new URLSearchParams();
-        if (search) params.set('search', search);
+                    loadModalConversations();
 
-        const response = await fetch(`/messages/conversations?${params.toString()}`, {
-            headers: { 'Accept': 'application/json' }
-        });
-        if (!response.ok) return;
-        const data = await response.json();
-        renderModalConversations(data.data);
-    }
+                    updateTopbarMessageBadge();
 
-    function renderModalConversations(conversations) {
-        const container = document.getElementById('modalConversationsList');
-        const emptyState = document.getElementById('modalConversationsEmpty');
+                    showIncomingMessageToast(msg);
 
-        if (!container) return;
+                })
 
-        if (!conversations || conversations.data.length === 0) {
-            container.innerHTML = '';
-            emptyState?.classList.remove('hidden');
-            emptyState?.classList.add('animate-fade-in');
-            return;
+                .listen('.user.typing', (event) => {
+
+                    handleGlobalTyping(event);
+
+                });
         }
 
-        emptyState?.classList.add('hidden');
+        function lucideCreateIcons() {
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+        }
 
-        container.innerHTML = conversations.data.map(conv => {
-            const lastMessage = conv.last_message || {};
-            const otherParticipant = conv.participants?.find(p => p.user?.user_id !== currentUserId)?.user || {};
-            const name = otherParticipant.user_full_name || 'Unknown';
-            const initials = getInitials(name);
-            const preview = lastMessage.message_content ? lastMessage.message_content.substring(0, 50) + (lastMessage.message_content.length > 50 ? '...' : '') : 'No messages';
-            const time = formatTime(lastMessage.created_at);
-            const unreadCount = conv.unread_count || 0;
-            const activeClass = conv.conversation_id === currentConversationId ? 'bg-gray-100' : '';
+        function getInitials(name) {
+            if (!name) return '?';
+            return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+        }
 
-            return `
-                <div class="conversation-item group p-3 cursor-pointer transition-all duration-200 ease-out hover:bg-gray-50 ${activeClass}" data-id="${conv.conversation_id}">
-                    <div class="flex items-start gap-3">
-                        <div class="h-10 w-10 shrink-0 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-xs font-semibold text-gray-600 transition-all duration-200">
-                            ${initials}
-                        </div>
-                        <div class="flex-1 min-w-0 pt-0.5">
-                            <div class="flex items-center justify-between gap-2">
-                                <span class="text-sm font-semibold text-gray-900 truncate transition-colors duration-200">${name}</span>
-                                <span class="text-[11px] text-gray-400 shrink-0 transition-colors duration-200">${time}</span>
+        function formatTime(dateString) {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            const now = new Date();
+            const diff = now - date;
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+            if (days === 0) {
+                return date.toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true
+                });
+            } else if (days === 1) {
+                return 'Yesterday';
+            } else if (days < 7) {
+                return date.toLocaleDateString('en-US', {
+                    weekday: 'short'
+                });
+            } else {
+                return date.toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric'
+                });
+            }
+        }
+
+        function formatMessageTime(dateString) {
+            if (!dateString) return '';
+            return new Date(dateString).toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            });
+        }
+
+        function getMessageStatus(msg) {
+
+            // =========================================
+            // RECEIVER OPENED THE CONVERSATION
+            // =========================================
+
+            if (msg.is_read || msg.read_at) {
+                return 'Seen';
+            }
+
+            // =========================================
+            // RECEIVER'S BROWSER RECEIVED MESSAGE
+            // =========================================
+
+            if (msg.delivered_at) {
+                return '✓✓ Delivered';
+            }
+
+            // =========================================
+            // SAVED ON SERVER
+            // =========================================
+
+            return '✓ Sent';
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function getFileIcon(type, extension) {
+            const ext = (extension || '').toLowerCase();
+            if (type.startsWith('image/')) {
+                return {
+                    icon: 'image',
+                    color: 'text-purple-600 bg-purple-50'
+                };
+            } else if (type.startsWith('video/')) {
+                return {
+                    icon: 'film',
+                    color: 'text-indigo-600 bg-indigo-50'
+                };
+            } else if (type.startsWith('audio/')) {
+                return {
+                    icon: 'music',
+                    color: 'text-pink-600 bg-pink-50'
+                };
+            } else if (type === 'application/pdf') {
+                return {
+                    icon: 'file-text',
+                    color: 'text-red-600 bg-red-50'
+                };
+            } else if (['doc', 'docx'].includes(ext)) {
+                return {
+                    icon: 'file-text',
+                    color: 'text-blue-600 bg-blue-50'
+                };
+            } else if (['xls', 'xlsx'].includes(ext)) {
+                return {
+                    icon: 'file-spreadsheet',
+                    color: 'text-emerald-600 bg-emerald-50'
+                };
+            } else if (['ppt', 'pptx'].includes(ext)) {
+                return {
+                    icon: 'presentation',
+                    color: 'text-orange-600 bg-orange-50'
+                };
+            } else if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) {
+                return {
+                    icon: 'archive',
+                    color: 'text-yellow-600 bg-yellow-50'
+                };
+            } else if (ext === 'txt') {
+                return {
+                    icon: 'file',
+                    color: 'text-gray-600 bg-gray-50'
+                };
+            }
+            return {
+                icon: 'file',
+                color: 'text-gray-500 bg-gray-100'
+            };
+        }
+
+        window.openMessagingModal = function() {
+            const modal = document.getElementById('messagingModal');
+            const backdrop = document.getElementById('messagingModalBackdrop');
+            const container = document.getElementById('messagingModalContainer');
+
+            if (!modal || !backdrop || !container) return;
+
+            modal.classList.remove('hidden');
+            modal.setAttribute('aria-hidden', 'false');
+            document.body.style.overflow = 'hidden';
+
+            requestAnimationFrame(() => {
+                backdrop.classList.remove('opacity-0');
+                container.classList.remove('scale-[0.95]', 'opacity-0');
+                container.classList.add('scale-100', 'opacity-100');
+            });
+
+            lucideCreateIcons();
+            switchModalTab('conversations');
+        };
+
+        window.closeMessagingModal = function() {
+            const modal = document.getElementById('messagingModal');
+            const backdrop = document.getElementById('messagingModalBackdrop');
+            const container = document.getElementById('messagingModalContainer');
+
+            if (!modal || !backdrop || !container) return;
+
+            backdrop.classList.add('opacity-0');
+            container.classList.remove('scale-100', 'opacity-100');
+            container.classList.add('scale-[0.95]', 'opacity-0');
+
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                modal.setAttribute('aria-hidden', 'true');
+                document.body.style.overflow = '';
+                resetModalChat();
+            }, 300);
+        };
+
+        function resetModalChat() {
+            currentConversationId = null;
+            messagesPage = 1;
+            isLoadingMessages = false;
+            hasMoreMessages = true;
+
+            const chatEmpty = document.getElementById('modalChatEmptyState');
+            const messagesContainer = document.getElementById('modalMessagesContainer');
+            const chatHeader = document.getElementById('modalChatHeader');
+            const composer = document.getElementById('modalComposer');
+            const chatArea = document.getElementById('modalChatArea');
+            const typingIndicator = document.getElementById('modalTypingIndicator');
+
+            if (chatEmpty) chatEmpty.classList.remove('hidden');
+            if (messagesContainer) {
+                messagesContainer.classList.add('hidden');
+                messagesContainer.innerHTML = '';
+            }
+            if (typingIndicator) {
+                typingIndicator.classList.remove(
+                    'is-typing'
+                );
+            }
+
+            remoteTypingTimeouts.forEach(timeout => {
+                clearTimeout(timeout);
+            });
+
+            remoteTypingTimeouts.clear();
+            if (chatHeader) chatHeader.classList.add('hidden');
+            if (composer) composer.classList.add('hidden');
+            if (chatArea) {
+                chatArea.classList.remove('hidden');
+                chatArea.classList.add('md:flex');
+            }
+        }
+
+        window.switchModalTab = function(tab) {
+            const conversationsSection = document.getElementById('modalConversationsSection');
+            const usersSection = document.getElementById('modalUsersSection');
+            const conversationsTab = document.getElementById('modalTabConversations');
+            const usersTab = document.getElementById('modalTabUsers');
+
+            if (tab === 'conversations') {
+                conversationsSection?.classList.remove('hidden');
+                usersSection?.classList.add('hidden');
+                conversationsTab?.classList.add('bg-white', 'text-gray-900', 'shadow-sm');
+                conversationsTab?.classList.remove('text-gray-500');
+                usersTab?.classList.remove('bg-white', 'text-gray-900', 'shadow-sm');
+                usersTab?.classList.add('text-gray-500');
+                loadModalConversations();
+            } else {
+                conversationsSection?.classList.add('hidden');
+                usersSection?.classList.remove('hidden');
+                usersTab?.classList.add('bg-white', 'text-gray-900', 'shadow-sm');
+                usersTab?.classList.remove('text-gray-500');
+                conversationsTab?.classList.remove('bg-white', 'text-gray-900', 'shadow-sm');
+                conversationsTab?.classList.add('text-gray-500');
+                loadModalUsers();
+            }
+        };
+
+        // =====================================================
+        // LOAD CONVERSATIONS
+        // =====================================================
+
+        async function loadModalConversations() {
+
+            const search =
+                document.getElementById('modalConversationSearch')?.value || '';
+
+            const params = new URLSearchParams();
+
+            if (search) {
+                params.set('search', search);
+            }
+
+            try {
+
+                const response = await fetch(
+                    `/messages/conversations?${params.toString()}`, {
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    }
+                );
+
+                if (!response.ok) {
+
+                    console.error(
+                        'Failed to load conversations:',
+                        response.status
+                    );
+
+                    return;
+                }
+
+                const result = await response.json();
+
+                // =========================================
+                // DEBUG
+                // Check what Laravel actually returned
+                // =========================================
+
+                console.log(
+                    'Conversations response:',
+                    result
+                );
+
+                // =========================================
+                // Laravel pagination object
+                //
+                // result.data = paginator
+                // result.data.data = conversations
+                // =========================================
+
+                renderModalConversations(
+                    result.data
+                );
+
+            } catch (error) {
+
+                console.error(
+                    'Conversation loading error:',
+                    error
+                );
+            }
+        }
+
+        // =====================================================
+        // RENDER CONVERSATIONS
+        // =====================================================
+
+        function renderModalConversations(conversations) {
+
+            const container =
+                document.getElementById('modalConversationsList');
+
+            const emptyState =
+                document.getElementById('modalConversationsEmpty');
+
+            if (!container) {
+                return;
+            }
+
+            // =========================================
+            // GET CONVERSATION ARRAY FROM PAGINATOR
+            // =========================================
+
+            const items = conversations?.data || [];
+
+            // =========================================
+            // NO CONVERSATIONS
+            // =========================================
+
+            if (items.length === 0) {
+
+                container.innerHTML = '';
+
+                emptyState?.classList.remove('hidden');
+
+                return;
+            }
+
+            emptyState?.classList.add('hidden');
+
+            // =========================================
+            // RENDER CONVERSATION LIST
+            // =========================================
+
+            container.innerHTML = items.map(conv => {
+
+                const lastMessage =
+                    conv.last_message || {};
+
+                const otherParticipant =
+                    conv.participants?.find(
+                        p =>
+                        Number(p.user?.user_id) !==
+                        Number(currentUserId)
+                    )?.user || {};
+
+                const name =
+                    otherParticipant.user_full_name || 'Unknown';
+
+                const initials =
+                    getInitials(name);
+
+                // =========================================
+                // ONLINE STATUS FOR CONVERSATION USER
+                // =========================================
+
+                const lastActiveAt =
+                    otherParticipant.last_active_at;
+
+                let isOnline = false;
+
+                if (lastActiveAt) {
+
+                    const lastActive =
+                        new Date(lastActiveAt);
+
+                    const now =
+                        new Date();
+
+                    const diffMinutes =
+                        Math.floor(
+                            (now - lastActive) / 60000
+                        );
+
+                    // Same rule as the chat header
+                    // Active within 2 minutes = online
+                    isOnline = diffMinutes <= 2;
+                }
+
+                // =========================================
+                // LAST MESSAGE OWNER
+                // =========================================
+
+                const lastMessageIsMine =
+                    Number(lastMessage.sender_id) ===
+                    Number(currentUserId);
+
+
+                // =========================================
+                // UNREAD MESSAGE COUNT
+                // =========================================
+
+                const unreadCount =
+                    Number(conv.unread_count || 0);
+
+
+                // =========================================
+                // CONVERSATION PREVIEW
+                //
+                // Messenger style behavior:
+                //
+                // 1 unread message:
+                // Show actual latest message.
+                //
+                // More than 1 unread:
+                // "4 new messages"
+                //
+                // Own message:
+                // "You: Hello"
+                //
+                // Attachments:
+                // "You sent a photo."
+                // "Administrator sent a photo."
+                // =========================================
+
+                let preview = 'No messages';
+
+                const rawMessage =
+                    lastMessage.message_content || '';
+
+
+                // =========================================
+                // MORE THAN ONE UNREAD MESSAGE
+                // =========================================
+
+                if (
+                    !lastMessageIsMine &&
+                    unreadCount > 1
+                ) {
+
+                    preview =
+                        `${unreadCount} new messages`;
+
+                }
+
+
+                // =========================================
+                // PHOTO
+                // =========================================
+
+                else if (
+                    rawMessage === '[attachment:image]'
+                ) {
+
+                    preview = lastMessageIsMine
+                        ? 'You sent a photo.'
+                        : `${name} sent a photo.`;
+
+                }
+
+
+                // =========================================
+                // FILE
+                // =========================================
+
+                else if (
+                    rawMessage === '[attachment:file]'
+                ) {
+
+                    preview = lastMessageIsMine
+                        ? 'You sent a file.'
+                        : `${name} sent a file.`;
+
+                }
+
+
+                // =========================================
+                // NORMAL TEXT MESSAGE
+                // =========================================
+
+                else if (rawMessage) {
+
+                    const shortenedMessage =
+                        rawMessage.length > 50
+                            ? rawMessage.substring(0, 50) + '...'
+                            : rawMessage;
+
+                    preview = lastMessageIsMine
+                        ? `You: ${shortenedMessage}`
+                        : shortenedMessage;
+                }
+
+                const time =
+                    formatTime(lastMessage.created_at);
+
+                // =========================================
+                // LAST MESSAGE STATUS
+                // Only show status if WE sent the message
+                // =========================================
+
+                
+
+                let conversationMessageStatus = '';
+
+                if (lastMessageIsMine && lastMessage.message_id) {
+
+                    if (
+                        lastMessage.is_read ||
+                        lastMessage.read_at
+                    ) {
+
+                        conversationMessageStatus = 'Seen';
+
+                    } else if (lastMessage.delivered_at) {
+
+                        conversationMessageStatus =
+                            '✓✓ Delivered';
+
+                    } else {
+
+                        conversationMessageStatus =
+                            '✓ Sent';
+                    }
+                }
+
+                
+
+                const isActive =
+                    Number(conv.conversation_id) ===
+                    Number(currentConversationId);
+
+                const activeClass =
+                    isActive ? 'bg-gray-100' : '';
+
+                return `
+                    <div
+                        class="conversation-item group p-3 cursor-pointer transition-all duration-200 hover:bg-gray-50 ${activeClass}"
+                        data-id="${conv.conversation_id}"
+                    >
+
+                        <div class="flex items-start gap-3">
+
+                            <!-- ========================================= -->
+                            <!-- AVATAR WITH ONLINE STATUS DOT -->
+                            <!-- ========================================= -->
+
+                            <div class="relative shrink-0">
+
+                                <div
+                                    class="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center text-xs font-semibold text-gray-600"
+                                >
+                                    ${initials}
+                                </div>
+
+                                <span
+                                    class="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${
+                                        isOnline
+                                            ? 'bg-emerald-500'
+                                            : 'bg-gray-400'
+                                    }"
+                                    title="${
+                                        isOnline
+                                            ? 'Active now'
+                                            : 'Offline'
+                                    }"
+                                ></span>
+
                             </div>
-                            <div class="flex items-center justify-between gap-2 mt-0.5">
-                                <p class="text-xs text-gray-500 truncate transition-colors duration-200">${preview}</p>
-                                ${unreadCount > 0 ? `<span class="shrink-0 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-gray-900 px-1.5 text-[10px] font-bold text-white transition-all duration-200 hover:bg-gray-800">${unreadCount}</span>` : ''}
+
+                            <div class="flex-1 min-w-0 pt-0.5">
+
+                                <div class="flex items-center justify-between gap-2">
+
+                                    <span
+                                        class="text-sm font-semibold text-gray-900 truncate"
+                                    >
+                                        ${escapeHtml(name)}
+                                    </span>
+
+                                    <span
+                                        class="text-[11px] text-gray-400 shrink-0"
+                                    >
+                                        ${time}
+                                    </span>
+
+                                </div>
+
+                                <!-- ========================================= -->
+                                <!-- MESSAGE PREVIEW + STATUS -->
+                                <!-- ========================================= -->
+
+                                <div class="flex items-end justify-between gap-2 mt-0.5">
+
+                                    <p
+                                        class="conversation-preview text-xs truncate flex-1 min-w-0 ${
+                                            unreadCount > 0
+                                                ? 'font-semibold text-gray-900'
+                                                : 'text-gray-500'
+                                        }"
+                                        data-conversation-id="${conv.conversation_id}"
+                                        data-original-preview="${escapeHtml(preview)}"
+                                    >
+                                        ${escapeHtml(preview)}
+                                    </p>
+
+                                    ${
+                                        unreadCount > 0
+                                            ? `
+                                                <span
+                                                    class="shrink-0 h-2.5 w-2.5 rounded-full bg-gray-900"
+                                                    title="${unreadCount} unread ${
+                                                        unreadCount === 1
+                                                            ? 'message'
+                                                            : 'messages'
+                                                    }"
+                                                ></span>
+                                            `
+                                            : conversationMessageStatus
+                                                ? `
+                                                    <span
+                                                        class="conversation-message-status shrink-0 text-[10px] text-gray-400 font-medium"
+                                                        data-message-id="${lastMessage.message_id}"
+                                                    >
+                                                        ${conversationMessageStatus}
+                                                    </span>
+                                                `
+                                                : ''
+                                    }
+
+                                </div>
+
                             </div>
-                        </div>
-                        <div class="shrink-0 pt-0.5">
-                            <button type="button" onclick="event.stopPropagation(); confirmDeleteConversation(${conv.conversation_id})" class="conversation-delete-btn opacity-0 group-hover:opacity-100 ${activeClass ? 'opacity-100' : ''} h-7 w-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all duration-200 hover:scale-110">
+
+                            <button
+                                type="button"
+                                onclick="event.stopPropagation(); confirmDeleteConversation(${conv.conversation_id})"
+                                class="conversation-delete-btn opacity-0 group-hover:opacity-100 h-7 w-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition"
+                            >
                                 <i data-lucide="trash-2" class="h-4 w-4"></i>
                             </button>
+
                         </div>
+
                     </div>
-                </div>
-            `;
-        }).join('');
+                `;
 
-        lucideCreateIcons();
-    }
+            }).join('');
 
-    async function openModalConversation(conversationId) {
-        currentConversationId = conversationId;
-        messagesPage = 1;
-        hasMoreMessages = true;
-
-        document.querySelectorAll('#modalConversationsList .conversation-item').forEach(el => {
-            el.classList.toggle('bg-gray-100', el.dataset.id == conversationId);
-        });
-
-        const chatEmpty = document.getElementById('modalChatEmptyState');
-        const messagesContainer = document.getElementById('modalMessagesContainer');
-        const chatHeader = document.getElementById('modalChatHeader');
-        const composer = document.getElementById('modalComposer');
-        const chatArea = document.getElementById('modalChatArea');
-
-        if (chatEmpty) chatEmpty.classList.add('hidden');
-        if (messagesContainer) messagesContainer.classList.remove('hidden');
-        if (chatHeader) chatHeader.classList.remove('hidden');
-        if (composer) composer.classList.remove('hidden');
-        if (chatArea) {
-            chatArea.classList.remove('hidden');
-            chatArea.classList.add('md:flex');
+            lucideCreateIcons();
         }
 
-        const response = await fetch(`/messages/conversations/${conversationId}`, {
-            headers: { 'Accept': 'application/json' }
-        });
-        if (!response.ok) return;
-        const data = await response.json();
-        const conversation = data.data;
+        // =====================================================
+        // MARK CONVERSATION AS READ
+        //
+        // PURPOSE:
+        // When the user opens a conversation, all messages
+        // received from the other user become read.
+        // =====================================================
 
-        const otherParticipant = conversation.participants?.find(p => p.user?.user_id !== currentUserId)?.user || {};
-        const name = otherParticipant.user_full_name || 'Unknown';
-        const role = otherParticipant.role?.role_name || '';
+        async function markConversationAsRead(conversationId) {
 
-        document.getElementById('modalChatTitle').textContent = name;
-        document.getElementById('modalChatSubtitle').textContent = role;
-        document.getElementById('modalChatAvatar').innerHTML = getInitials(name);
+            try {
 
-        await loadModalMessages(conversationId);
-    }
+                const response = await fetch(
+                    `/messages/conversations/${conversationId}/read`, {
+                        method: 'POST',
 
-    async function loadModalMessages(conversationId, append = false) {
-        if (isLoadingMessages || !hasMoreMessages) return;
-        isLoadingMessages = true;
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken
+                        }
+                    }
+                );
 
-        const container = document.getElementById('modalMessagesContainer');
-        if (!append) container.innerHTML = '';
 
-        const response = await fetch(`/messages/conversations/${conversationId}/messages?page=${messagesPage}`, {
-            headers: { 'Accept': 'application/json' }
-        });
-        if (!response.ok) {
-            isLoadingMessages = false;
-            return;
+                // =============================================
+                // STOP IF REQUEST FAILED
+                // =============================================
+
+                if (!response.ok) {
+
+                    console.error(
+                        'Failed to mark conversation as read.'
+                    );
+
+                    return;
+                }
+
+
+                // =============================================
+                // REFRESH LEFT CONVERSATION LIST
+                //
+                // This removes the unread badge.
+                // Example: 1 disappears after opening chat.
+                // =============================================
+
+                await loadModalConversations();
+                await updateTopbarMessageBadge();
+
+            } catch (error) {
+
+                console.error(
+                    'Mark as read error:',
+                    error
+                );
+
+            }
         }
 
-        const data = await response.json();
-        const messages = data.data;
+        async function openModalConversation(conversationId) {
 
-        if (messages.data.length === 0 && !append) {
-            container.innerHTML = `
+            currentConversationId = conversationId;
+            messagesPage = 1;
+            hasMoreMessages = true;
+
+            document.querySelectorAll('#modalConversationsList .conversation-item').forEach(el => {
+                el.classList.toggle('bg-gray-100', el.dataset.id == conversationId);
+            });
+
+            const chatEmpty = document.getElementById('modalChatEmptyState');
+            const messagesContainer = document.getElementById('modalMessagesContainer');
+            const chatHeader = document.getElementById('modalChatHeader');
+            const composer = document.getElementById('modalComposer');
+            const chatArea = document.getElementById('modalChatArea');
+
+            if (chatEmpty) chatEmpty.classList.add('hidden');
+            if (messagesContainer) messagesContainer.classList.remove('hidden');
+            if (chatHeader) chatHeader.classList.remove('hidden');
+            if (composer) composer.classList.remove('hidden');
+
+            if (chatArea) {
+                chatArea.classList.remove('hidden');
+                chatArea.classList.add('md:flex');
+            }
+
+            const response = await fetch(`/messages/conversations/${conversationId}`, {
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (!response.ok) return;
+
+            const data = await response.json();
+            const conversation = data.data;
+
+            const otherParticipant =
+                conversation.participants?.find(
+                    p => p.user?.user_id !== currentUserId
+                )?.user || {};
+
+            const name =
+                otherParticipant.user_full_name || 'Unknown';
+
+            currentConversationUserName = name;
+
+            // =====================================================
+            // USER INFORMATION
+            // =====================================================
+
+            const role =
+                otherParticipant.role?.role_name || '';
+
+            const lastActiveAt =
+                otherParticipant.last_active_at;
+
+
+            // =====================================================
+            // ONLINE STATUS
+            // =====================================================
+
+            const activityStatus =
+                formatUserActivity(
+                    lastActiveAt
+                );
+
+
+            // =====================================================
+            // UPDATE CHAT HEADER
+            // =====================================================
+
+            document.getElementById(
+                'modalChatTitle'
+            ).textContent = name;
+
+            document.getElementById(
+                'modalChatSubtitle'
+            ).textContent = activityStatus;
+
+            document.getElementById(
+                'modalChatAvatar'
+            ).innerHTML = getInitials(name);
+
+
+            // =====================================================
+            // LOAD EXISTING MESSAGES
+            // =====================================================
+
+            // =====================================================
+            // LOAD EXISTING MESSAGES
+            // =====================================================
+
+            await loadModalMessages(
+                conversationId
+            );
+
+
+            // =====================================================
+            // MARK MESSAGES AS READ
+            //
+            // This removes the unread badge when the user
+            // actually opens the conversation.
+            // =====================================================
+
+            await markConversationAsRead(
+                conversationId
+            );
+
+
+            // =====================================================
+            // START REAL TIME LISTENER
+            // =====================================================
+
+            listenToConversationRealtime(
+                conversationId
+            );
+        }
+
+        // =====================================================
+        // SEND TYPING STATUS
+        // =====================================================
+
+        function sendTypingWhisper(isTyping) {
+
+            if (
+                !window.Echo ||
+                !currentConversationId
+            ) {
+                return;
+            }
+
+
+            // =============================================
+            // SEND TEMPORARY REALTIME EVENT
+            // =============================================
+
+            window.Echo
+                .private(
+                    `conversation.${currentConversationId}`
+                )
+                .whisper('typing', {
+                    user_id: currentUserId,
+                    is_typing: isTyping
+                });
+        }
+
+        // =====================================================
+        // SEND GLOBAL TYPING STATUS TO SERVER
+        // =====================================================
+
+        async function sendGlobalTypingStatus(
+            conversationId,
+            isTyping
+        ) {
+
+            if (!conversationId) {
+                return;
+            }
+
+
+            try {
+
+                await fetch(
+                    `/messages/conversations/${conversationId}/typing`,
+                    {
+                        method: 'POST',
+
+                        headers: {
+                            'Content-Type':
+                                'application/json',
+
+                            'Accept':
+                                'application/json',
+
+                            'X-CSRF-TOKEN':
+                                document.querySelector(
+                                    'meta[name="csrf-token"]'
+                                )?.content ?? '',
+                        },
+
+                        body: JSON.stringify({
+                            is_typing: isTyping,
+                        }),
+                    }
+                );
+
+            } catch (error) {
+
+                console.error(
+                    'Failed to send global typing status:',
+                    error
+                );
+            }
+        }
+
+        // =====================================================
+        // DETECT CURRENT USER TYPING
+        // =====================================================
+
+        const messageInput =
+            document.getElementById('modalMessageInput');
+
+        if (messageInput) {
+
+            messageInput.addEventListener('input', function () {
+
+                if (!currentConversationId) {
+                    return;
+                }
+
+
+                // =============================================
+                // EMPTY INPUT MEANS USER STOPPED TYPING
+                // =============================================
+
+                if (!this.value.trim()) {
+
+                    clearTimeout(typingTimeout);
+
+
+                    // =========================================
+                    // STOP LOCAL CONVERSATION WHISPER
+                    // =========================================
+
+                    sendTypingWhisper(false);
+
+
+                    // =========================================
+                    // STOP GLOBAL TYPING INDICATOR
+                    //
+                    // Only send this if we previously told
+                    // Laravel that we started typing.
+                    // =========================================
+
+                    if (globalTypingSent) {
+
+                        globalTypingSent = false;
+
+                        sendGlobalTypingStatus(
+                            currentConversationId,
+                            false
+                        );
+                    }
+
+
+                    return;
+                }
+
+
+                // =============================================
+                // CURRENT OPEN CONVERSATION
+                //
+                // Save this because currentConversationId
+                // could change before the timeout finishes.
+                // =============================================
+
+                const typingConversationId =
+                    currentConversationId;
+
+
+                // =============================================
+                // REALTIME WHISPER
+                //
+                // This can run on every keystroke because
+                // it travels through the WebSocket.
+                // =============================================
+
+                sendTypingWhisper(true);
+
+
+                // =============================================
+                // GLOBAL TYPING STARTED
+                //
+                // Only POST once when typing begins.
+                // =============================================
+
+                if (!globalTypingSent) {
+
+                    globalTypingSent = true;
+
+                    sendGlobalTypingStatus(
+                        typingConversationId,
+                        true
+                    );
+                }
+
+
+                // =============================================
+                // RESET STOP TIMER
+                // =============================================
+
+                clearTimeout(typingTimeout);
+
+
+                // =============================================
+                // IF NO KEYSTROKE FOR 1.5 SECONDS,
+                // CONSIDER USER FINISHED TYPING
+                // =============================================
+
+                typingTimeout = setTimeout(() => {
+
+
+                    // =========================================
+                    // STOP OPEN CHAT WHISPER
+                    // =========================================
+
+                    sendTypingWhisper(false);
+
+
+                    // =========================================
+                    // STOP GLOBAL TYPING INDICATOR
+                    // =========================================
+
+                    if (globalTypingSent) {
+
+                        globalTypingSent = false;
+
+                        sendGlobalTypingStatus(
+                            typingConversationId,
+                            false
+                        );
+                    }
+
+
+                }, 1500);
+            });
+        }
+
+        async function loadModalMessages(conversationId, append = false) {
+            if (isLoadingMessages || !hasMoreMessages) return;
+            isLoadingMessages = true;
+
+            const container = document.getElementById('modalMessagesContainer');
+            if (!append) container.innerHTML = '';
+
+            const response = await fetch(`/messages/conversations/${conversationId}/messages?page=${messagesPage}`, {
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+            if (!response.ok) {
+                isLoadingMessages = false;
+                return;
+            }
+
+            const data = await response.json();
+            const messages = data.data;
+
+            if (messages.data.length === 0 && !append) {
+                container.innerHTML = `
                 <div class="text-center py-12">
                     <div class="inline-flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-400 mb-3">
                         <i data-lucide="message-square" class="h-6 w-6"></i>
@@ -492,37 +1867,52 @@
                     <p class="text-xs text-gray-500 mt-1">Send the first message below</p>
                 </div>
             `;
-            lucideCreateIcons();
-            isLoadingMessages = false;
-            return;
-        }
+                lucideCreateIcons();
+                isLoadingMessages = false;
+                return;
+            }
 
-        if (messages.data.length === 0) {
-            hasMoreMessages = false;
-            isLoadingMessages = false;
-            return;
-        }
+            if (messages.data.length === 0) {
+                hasMoreMessages = false;
+                isLoadingMessages = false;
+                return;
+            }
 
-        const userId = {{ auth()->id() }};
-        const orderedMessages = [...messages.data].reverse();
-        const html = orderedMessages.map(msg => {
-            const isOwn = msg.sender?.user_id === userId;
-            const time = formatMessageTime(msg.created_at);
-            const senderName = msg.sender?.name || msg.sender?.user_full_name || 'Unknown';
-            const attachment = msg.attachment || null;
+            const userId = {{ auth()->id() }};
+            const orderedMessages = [...messages.data].reverse();
+            const html = orderedMessages.map(msg => {
+                const isOwn = msg.sender?.user_id === userId;
+                const time = formatMessageTime(msg.created_at);
+                const senderName = msg.sender?.name || msg.sender?.user_full_name || 'Unknown';
+                const attachment = msg.attachment || null;
 
-            if (isOwn) {
-                return `
+                if (isOwn) {
+                    return `
                     <div class="flex justify-end">
                         <div class="max-w-[70%] rounded-2xl rounded-br-md bg-gray-900 text-white px-4 py-2.5">
                             ${msg.message_content ? `<p class="text-sm whitespace-pre-wrap break-words">${msg.message_content}</p>` : ''}
                             ${attachment ? getAttachmentPreviewHtml(attachment, time) : ''}
-                            ${!msg.message_content && !attachment ? '' : `<span class="text-[10px] text-gray-400 mt-1 block text-right">${time}</span>`}
+                            ${!msg.message_content && !attachment ? '' : `
+                                <div class="mt-1 flex items-center justify-end gap-1.5">
+
+                                    <span class="text-[10px] text-gray-400">
+                                        ${time}
+                                    </span>
+
+                                    <span
+                                        class="message-read-status text-[10px] text-gray-400 font-medium"
+                                        data-message-id="${msg.message_id}"
+                                    >
+                                        ${getMessageStatus(msg)}
+                                    </span>
+
+                                </div>
+                            `}
                         </div>
                     </div>
                 `;
-            } else {
-                return `
+                } else {
+                    return `
                     <div class="flex justify-start">
                         <div class="max-w-[70%] rounded-2xl rounded-bl-md bg-gray-100 text-gray-900 px-4 py-2.5">
                             <p class="text-[11px] font-semibold text-gray-500 mb-0.5">${senderName}</p>
@@ -532,58 +1922,811 @@
                         </div>
                     </div>
                 `;
+                }
+            }).join('');
+
+            if (append) {
+                container.insertAdjacentHTML('afterbegin', html);
+            } else {
+                container.innerHTML = html;
             }
-        }).join('');
 
-        if (append) {
-            container.insertAdjacentHTML('afterbegin', html);
-        } else {
-            container.innerHTML = html;
+            lucideCreateIcons();
+            scrollToBottom(false, !append);
+            isLoadingMessages = false;
         }
 
-        lucideCreateIcons();
-        scrollToBottom(false, !append);
-        isLoadingMessages = false;
-    }
+        // =====================================================
+        // MARK MESSAGE AS DELIVERED
+        //
+        // Called when this browser actually receives
+        // another user's realtime message.
+        // =====================================================
 
-    function scrollToBottom(smooth = false, force = false) {
-        const container = document.getElementById('modalMessagesContainer');
-        if (!container) return;
+        async function markMessageAsDelivered(
+            conversationId,
+            messageId
+        ) {
 
-        const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 120;
+            try {
 
-        if (!force && !isNearBottom) {
-            return;
+                const response = await fetch(
+                    `/messages/conversations/${conversationId}/messages/${messageId}/delivered`,
+                    {
+                        method: 'POST',
+
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken
+                        }
+                    }
+                );
+
+                if (!response.ok) {
+
+                    console.error(
+                        'Failed to mark message as delivered:',
+                        response.status
+                    );
+                }
+
+            } catch (error) {
+
+                console.error(
+                    'Delivery receipt error:',
+                    error
+                );
+            }
         }
 
-        if (smooth) {
-            container.scrollTo({
-                top: container.scrollHeight,
-                behavior: 'smooth'
+        // =====================================================
+        // SHOW TYPING STATE
+        //
+        // Updates:
+        // 1. Three dot bubble inside currently opened chat
+        // 2. Three dot indicator in conversation list
+        // =====================================================
+
+        function showConversationTyping(conversationId) {
+
+            // =============================================
+            // LEFT CONVERSATION LIST
+            // =============================================
+
+            const preview =
+                document.querySelector(
+                    `.conversation-preview[data-conversation-id="${conversationId}"]`
+                );
+
+            if (preview) {
+
+                // Save current preview before replacing it
+                if (!preview.dataset.originalPreview) {
+                    preview.dataset.originalPreview =
+                        preview.textContent.trim();
+                }
+
+                preview.innerHTML = `
+                    <span class="conversation-typing-dots">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </span>
+                `;
+
+                preview.classList.add('text-gray-500');
+            }
+
+
+            // =============================================
+            // OPEN CONVERSATION
+            // ONLY SHOW BUBBLE IF THIS CHAT IS OPEN
+            // =============================================
+
+            if (
+                Number(conversationId) ===
+                Number(currentConversationId)
+            ) {
+
+                const indicator =
+                    document.getElementById(
+                        'modalTypingIndicator'
+                    );
+
+                if (indicator) {
+
+                    indicator.classList.add(
+                        'is-typing'
+                    );
+
+                    // Keep bottom of conversation visible
+                    requestAnimationFrame(() => {
+                        scrollToBottom(true, true);
+                    });
+                }
+            }
+        }
+
+
+        // =====================================================
+        // HIDE TYPING STATE
+        // =====================================================
+
+        function hideConversationTyping(conversationId) {
+
+            // =============================================
+            // LEFT CONVERSATION LIST
+            // RESTORE LAST MESSAGE
+            // =============================================
+
+            const preview =
+                document.querySelector(
+                    `.conversation-preview[data-conversation-id="${conversationId}"]`
+                );
+
+            if (preview) {
+
+                const originalPreview =
+                    preview.dataset.originalPreview || '';
+
+                preview.textContent =
+                    originalPreview;
+            }
+
+
+            // =============================================
+            // OPEN CONVERSATION
+            // =============================================
+
+            if (
+                Number(conversationId) ===
+                Number(currentConversationId)
+            ) {
+
+                const indicator =
+                    document.getElementById(
+                        'modalTypingIndicator'
+                    );
+
+                if (indicator) {
+
+                    indicator.classList.remove(
+                        'is-typing'
+                    );
+
+                    requestAnimationFrame(() => {
+                        scrollToBottom(true, true);
+                    });
+                }
+            }
+        }
+
+        // =====================================================
+        // HANDLE GLOBAL TYPING EVENT
+        // =====================================================
+
+        function handleGlobalTyping(event) {
+
+            if (!event) {
+                return;
+            }
+
+
+            const conversationId = Number(
+                event.conversation_id
+            );
+
+            const senderId = Number(
+                event.sender_id
+            );
+
+            const isTyping =
+                event.is_typing === true ||
+                event.is_typing === 1 ||
+                event.is_typing === '1';
+
+
+            // =================================================
+            // IGNORE OUR OWN EVENT
+            // =================================================
+
+            if (senderId === Number(currentUserId)) {
+                return;
+            }
+
+
+            // =================================================
+            // CLEAR OLD TIMER FOR THIS CONVERSATION ONLY
+            // =================================================
+
+            if (
+                remoteTypingTimeouts.has(
+                    conversationId
+                )
+            ) {
+
+                clearTimeout(
+                    remoteTypingTimeouts.get(
+                        conversationId
+                    )
+                );
+
+                remoteTypingTimeouts.delete(
+                    conversationId
+                );
+            }
+
+
+            // =================================================
+            // USER STOPPED TYPING
+            // =================================================
+
+            if (!isTyping) {
+
+                hideConversationTyping(
+                    conversationId
+                );
+
+
+                // =============================================
+                // ALSO REMOVE CHAT BUBBLE IF THIS CHAT IS OPEN
+                // =============================================
+
+                if (
+                    Number(activeConversationId) ===
+                    conversationId
+                ) {
+
+                    hideRemoteTypingIndicator();
+                }
+
+
+                return;
+            }
+
+
+            // =================================================
+            // SHOW TYPING IN LEFT CONVERSATION LIST
+            // =================================================
+
+            showConversationTyping(
+                conversationId
+            );
+
+
+            // =================================================
+            // IF THIS CONVERSATION IS CURRENTLY OPEN,
+            // ALSO SHOW THE TYPING BUBBLE INSIDE THE CHAT
+            // =================================================
+
+            if (
+                Number(activeConversationId) ===
+                conversationId
+            ) {
+
+                showRemoteTypingIndicator();
+            }
+
+
+            // =================================================
+            // SAFETY TIMEOUT
+            //
+            // If the sender closes their browser without sending
+            // is_typing = false, remove the indicator anyway.
+            // =================================================
+
+            const timeout = setTimeout(() => {
+
+                hideConversationTyping(
+                    conversationId
+                );
+
+
+                if (
+                    Number(activeConversationId) ===
+                    conversationId
+                ) {
+
+                    hideRemoteTypingIndicator();
+                }
+
+
+                remoteTypingTimeouts.delete(
+                    conversationId
+                );
+
+            }, 3000);
+
+
+            remoteTypingTimeouts.set(
+                conversationId,
+                timeout
+            );
+        }
+
+        // =====================================================
+        // LISTEN FOR REAL TIME MESSAGES
+        // =====================================================
+
+        function listenToConversationRealtime(conversationId) {
+
+            // =================================================
+            // DO NOTHING IF ALREADY LISTENING
+            // =================================================
+
+            if (
+                activeRealtimeConversationId === conversationId
+            ) {
+                return;
+            }
+
+
+            // =================================================
+            // LEAVE PREVIOUS CONVERSATION CHANNEL
+            // =================================================
+
+            if (activeRealtimeConversationId !== null) {
+
+                window.Echo.leave(
+                    `conversation.${activeRealtimeConversationId}`
+                );
+
+            }
+
+
+            // =================================================
+            // SAVE CURRENT CONVERSATION
+            // =================================================
+
+            activeRealtimeConversationId = conversationId;
+
+
+            // =================================================
+            // LISTEN TO PRIVATE CONVERSATION CHANNEL
+            // =================================================
+
+            window.Echo
+                .private(`conversation.${conversationId}`)
+
+                .listen('.message.sent', (event) => {
+
+                    // =========================================
+                    // GET MESSAGE FROM EVENT
+                    // =========================================
+
+                    const msg = event.message;
+
+                    if (!msg) {
+                        return;
+                    }
+
+
+                    // =========================================
+                    // MAKE SURE MESSAGE BELONGS TO
+                    // CURRENT OPEN CONVERSATION
+                    // =========================================
+
+                    if (
+                        Number(msg.conversation_id) !==
+                        Number(activeRealtimeConversationId)
+                    ) {
+                        return;
+                    }
+
+
+                    // =========================================
+                    // CURRENT USER
+                    // =========================================
+
+                    const userId = {{ auth()->id() }};
+
+
+                    // =========================================
+                    // PREVENT OWN MESSAGE DUPLICATE
+                    //
+                    // toOthers() should already prevent this,
+                    // but this gives us another safety check.
+                    // =========================================
+
+                    if (
+                        Number(msg.sender_id) ===
+                        Number(userId)
+                    ) {
+                        return;
+                    }
+
+                    clearTimeout(remoteTypingTimeout);
+
+                    hideConversationTyping(
+                        conversationId
+                    );
+
+                    // =========================================
+                    // RECEIVER'S BROWSER GOT THE MESSAGE
+                    // =========================================
+
+                    markMessageAsDelivered(
+                        conversationId,
+                        msg.message_id
+                    );
+
+
+
+                    // =========================================
+                    // MESSAGE CONTAINER
+                    // =========================================
+
+                    const container =
+                        document.getElementById(
+                            'modalMessagesContainer'
+                        );
+
+                    if (!container) {
+                        return;
+                    }
+
+
+                    // =========================================
+                    // REMOVE "NO MESSAGES YET" EMPTY STATE
+                    // =========================================
+
+                    if (
+                        container.querySelector(
+                            '.text-center.py-12'
+                        )
+                    ) {
+                        container.innerHTML = '';
+                    }
+
+
+                    // =========================================
+                    // MESSAGE INFORMATION
+                    // =========================================
+
+                    const time =
+                        formatMessageTime(
+                            msg.created_at
+                        );
+
+                    const senderName =
+                        msg.sender?.user_full_name ||
+                        msg.sender?.name ||
+                        'Unknown';
+
+
+                    // =========================================
+                    // CREATE RECEIVED MESSAGE BUBBLE
+                    // =========================================
+
+                    const html = `
+                    <div class="flex justify-start">
+
+                        <div
+                            class="max-w-[70%]
+                                rounded-2xl
+                                rounded-bl-md
+                                bg-gray-100
+                                text-gray-900
+                                px-4 py-2.5"
+                        >
+
+                            <p
+                                class="text-[11px]
+                                    font-semibold
+                                    text-gray-500
+                                    mb-0.5"
+                            >
+                                ${escapeHtml(senderName)}
+                            </p>
+
+                            ${
+                                msg.message_content
+                                    ? `
+                                        <p
+                                            class="text-sm
+                                                whitespace-pre-wrap
+                                                break-words"
+                                        >
+                                            ${escapeHtml(msg.message_content)}
+                                        </p>
+                                    `
+                                    : ''
+                            }
+
+                            <span
+                                class="text-[10px]
+                                    text-gray-400
+                                    mt-1
+                                    block
+                                    text-right"
+                            >
+                                ${time}
+                            </span>
+
+                        </div>
+
+                    </div>
+                `;
+
+                
+
+
+                    // =========================================
+                    // ADD MESSAGE WITHOUT REFRESHING
+                    // =========================================
+
+                    container.insertAdjacentHTML(
+                        'beforeend',
+                        html
+                    );
+
+
+                    // =========================================
+                    // REFRESH LUCIDE ICONS
+                    // =========================================
+
+                    lucideCreateIcons();
+
+
+                    // =========================================
+                    // SCROLL TO NEW MESSAGE
+                    // =========================================
+
+                    scrollToBottom(false, true);
+
+                    // =========================================
+                    // UPDATE LEFT CONVERSATION LIST
+                    // Latest preview
+                    // Latest timestamp
+                    // Conversation order
+                    // Unread badge
+                    // =========================================
+
+                    markConversationAsRead(
+                        conversationId
+                    );
+
+                })
+
+                // =====================================================
+                // REALTIME DELIVERED RECEIPT
+                // =====================================================
+
+                .listen('.message.delivered', (event) => {
+
+                    console.log(
+                        'Message delivered:',
+                        event
+                    );
+
+                    // =========================================
+                    // UPDATE MESSAGE INSIDE CHAT
+                    // =========================================
+
+                    const statusElement =
+                        document.querySelector(
+                            `.message-read-status[data-message-id="${event.message_id}"]`
+                        );
+
+                    if (
+                        statusElement &&
+                        statusElement.textContent.trim() !== 'Seen'
+                    ) {
+                        statusElement.textContent = '✓✓ Delivered';
+                    }
+
+
+                    // =========================================
+                    // UPDATE LEFT CONVERSATION LIST
+                    // =========================================
+
+                    const conversationStatusElement =
+                        document.querySelector(
+                            `.conversation-message-status[data-message-id="${event.message_id}"]`
+                        );
+
+                    if (
+                        conversationStatusElement &&
+                        conversationStatusElement.textContent.trim() !== 'Seen'
+                    ) {
+                        conversationStatusElement.textContent =
+                            '✓✓ Delivered';
+                    }
+                })
+
+
+                // =====================================================
+                // REALTIME SEEN RECEIPTS
+                // =====================================================
+
+                .listen('.messages.read', (event) => {
+
+                    console.log(
+                        'Messages seen:',
+                        event
+                    );
+
+
+                    // =================================================
+                    // SAFETY CHECK
+                    // =================================================
+
+                    if (!event.message_ids) {
+                        return;
+                    }
+
+
+                    // =================================================
+                    // UPDATE EACH MESSAGE TO "SEEN"
+                    // =================================================
+
+                    event.message_ids.forEach(
+                        (messageId) => {
+
+                            // =========================================
+                            // UPDATE STATUS INSIDE CHAT
+                            // =========================================
+
+                            const statusElement =
+                                document.querySelector(
+                                    `.message-read-status[data-message-id="${messageId}"]`
+                                );
+
+                            if (statusElement) {
+                                statusElement.textContent = 'Seen';
+                            }
+
+
+                            // =========================================
+                            // UPDATE STATUS IN CONVERSATION LIST
+                            // =========================================
+
+                            const conversationStatusElement =
+                                document.querySelector(
+                                    `.conversation-message-status[data-message-id="${messageId}"]`
+                                );
+
+                            if (conversationStatusElement) {
+                                conversationStatusElement.textContent = 'Seen';
+                            }
+                        }
+                    );
+                })
+
+                // =====================================================
+                // REALTIME TYPING INDICATOR
+                // =====================================================
+
+                .listenForWhisper('typing', (event) => {
+
+                    // =============================================
+                    // IGNORE OUR OWN TYPING
+                    // =============================================
+
+                    if (
+                        Number(event.user_id) ===
+                        Number(currentUserId)
+                    ) {
+                        return;
+                    }
+
+
+                    // =============================================
+                    // OTHER PERSON IS TYPING
+                    // =============================================
+
+                    if (event.is_typing) {
+
+                        showConversationTyping(
+                            conversationId
+                        );
+
+
+                        // =========================================
+                        // SAFETY TIMER
+                        //
+                        // Prevent dots from getting stuck if
+                        // connection suddenly disappears.
+                        // =========================================
+
+                        clearTimeout(
+                            remoteTypingTimeout
+                        );
+
+                        remoteTypingTimeout =
+                            setTimeout(() => {
+
+                                hideConversationTyping(
+                                    conversationId
+                                );
+
+                            }, 3000);
+
+                        return;
+                    }
+
+
+                    // =============================================
+                    // OTHER PERSON STOPPED TYPING
+                    // =============================================
+
+                    clearTimeout(
+                        remoteTypingTimeout
+                    );
+
+                    hideConversationTyping(
+                        conversationId
+                    );
+                });
+
+                
+        }
+
+        // =====================================================
+        // ESCAPE USER TEXT BEFORE ADDING IT TO HTML
+        // =====================================================
+
+        function escapeHtml(value) {
+
+            if (!value) {
+                return '';
+            }
+
+            return String(value)
+
+                .replaceAll('&', '&amp;')
+
+                .replaceAll('<', '&lt;')
+
+                .replaceAll('>', '&gt;')
+
+                .replaceAll('"', '&quot;')
+
+                .replaceAll("'", '&#039;');
+        }
+
+        function scrollToBottom(smooth = false, force = false) {
+            const container = document.getElementById('modalMessagesContainer');
+            if (!container) return;
+
+            const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 120;
+
+            if (!force && !isNearBottom) {
+                return;
+            }
+
+            if (smooth) {
+                container.scrollTo({
+                    top: container.scrollHeight,
+                    behavior: 'smooth'
+                });
+            } else {
+                container.scrollTop = container.scrollHeight;
+            }
+        }
+
+        async function sendModalMessage(e) {
+            e.preventDefault();
+
+            const input = document.getElementById('modalMessageInput');
+            const content = input?.value.trim();
+            if (!content && !selectedAttachment) return;
+            if (!currentConversationId) return;
+
+            const form = document.getElementById('modalMessageForm');
+            if (!form) return;
+
+            const tempId = 'temp-' + Date.now();
+            const time = new Date().toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
             });
-        } else {
-            container.scrollTop = container.scrollHeight;
-        }
-    }
+            const container = document.getElementById('modalMessagesContainer');
 
-    async function sendModalMessage(e) {
-        e.preventDefault();
+            const attachmentPreview = selectedAttachment ? getAttachmentPreviewHtml(selectedAttachment, time, true) : '';
 
-        const input = document.getElementById('modalMessageInput');
-        const content = input?.value.trim();
-        if (!content && !selectedAttachment) return;
-        if (!currentConversationId) return;
-
-        const form = document.getElementById('modalMessageForm');
-        if (!form) return;
-
-        const tempId = 'temp-' + Date.now();
-        const time = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-        const container = document.getElementById('modalMessagesContainer');
-
-        const attachmentPreview = selectedAttachment ? getAttachmentPreviewHtml(selectedAttachment, time, true) : '';
-
-        const tempHtml = `
+            const tempHtml = `
             <div class="flex justify-end" id="${tempId}" style="animation: messageSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1)">
                 <div class="max-w-[70%] rounded-2xl rounded-br-md bg-gray-900 text-white px-4 py-2.5 opacity-70">
                     ${content ? `<p class="text-sm whitespace-pre-wrap break-words">${content}</p>` : ''}
@@ -592,90 +2735,105 @@
                 </div>
             </div>
         `;
-        container.insertAdjacentHTML('beforeend', tempHtml);
-        scrollToBottom(true, true);
+            container.insertAdjacentHTML('beforeend', tempHtml);
+            scrollToBottom(true, true);
 
-        const formData = new FormData();
-        formData.append('message_content', content || '');
-        
-        if (selectedAttachment) {
-            formData.append('attachment', JSON.stringify(selectedAttachment));
-        }
+            const formData = new FormData();
+            formData.append('message_content', content || '');
 
-        const response = await fetch(`/messages/conversations/${currentConversationId}/send`, {
-            method: 'POST',
-            headers: {
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': csrfToken
-            },
-            body: formData
-        });
+            if (selectedAttachment) {
+                formData.append('attachment', JSON.stringify(selectedAttachment));
+            }
 
-        if (response.ok) {
-            const data = await response.json();
-            const temp = document.getElementById(tempId);
-            if (temp) temp.remove();
-            
-            const msg = data.data;
-            const msgTime = formatMessageTime(msg.created_at);
-            const attachment = msg.attachment || selectedAttachment;
-            const isFirstMessage = container.querySelector('.text-center.py-12') !== null;
-            const realHtml = `
+            const response = await fetch(`/messages/conversations/${currentConversationId}/send`, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken
+                },
+                body: formData
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const temp = document.getElementById(tempId);
+                if (temp) temp.remove();
+
+                const msg = data.data;
+                const msgTime = formatMessageTime(msg.created_at);
+                const attachment = msg.attachment || selectedAttachment;
+                const isFirstMessage = container.querySelector('.text-center.py-12') !== null;
+                const realHtml = `
                 <div class="flex justify-end" style="animation: messageSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1)">
                     <div class="max-w-[70%] rounded-2xl rounded-br-md bg-gray-900 text-white px-4 py-2.5">
                         ${msg.message_content ? `<p class="text-sm whitespace-pre-wrap break-words">${msg.message_content}</p>` : ''}
                         ${attachment ? getAttachmentPreviewHtml(attachment, msgTime, false) : ''}
                         ${!msg.message_content && !attachment ? `<p class="text-sm text-gray-400">Empty message</p>` : ''}
-                        ${msg.message_content || attachment ? `<span class="text-[10px] text-gray-400 mt-1 block text-right">${msgTime}</span>` : ''}
+                        ${msg.message_content || attachment ? `
+                            <div class="mt-1 flex items-center justify-end gap-1.5">
+
+                                <span class="text-[10px] text-gray-400">
+                                    ${msgTime}
+                                </span>
+
+                                <span
+                                    class="message-read-status text-[10px] text-gray-400 font-medium"
+                                    data-message-id="${msg.message_id}"
+                                >
+                                    ${getMessageStatus(msg)}
+                                </span>
+
+                            </div>
+                        ` : ''}
                     </div>
                 </div>
             `;
-            if (isFirstMessage) {
-                container.innerHTML = realHtml;
+                if (isFirstMessage) {
+                    container.innerHTML = realHtml;
+                } else {
+                    container.insertAdjacentHTML('beforeend', realHtml);
+                }
+                scrollToBottom(true, true);
+
+                clearSelectedAttachment();
+                input.value = '';
+                input.style.height = 'auto';
+                input.focus();
+
+                await loadModalConversations();
             } else {
-                container.insertAdjacentHTML('beforeend', realHtml);
+                const temp = document.getElementById(tempId);
+                if (temp) temp.remove();
             }
-            scrollToBottom(true, true);
-
-            clearSelectedAttachment();
-            input.value = '';
-            input.style.height = 'auto';
-            input.focus();
-
-            await loadModalConversations();
-        } else {
-            const temp = document.getElementById(tempId);
-            if (temp) temp.remove();
         }
-    }
 
-    function isImageAttachment(attachment) {
-        if (!attachment) return false;
-        const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'];
-        const type = (attachment.type || '').toLowerCase();
-        const ext = (attachment.extension || '').toLowerCase();
-        if (type.startsWith('image/')) return true;
-        if (imageExtensions.includes(type)) return true;
-        if (imageExtensions.includes(ext)) return true;
-        return false;
-    }
+        function isImageAttachment(attachment) {
+            if (!attachment) return false;
+            const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'];
+            const type = (attachment.type || '').toLowerCase();
+            const ext = (attachment.extension || '').toLowerCase();
+            if (type.startsWith('image/')) return true;
+            if (imageExtensions.includes(type)) return true;
+            if (imageExtensions.includes(ext)) return true;
+            return false;
+        }
 
-    function getAttachmentPreviewHtml(attachment, time, isTemp = false) {
-        if (!attachment) return '';
-        const isImage = isImageAttachment(attachment);
-        const fileIcon = getFileIcon(attachment.type || '', attachment.extension || '');
-        const opacity = isTemp ? 'opacity-80' : '';
-        const removeBtn = isTemp ? `
+        function getAttachmentPreviewHtml(attachment, time, isTemp = false) {
+            if (!attachment) return '';
+            const isImage = isImageAttachment(attachment);
+            const fileIcon = getFileIcon(attachment.type || '', attachment.extension || '');
+            const opacity = isTemp ? 'opacity-80' : '';
+            const removeBtn = isTemp ? `
             <button type="button" onclick="this.closest('.attachment-preview').remove()" class="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-gray-900 text-white flex items-center justify-center hover:bg-gray-800 transition" style="animation: none;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
             </button>
         ` : '';
 
-        if (isImage && attachment.url) {
-            return getImageMessageHtml(attachment, time, isTemp, removeBtn);
-        }
+            if (isImage && attachment.url) {
+                return getImageMessageHtml(attachment, time, isTemp, removeBtn);
+            }
 
-        return `
+            return `
             <div class="attachment-preview relative mt-1.5 flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 ${opacity}" style="animation: messageSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1)">
                 <div class="h-8 w-8 rounded-lg ${fileIcon.color} flex items-center justify-center shrink-0">
                     <i data-lucide="${fileIcon.icon}" class="h-4 w-4"></i>
@@ -690,16 +2848,16 @@
                 ${removeBtn}
             </div>
         `;
-    }
+        }
 
-    function getImageMessageHtml(attachment, time, isTemp = false, removeBtn = '') {
-        const uniqueId = 'img-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
-        const url = attachment.url || '';
-        const name = attachment.name || 'Image';
-        const opacity = isTemp ? 'opacity-70' : '';
+        function getImageMessageHtml(attachment, time, isTemp = false, removeBtn = '') {
+            const uniqueId = 'img-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
+            const url = attachment.url || '';
+            const name = attachment.name || 'Image';
+            const opacity = isTemp ? 'opacity-70' : '';
 
-        if (isTemp) {
-            return `
+            if (isTemp) {
+                return `
                 <div class="attachment-preview relative ${opacity}" style="animation: messageSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1)">
                     <div class="relative inline-block max-w-[280px] md:max-w-[320px] rounded-xl overflow-hidden border border-white/10">
                         <div class="aspect-square bg-gray-700/50 flex items-center justify-center">
@@ -709,9 +2867,9 @@
                     ${removeBtn}
                 </div>
             `;
-        }
+            }
 
-        return `
+            return `
             <div class="attachment-preview relative group" style="animation: messageSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1)">
                 <div class="relative inline-block max-w-[280px] md:max-w-[320px] rounded-xl overflow-hidden border border-white/10 cursor-pointer" onclick="openImagePreview('${url}', '${name.replace(/'/g, "\\'")}')">
                     <div id="${uniqueId}-skeleton" class="absolute inset-0 bg-gray-700/50 animate-pulse rounded-xl"></div>
@@ -740,14 +2898,14 @@
                 ${removeBtn}
             </div>
         `;
-    }
+        }
 
-    function openImagePreview(url, name) {
-        let overlay = document.getElementById('imagePreviewOverlay');
-        if (!overlay) {
-            overlay = document.createElement('div');
-            overlay.id = 'imagePreviewOverlay';
-            overlay.innerHTML = `
+        function openImagePreview(url, name) {
+            let overlay = document.getElementById('imagePreviewOverlay');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.id = 'imagePreviewOverlay';
+                overlay.innerHTML = `
                 <div id="imagePreviewBackdrop" class="fixed inset-0 z-[99999] bg-black/80 backdrop-blur-sm flex items-center justify-center opacity-0 transition-opacity duration-300 ease-out">
                     <button type="button" id="imagePreviewClose" class="absolute top-4 right-4 z-10 h-10 w-10 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition border border-white/10">
                         <i data-lucide="x" class="h-5 w-5"></i>
@@ -760,60 +2918,60 @@
                     </div>
                 </div>
             `;
-            document.body.appendChild(overlay);
-            if (window.lucide) lucide.createIcons();
+                document.body.appendChild(overlay);
+                if (window.lucide) lucide.createIcons();
 
-            overlay.addEventListener('click', (e) => {
-                if (e.target === overlay.querySelector('#imagePreviewBackdrop') || e.target.closest('#imagePreviewClose')) {
-                    closeImagePreview();
-                }
-            });
+                overlay.addEventListener('click', (e) => {
+                    if (e.target === overlay.querySelector('#imagePreviewBackdrop') || e.target.closest('#imagePreviewClose')) {
+                        closeImagePreview();
+                    }
+                });
 
-            document.addEventListener('keydown', function imagePreviewKeyHandler(e) {
-                if (e.key === 'Escape' && document.getElementById('imagePreviewOverlay')) {
-                    closeImagePreview();
-                }
+                document.addEventListener('keydown', function imagePreviewKeyHandler(e) {
+                    if (e.key === 'Escape' && document.getElementById('imagePreviewOverlay')) {
+                        closeImagePreview();
+                    }
+                });
+            }
+
+            const backdrop = document.getElementById('imagePreviewBackdrop');
+            const container = document.getElementById('imagePreviewContainer');
+            const img = document.getElementById('imagePreviewImg');
+            const downloadBtn = document.getElementById('imagePreviewDownload');
+
+            img.src = url;
+            img.alt = name || 'Image preview';
+            if (downloadBtn) downloadBtn.href = url;
+            if (downloadBtn) downloadBtn.download = name || 'image';
+
+            backdrop.classList.remove('opacity-0');
+            requestAnimationFrame(() => {
+                container.classList.remove('scale-95', 'opacity-0');
+                container.classList.add('scale-100', 'opacity-100');
             });
         }
 
-        const backdrop = document.getElementById('imagePreviewBackdrop');
-        const container = document.getElementById('imagePreviewContainer');
-        const img = document.getElementById('imagePreviewImg');
-        const downloadBtn = document.getElementById('imagePreviewDownload');
+        function closeImagePreview() {
+            const backdrop = document.getElementById('imagePreviewBackdrop');
+            const container = document.getElementById('imagePreviewContainer');
+            if (!backdrop || !container) return;
 
-        img.src = url;
-        img.alt = name || 'Image preview';
-        if (downloadBtn) downloadBtn.href = url;
-        if (downloadBtn) downloadBtn.download = name || 'image';
+            container.classList.remove('scale-100', 'opacity-100');
+            container.classList.add('scale-95', 'opacity-0');
+            backdrop.classList.add('opacity-0');
 
-        backdrop.classList.remove('opacity-0');
-        requestAnimationFrame(() => {
-            container.classList.remove('scale-95', 'opacity-0');
-            container.classList.add('scale-100', 'opacity-100');
-        });
-    }
+            setTimeout(() => {
+                const overlay = document.getElementById('imagePreviewOverlay');
+                if (overlay) overlay.remove();
+            }, 300);
+        }
 
-    function closeImagePreview() {
-        const backdrop = document.getElementById('imagePreviewBackdrop');
-        const container = document.getElementById('imagePreviewContainer');
-        if (!backdrop || !container) return;
-
-        container.classList.remove('scale-100', 'opacity-100');
-        container.classList.add('scale-95', 'opacity-0');
-        backdrop.classList.add('opacity-0');
-
-        setTimeout(() => {
-            const overlay = document.getElementById('imagePreviewOverlay');
-            if (overlay) overlay.remove();
-        }, 300);
-    }
-
-    window.confirmDeleteConversation = function(conversationId) {
-        let overlay = document.getElementById('deleteConfirmOverlay');
-        if (!overlay) {
-            overlay = document.createElement('div');
-            overlay.id = 'deleteConfirmOverlay';
-            overlay.innerHTML = `
+        window.confirmDeleteConversation = function(conversationId) {
+            let overlay = document.getElementById('deleteConfirmOverlay');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.id = 'deleteConfirmOverlay';
+                overlay.innerHTML = `
                 <div id="deleteConfirmBackdrop" class="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-sm flex items-center justify-center opacity-0 transition-opacity duration-200 ease-out">
                     <div id="deleteConfirmBox" class="relative mx-4 w-full max-w-[400px] bg-white rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.3)] p-6 scale-95 opacity-0 transition-all duration-200 ease-out">
                         <div class="flex items-center gap-3 mb-4">
@@ -836,92 +2994,103 @@
                     </div>
                 </div>
             `;
-            document.body.appendChild(overlay);
-            if (window.lucide) lucide.createIcons();
+                document.body.appendChild(overlay);
+                if (window.lucide) lucide.createIcons();
 
-            overlay.querySelector('#deleteConfirmBackdrop').addEventListener('click', (e) => {
-                if (e.target === overlay.querySelector('#deleteConfirmBackdrop')) {
-                    closeDeleteConfirm();
-                }
-            });
-
-            overlay.querySelector('#deleteConfirmButton').addEventListener('click', () => {
-                const id = parseInt(overlay.dataset.conversationId || '0');
-                if (id) deleteConversation(id);
-            });
-        }
-
-        overlay.dataset.conversationId = conversationId;
-
-        const backdrop = document.getElementById('deleteConfirmBackdrop');
-        const box = document.getElementById('deleteConfirmBox');
-
-        backdrop.classList.remove('opacity-0');
-        requestAnimationFrame(() => {
-            box.classList.remove('scale-95', 'opacity-0');
-            box.classList.add('scale-100', 'opacity-100');
-        });
-    }
-
-    window.closeDeleteConfirm = function() {
-        const backdrop = document.getElementById('deleteConfirmBackdrop');
-        const box = document.getElementById('deleteConfirmBox');
-        if (!backdrop || !box) return;
-
-        box.classList.remove('scale-100', 'opacity-100');
-        box.classList.add('scale-95', 'opacity-0');
-        backdrop.classList.add('opacity-0');
-
-        setTimeout(() => {
-            const overlay = document.getElementById('deleteConfirmOverlay');
-            if (overlay) overlay.remove();
-        }, 200);
-    }
-
-    async function deleteConversation(conversationId) {
-        closeDeleteConfirm();
-
-        const item = document.querySelector(`.conversation-item[data-id="${conversationId}"]`);
-        if (item) {
-            item.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-            item.style.transform = 'translateX(-20px)';
-            item.style.opacity = '0';
-            item.style.height = item.offsetHeight + 'px';
-            setTimeout(() => {
-                item.style.padding = '0';
-                item.style.margin = '0';
-                item.style.height = '0';
-                item.style.overflow = 'hidden';
-                item.style.border = 'none';
-            }, 150);
-        }
-
-        if (currentConversationId == conversationId) {
-            resetModalChat();
-        }
-
-        try {
-            const response = await fetch(`/messages/conversations/${conversationId}`, {
-                method: 'DELETE',
-                headers: {
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken
-                }
-            });
-
-            if (response.ok) {
-                setTimeout(() => {
-                    if (item) item.remove();
-                    const list = document.getElementById('modalConversationsList');
-                    if (list && list.children.length === 0) {
-                        const emptyState = document.getElementById('modalConversationsEmpty');
-                        if (emptyState) {
-                            emptyState.classList.remove('hidden');
-                            emptyState.classList.add('animate-fade-in');
-                        }
+                overlay.querySelector('#deleteConfirmBackdrop').addEventListener('click', (e) => {
+                    if (e.target === overlay.querySelector('#deleteConfirmBackdrop')) {
+                        closeDeleteConfirm();
                     }
-                }, 300);
-            } else {
+                });
+
+                overlay.querySelector('#deleteConfirmButton').addEventListener('click', () => {
+                    const id = parseInt(overlay.dataset.conversationId || '0');
+                    if (id) deleteConversation(id);
+                });
+            }
+
+            overlay.dataset.conversationId = conversationId;
+
+            const backdrop = document.getElementById('deleteConfirmBackdrop');
+            const box = document.getElementById('deleteConfirmBox');
+
+            backdrop.classList.remove('opacity-0');
+            requestAnimationFrame(() => {
+                box.classList.remove('scale-95', 'opacity-0');
+                box.classList.add('scale-100', 'opacity-100');
+            });
+        }
+
+        window.closeDeleteConfirm = function() {
+            const backdrop = document.getElementById('deleteConfirmBackdrop');
+            const box = document.getElementById('deleteConfirmBox');
+            if (!backdrop || !box) return;
+
+            box.classList.remove('scale-100', 'opacity-100');
+            box.classList.add('scale-95', 'opacity-0');
+            backdrop.classList.add('opacity-0');
+
+            setTimeout(() => {
+                const overlay = document.getElementById('deleteConfirmOverlay');
+                if (overlay) overlay.remove();
+            }, 200);
+        }
+
+        async function deleteConversation(conversationId) {
+            closeDeleteConfirm();
+
+            const item = document.querySelector(`.conversation-item[data-id="${conversationId}"]`);
+            if (item) {
+                item.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+                item.style.transform = 'translateX(-20px)';
+                item.style.opacity = '0';
+                item.style.height = item.offsetHeight + 'px';
+                setTimeout(() => {
+                    item.style.padding = '0';
+                    item.style.margin = '0';
+                    item.style.height = '0';
+                    item.style.overflow = 'hidden';
+                    item.style.border = 'none';
+                }, 150);
+            }
+
+            if (currentConversationId == conversationId) {
+                resetModalChat();
+            }
+
+            try {
+                const response = await fetch(`/messages/conversations/${conversationId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken
+                    }
+                });
+
+                if (response.ok) {
+                    setTimeout(() => {
+                        if (item) item.remove();
+                        const list = document.getElementById('modalConversationsList');
+                        if (list && list.children.length === 0) {
+                            const emptyState = document.getElementById('modalConversationsEmpty');
+                            if (emptyState) {
+                                emptyState.classList.remove('hidden');
+                                emptyState.classList.add('animate-fade-in');
+                            }
+                        }
+                    }, 300);
+                } else {
+                    if (item) {
+                        item.style.transform = '';
+                        item.style.opacity = '';
+                        item.style.height = '';
+                        item.style.padding = '';
+                        item.style.margin = '';
+                        item.style.overflow = '';
+                        item.style.border = '';
+                    }
+                }
+            } catch (error) {
                 if (item) {
                     item.style.transform = '';
                     item.style.opacity = '';
@@ -932,339 +3101,530 @@
                     item.style.border = '';
                 }
             }
-        } catch (error) {
-            if (item) {
-                item.style.transform = '';
-                item.style.opacity = '';
-                item.style.height = '';
-                item.style.padding = '';
-                item.style.margin = '';
-                item.style.overflow = '';
-                item.style.border = '';
-            }
-        }
-    }
-
-    function clearSelectedAttachment() {
-        selectedAttachment = null;
-        const input = document.getElementById('modalAttachmentInput');
-        const preview = document.getElementById('modalAttachmentPreview');
-        const progress = document.getElementById('modalAttachmentProgress');
-        if (input) input.value = '';
-        if (preview) preview.classList.add('hidden');
-        if (progress) progress.classList.add('hidden');
-    }
-
-    async function uploadModalAttachment(file) {
-        if (!file || !currentConversationId) return;
-
-        const preview = document.getElementById('modalAttachmentPreview');
-        const progressEl = document.getElementById('modalAttachmentProgress');
-        const progressBar = document.getElementById('modalAttachmentProgressBar');
-        const nameEl = document.getElementById('modalAttachmentName');
-        const sizeEl = document.getElementById('modalAttachmentSize');
-        const iconContainer = document.getElementById('modalAttachmentIcon');
-
-        if (preview) preview.classList.remove('hidden');
-        if (progressEl) progressEl.classList.remove('hidden');
-
-        const validTypes = [
-            'application/pdf',
-            'application/msword',
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'application/vnd.ms-excel',
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'application/vnd.ms-powerpoint',
-            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-            'application/zip',
-            'application/x-rar-compressed',
-            'text/plain',
-            'image/jpeg',
-            'image/png',
-            'image/gif',
-            'image/webp',
-            'video/mp4',
-            'video/quicktime',
-            'audio/mpeg',
-            'audio/wav'
-        ];
-
-        const maxSize = 25 * 1024 * 1024;
-
-        if (file.size > maxSize) {
-            alert('File size must be less than 25MB.');
-            clearSelectedAttachment();
-            return;
         }
 
-        const fileIcon = getFileIcon(file.type, file.name.split('.').pop());
-        if (iconContainer) {
-            iconContainer.className = `h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${fileIcon.color}`;
-            iconContainer.innerHTML = `<i data-lucide="${fileIcon.icon}" class="h-4 w-4"></i>`;
-            lucideCreateIcons();
-        }
-        if (nameEl) nameEl.textContent = file.name;
-        if (sizeEl) sizeEl.textContent = formatFileSize(file.size);
-
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('conversation_id', currentConversationId);
-
-        try {
-            const xhr = new XMLHttpRequest();
-            xhr.open('POST', '/messages/upload');
-            xhr.setRequestHeader('X-CSRF-TOKEN', csrfToken);
-            xhr.setRequestHeader('Accept', 'application/json');
-
-            xhr.upload.onprogress = (event) => {
-                if (event.lengthComputable && progressBar) {
-                    const percent = (event.loaded / event.total) * 100;
-                    progressBar.style.width = percent + '%';
-                }
-            };
-
-            const response = await new Promise((resolve, reject) => {
-                xhr.onload = () => resolve({ status: xhr.status, data: JSON.parse(xhr.responseText) });
-                xhr.onerror = () => reject(new Error('Upload failed'));
-                xhr.send(formData);
-            });
-
-            if (response.status === 201) {
-                selectedAttachment = response.data.data;
-                if (progressBar) progressBar.classList.add('bg-emerald-500');
-                if (progressBar) progressBar.style.width = '100%';
-                setTimeout(() => {
-                    if (progressEl) progressEl.classList.add('hidden');
-                    if (progressBar) progressBar.classList.remove('bg-emerald-500');
-                    if (progressBar) progressBar.style.width = '0%';
-                }, 1000);
-            } else {
-                throw new Error(response.data.message || 'Upload failed');
-            }
-        } catch (error) {
-            alert(error.message || 'Failed to upload file.');
-            clearSelectedAttachment();
-        }
-    }
-
-    async function loadModalUsers(search = '') {
-        const params = new URLSearchParams();
-        if (search) params.set('search', search);
-
-        const response = await fetch(`/messages/users?${params.toString()}`, {
-            headers: { 'Accept': 'application/json' }
-        });
-        if (!response.ok) return;
-        const data = await response.json();
-        renderModalUsers(data.data);
-    }
-
-    function renderModalUsers(users) {
-        const container = document.getElementById('modalUsersList');
-        const emptyState = document.getElementById('modalUsersEmpty');
-
-        if (!container) return;
-
-        if (!users || users.length === 0) {
-            container.innerHTML = '';
-            emptyState?.classList.remove('hidden');
-            lucideCreateIcons();
-            return;
+        function clearSelectedAttachment() {
+            selectedAttachment = null;
+            const input = document.getElementById('modalAttachmentInput');
+            const preview = document.getElementById('modalAttachmentPreview');
+            const progress = document.getElementById('modalAttachmentProgress');
+            if (input) input.value = '';
+            if (preview) preview.classList.add('hidden');
+            if (progress) progress.classList.add('hidden');
         }
 
-        emptyState?.classList.add('hidden');
+        async function uploadModalAttachment(file) {
+            if (!file || !currentConversationId) return;
 
-        container.innerHTML = users.map((user, index) => `
-            <button type="button" data-user-id="${user.user_id}" class="user-row w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left cursor-pointer transition-all duration-200 ease-out hover:bg-gray-50 active:bg-gray-100" style="animation: userCardIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) both; animation-delay: ${index * 25}ms;">
-                <div class="relative shrink-0">
-                    <div class="h-9 w-9 rounded-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-xs font-bold text-gray-700 shadow-sm ring-2 ring-white transition-all duration-200">
-                        ${user.initials}
-                    </div>
-                    <span class="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-500 shadow-sm"></span>
-                </div>
-                <div class="flex-1 min-w-0">
-                    <p class="text-sm font-semibold text-gray-900 truncate leading-tight transition-colors duration-200">${user.name}</p>
-                    <p class="text-xs text-gray-500 truncate leading-tight transition-colors duration-200">${user.role}</p>
-                </div>
-            </button>
-        `).join('');
+            const preview = document.getElementById('modalAttachmentPreview');
+            const progressEl = document.getElementById('modalAttachmentProgress');
+            const progressBar = document.getElementById('modalAttachmentProgressBar');
+            const nameEl = document.getElementById('modalAttachmentName');
+            const sizeEl = document.getElementById('modalAttachmentSize');
+            const iconContainer = document.getElementById('modalAttachmentIcon');
 
-        lucideCreateIcons();
-    }
+            if (preview) preview.classList.remove('hidden');
+            if (progressEl) progressEl.classList.remove('hidden');
 
-    async function startConversationWithUser(userId) {
+            const validTypes = [
+                'application/pdf',
+                'application/msword',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'application/vnd.ms-excel',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'application/vnd.ms-powerpoint',
+                'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                'application/zip',
+                'application/x-rar-compressed',
+                'text/plain',
+                'image/jpeg',
+                'image/png',
+                'image/gif',
+                'image/webp',
+                'video/mp4',
+                'video/quicktime',
+                'audio/mpeg',
+                'audio/wav'
+            ];
 
-        console.log('Clicked user ID:', userId);
+            const maxSize = 25 * 1024 * 1024;
 
-        try {
-
-            const response = await fetch('/messages/conversations', {
-                method: 'POST',
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken
-                },
-                body: JSON.stringify({
-                    user_id: userId
-                })
-            });
-
-            console.log('Response status:', response.status);
-
-            const data = await response.json();
-
-            console.log('Server response:', data);
-
-            if (!response.ok) {
-                console.error('Failed to create/open conversation:', data);
+            if (file.size > maxSize) {
+                alert('File size must be less than 25MB.');
+                clearSelectedAttachment();
                 return;
             }
 
-            const conversation = data.data;
+            const fileIcon = getFileIcon(file.type, file.name.split('.').pop());
+            if (iconContainer) {
+                iconContainer.className = `h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${fileIcon.color}`;
+                iconContainer.innerHTML = `<i data-lucide="${fileIcon.icon}" class="h-4 w-4"></i>`;
+                lucideCreateIcons();
+            }
+            if (nameEl) nameEl.textContent = file.name;
+            if (sizeEl) sizeEl.textContent = formatFileSize(file.size);
 
-            console.log('Conversation:', conversation);
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('conversation_id', currentConversationId);
 
-            switchModalTab('conversations');
+            try {
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', '/messages/upload');
+                xhr.setRequestHeader('X-CSRF-TOKEN', csrfToken);
+                xhr.setRequestHeader('Accept', 'application/json');
 
-            await loadModalConversations();
+                xhr.upload.onprogress = (event) => {
+                    if (event.lengthComputable && progressBar) {
+                        const percent = (event.loaded / event.total) * 100;
+                        progressBar.style.width = percent + '%';
+                    }
+                };
 
-            openModalConversation(conversation.conversation_id);
+                const response = await new Promise((resolve, reject) => {
+                    xhr.onload = () => resolve({
+                        status: xhr.status,
+                        data: JSON.parse(xhr.responseText)
+                    });
+                    xhr.onerror = () => reject(new Error('Upload failed'));
+                    xhr.send(formData);
+                });
 
-        } catch (error) {
-
-            console.error('START CONVERSATION ERROR:', error);
-
+                if (response.status === 201) {
+                    selectedAttachment = response.data.data;
+                    if (progressBar) progressBar.classList.add('bg-emerald-500');
+                    if (progressBar) progressBar.style.width = '100%';
+                    setTimeout(() => {
+                        if (progressEl) progressEl.classList.add('hidden');
+                        if (progressBar) progressBar.classList.remove('bg-emerald-500');
+                        if (progressBar) progressBar.style.width = '0%';
+                    }, 1000);
+                } else {
+                    throw new Error(response.data.message || 'Upload failed');
+                }
+            } catch (error) {
+                alert(error.message || 'Failed to upload file.');
+                clearSelectedAttachment();
+            }
         }
-    }
 
-    async function markModalAsRead() {
-        if (!currentConversationId) return;
-        await fetch(`/messages/conversations/${currentConversationId}/read`, {
-            method: 'POST',
-            headers: {
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': csrfToken
+        async function loadModalUsers(search = '') {
+            const params = new URLSearchParams();
+            if (search) params.set('search', search);
+
+            const response = await fetch(`/messages/users?${params.toString()}`, {
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+            if (!response.ok) return;
+            const data = await response.json();
+            renderModalUsers(data.data);
+        }
+
+        // =====================================================
+        // RENDER USERS
+        // Shows real online / offline activity status
+        // =====================================================
+
+        function renderModalUsers(users) {
+
+            const container =
+                document.getElementById('modalUsersList');
+
+            const emptyState =
+                document.getElementById('modalUsersEmpty');
+
+            if (!container) return;
+
+
+            // =====================================================
+            // EMPTY STATE
+            // =====================================================
+
+            if (!users || users.length === 0) {
+
+                container.innerHTML = '';
+
+                emptyState?.classList.remove('hidden');
+
+                lucideCreateIcons();
+
+                return;
+            }
+
+            emptyState?.classList.add('hidden');
+
+
+            // =====================================================
+            // RENDER USER LIST
+            // =====================================================
+
+            container.innerHTML = users.map((user, index) => {
+
+                // =================================================
+                // GET USER ACTIVITY
+                //
+                // Examples:
+                // Active now
+                // Active 5 minutes ago
+                // Active yesterday
+                // Offline
+                // =================================================
+
+                const activityStatus =
+                    formatUserActivity(user.last_active_at);
+
+
+                // =================================================
+                // CHECK IF CURRENTLY ONLINE
+                // =================================================
+
+                const isOnline =
+                    activityStatus === 'Active now';
+
+
+                // =================================================
+                // ONLINE DOT
+                //
+                // Green = Active now
+                // Gray = Offline / previously active
+                // =================================================
+
+                const statusDotClass =
+                    isOnline
+                        ? 'bg-emerald-500'
+                        : 'bg-gray-300';
+
+
+                // =================================================
+                // ACTIVITY TEXT COLOR
+                // =================================================
+
+                const statusTextClass =
+                    isOnline
+                        ? 'text-emerald-600'
+                        : 'text-gray-400';
+
+
+                return `
+
+                    <button
+                        type="button"
+                        data-user-id="${user.user_id}"
+                        class="
+                            user-row
+                            w-full
+                            flex
+                            items-center
+                            gap-3
+                            px-3
+                            py-2.5
+                            rounded-xl
+                            text-left
+                            cursor-pointer
+                            transition-all
+                            duration-200
+                            ease-out
+                            hover:bg-gray-50
+                            active:bg-gray-100
+                        "
+                        style="
+                            animation: userCardIn 0.3s
+                            cubic-bezier(0.4, 0, 0.2, 1) both;
+                            animation-delay: ${index * 25}ms;
+                        "
+                    >
+
+                        <!-- ===================================== -->
+                        <!-- AVATAR -->
+                        <!-- ===================================== -->
+
+                        <div class="relative shrink-0">
+
+                            <div
+                                class="
+                                    h-9
+                                    w-9
+                                    rounded-full
+                                    bg-gradient-to-br
+                                    from-gray-100
+                                    to-gray-200
+                                    flex
+                                    items-center
+                                    justify-center
+                                    text-xs
+                                    font-bold
+                                    text-gray-700
+                                    shadow-sm
+                                    ring-2
+                                    ring-white
+                                "
+                            >
+                                ${escapeHtml(user.initials)}
+                            </div>
+
+
+                            <!-- ================================= -->
+                            <!-- REAL ONLINE / OFFLINE DOT -->
+                            <!-- ================================= -->
+
+                            <span
+                                class="
+                                    absolute
+                                    -bottom-0.5
+                                    -right-0.5
+                                    h-3
+                                    w-3
+                                    rounded-full
+                                    border-2
+                                    border-white
+                                    shadow-sm
+                                    ${statusDotClass}
+                                "
+                            ></span>
+
+                        </div>
+
+
+                        <!-- ===================================== -->
+                        <!-- USER INFORMATION -->
+                        <!-- ===================================== -->
+
+                        <div class="flex-1 min-w-0">
+
+                            <p
+                                class="
+                                    text-sm
+                                    font-semibold
+                                    text-gray-900
+                                    truncate
+                                    leading-tight
+                                "
+                            >
+                                ${escapeHtml(user.name)}
+                            </p>
+
+
+                            <!-- ================================= -->
+                            <!-- ROLE -->
+                            <!-- ================================= -->
+
+                            <p
+                                class="
+                                    text-xs
+                                    text-gray-500
+                                    truncate
+                                    leading-tight
+                                "
+                            >
+                                ${escapeHtml(user.role)}
+                            </p>
+
+
+                            <!-- ================================= -->
+                            <!-- LAST ACTIVE STATUS -->
+                            <!-- ================================= -->
+
+                            <p
+                                class="
+                                    text-[10px]
+                                    truncate
+                                    leading-tight
+                                    mt-0.5
+                                    ${statusTextClass}
+                                    ${isOnline ? 'font-medium' : ''}
+                                "
+                            >
+                                ${escapeHtml(activityStatus)}
+                            </p>
+
+                        </div>
+
+                    </button>
+                `;
+
+            }).join('');
+
+
+            lucideCreateIcons();
+        }
+        async function startConversationWithUser(userId) {
+
+            console.log('Clicked user ID:', userId);
+
+            try {
+
+                const response = await fetch('/messages/conversations', {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken
+                    },
+                    body: JSON.stringify({
+                        user_id: userId
+                    })
+                });
+
+                console.log('Response status:', response.status);
+
+                const data = await response.json();
+
+                console.log('Server response:', data);
+
+                if (!response.ok) {
+                    console.error('Failed to create/open conversation:', data);
+                    return;
+                }
+
+                const conversation = data.data;
+
+                console.log('Conversation:', conversation);
+
+                switchModalTab('conversations');
+
+                await loadModalConversations();
+
+                openModalConversation(conversation.conversation_id);
+
+            } catch (error) {
+
+                console.error('START CONVERSATION ERROR:', error);
+
+            }
+        }
+
+        async function markModalAsRead() {
+            if (!currentConversationId) return;
+            await fetch(`/messages/conversations/${currentConversationId}/read`, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken
+                }
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            lucideCreateIcons();
+            updateTopbarMessageBadge();
+
+            const conversationsList = document.getElementById('modalConversationsList');
+            if (conversationsList) {
+                conversationsList.addEventListener('click', (e) => {
+                    const item = e.target.closest('.conversation-item');
+                    if (item && !e.target.closest('.conversation-delete-btn')) {
+                        const id = item.dataset.id;
+                        if (id) openModalConversation(id);
+                    }
+                });
+            }
+
+            const usersList = document.getElementById('modalUsersList');
+            if (usersList) {
+                usersList.addEventListener('click', (e) => {
+                    const row = e.target.closest('.user-row');
+                    if (row) {
+                        const userId = parseInt(row.getAttribute('data-user-id') || '0');
+                        if (userId) startConversationWithUser(userId);
+                    }
+                });
+            }
+
+            const conversationSearch = document.getElementById('modalConversationSearch');
+            let searchTimeout;
+            if (conversationSearch) {
+                conversationSearch.addEventListener('input', () => {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(loadModalConversations, 250);
+                });
+            }
+
+            const messageForm = document.getElementById('modalMessageForm');
+            if (messageForm) {
+                messageForm.addEventListener('submit', sendModalMessage);
+            }
+
+            const messageInput = document.getElementById('modalMessageInput');
+            if (messageInput) {
+                messageInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        messageForm?.dispatchEvent(new Event('submit'));
+                    }
+                });
+
+                messageInput.addEventListener('input', () => {
+                    messageInput.style.height = 'auto';
+                    messageInput.style.height = Math.min(messageInput.scrollHeight, 120) + 'px';
+                });
+            }
+
+            const attachmentButton = document.getElementById('modalAttachmentButton');
+            const attachmentInput = document.getElementById('modalAttachmentInput');
+            const attachmentRemove = document.getElementById('modalAttachmentRemove');
+
+            if (attachmentButton && attachmentInput) {
+                attachmentButton.addEventListener('click', () => {
+                    attachmentInput.click();
+                });
+
+                attachmentInput.addEventListener('change', (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                        uploadModalAttachment(file);
+                    }
+                });
+            }
+
+            if (attachmentRemove) {
+                attachmentRemove.addEventListener('click', () => {
+                    clearSelectedAttachment();
+                });
+            }
+
+            const messagesContainer = document.getElementById('modalMessagesContainer');
+            if (messagesContainer) {
+                messagesContainer.addEventListener('scroll', () => {
+                    if (messagesContainer.scrollTop === 0 && hasMoreMessages && !isLoadingMessages) {
+                        const prevHeight = messagesContainer.scrollHeight;
+                        messagesPage++;
+                        loadModalMessages(currentConversationId, true).then(() => {
+                            messagesContainer.scrollTop = messagesContainer.scrollHeight - prevHeight;
+                        });
+                    }
+                });
+            }
+
+            const userSearch = document.getElementById('modalUserSearch');
+            if (userSearch) {
+                userSearch.addEventListener('input', () => {
+                    clearTimeout(userSearchTimeout);
+                    userSearchTimeout = setTimeout(() => {
+                        loadModalUsers(userSearch.value);
+                    }, 250);
+                });
+            }
+
+            listenToUserMessagesRealtime();
+        });
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && currentConversationId && document.getElementById('messagingModal') && !document.getElementById('messagingModal').classList.contains('hidden')) {
+                markModalAsRead();
             }
         });
-    }
 
-    document.addEventListener('DOMContentLoaded', () => {
-        lucideCreateIcons();
-
-        const conversationsList = document.getElementById('modalConversationsList');
-        if (conversationsList) {
-            conversationsList.addEventListener('click', (e) => {
-                const item = e.target.closest('.conversation-item');
-                if (item && !e.target.closest('.conversation-delete-btn')) {
-                    const id = item.dataset.id;
-                    if (id) openModalConversation(id);
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const modal = document.getElementById('messagingModal');
+                if (modal && !modal.classList.contains('hidden')) {
+                    closeMessagingModal();
                 }
-            });
-        }
-
-        const usersList = document.getElementById('modalUsersList');
-        if (usersList) {
-            usersList.addEventListener('click', (e) => {
-                const row = e.target.closest('.user-row');
-                if (row) {
-                    const userId = parseInt(row.getAttribute('data-user-id') || '0');
-                    if (userId) startConversationWithUser(userId);
-                }
-            });
-        }
-
-        const conversationSearch = document.getElementById('modalConversationSearch');
-        let searchTimeout;
-        if (conversationSearch) {
-            conversationSearch.addEventListener('input', () => {
-                clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(loadModalConversations, 250);
-            });
-        }
-
-        const messageForm = document.getElementById('modalMessageForm');
-        if (messageForm) {
-            messageForm.addEventListener('submit', sendModalMessage);
-        }
-
-        const messageInput = document.getElementById('modalMessageInput');
-        if (messageInput) {
-            messageInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    messageForm?.dispatchEvent(new Event('submit'));
-                }
-            });
-
-            messageInput.addEventListener('input', () => {
-                messageInput.style.height = 'auto';
-                messageInput.style.height = Math.min(messageInput.scrollHeight, 120) + 'px';
-            });
-        }
-
-        const attachmentButton = document.getElementById('modalAttachmentButton');
-        const attachmentInput = document.getElementById('modalAttachmentInput');
-        const attachmentRemove = document.getElementById('modalAttachmentRemove');
-
-        if (attachmentButton && attachmentInput) {
-            attachmentButton.addEventListener('click', () => {
-                attachmentInput.click();
-            });
-
-            attachmentInput.addEventListener('change', (e) => {
-                const file = e.target.files?.[0];
-                if (file) {
-                    uploadModalAttachment(file);
-                }
-            });
-        }
-
-        if (attachmentRemove) {
-            attachmentRemove.addEventListener('click', () => {
-                clearSelectedAttachment();
-            });
-        }
-
-        const messagesContainer = document.getElementById('modalMessagesContainer');
-        if (messagesContainer) {
-            messagesContainer.addEventListener('scroll', () => {
-                if (messagesContainer.scrollTop === 0 && hasMoreMessages && !isLoadingMessages) {
-                    const prevHeight = messagesContainer.scrollHeight;
-                    messagesPage++;
-                    loadModalMessages(currentConversationId, true).then(() => {
-                        messagesContainer.scrollTop = messagesContainer.scrollHeight - prevHeight;
-                    });
-                }
-            });
-        }
-
-        const userSearch = document.getElementById('modalUserSearch');
-        if (userSearch) {
-            userSearch.addEventListener('input', () => {
-                clearTimeout(userSearchTimeout);
-                userSearchTimeout = setTimeout(() => {
-                    loadModalUsers(userSearch.value);
-                }, 250);
-            });
-        }
-    });
-
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible' && currentConversationId && document.getElementById('messagingModal') && !document.getElementById('messagingModal').classList.contains('hidden')) {
-            markModalAsRead();
-        }
-    });
-
-    window.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-            const modal = document.getElementById('messagingModal');
-            if (modal && !modal.classList.contains('hidden')) {
-                closeMessagingModal();
             }
-        }
-    });
-})();
+        });
+    })();
 </script>
 
 <style>
@@ -1273,65 +3633,147 @@
     ====================================== */
 
     @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
+        from {
+            opacity: 0;
+        }
+
+        to {
+            opacity: 1;
+        }
     }
 
     @keyframes fadeInUp {
-        from { opacity: 0; transform: translateY(8px); }
-        to { opacity: 1; transform: translateY(0); }
+        from {
+            opacity: 0;
+            transform: translateY(8px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
 
     @keyframes fadeInScale {
-        from { opacity: 0; transform: scale(0.95); }
-        to { opacity: 1; transform: scale(1); }
+        from {
+            opacity: 0;
+            transform: scale(0.95);
+        }
+
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
     }
 
     @keyframes slideInLeft {
-        from { opacity: 0; transform: translateX(-10px); }
-        to { opacity: 1; transform: translateX(0); }
+        from {
+            opacity: 0;
+            transform: translateX(-10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
     }
 
     @keyframes slideInRight {
-        from { opacity: 0; transform: translateX(10px); }
-        to { opacity: 1; transform: translateX(0); }
+        from {
+            opacity: 0;
+            transform: translateX(10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
     }
 
     @keyframes scaleIn {
-        from { transform: scale(0.92); opacity: 0; }
-        to { transform: scale(1); opacity: 1; }
+        from {
+            transform: scale(0.92);
+            opacity: 0;
+        }
+
+        to {
+            transform: scale(1);
+            opacity: 1;
+        }
     }
 
     @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.5; }
+
+        0%,
+        100% {
+            opacity: 1;
+        }
+
+        50% {
+            opacity: 0.5;
+        }
     }
 
     @keyframes badgePop {
-        0% { transform: scale(0); }
-        60% { transform: scale(1.15); }
-        100% { transform: scale(1); }
+        0% {
+            transform: scale(0);
+        }
+
+        60% {
+            transform: scale(1.15);
+        }
+
+        100% {
+            transform: scale(1);
+        }
     }
 
     @keyframes shimmer {
-        0% { background-position: -200% 0; }
-        100% { background-position: 200% 0; }
+        0% {
+            background-position: -200% 0;
+        }
+
+        100% {
+            background-position: 200% 0;
+        }
     }
 
     @keyframes conversationSlideIn {
-        from { opacity: 0; transform: translateX(-10px); }
-        to { opacity: 1; transform: translateX(0); }
+        from {
+            opacity: 0;
+            transform: translateX(-10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
     }
 
     @keyframes userCardIn {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
 
     @keyframes inputFocusGlow {
-        0% { box-shadow: 0 0 0 0 rgba(15, 23, 42, 0.08); }
-        50% { box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.08); }
-        100% { box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.06); }
+        0% {
+            box-shadow: 0 0 0 0 rgba(15, 23, 42, 0.08);
+        }
+
+        50% {
+            box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.08);
+        }
+
+        100% {
+            box-shadow: 0 0 0 4px rgba(15, 23, 42, 0.06);
+        }
     }
 
     /* ======================================
@@ -1637,7 +4079,7 @@
     ====================================== */
 
     .animate-pulse {
-        background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.05) 50%, rgba(255,255,255,0) 100%);
+        background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.05) 50%, rgba(255, 255, 255, 0) 100%);
         background-size: 200% 100%;
         animation: shimmer 1.5s ease-in-out infinite;
     }
@@ -1711,5 +4153,115 @@
 
     .text-center.py-12 {
         animation: fadeInUp 0.3s ease-out both;
+    }
+
+    /* ======================================
+    TYPING INDICATOR DOT ANIMATION
+    ====================================== */
+
+    .typing-dot {
+        animation: typingBounce 1.2s infinite ease-in-out;
+    }
+
+    .typing-dot:nth-child(2) {
+        animation-delay: 0.15s;
+    }
+
+    .typing-dot:nth-child(3) {
+        animation-delay: 0.3s;
+    }
+
+    @keyframes typingBounce {
+
+        0%,
+        60%,
+        100% {
+            transform: translateY(0);
+            opacity: 0.4;
+        }
+
+        30% {
+            transform: translateY(-4px);
+            opacity: 1;
+        }
+    }
+
+    /* ======================================
+    CHAT TYPING INDICATOR TRANSITION
+
+    When typing starts:
+    Last message smoothly moves upward.
+
+    When typing stops:
+    Last message smoothly returns downward.
+    ====================================== */
+
+    .typing-indicator-wrapper {
+        max-height: 0;
+        opacity: 0;
+        overflow: hidden;
+        padding-bottom: 0;
+        margin-top: 0;
+        transform: translateY(8px);
+
+        transition:
+            max-height 0.25s ease,
+            opacity 0.2s ease,
+            transform 0.25s ease,
+            padding-bottom 0.25s ease,
+            margin-top 0.25s ease;
+
+        pointer-events: none;
+    }
+
+    .typing-indicator-wrapper.is-typing {
+        max-height: 60px;
+        opacity: 1;
+        padding-bottom: 12px;
+        margin-top: 12px;
+        transform: translateY(0);
+    }
+
+
+    /* ======================================
+    CONVERSATION LIST TYPING DOTS
+    ====================================== */
+
+    .conversation-typing-dots {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        height: 14px;
+    }
+
+    .conversation-typing-dots span {
+        width: 4px;
+        height: 4px;
+        border-radius: 9999px;
+        background: currentColor;
+        animation: conversationTypingBounce 1.2s infinite ease-in-out;
+    }
+
+    .conversation-typing-dots span:nth-child(2) {
+        animation-delay: 0.15s;
+    }
+
+    .conversation-typing-dots span:nth-child(3) {
+        animation-delay: 0.3s;
+    }
+
+    @keyframes conversationTypingBounce {
+
+        0%,
+        60%,
+        100% {
+            transform: translateY(0);
+            opacity: 0.4;
+        }
+
+        30% {
+            transform: translateY(-3px);
+            opacity: 1;
+        }
     }
 </style>

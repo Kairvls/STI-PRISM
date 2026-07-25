@@ -533,6 +533,11 @@ Route::get(
     [MaintenanceController::class, 'todayReports']
 );
 
+Route::get(
+    '/maintenance/activities',
+    [MaintenanceController::class, 'activities']
+)->name('maintenance.activities.index');
+
 
 /*
 |--------------------------------------------------------------------------
@@ -1721,7 +1726,62 @@ Route::middleware(['auth'])
             [MessageController::class, 'uploadAttachment']
         )->name('upload');
 
+        Route::post(
+            '/conversations/{conversation}/messages/{message}/delivered',
+            [MessageController::class, 'markAsDelivered']
+        )->name('delivered');
+
+        Route::post(
+            '/sync-delivered',
+            [MessageController::class, 'syncDeliveredMessages']
+        )->name('sync-delivered');
+
+        Route::get(
+            '/unread-count',
+            [MessageController::class, 'unreadCount']
+        )->name('unread-count');
+
+        Route::post(
+            '/conversations/{conversation}/typing',
+            [MessageController::class, 'typing']
+        )->name('typing');
+
     });
+
+// =====================================================
+// USER ONLINE STATUS HEARTBEAT
+// =====================================================
+
+Route::post('/user/heartbeat', function () {
+
+    // =============================================
+    // MAKE SURE USER IS LOGGED IN
+    // =============================================
+
+    if (!auth()->check()) {
+        return response()->json([
+            'success' => false,
+        ], 401);
+    }
+
+
+    // =============================================
+    // UPDATE LAST ACTIVE TIME DIRECTLY
+    // =============================================
+
+    \Illuminate\Support\Facades\DB::table('users_table')
+        ->where('user_id', auth()->user()->user_id)
+        ->update([
+            'last_active_at' => now(),
+        ]);
+
+
+    return response()->json([
+        'success' => true,
+        'last_active_at' => now(),
+    ]);
+
+})->middleware('auth');
 
 
 

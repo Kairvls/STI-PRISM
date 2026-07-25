@@ -1156,10 +1156,7 @@ class AdminController extends Controller
     // ADDED RIS ADMIN APPROVAL: SHOW SUBMITTED RIS RECORDS
     // =====================================================
 
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
->>>>>>> fd00ce762fcb357b372be73190954c2a0a64a6c6
+
     public function risApprovals(Request $request)
     {
         // ADDED RIS ADMIN APPROVAL: submitted means Pending with requested date filled.
@@ -1182,15 +1179,9 @@ class AdminController extends Controller
 
         return view('admin.procurement-review.index', compact('risRecords'));
     }
-<<<<<<< HEAD
-=======
-=======
-    public function risApprovals(Request $request): View
-{
-    return $this->procurementReview($request);
-}
->>>>>>> 1f8eeee141acb3aea2cd4d2ea7e8e2707382483c
->>>>>>> fd00ce762fcb357b372be73190954c2a0a64a6c6
+
+
+
 
     // =====================================================
     // ADDED RIS ADMIN APPROVAL: APPROVE RIS
@@ -1215,18 +1206,9 @@ class AdminController extends Controller
             DB::table('requisition_issue_slip_table')
                 ->where('ris_id', $risId)
                 ->update([
-<<<<<<< HEAD
-                    'ris_status' => 'Pending',
-                    'ris_approved_by_signature' => Auth::user()->user_full_name ?? 'Admin',
-=======
-<<<<<<< HEAD
-                    'ris_status' => 'Pending',
-                    'ris_approved_by_signature' => Auth::user()->user_full_name ?? 'Admin',
-=======
                     'ris_status' => 'Approved',
                     'ris_approved_by_signature' => $adminName,
->>>>>>> 1f8eeee141acb3aea2cd4d2ea7e8e2707382483c
->>>>>>> fd00ce762fcb357b372be73190954c2a0a64a6c6
+
                     'ris_approved_by_date' => now()->toDateString(),
                 ]);
 

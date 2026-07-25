@@ -53,7 +53,7 @@
 
                     padding: 12px 14px;
 
-                    background: #ffffff;
+                    background: white;
 
                     border: 1px solid #e5e7eb;
 
@@ -465,7 +465,7 @@
                 /* ===================================================== */
 
                 .dashboard-side-card {
-                    background: #ffffff;
+                    background: white;
 
                     border: 1px solid #e2e8f0;
 
@@ -589,7 +589,7 @@
                     border: 1px solid #e5e7eb;
                     border-radius: 12px;
 
-                    background: #ffffff;
+                    background: white;
 
                     color: #374151;
 
@@ -652,7 +652,7 @@
                 .dashboard-quick-action:hover {
                     transform: translateY(-1px);
 
-                    background: #ffffff;
+                    background: white;
 
                     border-color: #d1d5db;
 
@@ -780,7 +780,7 @@
                     /* CHANGE: WHITE AT BOTTOM TO BLUE AT TOP */
                     background: linear-gradient(
                         to top,
-                        #ffffff 0%,
+                        white 0%,
                         #bfdbfe 15%,
                         #3b82f6 45%,
                         #1d4ed8 100%
@@ -980,7 +980,7 @@
 
                     border-radius: 10px;
 
-                    background: #ffffff;
+                    background: white;
 
                     color: #334155;
 
@@ -1131,7 +1131,7 @@
 
                     overflow: hidden;
 
-                    background: #ffffff;
+                    background: white;
 
                     border: 1px solid #e5e7eb;
 
@@ -1173,32 +1173,25 @@
 
 
                 .activity-sidebar-menu {
-                    width: 32px;
-
-                    height: 32px;
-
-                    display: inline-flex;
-
-                    align-items: center;
-
+                    width: 20px;
+                    height: 20px;
+                    display: flex;
                     justify-content: center;
-
-                    border: 0;
-
-                    border-radius: 9px;
-
+                    align-items: center;
+                    border-radius: 50%;
                     background: transparent;
-
-                    color: #94a3b8;
-
-                    cursor: pointer;
                 }
 
 
                 .activity-sidebar-menu:hover {
-                    background: #f8fafc;
-
-                    color: #334155;
+                    width: 20px;
+                    height: 20px;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    border-radius: 50%;
+                    background: #f4f6f9;
+                    
                 }
 
 
@@ -1383,7 +1376,7 @@
 
                     padding: 10px;
 
-                    background: #ffffff;
+                    background: white;
 
                     border: 1px solid #f1f5f9;
 
@@ -1480,7 +1473,7 @@
 
                     border-radius: 999px;
 
-                    background: #ffffff;
+                    background: white;
 
                     color: #64748b;
 
@@ -1717,7 +1710,7 @@
 
                     border-radius: 999px;
 
-                    background: #ffffff;
+                    background: white;
 
                     color: #6d5ce7;
 
@@ -1879,7 +1872,7 @@
 
                     border-radius: 999px;
 
-                    background: #ffffff;
+                    background: white;
 
                     color: #94a3b8;
 
@@ -1907,14 +1900,14 @@
 
                     background: #4f46e5;
 
-                    color: #ffffff;
+                    color: white;
                 }
 
 
                 .urgent-carousel-button-active:hover {
                     background: #4338ca;
 
-                    color: #ffffff;
+                    color: white;
 
                     border-color: #4338ca;
                 }
@@ -1939,7 +1932,7 @@
 
                     padding: 0;
 
-                    background: #ffffff;
+                    background: white;
                     border: 1px solid #e5e7eb;
                     border-radius: 22px;
 
@@ -2336,7 +2329,7 @@
 
                     border-radius: 999px;
 
-                    background: #ffffff;
+                    background: white;
 
                     color: #64748b;
 
@@ -2381,7 +2374,7 @@
 
                     border-radius: 18px;
 
-                    background: #ffffff;
+                    background: white;
 
                     color: #94a3b8;
 
@@ -2452,7 +2445,7 @@
 
             padding: 22px;
 
-            background: #ffffff;
+            background: white;
 
             border: 1px solid #e5e7eb;
 
@@ -2537,7 +2530,7 @@
 
             overflow: hidden;
 
-            background: #ffffff;
+            background: white;
 
             border: 1px solid #e5e7eb;
 
@@ -2666,7 +2659,7 @@
         .calendar-day.today {
             background: #0f172a;
 
-            color: #ffffff;
+            color: white;
         }
 
 
@@ -2809,7 +2802,7 @@
 
             overflow: hidden;
 
-            background: #ffffff;
+            background: white;
 
             border: 1px solid #e5e7eb;
 
@@ -3005,7 +2998,7 @@
         .calendar-day.today {
             background: #0f172a;
 
-            color: #ffffff;
+            color: white;
 
             font-weight: 700;
         }
@@ -3033,7 +3026,7 @@
 
 
         .calendar-day.today.has-events::after {
-            background: #ffffff;
+            background: white;
         }
 
 
@@ -3080,7 +3073,7 @@
 
             padding:22px;
 
-            background:#ffffff;
+            background:white;
 
             border:1px solid #edf2f7;
 
@@ -3414,7 +3407,7 @@
         ===================================================== */
 
         .flow-card {
-            background: #ffffff;
+            background: white;
             border: 1px solid #e5e7eb;
             border-radius: 28px;
 
@@ -3460,8 +3453,23 @@
         .flow-menu {
             width: 20px;
             height: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 50%;
+            background: transparent;
+            margin-top: -6px;
+        }
+
+        .flow-menu:hover {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
             border-radius: 50%;
             background: #f4f6f9;
+            margin-top: -6px;
         }
 
 
@@ -3560,7 +3568,7 @@
 
             padding: 22px 26px;
 
-            background: #ffffff;
+            background: white;
             border: 1px solid #e5e7eb;
             border-radius: 28px;
         }
@@ -3611,7 +3619,7 @@
             font-weight: 600;
 
             color: #111827;
-            background: #ffffff;
+            background: white;
 
             transition: 0.2s ease;
         }
@@ -3639,7 +3647,7 @@
 
             padding: 26px;
 
-            background: #ffffff;
+            background: white;
             border: 1px solid #e5e7eb;
             border-radius: 28px;
 
@@ -3723,7 +3731,7 @@
             /* GRADIENT: WHITE BOTTOM TO BLUE TOP */
             background: linear-gradient(
                 to top,
-                #ffffff 0%,
+                white 0%,
                 #dbeafe 25%,
                 #60a5fa 60%,
                 #0751d1 100%
@@ -3788,7 +3796,7 @@
 
         .maintenance-hero-primary {
             background: #111827;
-            color: #ffffff;
+            color: white;
             border: 1px solid #111827;
         }
 
@@ -3797,7 +3805,7 @@
         }
 
         .maintenance-hero-secondary {
-            background: #ffffff;
+            background: white;
             color: #374151;
             border: 1px solid #d1d5db;
         }
@@ -3860,7 +3868,7 @@
 
             overflow: hidden;
 
-            background: #ffffff;
+            background: white;
 
             border: 1px solid #e5e7eb;
             border-radius: 24px;
@@ -3938,7 +3946,7 @@
             border: 1px solid #e2e8f0;
             border-radius: 10px;
 
-            background: #ffffff;
+            background: white;
 
             color: #334155;
 
@@ -4173,7 +4181,7 @@
 
             border-color: rgba(103, 232, 249, 0.7);
 
-            color: #ffffff;
+            color: white;
 
             transform: translateY(-1px);
         }
@@ -4284,12 +4292,12 @@
         }
 
         .building-floor-filter:hover {
-            color: #ffffff;
+            color: white;
             background: rgba(255, 255, 255, 0.08);
         }
 
         .building-floor-filter.active {
-            color: #ffffff;
+            color: white;
             background: rgba(34, 211, 238, 0.18);
             box-shadow:
                 inset 0 0 0 1px rgba(34, 211, 238, 0.35),
@@ -4433,7 +4441,7 @@
             font-size: 14px;
             font-weight: 700;
 
-            color: #ffffff;
+            color: white;
         }
 
 
@@ -4526,7 +4534,7 @@
             font-size: 18px;
             font-weight: 700;
 
-            color: #ffffff;
+            color: white;
         }
 
 
@@ -4551,7 +4559,7 @@
         }
 
         .building-room-details-close:hover {
-            color: #ffffff;
+            color: white;
             border-color: rgba(34, 211, 238, 0.4);
         }
 
@@ -4630,7 +4638,7 @@
 
             font-size: 17px;
 
-            color: #ffffff;
+            color: white;
         }
 
 
@@ -4754,7 +4762,7 @@
             width: min(92vw, 520px);
             max-height: 90vh;
             overflow-y: auto;
-            background: #ffffff;
+            background: white;
             border: 1px solid #e5e7eb;
             border-radius: 22px;
             box-shadow: 0 24px 70px rgba(15, 23, 42, 0.18);
@@ -4870,7 +4878,7 @@
             {{-- TAKES ALL REMAINING WIDTH --}}
             {{-- ===================================================== --}}
 
-            <div class="mb-1 flex items-center gap-2 text-sm text-gray-500">
+            <!--<div class="mb-1 flex items-center gap-2 text-sm text-gray-500">
                 <span>Maintenance</span>
 
                 <i data-lucide="chevron-right" class="h-4 w-4"></i>
@@ -4882,6 +4890,22 @@
                         )
                     }}
                 </span>
+            </div>-->
+
+            <div>
+
+                <p class="text-sm font-medium text-gray-500">
+                    Reports & Maintenance Overview
+                </p>
+
+                <h1 class="mt-1 text-2xl font-semibold tracking-tight text-gray-900">
+                    Maintenance Personnel Dashboard
+                </h1>
+
+                <p class="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
+                    Review and manage incoming equipment maintenance requests and reports.
+                </p>
+
             </div>
 
             {{-- ===================================================== --}}
@@ -5003,12 +5027,157 @@
                                     </h2>
                                 </div>
 
-                                <button class="flow-menu">
-                                    <i
-                                        data-lucide="more-vertical"
-                                        class="h-4 w-4"
-                                    ></i>
-                                </button>
+                                {{-- ===================================================== --}}
+                                {{-- EQUIPMENT STATISTICS MENU --}}
+                                {{-- ===================================================== --}}
+
+                                <div class="relative" id="equipmentStatisticsMenu">
+
+                                    {{-- ================================================= --}}
+                                    {{-- MENU BUTTON --}}
+                                    {{-- ================================================= --}}
+
+                                    <button
+                                        type="button"
+                                        class="flow-menu"
+                                        onclick="toggleEquipmentStatisticsMenu(event)"
+                                        aria-label="Equipment statistics options"
+                                        aria-expanded="false"
+                                        id="equipmentStatisticsMenuButton"
+                                    >
+                                        <i
+                                            data-lucide="more-vertical"
+                                            class="h-3 w-3"
+                                        ></i>
+                                    </button>
+
+
+                                    {{-- ================================================= --}}
+                                    {{-- DROPDOWN --}}
+                                    {{-- ================================================= --}}
+
+                                    {{-- ===================================================== --}}
+                                    {{-- EQUIPMENT STATISTICS DROPDOWN --}}
+                                    {{-- COMPACT VERSION --}}
+                                    {{-- ===================================================== --}}
+
+                                    <div
+                                        id="equipmentStatisticsDropdown"
+                                        class="absolute right-0 top-full z-50 mt-1 hidden w-56 overflow-hidden rounded-xl border border-gray-200 bg-white p-1.5 shadow-lg"
+                                    >
+
+                                        {{-- ===================================================== --}}
+                                        {{-- EQUIPMENT INVENTORY --}}
+                                        {{-- ===================================================== --}}
+
+                                        <a
+                                            href="{{ url('/maintenance/equipment/inventory') }}"
+                                            class="flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition hover:bg-gray-50"
+                                        >
+                                            <div
+                                                class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500"
+                                            >
+                                                <i data-lucide="monitor" class="h-3.5 w-3.5"></i>
+                                            </div>
+
+                                            <div class="min-w-0">
+                                                <div class="text-xs font-semibold text-gray-800">
+                                                    Equipment Inventory
+                                                </div>
+
+                                                <div class="mt-0.5 text-[10px] leading-tight text-gray-400">
+                                                    View all equipment
+                                                </div>
+                                            </div>
+                                        </a>
+
+
+                                        {{-- ===================================================== --}}
+                                        {{-- UNDER MAINTENANCE --}}
+                                        {{-- ===================================================== --}}
+
+                                        <a
+                                            href="{{ url('/maintenance/equipment/inventory?status=Under Maintenance') }}"
+                                            class="flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition hover:bg-gray-50"
+                                        >
+                                            <div
+                                                class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500"
+                                            >
+                                                <i data-lucide="wrench" class="h-3.5 w-3.5"></i>
+                                            </div>
+
+                                            <div class="min-w-0">
+                                                <div class="text-xs font-semibold text-gray-800">
+                                                    Under Maintenance
+                                                </div>
+
+                                                <div class="mt-0.5 text-[10px] leading-tight text-gray-400">
+                                                    Equipment requiring service
+                                                </div>
+                                            </div>
+                                        </a>
+
+
+                                        {{-- ===================================================== --}}
+                                        {{-- BORROWED EQUIPMENT --}}
+                                        {{-- ===================================================== --}}
+
+                                        <a
+                                            href="{{ url('/maintenance/equipment/inventory?status=Borrowed') }}"
+                                            class="flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition hover:bg-gray-50"
+                                        >
+                                            <div
+                                                class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500"
+                                            >
+                                                <i data-lucide="package-open" class="h-3.5 w-3.5"></i>
+                                            </div>
+
+                                            <div class="min-w-0">
+                                                <div class="text-xs font-semibold text-gray-800">
+                                                    Borrowed Equipment
+                                                </div>
+
+                                                <div class="mt-0.5 text-[10px] leading-tight text-gray-400">
+                                                    View borrowed equipment
+                                                </div>
+                                            </div>
+                                        </a>
+
+
+                                        {{-- ===================================================== --}}
+                                        {{-- DIVIDER --}}
+                                        {{-- ===================================================== --}}
+
+                                        <div class="my-1 border-t border-gray-100"></div>
+
+
+                                        {{-- ===================================================== --}}
+                                        {{-- EQUIPMENT CATEGORIES --}}
+                                        {{-- ===================================================== --}}
+
+                                        <a
+                                            href="{{ url('/maintenance/equipment/categories') }}"
+                                            class="flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition hover:bg-gray-50"
+                                        >
+                                            <div
+                                                class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500"
+                                            >
+                                                <i data-lucide="tags" class="h-3.5 w-3.5"></i>
+                                            </div>
+
+                                            <div class="min-w-0">
+                                                <div class="text-xs font-semibold text-gray-800">
+                                                    Equipment Categories
+                                                </div>
+
+                                                <div class="mt-0.5 text-[10px] leading-tight text-gray-400">
+                                                    Manage categories
+                                                </div>
+                                            </div>
+                                        </a>
+
+                                    </div>
+                                </div>
                             </div>
 
                             {{-- Statistics --}}
@@ -5906,47 +6075,77 @@
                     {{-- SECTION HEADER --}}
                     {{-- ===================================================== --}}
 
+                    {{-- ===================================================== --}}
+                    {{-- URGENT REPORTS HEADER --}}
+                    {{-- ===================================================== --}}
+
                     <div class="urgent-pipeline-header">
+
+                        {{-- ========================================= --}}
+                        {{-- LEFT SIDE: TITLE --}}
+                        {{-- ========================================= --}}
+
                         <div>
                             <h2 class="urgent-pipeline-title">
                                 Top 5 Newest Urgent Reports
                             </h2>
 
-                            <p class="urgent-pipeline-description">Track active urgent issues in real time</p>
+                            <p class="urgent-pipeline-description">
+                                Track <span class="font-semibold text-red-500">
+                                    {{ $urgentReports }}
+                                </span> active urgent issues in real time
+                            </p>
                         </div>
 
-                        {{-- ================================================= --}}
-                        {{-- CAROUSEL CONTROLS --}}
-                        {{-- ================================================= --}}
 
-                        <div class="urgent-pipeline-controls">
-                            <button
-                                type="button"
-                                id="urgent-carousel-prev"
-                                onclick="scrollUrgentCarousel(-1)"
-                                class="urgent-carousel-button"
-                                aria-label="Previous urgent reports"
-                            >
-                                <i
-                                    data-lucide="chevron-left"
-                                    class="h-4 w-4"
-                                ></i>
-                            </button>
+                        {{-- ========================================= --}}
+                        {{-- RIGHT SIDE: COUNT + CAROUSEL CONTROLS --}}
+                        {{-- ========================================= --}}
 
-                            <button
-                                type="button"
-                                id="urgent-carousel-next"
-                                onclick="scrollUrgentCarousel(1)"
-                                class="urgent-carousel-button urgent-carousel-button-active"
-                                aria-label="Next urgent reports"
-                            >
-                                <i
-                                    data-lucide="chevron-right"
-                                    class="h-4 w-4"
-                                ></i>
-                            </button>
+                        <div class="flex items-center gap-3">
+
+                            
+
+
+                            {{-- ===================================== --}}
+                            {{-- CAROUSEL CONTROLS --}}
+                            {{-- ===================================== --}}
+
+                            <div class="urgent-pipeline-controls">
+
+                                <button
+                                    type="button"
+                                    id="urgent-carousel-prev"
+                                    onclick="scrollUrgentCarousel(-1)"
+                                    class="urgent-carousel-button"
+                                    aria-label="Previous urgent reports"
+                                >
+                                    <i
+                                        data-lucide="chevron-left"
+                                        class="h-4 w-4"
+                                    ></i>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    id="urgent-carousel-next"
+                                    onclick="scrollUrgentCarousel(1)"
+                                    class="urgent-carousel-button urgent-carousel-button-active"
+                                    aria-label="Next urgent reports"
+                                >
+                                    <i
+                                        data-lucide="chevron-right"
+                                        class="h-4 w-4"
+                                    ></i>
+                                </button>
+
+                            </div>
+
                         </div>
+
                     </div>
+
+                    
 
                     {{-- ===================================================== --}}
                     {{-- CAROUSEL --}}
@@ -6259,13 +6458,89 @@
                     <div class="activity-sidebar-header">
                         <h2 class="activity-sidebar-heading">Activity</h2>
 
-                        <button
-                            type="button"
-                            class="activity-sidebar-menu"
-                            aria-label="Activity options"
-                        >
-                            <i data-lucide="more-vertical" class="h-4 w-4"></i>
-                        </button>
+                        {{-- ===================================================== --}}
+                        {{-- ACTIVITY OPTIONS --}}
+                        {{-- ===================================================== --}}
+
+                        <div class="relative">
+
+                            <button
+                                type="button"
+                                class="activity-sidebar-menu"
+                                aria-label="Activity options"
+                                onclick="toggleActivityOptions(event)"
+                            >
+                                <i data-lucide="more-vertical" class="h-3 w-3"></i>
+                            </button>
+
+
+                            {{-- ================================================= --}}
+                            {{-- ACTIVITY OPTIONS DROPDOWN --}}
+                            {{-- ================================================= --}}
+
+                            <div
+                                id="activityOptionsDropdown"
+                                class="absolute right-0 top-full z-50 mt-1.5 hidden w-48 rounded-xl border border-gray-200 bg-white p-1.5 shadow-lg"
+                            >
+
+                                {{-- ============================================= --}}
+                                {{-- REFRESH ACTIVITY --}}
+                                {{-- ============================================= --}}
+
+                                <button
+                                    type="button"
+                                    onclick="refreshDashboardActivity()"
+                                    class="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition hover:bg-gray-50"
+                                >
+                                    <span
+                                        class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500"
+                                    >
+                                        <i
+                                            data-lucide="refresh-cw"
+                                            class="h-3.5 w-3.5"
+                                        ></i>
+                                    </span>
+
+                                    <span class="text-xs font-semibold text-gray-700">
+                                        Refresh Activity
+                                    </span>
+                                </button>
+
+
+                                {{-- ============================================= --}}
+                                {{-- ACTIVITY FILTERS --}}
+                                {{-- ============================================= --}}
+
+                                <a
+                                    href="{{ route('maintenance.activities.index') }}#activity-filters"
+                                    class="flex items-center gap-2.5 rounded-lg px-2.5 py-2 transition hover:bg-gray-50"
+                                >
+                                    <span
+                                        class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-500"
+                                    >
+                                        <i
+                                            data-lucide="list-filter"
+                                            class="h-3.5 w-3.5"
+                                        ></i>
+                                    </span>
+
+                                    <span class="flex min-w-0 flex-1 items-center justify-between gap-2">
+
+                                        <span class="text-xs font-semibold text-gray-700">
+                                            Activity Filters
+                                        </span>
+
+                                        <i
+                                            data-lucide="chevron-right"
+                                            class="h-3.5 w-3.5 text-gray-400"
+                                        ></i>
+
+                                    </span>
+                                </a>
+
+                            </div>
+
+                        </div>
                     </div>
 
                     {{-- ===================================================== --}}
@@ -6348,13 +6623,14 @@
                             <p>Latest system events</p>
                         </div>
 
-                        <a
-                            href="{{ url('/maintenance/reports') }}"
+                        <button
+                            type="button"
                             class="activity-list-add"
-                            aria-label="View all reports"
+                            aria-label="View recent activity history"
+                            onclick="openActivityPreviewModal()"
                         >
-                            <i data-lucide="plus" class="h-4 w-4"></i>
-                        </a>
+                            <i data-lucide="history" class="h-4 w-4"></i>
+                        </button>
                     </div>
 
                     {{-- ===================================================== --}}
@@ -6412,15 +6688,26 @@
                                 {{-- VIEW BUTTON --}}
                                 {{-- ================================================= --}}
 
-                                <a
-                                    href="{{ url(
-                            '/maintenance/reports/details/'
-                            . $activity->report_id
-                        ) }}"
-                                    class="activity-list-view"
-                                >
-                                    View
-                                </a>
+                                @if ($activity->url)
+
+                                    <a
+                                        href="{{ $activity->url }}"
+                                        class="activity-list-view"
+                                        aria-label="View activity details"
+                                    >
+                                        View
+                                    </a>
+
+                                @else
+
+                                    <span
+                                        class="activity-list-view opacity-40 cursor-default"
+                                        aria-label="No destination available"
+                                    >
+                                        View
+                                    </span>
+
+                                @endif
                             </div>
 
                         @empty
@@ -6438,9 +6725,11 @@
                     {{-- ===================================================== --}}
 
                     <div class="activity-sidebar-footer">
-                        <a href="{{ url('/maintenance/reports') }}">
-                            View All Reports
+
+                        <a href="{{ route('maintenance.activities.index') }}">
+                            View All Activities
                         </a>
+
                     </div>
                 </div>
             </aside>
@@ -8093,6 +8382,478 @@
     </div>
 </div>
 
+{{-- ===================================================== --}}
+{{-- QUICK ACTIVITY PREVIEW MODAL --}}
+{{-- ===================================================== --}}
+
+<div
+    id="activityPreviewModal"
+    class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+    aria-hidden="true"
+    onclick="closeActivityPreviewModal()"
+>
+    {{-- ================================================= --}}
+    {{-- MODAL CONTAINER --}}
+    {{-- ================================================= --}}
+
+    <div
+        class="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl"
+        onclick="event.stopPropagation()"
+    >
+        {{-- ================================================= --}}
+        {{-- HEADER --}}
+        {{-- ================================================= --}}
+
+        <div
+            class="flex items-start justify-between border-b border-gray-200 px-6 py-5"
+        >
+            <div>
+                <h2 class="text-xl font-bold text-gray-900">
+                    Recent Activity
+                </h2>
+
+                <p class="mt-1 text-sm text-gray-500">
+                    Your latest maintenance actions
+                </p>
+            </div>
+
+            <button
+                type="button"
+                onclick="closeActivityPreviewModal()"
+                class="flex h-10 w-10 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                aria-label="Close activity preview"
+            >
+                <i
+                    data-lucide="x"
+                    class="h-5 w-5"
+                ></i>
+            </button>
+        </div>
+
+        {{-- ================================================= --}}
+        {{-- ACTIVITY LIST --}}
+        {{-- ================================================= --}}
+
+        <div class="overflow-y-auto px-6 py-4">
+
+            @forelse ($activityPreview as $activity)
+
+                <div
+                    class="flex gap-4 border-b border-gray-100 py-4 last:border-b-0"
+                >
+                    {{-- ICON --}}
+
+                    <div
+                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-600"
+                    >
+                        <i
+                            data-lucide="{{ $activity->icon }}"
+                            class="h-4 w-4"
+                        ></i>
+                    </div>
+
+                    {{-- INFORMATION --}}
+
+                    <div class="min-w-0 flex-1">
+
+                        <div
+                            class="flex items-start justify-between gap-4"
+                        >
+                            <div class="min-w-0">
+
+                                <p
+                                    class="font-semibold text-gray-900"
+                                >
+                                    {{ $activity->title }}
+                                </p>
+
+                                <p
+                                    class="mt-1 text-sm leading-5 text-gray-500"
+                                >
+                                    {{ $activity->description }}
+                                </p>
+
+                            </div>
+
+                            {{-- VIEW AFFECTED RECORD --}}
+
+                            @if ($activity->url)
+
+                                <a
+                                    href="{{ $activity->url }}"
+                                    class="shrink-0 text-xs font-semibold text-gray-600 transition hover:text-gray-900"
+                                >
+                                    View
+                                </a>
+
+                            @endif
+                        </div>
+
+                        {{-- TIME --}}
+
+                        <div
+                            class="mt-2 flex items-center gap-2 text-xs text-gray-400"
+                        >
+                            <i
+                                data-lucide="clock-3"
+                                class="h-3.5 w-3.5"
+                            ></i>
+
+                            {{
+                                \Carbon\Carbon::parse(
+                                    $activity->created_at
+                                )->diffForHumans()
+                            }}
+                        </div>
+
+                    </div>
+                </div>
+
+            @empty
+
+                <div
+                    class="flex flex-col items-center justify-center px-6 py-12 text-center"
+                >
+                    <div
+                        class="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100 text-gray-400"
+                    >
+                        <i
+                            data-lucide="history"
+                            class="h-5 w-5"
+                        ></i>
+                    </div>
+
+                    <p class="font-semibold text-gray-700">
+                        No activities yet
+                    </p>
+
+                    <p class="mt-1 text-sm text-gray-400">
+                        Your maintenance actions will appear here.
+                    </p>
+                </div>
+
+            @endforelse
+
+        </div>
+
+        {{-- ================================================= --}}
+        {{-- FOOTER --}}
+        {{-- ================================================= --}}
+
+        <div
+            class="flex items-center justify-between border-t border-gray-200 bg-gray-50 px-6 py-4"
+        >
+            <span class="text-xs text-gray-400">
+                Showing your latest {{ $activityPreview->count() }} activities
+            </span>
+
+            {{-- WE WILL ACTIVATE THIS IN THE NEXT STEP --}}
+
+            <a
+                href="{{ route('maintenance.activities.index') }}"
+                class="text-sm font-semibold text-gray-600 transition hover:text-gray-900"
+            >
+                View All Activities
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+    // =====================================================
+// ACTIVITY OPTIONS DROPDOWN
+// =====================================================
+
+function toggleActivityOptions(event) {
+
+    event.stopPropagation();
+
+    const dropdown = document.getElementById(
+        'activityOptionsDropdown'
+    );
+
+    if (!dropdown) {
+        return;
+    }
+
+    dropdown.classList.toggle('hidden');
+}
+
+
+// =====================================================
+// CLOSE ACTIVITY OPTIONS WHEN CLICKING OUTSIDE
+// =====================================================
+
+document.addEventListener('click', function (event) {
+
+    const dropdown = document.getElementById(
+        'activityOptionsDropdown'
+    );
+
+    if (!dropdown) {
+        return;
+    }
+
+    if (!dropdown.contains(event.target)) {
+        dropdown.classList.add('hidden');
+    }
+
+});
+
+
+// =====================================================
+// REFRESH DASHBOARD ACTIVITY
+// =====================================================
+
+function refreshDashboardActivity() {
+
+    window.location.reload();
+
+}
+</script>
+
+<script>
+    // =====================================================
+// EQUIPMENT STATISTICS DROPDOWN
+// =====================================================
+
+function toggleEquipmentStatisticsMenu(event) {
+
+    // Prevent document click from immediately closing it.
+    event.stopPropagation();
+
+    const dropdown =
+        document.getElementById(
+            "equipmentStatisticsDropdown"
+        );
+
+    const button =
+        document.getElementById(
+            "equipmentStatisticsMenuButton"
+        );
+
+    if (!dropdown || !button) {
+        return;
+    }
+
+
+    // =================================================
+    // CHECK CURRENT STATE
+    // =================================================
+
+    const isHidden =
+        dropdown.classList.contains("hidden");
+
+
+    // =================================================
+    // OPEN OR CLOSE
+    // =================================================
+
+    if (isHidden) {
+
+        dropdown.classList.remove("hidden");
+
+        button.setAttribute(
+            "aria-expanded",
+            "true"
+        );
+
+    } else {
+
+        dropdown.classList.add("hidden");
+
+        button.setAttribute(
+            "aria-expanded",
+            "false"
+        );
+
+    }
+}
+
+
+// =====================================================
+// CLOSE WHEN CLICKING OUTSIDE
+// =====================================================
+
+document.addEventListener(
+    "click",
+    function (event) {
+
+        const menu =
+            document.getElementById(
+                "equipmentStatisticsMenu"
+            );
+
+        const dropdown =
+            document.getElementById(
+                "equipmentStatisticsDropdown"
+            );
+
+        const button =
+            document.getElementById(
+                "equipmentStatisticsMenuButton"
+            );
+
+        if (
+            !menu ||
+            !dropdown ||
+            !button
+        ) {
+            return;
+        }
+
+
+        // =================================================
+        // IGNORE CLICKS INSIDE MENU
+        // =================================================
+
+        if (menu.contains(event.target)) {
+            return;
+        }
+
+
+        // =================================================
+        // CLOSE DROPDOWN
+        // =================================================
+
+        dropdown.classList.add("hidden");
+
+        button.setAttribute(
+            "aria-expanded",
+            "false"
+        );
+
+    }
+);
+
+
+// =====================================================
+// CLOSE WITH ESCAPE
+// =====================================================
+
+document.addEventListener(
+    "keydown",
+    function (event) {
+
+        if (event.key !== "Escape") {
+            return;
+        }
+
+        const dropdown =
+            document.getElementById(
+                "equipmentStatisticsDropdown"
+            );
+
+        const button =
+            document.getElementById(
+                "equipmentStatisticsMenuButton"
+            );
+
+        if (!dropdown || !button) {
+            return;
+        }
+
+        dropdown.classList.add("hidden");
+
+        button.setAttribute(
+            "aria-expanded",
+            "false"
+        );
+
+    }
+);
+</script>
+
+<script>
+    // =====================================================
+// ACTIVITY PREVIEW MODAL
+// =====================================================
+
+function openActivityPreviewModal() {
+    // =================================================
+    // GET MODAL
+    // =================================================
+
+    const modal =
+        document.getElementById(
+            "activityPreviewModal"
+        );
+
+    if (!modal) {
+        return;
+    }
+
+    // =================================================
+    // SHOW MODAL
+    // =================================================
+
+    modal.classList.remove("hidden");
+    modal.classList.add("flex");
+
+    modal.setAttribute(
+        "aria-hidden",
+        "false"
+    );
+
+    // Prevent dashboard from scrolling behind modal.
+    document.body.style.overflow = "hidden";
+
+    // Refresh Lucide icons inside modal.
+    if (window.lucide) {
+        lucide.createIcons();
+    }
+}
+
+
+// =====================================================
+// CLOSE ACTIVITY PREVIEW MODAL
+// =====================================================
+
+function closeActivityPreviewModal() {
+    // =================================================
+    // GET MODAL
+    // =================================================
+
+    const modal =
+        document.getElementById(
+            "activityPreviewModal"
+        );
+
+    if (!modal) {
+        return;
+    }
+
+    // =================================================
+    // HIDE MODAL
+    // =================================================
+
+    modal.classList.add("hidden");
+    modal.classList.remove("flex");
+
+    modal.setAttribute(
+        "aria-hidden",
+        "true"
+    );
+
+    document.body.style.overflow = "";
+}
+
+// =====================================================
+// CLOSE ACTIVITY PREVIEW WITH ESCAPE KEY
+// =====================================================
+
+document.addEventListener(
+    "keydown",
+    function (event) {
+
+        if (event.key === "Escape") {
+            closeActivityPreviewModal();
+        }
+
+    }
+);
+</script>
+
     <script>
 
         // =====================================================
@@ -9482,7 +10243,7 @@ document.addEventListener(
                                 "width" => (float) $room->room_width,
                                 "height" => (float) $room->room_height,
 
-                                "color" => $room->room_color ?? "#ffffff",
+                                "color" => $room->room_color ?? "white",
 
                                 "rotation" => (float) data_get(
                                     $room->room_metadata,
@@ -10635,7 +11396,7 @@ document.addEventListener(
 
                 context.font = "bold 48px Arial";
 
-                context.fillStyle = "#ffffff";
+                context.fillStyle = "white";
 
                 context.textAlign = "center";
 
@@ -10717,7 +11478,7 @@ document.addEventListener(
 
                 context.font = "bold 42px Arial";
 
-                context.fillStyle = "#ffffff";
+                context.fillStyle = "white";
 
                 context.textAlign = "center";
 
@@ -15258,7 +16019,7 @@ document.addEventListener(
 
                             pointBorderWidth: 2,
 
-                            pointBackgroundColor: "#ffffff",
+                            pointBackgroundColor: "white",
 
                             pointBorderColor: lineColor,
 
@@ -15303,7 +16064,7 @@ document.addEventListener(
                         tooltip: {
                             displayColors: false,
 
-                            backgroundColor: "#ffffff",
+                            backgroundColor: "white",
 
                             titleColor: "#111827",
 
@@ -16762,7 +17523,7 @@ document.addEventListener(
 
                                     pointHoverBackgroundColor: "#72b4dc",
 
-                                    pointHoverBorderColor: "#ffffff",
+                                    pointHoverBorderColor: "white",
 
                                     pointHoverBorderWidth: 2,
                                 },
@@ -16796,7 +17557,7 @@ document.addEventListener(
 
                                     pointHoverBackgroundColor: "#e9b26f",
 
-                                    pointHoverBorderColor: "#ffffff",
+                                    pointHoverBorderColor: "white",
 
                                     pointHoverBorderWidth: 2,
                                 },
@@ -16856,7 +17617,7 @@ document.addEventListener(
 
                                     backgroundColor: "#0f172a",
 
-                                    titleColor: "#ffffff",
+                                    titleColor: "white",
 
                                     bodyColor: "#94a3b8",
 

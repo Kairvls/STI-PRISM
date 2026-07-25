@@ -40,21 +40,34 @@
         {{-- BESIDE NOTIFICATION BUTTON --}}
         {{-- ================================================= --}}
 
+        {{-- ================================================= --}}
+        {{-- MESSAGE BUTTON WITH UNREAD COUNT --}}
+        {{-- REPLACES THE OLD MESSAGE BUTTON --}}
+        {{-- ================================================= --}}
+
         <a
             href="javascript:void(0)"
             onclick="openMessagingModal()"
             class="dashboard-icon-action"
-            aria-label="PRISM messages box"
-            title="PRISM messages box"
+            aria-label="PRISM messages"
+            title="Messages"
         >
             <i data-lucide="messages-square" class="h-[18px] w-[18px]"></i>
 
-            {{-- ================================================= --}}
-            {{-- OPTIONAL MAIL UNREAD DOT --}}
-            {{-- REMOVE THIS SPAN IF YOU DO NOT HAVE MAIL COUNTS --}}
-            {{-- ================================================= --}}
+            {{-- ============================================= --}}
+            {{-- REAL MESSAGE UNREAD COUNT --}}
+            {{-- UPDATED BY messaging-modal.blade.php --}}
+            {{-- ============================================= --}}
 
-            <span class="dashboard-notification-dot"></span>
+            <span
+                id="topbarMessageBadge"
+                class="hidden absolute -right-1 -top-1 min-w-[18px] h-[18px]
+                    items-center justify-center rounded-full
+                    bg-rose-500 px-1 text-[10px] font-bold text-white
+                    border-2 border-white"
+            >
+                0
+            </span>
         </a>
 
         <div class="relative">
@@ -77,7 +90,7 @@
 
                 @if ($headerUnreadCount > 0)
                     <span
-                        class="absolute right-[9px] top-[8px] h-2 w-2 rounded-full border-2 border-white bg-rose-500"
+                        class="absolute right-[6px] top-[6px] h-2 w-2 rounded-full border-2 border-white bg-rose-500"
                     ></span>
 
                 @endif
@@ -85,27 +98,43 @@
 
             <!-- ===================================== -->
             <!-- NOTIFICATION DROPDOWN -->
+            <!-- MORE COMPACT VERSION -->
             <!-- ===================================== -->
 
             <div
                 id="notificationDropdown"
-                class="absolute right-0 top-[calc(100%+10px)] z-50 hidden w-[360px] overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_20px_60px_rgba(0,0,0,0.14)]"
+                class="absolute right-0 top-[calc(100%+2px)] z-50 hidden
+                    w-[340px]
+                    overflow-hidden
+                    rounded-xl
+                    border border-black/5
+                    bg-white
+                    shadow-[0_16px_45px_rgba(0,0,0,0.13)]"
             >
+
                 <!-- ===================================== -->
                 <!-- DROPDOWN HEADER -->
                 <!-- ===================================== -->
 
                 <div
-                    class="flex items-center justify-between border-b border-slate-100 px-5 py-4"
+                    class="flex items-center justify-between
+                        border-b border-slate-100
+                        px-4 py-3"
                 >
-                    <div>
+                    <div class="min-w-0">
+
                         <h3
-                            class="text-sm font-semibold tracking-tight text-slate-950"
+                            class="text-[13px] font-semibold tracking-tight text-slate-950"
                         >
                             Notifications
                         </h3>
 
-                        <p class="mt-0.5 text-xs text-slate-500">Recent activity requiring your attention</p>
+                        <p
+                            class="mt-0.5 text-[11px] text-slate-500"
+                        >
+                            Recent activity requiring your attention
+                        </p>
+
                     </div>
 
                     <!-- ===================================== -->
@@ -113,20 +142,26 @@
                     <!-- ===================================== -->
 
                     <span
-                        class="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-600"
+                        class="ml-3 shrink-0 rounded-full
+                            bg-slate-100
+                            px-2 py-1
+                            text-[10px] font-medium
+                            text-slate-600"
                     >
                         {{ $headerUnreadCount }} new
                     </span>
                 </div>
 
+
                 <!-- ===================================== -->
                 <!-- NOTIFICATION LIST -->
+                <!-- REDUCED HEIGHT -->
                 <!-- ===================================== -->
 
-                <div class="max-h-[360px] overflow-y-auto">
-                    @forelse (
-                        $headerNotifications as $notification) {
-                    )
+                <div class="max-h-[290px] overflow-y-auto">
+
+                    @forelse ($headerNotifications as $notification)
+
                         @php
                             // =====================================
                             // ICON BY NOTIFICATION TYPE
@@ -134,27 +169,18 @@
 
                             $icon = match ($notification->notification_type) {
                                 "urgent_report" => "triangle-alert",
-
                                 "new_report" => "file-plus-2",
-
                                 "report_status_changed" => "refresh-cw",
-
                                 "maintenance_upcoming" => "clock-3",
-
                                 "maintenance_due_today" => "calendar-clock",
-
                                 "maintenance_overdue" => "calendar-x-2",
-
                                 "equipment_transfer" => "route",
-
                                 "equipment_disposed" => "trash-2",
-
                                 "equipment_borrowed" => "handshake",
-
                                 "equipment_returned" => "undo-2",
-
                                 default => "bell",
                             };
+
 
                             // =====================================
                             // ICON STYLE BY CATEGORY
@@ -162,130 +188,212 @@
 
                             $iconStyle = match ($notification->notification_category) {
                                 "Reports" => "bg-rose-50 text-rose-600",
-
                                 "Maintenance" => "bg-amber-50 text-amber-600",
-
                                 "Equipment" => "bg-slate-100 text-slate-600",
-
                                 default => "bg-slate-100 text-slate-500",
                             };
                         @endphp
 
+
                         <!-- ===================================== -->
                         <!-- NOTIFICATION ITEM -->
+                        <!-- COMPACT VERSION -->
                         <!-- ===================================== -->
 
                         <a
                             href="/maintenance/notifications/{{ $notification->notification_id }}/open"
+
                             class="flex w-full
-                                items-start gap-3
+                                items-start
+                                gap-2.5
                                 border-b border-slate-100
-                                px-5 py-4
-                                text-left transition
+                                px-4 py-2.5
+                                text-left
+                                transition
                                 last:border-b-0
                                 hover:bg-slate-50
-
-                                {{ !$notification->is_read
-                                    ? 'bg-slate-50/60'
-                                    : '' }}"
+                                {{ !$notification->is_read ? 'bg-slate-50/60' : '' }}"
                         >
+
                             <!-- ================================= -->
                             <!-- ICON -->
                             <!-- ================================= -->
 
                             <div
-                                class="flex h-9 w-9
-                                    shrink-0 items-center
+                                class="flex h-8 w-8
+                                    shrink-0
+                                    items-center
                                     justify-center
                                     rounded-full
                                     {{ $iconStyle }}"
                             >
                                 <i
                                     data-lucide="{{ $icon }}"
-                                    class="h-4 w-4"
+                                    class="h-3.5 w-3.5"
                                 ></i>
                             </div>
+
 
                             <!-- ================================= -->
                             <!-- CONTENT -->
                             <!-- ================================= -->
 
                             <div class="min-w-0 flex-1">
+
+                                <!-- ================================= -->
+                                <!-- TITLE -->
+                                <!-- ================================= -->
+
                                 <div
-                                    class="flex items-start justify-between gap-4"
+                                    class="flex items-start justify-between gap-3"
                                 >
+
                                     <h4
-                                        class="truncate text-sm font-medium text-slate-900"
+                                        class="truncate
+                                            text-[12px]
+                                            font-semibold
+                                            leading-4
+                                            text-slate-900"
                                     >
                                         {{ $notification->notification_title }}
                                     </h4>
+
 
                                     <!-- ================================= -->
                                     <!-- UNREAD INDICATOR -->
                                     <!-- ================================= -->
 
                                     @if (!$notification->is_read)
+
                                         <span
-                                            class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500"
+                                            class="mt-1
+                                                h-1.5 w-1.5
+                                                shrink-0
+                                                rounded-full
+                                                bg-rose-500"
                                         ></span>
 
                                     @endif
+
                                 </div>
 
+
+                                <!-- ================================= -->
+                                <!-- MESSAGE -->
+                                <!-- ================================= -->
+
                                 <p
-                                    class="mt-1 line-clamp-2 text-sm leading-5 text-slate-500"
+                                    class="mt-0.5
+                                        line-clamp-2
+                                        text-[11px]
+                                        leading-4
+                                        text-slate-500"
                                 >
                                     {{ $notification->notification_message }}
                                 </p>
 
-                                <p class="mt-2 text-xs text-slate-400">
-                                    {{
-                                        \Carbon\Carbon::parse(
-                                            $notification->notification_created_at,
-                                        )->diffForHumans()
-                                    }}
+
+                                <!-- ================================= -->
+                                <!-- TIME -->
+                                <!-- ================================= -->
+
+                                <p
+                                    class="mt-1
+                                        text-[10px]
+                                        leading-3
+                                        text-slate-400"
+                                >
+                                    {{ \Carbon\Carbon::parse(
+                                        $notification->notification_created_at
+                                    )->diffForHumans() }}
                                 </p>
+
                             </div>
+
                         </a>
 
+
                     @empty
+
                         <!-- ===================================== -->
                         <!-- EMPTY STATE -->
                         <!-- ===================================== -->
 
                         <div
-                            class="flex min-h-[220px] flex-col items-center justify-center px-6 text-center"
+                            class="flex min-h-[170px]
+                                flex-col
+                                items-center
+                                justify-center
+                                px-5
+                                text-center"
                         >
+
                             <div
-                                class="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-400"
+                                class="flex h-9 w-9
+                                    items-center
+                                    justify-center
+                                    rounded-full
+                                    bg-slate-100
+                                    text-slate-400"
                             >
-                                <i data-lucide="bell-off" class="h-4 w-4"></i>
+                                <i
+                                    data-lucide="bell-off"
+                                    class="h-4 w-4"
+                                ></i>
                             </div>
 
-                            <h4 class="mt-3 text-sm font-medium text-slate-700">
+                            <h4
+                                class="mt-2
+                                    text-[12px]
+                                    font-medium
+                                    text-slate-700"
+                            >
                                 No notifications
                             </h4>
 
                             <p
-                                class="mt-1 text-xs text-slate-400"
-                            >New system activity will appear here.</p>
+                                class="mt-1
+                                    text-[10px]
+                                    text-slate-400"
+                            >
+                                New system activity will appear here.
+                            </p>
+
                         </div>
 
                     @endforelse
+
                 </div>
+
 
                 <!-- ===================================== -->
                 <!-- DROPDOWN FOOTER -->
                 <!-- ===================================== -->
 
-                <div class="border-t border-slate-100 px-3 py-2">
+                <div
+                    class="border-t border-slate-100
+                        px-3 py-1.5"
+                >
+
                     <a
                         href="/maintenance/notifications"
-                        class="block w-full rounded-lg px-3 py-2 text-center text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+
+                        class="block w-full
+                            rounded-lg
+                            px-3 py-2
+                            text-center
+                            text-[11px]
+                            font-medium
+                            text-slate-600
+                            transition
+                            hover:bg-slate-100
+                            hover:text-slate-950"
                     >
                         View all notifications
                     </a>
+
                 </div>
+
             </div>
         </div>
 

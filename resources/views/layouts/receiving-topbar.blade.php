@@ -40,21 +40,34 @@
         {{-- BESIDE NOTIFICATION BUTTON --}}
         {{-- ================================================= --}}
 
+        {{-- ================================================= --}}
+        {{-- MESSAGE BUTTON WITH UNREAD COUNT --}}
+        {{-- REPLACES THE OLD MESSAGE BUTTON --}}
+        {{-- ================================================= --}}
+
         <a
             href="javascript:void(0)"
             onclick="openMessagingModal()"
             class="dashboard-icon-action"
-            aria-label="PRISM messages box"
-            title="PRISM messages box"
+            aria-label="PRISM messages"
+            title="Messages"
         >
             <i data-lucide="messages-square" class="h-[18px] w-[18px]"></i>
 
-            {{-- ================================================= --}}
-            {{-- OPTIONAL MAIL UNREAD DOT --}}
-            {{-- REMOVE THIS SPAN IF YOU DO NOT HAVE MAIL COUNTS --}}
-            {{-- ================================================= --}}
+            {{-- ============================================= --}}
+            {{-- REAL MESSAGE UNREAD COUNT --}}
+            {{-- UPDATED BY messaging-modal.blade.php --}}
+            {{-- ============================================= --}}
 
-            <span class="dashboard-notification-dot"></span>
+            <span
+                id="topbarMessageBadge"
+                class="hidden absolute -right-1 -top-1 min-w-[18px] h-[18px]
+                    items-center justify-center rounded-full
+                    bg-rose-500 px-1 text-[10px] font-bold text-white
+                    border-2 border-white"
+            >
+                0
+            </span>
         </a>
 
         <div class="relative">
@@ -77,7 +90,7 @@
 
                 @if (0 > 0)
                     <span
-                        class="absolute right-[9px] top-[8px] h-2 w-2 rounded-full border-2 border-white bg-rose-500"
+                        class="absolute right-[6px] top-[6px] h-2 w-2 rounded-full border-2 border-white bg-rose-500"
                     ></span>
 
                 @endif
