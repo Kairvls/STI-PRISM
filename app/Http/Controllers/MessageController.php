@@ -7,14 +7,17 @@ use App\Events\MessagesRead;
 use App\Events\MessageDelivered;
 use App\Events\UserTyping;
 use App\Events\MessageReactionUpdated;
+use App\Events\MessageUpdated;
 use App\Models\MessageReaction;
 use App\Models\Conversation;
 use App\Models\ConversationParticipant;
 use App\Models\Message;
+use App\Models\MessageHiddenUser;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 
@@ -508,7 +511,7 @@ class MessageController extends Controller
                 $message->message_id
             )
             ->with([
-                'user:user_id,user_full_name',
+                'user:user_id,user_full_name,user_profile_picture',
             ])
             ->orderBy('created_at')
             ->get();
@@ -539,6 +542,12 @@ class MessageController extends Controller
 
                         'user_full_name' =>
                             $reaction->user?->user_full_name,
+
+                        // =============================================
+                        // PROFILE PICTURE FOR REACTION MODAL / TOOLTIP
+                        // =============================================
+                        'user_profile_picture' =>
+                            $reaction->user?->user_profile_picture,
                     ],
                 ];
 
@@ -742,36 +751,464 @@ class MessageController extends Controller
     /**
      * Load more messages for a conversation (paginated).
      */
-    public function messages(Request $request, Conversation $conversation): JsonResponse
+    // =====================================================
+    // LOAD MESSAGES FOR A CONVERSATION
+    // =====================================================
+
+    public function messages(
+        Request $request,
+        Conversation $conversation
+    ): JsonResponse
     {
         $userId = Auth::id();
 
-        $this->authorizeConversation($conversation, $userId);
+        $this->authorizeConversation(
+            $conversation,
+            $userId
+        );
 
         $messages = $conversation->messages()
 
-        // =============================================
-        // LOAD MESSAGE SENDER AND REPLIED MESSAGE
-        // =============================================
-
-        ->with([
-            'sender',
-
-            'replyTo.sender',
-
             // =============================================
-            // LOAD MESSAGE REACTIONS AND WHO REACTED
+            // DO NOT SHOW MESSAGES REMOVED FOR THIS USER
             // =============================================
 
-            'reactions.user',
-        ])
+            ->whereDoesntHave(
+                'hiddenUsers',
+                function ($query) use ($userId) {
+                    $query->where(
+                        'user_id',
+                        $userId
+                    );
+                }
+            )
 
-        ->orderByDesc('created_at')
-        ->paginate(20);
+            // =============================================
+            // LOAD MESSAGE INFORMATION
+            // =============================================
+
+            ->with([
+                'sender',
+                'replyTo.sender',
+                'reactions.user',
+            ])
+
+            ->orderByDesc('created_at')
+            ->paginate(20);
 
         return response()->json([
             'data' => $messages,
         ]);
+    }
+
+    // =====================================================
+    // EDIT OWN MESSAGE
+    // =====================================================
+
+    public function editMessage(
+        Request $request,
+        Conversation $conversation,
+        Message $message
+    ): JsonResponse
+    {
+        $userId = Auth::id();
+
+        $this->authorizeConversation(
+            $conversation,
+            $userId
+        );
+
+        // =============================================
+        // MAKE SURE MESSAGE BELONGS TO CONVERSATION
+        // =============================================
+
+        if (
+            (int) $message->conversation_id !==
+            (int) $conversation->conversation_id
+        ) {
+            abort(404);
+        }
+
+        // =============================================
+        // ONLY THE SENDER CAN EDIT
+        // =============================================
+
+        if ((int) $message->sender_id !== (int) $userId) {
+            abort(403, 'You cannot edit this message.');
+        }
+
+        // =============================================
+        // UNSENT MESSAGES CANNOT BE EDITED
+        // =============================================
+
+        if ($message->is_unsent) {
+            return response()->json([
+                'message' => 'An unsent message cannot be edited.',
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'message_content' => [
+                'required',
+                'string',
+                'max:5000',
+            ],
+        ]);
+
+        $message->update([
+            'message_content' =>
+                trim($validated['message_content']),
+
+            'is_edited' => true,
+            'edited_at' => now(),
+        ]);
+
+        $message->refresh();
+
+        // =====================================================
+        // LOAD REPLY DATA IMMEDIATELY AFTER EDIT
+        // Keeps the quoted replied message visible without refresh.
+        // =====================================================
+
+        $message->load([
+            'sender',
+            'replyTo.sender',
+            'reactions.user',
+        ]);
+
+        broadcast(
+            new MessageUpdated(
+                $message,
+                'edited'
+            )
+        )->toOthers();
+
+        return response()->json([
+            'message' => 'Message edited successfully.',
+            'data' => $message,
+        ]);
+    }
+
+
+    // =====================================================
+    // UNSEND OWN MESSAGE FOR EVERYONE
+    // =====================================================
+
+    public function unsendMessage(
+        Conversation $conversation,
+        Message $message
+    ): JsonResponse
+    {
+        $userId = Auth::id();
+
+        $this->authorizeConversation(
+            $conversation,
+            $userId
+        );
+
+        // =============================================
+        // MAKE SURE MESSAGE BELONGS TO CONVERSATION
+        // =============================================
+
+        if (
+            (int) $message->conversation_id !==
+            (int) $conversation->conversation_id
+        ) {
+            abort(404);
+        }
+
+        // =============================================
+        // ONLY ORIGINAL SENDER CAN UNSEND
+        // =============================================
+
+        if ((int) $message->sender_id !== (int) $userId) {
+            abort(403, 'You cannot unsend this message.');
+        }
+
+        if (!$message->is_unsent) {
+
+            $message->update([
+                'is_unsent' => true,
+                'unsent_at' => now(),
+            ]);
+
+            // =============================================
+            // REMOVE REACTIONS FROM UNSENT MESSAGE
+            // =============================================
+
+            MessageReaction::where(
+                'message_id',
+                $message->message_id
+            )->delete();
+
+            // =============================================
+            // REFRESH UPDATED MESSAGE
+            // =============================================
+
+            $message->refresh();
+
+
+            // =============================================
+            // TELL OTHER USER MESSAGE WAS UNSENT
+            // =============================================
+
+            broadcast(
+                new MessageUpdated(
+                    $message,
+                    'unsent'
+                )
+            )->toOthers();
+        }
+
+        return response()->json([
+            'message' => 'Message unsent successfully.',
+            'message_id' => $message->message_id,
+            'is_unsent' => true,
+            'unsent_at' => $message->unsent_at,
+        ]);
+    }
+
+
+    // =====================================================
+    // REMOVE MESSAGE FOR CURRENT USER ONLY
+    // =====================================================
+
+    public function removeMessageForUser(
+        Conversation $conversation,
+        Message $message
+    ): JsonResponse
+    {
+        $userId = Auth::id();
+
+        $this->authorizeConversation(
+            $conversation,
+            $userId
+        );
+
+        // =============================================
+        // MAKE SURE MESSAGE BELONGS TO CONVERSATION
+        // =============================================
+
+        if (
+            (int) $message->conversation_id !==
+            (int) $conversation->conversation_id
+        ) {
+            abort(404);
+        }
+
+        MessageHiddenUser::firstOrCreate([
+            'message_id' => $message->message_id,
+            'user_id' => $userId,
+        ]);
+
+        return response()->json([
+            'message' => 'Message removed for you.',
+            'message_id' => $message->message_id,
+        ]);
+    }
+
+
+    // =====================================================
+    // PIN OR UNPIN MESSAGE FOR CURRENT USER
+    //
+    // Uses conversation_pinned_messages so one user can
+    // keep MULTIPLE pinned messages in the same conversation.
+    // =====================================================
+
+    public function pinMessage(
+        Conversation $conversation,
+        Message $message
+    ): JsonResponse
+    {
+        $userId = Auth::id();
+
+        $this->authorizeConversation(
+            $conversation,
+            $userId
+        );
+
+        // =============================================
+        // MAKE SURE MESSAGE BELONGS TO CONVERSATION
+        // =============================================
+
+        if (
+            (int) $message->conversation_id !==
+            (int) $conversation->conversation_id
+        ) {
+            abort(404);
+        }
+
+        // =============================================
+        // UNSENT MESSAGES CANNOT BE PINNED
+        // =============================================
+
+        if ($message->is_unsent) {
+            return response()->json([
+                'message' => 'An unsent message cannot be pinned.',
+            ], 422);
+        }
+
+        // =============================================
+        // CHECK IF CURRENT USER ALREADY PINNED IT
+        // =============================================
+
+        $existingPin = DB::table('conversation_pinned_messages')
+            ->where('conversation_id', $conversation->conversation_id)
+            ->where('message_id', $message->message_id)
+            ->where('user_id', $userId)
+            ->first();
+
+        // =============================================
+        // CLICK PINNED MESSAGE AGAIN = UNPIN
+        // =============================================
+
+        if ($existingPin) {
+            DB::table('conversation_pinned_messages')
+                ->where(
+                    'conversation_pinned_message_id',
+                    $existingPin->conversation_pinned_message_id
+                )
+                ->delete();
+
+            return response()->json([
+                'message' => 'Message unpinned.',
+                'message_id' => $message->message_id,
+                'is_pinned' => false,
+            ]);
+        }
+
+        // =============================================
+        // OTHERWISE ADD A NEW PIN
+        // =============================================
+
+        DB::table('conversation_pinned_messages')->insert([
+            'conversation_id' => $conversation->conversation_id,
+            'message_id' => $message->message_id,
+            'user_id' => $userId,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return response()->json([
+            'message' => 'Message pinned.',
+            'message_id' => $message->message_id,
+            'is_pinned' => true,
+        ]);
+    }
+
+
+    // =====================================================
+    // FORWARD MESSAGE TO ANOTHER CONVERSATION
+    // =====================================================
+
+    public function forwardMessage(
+        Request $request,
+        Conversation $conversation,
+        Message $message
+    ): JsonResponse
+    {
+        $userId = Auth::id();
+
+        $this->authorizeConversation(
+            $conversation,
+            $userId
+        );
+
+        // =============================================
+        // MAKE SURE ORIGINAL MESSAGE BELONGS HERE
+        // =============================================
+
+        if (
+            (int) $message->conversation_id !==
+            (int) $conversation->conversation_id
+        ) {
+            abort(404);
+        }
+
+        if ($message->is_unsent) {
+            return response()->json([
+                'message' => 'An unsent message cannot be forwarded.',
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'target_conversation_id' => [
+                'required',
+                'integer',
+                'exists:conversations,conversation_id',
+            ],
+        ]);
+
+        $targetConversation = Conversation::findOrFail(
+            $validated['target_conversation_id']
+        );
+
+        // =============================================
+        // CURRENT USER MUST BELONG TO TARGET CHAT
+        // =============================================
+
+        $this->authorizeConversation(
+            $targetConversation,
+            $userId
+        );
+
+        // =============================================
+        // CREATE FORWARDED MESSAGE
+        //
+        // This currently forwards the TEXT.
+        // We can extend attachment forwarding afterward.
+        // =============================================
+
+        $forwardedMessage = Message::create([
+
+            'conversation_id' =>
+                $targetConversation->conversation_id,
+
+            'sender_id' =>
+                $userId,
+
+            'reply_to_message_id' =>
+                null,
+
+            // =============================================
+            // THIS MAKES IT A FORWARDED MESSAGE
+            // =============================================
+
+            'forwarded_from_message_id' =>
+                $message->message_id,
+
+            'message_content' =>
+                $message->message_content,
+
+            'is_read' =>
+                false,
+        ]);
+
+        $targetConversation->update([
+            'last_message_id' =>
+                $forwardedMessage->message_id,
+
+            'last_message_at' =>
+                now(),
+        ]);
+
+        $forwardedMessage->load([
+            'sender',
+            'reactions.user',
+        ]);
+
+        // =============================================
+        // REALTIME MESSAGE TO TARGET CONVERSATION
+        // =============================================
+
+        broadcast(
+            new MessageSent($forwardedMessage)
+        )->toOthers();
+
+        return response()->json([
+            'message' => 'Message forwarded successfully.',
+            'data' => $forwardedMessage,
+        ], 201);
     }
 
     /**
@@ -842,6 +1279,7 @@ class MessageController extends Controller
             'user_full_name',
             'user_email_address',
             'user_role_id',
+            'user_profile_picture',
             'last_active_at'
         )
         ->with([
@@ -1163,6 +1601,85 @@ class MessageController extends Controller
 
         return response()->json([
             'success' => true,
+        ]);
+    }
+
+    // =====================================================
+    // GET ALL PINNED MESSAGES FOR CURRENT USER
+    // =====================================================
+
+    public function pinnedMessages(
+        Conversation $conversation
+    ): JsonResponse
+    {
+        $userId = Auth::id();
+
+        $this->authorizeConversation(
+            $conversation,
+            $userId
+        );
+
+        // =============================================
+        // GET ALL PINS, NEWEST PIN FIRST
+        // =============================================
+
+        $pinnedRows = DB::table('conversation_pinned_messages')
+            ->where('conversation_id', $conversation->conversation_id)
+            ->where('user_id', $userId)
+            ->orderByDesc('created_at')
+            ->get();
+
+        if ($pinnedRows->isEmpty()) {
+            return response()->json([
+                'data' => [],
+            ]);
+        }
+
+        // =============================================
+        // LOAD ACTUAL MESSAGES AND THEIR UI DATA
+        // =============================================
+
+        $messageIds = $pinnedRows
+            ->pluck('message_id')
+            ->map(fn ($id) => (int) $id)
+            ->values();
+
+        $messages = Message::with([
+                'sender',
+                'replyTo.sender',
+                'reactions.user',
+            ])
+            ->where('conversation_id', $conversation->conversation_id)
+            ->whereIn('message_id', $messageIds)
+            ->get()
+            ->keyBy('message_id');
+
+        // =============================================
+        // KEEP THE SAME ORDER AS THE PIN TABLE
+        // =============================================
+
+        $orderedMessages = $pinnedRows
+            ->map(function ($pin) use ($messages) {
+                $message = $messages->get(
+                    (int) $pin->message_id
+                );
+
+                if (!$message) {
+                    return null;
+                }
+
+                $message->setAttribute(
+                    'pinned_at',
+                    $pin->created_at
+                );
+
+                return $message;
+            })
+            ->filter()
+            ->values();
+
+        return response()->json([
+            'data' => $orderedMessages,
         ]);
     }
 }

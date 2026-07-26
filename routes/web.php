@@ -1736,6 +1736,32 @@ Route::middleware(['auth'])
             [MessageController::class, 'reactToMessage']
         )->name('reaction');
 
+        Route::patch(
+            '/conversations/{conversation}/messages/{message}/edit',
+            [MessageController::class, 'editMessage']
+        )->name('message.edit');
+
+        Route::post(
+            '/conversations/{conversation}/messages/{message}/unsend',
+            [MessageController::class, 'unsendMessage']
+        )->name('message.unsend');
+
+        Route::delete(
+            '/conversations/{conversation}/messages/{message}/remove',
+            [MessageController::class, 'removeMessageForUser']
+        )->name('message.remove');
+
+        Route::post(
+            '/conversations/{conversation}/messages/{message}/pin',
+            [MessageController::class, 'pinMessage']
+        )->name('message.pin');
+
+        Route::post(
+            '/conversations/{conversation}/messages/{message}/forward',
+            [MessageController::class, 'forwardMessage']
+        )->name('message.forward');
+
+
         Route::post(
             '/sync-delivered',
             [MessageController::class, 'syncDeliveredMessages']
@@ -1750,6 +1776,11 @@ Route::middleware(['auth'])
             '/conversations/{conversation}/typing',
             [MessageController::class, 'typing']
         )->name('typing');
+
+        Route::get(
+            '/conversations/{conversation}/pinned',
+            [MessageController::class, 'pinnedMessages']
+        )->name('pinned');
 
     });
 

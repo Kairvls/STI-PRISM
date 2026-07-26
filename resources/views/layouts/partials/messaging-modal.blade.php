@@ -135,39 +135,40 @@
                         class="hidden flex flex-col flex-1 overflow-y-auto min-h-0 gap-2.5 px-4 py-3"
                     >
                         {{-- Messages are inserted here by JavaScript --}}
-                    </div>
 
 
-                    {{-- ====================================== --}}
-                    {{-- TYPING INDICATOR --}}
-                    {{-- KEEP OUTSIDE modalMessagesContainer --}}
-                    {{-- ====================================== --}}
+                        {{-- ====================================== --}}
+                        {{-- TYPING INDICATOR --}}
+                        {{-- ALWAYS STAYS AFTER THE LAST MESSAGE --}}
+                        {{-- ====================================== --}}
 
-                    <div
-                        id="modalTypingIndicator"
-                        class="typing-indicator-wrapper shrink-0 px-4"
-                    >
-                        <div class="flex justify-start">
+                        <div
+                            id="modalTypingIndicator"
+                            class="typing-indicator-wrapper shrink-0"
+                        >
+                            <div class="flex justify-start">
 
-                            <div
-                                class="inline-flex items-center gap-1
-                                    rounded-2xl rounded-bl-md
-                                    bg-gray-100 px-4 py-3"
-                            >
-                                <span
-                                    class="typing-dot h-1.5 w-1.5 rounded-full bg-gray-500"
-                                ></span>
+                                <div
+                                    class="inline-flex items-center gap-1
+                                        rounded-2xl rounded-bl-md
+                                        bg-gray-100 px-4 py-3"
+                                >
+                                    <span
+                                        class="typing-dot h-1.5 w-1.5 rounded-full bg-gray-500"
+                                    ></span>
 
-                                <span
-                                    class="typing-dot h-1.5 w-1.5 rounded-full bg-gray-500"
-                                ></span>
+                                    <span
+                                        class="typing-dot h-1.5 w-1.5 rounded-full bg-gray-500"
+                                    ></span>
 
-                                <span
-                                    class="typing-dot h-1.5 w-1.5 rounded-full bg-gray-500"
-                                ></span>
+                                    <span
+                                        class="typing-dot h-1.5 w-1.5 rounded-full bg-gray-500"
+                                    ></span>
+                                </div>
+
                             </div>
-
                         </div>
+
                     </div>
                 </div>
 
@@ -274,6 +275,57 @@
     </div>
 </div>
 
+
+{{-- ====================================== --}}
+{{-- PINNED MESSAGES MODAL --}}
+{{-- ====================================== --}}
+
+<div
+    id="pinnedMessagesModal"
+    class="fixed inset-0 z-[9999] hidden"
+>
+    {{-- BACKDROP --}}
+    <div
+        id="pinnedMessagesBackdrop"
+        class="absolute inset-0 bg-black/50"
+    ></div>
+
+    <div
+        class="relative flex min-h-full items-center justify-center p-4"
+    >
+        <div
+            class="relative flex max-h-[620px] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+        >
+
+            {{-- HEADER --}}
+            <div
+                class="flex shrink-0 items-center justify-between border-b border-gray-200 px-5 py-4"
+            >
+                <h3 class="text-lg font-semibold text-gray-900">
+                    Pinned messages
+                </h3>
+
+                <button
+                    type="button"
+                    id="closePinnedMessagesModal"
+                    class="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-500 transition hover:bg-gray-200 hover:text-gray-900"
+                >
+                    <i data-lucide="x" class="h-5 w-5"></i>
+                </button>
+            </div>
+
+            {{-- PINNED LIST --}}
+            <div
+                id="pinnedMessagesList"
+                class="flex-1 overflow-y-auto p-5"
+            >
+            </div>
+
+        </div>
+    </div>
+</div>
+
+
 <script>
     (function() {
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
@@ -285,11 +337,13 @@
         let userSearchTimeout = null;
         let selectedAttachment = null;
         let replyingToMessage = null;
+        let editingMessageRow = null;
         let activeRealtimeConversationId = null;
         let typingTimeout = null;
         let globalTypingSent = false;
         const remoteTypingTimeouts = new Map();
         let currentConversationUserName = '';
+        let currentConversationUser = null;
 
         // =====================================================
         // USER ONLINE STATUS HEARTBEAT
@@ -1036,8 +1090,25 @@
 
             if (chatEmpty) chatEmpty.classList.remove('hidden');
             if (messagesContainer) {
+
                 messagesContainer.classList.add('hidden');
-                messagesContainer.innerHTML = '';
+
+                // =============================================
+                // REMOVE MESSAGE ELEMENTS ONLY
+                // KEEP TYPING INDICATOR ALIVE
+                // =============================================
+
+                Array.from(messagesContainer.children)
+                    .forEach(child => {
+
+                        if (
+                            child.id !==
+                            'modalTypingIndicator'
+                        ) {
+                            child.remove();
+                        }
+
+                    });
             }
             if (typingIndicator) {
                 typingIndicator.classList.remove(
@@ -1350,25 +1421,78 @@
                 
 
                 let conversationMessageStatus = '';
+                let conversationSeenHtml = '';
 
                 if (lastMessageIsMine && lastMessage.message_id) {
+
+                    // =====================================
+                    // SEEN
+                    // Show receiver profile picture
+                    // =====================================
 
                     if (
                         lastMessage.is_read ||
                         lastMessage.read_at
                     ) {
 
-                        conversationMessageStatus = 'Seen';
+                        let seenPicture =
+                            otherParticipant.user_profile_picture ||
+                            otherParticipant.profile_picture ||
+                            '';
 
-                    } else if (lastMessage.delivered_at) {
+                        if (seenPicture) {
 
-                        conversationMessageStatus =
-                            '✓✓ Delivered';
+                            seenPicture = String(seenPicture);
 
-                    } else {
+                            if (
+                                !/^https?:\/\//i.test(seenPicture) &&
+                                !seenPicture.startsWith('/')
+                            ) {
+                                seenPicture =
+                                    `/storage/${seenPicture.replace(/^storage\//, '')}`;
+                            }
 
-                        conversationMessageStatus =
-                            '✓ Sent';
+                            conversationSeenHtml = `
+                                <img
+                                    src="${escapeHtml(seenPicture)}"
+                                    alt="${escapeHtml(name)}"
+                                    title="Seen by ${escapeHtml(name)}"
+                                    class="h-4 w-4 shrink-0 rounded-full object-cover"
+                                    onerror="this.outerHTML='<div class=&quot;h-4 w-4 shrink-0 rounded-full bg-gray-300 flex items-center justify-center text-[7px] font-semibold text-gray-600&quot;>${escapeHtml(initials)}</div>'"
+                                >
+                            `;
+
+                        } else {
+
+                            conversationSeenHtml = `
+                                <div
+                                    title="Seen by ${escapeHtml(name)}"
+                                    class="h-4 w-4 shrink-0 rounded-full bg-gray-300 flex items-center justify-center text-[7px] font-semibold text-gray-600"
+                                >
+                                    ${escapeHtml(initials)}
+                                </div>
+                            `;
+                        }
+
+                    }
+
+                    // =====================================
+                    // DELIVERED
+                    // =====================================
+
+                    else if (lastMessage.delivered_at) {
+
+                        conversationMessageStatus = '✓✓ Delivered';
+
+                    }
+
+                    // =====================================
+                    // SENT
+                    // =====================================
+
+                    else {
+
+                        conversationMessageStatus = '✓ Sent';
                     }
                 }
 
@@ -1380,6 +1504,49 @@
 
                 const activeClass =
                     isActive ? 'bg-gray-100' : '';
+
+                // =========================================
+                // CONVERSATION PROFILE PICTURE
+                // =========================================
+
+                let conversationAvatarHtml = '';
+
+                let profilePicture =
+                    otherParticipant.user_profile_picture ||
+                    otherParticipant.profile_picture ||
+                    '';
+
+                if (profilePicture) {
+
+                    profilePicture = String(profilePicture);
+
+                    if (
+                        !/^https?:\/\//i.test(profilePicture) &&
+                        !profilePicture.startsWith('/')
+                    ) {
+                        profilePicture =
+                            `/storage/${profilePicture.replace(/^storage\//, '')}`;
+                    }
+
+                    conversationAvatarHtml = `
+                        <img
+                            src="${escapeHtml(profilePicture)}"
+                            alt="${escapeHtml(name)}"
+                            class="h-10 w-10 rounded-full object-cover"
+                            onerror="this.outerHTML='<div class=&quot;h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center text-xs font-semibold text-gray-600&quot;>${escapeHtml(initials)}</div>'"
+                        >
+                    `;
+
+                } else {
+
+                    conversationAvatarHtml = `
+                        <div
+                            class="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center text-xs font-semibold text-gray-600"
+                        >
+                            ${escapeHtml(initials)}
+                        </div>
+                    `;
+                }
 
                 return `
                     <div
@@ -1395,12 +1562,7 @@
 
                             <div class="relative shrink-0">
 
-                                <div
-                                    class="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center text-xs font-semibold text-gray-600"
-                                >
-                                    ${initials}
-                                </div>
-
+                                ${conversationAvatarHtml}
                                 <span
                                     class="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${
                                         isOnline
@@ -1464,16 +1626,19 @@
                                                     }"
                                                 ></span>
                                             `
-                                            : conversationMessageStatus
-                                                ? `
-                                                    <span
-                                                        class="conversation-message-status shrink-0 text-[10px] text-gray-400 font-medium"
-                                                        data-message-id="${lastMessage.message_id}"
-                                                    >
-                                                        ${conversationMessageStatus}
-                                                    </span>
-                                                `
-                                                : ''
+                                            : conversationSeenHtml
+                                                ? conversationSeenHtml
+
+                                                : conversationMessageStatus
+                                                    ? `
+                                                        <span
+                                                            class="conversation-message-status shrink-0 text-[10px] text-gray-400 font-medium"
+                                                            data-message-id="${lastMessage.message_id}"
+                                                        >
+                                                            ${conversationMessageStatus}
+                                                        </span>
+                                                    `
+                                                    : ''
                                     }
 
                                 </div>
@@ -1602,6 +1767,7 @@
                 otherParticipant.user_full_name || 'Unknown';
 
             currentConversationUserName = name;
+            currentConversationUser = otherParticipant;
 
             // =====================================================
             // USER INFORMATION
@@ -1885,12 +2051,1132 @@
             });
         }
 
+        // =====================================================
+        // MESSENGER STYLE MESSAGE UI
+        // =====================================================
+
+        function getFullMessageDateTime(value) {
+            if (!value) return '';
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return '';
+            return date.toLocaleString('en-US', {
+                weekday: 'long',
+                month: 'short',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit'
+            });
+        }
+
+        function getMessageAvatarHtml(msg, senderName) {
+            const picture = msg.sender?.user_profile_picture || msg.sender?.profile_picture || '';
+            const initials = String(senderName || '?')
+                .split(/\s+/).filter(Boolean).slice(0, 2)
+                .map(part => part.charAt(0)).join('').toUpperCase() || '?';
+
+            if (picture) {
+                let src = String(picture);
+                if (!/^https?:\/\//i.test(src) && !src.startsWith('/')) {
+                    src = `/storage/${src.replace(/^storage\//, '')}`;
+                }
+                return `<img src="${escapeHtml(src)}" alt="${escapeHtml(senderName)}" class="h-8 w-8 shrink-0 rounded-full object-cover" onerror="this.outerHTML='<div class=&quot;h-8 w-8 shrink-0 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-semibold text-gray-600&quot;>${escapeHtml(initials)}</div>'">`;
+            }
+
+            return `<div class="h-8 w-8 shrink-0 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-semibold text-gray-600">${escapeHtml(initials)}</div>`;
+        }
+
+        function getMessageMoreMenuHtml(isOwn, isUnsent) {
+            const editItem = isOwn && !isUnsent ? `
+                <button type="button" class="message-action-item message-edit-btn flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
+                    <i data-lucide="pencil" class="h-4 w-4"></i><span>Edit</span>
+                </button>` : '';
+            const destructiveItem = isOwn ? `
+                <button type="button" class="message-action-item message-unsend-btn flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50">
+                    <i data-lucide="undo-2" class="h-4 w-4"></i><span>Unsend</span>
+                </button>` : `
+                <button type="button" class="message-action-item message-remove-btn flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50">
+                    <i data-lucide="trash-2" class="h-4 w-4"></i><span>Remove</span>
+                </button>`;
+            const forwardItem = !isUnsent ? `
+                <button type="button" class="message-action-item message-forward-btn flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
+                    <i data-lucide="forward" class="h-4 w-4"></i><span>Forward</span>
+                </button>` : '';
+
+            return `
+                <div class="message-more relative">
+                    <button type="button" class="message-more-btn flex h-7 w-7 items-center justify-center rounded-full text-gray-400 opacity-0 transition group-hover:opacity-100 hover:bg-gray-100 hover:text-gray-700" title="More">
+                        <i data-lucide="more-vertical" class="h-4 w-4"></i>
+                    </button>
+                    <div class="message-more-menu absolute bottom-full ${isOwn ? 'left-0' : 'right-0'} z-50 mb-2 hidden min-w-[150px] overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-xl">
+                        ${destructiveItem}
+                        ${forwardItem}
+                        ${editItem}
+                        <button type="button" class="message-action-item message-pin-btn flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
+                            <i data-lucide="pin" class="h-4 w-4"></i><span>Pin</span>
+                        </button>
+                    </div>
+                </div>`;
+        }
+
+        // =====================================================
+        // SEEN AVATAR FOR OWN MESSAGES
+        // Shows the other participant profile beside a message they read.
+        // =====================================================
+        function getSeenAvatarHtml(msg) {
+            if (!(msg.is_read || msg.read_at) || !currentConversationUser) return '';
+
+            const name = currentConversationUser.user_full_name || currentConversationUser.name || currentConversationUserName || 'User';
+            const picture = currentConversationUser.user_profile_picture || currentConversationUser.profile_picture || '';
+            const initials = getInitials(name);
+
+            if (picture) {
+                let src = String(picture);
+                if (!/^https?:\/\//i.test(src) && !src.startsWith('/')) {
+                    src = `/storage/${src.replace(/^storage\//, '')}`;
+                }
+                return `<img src="${escapeHtml(src)}" alt="${escapeHtml(name)}" title="Seen by ${escapeHtml(name)}" class="message-seen-avatar h-4 w-4 shrink-0 rounded-full object-cover" onerror="this.outerHTML='<div title=&quot;Seen by ${escapeHtml(name)}&quot; class=&quot;message-seen-avatar h-4 w-4 shrink-0 rounded-full bg-gray-300 flex items-center justify-center text-[7px] font-semibold text-gray-600&quot;>${escapeHtml(initials)}</div>'">`;
+            }
+
+            return `<div title="Seen by ${escapeHtml(name)}" class="message-seen-avatar h-4 w-4 shrink-0 rounded-full bg-gray-300 flex items-center justify-center text-[7px] font-semibold text-gray-600">${escapeHtml(initials)}</div>`;
+        }
+
+        // =====================================================
+        // MESSENGER STYLE SEEN AVATAR
+        //
+        // Only the latest seen message displays the
+        // other participant's profile picture.
+        // =====================================================
+
+        function refreshSeenAvatar() {
+            refreshMessengerMessageGroups();
+            refreshLatestOutgoingStatus();
+        }
+
+        // =====================================================
+        // MESSENGER STYLE MESSAGE GROUPING
+        //
+        // Incoming consecutive messages only show the sender
+        // avatar beside the final message in that sender group.
+        // =====================================================
+        function refreshMessengerMessageGroups() {
+            const container = document.getElementById('modalMessagesContainer');
+            if (!container) return;
+
+            const rows = Array.from(
+                container.querySelectorAll('.message-row')
+            );
+
+            // Hide every incoming avatar first.
+            rows.forEach(row => {
+                const avatar = row.querySelector('.message-sender-avatar');
+                if (avatar) {
+                    avatar.classList.add('invisible');
+                }
+            });
+
+            rows.forEach((row, index) => {
+                if (row.dataset.messageOwn === '1') return;
+
+                const nextRow = rows[index + 1] || null;
+                const nextIsSameSender =
+                    nextRow &&
+                    nextRow.dataset.messageOwn === '0' &&
+                    nextRow.dataset.messageSender === row.dataset.messageSender;
+
+                // =================================================
+                // REPLY MESSAGE AVATAR RULE
+                //
+                // A received reply always keeps the sender profile
+                // picture beside it, even when several replies from
+                // the same sender are consecutive.
+                //
+                // Normal consecutive messages still use Messenger
+                // grouping and show the avatar only on the last one.
+                // =================================================
+                const isReplyMessage =
+                    row.dataset.messageReply === '1';
+
+                if (isReplyMessage || !nextIsSameSender) {
+                    row.querySelector('.message-sender-avatar')
+                        ?.classList.remove('invisible');
+                }
+            });
+        }
+
+        // =====================================================
+        // LATEST OUTGOING MESSAGE STATUS
+        //
+        // Sent / Delivered / Seen belongs only to the newest
+        // message sent by the current user. Seen is represented
+        // by the receiver's profile picture instead of text.
+        // =====================================================
+        function refreshLatestOutgoingStatus() {
+            const container = document.getElementById('modalMessagesContainer');
+            if (!container) return;
+
+            const ownRows = Array.from(
+                container.querySelectorAll(
+                    '.message-row[data-message-own="1"][data-message-unsent="0"]'
+                )
+            );
+
+            // Clear every old visible status and seen avatar.
+            container.querySelectorAll('.message-status-wrapper').forEach(wrapper => {
+                wrapper.classList.add('hidden');
+                wrapper.classList.remove('flex');
+            });
+
+            container.querySelectorAll('.message-seen-avatar').forEach(avatar => {
+                avatar.remove();
+            });
+
+            if (ownRows.length === 0) return;
+
+            const latestRow = ownRows[ownRows.length - 1];
+            const wrapper = latestRow.querySelector('.message-status-wrapper');
+            const status = latestRow.querySelector('.message-read-status');
+
+            if (!wrapper || !status) return;
+
+            const currentStatus =
+                status.dataset.messageStatus ||
+                status.textContent.trim() ||
+                '✓ Sent';
+
+            wrapper.classList.remove('hidden');
+            wrapper.classList.add('flex');
+
+            if (currentStatus.toLowerCase() === 'seen') {
+                // Messenger style: no "Seen" word. Show only avatar.
+                status.textContent = '';
+                status.classList.add('hidden');
+
+                if (currentConversationUser) {
+                    const fakeMessage = {
+                        is_read: true,
+                        read_at: new Date().toISOString()
+                    };
+                    wrapper.insertAdjacentHTML(
+                        'beforeend',
+                        getSeenAvatarHtml(fakeMessage)
+                    );
+                }
+                return;
+            }
+
+            status.classList.remove('hidden');
+            status.textContent = currentStatus;
+        }
+
+        function renderMessengerMessageRow(msg, isOwn) {
+            const senderName = msg.sender?.name || msg.sender?.user_full_name || (isOwn ? 'You' : 'Unknown');
+            const attachment = msg.attachment || null;
+            const isUnsent = Boolean(msg.is_unsent);
+            const isForwarded = Boolean(
+                msg.is_forwarded ||
+                msg.forwarded_from_message_id ||
+                msg.forwarded_message_id ||
+                msg.original_message_id ||
+                msg.forwarded_from_id ||
+                msg.forwarded_from?.message_id ||
+                msg.forwarded_message?.message_id
+            );
+            const fullTime = getFullMessageDateTime(msg.created_at);
+            const content = isUnsent ? '' : (msg.message_content || '');
+            const displayContent = content === '[attachment:image]' || content === '[attachment:file]' ? '' : content;
+            const avatar = isOwn ? '' : getMessageAvatarHtml(msg, senderName);
+            const actions = `
+                <div class="message-hover-actions flex shrink-0 items-center gap-0.5 opacity-0 transition group-hover:opacity-100">
+                    ${getReactionPickerHtml()}
+                    <button type="button" class="message-reply-btn flex h-7 w-7 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700" title="Reply">
+                        <i data-lucide="reply" class="h-4 w-4"></i>
+                    </button>
+                    ${getMessageMoreMenuHtml(isOwn, isUnsent)}
+                </div>`;
+
+            // =====================================================
+            // MESSENGER STYLE REPLY INDICATOR
+            //
+            // This is the ONLY "replied to" text.
+            // It sits above the quoted/original message.
+            // =====================================================
+            const replyTargetIsCurrentUser =
+                Number(msg.reply_to?.sender_id ?? msg.reply_to?.sender?.user_id) ===
+                Number(currentUserId);
+
+            const replyTargetName =
+                replyTargetIsCurrentUser
+                    ? 'you'
+                    : (
+                        msg.reply_to?.sender?.user_full_name ||
+                        msg.reply_to?.sender?.name ||
+                        'a message'
+                    );
+
+            const replyEditedLabel = !isUnsent && msg.reply_to ? `
+                <div class="mb-1 flex items-center gap-1 px-1 text-[11px] text-gray-500">
+                    <i data-lucide="reply" class="h-3.5 w-3.5 shrink-0"></i>
+                    <span>${isOwn ? 'You' : escapeHtml(senderName)} replied to ${escapeHtml(replyTargetName)}</span>
+                    ${msg.is_edited ? '<span class="mx-1">·</span><span>Edited</span>' : ''}
+                </div>` : '';
+
+            const forwardedLabel = !isUnsent && isForwarded ? `
+                <div class="mb-1 flex items-center gap-1 px-1 text-[11px] text-gray-500">
+                    <i data-lucide="forward" class="h-3 w-3"></i>
+                    <span>${isOwn ? 'You forwarded a message' : `${escapeHtml(senderName)} forwarded a message`}</span>
+                </div>` : '';
+
+            const editedOnlyLabel = !isUnsent && msg.is_edited && !msg.reply_to ? `
+                <div class="mb-1 px-1 text-[11px] text-gray-500">Edited</div>` : '';
+
+            const bubble = `
+                <div class="relative flex max-w-[70%] flex-col ${isOwn ? 'items-end' : 'items-start'}">
+                    ${forwardedLabel}
+                    ${replyEditedLabel}
+                    ${editedOnlyLabel}
+                    ${!isUnsent && msg.reply_to ? getReplyQuoteHtml(msg.reply_to, isOwn) : ''}
+                    <div class="message-bubble relative z-10 w-fit max-w-full ${isUnsent ? 'rounded-2xl border border-gray-300 bg-white text-gray-500' : isOwn ? 'rounded-2xl rounded-br-sm bg-gray-900 text-white' : 'rounded-2xl rounded-bl-sm bg-gray-100 text-gray-900'} px-3.5 py-2" title="${escapeHtml(fullTime)}">
+                        ${isUnsent ? `<p class="text-sm italic">This message was unsent</p>` : `
+                            ${displayContent ? `<p class="text-sm leading-snug whitespace-pre-wrap break-words text-left">${escapeHtml(displayContent)}</p>` : ''}
+                            ${attachment ? getAttachmentPreviewHtml(attachment, formatMessageTime(msg.created_at)) : ''}
+                        `}
+                    </div>
+                    ${isUnsent ? '' : `<div class="mt-[-8px] ${isOwn ? 'ml-2 self-start items-start' : 'mr-2 self-end items-end'} relative z-10 flex flex-col">${getMessageReactionsHtml(msg.reactions)}</div>`}
+                    ${isOwn && !isUnsent ? `<div class="message-status-wrapper mt-3 hidden items-center justify-end gap-1"><span class="message-read-status text-[11px] font-medium text-gray-400" data-message-id="${msg.message_id}" data-message-status="${escapeHtml(getMessageStatus(msg))}">${getMessageStatus(msg)}</span></div>` : ''}
+                </div>`;
+
+            return `
+                <div class="message-row group relative flex items-center ${isOwn ? 'justify-end' : 'justify-start'} gap-1.5"
+                    data-message-id="${msg.message_id}"
+                    data-message-sender="${escapeHtml(senderName)}"
+                    data-message-content="${escapeHtml(content)}"
+                    data-message-created-at="${escapeHtml(msg.created_at || '')}"
+                    data-message-own="${isOwn ? '1' : '0'}"
+                    data-message-reply="${msg.reply_to ? '1' : '0'}"
+                    data-message-unsent="${isUnsent ? '1' : '0'}">
+                    ${isOwn ? `${actions}${bubble}` : `<div class="message-sender-avatar shrink-0">${avatar}</div>${bubble}${actions}`}
+                </div>`;
+        }
+
+        function closeAllMessageMenus(except = null) {
+            document.querySelectorAll('.message-more-menu').forEach(menu => {
+                if (menu !== except) menu.classList.add('hidden');
+            });
+        }
+
+        function showMessageActionDialog({ title, text, confirmText, danger = false }) {
+            return new Promise(resolve => {
+                document.getElementById('messageActionConfirmOverlay')?.remove();
+                const overlay = document.createElement('div');
+                overlay.id = 'messageActionConfirmOverlay';
+                overlay.className = 'fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 p-4';
+                overlay.innerHTML = `
+                    <div class="w-full max-w-sm rounded-2xl bg-white p-5 shadow-2xl">
+                        <h3 class="text-lg font-semibold text-gray-900">${escapeHtml(title)}</h3>
+                        <p class="mt-2 text-sm leading-6 text-gray-600">${escapeHtml(text)}</p>
+                        <div class="mt-5 flex justify-end gap-2">
+                            <button type="button" data-cancel class="rounded-lg px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100">Cancel</button>
+                            <button type="button" data-confirm class="rounded-lg px-4 py-2 text-sm font-semibold ${danger ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-gray-900 text-white hover:bg-black'}">${escapeHtml(confirmText)}</button>
+                        </div>
+                    </div>`;
+                document.body.appendChild(overlay);
+                const finish = value => { overlay.remove(); resolve(value); };
+                overlay.querySelector('[data-cancel]').onclick = () => finish(false);
+                overlay.querySelector('[data-confirm]').onclick = () => finish(true);
+                overlay.addEventListener('click', e => { if (e.target === overlay) finish(false); });
+            });
+        }
+
+        // =====================================================
+        // MESSENGER STYLE EDIT IN COMPOSER
+        // =====================================================
+
+        function cancelMessageEdit() {
+            editingMessageRow = null;
+            document.getElementById('modalEditHeader')?.remove();
+
+            const input = document.getElementById('modalMessageInput');
+            const messages = document.getElementById('modalMessagesContainer');
+            const attachmentButton = document.getElementById('modalAttachmentButton');
+
+            if (input) {
+                input.value = '';
+                input.placeholder = 'Type a message...';
+                input.style.height = 'auto';
+            }
+            if (messages) {
+                messages.classList.remove('opacity-40');
+                messages.style.pointerEvents = '';
+            }
+            if (attachmentButton) attachmentButton.classList.remove('hidden');
+        }
+
+        function startEditMessage(row) {
+            cancelReply();
+            editingMessageRow = row;
+
+            const composer = document.getElementById('modalComposer');
+            const form = document.getElementById('modalMessageForm');
+            const input = document.getElementById('modalMessageInput');
+            const messages = document.getElementById('modalMessagesContainer');
+            const attachmentButton = document.getElementById('modalAttachmentButton');
+
+            if (!composer || !form || !input) return;
+
+            document.getElementById('modalEditHeader')?.remove();
+
+            const header = document.createElement('div');
+            header.id = 'modalEditHeader';
+            header.className = 'mb-2 flex items-center justify-between px-1';
+            header.innerHTML = `
+                <span class="text-sm font-semibold text-gray-900">Edit message</span>
+                <button type="button" id="modalCancelEdit" class="flex h-7 w-7 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100" title="Cancel edit">
+                    <i data-lucide="x" class="h-4 w-4"></i>
+                </button>`;
+            form.parentNode.insertBefore(header, form);
+
+            input.value = row.dataset.messageContent || '';
+            input.placeholder = 'Edit message';
+            input.style.height = 'auto';
+            input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+            input.focus();
+            input.setSelectionRange(input.value.length, input.value.length);
+
+            if (messages) {
+                messages.classList.add('opacity-40');
+                messages.style.pointerEvents = 'none';
+            }
+            if (attachmentButton) attachmentButton.classList.add('hidden');
+
+            document.getElementById('modalCancelEdit').onclick = cancelMessageEdit;
+            lucideCreateIcons();
+        }
+
+        async function editMessageFromRow(row) {
+            startEditMessage(row);
+        }
+
+        async function saveEditedMessage() {
+            if (!editingMessageRow) return false;
+
+            const row = editingMessageRow;
+            const input = document.getElementById('modalMessageInput');
+            const nextContent = input?.value.trim() || '';
+            const oldContent = row.dataset.messageContent || '';
+
+            if (!nextContent) return true;
+            if (nextContent === oldContent.trim()) {
+                cancelMessageEdit();
+                return true;
+            }
+
+            const response = await fetch(`/messages/conversations/${currentConversationId}/messages/${row.dataset.messageId}/edit`, {
+                method: 'PATCH',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken
+                },
+                body: JSON.stringify({ message_content: nextContent })
+            });
+
+            if (!response.ok) return true;
+
+            const data = await response.json();
+            const updated = data.data;
+            updated.sender = updated.sender || {
+                user_id: currentUserId,
+                user_full_name: row.dataset.messageSender || 'You'
+            };
+
+            row.outerHTML = renderMessengerMessageRow(updated, true);
+            cancelMessageEdit();
+            lucideCreateIcons();
+            refreshMessageDateSeparators();
+            return true;
+        }
+
+        function showUnsendChoiceDialog() {
+            return new Promise(resolve => {
+                document.getElementById('messageUnsendOverlay')?.remove();
+
+                const overlay = document.createElement('div');
+                overlay.id = 'messageUnsendOverlay';
+                overlay.className = 'fixed inset-0 z-[10000] flex items-center justify-center bg-black/50 p-4';
+                overlay.innerHTML = `
+                    <div class="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
+                        <div class="flex items-center justify-between border-b border-gray-200 px-5 py-4">
+                            <h3 class="text-lg font-semibold text-gray-900">Who do you want to unsend this message for?</h3>
+                            <button type="button" data-unsend-cancel class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200">
+                                <i data-lucide="x" class="h-5 w-5"></i>
+                            </button>
+                        </div>
+                        <div class="p-3">
+                            <button type="button" data-unsend-choice="everyone" class="w-full rounded-xl px-4 py-3 text-left hover:bg-gray-50">
+                                <p class="text-sm font-semibold text-gray-900">Unsend for everyone</p>
+                                <p class="mt-1 text-xs leading-5 text-gray-500">This message will be unavailable to everyone in the chat.</p>
+                            </button>
+                            <button type="button" data-unsend-choice="you" class="mt-1 w-full rounded-xl px-4 py-3 text-left hover:bg-gray-50">
+                                <p class="text-sm font-semibold text-gray-900">Unsend for you</p>
+                                <p class="mt-1 text-xs leading-5 text-gray-500">This message will be removed from your account. Other chat members can still see it.</p>
+                            </button>
+                        </div>
+                    </div>`;
+
+                document.body.appendChild(overlay);
+                lucideCreateIcons();
+
+                const finish = value => {
+                    overlay.remove();
+                    resolve(value);
+                };
+
+                overlay.querySelector('[data-unsend-cancel]').onclick = () => finish(null);
+                overlay.addEventListener('click', event => {
+                    if (event.target === overlay) finish(null);
+                    const choice = event.target.closest('[data-unsend-choice]');
+                    if (choice) finish(choice.dataset.unsendChoice);
+                });
+            });
+        }
+
+        async function unsendMessageFromRow(row) {
+            const choice = await showUnsendChoiceDialog();
+            if (!choice) return;
+
+            if (choice === 'you') {
+                const response = await fetch(`/messages/conversations/${currentConversationId}/messages/${row.dataset.messageId}/remove`, {
+                    method: 'DELETE',
+                    headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken }
+                });
+                if (response.ok) row.remove();
+                return;
+            }
+
+            const response = await fetch(`/messages/conversations/${currentConversationId}/messages/${row.dataset.messageId}/unsend`, {
+                method: 'POST',
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken }
+            });
+            if (!response.ok) return;
+
+            row.dataset.messageUnsent = '1';
+            row.dataset.messageContent = '';
+            const bubble = row.querySelector('.message-bubble');
+            if (bubble) {
+                bubble.className = 'message-bubble relative w-fit max-w-full rounded-2xl border border-gray-300 bg-white text-gray-500 px-3.5 py-2';
+                bubble.innerHTML = '<p class="text-sm italic">This message was unsent</p>';
+            }
+            row.querySelectorAll('.message-reaction-picker, .message-reply-btn, .message-read-status').forEach(el => el.remove());
+            const menu = row.querySelector('.message-more-menu');
+            if (menu) menu.innerHTML = '<button type="button" class="message-action-item message-pin-btn flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"><i data-lucide="pin" class="h-4 w-4"></i><span>Pin</span></button>';
+            lucideCreateIcons();
+        }
+
+        async function removeMessageFromRow(row) {
+            const confirmed = await showMessageActionDialog({
+                title: 'Remove for you',
+                text: 'This will remove the message from your devices. Other chat members will still be able to see it.',
+                confirmText: 'Remove', danger: false
+            });
+            if (!confirmed) return;
+            const response = await fetch(`/messages/conversations/${currentConversationId}/messages/${row.dataset.messageId}/remove`, {
+                method: 'DELETE', headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken }
+            });
+            if (response.ok) row.remove();
+        }
+
+        // =====================================================
+        // PINNED MESSAGES MODAL
+        // =====================================================
+
+        function openPinnedMessagesModal() {
+
+            const modal =
+                document.getElementById('pinnedMessagesModal');
+
+            if (!modal) {
+                return;
+            }
+
+            modal.classList.remove('hidden');
+
+            loadPinnedMessages();
+
+            lucideCreateIcons();
+        }
+
+
+        function closePinnedMessagesModal() {
+
+            const modal =
+                document.getElementById('pinnedMessagesModal');
+
+            if (!modal) {
+                return;
+            }
+
+            modal.classList.add('hidden');
+        }
+
+
+        // =====================================================
+        // LOAD PINNED MESSAGES
+        // =====================================================
+
+        async function loadPinnedMessages() {
+
+            if (!currentConversationId) {
+                return;
+            }
+
+            const container =
+                document.getElementById('pinnedMessagesList');
+
+            if (!container) {
+                return;
+            }
+
+            container.innerHTML = `
+                <div class="py-10 text-center text-sm text-gray-400">
+                    Loading pinned messages...
+                </div>
+            `;
+
+            try {
+
+                const response = await fetch(
+                    `/messages/conversations/${currentConversationId}/pinned`,
+                    {
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    }
+                );
+
+                if (!response.ok) {
+
+                    container.innerHTML = `
+                        <div class="py-10 text-center text-sm text-gray-400">
+                            Unable to load pinned messages.
+                        </div>
+                    `;
+
+                    return;
+                }
+
+                const result = await response.json();
+
+                const messages =
+                    result.data || [];
+
+                if (!messages.length) {
+
+                    container.innerHTML = `
+                        <div class="py-10 text-center text-sm text-gray-400">
+                            No pinned messages.
+                        </div>
+                    `;
+
+                    return;
+                }
+
+                container.innerHTML =
+                    messages.map(message => {
+
+                        const sender =
+                            message.sender || {};
+
+                        const senderName =
+                            sender.user_full_name ||
+                            'User';
+
+                        const initials =
+                            getInitials(senderName);
+
+                        let picture =
+                            sender.user_profile_picture ||
+                            sender.profile_picture ||
+                            '';
+
+                        let avatarHtml = '';
+
+                        if (picture) {
+
+                            picture = String(picture);
+
+                            if (
+                                !/^https?:\/\//i.test(picture) &&
+                                !picture.startsWith('/')
+                            ) {
+                                picture =
+                                    `/storage/${picture.replace(/^storage\//, '')}`;
+                            }
+
+                            avatarHtml = `
+                                <img
+                                    src="${escapeHtml(picture)}"
+                                    class="h-8 w-8 shrink-0 rounded-full object-cover"
+                                >
+                            `;
+
+                        } else {
+
+                            avatarHtml = `
+                                <div
+                                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-200 text-[10px] font-semibold text-gray-600"
+                                >
+                                    ${escapeHtml(initials)}
+                                </div>
+                            `;
+                        }
+
+                        return `
+                            <div class="border-b border-gray-100 py-4 last:border-0">
+
+                                <div class="mb-2 flex items-center justify-between gap-3">
+
+                                    <span class="text-xs text-gray-500">
+                                        ${escapeHtml(senderName)}
+                                    </span>
+
+                                    <span class="text-xs text-gray-400">
+                                        ${formatTime(message.created_at)}
+                                    </span>
+
+                                </div>
+
+                                <div class="flex items-start gap-2">
+
+                                    ${avatarHtml}
+
+                                    <div
+                                        class="max-w-[80%] rounded-2xl bg-gray-100 px-3.5 py-2 text-sm text-gray-900"
+                                    >
+                                        ${escapeHtml(
+                                            message.message_content ||
+                                            'Message'
+                                        )}
+                                    </div>
+
+                                </div>
+
+                            </div>
+                        `;
+
+                    }).join('');
+
+            } catch (error) {
+
+                console.error(
+                    'Unable to load pinned messages:',
+                    error
+                );
+
+                container.innerHTML = `
+                    <div class="py-10 text-center text-sm text-gray-400">
+                        Unable to load pinned messages.
+                    </div>
+                `;
+            }
+        }
+
+        // =====================================================
+        // PIN / UNPIN MESSAGE
+        // =====================================================
+
+        async function pinMessageFromRow(row) {
+
+            if (
+                !currentConversationId ||
+                !row?.dataset?.messageId
+            ) {
+                return;
+            }
+
+
+            try {
+
+                const response =
+                    await fetch(
+                        `/messages/conversations/${currentConversationId}/messages/${row.dataset.messageId}/pin`,
+                        {
+                            method: 'POST',
+
+                            headers: {
+                                'Accept':
+                                    'application/json',
+
+                                'X-CSRF-TOKEN':
+                                    csrfToken
+                            }
+                        }
+                    );
+
+
+                if (!response.ok) {
+
+                    console.error(
+                        'Unable to pin message:',
+                        response.status
+                    );
+
+                    return;
+                }
+
+
+                const data =
+                    await response.json();
+
+
+                // =============================================
+                // RESET ALL PIN BUTTONS
+                //
+                // Only one message can currently be pinned
+                // for this participant.
+                // =============================================
+
+                
+
+
+                // =============================================
+                // CURRENT MESSAGE
+                // =============================================
+
+                const label =
+                    row.querySelector(
+                        '.message-pin-btn span'
+                    );
+
+                if (label) {
+
+                    label.textContent =
+                        data.is_pinned
+                            ? 'Unpin'
+                            : 'Pin';
+                }
+
+
+                // =============================================
+                // SHOW MESSENGER STYLE SYSTEM NOTICE
+                // =============================================
+
+                showPinSystemNotice(
+                    row,
+                    data.is_pinned
+                );
+
+            } catch (error) {
+
+                console.error(
+                    'Unable to pin/unpin message:',
+                    error
+                );
+            }
+        }
+
+        // =====================================================
+        // PIN SYSTEM NOTICE
+        // =====================================================
+
+        // =====================================================
+        // MESSENGER STYLE PIN SYSTEM NOTICE
+        // Always goes at the BOTTOM of the conversation
+        // =====================================================
+
+        function showPinSystemNotice(
+            row,
+            isPinned
+        ) {
+
+            const container =
+                document.getElementById(
+                    'modalMessagesContainer'
+                );
+
+            if (!container) {
+                return;
+            }
+
+            
+
+
+            // =========================================
+            // UPDATE THE ACTUAL MESSAGE PIN LABEL
+            // =========================================
+
+            if (row) {
+
+                row
+                    .querySelectorAll(
+                        '.message-pinned-label'
+                    )
+                    .forEach(label => {
+                        label.remove();
+                    });
+
+                if (isPinned) {
+
+                    const bubble =
+                        row.querySelector(
+                            '.message-bubble'
+                        );
+
+                    if (bubble) {
+
+                        bubble.insertAdjacentHTML(
+                            'beforebegin',
+                            `
+                                <div
+                                    class="message-pinned-label mb-1 flex items-center gap-1 text-[11px] text-gray-400"
+                                >
+                                    <i
+                                        data-lucide="pin"
+                                        class="h-3 w-3"
+                                    ></i>
+
+                                    <span>
+                                        Pinned
+                                    </span>
+                                </div>
+                            `
+                        );
+                    }
+                }
+            }
+
+
+            // =========================================
+            // ADD SYSTEM NOTICE TO BOTTOM
+            // =========================================
+
+            const notice =
+                document.createElement('div');
+
+            notice.className =
+                'pin-system-notice flex justify-center py-3';
+
+            notice.innerHTML = `
+                <div
+                    class="flex items-center gap-1.5 text-xs text-gray-400"
+                >
+                    <span>
+                        ${
+                            isPinned
+                                ? 'You pinned a message.'
+                                : 'You unpinned a message.'
+                        }
+                    </span>
+
+                    <button
+                        type="button"
+                        class="pinned-see-all font-semibold text-gray-900 hover:underline"
+                    >
+                        See all
+                    </button>
+                </div>
+            `;
+
+            container.appendChild(notice);
+
+            container.scrollTop =
+                container.scrollHeight;
+
+            lucideCreateIcons();
+        }
+
+        // =====================================================
+        // MESSENGER STYLE FORWARD MODAL
+        // =====================================================
+
+        function getForwardConversationInfo(conversation) {
+            const participants = conversation.participants || [];
+            const other = participants.find(p =>
+                Number(p.user_id ?? p.user?.user_id) !== Number(currentUserId)
+            );
+            const user = other?.user || {};
+            const name = user.user_full_name || conversation.conversation_name || `Conversation ${conversation.conversation_id}`;
+            const picture = user.user_profile_picture || user.profile_picture || '';
+            const initials = getInitials(name);
+            return { name, picture, initials };
+        }
+
+        function showForwardMessageDialog(conversations, sourceMessageId) {
+            document.getElementById('messageForwardOverlay')?.remove();
+
+            const overlay = document.createElement('div');
+            overlay.id = 'messageForwardOverlay';
+            overlay.className = 'fixed inset-0 z-[10000] flex items-center justify-center bg-black/55 p-4';
+            overlay.innerHTML = `
+                <div class="flex max-h-[640px] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+                    <div class="relative flex items-center justify-center border-b border-gray-200 px-5 py-4">
+                        <h3 class="text-xl font-semibold text-gray-900">Forward</h3>
+                        <button type="button" data-close class="absolute right-4 flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200">
+                            <i data-lucide="x" class="h-5 w-5"></i>
+                        </button>
+                    </div>
+                    <div class="px-5 pt-5">
+                        <div class="flex items-center gap-2 rounded-full bg-gray-100 px-4 py-2.5">
+                            <i data-lucide="search" class="h-5 w-5 text-gray-500"></i>
+                            <input data-forward-search type="text" class="w-full bg-transparent text-sm text-gray-900 outline-none" placeholder="Search for people and groups">
+                        </div>
+                    </div>
+                    <div class="px-6 pb-2 pt-5 text-base font-semibold text-gray-800">Recent</div>
+                    <div data-forward-list class="min-h-0 flex-1 overflow-y-auto px-4 pb-5"></div>
+                </div>`;
+
+            document.body.appendChild(overlay);
+            lucideCreateIcons();
+
+            const list = overlay.querySelector('[data-forward-list]');
+            const search = overlay.querySelector('[data-forward-search]');
+            const states = new Map();
+
+            const render = query => {
+                const normalized = String(query || '').trim().toLowerCase();
+                const filtered = conversations.filter(conv => {
+                    const info = getForwardConversationInfo(conv);
+                    return !normalized || info.name.toLowerCase().includes(normalized);
+                });
+
+                list.innerHTML = filtered.length ? filtered.map(conv => {
+                    const info = getForwardConversationInfo(conv);
+                    const state = states.get(Number(conv.conversation_id)) || 'send';
+                    let avatar = `<div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gray-200 text-xs font-semibold text-gray-700">${escapeHtml(info.initials)}</div>`;
+                    if (info.picture) {
+                        let src = String(info.picture);
+                        if (!/^https?:\/\//i.test(src) && !src.startsWith('/')) src = `/storage/${src.replace(/^storage\//, '')}`;
+                        avatar = `<img src="${escapeHtml(src)}" class="h-11 w-11 shrink-0 rounded-full object-cover" alt="${escapeHtml(info.name)}">`;
+                    }
+
+                    const buttonHtml = state === 'undo'
+                        ? `<button type="button" data-forward-undo="${conv.conversation_id}" class="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-black">Undo</button>`
+                        : state === 'sent'
+                            ? `<button type="button" disabled class="flex items-center gap-1.5 rounded-lg bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-500"><i data-lucide="check" class="h-4 w-4"></i> Sent</button>`
+                            : `<button type="button" data-forward-send="${conv.conversation_id}" class="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-black">Send</button>`;
+
+                    return `
+                        <div class="forward-conversation-row flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-gray-50" data-name="${escapeHtml(info.name.toLowerCase())}">
+                            ${avatar}
+                            <div class="min-w-0 flex-1">
+                                <p class="truncate text-sm font-semibold text-gray-900">${escapeHtml(info.name)}</p>
+                            </div>
+                            ${buttonHtml}
+                        </div>`;
+                }).join('') : `<div class="py-10 text-center text-sm text-gray-500">No conversations found.</div>`;
+                lucideCreateIcons();
+            };
+
+            const pendingTimers = new Map();
+
+            const beginForward = targetId => {
+                targetId = Number(targetId);
+                if (states.get(targetId) === 'undo' || states.get(targetId) === 'sent') return;
+
+                states.set(targetId, 'undo');
+                render(search.value);
+
+                const timer = setTimeout(async () => {
+                    pendingTimers.delete(targetId);
+
+                    const response = await fetch(`/messages/conversations/${currentConversationId}/messages/${sourceMessageId}/forward`, {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken
+                        },
+                        body: JSON.stringify({ target_conversation_id: targetId })
+                    });
+
+                    states.set(targetId, response.ok ? 'sent' : 'send');
+                    render(search.value);
+                }, 3000);
+
+                pendingTimers.set(targetId, timer);
+            };
+
+            const undoForward = targetId => {
+                targetId = Number(targetId);
+                const timer = pendingTimers.get(targetId);
+                if (timer) clearTimeout(timer);
+                pendingTimers.delete(targetId);
+                states.set(targetId, 'send');
+                render(search.value);
+            };
+
+            const close = () => {
+                // Closing the modal is not the same as Undo.
+                // Any forward already waiting in its 3 second window
+                // will still be sent unless Undo was clicked first.
+                overlay.remove();
+            };
+
+            render('');
+            search.focus();
+            search.addEventListener('input', () => render(search.value));
+            overlay.querySelector('[data-close]').onclick = close;
+            overlay.addEventListener('click', event => {
+                if (event.target === overlay) close();
+
+                const send = event.target.closest('[data-forward-send]');
+                if (send) {
+                    beginForward(send.dataset.forwardSend);
+                    return;
+                }
+
+                const undo = event.target.closest('[data-forward-undo]');
+                if (undo) undoForward(undo.dataset.forwardUndo);
+            });
+        }
+
+        async function forwardMessageFromRow(row) {
+            const response = await fetch('/messages/conversations', {
+                headers: { 'Accept': 'application/json' }
+            });
+            if (!response.ok) return;
+
+            const payload = await response.json();
+            const conversations = payload.data?.data || payload.data || [];
+            const choices = conversations.filter(c =>
+                Number(c.conversation_id) !== Number(currentConversationId)
+            );
+
+            if (!choices.length) {
+                await showMessageActionDialog({
+                    title: 'Forward',
+                    text: 'There is no other conversation to forward this message to.',
+                    confirmText: 'OK'
+                });
+                return;
+            }
+
+            showForwardMessageDialog(choices, row.dataset.messageId);
+        }
+
         async function loadModalMessages(conversationId, append = false) {
             if (isLoadingMessages || !hasMoreMessages) return;
             isLoadingMessages = true;
 
             const container = document.getElementById('modalMessagesContainer');
-            if (!append) container.innerHTML = '';
+            if (!append) {
+
+                // =============================================
+                // CLEAR OLD MESSAGES
+                // DO NOT DELETE TYPING INDICATOR
+                // =============================================
+
+                Array.from(container.children)
+                    .forEach(child => {
+
+                        if (
+                            child.id !==
+                            'modalTypingIndicator'
+                        ) {
+                            child.remove();
+                        }
+
+                    });
+            }
 
             const response = await fetch(`/messages/conversations/${conversationId}/messages?page=${messagesPage}`, {
                 headers: {
@@ -1905,18 +3191,47 @@
             const data = await response.json();
             const messages = data.data;
 
+            // =====================================================
+            // NO MESSAGES YET
+            // KEEP TYPING INDICATOR ALIVE
+            // =====================================================
+
             if (messages.data.length === 0 && !append) {
-                container.innerHTML = `
-                <div class="text-center py-12">
+
+                const typingIndicator =
+                    document.getElementById('modalTypingIndicator');
+
+                const emptyState =
+                    document.createElement('div');
+
+                emptyState.className =
+                    'message-empty-state text-center py-12';
+
+                emptyState.innerHTML = `
                     <div class="inline-flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-400 mb-3">
                         <i data-lucide="message-square" class="h-6 w-6"></i>
                     </div>
-                    <p class="text-sm font-semibold text-gray-800">No messages yet</p>
-                    <p class="text-xs text-gray-500 mt-1">Send the first message below</p>
-                </div>
-            `;
+
+                    <p class="text-sm font-semibold text-gray-800">
+                        No messages yet
+                    </p>
+
+                    <p class="text-xs text-gray-500 mt-1">
+                        Send the first message below
+                    </p>
+                `;
+
+                container.appendChild(emptyState);
+
+                // Keep typing indicator last
+                if (typingIndicator) {
+                    container.appendChild(typingIndicator);
+                }
+
                 lucideCreateIcons();
+
                 isLoadingMessages = false;
+
                 return;
             }
 
@@ -1928,295 +3243,58 @@
 
             const userId = {{ auth()->id() }};
             const orderedMessages = [...messages.data].reverse();
-            const html = orderedMessages.map(msg => {
-                const isOwn = msg.sender?.user_id === userId;
-                const time = formatMessageTime(msg.created_at);
-                const senderName = msg.sender?.name || msg.sender?.user_full_name || 'Unknown';
-                const attachment = msg.attachment || null;
+            const html = orderedMessages
+                .map(msg => renderMessengerMessageRow(msg, Number(msg.sender?.user_id ?? msg.sender_id) === Number(userId)))
+                .join('');
 
-                // =====================================================
-                // OWN MESSAGE
-                // =====================================================
+            // =====================================================
+            // INSERT MESSAGES WITHOUT DESTROYING TYPING INDICATOR
+            // =====================================================
 
-                if (isOwn) {
+            if (append) {
 
-                    return `
-                        <div
-                            class="message-row group flex items-center justify-end gap-2"
-                            data-message-id="${msg.message_id}"
-                            data-message-sender="${escapeHtml(senderName)}"
-                            data-message-content="${escapeHtml(msg.message_content || '')}"
-                            data-message-created-at="${escapeHtml(msg.created_at || '')}"
-                        >
+                container.insertAdjacentHTML(
+                    'afterbegin',
+                    html
+                );
 
-                            <!-- ====================================== -->
-                            <!-- OWN MESSAGE ACTIONS: EMOJI FIRST, REPLY NEXT -->
-                            <!-- ====================================== -->
+            } else {
 
-                            <div class="flex shrink-0 items-center gap-0.5">
-                                ${getReactionPickerHtml()}
+                const typingIndicator =
+                    document.getElementById('modalTypingIndicator');
 
-                                <button
-                                    type="button"
-                                    class="message-reply-btn flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-400 opacity-0 transition group-hover:opacity-100 hover:bg-gray-100 hover:text-gray-700"
-                                    title="Reply"
-                                >
-                                    <i data-lucide="reply" class="h-4 w-4"></i>
-                                </button>
-                            </div>
+                // Remove everything except typing indicator
+                Array.from(container.children)
+                    .forEach(child => {
 
-                            <!-- ====================================== -->
-                            <!-- MESSAGE BUBBLE WRAPPER -->
-                            <!-- Existing reaction stays under bubble -->
-                            <!-- ====================================== -->
+                        if (
+                            child.id !==
+                            'modalTypingIndicator'
+                        ) {
+                            child.remove();
+                        }
 
-                            <div class="relative flex max-w-[62%] flex-col items-end">
+                    });
 
-                            <!-- ====================================== -->
-                            <!-- MESSAGE BUBBLE -->
-                            <!-- ====================================== -->
+                // Insert messages before typing indicator
+                if (typingIndicator) {
 
-                            <div
-                                class="
-                                    w-fit max-w-full
-                                    rounded-2xl
-                                    rounded-br-md
-                                    bg-gray-900
-                                    text-white
-                                    px-4 py-2.5
-                                "
-                            >
-
-                                <!-- ====================================== -->
-                                <!-- ORIGINAL MESSAGE BEING REPLIED TO -->
-                                <!-- ====================================== -->
-
-                                ${getReplyQuoteHtml(msg.reply_to)}
-
-
-                                <!-- ====================================== -->
-                                <!-- MESSAGE CONTENT -->
-                                <!-- ====================================== -->
-
-                                ${
-                                    msg.message_content
-                                        ? `
-                                            <p class="text-sm whitespace-pre-wrap break-words">
-                                                ${escapeHtml(msg.message_content)}
-                                            </p>
-                                        `
-                                        : ''
-                                }
-
-
-                                <!-- ====================================== -->
-                                <!-- ATTACHMENT -->
-                                <!-- ====================================== -->
-
-                                ${
-                                    attachment
-                                        ? getAttachmentPreviewHtml(
-                                            attachment,
-                                            time
-                                        )
-                                        : ''
-                                }
-
-
-                                <!-- ====================================== -->
-                                <!-- TIME AND MESSAGE STATUS -->
-                                <!-- ====================================== -->
-
-                                ${
-                                    !msg.message_content && !attachment
-                                        ? ''
-                                        : `
-                                            <div class="mt-1 flex items-center justify-end gap-1.5">
-
-                                                <span class="text-[10px] text-gray-400">
-                                                    ${time}
-                                                </span>
-
-                                                <span
-                                                    class="message-read-status text-[10px] text-gray-400 font-medium"
-                                                    data-message-id="${msg.message_id}"
-                                                >
-                                                    ${getMessageStatus(msg)}
-                                                </span>
-
-                                            </div>
-                                        `
-                                    }
-
-                            </div>
-
-
-                            <!-- ====================================== -->
-                            <!-- STEP 2: OWN MESSAGE REACTIONS -->
-                            <!-- ====================================== -->
-
-                            <div class="mt-[-4px] mr-2 flex flex-col items-end relative z-10">
-                                ${getMessageReactionsHtml(msg.reactions)}
-                            </div>
-
-                            </div>
-
-
-                        </div>
-                    `;
-
-
-                // =====================================================
-                // RECEIVED MESSAGE
-                // =====================================================
+                    typingIndicator.insertAdjacentHTML(
+                        'beforebegin',
+                        html
+                    );
 
                 } else {
 
-                    return `
-                        <div
-                            class="message-row group flex items-center justify-start gap-2"
-                            data-message-id="${msg.message_id}"
-                            data-message-sender="${escapeHtml(senderName)}"
-                            data-message-content="${escapeHtml(msg.message_content || '')}"
-                            data-message-created-at="${escapeHtml(msg.created_at || '')}"
-                        >
-
-                            <!-- ====================================== -->
-                            <!-- RECEIVED MESSAGE BUBBLE WRAPPER -->
-                            <!-- Existing reaction stays under bubble -->
-                            <!-- ====================================== -->
-
-                            <div class="relative flex max-w-[62%] flex-col items-start">
-
-                            <!-- ====================================== -->
-                            <!-- MESSAGE BUBBLE -->
-                            <!-- ====================================== -->
-
-                            <div
-                                class="
-                                    w-fit max-w-full
-                                    rounded-2xl
-                                    rounded-bl-md
-                                    bg-gray-100
-                                    text-gray-900
-                                    px-4 py-2.5
-                                "
-                            >
-
-                                <!-- ====================================== -->
-                                <!-- ORIGINAL MESSAGE BEING REPLIED TO -->
-                                <!-- ====================================== -->
-
-                                ${getReplyQuoteHtml(msg.reply_to)}
-
-
-                                <!-- ====================================== -->
-                                <!-- SENDER NAME -->
-                                <!-- ====================================== -->
-
-                                <p
-                                    class="
-                                        text-[11px]
-                                        font-semibold
-                                        text-gray-500
-                                        mb-0.5
-                                    "
-                                >
-                                    ${escapeHtml(senderName)}
-                                </p>
-
-
-                                <!-- ====================================== -->
-                                <!-- MESSAGE CONTENT -->
-                                <!-- ====================================== -->
-
-                                ${
-                                    msg.message_content
-                                        ? `
-                                            <p class="text-sm whitespace-pre-wrap break-words">
-                                                ${escapeHtml(msg.message_content)}
-                                            </p>
-                                        `
-                                        : ''
-                                }
-
-
-                                <!-- ====================================== -->
-                                <!-- ATTACHMENT -->
-                                <!-- ====================================== -->
-
-                                ${
-                                    attachment
-                                        ? getAttachmentPreviewHtml(
-                                            attachment,
-                                            time
-                                        )
-                                        : ''
-                                }
-
-
-                                <!-- ====================================== -->
-                                <!-- MESSAGE TIME -->
-                                <!-- ====================================== -->
-
-                                ${
-                                    !msg.message_content && !attachment
-                                        ? ''
-                                        : `
-                                            <span
-                                                class="
-                                                    text-[10px]
-                                                    text-gray-400
-                                                    mt-1
-                                                    block
-                                                    text-right
-                                                "
-                                            >
-                                                ${time}
-                                            </span>
-                                        `
-                                }
-
-                            </div>
-
-
-                            <!-- ====================================== -->
-                            <!-- RECEIVED MESSAGE REACTIONS -->
-                            <!-- ====================================== -->
-
-                            <div class="mt-[-4px] ml-2 flex flex-col items-start relative z-10">
-                                ${getMessageReactionsHtml(msg.reactions)}
-                            </div>
-
-                            </div>
-
-                            <!-- ====================================== -->
-                            <!-- RECEIVED ACTIONS: EMOJI FIRST, REPLY NEXT -->
-                            <!-- ====================================== -->
-
-                            <div class="flex shrink-0 items-center gap-0.5">
-                                ${getReactionPickerHtml()}
-
-                                <button
-                                    type="button"
-                                    class="message-reply-btn flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-400 opacity-0 transition group-hover:opacity-100 hover:bg-gray-100 hover:text-gray-700"
-                                    title="Reply"
-                                >
-                                    <i data-lucide="reply" class="h-4 w-4"></i>
-                                </button>
-                            </div>
-
-
-                        </div>
-                    `;
+                    container.insertAdjacentHTML(
+                        'beforeend',
+                        html
+                    );
                 }
-            }).join('');
-
-            if (append) {
-                container.insertAdjacentHTML('afterbegin', html);
-            } else {
-                container.innerHTML = html;
             }
+
+            // Always make typing indicator the final item
+            moveTypingIndicatorAfterLastMessage();
 
             // =====================================================
             // DATE SEPARATORS
@@ -2227,6 +3305,8 @@
             refreshMessageDateSeparators();
 
             lucideCreateIcons();
+            refreshSeenAvatar();
+
             scrollToBottom(false, !append);
             isLoadingMessages = false;
         }
@@ -2404,6 +3484,34 @@
         }
 
         // =====================================================
+        // KEEP TYPING INDICATOR AFTER THE LAST MESSAGE
+        // =====================================================
+
+        function moveTypingIndicatorAfterLastMessage() {
+
+            const container =
+                document.getElementById(
+                    'modalMessagesContainer'
+                );
+
+            const indicator =
+                document.getElementById(
+                    'modalTypingIndicator'
+                );
+
+            if (!container || !indicator) {
+                return;
+            }
+
+            // =============================================
+            // MOVE INDICATOR TO THE VERY END
+            // OF THE MESSAGE LIST
+            // =============================================
+
+            container.appendChild(indicator);
+        }
+
+        // =====================================================
         // SHOW TYPING STATE
         //
         // Updates:
@@ -2459,11 +3567,20 @@
 
                 if (indicator) {
 
+                    // =============================================
+                    // ALWAYS PLACE DOTS BELOW LATEST MESSAGE
+                    // =============================================
+
+                    moveTypingIndicatorAfterLastMessage();
+
                     indicator.classList.add(
                         'is-typing'
                     );
 
-                    // Keep bottom of conversation visible
+                    // =============================================
+                    // KEEP TYPING INDICATOR VISIBLE
+                    // =============================================
+
                     requestAnimationFrame(() => {
                         scrollToBottom(true, true);
                     });
@@ -2542,11 +3659,13 @@
 
 
         // =====================================================
-        // CREATE REACTION DISPLAY
+        // MESSAGE REACTIONS
         //
-        // Example:
+        // Hover:
+        // Shows who reacted.
         //
-        // 👍 2   ❤️ 1
+        // Click:
+        // Opens Messenger-style reaction details modal.
         // =====================================================
 
         function getMessageReactionsHtml(reactions = []) {
@@ -2578,11 +3697,20 @@
             });
 
 
+            // =============================================
+            // CREATE REACTION CHIPS
+            // =============================================
+
             const html = Object.entries(grouped)
                 .map(([type, items]) => {
 
                     const emoji =
                         getReactionEmoji(type);
+
+
+                    // =====================================
+                    // CHECK IF CURRENT USER REACTED
+                    // =====================================
 
                     const reactedByMe =
                         items.some(
@@ -2591,11 +3719,41 @@
                                 Number(currentUserId)
                         );
 
+
+                    // =====================================
+                    // NAMES FOR HOVER TOOLTIP
+                    // =====================================
+
+                    const names = items
+                        .map(item => {
+
+                            if (
+                                Number(item.user_id) ===
+                                Number(currentUserId)
+                            ) {
+                                return 'You';
+                            }
+
+                            return (
+                                item.user?.user_full_name ||
+                                item.user?.name ||
+                                'User'
+                            );
+
+                        })
+                        .filter(Boolean);
+
+
+                    const tooltip =
+                        names.join(', ');
+
+
                     return `
                         <button
                             type="button"
                             class="
                                 message-reaction-chip
+                                relative
                                 inline-flex
                                 items-center
                                 gap-1
@@ -2605,22 +3763,30 @@
                                 py-0.5
                                 text-[11px]
                                 transition
+                                hover:bg-gray-100
                                 ${
                                     reactedByMe
                                         ? 'border-gray-400 bg-gray-100 text-gray-900'
                                         : 'border-gray-200 bg-white text-gray-600'
                                 }
                             "
-                            data-reaction="${type}"
-                            title="${items.length} reaction${items.length === 1 ? '' : 's'}"
+                            data-reaction="${escapeHtml(type)}"
+                            data-reactions="${encodeURIComponent(
+                                JSON.stringify(items)
+                            )}"
+                            title="${escapeHtml(tooltip)}"
                         >
-                            <span>${emoji}</span>
+
+                            <span>
+                                ${emoji}
+                            </span>
 
                             ${
                                 items.length > 1
                                     ? `<span>${items.length}</span>`
                                     : ''
                             }
+
                         </button>
                     `;
                 })
@@ -2634,6 +3800,587 @@
                     ${html}
                 </div>
             `;
+        }
+
+        // =====================================================
+        // MESSENGER STYLE REACTION DETAILS MODAL
+        // =====================================================
+
+        function showMessageReactionsModal(
+            messageId,
+            reactions = [],
+            selectedReaction = null
+        ) {
+
+            // =============================================
+            // REMOVE OLD MODAL
+            // =============================================
+
+            document
+                .getElementById('messageReactionsOverlay')
+                ?.remove();
+
+
+            if (!Array.isArray(reactions)) {
+                reactions = [];
+            }
+
+
+            // =============================================
+            // CREATE OVERLAY
+            // =============================================
+
+            const overlay =
+                document.createElement('div');
+
+            overlay.id =
+                'messageReactionsOverlay';
+
+            overlay.className =
+                'fixed inset-0 z-[10000] flex items-center justify-center bg-black/55 p-4';
+
+
+            // =============================================
+            // COUNT REACTIONS
+            // =============================================
+
+            const grouped = {};
+
+            reactions.forEach(item => {
+
+                if (!grouped[item.reaction]) {
+                    grouped[item.reaction] = [];
+                }
+
+                grouped[item.reaction].push(item);
+            });
+
+
+            // =============================================
+            // TABS
+            // =============================================
+
+            const tabs = Object.entries(grouped)
+                .map(([type, items]) => {
+
+                    const active =
+                        selectedReaction === type;
+
+                    return `
+                        <button
+                            type="button"
+                            class="
+                                reaction-modal-tab
+                                relative
+                                px-4
+                                py-4
+                                text-sm
+                                font-semibold
+                                ${
+                                    active
+                                        ? 'text-gray-900'
+                                        : 'text-gray-500'
+                                }
+                            "
+                            data-reaction-filter="${escapeHtml(type)}"
+                        >
+
+                            ${getReactionEmoji(type)}
+                            ${items.length}
+
+                            ${
+                                active
+                                    ? `
+                                        <span
+                                            class="
+                                                absolute
+                                                bottom-0
+                                                left-0
+                                                right-0
+                                                h-0.5
+                                                bg-gray-900
+                                            "
+                                        ></span>
+                                    `
+                                    : ''
+                            }
+
+                        </button>
+                    `;
+                })
+                .join('');
+
+
+            // =============================================
+            // FILTER REACTIONS
+            // =============================================
+
+            const filtered =
+                selectedReaction
+                    ? reactions.filter(
+                        item =>
+                            item.reaction ===
+                            selectedReaction
+                    )
+                    : reactions;
+
+
+            // =============================================
+            // REACTION USERS
+            // =============================================
+
+            const usersHtml =
+                filtered.map(item => {
+
+                    const user =
+                        item.user || {};
+
+                    const name =
+                        Number(item.user_id) ===
+                        Number(currentUserId)
+                            ? (
+                                user.user_full_name ||
+                                'You'
+                            )
+                            : (
+                                user.user_full_name ||
+                                user.name ||
+                                'User'
+                            );
+
+
+                    const isMe =
+                        Number(item.user_id) ===
+                        Number(currentUserId);
+
+
+                    // =====================================
+                    // PROFILE PICTURE
+                    // =====================================
+
+                    let picture =
+                        user.user_profile_picture ||
+                        user.profile_picture ||
+                        '';
+
+                    if (
+                        picture &&
+                        !/^https?:\/\//i.test(picture) &&
+                        !picture.startsWith('/')
+                    ) {
+
+                        picture =
+                            `/storage/${picture.replace(
+                                /^storage\//,
+                                ''
+                            )}`;
+                    }
+
+
+                    const initials =
+                        getInitials(name);
+
+
+                    const avatar =
+                        picture
+                            ? `
+                                <img
+                                    src="${escapeHtml(picture)}"
+                                    class="
+                                        h-11
+                                        w-11
+                                        rounded-full
+                                        object-cover
+                                    "
+                                    alt="${escapeHtml(name)}"
+                                >
+                            `
+                            : `
+                                <div
+                                    class="
+                                        flex
+                                        h-11
+                                        w-11
+                                        items-center
+                                        justify-center
+                                        rounded-full
+                                        bg-gray-200
+                                        text-xs
+                                        font-semibold
+                                        text-gray-600
+                                    "
+                                >
+                                    ${escapeHtml(initials)}
+                                </div>
+                            `;
+
+
+                    return `
+                        <button
+                            type="button"
+                            class="
+                                reaction-modal-user
+                                flex
+                                w-full
+                                items-center
+                                gap-3
+                                px-5
+                                py-3
+                                text-left
+                                hover:bg-gray-50
+                            "
+                            data-user-id="${item.user_id}"
+                            data-reaction="${escapeHtml(item.reaction)}"
+                            data-current-user="${isMe ? '1' : '0'}"
+                        >
+
+                            ${avatar}
+
+                            <div
+                                class="
+                                    min-w-0
+                                    flex-1
+                                "
+                            >
+
+                                <div
+                                    class="
+                                        truncate
+                                        text-sm
+                                        font-semibold
+                                        text-gray-900
+                                    "
+                                >
+                                    ${escapeHtml(name)}
+                                </div>
+
+                                ${
+                                    isMe
+                                        ? `
+                                            <div
+                                                class="
+                                                    mt-0.5
+                                                    text-xs
+                                                    text-gray-500
+                                                "
+                                            >
+                                                Click to remove
+                                            </div>
+                                        `
+                                        : ''
+                                }
+
+                            </div>
+
+                            <div
+                                class="
+                                    text-2xl
+                                "
+                            >
+                                ${getReactionEmoji(
+                                    item.reaction
+                                )}
+                            </div>
+
+                        </button>
+                    `;
+
+                }).join('');
+
+
+            // =============================================
+            // MODAL HTML
+            // =============================================
+
+            overlay.innerHTML = `
+
+                <div
+                    class="
+                        w-full
+                        max-w-[520px]
+                        overflow-hidden
+                        rounded-2xl
+                        bg-white
+                        shadow-2xl
+                    "
+                >
+
+                    <!-- ================================= -->
+                    <!-- HEADER -->
+                    <!-- ================================= -->
+
+                    <div
+                        class="
+                            flex
+                            h-16
+                            items-center
+                            justify-between
+                            border-b
+                            border-gray-200
+                            px-5
+                        "
+                    >
+
+                        <h3
+                            class="
+                                text-lg
+                                font-bold
+                                text-gray-900
+                            "
+                        >
+                            Message reactions
+                        </h3>
+
+
+                        <button
+                            type="button"
+                            id="closeMessageReactionsModal"
+                            class="
+                                flex
+                                h-9
+                                w-9
+                                items-center
+                                justify-center
+                                rounded-full
+                                bg-gray-100
+                                text-gray-600
+                                hover:bg-gray-200
+                            "
+                        >
+
+                            <i
+                                data-lucide="x"
+                                class="h-5 w-5"
+                            ></i>
+
+                        </button>
+
+                    </div>
+
+
+                    <!-- ================================= -->
+                    <!-- TABS -->
+                    <!-- ================================= -->
+
+                    <div
+                        class="
+                            flex
+                            border-b
+                            border-gray-200
+                        "
+                    >
+
+                        <button
+                            type="button"
+                            class="
+                                reaction-modal-tab
+                                relative
+                                px-5
+                                py-4
+                                text-sm
+                                font-semibold
+                                ${
+                                    !selectedReaction
+                                        ? 'text-gray-900'
+                                        : 'text-gray-500'
+                                }
+                            "
+                            data-reaction-filter=""
+                        >
+
+                            All ${reactions.length}
+
+                            ${
+                                !selectedReaction
+                                    ? `
+                                        <span
+                                            class="
+                                                absolute
+                                                bottom-0
+                                                left-0
+                                                right-0
+                                                h-0.5
+                                                bg-gray-900
+                                            "
+                                        ></span>
+                                    `
+                                    : ''
+                            }
+
+                        </button>
+
+                        ${tabs}
+
+                    </div>
+
+
+                    <!-- ================================= -->
+                    <!-- USERS -->
+                    <!-- ================================= -->
+
+                    <div
+                        class="
+                            max-h-[420px]
+                            overflow-y-auto
+                            py-2
+                        "
+                    >
+
+                        ${
+                            usersHtml ||
+                            `
+                                <div
+                                    class="
+                                        px-5
+                                        py-10
+                                        text-center
+                                        text-sm
+                                        text-gray-500
+                                    "
+                                >
+                                    No reactions
+                                </div>
+                            `
+                        }
+
+                    </div>
+
+                </div>
+            `;
+
+
+            document.body.appendChild(
+                overlay
+            );
+
+
+            lucideCreateIcons();
+
+
+            // =============================================
+            // CLOSE MODAL
+            // =============================================
+
+            overlay
+                .querySelector(
+                    '#closeMessageReactionsModal'
+                )
+                ?.addEventListener(
+                    'click',
+                    () => overlay.remove()
+                );
+
+
+            overlay.addEventListener(
+                'click',
+                event => {
+
+                    if (event.target === overlay) {
+                        overlay.remove();
+                    }
+
+                }
+            );
+
+
+            // =============================================
+            // FILTER TABS
+            // =============================================
+
+            overlay
+                .querySelectorAll(
+                    '.reaction-modal-tab'
+                )
+                .forEach(tab => {
+
+                    tab.addEventListener(
+                        'click',
+                        () => {
+
+                            const filter =
+                                tab.dataset
+                                    .reactionFilter ||
+                                null;
+
+                            showMessageReactionsModal(
+                                messageId,
+                                reactions,
+                                filter
+                            );
+
+                        }
+                    );
+
+                });
+
+
+            // =============================================
+            // CLICK CURRENT USER = REMOVE REACTION
+            // =============================================
+
+            overlay
+                .querySelectorAll(
+                    '.reaction-modal-user'
+                )
+                .forEach(row => {
+
+                    row.addEventListener(
+                        'click',
+                        async () => {
+
+                            if (
+                                row.dataset
+                                    .currentUser !== '1'
+                            ) {
+                                return;
+                            }
+
+
+                            const reaction =
+                                row.dataset.reaction;
+
+
+                            // =================================
+                            // SAME REACTION = BACKEND REMOVES IT
+                            // =================================
+
+                            await reactToMessage(
+                                messageId,
+                                reaction
+                            );
+
+
+                            // =================================
+                            // REMOVE FROM LOCAL MODAL DATA
+                            // =================================
+
+                            reactions =
+                                reactions.filter(
+                                    item =>
+                                        Number(item.user_id) !==
+                                        Number(currentUserId)
+                                );
+
+
+                            if (
+                                reactions.length === 0
+                            ) {
+
+                                overlay.remove();
+
+                                return;
+                            }
+
+
+                            showMessageReactionsModal(
+                                messageId,
+                                reactions,
+                                null
+                            );
+                        }
+                    );
+
+                });
         }
 
 
@@ -2795,21 +4542,135 @@
         // Used inside sent and received message bubbles.
         // =====================================================
 
-        function getReplyQuoteHtml(replyTo) {
+        // =====================================================
+        // JUMP TO ORIGINAL REPLIED MESSAGE
+        //
+        // Clicking the quoted reply scrolls to the exact original
+        // message and briefly highlights it.
+        //
+        // If the original message is older and is not loaded yet,
+        // older message pages are loaded automatically until the
+        // target is found or there are no more pages.
+        // =====================================================
+
+        async function jumpToOriginalReplyMessage(messageId) {
+
+            if (!messageId || !currentConversationId) {
+                return;
+            }
+
+            const container =
+                document.getElementById('modalMessagesContainer');
+
+            if (!container) {
+                return;
+            }
+
+            const findTarget = () =>
+                container.querySelector(
+                    `.message-row[data-message-id="${CSS.escape(String(messageId))}"]`
+                );
+
+            let target = findTarget();
+
+            // =================================================
+            // ORIGINAL MESSAGE IS NOT CURRENTLY LOADED
+            //
+            // Keep loading older pages because the chat uses
+            // pagination and older messages are prepended.
+            // =================================================
+
+            while (
+                !target &&
+                hasMoreMessages
+            ) {
+
+                if (isLoadingMessages) {
+                    await new Promise(resolve => setTimeout(resolve, 80));
+                    target = findTarget();
+                    continue;
+                }
+
+                const previousPage = messagesPage;
+
+                messagesPage++;
+
+                await loadModalMessages(
+                    currentConversationId,
+                    true
+                );
+
+                target = findTarget();
+
+                // Safety against an unexpected pagination response.
+                if (
+                    !target &&
+                    messagesPage === previousPage
+                ) {
+                    break;
+                }
+            }
+
+            if (!target) {
+                return;
+            }
+
+            // =================================================
+            // SCROLL THE ORIGINAL MESSAGE INTO VIEW
+            // =================================================
+
+            target.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center'
+            });
+
+            // =================================================
+            // TEMPORARY MESSENGER STYLE HIGHLIGHT
+            //
+            // Highlight the bubble itself when possible.
+            // =================================================
+
+            const highlightTarget =
+                target.querySelector('.message-bubble') ||
+                target;
+
+            highlightTarget.classList.remove(
+                'ring-2',
+                'ring-gray-400',
+                'ring-offset-2',
+                'ring-offset-white'
+            );
+
+            // Force a reflow so repeated clicks replay the effect.
+            void highlightTarget.offsetWidth;
+
+            highlightTarget.classList.add(
+                'ring-2',
+                'ring-gray-400',
+                'ring-offset-2',
+                'ring-offset-white'
+            );
+
+            setTimeout(() => {
+                highlightTarget.classList.remove(
+                    'ring-2',
+                    'ring-gray-400',
+                    'ring-offset-2',
+                    'ring-offset-white'
+                );
+            }, 1800);
+        }
+
+
+        function getReplyQuoteHtml(replyTo, isOwnReply = false) {
 
             if (!replyTo) {
                 return '';
             }
 
-
-            const senderName =
-                replyTo.sender?.user_full_name ||
-                'User';
-
             let message =
                 replyTo.message_content ||
                 'Message';
-
 
             // =============================================
             // FRIENDLY ATTACHMENT TEXT
@@ -2823,44 +4684,94 @@
                 message = 'File';
             }
 
+            // =============================================
+            // MESSENGER STYLE QUOTED MESSAGE
+            //
+            // No sender name here.
+            // The single indicator above already says:
+            // "Tristan replied to you"
+            //
+            // This quoted bubble sits ABOVE the new message.
+            // =============================================
 
             return `
                 <button
                     type="button"
                     class="
                         reply-quote
-                        mb-2
+                        relative
+                        z-0
                         block
                         w-full
-                        rounded-lg
-                        border-l-2
-                        border-gray-400
-                        bg-black/10
-                        px-3
-                        py-2
+                        max-w-full
+                        rounded-2xl
+                        ${isOwnReply
+                            ? 'bg-gray-200 text-gray-500'
+                            : 'bg-gray-200 text-gray-500'}
+                        px-4
+                        pt-2.5
+                        pb-4
+                        -mb-3
                         text-left
                         transition
-                        hover:bg-black/15
+                        hover:bg-gray-300
                     "
                     data-reply-message-id="${replyTo.message_id}"
+                    title="View original message"
                 >
-
-                    <p
-                        class="truncate text-[11px]
-                            font-semibold opacity-80"
-                    >
-                        ${escapeHtml(senderName)}
-                    </p>
-
-                    <p
-                        class="mt-0.5 truncate
-                            text-xs opacity-70"
-                    >
+                    <p class="truncate text-sm leading-snug">
                         ${escapeHtml(message)}
                     </p>
-
                 </button>
             `;
+        }
+
+        // =====================================================
+        // OPEN CHAT TYPING INDICATOR
+        // Shows the 3 dot bubble below the last message
+        // =====================================================
+
+        function showRemoteTypingIndicator() {
+
+            const indicator =
+                document.getElementById('modalTypingIndicator');
+
+            const messagesContainer =
+                document.getElementById('modalMessagesContainer');
+
+            if (!indicator || !messagesContainer) {
+                return;
+            }
+
+            // Keep indicator after the newest message
+            messagesContainer.appendChild(indicator);
+
+            // Show the 3 dot bubble
+            indicator.classList.add('is-typing');
+
+            // Scroll down so the indicator is visible
+            requestAnimationFrame(() => {
+                messagesContainer.scrollTop =
+                    messagesContainer.scrollHeight;
+            });
+        }
+
+
+        // =====================================================
+        // OPEN CHAT TYPING INDICATOR
+        // Hides the 3 dot bubble
+        // =====================================================
+
+        function hideRemoteTypingIndicator() {
+
+            const indicator =
+                document.getElementById('modalTypingIndicator');
+
+            if (!indicator) {
+                return;
+            }
+
+            indicator.classList.remove('is-typing');
         }
 
         // =====================================================
@@ -2935,7 +4846,7 @@
                 // =============================================
 
                 if (
-                    Number(activeConversationId) ===
+                    Number(currentConversationId) ===
                     conversationId
                 ) {
 
@@ -2962,7 +4873,7 @@
             // =================================================
 
             if (
-                Number(activeConversationId) ===
+                Number(currentConversationId) ===
                 conversationId
             ) {
 
@@ -2985,7 +4896,7 @@
 
 
                 if (
-                    Number(activeConversationId) ===
+                    Number(currentConversationId) ===
                     conversationId
                 ) {
 
@@ -3143,12 +5054,13 @@
                     // REMOVE "NO MESSAGES YET" EMPTY STATE
                     // =========================================
 
-                    if (
+                    const emptyState =
                         container.querySelector(
-                            '.text-center.py-12'
-                        )
-                    ) {
-                        container.innerHTML = '';
+                            '.message-empty-state, .text-center.py-12'
+                        );
+
+                    if (emptyState) {
+                        emptyState.remove();
                     }
 
 
@@ -3171,140 +5083,33 @@
                     // CREATE RECEIVED MESSAGE BUBBLE
                     // =========================================
 
-                    const html = `
+                    const html = renderMessengerMessageRow(msg, false);
 
-                        <!-- ====================================== -->
-                        <!-- REALTIME RECEIVED MESSAGE -->
-                        <!-- ====================================== -->
-
-                        <div
-                            class="message-row group flex items-center justify-start gap-2"
-                            data-message-id="${msg.message_id}"
-                            data-message-sender="${escapeHtml(senderName)}"
-                            data-message-content="${escapeHtml(msg.message_content || '')}"
-                            data-message-created-at="${escapeHtml(msg.created_at || '')}"
-                        >
-
-                            <!-- ====================================== -->
-                            <!-- RECEIVED MESSAGE BUBBLE WRAPPER -->
-                            <!-- Existing reaction stays under bubble -->
-                            <!-- ====================================== -->
-
-                            <div class="relative flex max-w-[62%] flex-col items-start">
-
-                            <div class="relative flex max-w-[62%] flex-col items-start">
-
-                            <!-- ====================================== -->
-                            <!-- MESSAGE BUBBLE -->
-                            <!-- ====================================== -->
-
-                            <div
-                                class="
-                                    w-fit max-w-full
-                                    rounded-2xl
-                                    rounded-bl-md
-                                    bg-gray-100
-                                    text-gray-900
-                                    px-4 py-2.5
-                                "
-                            >
-
-                                <!-- ====================================== -->
-                                <!-- ORIGINAL MESSAGE BEING REPLIED TO -->
-                                <!-- THIS IS STEP 12 -->
-                                <!-- ====================================== -->
-
-                                ${getReplyQuoteHtml(msg.reply_to)}
-
-
-                                <!-- ====================================== -->
-                                <!-- SENDER -->
-                                <!-- ====================================== -->
-
-                                <p
-                                    class="
-                                        text-[11px]
-                                        font-semibold
-                                        text-gray-500
-                                        mb-0.5
-                                    "
-                                >
-                                    ${escapeHtml(senderName)}
-                                </p>
-
-
-                                <!-- ====================================== -->
-                                <!-- MESSAGE -->
-                                <!-- ====================================== -->
-
-                                ${
-                                    msg.message_content
-                                        ? `
-                                            <p
-                                                class="
-                                                    text-sm
-                                                    whitespace-pre-wrap
-                                                    break-words
-                                                "
-                                            >
-                                                ${escapeHtml(msg.message_content)}
-                                            </p>
-                                        `
-                                        : ''
-                                }
-
-
-                                <!-- ====================================== -->
-                                <!-- TIME -->
-                                <!-- ====================================== -->
-
-                                <span
-                                    class="
-                                        text-[10px]
-                                        text-gray-400
-                                        mt-1
-                                        block
-                                        text-right
-                                    "
-                                >
-                                    ${time}
-                                </span>
-
-                            </div>
-
-
-                            <!-- ====================================== -->
-                            <!-- REALTIME RECEIVED REACTIONS -->
-                            <!-- ====================================== -->
-
-                            <div class="mt-[-4px] ml-2 flex flex-col items-start relative z-10">
-                                ${getMessageReactionsHtml(msg.reactions)}
-                            </div>
-
-                            </div>
-
-                            <!-- ====================================== -->
-                            <!-- ACTIONS: EMOJI FIRST, REPLY NEXT -->
-                            <!-- ====================================== -->
-
-                            <div class="flex shrink-0 items-center gap-0.5">
-                                ${getReactionPickerHtml()}
-                                <button type="button" class="message-reply-btn flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-400 opacity-0 transition group-hover:opacity-100 hover:bg-gray-100 hover:text-gray-700" title="Reply">
-                                    <i data-lucide="reply" class="h-4 w-4"></i>
-                                </button>
-                            </div>
-
-                        </div>
-                    `;
-
-// =========================================
+                    // =========================================
                     // ADD MESSAGE WITHOUT REFRESHING
                     // =========================================
 
-                    container.insertAdjacentHTML(
-                        'beforeend',
-                        html
-                    );
+                    const typingIndicator =
+                        document.getElementById(
+                            'modalTypingIndicator'
+                        );
+
+                    if (typingIndicator) {
+
+                        typingIndicator.insertAdjacentHTML(
+                            'beforebegin',
+                            html
+                        );
+
+                    } else {
+
+                        container.insertAdjacentHTML(
+                            'beforeend',
+                            html
+                        );
+                    }
+
+                    moveTypingIndicatorAfterLastMessage();
 
 
                     // =========================================
@@ -3319,6 +5124,8 @@
                     // =========================================
 
                     lucideCreateIcons();
+                    refreshMessengerMessageGroups();
+                    refreshLatestOutgoingStatus();
 
 
                     // =========================================
@@ -3339,6 +5146,37 @@
                         conversationId
                     );
 
+                })
+
+                // =====================================================
+                // REALTIME EDIT / UNSEND
+                // =====================================================
+
+                .listen('.message.updated', (event) => {
+                    const msg = event.message;
+                    if (!msg || Number(msg.conversation_id) !== Number(currentConversationId)) return;
+
+                    const row = document.querySelector(`.message-row[data-message-id="${msg.message_id}"]`);
+                    if (!row) return;
+
+                    const isOwn = Number(msg.sender_id) === Number(currentUserId);
+                    const merged = {
+                        message_id: msg.message_id,
+                        conversation_id: msg.conversation_id,
+                        sender_id: msg.sender_id,
+                        sender: {
+                            user_id: msg.sender_id,
+                            user_full_name: row.dataset.messageSender || (isOwn ? 'You' : 'Unknown')
+                        },
+                        message_content: msg.message_content,
+                        created_at: row.dataset.messageCreatedAt,
+                        is_unsent: msg.is_unsent,
+                        is_edited: msg.is_edited,
+                        reactions: []
+                    };
+
+                    row.outerHTML = renderMessengerMessageRow(merged, isOwn);
+                    lucideCreateIcons();
                 })
 
                 // =====================================================
@@ -3401,7 +5239,9 @@
                         statusElement &&
                         statusElement.textContent.trim() !== 'Seen'
                     ) {
+                        statusElement.dataset.messageStatus = '✓✓ Delivered';
                         statusElement.textContent = '✓✓ Delivered';
+                        refreshLatestOutgoingStatus();
                     }
 
 
@@ -3462,6 +5302,7 @@
                                 );
 
                             if (statusElement) {
+                                statusElement.dataset.messageStatus = 'Seen';
                                 statusElement.textContent = 'Seen';
                             }
 
@@ -3480,6 +5321,8 @@
                             }
                         }
                     );
+
+                    refreshSeenAvatar();
                 })
 
                 // =====================================================
@@ -3500,9 +5343,9 @@
                     }
 
 
-                    // =============================================
-                    // OTHER PERSON IS TYPING
-                    // =============================================
+                    // =====================================================
+                    // OTHER USER STARTED TYPING
+                    // =====================================================
 
                     if (event.is_typing) {
 
@@ -3510,42 +5353,82 @@
                             conversationId
                         );
 
+                        // Show bubble inside currently opened conversation
+                        if (
+                            Number(currentConversationId) ===
+                            Number(conversationId)
+                        ) {
+                            showRemoteTypingIndicator();
+                        }
 
-                        // =========================================
-                        // SAFETY TIMER
-                        //
-                        // Prevent dots from getting stuck if
-                        // connection suddenly disappears.
-                        // =========================================
 
-                        clearTimeout(
-                            remoteTypingTimeout
+                        // Clear previous safety timeout
+                        if (remoteTypingTimeouts.has(conversationId)) {
+
+                            clearTimeout(
+                                remoteTypingTimeouts.get(conversationId)
+                            );
+                        }
+
+
+                        // Safety timeout
+                        const timeout = setTimeout(() => {
+
+                            hideConversationTyping(
+                                conversationId
+                            );
+
+                            if (
+                                Number(currentConversationId) ===
+                                Number(conversationId)
+                            ) {
+                                hideRemoteTypingIndicator();
+                            }
+
+                            remoteTypingTimeouts.delete(
+                                conversationId
+                            );
+
+                        }, 3000);
+
+
+                        remoteTypingTimeouts.set(
+                            conversationId,
+                            timeout
                         );
-
-                        remoteTypingTimeout =
-                            setTimeout(() => {
-
-                                hideConversationTyping(
-                                    conversationId
-                                );
-
-                            }, 3000);
 
                         return;
                     }
 
 
-                    // =============================================
-                    // OTHER PERSON STOPPED TYPING
-                    // =============================================
+                    // =====================================================
+                    // OTHER USER STOPPED TYPING
+                    // =====================================================
 
-                    clearTimeout(
-                        remoteTypingTimeout
-                    );
+                    if (remoteTypingTimeouts.has(conversationId)) {
+
+                        clearTimeout(
+                            remoteTypingTimeouts.get(conversationId)
+                        );
+
+                        remoteTypingTimeouts.delete(
+                            conversationId
+                        );
+                    }
 
                     hideConversationTyping(
                         conversationId
                     );
+
+                    if (
+                        Number(currentConversationId) ===
+                        Number(conversationId)
+                    ) {
+                        hideRemoteTypingIndicator();
+                    }
+
+
+                    
                 })
 
                 
@@ -3868,6 +5751,15 @@
         async function sendModalMessage(e) {
             e.preventDefault();
 
+            // =============================================
+            // EDIT MODE: save the edited message instead
+            // of creating a new message.
+            // =============================================
+            if (editingMessageRow) {
+                await saveEditedMessage();
+                return;
+            }
+
             const input = document.getElementById('modalMessageInput');
             const content = input?.value.trim();
             if (!content && !selectedAttachment) return;
@@ -3895,7 +5787,28 @@
                 </div>
             </div>
         `;
-            container.insertAdjacentHTML('beforeend', tempHtml);
+            const typingIndicator =
+                document.getElementById(
+                    'modalTypingIndicator'
+                );
+
+            if (typingIndicator) {
+
+                typingIndicator.insertAdjacentHTML(
+                    'beforebegin',
+                    tempHtml
+                );
+
+            } else {
+
+                container.insertAdjacentHTML(
+                    'beforeend',
+                    tempHtml
+                );
+            }
+
+            moveTypingIndicatorAfterLastMessage();
+
             scrollToBottom(true, true);
 
             const formData = new FormData();
@@ -3956,175 +5869,42 @@
                 // Laravel successfully saves the message.
                 // =====================================================
 
-                const realHtml = `
+                const realHtml = renderMessengerMessageRow(msg, true);
+                const emptyState =
+                    container.querySelector(
+                        '.message-empty-state, .text-center.py-12'
+                    );
 
-                    <div
-                        class="message-row group flex items-center justify-end gap-2"
-                        data-message-id="${msg.message_id}"
-                        data-message-sender="You"
-                        data-message-content="${escapeHtml(msg.message_content || '')}"
-                        data-message-created-at="${escapeHtml(msg.created_at || '')}"
-                        style="
-                            animation:
-                                messageSlideIn
-                                0.3s
-                                cubic-bezier(0.4, 0, 0.2, 1);
-                        "
-                    >
-
-                        <!-- ====================================== -->
-                        <!-- OWN ACTIONS: EMOJI FIRST, REPLY NEXT -->
-                        <!-- ====================================== -->
-
-                        <div class="flex shrink-0 items-center gap-0.5">
-                            ${getReactionPickerHtml()}
-                            <button type="button" class="message-reply-btn flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-400 opacity-0 transition group-hover:opacity-100 hover:bg-gray-100 hover:text-gray-700" title="Reply">
-                                <i data-lucide="reply" class="h-4 w-4"></i>
-                            </button>
-                        </div>
-
-                        <div class="relative flex max-w-[62%] flex-col items-end">
-
-                        <!-- ====================================== -->
-                        <!-- MESSAGE BUBBLE -->
-                        <!-- ====================================== -->
-
-                        <div
-                            class="
-                                w-fit max-w-full
-                                rounded-2xl
-                                rounded-br-md
-                                bg-gray-900
-                                text-white
-                                px-4 py-2.5
-                            "
-                        >
-
-                            <!-- ====================================== -->
-                            <!-- ORIGINAL MESSAGE BEING REPLIED TO -->
-                            <!-- ====================================== -->
-
-                            ${getReplyQuoteHtml(msg.reply_to)}
-
-
-                            <!-- ====================================== -->
-                            <!-- MESSAGE CONTENT -->
-                            <!-- ====================================== -->
-
-                            ${
-                                msg.message_content
-                                    ? `
-                                        <p
-                                            class="
-                                                text-sm
-                                                whitespace-pre-wrap
-                                                break-words
-                                            "
-                                        >
-                                            ${escapeHtml(
-                                                msg.message_content
-                                            )}
-                                        </p>
-                                    `
-                                    : ''
-                            }
-
-
-                            <!-- ====================================== -->
-                            <!-- ATTACHMENT -->
-                            <!-- ====================================== -->
-
-                            ${
-                                attachment
-                                    ? getAttachmentPreviewHtml(
-                                        attachment,
-                                        msgTime,
-                                        false
-                                    )
-                                    : ''
-                            }
-
-
-                            <!-- ====================================== -->
-                            <!-- EMPTY MESSAGE FALLBACK -->
-                            <!-- ====================================== -->
-
-                            ${
-                                !msg.message_content &&
-                                !attachment
-                                    ? `
-                                        <p class="text-sm text-gray-400">
-                                            Empty message
-                                        </p>
-                                    `
-                                    : ''
-                            }
-
-
-                            <!-- ====================================== -->
-                            <!-- TIME + DELIVERED / SEEN STATUS -->
-                            <!-- ====================================== -->
-
-                            ${
-                                msg.message_content ||
-                                attachment
-                                    ? `
-                                        <div
-                                            class="
-                                                mt-1
-                                                flex
-                                                items-center
-                                                justify-end
-                                                gap-1.5
-                                            "
-                                        >
-
-                                            <span
-                                                class="
-                                                    text-[10px]
-                                                    text-gray-400
-                                                "
-                                            >
-                                                ${msgTime}
-                                            </span>
-
-                                            <span
-                                                class="
-                                                    message-read-status
-                                                    text-[10px]
-                                                    text-gray-400
-                                                    font-medium
-                                                "
-                                                data-message-id="${msg.message_id}"
-                                            >
-                                                ${getMessageStatus(msg)}
-                                            </span>
-
-                                        </div>
-                                    `
-                                    : ''
-                                }
-
-                        </div>
-
-
-                        <!-- ====================================== -->
-                        <!-- NEW SENT MESSAGE REACTIONS -->
-                        <!-- ====================================== -->
-
-                        <div class="mt-[-4px] mr-2 flex flex-col items-end relative z-10">
-                            ${getMessageReactionsHtml(msg.reactions)}
-                        </div>
-
-                        </div>
-
-                    </div>
-                `;
-                if (isFirstMessage) {
-                    container.innerHTML = realHtml;
-                } else {
-                    container.insertAdjacentHTML('beforeend', realHtml);
+                if (emptyState) {
+                    emptyState.remove();
                 }
+
+
+                // =====================================================
+                // INSERT SENT MESSAGE BEFORE TYPING INDICATOR
+                // =====================================================
+
+                const typingIndicator =
+                    document.getElementById(
+                        'modalTypingIndicator'
+                    );
+
+                if (typingIndicator) {
+
+                    typingIndicator.insertAdjacentHTML(
+                        'beforebegin',
+                        realHtml
+                    );
+
+                } else {
+
+                    container.insertAdjacentHTML(
+                        'beforeend',
+                        realHtml
+                    );
+                }
+
+                moveTypingIndicatorAfterLastMessage();
 
                 // =====================================================
                 // DATE SEPARATORS
@@ -4857,6 +6637,20 @@
             lucideCreateIcons();
             updateTopbarMessageBadge();
 
+            document
+                .getElementById('closePinnedMessagesModal')
+                ?.addEventListener(
+                    'click',
+                    closePinnedMessagesModal
+                );
+
+            document
+                .getElementById('pinnedMessagesBackdrop')
+                ?.addEventListener(
+                    'click',
+                    closePinnedMessagesModal
+                );
+
             const conversationsList = document.getElementById('modalConversationsList');
             if (conversationsList) {
                 conversationsList.addEventListener('click', (e) => {
@@ -4959,6 +6753,19 @@
                         // =========================================
                         // OPEN / CLOSE REACTION POPUP
                         // =========================================
+                        const pinnedSeeAll =
+                            event.target.closest(
+                                '.pinned-see-all'
+                            );
+
+                        if (pinnedSeeAll) {
+
+                            event.preventDefault();
+
+                            openPinnedMessagesModal();
+
+                            return;
+                        }
 
                         const reactionTrigger =
                             event.target.closest(
@@ -5103,6 +6910,7 @@
                             event.preventDefault();
                             event.stopPropagation();
 
+
                             const row =
                                 reactionChip.closest(
                                     '.message-row'
@@ -5112,9 +6920,91 @@
                                 return;
                             }
 
-                            await reactToMessage(
+
+                            // =====================================
+                            // GET REACTION DATA STORED ON CHIP
+                            // =====================================
+
+                            let reactions = [];
+
+                            try {
+
+                                reactions =
+                                    JSON.parse(
+                                        decodeURIComponent(
+                                            reactionChip.dataset
+                                                .reactions || '[]'
+                                        )
+                                    );
+
+                            } catch (error) {
+
+                                console.error(
+                                    'Unable to read reaction data:',
+                                    error
+                                );
+
+                                return;
+                            }
+
+
+                            // =====================================
+                            // OPEN REACTION DETAILS
+                            // =====================================
+
+                            showMessageReactionsModal(
                                 row.dataset.messageId,
-                                reactionChip.dataset.reaction
+                                reactions,
+                                null
+                            );
+
+                            return;
+                        }
+
+
+                        // =========================================
+                        // MESSAGE THREE DOT MENU
+                        // =========================================
+
+                        const moreButton = event.target.closest('.message-more-btn');
+                        if (moreButton) {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            const menu = moreButton.closest('.message-more')?.querySelector('.message-more-menu');
+                            if (menu) {
+                                const opening = menu.classList.contains('hidden');
+                                closeAllMessageMenus(menu);
+                                menu.classList.toggle('hidden', !opening);
+                            }
+                            return;
+                        }
+
+                        const actionRow = event.target.closest('.message-row');
+                        if (actionRow && event.target.closest('.message-edit-btn')) { closeAllMessageMenus(); await editMessageFromRow(actionRow); return; }
+                        if (actionRow && event.target.closest('.message-unsend-btn')) { closeAllMessageMenus(); await unsendMessageFromRow(actionRow); return; }
+                        if (actionRow && event.target.closest('.message-remove-btn')) { closeAllMessageMenus(); await removeMessageFromRow(actionRow); return; }
+                        if (actionRow && event.target.closest('.message-pin-btn')) { closeAllMessageMenus(); await pinMessageFromRow(actionRow); return; }
+                        if (actionRow && event.target.closest('.message-forward-btn')) { closeAllMessageMenus(); await forwardMessageFromRow(actionRow); return; }
+
+                        // =========================================
+                        // CLICK QUOTED REPLY
+                        //
+                        // Jump to the exact original message and
+                        // briefly highlight the corresponding bubble.
+                        // =========================================
+
+                        const replyQuote =
+                            event.target.closest(
+                                '.reply-quote'
+                            );
+
+                        if (replyQuote) {
+
+                            event.preventDefault();
+                            event.stopPropagation();
+
+                            await jumpToOriginalReplyMessage(
+                                replyQuote.dataset.replyMessageId
                             );
 
                             return;
@@ -5174,6 +7064,10 @@
             }
 
             listenToUserMessagesRealtime();
+        });
+
+        document.addEventListener('click', (event) => {
+            if (!event.target.closest('.message-more')) closeAllMessageMenus();
         });
 
         document.addEventListener('visibilitychange', () => {

@@ -16,20 +16,42 @@ class Message extends Model
     protected $fillable = [
         'conversation_id',
         'sender_id',
-
-        // =============================================
-        // MESSAGE THIS MESSAGE IS REPLYING TO
-        // =============================================
-
         'reply_to_message_id',
-
+        'forwarded_from_message_id',
         'message_content',
+
+        // =============================================
+        // MESSAGE ACTION STATES
+        // =============================================
+
+        'is_unsent',
+        'unsent_at',
+        'is_edited',
+        'edited_at',
+
+        // =============================================
+        // DELIVERY / READ STATES
+        // =============================================
+
         'is_read',
+        'delivered_at',
         'read_at',
     ];
 
+
+    // =====================================================
+    // FIELD CASTS
+    // =====================================================
+
     protected $casts = [
+        'is_unsent' => 'boolean',
+        'unsent_at' => 'datetime',
+
+        'is_edited' => 'boolean',
+        'edited_at' => 'datetime',
+
         'is_read' => 'boolean',
+        'delivered_at' => 'datetime',
         'read_at' => 'datetime',
     ];
 
@@ -79,6 +101,15 @@ class Message extends Model
     {
         return $this->hasMany(
             MessageReaction::class,
+            'message_id',
+            'message_id'
+        );
+    }
+
+    public function hiddenUsers()
+    {
+        return $this->hasMany(
+            MessageHiddenUser::class,
             'message_id',
             'message_id'
         );
