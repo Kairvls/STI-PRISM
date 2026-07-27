@@ -457,6 +457,15 @@
         );
 
         // =====================================================
+        // LIVE CONVERSATION PREVIEW TIME
+        // 59m becomes 1h automatically without refreshing.
+        // =====================================================
+        setInterval(
+            refreshConversationRelativeTimes,
+            60000
+        );
+
+        // =====================================================
         // FORMAT USER ONLINE STATUS
         // =====================================================
 
@@ -938,6 +947,61 @@
             }
         }
 
+        // =====================================================
+        // MESSENGER STYLE CONVERSATION RELATIVE TIME
+        // Examples: now, 4m, 14h, 2d
+        // =====================================================
+        function formatConversationRelativeTime(dateString) {
+            if (!dateString) return '';
+
+            const date = new Date(dateString);
+            const now = new Date();
+
+            if (Number.isNaN(date.getTime())) return '';
+
+            const diffSeconds = Math.max(
+                0,
+                Math.floor((now - date) / 1000)
+            );
+
+            if (diffSeconds < 60) return 'now';
+
+            const diffMinutes = Math.floor(diffSeconds / 60);
+            if (diffMinutes < 60) return `${diffMinutes}m`;
+
+            const diffHours = Math.floor(diffMinutes / 60);
+            if (diffHours < 24) return `${diffHours}h`;
+
+            const diffDays = Math.floor(diffHours / 24);
+            if (diffDays < 7) return `${diffDays}d`;
+
+            const diffWeeks = Math.floor(diffDays / 7);
+            if (diffWeeks < 5) return `${diffWeeks}w`;
+
+            return date.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+
+        // =====================================================
+        // REFRESH VISIBLE CONVERSATION TIMES EVERY MINUTE
+        // =====================================================
+        function refreshConversationRelativeTimes() {
+            document
+                .querySelectorAll('.conversation-relative-time')
+                .forEach(element => {
+                    const value =
+                        formatConversationRelativeTime(
+                            element.dataset.createdAt
+                        );
+
+                    element.textContent =
+                        value ? `· ${value}` : '';
+                });
+        }
+
+
         function formatMessageTime(dateString) {
             if (!dateString) return '';
             return new Date(dateString).toLocaleTimeString('en-US', {
@@ -947,29 +1011,72 @@
             });
         }
 
+        function formatMessageRelativeTime(dateString) {
+
+            if (!dateString) return '';
+
+            const date = new Date(dateString);
+            const now = new Date();
+
+            if (Number.isNaN(date.getTime())) return '';
+
+            const diffSeconds = Math.max(
+                0,
+                Math.floor((now - date) / 1000)
+            );
+
+            if (diffSeconds < 60) {
+                return 'now';
+            }
+
+            const diffMinutes =
+                Math.floor(diffSeconds / 60);
+
+            if (diffMinutes < 60) {
+                return `${diffMinutes}m ago`;
+            }
+
+            const diffHours =
+                Math.floor(diffMinutes / 60);
+
+            if (diffHours < 24) {
+                return `${diffHours}h ago`;
+            }
+
+            const diffDays =
+                Math.floor(diffHours / 24);
+
+            if (diffDays < 7) {
+                return `${diffDays}d ago`;
+            }
+
+            return date.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+
         function getMessageStatus(msg) {
 
             // =========================================
-            // RECEIVER OPENED THE CONVERSATION
+            // SEEN
+            // Profile picture will be shown instead
             // =========================================
-
             if (msg.is_read || msg.read_at) {
                 return 'Seen';
             }
 
             // =========================================
-            // RECEIVER'S BROWSER RECEIVED MESSAGE
+            // DELIVERED
             // =========================================
-
             if (msg.delivered_at) {
-                return '✓✓ Delivered';
+                return 'Delivered';
             }
 
             // =========================================
-            // SAVED ON SERVER
+            // SENT
             // =========================================
-
-            return '✓ Sent';
+            return 'Sent';
         }
 
         function formatFileSize(bytes) {
@@ -1411,7 +1518,9 @@
                 }
 
                 const time =
-                    formatTime(lastMessage.created_at);
+                    formatConversationRelativeTime(
+                        lastMessage.created_at
+                    );
 
                 // =========================================
                 // LAST MESSAGE STATUS
@@ -1480,19 +1589,9 @@
                     // DELIVERED
                     // =====================================
 
-                    else if (lastMessage.delivered_at) {
-
-                        conversationMessageStatus = '✓✓ Delivered';
-
-                    }
-
-                    // =====================================
-                    // SENT
-                    // =====================================
-
                     else {
 
-                        conversationMessageStatus = '✓ Sent';
+                        conversationMessageStatus = '';
                     }
                 }
 
@@ -1588,11 +1687,7 @@
                                         ${escapeHtml(name)}
                                     </span>
 
-                                    <span
-                                        class="text-[11px] text-gray-400 shrink-0"
-                                    >
-                                        ${time}
-                                    </span>
+
 
                                 </div>
 
@@ -1600,19 +1695,43 @@
                                 <!-- MESSAGE PREVIEW + STATUS -->
                                 <!-- ========================================= -->
 
-                                <div class="flex items-end justify-between gap-2 mt-0.5">
+                                <div class="flex items-center justify-between gap-2 mt-0.5">
 
-                                    <p
-                                        class="conversation-preview text-xs truncate flex-1 min-w-0 ${
-                                            unreadCount > 0
-                                                ? 'font-semibold text-gray-900'
-                                                : 'text-gray-500'
-                                        }"
-                                        data-conversation-id="${conv.conversation_id}"
-                                        data-original-preview="${escapeHtml(preview)}"
-                                    >
-                                        ${escapeHtml(preview)}
-                                    </p>
+                                    <!-- ========================================= -->
+                                    <!-- MESSAGE PREVIEW + TIME -->
+                                    <!-- MESSAGE CAN SHRINK, TIME CANNOT -->
+                                    <!-- ========================================= -->
+
+                                    <div class="flex items-center gap-1 flex-1 min-w-0">
+
+                                        <!-- ONLY MESSAGE TEXT GETS TRUNCATED -->
+                                        <p
+                                            class="conversation-preview text-xs truncate min-w-0 ${
+                                                unreadCount > 0
+                                                    ? 'font-semibold text-gray-900'
+                                                    : 'text-gray-500'
+                                            }"
+                                            data-conversation-id="${conv.conversation_id}"
+                                            data-original-preview="${escapeHtml(preview)}"
+                                        >
+                                            ${escapeHtml(preview)}
+                                        </p>
+
+                                        <!-- TIME ALWAYS STAYS VISIBLE -->
+                                        ${
+                                            lastMessage.created_at
+                                                ? `
+                                                    <span
+                                                        class="conversation-relative-time shrink-0 whitespace-nowrap text-xs font-normal text-gray-400"
+                                                        data-created-at="${escapeHtml(lastMessage.created_at)}"
+                                                    >
+                                                        · ${time}
+                                                    </span>
+                                                `
+                                                : ''
+                                        }
+
+                                    </div>
 
                                     ${
                                         unreadCount > 0
@@ -2201,6 +2320,86 @@
                         ?.classList.remove('invisible');
                 }
             });
+
+            requestAnimationFrame(() => {
+                alignMessageAvatars();
+            });
+        }
+
+        function alignMessageAvatars() {
+
+            const container =
+                document.getElementById('modalMessagesContainer');
+
+            if (!container) return;
+
+            container
+                .querySelectorAll(
+                    '.message-row[data-message-own="0"]'
+                )
+                .forEach(row => {
+
+                    const avatar =
+                        row.querySelector('.message-sender-avatar');
+
+                    const bubble =
+                        row.querySelector('.message-bubble');
+
+                    if (!avatar || !bubble) {
+                        return;
+                    }
+
+                    // =========================================
+                    // RESET FIRST
+                    // =========================================
+
+                    avatar.style.transform = '';
+
+
+                    // =========================================
+                    // GET POSITIONS INSIDE THIS MESSAGE ROW
+                    // =========================================
+
+                    const rowRect =
+                        row.getBoundingClientRect();
+
+                    const bubbleRect =
+                        bubble.getBoundingClientRect();
+
+                    const avatarRect =
+                        avatar.getBoundingClientRect();
+
+
+                    // =========================================
+                    // FIND CENTER OF ACTUAL MESSAGE BUBBLE
+                    // =========================================
+
+                    const bubbleCenter =
+                        bubbleRect.top -
+                        rowRect.top +
+                        (bubbleRect.height / 2);
+
+
+                    // =========================================
+                    // FIND WHERE AVATAR CENTER CURRENTLY IS
+                    // =========================================
+
+                    const avatarCenter =
+                        avatarRect.top -
+                        rowRect.top +
+                        (avatarRect.height / 2);
+
+
+                    // =========================================
+                    // MOVE AVATAR SO BOTH CENTERS MATCH
+                    // =========================================
+
+                    const offset =
+                        bubbleCenter - avatarCenter;
+
+                    avatar.style.transform =
+                        `translateY(${offset}px)`;
+                });
         }
 
         // =====================================================
@@ -2211,61 +2410,147 @@
         // by the receiver's profile picture instead of text.
         // =====================================================
         function refreshLatestOutgoingStatus() {
-            const container = document.getElementById('modalMessagesContainer');
+
+            const container =
+                document.getElementById('modalMessagesContainer');
+
             if (!container) return;
 
+
+            // =========================================
+            // GET ALL OF OUR MESSAGES
+            // =========================================
             const ownRows = Array.from(
                 container.querySelectorAll(
                     '.message-row[data-message-own="1"][data-message-unsent="0"]'
                 )
             );
 
-            // Clear every old visible status and seen avatar.
-            container.querySelectorAll('.message-status-wrapper').forEach(wrapper => {
-                wrapper.classList.add('hidden');
-                wrapper.classList.remove('flex');
-            });
 
-            container.querySelectorAll('.message-seen-avatar').forEach(avatar => {
-                avatar.remove();
-            });
+            // =========================================
+            // HIDE OLD STATUSES
+            // =========================================
+            container
+                .querySelectorAll('.message-status-wrapper')
+                .forEach(wrapper => {
+
+                    wrapper.classList.add('hidden');
+                    wrapper.classList.remove('flex');
+
+                });
+
+
+            // =========================================
+            // REMOVE OLD SEEN AVATARS
+            // =========================================
+            container
+                .querySelectorAll('.message-seen-avatar')
+                .forEach(avatar => avatar.remove());
+
 
             if (ownRows.length === 0) return;
 
-            const latestRow = ownRows[ownRows.length - 1];
-            const wrapper = latestRow.querySelector('.message-status-wrapper');
-            const status = latestRow.querySelector('.message-read-status');
+
+            // =========================================
+            // ONLY LATEST OUTGOING MESSAGE
+            // =========================================
+            const latestRow =
+                ownRows[ownRows.length - 1];
+
+            const wrapper =
+                latestRow.querySelector(
+                    '.message-status-wrapper'
+                );
+
+            const status =
+                latestRow.querySelector(
+                    '.message-read-status'
+                );
+
+            const icon =
+                latestRow.querySelector(
+                    '.message-status-icon'
+                );
+
+            const time =
+                latestRow.querySelector(
+                    '.message-status-time'
+                );
+
 
             if (!wrapper || !status) return;
+
 
             const currentStatus =
                 status.dataset.messageStatus ||
                 status.textContent.trim() ||
-                '✓ Sent';
+                'Sent';
+
 
             wrapper.classList.remove('hidden');
             wrapper.classList.add('flex');
 
-            if (currentStatus.toLowerCase() === 'seen') {
-                // Messenger style: no "Seen" word. Show only avatar.
-                status.textContent = '';
+
+            // =========================================
+            // SEEN
+            // Messenger shows receiver profile picture
+            // instead of check + text + time
+            // =========================================
+            if (
+                currentStatus.toLowerCase() === 'seen'
+            ) {
+
                 status.classList.add('hidden');
 
+                if (icon) {
+                    icon.classList.add('hidden');
+                }
+
+                if (time) {
+                    time.classList.add('hidden');
+                }
+
+
                 if (currentConversationUser) {
+
                     const fakeMessage = {
                         is_read: true,
                         read_at: new Date().toISOString()
                     };
+
                     wrapper.insertAdjacentHTML(
                         'beforeend',
                         getSeenAvatarHtml(fakeMessage)
                     );
                 }
+
                 return;
             }
 
+
+            // =========================================
+            // SENT / DELIVERED
+            // Show check + status + relative time
+            // =========================================
             status.classList.remove('hidden');
+
+            if (icon) {
+                icon.classList.remove('hidden');
+            }
+
+            if (time) {
+
+                time.classList.remove('hidden');
+
+                time.textContent =
+                    formatMessageRelativeTime(
+                        time.dataset.createdAt
+                    );
+            }
+
             status.textContent = currentStatus;
+
+            lucideCreateIcons();
         }
 
         function renderMessengerMessageRow(msg, isOwn) {
@@ -2286,13 +2571,48 @@
             const displayContent = content === '[attachment:image]' || content === '[attachment:file]' ? '' : content;
             const avatar = isOwn ? '' : getMessageAvatarHtml(msg, senderName);
             const actions = `
-                <div class="message-hover-actions flex shrink-0 items-center gap-0.5 opacity-0 transition group-hover:opacity-100">
+                <div
+                    class="
+                        message-hover-actions
+                        flex
+                        shrink-0
+                        items-center
+                        gap-0.5
+                        opacity-0
+                        transition
+                        group-hover:opacity-100
+                    "
+                >
                     ${getReactionPickerHtml()}
-                    <button type="button" class="message-reply-btn flex h-7 w-7 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-700" title="Reply">
-                        <i data-lucide="reply" class="h-4 w-4"></i>
+
+                    <button
+                        type="button"
+                        class="
+                            message-reply-btn
+                            flex
+                            h-7
+                            w-7
+                            items-center
+                            justify-center
+                            rounded-full
+                            text-gray-400
+                            hover:bg-gray-100
+                            hover:text-gray-700
+                        "
+                        title="Reply"
+                    >
+                        <i
+                            data-lucide="reply"
+                            class="h-4 w-4"
+                        ></i>
                     </button>
-                    ${getMessageMoreMenuHtml(isOwn, isUnsent)}
-                </div>`;
+
+                    ${getMessageMoreMenuHtml(
+                        isOwn,
+                        isUnsent
+                    )}
+                </div>
+            `;
 
             // =====================================================
             // MESSENGER STYLE REPLY INDICATOR
@@ -2329,33 +2649,304 @@
             const editedOnlyLabel = !isUnsent && msg.is_edited && !msg.reply_to ? `
                 <div class="mb-1 px-1 text-[11px] text-gray-500">Edited</div>` : '';
 
+            // =====================================================
+            // MESSAGE BUBBLE
+            // Compact message + bottom-right reaction placement
+            // =====================================================
+
             const bubble = `
-                <div class="relative flex max-w-[70%] flex-col ${isOwn ? 'items-end' : 'items-start'}">
+                <div
+                    class="
+                        relative
+                        flex
+                        w-fit
+                        max-w-[70%]
+                        flex-col
+                        ${isOwn ? 'items-end' : 'items-start'}
+                    "
+                >
+
                     ${forwardedLabel}
                     ${replyEditedLabel}
                     ${editedOnlyLabel}
-                    ${!isUnsent && msg.reply_to ? getReplyQuoteHtml(msg.reply_to, isOwn) : ''}
-                    <div class="message-bubble relative z-10 w-fit max-w-full ${isUnsent ? 'rounded-2xl border border-gray-300 bg-white text-gray-500' : isOwn ? 'rounded-2xl rounded-br-sm bg-gray-900 text-white' : 'rounded-2xl rounded-bl-sm bg-gray-100 text-gray-900'} px-3.5 py-2" title="${escapeHtml(fullTime)}">
-                        ${isUnsent ? `<p class="text-sm italic">This message was unsent</p>` : `
-                            ${displayContent ? `<p class="text-sm leading-snug whitespace-pre-wrap break-words text-left">${escapeHtml(displayContent)}</p>` : ''}
-                            ${attachment ? getAttachmentPreviewHtml(attachment, formatMessageTime(msg.created_at)) : ''}
-                        `}
+
+
+                    <!-- ===================================== -->
+                    <!-- REPLY PREVIEW -->
+                    <!-- ===================================== -->
+
+                    ${!isUnsent && msg.reply_to
+                        ? `
+                            <div
+                                class="
+                                    relative
+                                    z-0
+                                    w-fit
+                                    max-w-full
+                                    ${isOwn ? 'self-end' : 'self-start'}
+                                "
+                            >
+                                ${getReplyQuoteHtml(
+                                    msg.reply_to,
+                                    isOwn
+                                )}
+                            </div>
+                        `
+                        : ''
+                    }
+
+
+                    <!-- ===================================== -->
+                    <!-- REAL MESSAGE ROW -->
+                    <!-- ===================================== -->
+
+                    <div
+                        class="
+                            message-bubble-line
+                            flex
+                            w-fit
+                            max-w-full
+                            items-center
+                            gap-1
+                            ${isOwn ? 'self-end' : 'self-start'}
+                        "
+                    >
+
+                        ${isOwn ? actions : ''}
+
+
+                        <!-- ================================= -->
+                        <!-- MESSAGE + REACTION CONTAINER -->
+                        <!--
+                            IMPORTANT:
+                            This stays w-fit so short messages
+                            remain compact.
+
+                            The reaction is positioned relative
+                            to THIS exact message.
+                        -->
+                        <!-- ================================= -->
+
+                        <div
+                            class="
+                                message-content-wrapper
+                                relative
+                                inline-flex
+                                w-fit
+                                max-w-full
+                                flex-col
+                            "
+                        >
+
+                            <!-- ============================= -->
+                            <!-- ACTUAL MESSAGE BUBBLE -->
+                            <!-- ============================= -->
+
+                            <div
+                                class="
+                                    message-bubble
+                                    relative
+                                    z-10
+                                    inline-flex
+                                    w-fit
+                                    max-w-full
+                                    flex-col
+
+                                    ${isUnsent
+                                        ? 'rounded-2xl border border-gray-300 bg-white text-gray-500'
+                                        : isOwn
+                                            ? 'rounded-2xl rounded-br-sm bg-gray-900 text-white'
+                                            : 'rounded-2xl rounded-bl-sm bg-gray-100 text-gray-900'
+                                    }
+
+                                    px-3.5
+                                    py-2
+                                "
+                                title="${escapeHtml(fullTime)}"
+                            >
+
+                                ${isUnsent
+                                    ? `
+                                        <p class="text-sm italic">
+                                            This message was unsent
+                                        </p>
+                                    `
+                                    : `
+                                        ${displayContent
+                                            ? `
+                                                <span
+                                                    class="
+                                                        block
+                                                        text-left
+                                                        text-sm
+                                                        leading-snug
+                                                        whitespace-pre-wrap
+                                                        break-words
+                                                    "
+                                                >${escapeHtml(displayContent)}</span>
+                                            `
+                                            : ''
+                                        }
+
+                                        ${attachment
+                                            ? getAttachmentPreviewHtml(
+                                                attachment,
+                                                formatMessageTime(
+                                                    msg.created_at
+                                                )
+                                            )
+                                            : ''
+                                        }
+                                    `
+                                }
+
+                            </div>
+
+
+                            <!-- ============================= -->
+                            <!-- REACTION -->
+                            <!--
+                                Anchored to bottom-right of
+                                the ACTUAL message.
+
+                                It no longer affects the width
+                                of the message bubble.
+                            -->
+                            <!-- ============================= -->
+
+                            ${isUnsent
+                                ? ''
+                                : `
+                                    <div
+                                        class="
+                                            message-reactions
+                                            absolute
+                                            -bottom-3
+                                            right-1
+                                            z-20
+                                            flex
+                                            items-center
+                                        "
+                                    >
+                                        ${getMessageReactionsHtml(
+                                            msg.reactions
+                                        )}
+                                    </div>
+                                `
+                            }
+
+                        </div>
+
+
+                        ${!isOwn ? actions : ''}
+
                     </div>
-                    ${isUnsent ? '' : `<div class="mt-[-8px] ${isOwn ? 'ml-2 self-start items-start' : 'mr-2 self-end items-end'} relative z-10 flex flex-col">${getMessageReactionsHtml(msg.reactions)}</div>`}
-                    ${isOwn && !isUnsent ? `<div class="message-status-wrapper mt-3 hidden items-center justify-end gap-1"><span class="message-read-status text-[11px] font-medium text-gray-400" data-message-id="${msg.message_id}" data-message-status="${escapeHtml(getMessageStatus(msg))}">${getMessageStatus(msg)}</span></div>` : ''}
-                </div>`;
+
+
+                    <!-- ===================================== -->
+                    <!-- SENT / DELIVERED / SEEN -->
+                    <!-- ===================================== -->
+
+                    ${isOwn && !isUnsent
+                        ? `
+                            <div
+                                class="
+                                    message-status-wrapper
+                                    mt-3
+                                    hidden
+                                    items-center
+                                    justify-end
+                                    gap-1
+                                    text-gray-400
+                                "
+                            >
+
+                                <!-- ========================= -->
+                                <!-- SENT / DELIVERED -->
+                                <!-- ========================= -->
+
+                                <span
+                                    class="
+                                        message-read-status
+                                        text-[11px]
+                                        font-normal
+                                    "
+                                    data-message-id="${msg.message_id}"
+                                    data-message-status="${escapeHtml(
+                                        getMessageStatus(msg)
+                                    )}"
+                                >
+                                    ${getMessageStatus(msg)}
+                                </span>
+
+
+                                <!-- ========================= -->
+                                <!-- RELATIVE TIME -->
+                                <!-- ========================= -->
+
+                                <span
+                                    class="
+                                        message-status-time
+                                        text-[11px]
+                                        font-normal
+                                    "
+                                    data-created-at="${escapeHtml(
+                                        msg.created_at || ''
+                                    )}"
+                                >
+                                    ${formatMessageRelativeTime(
+                                        msg.created_at
+                                    )}
+                                </span>
+
+                            </div>
+                        `
+                        : ''
+                    }
+
+                </div>
+            `;
 
             return `
-                <div class="message-row group relative flex items-center ${isOwn ? 'justify-end' : 'justify-start'} gap-1.5"
+                <div
+                    class="
+                        message-row
+                        group
+                        relative
+                        flex
+                        ${isOwn
+                            ? 'items-center justify-end'
+                            : 'items-end justify-start'
+                        }
+                        gap-1.5
+                    "
                     data-message-id="${msg.message_id}"
                     data-message-sender="${escapeHtml(senderName)}"
                     data-message-content="${escapeHtml(content)}"
                     data-message-created-at="${escapeHtml(msg.created_at || '')}"
                     data-message-own="${isOwn ? '1' : '0'}"
                     data-message-reply="${msg.reply_to ? '1' : '0'}"
-                    data-message-unsent="${isUnsent ? '1' : '0'}">
-                    ${isOwn ? `${actions}${bubble}` : `<div class="message-sender-avatar shrink-0">${avatar}</div>${bubble}${actions}`}
-                </div>`;
+                    data-message-unsent="${isUnsent ? '1' : '0'}"
+                >
+
+                    ${isOwn
+                        ? bubble
+                        : `
+                            <div
+                                class="
+                                    message-sender-avatar
+                                    shrink-0
+                                "
+                            >
+                                ${avatar}
+                            </div>
+
+                            ${bubble}
+                        `
+                    }
+
+                </div>
+            `;
         }
 
         function closeAllMessageMenus(except = null) {
@@ -3051,7 +3642,7 @@
                     const buttonHtml = state === 'undo'
                         ? `<button type="button" data-forward-undo="${conv.conversation_id}" class="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-black">Undo</button>`
                         : state === 'sent'
-                            ? `<button type="button" disabled class="flex items-center gap-1.5 rounded-lg bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-500"><i data-lucide="check" class="h-4 w-4"></i> Sent</button>`
+                            ? `<button type="button" disabled class="flex items-center gap-1.5 rounded-lg bg-gray-100 px-4 py-2 text-sm font-semibold text-gray-500"><i data-lucide="check" class="h-4 w-4"></i>Sent</button>`
                             : `<button type="button" data-forward-send="${conv.conversation_id}" class="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-black">Send</button>`;
 
                     return `
@@ -3673,7 +4264,7 @@
             if (!Array.isArray(reactions) || reactions.length === 0) {
                 return `
                     <div
-                        class="message-reactions hidden mt-1 flex flex-wrap gap-1"
+                        class="message-reactions hidden flex flex-wrap gap-1"
                     ></div>
                 `;
             }
@@ -3795,7 +4386,7 @@
 
             return `
                 <div
-                    class="message-reactions mt-1 flex flex-wrap gap-1"
+                    class="message-reactions flex w-fit flex-wrap gap-1"
                 >
                     ${html}
                 </div>
@@ -4701,8 +5292,8 @@
                         reply-quote
                         relative
                         z-0
-                        block
-                        w-full
+                        inline-block
+                        w-fit
                         max-w-full
                         rounded-2xl
                         ${isOwnReply
@@ -5239,8 +5830,8 @@
                         statusElement &&
                         statusElement.textContent.trim() !== 'Seen'
                     ) {
-                        statusElement.dataset.messageStatus = '✓✓ Delivered';
-                        statusElement.textContent = '✓✓ Delivered';
+                        statusElement.dataset.messageStatus = 'Delivered';
+                        statusElement.textContent = 'Delivered';
                         refreshLatestOutgoingStatus();
                     }
 
@@ -5259,7 +5850,7 @@
                         conversationStatusElement.textContent.trim() !== 'Seen'
                     ) {
                         conversationStatusElement.textContent =
-                            '✓✓ Delivered';
+                            'Delivered';
                     }
                 })
 
