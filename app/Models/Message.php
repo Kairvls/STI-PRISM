@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Message extends Model
 {
@@ -101,6 +102,15 @@ class Message extends Model
     {
         return $this->hasMany(
             MessageReaction::class,
+            'message_id',
+            'message_id'
+        );
+    }
+
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(
+            MessageAttachment::class,
             'message_id',
             'message_id'
         );

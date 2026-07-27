@@ -14,6 +14,7 @@ use App\Models\ConversationParticipant;
 use App\Models\Message;
 use App\Models\MessageHiddenUser;
 use App\Models\User;
+use App\Models\MessageAttachment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -141,12 +142,12 @@ class MessageController extends Controller
         $validated = $request->validate([
 
             'message_content' => [
-                'required',
+                'nullable',
                 'string',
                 'max:5000'
             ],
 
-            'attachment' => [
+            'attachments' => [
                 'nullable',
                 'string'
             ],
@@ -177,13 +178,24 @@ class MessageController extends Controller
                 ->firstOrFail();
         }
 
-        $attachment = null;
+        $attachments = [];
 
-        if (!empty($validated['attachment'])) {
-            $decoded = json_decode($validated['attachment'], true);
+        if (!empty($validated['attachments'])) {
+
+            $decoded = json_decode(
+                $validated['attachments'],
+                true
+            );
 
             if (is_array($decoded)) {
-                $attachment = $decoded;
+
+                $attachments = array_values(
+                    array_filter(
+                        $decoded,
+                        fn ($attachment) =>
+                            is_array($attachment)
+                    )
+                );
             }
         }
 
@@ -204,24 +216,39 @@ class MessageController extends Controller
 
         if (
             $messageContent === '' &&
-            $attachment
+            !empty($attachments)
         ) {
 
-            $attachmentType =
-                $attachment['type'] ?? '';
+            // =============================================
+            // MORE THAN ONE ATTACHMENT
+            // =============================================
 
-            if (
-                str_starts_with(
-                    $attachmentType,
-                    'image/'
-                )
-            ) {
+            if (count($attachments) > 1) {
 
-                $messageContent = '[attachment:image]';
+                $messageContent = '[attachment:multiple]';
 
             } else {
 
-                $messageContent = '[attachment:file]';
+                // =============================================
+                // ONE ATTACHMENT
+                // =============================================
+
+                $attachmentType =
+                    $attachments[0]['type'] ?? '';
+
+                if (
+                    str_starts_with(
+                        $attachmentType,
+                        'image/'
+                    )
+                ) {
+
+                    $messageContent = '[attachment:image]';
+
+                } else {
+
+                    $messageContent = '[attachment:file]';
+                }
             }
         }
 
@@ -253,6 +280,36 @@ class MessageController extends Controller
         ]);
 
         $message->save();
+
+        if (!empty($attachments)) {
+
+            foreach ($attachments as $attachment) {
+
+                MessageAttachment::create([
+                    'message_id' => $message->message_id,
+
+                    'attachment_name' =>
+                        $attachment['name'] ?? 'Attachment',
+
+                    'attachment_path' =>
+                        $attachment['path'] ?? '',
+
+                    'attachment_url' =>
+                        $attachment['url'] ?? null,
+
+                    'attachment_type' =>
+                        $attachment['type'] ?? null,
+
+                    'attachment_extension' =>
+                        $attachment['extension'] ?? null,
+
+                    'attachment_size' =>
+                        isset($attachment['size'])
+                            ? (int) $attachment['size']
+                            : null,
+                ]);
+            }
+        }
         
 
         $conversation->update([
@@ -263,12 +320,8 @@ class MessageController extends Controller
         $message->load([
             'sender',
             'replyTo.sender',
-
-            // =============================================
-            // MESSAGE REACTIONS
-            // =============================================
-
             'reactions.user',
+            'attachments',
         ]);
 
         broadcast(
@@ -280,9 +333,7 @@ class MessageController extends Controller
             'data' => $message,
         ];
 
-        if ($attachment) {
-            $response['data']->setAttribute('attachment', $attachment);
-        }
+        
 
         return response()->json($response, 201);
     }
@@ -791,6 +842,7 @@ class MessageController extends Controller
                 'sender',
                 'replyTo.sender',
                 'reactions.user',
+                'attachments',
             ])
 
             ->orderByDesc('created_at')
@@ -874,6 +926,7 @@ class MessageController extends Controller
             'sender',
             'replyTo.sender',
             'reactions.user',
+            'attachments',
         ]);
 
         broadcast(
@@ -1153,48 +1206,122 @@ class MessageController extends Controller
         );
 
         // =============================================
-        // CREATE FORWARDED MESSAGE
+        // LOAD ORIGINAL ATTACHMENTS
         //
-        // This currently forwards the TEXT.
-        // We can extend attachment forwarding afterward.
+        // We reuse the existing stored physical files.
+        // New message_attachments rows will point to the
+        // same stored files.
         // =============================================
 
-        $forwardedMessage = Message::create([
+        $message->loadMissing('attachments');
 
-            'conversation_id' =>
-                $targetConversation->conversation_id,
+        // =============================================
+        // CREATE FORWARDED MESSAGE + COPY ATTACHMENTS
+        // AS ONE DATABASE TRANSACTION
+        // =============================================
 
-            'sender_id' =>
-                $userId,
+        $forwardedMessage = DB::transaction(
+            function () use (
+                $message,
+                $targetConversation,
+                $userId
+            ) {
+                // =====================================
+                // CREATE THE NEW FORWARDED MESSAGE
+                // =====================================
 
-            'reply_to_message_id' =>
-                null,
+                $forwardedMessage = Message::create([
 
-            // =============================================
-            // THIS MAKES IT A FORWARDED MESSAGE
-            // =============================================
+                    'conversation_id' =>
+                        $targetConversation->conversation_id,
 
-            'forwarded_from_message_id' =>
-                $message->message_id,
+                    'sender_id' =>
+                        $userId,
 
-            'message_content' =>
-                $message->message_content,
+                    'reply_to_message_id' =>
+                        null,
 
-            'is_read' =>
-                false,
-        ]);
+                    // =================================
+                    // KEEP REFERENCE TO ORIGINAL
+                    // =================================
 
-        $targetConversation->update([
-            'last_message_id' =>
-                $forwardedMessage->message_id,
+                    'forwarded_from_message_id' =>
+                        $message->message_id,
 
-            'last_message_at' =>
-                now(),
-        ]);
+                    // =================================
+                    // KEEP ORIGINAL TEXT / ATTACHMENT
+                    // MARKER EXACTLY AS IT WAS
+                    // =================================
+
+                    'message_content' =>
+                        $message->message_content,
+
+                    'is_read' =>
+                        false,
+                ]);
+
+                // =====================================
+                // COPY ATTACHMENT DATABASE RECORDS
+                //
+                // IMPORTANT:
+                // Do NOT upload/copy the physical file.
+                // We only create new attachment records
+                // for the forwarded message.
+                // =====================================
+
+                foreach ($message->attachments as $attachment) {
+
+                    MessageAttachment::create([
+
+                        'message_id' =>
+                            $forwardedMessage->message_id,
+
+                        'attachment_name' =>
+                            $attachment->attachment_name,
+
+                        'attachment_path' =>
+                            $attachment->attachment_path,
+
+                        'attachment_url' =>
+                            $attachment->attachment_url,
+
+                        'attachment_type' =>
+                            $attachment->attachment_type,
+
+                        'attachment_extension' =>
+                            $attachment->attachment_extension,
+
+                        'attachment_size' =>
+                            $attachment->attachment_size,
+                    ]);
+                }
+
+                // =====================================
+                // UPDATE TARGET CONVERSATION PREVIEW
+                // =====================================
+
+                $targetConversation->update([
+
+                    'last_message_id' =>
+                        $forwardedMessage->message_id,
+
+                    'last_message_at' =>
+                        now(),
+                ]);
+
+                return $forwardedMessage;
+            }
+        );
+
+        // =============================================
+        // LOAD EVERYTHING NEEDED BY THE FRONTEND
+        // =============================================
 
         $forwardedMessage->load([
             'sender',
+            'replyTo.sender',
             'reactions.user',
+            'attachments',
         ]);
 
         // =============================================
@@ -1648,6 +1775,7 @@ class MessageController extends Controller
                 'sender',
                 'replyTo.sender',
                 'reactions.user',
+                'attachments',
             ])
             ->where('conversation_id', $conversation->conversation_id)
             ->whereIn('message_id', $messageIds)

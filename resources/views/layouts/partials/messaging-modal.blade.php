@@ -101,19 +101,114 @@
             {{-- ===================================== --}}
             {{-- RIGHT PANEL --}}
             {{-- ===================================== --}}
-            <main id="modalChatArea" class="hidden md:flex flex-1 flex-col min-h-0 bg-white">
+            <main
+                id="modalChatArea"
+                class="
+                    hidden
+                    md:flex
+                    flex-1
+                    min-w-0
+                    max-w-full
+                    flex-col
+                    min-h-0
+                    overflow-hidden
+                    bg-white
+                "
+            >
 
                 {{-- Chat Header --}}
-                <div id="modalChatHeader" class="hidden shrink-0 p-4 border-b border-gray-100 flex items-center gap-3">
-                    <div id="modalChatAvatar" class="h-9 w-9 rounded-full bg-gradient-to-br from-emerald-100 to-emerald-200 flex items-center justify-center text-xs font-semibold text-emerald-700"></div>
-                    <div class="min-w-0">
-                        <h3 id="modalChatTitle" class="text-sm font-semibold text-gray-900 truncate"></h3>
-                        <p id="modalChatSubtitle" class="text-xs text-gray-500 truncate"></p>
+                <div id="modalChatHeader" class="hidden shrink-0 border-b border-gray-100 bg-white">
+
+                    {{-- ====================================== --}}
+                    {{-- NORMAL CHAT HEADER --}}
+                    {{-- Search button is on the right --}}
+                    {{-- ====================================== --}}
+                    <div id="modalChatHeaderNormal" class="flex items-center gap-3 p-4">
+                        <div id="modalChatAvatar" class="h-9 w-9 shrink-0 rounded-full bg-gradient-to-br from-emerald-100 to-emerald-200 flex items-center justify-center text-xs font-semibold text-emerald-700"></div>
+
+                        <div class="min-w-0 flex-1">
+                            <h3 id="modalChatTitle" class="text-sm font-semibold text-gray-900 truncate"></h3>
+                            <p id="modalChatSubtitle" class="text-xs text-gray-500 truncate"></p>
+                        </div>
+
+                        <button
+                            type="button"
+                            id="modalConversationSearchButton"
+                            class="mr-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
+                            title="Search in conversation"
+                            aria-label="Search in conversation"
+                        >
+                            <i data-lucide="search" class="h-4 w-4"></i>
+                        </button>
+                    </div>
+
+                    {{-- ====================================== --}}
+                    {{-- SEARCH INSIDE THIS CONVERSATION --}}
+                    {{-- Example: projector  2 of 5  ↑ ↓  X --}}
+                    {{-- ====================================== --}}
+                    <div
+                        id="modalConversationSearchBar"
+                        class="hidden items-center gap-2 py-3 pl-4 pr-14"
+                    >
+                        <div class="relative min-w-0 flex-1">
+                            <i data-lucide="search" class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"></i>
+
+                            <input
+                                type="text"
+                                id="modalConversationMessageSearch"
+                                placeholder="Search in conversation..."
+                                autocomplete="off"
+                                class="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm text-gray-900 outline-none transition focus:border-gray-400 focus:ring-4 focus:ring-gray-100"
+                            />
+                        </div>
+
+                        <span
+                            id="modalConversationSearchCount"
+                            class="min-w-[58px] whitespace-nowrap text-center text-xs font-medium text-gray-500"
+                        >
+                            0 of 0
+                        </span>
+
+                        <button
+                            type="button"
+                            id="modalConversationSearchPrevious"
+                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-30"
+                            title="Previous result"
+                            aria-label="Previous result"
+                            disabled
+                        >
+                            <i data-lucide="chevron-up" class="h-4 w-4"></i>
+                        </button>
+
+                        <button
+                            type="button"
+                            id="modalConversationSearchNext"
+                            class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-30"
+                            title="Next result"
+                            aria-label="Next result"
+                            disabled
+                        >
+                            <i data-lucide="chevron-down" class="h-4 w-4"></i>
+                        </button>
+
+                        
                     </div>
                 </div>
 
                 {{-- Conversation Container --}}
-                <div id="modalConversationContainer" class="flex flex-col flex-1 overflow-hidden min-h-0">
+                <div
+                    id="modalConversationContainer"
+                    class="
+                        relative
+                        flex
+                        min-w-0
+                        max-w-full
+                        flex-1
+                        flex-col
+                        overflow-hidden
+                        min-h-0
+                    "
+                >
 
                     {{-- Empty state --}}
                     <div id="modalChatEmptyState" class="flex items-center justify-center flex-1">
@@ -132,7 +227,20 @@
 
                     <div
                         id="modalMessagesContainer"
-                        class="hidden flex flex-col flex-1 overflow-y-auto min-h-0 gap-2.5 px-4 py-3"
+                        class="
+                            hidden
+                            flex
+                            min-w-0
+                            max-w-full
+                            flex-1
+                            flex-col
+                            overflow-x-hidden
+                            overflow-y-auto
+                            min-h-0
+                            gap-2.5
+                            px-4
+                            py-3
+                        "
                     >
                         {{-- Messages are inserted here by JavaScript --}}
 
@@ -170,15 +278,70 @@
                         </div>
 
                     </div>
+                {{-- ===================================================== --}}
+                {{-- SCROLL TO LATEST MESSAGE INDICATOR --}}
+                {{-- Shows after the user scrolls upward --}}
+                {{-- ===================================================== --}}
+                <button
+                    type="button"
+                    id="modalScrollToLatestButton"
+                    class="
+                        pointer-events-none
+                        absolute
+                        bottom-4
+                        left-1/2
+                        z-30
+                        flex
+                        h-11
+                        w-11
+                        -translate-x-1/2
+                        translate-y-2
+                        items-center
+                        justify-center
+                        rounded-full
+                        border
+                        border-gray-200
+                        bg-white
+                        text-gray-500
+                        opacity-0
+                        shadow-lg
+                        transition-all
+                        duration-200
+                        hover:bg-gray-50
+                        hover:text-gray-900
+                    "
+                    title="Jump to latest message"
+                    aria-label="Jump to latest message"
+                >
+                    <i data-lucide="arrow-down" class="h-5 w-5"></i>
+                </button>
+
                 </div>
 
-                {{-- Composer --}}
-                <div id="modalComposer" class="hidden shrink-0 border-t border-gray-100">
-                    <div class="p-4">
-                        {{-- ====================================== --}}
+                
+                {{-- ===================================================== --}}
+                {{-- MESSENGER STYLE COMPOSER --}}
+                {{-- ===================================================== --}}
+
+                <div
+                    id="modalComposer"
+                    class="
+                        hidden
+                        w-full
+                        min-w-0
+                        max-w-full
+                        shrink-0
+                        overflow-hidden
+                        border-t
+                        border-gray-100
+                        bg-white
+                    "
+                >
+                    <div class="w-full min-w-0 max-w-full overflow-hidden px-4 py-3">
+
+                        {{-- ===================================================== --}}
                         {{-- REPLY PREVIEW --}}
-                        {{-- Shows when replying to a message --}}
-                        {{-- ====================================== --}}
+                        {{-- ===================================================== --}}
 
                         <div
                             id="modalReplyPreview"
@@ -221,45 +384,155 @@
 
                             </div>
                         </div>
-                        <form id="modalMessageForm" class="flex items-end gap-2">
-                            <textarea
-                                id="modalMessageInput"
-                                rows="1"
-                                placeholder="Type a message..."
-                                class="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-900 outline-none focus:border-gray-900 focus:ring-4 focus:ring-gray-100 transition-all duration-200 resize-none"
-                                style="min-height: 42px; max-height: 120px;"></textarea>
-                            <input type="file" id="modalAttachmentInput" class="hidden" />
+
+
+                        {{-- ===================================================== --}}
+                        {{-- MESSENGER STYLE COMPOSER --}}
+                        {{-- Attachments and textarea share ONE composer box --}}
+                        {{-- ===================================================== --}}
+
+                        <form
+                            id="modalMessageForm"
+                            class="flex w-full min-w-0 items-end gap-2"
+                        >
+
+                            {{-- Hidden Windows file picker --}}
+                            <input
+                                type="file"
+                                id="modalAttachmentInput"
+                                class="hidden"
+                                multiple
+                            />
+
+
+                            {{-- Attachment button --}}
                             <button
                                 type="button"
                                 id="modalAttachmentButton"
-                                class="h-10 w-10 shrink-0 flex items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-500 transition hover:bg-gray-50 hover:text-gray-900"
-                                title="Attach file">
-                                <i data-lucide="paperclip" class="h-4 w-4"></i>
+                                class="
+                                    flex h-10 w-10 shrink-0
+                                    items-center justify-center
+                                    rounded-full
+                                    text-gray-500
+                                    bg-gray-50
+                                    transition
+                                    hover:bg-gray-100
+                                    hover:text-gray-900
+                                "
+                                title="Attach files"
+                            >
+                                <i
+                                    data-lucide="paperclip"
+                                    class="h-5 w-5"
+                                ></i>
                             </button>
+
+
+                            {{-- ================================================= --}}
+                            {{-- ONE LARGE COMPOSER BOX --}}
+                            {{-- ================================================= --}}
+
+                            <div
+                                class="
+                                    min-w-0
+                                    max-w-full
+                                    flex-1
+                                    overflow-hidden
+                                    rounded-2xl
+                                    bg-gray-100
+                                    px-3
+                                    py-2
+                                "
+                            >
+
+                                {{-- ============================================= --}}
+                                {{-- ATTACHMENTS INSIDE COMPOSER --}}
+                                {{-- ============================================= --}}
+
+                                <div
+                                    id="modalAttachmentPreview"
+                                    class="
+                                        hidden
+                                        w-full
+                                        min-w-0
+                                        max-w-full
+                                        overflow-hidden
+                                        pb-2
+                                    "
+                                >
+                                    <div
+                                        id="modalAttachmentItems"
+                                        class="
+                                            flex
+                                            min-w-0
+                                            max-w-full
+                                            items-center
+                                            gap-2
+                                            overflow-x-auto
+                                            overflow-y-hidden
+                                            overscroll-x-contain
+                                            px-1
+                                            pt-2
+                                            pb-1
+                                        "
+                                    ></div>
+                                </div>
+
+
+                                {{-- ============================================= --}}
+                                {{-- TEXTAREA BELOW ATTACHMENTS --}}
+                                {{-- ============================================= --}}
+
+                                <textarea
+                                    id="modalMessageInput"
+                                    rows="1"
+                                    placeholder="Aa"
+                                    class="
+                                        block
+                                        min-h-[26px]
+                                        max-h-[120px]
+                                        w-full
+                                        resize-none
+                                        border-0
+                                        bg-transparent
+                                        px-1
+                                        py-1
+                                        text-sm
+                                        leading-5
+                                        text-gray-900
+                                        outline-none
+                                        focus:ring-0
+                                    "
+                                ></textarea>
+
+                            </div>
+
+
+                            {{-- Send --}}
                             <button
                                 type="submit"
-                                class="h-10 w-10 shrink-0 flex items-center justify-center rounded-lg bg-gray-900 text-white transition hover:bg-gray-800 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-                                id="modalSendButton">
-                                <i data-lucide="send" class="h-4 w-4"></i>
+                                id="modalSendButton"
+                                class="
+                                    flex h-10 w-10 shrink-0
+                                    items-center justify-center
+                                    rounded-full
+                                    bg-gray-900
+                                    text-white
+                                    transition
+                                    hover:bg-gray-800
+                                    active:scale-95
+                                    disabled:cursor-not-allowed
+                                    disabled:opacity-50
+                                "
+                            >
+                                <i
+                                    data-lucide="send"
+                                    class="h-4 w-4"
+                                ></i>
                             </button>
+
                         </form>
-                        <div id="modalAttachmentPreview" class="hidden mt-2 p-2 rounded-lg bg-gray-50 border border-gray-200">
-                            <div class="flex items-center gap-2">
-                                <div id="modalAttachmentIcon" class="h-8 w-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-600">
-                                    <i data-lucide="file" class="h-4 w-4"></i>
-                                </div>
-                                <div class="flex-1 min-w-0">
-                                    <p id="modalAttachmentName" class="text-xs font-medium text-gray-900 truncate"></p>
-                                    <p id="modalAttachmentSize" class="text-[10px] text-gray-500"></p>
-                                </div>
-                                <button type="button" id="modalAttachmentRemove" class="h-6 w-6 shrink-0 flex items-center justify-center rounded-full hover:bg-gray-200 text-gray-500 transition">
-                                    <i data-lucide="x" class="h-3 w-3"></i>
-                                </button>
-                            </div>
-                            <div id="modalAttachmentProgress" class="hidden mt-2 h-1 rounded-full bg-gray-200 overflow-hidden">
-                                <div id="modalAttachmentProgressBar" class="h-full rounded-full bg-gray-900 transition-all duration-200" style="width: 0%"></div>
-                            </div>
-                        </div>
+
                     </div>
                 </div>
             </main>
@@ -267,7 +540,11 @@
             {{-- ===================================== --}}
             {{-- CLOSE BUTTON --}}
             {{-- ===================================== --}}
-            <button type="button" onclick="closeMessagingModal()" class="absolute top-4 right-4 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-gray-500 shadow-sm border border-gray-200 transition hover:bg-gray-100 hover:text-gray-900">
+            <button
+                type="button"
+                id="messagingSmartCloseButton"
+                class="absolute top-4 right-4 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-gray-500 shadow-sm border border-gray-200 transition hover:bg-gray-100 hover:text-gray-900"
+            >
                 <i data-lucide="x" class="h-4 w-4"></i>
             </button>
 
@@ -335,7 +612,7 @@
         let isLoadingMessages = false;
         let hasMoreMessages = true;
         let userSearchTimeout = null;
-        let selectedAttachment = null;
+        let selectedAttachments = [];
         let replyingToMessage = null;
         let editingMessageRow = null;
         let activeRealtimeConversationId = null;
@@ -344,6 +621,23 @@
         const remoteTypingTimeouts = new Map();
         let currentConversationUserName = '';
         let currentConversationUser = null;
+        // =====================================================
+        // IMAGE VIEWER STATE
+        // Keeps the current message's images together so the
+        // preview can move to previous / next like Messenger.
+        // =====================================================
+        let imagePreviewGallery = [];
+        let imagePreviewIndex = 0;
+        let imagePreviewMessageId = null;
+
+
+        // =====================================================
+        // SEARCH INSIDE CURRENT CONVERSATION
+        // =====================================================
+        let conversationSearchMatches = [];
+        let conversationSearchIndex = -1;
+        let conversationSearchTimeout = null;
+        let conversationSearchLoadingAll = false;
 
         // =====================================================
         // USER ONLINE STATUS HEARTBEAT
@@ -679,6 +973,10 @@
 
             if (preview === '[attachment:file]') {
                 preview = 'Sent you a file';
+            }
+
+            if (preview === '[attachment:multiple]') {
+                preview = 'Sent you attachments';
             }
 
             if (preview.length > 90) {
@@ -1181,8 +1479,522 @@
             }, 300);
         };
 
+
+        // =====================================================
+        // SEARCH INSIDE CONVERSATION
+        //
+        // This searches the ENTIRE opened conversation.
+        // Older paginated messages are loaded automatically
+        // before the final result list is created.
+        // =====================================================
+
+        function clearConversationSearchHighlight() {
+
+            document
+                .querySelectorAll(
+                    '#modalMessagesContainer .conversation-search-match'
+                )
+                .forEach(element => {
+                    element.classList.remove(
+                        'conversation-search-match',
+                        'conversation-search-current'
+                    );
+                });
+        }
+
+
+        function resetConversationSearchState(clearInput = true) {
+
+            if (conversationSearchTimeout) {
+                clearTimeout(conversationSearchTimeout);
+                conversationSearchTimeout = null;
+            }
+
+            conversationSearchMatches = [];
+            conversationSearchIndex = -1;
+            conversationSearchLoadingAll = false;
+
+            clearConversationSearchHighlight();
+
+            const input =
+                document.getElementById(
+                    'modalConversationMessageSearch'
+                );
+
+            const count =
+                document.getElementById(
+                    'modalConversationSearchCount'
+                );
+
+            const previous =
+                document.getElementById(
+                    'modalConversationSearchPrevious'
+                );
+
+            const next =
+                document.getElementById(
+                    'modalConversationSearchNext'
+                );
+
+            if (clearInput && input) {
+                input.value = '';
+            }
+
+            if (count) {
+                count.textContent = '0 of 0';
+            }
+
+            if (previous) {
+                previous.disabled = true;
+            }
+
+            if (next) {
+                next.disabled = true;
+            }
+        }
+
+
+        function openConversationMessageSearch() {
+
+            if (!currentConversationId) {
+                return;
+            }
+
+            const normalHeader =
+                document.getElementById(
+                    'modalChatHeaderNormal'
+                );
+
+            const searchBar =
+                document.getElementById(
+                    'modalConversationSearchBar'
+                );
+
+            const input =
+                document.getElementById(
+                    'modalConversationMessageSearch'
+                );
+
+            normalHeader?.classList.add('hidden');
+
+            searchBar?.classList.remove('hidden');
+            searchBar?.classList.add('flex');
+
+            lucideCreateIcons();
+
+            requestAnimationFrame(() => {
+                input?.focus();
+                input?.select();
+            });
+        }
+
+
+        function closeConversationMessageSearch() {
+
+            const normalHeader =
+                document.getElementById(
+                    'modalChatHeaderNormal'
+                );
+
+            const searchBar =
+                document.getElementById(
+                    'modalConversationSearchBar'
+                );
+
+            resetConversationSearchState(true);
+
+            searchBar?.classList.add('hidden');
+            searchBar?.classList.remove('flex');
+
+            normalHeader?.classList.remove('hidden');
+
+            lucideCreateIcons();
+        }
+
+        const messagingSmartCloseButton =
+            document.getElementById(
+                'messagingSmartCloseButton'
+            );
+
+        messagingSmartCloseButton?.addEventListener(
+            'click',
+            function () {
+
+                const searchBar =
+                    document.getElementById(
+                        'modalConversationSearchBar'
+                    );
+
+                // =============================================
+                // CHECK IF SEARCH IS CURRENTLY OPEN
+                // =============================================
+                const searchIsOpen =
+                    searchBar &&
+                    !searchBar.classList.contains('hidden');
+
+
+                // =============================================
+                // SEARCH IS OPEN
+                // Close search only.
+                // =============================================
+                if (searchIsOpen) {
+
+                    closeConversationMessageSearch();
+
+                    return;
+                }
+
+
+                // =============================================
+                // SEARCH IS NOT OPEN
+                // Close the entire Messages modal.
+                // =============================================
+                window.closeMessagingModal();
+            }
+        );
+
+
+        async function loadAllMessagesForConversationSearch() {
+
+            if (
+                !currentConversationId ||
+                conversationSearchLoadingAll
+            ) {
+                return;
+            }
+
+            conversationSearchLoadingAll = true;
+
+            const count =
+                document.getElementById(
+                    'modalConversationSearchCount'
+                );
+
+            if (count) {
+                count.textContent = 'Searching...';
+            }
+
+            // =============================================
+            // LOAD EVERY OLDER PAGINATED PAGE
+            // =============================================
+            while (hasMoreMessages) {
+
+                if (isLoadingMessages) {
+                    await new Promise(
+                        resolve => setTimeout(resolve, 80)
+                    );
+                    continue;
+                }
+
+                messagesPage++;
+
+                await loadModalMessages(
+                    currentConversationId,
+                    true
+                );
+            }
+
+            conversationSearchLoadingAll = false;
+        }
+
+
+        function updateConversationSearchCounter() {
+
+            const count =
+                document.getElementById(
+                    'modalConversationSearchCount'
+                );
+
+            const previous =
+                document.getElementById(
+                    'modalConversationSearchPrevious'
+                );
+
+            const next =
+                document.getElementById(
+                    'modalConversationSearchNext'
+                );
+
+            const total =
+                conversationSearchMatches.length;
+
+
+            // =====================================================
+            // UPDATE "1 of 3" TEXT
+            // =====================================================
+            if (count) {
+
+                count.textContent =
+                    total > 0 && conversationSearchIndex >= 0
+                        ? `${conversationSearchIndex + 1} of ${total}`
+                        : '0 of 0';
+            }
+
+
+            // =====================================================
+            // NO RESULTS
+            // Disable both arrows
+            // =====================================================
+            if (
+                total === 0 ||
+                conversationSearchIndex < 0
+            ) {
+
+                if (previous) {
+                    previous.disabled = true;
+                }
+
+                if (next) {
+                    next.disabled = true;
+                }
+
+                return;
+            }
+
+
+            // =====================================================
+            // UP ARROW
+            //
+            // Disable when already at the FIRST result.
+            //
+            // Example:
+            // 1 of 3 = disabled
+            // 2 of 3 = enabled
+            // 3 of 3 = enabled
+            // =====================================================
+            if (previous) {
+
+                previous.disabled =
+                    conversationSearchIndex === 0;
+            }
+
+
+            // =====================================================
+            // DOWN ARROW
+            //
+            // Disable when already at the LAST result.
+            //
+            // Example:
+            // 1 of 3 = enabled
+            // 2 of 3 = enabled
+            // 3 of 3 = disabled
+            // =====================================================
+            if (next) {
+
+                next.disabled =
+                    conversationSearchIndex === total - 1;
+            }
+        }
+
+
+        function focusConversationSearchResult(index) {
+
+            const total =
+                conversationSearchMatches.length;
+
+
+            // =====================================================
+            // NO SEARCH RESULTS
+            // =====================================================
+            if (total === 0) {
+
+                conversationSearchIndex = -1;
+
+                updateConversationSearchCounter();
+
+                return;
+            }
+
+
+            // =====================================================
+            // HARD LIMIT
+            //
+            // Do not allow navigation before the first result
+            // or after the last result.
+            // =====================================================
+            if (
+                index < 0 ||
+                index >= total
+            ) {
+
+                updateConversationSearchCounter();
+
+                return;
+            }
+
+
+            // =====================================================
+            // SET CURRENT RESULT
+            // =====================================================
+            conversationSearchIndex = index;
+
+
+            // =====================================================
+            // UPDATE HIGHLIGHT
+            // =====================================================
+            conversationSearchMatches.forEach(
+                (element, elementIndex) => {
+
+                    element.classList.toggle(
+                        'conversation-search-current',
+                        elementIndex === conversationSearchIndex
+                    );
+                }
+            );
+
+
+            // =====================================================
+            // GET CURRENT MATCH
+            // =====================================================
+            const target =
+                conversationSearchMatches[
+                    conversationSearchIndex
+                ];
+
+
+            // =====================================================
+            // SCROLL TO CURRENT MATCH
+            // =====================================================
+            target?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center'
+            });
+
+
+            // =====================================================
+            // UPDATE COUNTER AND ARROW STATES
+            // =====================================================
+            updateConversationSearchCounter();
+        }
+
+
+        async function searchCurrentConversation(query) {
+
+            const normalizedQuery =
+                String(query || '')
+                    .trim()
+                    .toLowerCase();
+
+            clearConversationSearchHighlight();
+
+            conversationSearchMatches = [];
+            conversationSearchIndex = -1;
+
+            if (!normalizedQuery) {
+                updateConversationSearchCounter();
+                return;
+            }
+
+            // =============================================
+            // SEARCH THE WHOLE CHAT, NOT ONLY VISIBLE PAGE
+            // =============================================
+            await loadAllMessagesForConversationSearch();
+
+            // User may have closed search while older pages loaded.
+            const input =
+                document.getElementById(
+                    'modalConversationMessageSearch'
+                );
+
+            if (
+                !input ||
+                input.value.trim().toLowerCase() !==
+                    normalizedQuery
+            ) {
+                return;
+            }
+
+            const rows =
+                Array.from(
+                    document.querySelectorAll(
+                        '#modalMessagesContainer .message-row'
+                    )
+                );
+
+            conversationSearchMatches =
+                rows.filter(row => {
+
+                    // Do not include messages that were unsent.
+                    if (
+                        row.dataset.messageUnsent === '1'
+                    ) {
+                        return false;
+                    }
+
+                    const messageContent =
+                        String(
+                            row.dataset.messageContent || ''
+                        ).toLowerCase();
+
+                    // Attachment filename is also searchable
+                    // when it exists in the rendered message.
+                    const attachmentName =
+                        String(
+                            row.querySelector(
+                                '[data-attachment-name]'
+                            )?.dataset.attachmentName ||
+                            ''
+                        ).toLowerCase();
+
+                    return (
+                        messageContent.includes(
+                            normalizedQuery
+                        ) ||
+                        attachmentName.includes(
+                            normalizedQuery
+                        )
+                    );
+                });
+
+            conversationSearchMatches.forEach(row => {
+                row.classList.add(
+                    'conversation-search-match'
+                );
+            });
+
+            if (conversationSearchMatches.length > 0) {
+
+                // Start at the newest matching message.
+                focusConversationSearchResult(
+                    conversationSearchMatches.length - 1
+                );
+
+            } else {
+
+                updateConversationSearchCounter();
+            }
+        }
+
+
+        function queueConversationSearch() {
+
+            const input =
+                document.getElementById(
+                    'modalConversationMessageSearch'
+                );
+
+            if (!input) {
+                return;
+            }
+
+            if (conversationSearchTimeout) {
+                clearTimeout(
+                    conversationSearchTimeout
+                );
+            }
+
+            conversationSearchTimeout =
+                setTimeout(() => {
+                    searchCurrentConversation(
+                        input.value
+                    );
+                }, 250);
+        }
+
+
         function resetModalChat() {
             cancelReply();
+            closeConversationMessageSearch();
             currentConversationId = null;
             messagesPage = 1;
             isLoadingMessages = false;
@@ -1497,6 +2309,31 @@
                     preview = lastMessageIsMine
                         ? 'You sent a file.'
                         : `${name} sent a file.`;
+
+                }
+
+
+                // =========================================
+                // MULTIPLE ATTACHMENTS
+                // =========================================
+
+                else if (
+                    rawMessage === '[attachment:multiple]'
+                ) {
+
+                    const attachmentCount =
+                        Array.isArray(lastMessage.attachments)
+                            ? lastMessage.attachments.length
+                            : 0;
+
+                    const attachmentLabel =
+                        attachmentCount > 1
+                            ? `${attachmentCount} attachments`
+                            : 'attachments';
+
+                    preview = lastMessageIsMine
+                        ? `You sent ${attachmentLabel}.`
+                        : `${name} sent ${attachmentLabel}.`;
 
                 }
 
@@ -1842,6 +2679,7 @@
 
         async function openModalConversation(conversationId) {
             cancelReply();
+            closeConversationMessageSearch();
             currentConversationId = conversationId;
             messagesPage = 1;
             hasMoreMessages = true;
@@ -2553,9 +3391,92 @@
             lucideCreateIcons();
         }
 
+        // =====================================================
+        // ATTACHMENT NORMALIZER
+        //
+        // Upload API returns:
+        // name, path, url, type, extension, size
+        //
+        // Saved Laravel attachment rows return:
+        // attachment_name, attachment_path, attachment_url,
+        // attachment_type, attachment_extension, attachment_size
+        //
+        // This converts BOTH formats into one format so images
+        // and files are recognized after sending, refreshing,
+        // forwarding, and receiving through realtime.
+        // =====================================================
+        function normalizeAttachment(attachment) {
+            if (!attachment) {
+                return null;
+            }
+
+            const path =
+                attachment.path ||
+                attachment.attachment_path ||
+                '';
+
+            let url =
+                attachment.url ||
+                attachment.attachment_url ||
+                '';
+
+            // =============================================
+            // FALLBACK URL
+            // If Laravel only returned the stored path,
+            // build the public /storage URL automatically.
+            // =============================================
+            if (!url && path) {
+                url = `/storage/${String(path).replace(/^\/+/, '')}`;
+            }
+
+            return {
+                ...attachment,
+
+                name:
+                    attachment.name ||
+                    attachment.attachment_name ||
+                    'Attachment',
+
+                path,
+
+                url,
+
+                type:
+                    attachment.type ||
+                    attachment.attachment_type ||
+                    '',
+
+                extension:
+                    attachment.extension ||
+                    attachment.attachment_extension ||
+                    '',
+
+                size:
+                    attachment.size ??
+                    attachment.attachment_size ??
+                    0
+            };
+        }
+
+        function normalizeAttachments(attachments) {
+            if (!Array.isArray(attachments)) {
+                return [];
+            }
+
+            return attachments
+                .map(normalizeAttachment)
+                .filter(Boolean);
+        }
+
         function renderMessengerMessageRow(msg, isOwn) {
             const senderName = msg.sender?.name || msg.sender?.user_full_name || (isOwn ? 'You' : 'Unknown');
-            const attachment = msg.attachment || null;
+
+            const rawAttachments = Array.isArray(msg.attachments)
+                ? msg.attachments
+                : (msg.attachment ? [msg.attachment] : []);
+
+            const attachments =
+                normalizeAttachments(rawAttachments);
             const isUnsent = Boolean(msg.is_unsent);
             const isForwarded = Boolean(
                 msg.is_forwarded ||
@@ -2568,7 +3489,22 @@
             );
             const fullTime = getFullMessageDateTime(msg.created_at);
             const content = isUnsent ? '' : (msg.message_content || '');
-            const displayContent = content === '[attachment:image]' || content === '[attachment:file]' ? '' : content;
+            // =============================================
+            // INTERNAL ATTACHMENT MARKERS ARE NOT CHAT TEXT
+            // Never show these markers inside message bubbles.
+            // =============================================
+            const attachmentMarkers = [
+                '[attachment:image]',
+                '[attachment:file]',
+                '[attachment:multiple]'
+            ];
+
+            const displayContent =
+                attachmentMarkers.includes(content)
+                    ? ''
+                    : content;
+            const hasText = Boolean(displayContent.trim());
+            const hasAttachments = attachments.length > 0;
             const avatar = isOwn ? '' : getMessageAvatarHtml(msg, senderName);
             const actions = `
                 <div
@@ -2742,38 +3678,63 @@
                             <!-- ACTUAL MESSAGE BUBBLE -->
                             <!-- ============================= -->
 
-                            <div
-                                class="
-                                    message-bubble
-                                    relative
-                                    z-10
-                                    inline-flex
-                                    w-fit
-                                    max-w-full
-                                    flex-col
+                            ${isUnsent
+                                ? `
+                                    <!-- ================================= -->
+                                    <!-- UNSENT MESSAGE -->
+                                    <!-- ================================= -->
 
-                                    ${isUnsent
-                                        ? 'rounded-2xl border border-gray-300 bg-white text-gray-500'
-                                        : isOwn
-                                            ? 'rounded-2xl rounded-br-sm bg-gray-900 text-white'
-                                            : 'rounded-2xl rounded-bl-sm bg-gray-100 text-gray-900'
-                                    }
-
-                                    px-3.5
-                                    py-2
-                                "
-                                title="${escapeHtml(fullTime)}"
-                            >
-
-                                ${isUnsent
-                                    ? `
+                                    <div
+                                        class="
+                                            message-bubble
+                                            relative
+                                            z-10
+                                            inline-flex
+                                            w-fit
+                                            max-w-full
+                                            flex-col
+                                            rounded-2xl
+                                            border
+                                            border-gray-300
+                                            bg-white
+                                            px-3.5
+                                            py-2
+                                            text-gray-500
+                                        "
+                                        title="${escapeHtml(fullTime)}"
+                                    >
                                         <p class="text-sm italic">
                                             This message was unsent
                                         </p>
-                                    `
-                                    : `
-                                        ${displayContent
-                                            ? `
+                                    </div>
+                                `
+                                : `
+                                    <!-- ================================= -->
+                                    <!-- TEXT MESSAGE -->
+                                    <!-- ================================= -->
+
+                                    ${hasText
+                                        ? `
+                                            <div
+                                                class="
+                                                    message-bubble
+                                                    relative
+                                                    z-10
+                                                    inline-flex
+                                                    w-fit
+                                                    max-w-full
+                                                    flex-col
+
+                                                    ${isOwn
+                                                        ? 'self-end rounded-2xl rounded-br-sm bg-gray-900 text-white'
+                                                        : 'self-start rounded-2xl rounded-bl-sm bg-gray-100 text-gray-900'
+                                                    }
+
+                                                    px-3.5
+                                                    py-2
+                                                "
+                                                title="${escapeHtml(fullTime)}"
+                                            >
                                                 <span
                                                     class="
                                                         block
@@ -2784,23 +3745,45 @@
                                                         break-words
                                                     "
                                                 >${escapeHtml(displayContent)}</span>
-                                            `
-                                            : ''
-                                        }
+                                            </div>
+                                        `
+                                        : ''
+                                    }
 
-                                        ${attachment
-                                            ? getAttachmentPreviewHtml(
-                                                attachment,
-                                                formatMessageTime(
-                                                    msg.created_at
-                                                )
-                                            )
-                                            : ''
-                                        }
-                                    `
-                                }
 
-                            </div>
+                                    <!-- ================================= -->
+                                    <!-- ATTACHMENTS -->
+                                    <!--
+                                        Important:
+                                        NO gray/black message bubble around images.
+                                    -->
+                                    <!-- ================================= -->
+
+                                    ${hasAttachments
+                                        ? `
+                                            <div
+                                                class="
+                                                    message-attachments
+                                                    relative
+                                                    z-10
+                                                    w-fit
+                                                    max-w-full
+                                                    ${hasText ? 'mt-1' : ''}
+                                                    ${isOwn ? 'self-end' : 'self-start'}
+                                                "
+                                                title="${escapeHtml(fullTime)}"
+                                            >
+                                                ${getAttachmentsMessageHtml(
+                                                    attachments,
+                                                    formatMessageTime(msg.created_at),
+                                                    msg.message_id
+                                                )}
+                                            </div>
+                                        `
+                                        : ''
+                                    }
+                                `
+                            }
 
 
                             <!-- ============================= -->
@@ -2852,7 +3835,7 @@
                             <div
                                 class="
                                     message-status-wrapper
-                                    mt-3
+                                    mt-2
                                     hidden
                                     items-center
                                     justify-end
@@ -3596,7 +4579,20 @@
 
             const overlay = document.createElement('div');
             overlay.id = 'messageForwardOverlay';
-            overlay.className = 'fixed inset-0 z-[10000] flex items-center justify-center bg-black/55 p-4';
+            // =========================================================
+            // FORWARD MODAL MUST SIT ABOVE THE FULL SCREEN IMAGE
+            //
+            // Image preview uses z-[99999].
+            // Therefore Forward needs a higher z-index.
+            //
+            // Result:
+            // Messages modal
+            //      ↓
+            // Full screen image preview
+            //      ↓
+            // Forward popup
+            // =========================================================
+            overlay.className = 'fixed inset-0 z-[100000] flex items-center justify-center bg-black/55 p-4';
             overlay.innerHTML = `
                 <div class="flex max-h-[640px] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
                     <div class="relative flex items-center justify-center border-b border-gray-200 px-5 py-4">
@@ -3995,40 +4991,77 @@
             }
 
 
-            const current =
+            // =================================================
+            // GET THE OUTER POSITIONED REACTION CONTAINER
+            // =================================================
+
+            const reactionContainer =
                 row.querySelector(
-                    '.message-reactions'
+                    '.message-content-wrapper > .message-reactions'
                 );
 
-            if (!current) {
+            if (!reactionContainer) {
                 return;
             }
 
 
-            // =============================================
-            // CREATE NEW REACTION HTML
-            // =============================================
+            // =================================================
+            // GENERATE NEW REACTION HTML
+            // =================================================
 
             const wrapper =
                 document.createElement('div');
 
             wrapper.innerHTML =
-                getMessageReactionsHtml(
-                    reactions || []
+                getMessageReactionsHtml(reactions);
+
+
+            const generatedReactions =
+                wrapper.querySelector(
+                    '.message-reactions'
                 );
 
 
-            const replacement =
-                wrapper.firstElementChild;
+            // =================================================
+            // UPDATE CONTENT ONLY
+            //
+            // Do NOT do:
+            //
+            // reactionContainer.replaceWith(...)
+            //
+            // because that removes:
+            //
+            // absolute
+            // -bottom-3
+            // right-1
+            // =================================================
 
-            if (!replacement) {
-                return;
+            if (generatedReactions) {
+
+                reactionContainer.innerHTML =
+                    generatedReactions.innerHTML;
+
+
+                // =============================================
+                // SHOW / HIDE REACTIONS
+                // =============================================
+
+                if (
+                    Array.isArray(reactions) &&
+                    reactions.length > 0
+                ) {
+
+                    reactionContainer.classList.remove(
+                        'hidden'
+                    );
+
+                } else {
+
+                    reactionContainer.classList.add(
+                        'hidden'
+                    );
+                }
             }
-
-
-            current.replaceWith(
-                replacement
-            );
         }
 
         // =====================================================
@@ -5275,6 +6308,10 @@
                 message = 'File';
             }
 
+            if (message === '[attachment:multiple]') {
+                message = 'Attachments';
+            }
+
             // =============================================
             // MESSENGER STYLE QUOTED MESSAGE
             //
@@ -6319,6 +7356,82 @@
         }
 
 
+        // =====================================================
+        // MESSENGER STYLE JUMP TO LATEST BUTTON
+        //
+        // Hidden while viewing the newest messages.
+        // Appears once the user scrolls upward.
+        // Clicking it always returns to the latest message.
+        // =====================================================
+
+        function updateScrollToLatestButton() {
+
+            const container =
+                document.getElementById('modalMessagesContainer');
+
+            const button =
+                document.getElementById('modalScrollToLatestButton');
+
+            if (!container || !button) {
+                return;
+            }
+
+            const distanceFromBottom =
+                container.scrollHeight -
+                container.scrollTop -
+                container.clientHeight;
+
+            const shouldShow =
+                distanceFromBottom > 120;
+
+            button.classList.toggle('opacity-0', !shouldShow);
+            button.classList.toggle('translate-y-2', !shouldShow);
+            button.classList.toggle('pointer-events-none', !shouldShow);
+
+            button.classList.toggle('opacity-100', shouldShow);
+            button.classList.toggle('translate-y-0', shouldShow);
+            button.classList.toggle('pointer-events-auto', shouldShow);
+        }
+
+
+        function jumpToLatestMessage() {
+
+            const container =
+                document.getElementById('modalMessagesContainer');
+
+            if (!container) {
+                return;
+            }
+
+            container.scrollTo({
+                top: container.scrollHeight,
+                behavior: 'smooth'
+            });
+        }
+
+
+        const modalMessagesScrollContainer =
+            document.getElementById('modalMessagesContainer');
+
+        const modalScrollToLatestButton =
+            document.getElementById('modalScrollToLatestButton');
+
+
+        modalMessagesScrollContainer?.addEventListener(
+            'scroll',
+            updateScrollToLatestButton,
+            {
+                passive: true
+            }
+        );
+
+
+        modalScrollToLatestButton?.addEventListener(
+            'click',
+            jumpToLatestMessage
+        );
+
+
         function scrollToBottom(smooth = false, force = false) {
             const container = document.getElementById('modalMessagesContainer');
             if (!container) return;
@@ -6353,7 +7466,7 @@
 
             const input = document.getElementById('modalMessageInput');
             const content = input?.value.trim();
-            if (!content && !selectedAttachment) return;
+            if (!content && !selectedAttachments.length) return;
             if (!currentConversationId) return;
 
             const form = document.getElementById('modalMessageForm');
@@ -6367,17 +7480,75 @@
             });
             const container = document.getElementById('modalMessagesContainer');
 
-            const attachmentPreview = selectedAttachment ? getAttachmentPreviewHtml(selectedAttachment, time, true) : '';
+            const attachmentPreview =
+            getAttachmentsMessageHtml(
+                selectedAttachments,
+                time
+            );
+
+            const hasContent = Boolean(content);
+            const hasAttachments = selectedAttachments.length > 0;
 
             const tempHtml = `
-            <div class="flex justify-end" id="${tempId}" style="animation: messageSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1)">
-                <div class="max-w-[70%] rounded-2xl rounded-br-md bg-gray-900 text-white px-4 py-2.5 opacity-70">
-                    ${content ? `<p class="text-sm whitespace-pre-wrap break-words">${content}</p>` : ''}
-                    ${attachmentPreview}
-                    <span class="text-[10px] text-gray-400 mt-1 block text-right">${time}</span>
+                <div
+                    class="flex justify-end"
+                    id="${tempId}"
+                    style="animation: messageSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
+                >
+                    <div class="max-w-[70%] opacity-70">
+
+                        ${
+                            hasContent
+                                ? `
+                                    <div
+                                        class="
+                                            ml-auto
+                                            w-fit
+                                            max-w-full
+                                            rounded-2xl
+                                            rounded-br-md
+                                            bg-gray-900
+                                            px-4
+                                            py-2.5
+                                            text-white
+                                        "
+                                    >
+                                        <p
+                                            class="
+                                                whitespace-pre-wrap
+                                                break-words
+                                                text-sm
+                                            "
+                                        >${escapeHtml(content)}</p>
+                                    </div>
+                                `
+                                : ''
+                        }
+
+                        ${
+                            hasAttachments
+                                ? `
+                                    <div class="${hasContent ? 'mt-1.5' : ''}">
+                                        ${attachmentPreview}
+                                    </div>
+                                `
+                                : ''
+                        }
+
+                        <div
+                            class="
+                                mt-1
+                                text-right
+                                text-[10px]
+                                text-gray-400
+                            "
+                        >
+                            Sending...
+                        </div>
+
+                    </div>
                 </div>
-            </div>
-        `;
+            `;
             const typingIndicator =
                 document.getElementById(
                     'modalTypingIndicator'
@@ -6427,11 +7598,10 @@
             // ATTACHMENT
             // =====================================================
 
-            if (selectedAttachment) {
-
+            if (selectedAttachments.length) {
                 formData.append(
-                    'attachment',
-                    JSON.stringify(selectedAttachment)
+                    'attachments',
+                    JSON.stringify(selectedAttachments)
                 );
             }
 
@@ -6451,7 +7621,7 @@
 
                 const msg = data.data;
                 const msgTime = formatMessageTime(msg.created_at);
-                const attachment = msg.attachment || selectedAttachment;
+                const attachments = msg.attachments || selectedAttachments;
                 const isFirstMessage = container.querySelector('.text-center.py-12') !== null;
                 // =====================================================
                 // CREATE REAL SENT MESSAGE
@@ -6506,7 +7676,7 @@
 
                 scrollToBottom(true, true);
 
-                clearSelectedAttachment();
+                clearSelectedAttachments();
 
                 // =====================================================
                 // CLEAR REPLY AFTER SUCCESSFUL SEND
@@ -6525,48 +7695,672 @@
             }
         }
 
+        function getAttachmentsMessageHtml(attachments, time, messageId = null) {
+
+            attachments =
+                normalizeAttachments(attachments);
+
+            if (!attachments.length) {
+                return '';
+            }
+
+            const images =
+                attachments.filter(isImageAttachment);
+
+            const files =
+                attachments.filter(
+                    attachment =>
+                        !isImageAttachment(attachment)
+                );
+
+            let html = '';
+
+
+            // =====================================================
+            // MESSENGER STYLE IMAGE GALLERY
+            //
+            // 1 image:
+            // Large natural image
+            //
+            // 2 images:
+            // Two equal images beside each other
+            //
+            // 3 images:
+            // Two images on top
+            // One wide image below
+            //
+            // 4+ images:
+            // 2 x 2 gallery
+            //
+            // Images after the fourth image are represented
+            // by a "+N" overlay on the fourth image.
+            // =====================================================
+
+            if (images.length) {
+
+                const visibleImages =
+                    images.slice(0, 4);
+
+                const remainingImages =
+                    Math.max(
+                        images.length - 4,
+                        0
+                    );
+
+
+                // =================================================
+                // ONE IMAGE
+                // Large image with its natural aspect ratio.
+                // =================================================
+
+                if (images.length === 1) {
+
+                    const attachment =
+                        visibleImages[0];
+
+                    html += `
+                        <div
+                            class="
+                                mt-1
+                                overflow-hidden
+                                rounded-2xl
+                                max-w-[320px]
+                            "
+                        >
+                            <button
+                                type="button"
+                                class="
+                                    block
+                                    w-full
+                                    overflow-hidden
+                                    rounded-2xl
+                                    bg-gray-100
+                                "
+                                data-preview-images="${escapeHtml(encodeURIComponent(JSON.stringify(images.map(img => ({
+                                        url: img.url || '',
+                                        name: img.name || 'Image'
+                                    }))))) }"
+                                    data-preview-message-id="${messageId ?? ''}"
+                                    onclick="openImagePreviewFromMessage(event.currentTarget, 
+                                    decodeURIComponent(
+                                        '${encodeURIComponent(
+                                            String(
+                                                attachment.url || ''
+                                            )
+                                        )}'
+                                    ),
+                                    decodeURIComponent(
+                                        '${encodeURIComponent(
+                                            String(
+                                                attachment.name ||
+                                                'Image'
+                                            )
+                                        )}'
+                                    )
+                                )"
+                            >
+                                <img
+                                    src="${escapeHtml(
+                                        attachment.url || ''
+                                    )}"
+                                    alt="${escapeHtml(
+                                        attachment.name ||
+                                        'Image'
+                                    )}"
+                                    class="
+                                        block
+                                        h-auto
+                                        max-h-[360px]
+                                        w-full
+                                        object-contain
+                                    "
+                                    loading="lazy"
+                                >
+                            </button>
+                        </div>
+                    `;
+
+                }
+
+
+                // =================================================
+                // TWO IMAGES
+                // Equal side by side gallery.
+                // =================================================
+
+                else if (images.length === 2) {
+
+                    html += `
+                        <div
+                            class="
+                                mt-1
+                                grid
+                                w-[320px]
+                                max-w-full
+                                grid-cols-2
+                                gap-1
+                                overflow-hidden
+                                rounded-2xl
+                            "
+                        >
+                    `;
+
+                    html += visibleImages
+                        .map((attachment, imageIndex) => {
+
+                            return `
+                                <button
+                                    type="button"
+                                    class="
+                                        block
+                                        h-[210px]
+                                        overflow-hidden
+                                        bg-gray-100
+                                    "
+                                    data-preview-images="${escapeHtml(encodeURIComponent(JSON.stringify(images.map(img => ({
+                                        url: img.url || '',
+                                        name: img.name || 'Image'
+                                    }))))) }"
+                                    data-preview-message-id="${messageId ?? ''}"
+                                    onclick="openImagePreviewFromMessage(event.currentTarget, 
+                                        decodeURIComponent(
+                                            '${encodeURIComponent(
+                                                String(
+                                                    attachment.url || ''
+                                                )
+                                            )}'
+                                        ),
+                                        decodeURIComponent(
+                                            '${encodeURIComponent(
+                                                String(
+                                                    attachment.name ||
+                                                    'Image'
+                                                )
+                                            )}'
+                                        )
+                                    )"
+                                >
+                                    <img
+                                        src="${escapeHtml(
+                                            attachment.url || ''
+                                        )}"
+                                        alt="${escapeHtml(
+                                            attachment.name ||
+                                            'Image'
+                                        )}"
+                                        class="
+                                            h-full
+                                            w-full
+                                            object-cover
+                                        "
+                                        loading="lazy"
+                                    >
+                                </button>
+                            `;
+
+                        })
+                        .join('');
+
+                    html += '</div>';
+
+                }
+
+
+                // =================================================
+                // THREE IMAGES
+                //
+                // IMG 1 | IMG 2
+                // -------------
+                //     IMG 3
+                // =================================================
+
+                else if (images.length === 3) {
+
+                    html += `
+                        <div
+                            class="
+                                mt-1
+                                grid
+                                w-[320px]
+                                max-w-full
+                                grid-cols-2
+                                gap-1
+                                overflow-hidden
+                                rounded-2xl
+                            "
+                        >
+                    `;
+
+                    html += visibleImages
+                        .map((attachment, imageIndex) => {
+
+                            // FIX: use the current image's index
+                            const isBottomImage =
+                                imageIndex === 2;
+
+                            return `
+                                <button
+                                    type="button"
+                                    class="
+                                        block
+                                        overflow-hidden
+                                        bg-gray-100
+
+                                        ${
+                                            isBottomImage
+                                                ? 'col-span-2 h-[180px]'
+                                                : 'h-[180px]'
+                                        }
+                                    "
+                                    data-preview-images="${escapeHtml(encodeURIComponent(JSON.stringify(images.map(img => ({
+                                        url: img.url || '',
+                                        name: img.name || 'Image'
+                                    }))))) }"
+                                    data-preview-message-id="${messageId ?? ''}"
+                                    onclick="openImagePreviewFromMessage(event.currentTarget, 
+                                        decodeURIComponent(
+                                            '${encodeURIComponent(
+                                                String(
+                                                    attachment.url || ''
+                                                )
+                                            )}'
+                                        ),
+                                        decodeURIComponent(
+                                            '${encodeURIComponent(
+                                                String(
+                                                    attachment.name ||
+                                                    'Image'
+                                                )
+                                            )}'
+                                        )
+                                    )"
+                                >
+                                    <img
+                                        src="${escapeHtml(
+                                            attachment.url || ''
+                                        )}"
+                                        alt="${escapeHtml(
+                                            attachment.name ||
+                                            'Image'
+                                        )}"
+                                        class="
+                                            h-full
+                                            w-full
+                                            object-cover
+                                        "
+                                        loading="lazy"
+                                    >
+                                </button>
+                            `;
+
+                        })
+                        .join('');
+
+                    html += '</div>';
+
+                }
+
+
+                // =================================================
+                // FOUR OR MORE IMAGES
+                //
+                // IMG 1 | IMG 2
+                // -------------
+                // IMG 3 | IMG 4
+                //
+                // Example with 7 images:
+                //
+                // IMG 1 | IMG 2
+                // -------------
+                // IMG 3 | +3
+                // =================================================
+
+                else {
+
+                    html += `
+                        <div
+                            class="
+                                mt-1
+                                grid
+                                w-[320px]
+                                max-w-full
+                                grid-cols-2
+                                gap-1
+                                overflow-hidden
+                                rounded-2xl
+                            "
+                        >
+                    `;
+
+                    html += visibleImages
+                        .map((attachment, imageIndex) => {
+
+                            // FIX: use the current image's index
+                            const showMore =
+                                imageIndex === 3 &&
+                                remainingImages > 0;
+
+                            return `
+                                <button
+                                    type="button"
+                                    class="
+                                        relative
+                                        block
+                                        h-[160px]
+                                        overflow-hidden
+                                        bg-gray-100
+                                    "
+                                    data-preview-images="${escapeHtml(encodeURIComponent(JSON.stringify(images.map(img => ({
+                                        url: img.url || '',
+                                        name: img.name || 'Image'
+                                    }))))) }"
+                                    data-preview-message-id="${messageId ?? ''}"
+                                    onclick="openImagePreviewFromMessage(event.currentTarget, 
+                                        decodeURIComponent(
+                                            '${encodeURIComponent(
+                                                String(
+                                                    attachment.url || ''
+                                                )
+                                            )}'
+                                        ),
+                                        decodeURIComponent(
+                                            '${encodeURIComponent(
+                                                String(
+                                                    attachment.name ||
+                                                    'Image'
+                                                )
+                                            )}'
+                                        )
+                                    )"
+                                >
+                                    <img
+                                        src="${escapeHtml(
+                                            attachment.url || ''
+                                        )}"
+                                        alt="${escapeHtml(
+                                            attachment.name ||
+                                            'Image'
+                                        )}"
+                                        class="
+                                            h-full
+                                            w-full
+                                            object-cover
+                                        "
+                                        loading="lazy"
+                                    >
+
+                                    ${
+                                        showMore
+                                            ? `
+                                                <div
+                                                    class="
+                                                        absolute
+                                                        inset-0
+                                                        flex
+                                                        items-center
+                                                        justify-center
+                                                        bg-black/50
+                                                        text-2xl
+                                                        font-semibold
+                                                        text-white
+                                                    "
+                                                >
+                                                    +${remainingImages}
+                                                </div>
+                                            `
+                                            : ''
+                                    }
+
+                                </button>
+                            `;
+
+                        })
+                        .join('');
+
+                    html += '</div>';
+                }
+            }
+
+
+            // =====================================================
+            // NORMAL FILE ATTACHMENTS
+            // PDF, DOCX, XLSX, ZIP, TXT, etc.
+            // =====================================================
+
+            if (files.length) {
+
+                html += `
+                    <div
+                        class="
+                            ${images.length ? 'mt-1.5' : ''}
+                            space-y-1.5
+                        "
+                    >
+                `;
+
+                html += files
+                    .map(
+                        attachment =>
+                            getAttachmentPreviewHtml(
+                                attachment,
+                                time
+                            )
+                    )
+                    .join('');
+
+                html += '</div>';
+            }
+
+
+            return html;
+        }
+
         function isImageAttachment(attachment) {
             if (!attachment) return false;
-            const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'];
-            const type = (attachment.type || '').toLowerCase();
-            const ext = (attachment.extension || '').toLowerCase();
-            if (type.startsWith('image/')) return true;
-            if (imageExtensions.includes(type)) return true;
-            if (imageExtensions.includes(ext)) return true;
-            return false;
+
+            const imageExtensions = [
+                'jpg',
+                'jpeg',
+                'png',
+                'gif',
+                'webp',
+                'bmp',
+                'svg'
+            ];
+
+            const type = String(
+                attachment.type ||
+                attachment.attachment_type ||
+                ''
+            ).toLowerCase();
+
+            const ext = String(
+                attachment.extension ||
+                attachment.attachment_extension ||
+                ''
+            )
+                .toLowerCase()
+                .replace(/^\./, '');
+
+            const name = String(
+                attachment.name ||
+                attachment.attachment_name ||
+                ''
+            ).toLowerCase();
+
+            const nameExtension =
+                name.includes('.')
+                    ? name.split('.').pop()
+                    : '';
+
+            return (
+                type.startsWith('image/') ||
+                imageExtensions.includes(type) ||
+                imageExtensions.includes(ext) ||
+                imageExtensions.includes(nameExtension)
+            );
         }
 
         function getAttachmentPreviewHtml(attachment, time, isTemp = false) {
             if (!attachment) return '';
-            const isImage = isImageAttachment(attachment);
-            const fileIcon = getFileIcon(attachment.type || '', attachment.extension || '');
-            const opacity = isTemp ? 'opacity-80' : '';
+
+            const isImage =
+                isImageAttachment(attachment);
+
+            const opacity =
+                isTemp ? 'opacity-80' : '';
+
             const removeBtn = isTemp ? `
-            <button type="button" onclick="this.closest('.attachment-preview').remove()" class="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-gray-900 text-white flex items-center justify-center hover:bg-gray-800 transition" style="animation: none;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-            </button>
-        ` : '';
+                <button
+                    type="button"
+                    onclick="this.closest('.attachment-preview').remove()"
+                    class="
+                        absolute
+                        -right-1.5
+                        -top-1.5
+                        z-20
+                        flex
+                        h-5
+                        w-5
+                        items-center
+                        justify-center
+                        rounded-full
+                        bg-gray-700
+                        text-white
+                        shadow
+                        transition
+                        hover:bg-gray-900
+                    "
+                    title="Remove"
+                >
+                    <i data-lucide="x" class="h-3 w-3"></i>
+                </button>
+            ` : '';
 
             if (isImage && attachment.url) {
-                return getImageMessageHtml(attachment, time, isTemp, removeBtn);
+                return getImageMessageHtml(
+                    attachment,
+                    time,
+                    isTemp,
+                    removeBtn
+                );
             }
 
+            const fileName =
+                attachment.name ||
+                attachment.attachment_name ||
+                'File';
+
+            const fileSize =
+                formatFileSize(
+                    Number(
+                        attachment.size ||
+                        attachment.attachment_size ||
+                        0
+                    )
+                );
+
+            const fileUrl =
+                attachment.url ||
+                attachment.attachment_url ||
+                '#';
+
+            // =====================================================
+            // NON-IMAGE FILE CARD
+            //
+            // Matches the compact Messenger-style reference:
+            // document icon + filename + file size.
+            // Clicking the card opens/downloads the file.
+            // =====================================================
+
             return `
-            <div class="attachment-preview relative mt-1.5 flex items-center gap-2 rounded-lg border border-white/10 px-3 py-2 ${opacity}" style="animation: messageSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1)">
-                <div class="h-8 w-8 rounded-lg ${fileIcon.color} flex items-center justify-center shrink-0">
-                    <i data-lucide="${fileIcon.icon}" class="h-4 w-4"></i>
+                <div
+                    class="
+                        attachment-preview
+                        relative
+                        mt-1
+                        ${opacity}
+                    "
+                    style="
+                        animation: messageSlideIn 0.3s
+                        cubic-bezier(0.4, 0, 0.2, 1)
+                    "
+                >
+                    <a
+                        href="${escapeHtml(fileUrl)}"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        download="${escapeHtml(fileName)}"
+                        class="
+                            group/file
+                            flex
+                            min-h-[72px]
+                            w-[190px]
+                            max-w-full
+                            items-center
+                            gap-3
+                            rounded-[18px]
+                            bg-[#4b4b4b]
+                            px-3.5
+                            py-3
+                            text-left
+                            shadow-sm
+                            transition
+                            hover:bg-[#555555]
+                        "
+                        title="${escapeHtml(fileName)}"
+                    >
+                        <div
+                            class="
+                                flex
+                                h-11
+                                w-11
+                                shrink-0
+                                items-center
+                                justify-center
+                                rounded-full
+                                bg-white/[0.04]
+                                text-gray-100
+                            "
+                        >
+                            <i
+                                data-lucide="file-text"
+                                class="h-5 w-5"
+                            ></i>
+                        </div>
+
+                        <div class="min-w-0 flex-1">
+                            <p
+                                class="
+                                    truncate
+                                    text-[15px]
+                                    font-semibold
+                                    leading-5
+                                    text-white
+                                "
+                            >
+                                ${escapeHtml(fileName)}
+                            </p>
+
+                            <p
+                                class="
+                                    mt-0.5
+                                    truncate
+                                    text-[13px]
+                                    leading-4
+                                    text-gray-300
+                                "
+                            >
+                                ${escapeHtml(fileSize)}
+                            </p>
+                        </div>
+                    </a>
+
+                    ${removeBtn}
                 </div>
-                <div class="flex-1 min-w-0">
-                    <p class="text-xs font-medium text-white truncate">${attachment.name}</p>
-                    <p class="text-[10px] text-gray-400">${formatFileSize(attachment.size || 0)}</p>
-                </div>
-                <a href="${attachment.url}" target="_blank" class="h-7 w-7 shrink-0 flex items-center justify-center rounded-md bg-white/10 text-white hover:bg-white/20 transition" title="Download">
-                    <i data-lucide="download" class="h-3.5 w-3.5"></i>
-                </a>
-                ${removeBtn}
-            </div>
-        `;
+            `;
         }
+
 
         function getImageMessageHtml(attachment, time, isTemp = false, removeBtn = '') {
             const uniqueId = 'img-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
@@ -6618,312 +8412,1201 @@
         `;
         }
 
-        function openImagePreview(url, name) {
-            let overlay = document.getElementById('imagePreviewOverlay');
-            if (!overlay) {
-                overlay = document.createElement('div');
-                overlay.id = 'imagePreviewOverlay';
-                overlay.innerHTML = `
-                <div id="imagePreviewBackdrop" class="fixed inset-0 z-[99999] bg-black/80 backdrop-blur-sm flex items-center justify-center opacity-0 transition-opacity duration-300 ease-out">
-                    <button type="button" id="imagePreviewClose" class="absolute top-4 right-4 z-10 h-10 w-10 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition border border-white/10">
-                        <i data-lucide="x" class="h-5 w-5"></i>
-                    </button>
-                    <div id="imagePreviewContainer" class="relative max-w-[90vw] max-h-[85vh] flex items-center justify-center scale-95 opacity-0 transition-all duration-300 ease-out">
-                        <a href="${url}" target="_blank" id="imagePreviewDownload" class="absolute top-4 right-16 z-10 h-10 w-10 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 transition border border-white/10" title="Download original">
-                            <i data-lucide="download" class="h-5 w-5"></i>
-                        </a>
-                        <img id="imagePreviewImg" src="" alt="" class="max-w-full max-h-[85vh] rounded-lg shadow-2xl object-contain" style="max-width: 90vw;" />
-                    </div>
-                </div>
-            `;
-                document.body.appendChild(overlay);
-                if (window.lucide) lucide.createIcons();
+        // =====================================================
+        // MESSENGER STYLE IMAGE VIEWER
+        //
+        // Features:
+        // 1. Previous and next arrows for multi-image messages
+        // 2. Keyboard left / right navigation
+        // 3. Download beside Forward and Close
+        // 4. Forward uses the existing message forward system
+        // =====================================================
 
-                overlay.addEventListener('click', (e) => {
-                    if (e.target === overlay.querySelector('#imagePreviewBackdrop') || e.target.closest('#imagePreviewClose')) {
-                        closeImagePreview();
+        async function openImagePreviewFromMessage(
+            button,
+            url,
+            name
+        ) {
+            // =====================================================
+            // LOAD THE WHOLE OPENED CONVERSATION FIRST
+            //
+            // This makes Previous / Next navigate through images
+            // from OTHER messages too, not only the clicked message.
+            // =====================================================
+
+            if (
+                currentConversationId &&
+                typeof loadAllMessagesForConversationSearch ===
+                    'function'
+            ) {
+                try {
+                    await loadAllMessagesForConversationSearch();
+                } catch (error) {
+                    console.error(
+                        'Unable to load all conversation images:',
+                        error
+                    );
+                }
+            }
+
+            const gallery = [];
+            const seen = new Set();
+
+            // =====================================================
+            // COLLECT EVERY IMAGE FROM EVERY MESSAGE
+            //
+            // Each image stores messageId so Forward always forwards
+            // the message that owns the image currently being viewed.
+            // =====================================================
+
+            document
+                .querySelectorAll(
+                    '#modalMessagesContainer [data-preview-images]'
+                )
+                .forEach(previewButton => {
+                    try {
+                        const encodedGallery =
+                            previewButton.dataset.previewImages || '';
+
+                        if (!encodedGallery) {
+                            return;
+                        }
+
+                        const messageImages =
+                            JSON.parse(
+                                decodeURIComponent(encodedGallery)
+                            );
+
+                        const messageId =
+                            previewButton.dataset.previewMessageId ||
+                            null;
+
+                        if (!Array.isArray(messageImages)) {
+                            return;
+                        }
+
+                        messageImages.forEach(image => {
+                            const imageUrl =
+                                String(image?.url || '');
+
+                            if (!imageUrl) {
+                                return;
+                            }
+
+                            // Same image can appear in data attributes
+                            // several times inside one multi-image grid.
+                            const key =
+                                `${messageId || ''}::${imageUrl}`;
+
+                            if (seen.has(key)) {
+                                return;
+                            }
+
+                            seen.add(key);
+
+                            gallery.push({
+                                url: imageUrl,
+                                name:
+                                    image?.name ||
+                                    'Image',
+                                messageId:
+                                    messageId || null
+                            });
+                        });
+                    } catch (error) {
+                        console.error(
+                            'Unable to read conversation image gallery:',
+                            error
+                        );
                     }
                 });
 
-                document.addEventListener('keydown', function imagePreviewKeyHandler(e) {
-                    if (e.key === 'Escape' && document.getElementById('imagePreviewOverlay')) {
-                        closeImagePreview();
-                    }
+            // =====================================================
+            // FALLBACK
+            // If DOM collection somehow fails, still open clicked image.
+            // =====================================================
+
+            if (!gallery.length) {
+                gallery.push({
+                    url: url || '',
+                    name: name || 'Image',
+                    messageId:
+                        button?.dataset?.previewMessageId ||
+                        null
                 });
             }
 
-            const backdrop = document.getElementById('imagePreviewBackdrop');
-            const container = document.getElementById('imagePreviewContainer');
-            const img = document.getElementById('imagePreviewImg');
-            const downloadBtn = document.getElementById('imagePreviewDownload');
+            let clickedIndex =
+                gallery.findIndex(
+                    image =>
+                        String(image.url || '') ===
+                            String(url || '') &&
+                        String(image.messageId || '') ===
+                            String(
+                                button?.dataset?.previewMessageId ||
+                                ''
+                            )
+                );
 
-            img.src = url;
-            img.alt = name || 'Image preview';
-            if (downloadBtn) downloadBtn.href = url;
-            if (downloadBtn) downloadBtn.download = name || 'image';
+            if (clickedIndex < 0) {
+                clickedIndex =
+                    gallery.findIndex(
+                        image =>
+                            String(image.url || '') ===
+                            String(url || '')
+                    );
+            }
 
-            backdrop.classList.remove('opacity-0');
-            requestAnimationFrame(() => {
-                container.classList.remove('scale-95', 'opacity-0');
-                container.classList.add('scale-100', 'opacity-100');
-            });
+            if (clickedIndex < 0) {
+                clickedIndex = 0;
+            }
+
+            openImagePreview(
+                url,
+                name,
+                gallery,
+                clickedIndex,
+                gallery[clickedIndex]?.messageId ||
+                    button?.dataset?.previewMessageId ||
+                    null
+            );
         }
 
-        function closeImagePreview() {
-            const backdrop = document.getElementById('imagePreviewBackdrop');
-            const container = document.getElementById('imagePreviewContainer');
-            if (!backdrop || !container) return;
 
-            container.classList.remove('scale-100', 'opacity-100');
-            container.classList.add('scale-95', 'opacity-0');
-            backdrop.classList.add('opacity-0');
+        function openImagePreview(
+            url,
+            name,
+            gallery = null,
+            index = 0,
+            messageId = null
+        ) {
+            if (Array.isArray(gallery) && gallery.length) {
+                imagePreviewGallery =
+                    gallery.map(image => ({
+                        url: image?.url || '',
+                        name: image?.name || 'Image',
+                        messageId:
+                            image?.messageId ||
+                            messageId ||
+                            null
+                    }));
+            } else {
+                imagePreviewGallery = [{
+                    url: url || '',
+                    name: name || 'Image',
+                    messageId: messageId || null
+                }];
+            }
 
-            setTimeout(() => {
-                const overlay = document.getElementById('imagePreviewOverlay');
-                if (overlay) overlay.remove();
-            }, 300);
-        }
+            imagePreviewIndex =
+                Math.min(
+                    Math.max(Number(index) || 0, 0),
+                    imagePreviewGallery.length - 1
+                );
 
-        window.confirmDeleteConversation = function(conversationId) {
-            let overlay = document.getElementById('deleteConfirmOverlay');
+            imagePreviewMessageId =
+                messageId || null;
+
+            let overlay =
+                document.getElementById(
+                    'imagePreviewOverlay'
+                );
+
             if (!overlay) {
-                overlay = document.createElement('div');
-                overlay.id = 'deleteConfirmOverlay';
+                overlay =
+                    document.createElement('div');
+
+                overlay.id =
+                    'imagePreviewOverlay';
+
                 overlay.innerHTML = `
-                <div id="deleteConfirmBackdrop" class="fixed inset-0 z-[99999] bg-black/60 backdrop-blur-sm flex items-center justify-center opacity-0 transition-opacity duration-200 ease-out">
-                    <div id="deleteConfirmBox" class="relative mx-4 w-full max-w-[400px] bg-white rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.3)] p-6 scale-95 opacity-0 transition-all duration-200 ease-out">
-                        <div class="flex items-center gap-3 mb-4">
-                            <div class="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
-                                <i data-lucide="trash-2" class="h-5 w-5 text-red-600"></i>
+                    <div
+                        id="imagePreviewBackdrop"
+                        class="
+                            fixed inset-0 z-[99999]
+                            bg-black/90
+                            backdrop-blur-sm
+                            opacity-0
+                            transition-opacity
+                            duration-200
+                        "
+                    >
+                        <!-- =====================================
+                             TOP RIGHT ACTIONS
+                             Download, Forward, Close
+                             ===================================== -->
+                        <div
+                            class="
+                                absolute
+                                right-5
+                                top-5
+                                z-30
+                                flex
+                                items-center
+                                gap-2
+                            "
+                        >
+                            <a
+                                id="imagePreviewDownload"
+                                href="#"
+                                download
+                                class="
+                                    flex h-11 w-11
+                                    items-center justify-center
+                                    rounded-full
+                                    bg-white/10
+                                    text-white
+                                    transition
+                                    hover:bg-white/20
+                                "
+                                title="Download"
+                                aria-label="Download"
+                            >
+                                <i
+                                    data-lucide="download"
+                                    class="h-5 w-5"
+                                ></i>
+                            </a>
+
+                            <button
+                                type="button"
+                                id="imagePreviewForward"
+                                class="
+                                    flex h-11 w-11
+                                    items-center justify-center
+                                    rounded-full
+                                    bg-white/10
+                                    text-white
+                                    transition
+                                    hover:bg-white/20
+                                    disabled:cursor-not-allowed
+                                    disabled:opacity-40
+                                "
+                                title="Forward"
+                                aria-label="Forward"
+                            >
+                                <i
+                                    data-lucide="forward"
+                                    class="h-5 w-5"
+                                ></i>
+                            </button>
+
+                            <button
+                                type="button"
+                                id="imagePreviewClose"
+                                class="
+                                    flex h-11 w-11
+                                    items-center justify-center
+                                    rounded-full
+                                    bg-white/10
+                                    text-white
+                                    transition
+                                    hover:bg-white/20
+                                "
+                                title="Close"
+                                aria-label="Close"
+                            >
+                                <i
+                                    data-lucide="x"
+                                    class="h-6 w-6"
+                                ></i>
+                            </button>
+                        </div>
+
+
+                        <!-- =====================================
+                             PREVIOUS IMAGE
+                             ===================================== -->
+                        <button
+                            type="button"
+                            id="imagePreviewPrevious"
+                            class="
+                                absolute
+                                left-5
+                                top-1/2
+                                z-30
+                                hidden
+                                h-12 w-12
+                                -translate-y-1/2
+                                items-center justify-center
+                                rounded-full
+                                bg-white/10
+                                text-white
+                                transition
+                                hover:bg-white/20
+                            "
+                            title="Previous image"
+                            aria-label="Previous image"
+                        >
+                            <i
+                                data-lucide="chevron-left"
+                                class="h-7 w-7"
+                            ></i>
+                        </button>
+
+
+                        <!-- =====================================
+                             IMAGE
+                             ===================================== -->
+                        <div
+                            class="
+                                flex
+                                h-full
+                                w-full
+                                items-center
+                                justify-center
+                                px-20
+                                py-16
+                            "
+                        >
+                            <div
+                                id="imagePreviewContainer"
+                                class="
+                                    relative
+                                    flex
+                                    max-h-[88vh]
+                                    max-w-[90vw]
+                                    scale-95
+                                    items-center
+                                    justify-center
+                                    opacity-0
+                                    transition-all
+                                    duration-200
+                                "
+                            >
+                                <img
+                                    id="imagePreviewImg"
+                                    src=""
+                                    alt=""
+                                    class="
+                                        max-h-[88vh]
+                                        max-w-[90vw]
+                                        object-contain
+                                        shadow-2xl
+                                    "
+                                >
                             </div>
-                            <h3 class="text-lg font-bold text-gray-900">Delete Conversation?</h3>
                         </div>
-                        <p class="text-sm text-gray-600 leading-relaxed mb-6">
-                            This action will permanently remove this conversation and all of its messages. This action cannot be undone.
-                        </p>
-                        <div class="flex items-center gap-3 justify-end">
-                            <button type="button" onclick="closeDeleteConfirm()" class="px-4 py-2.5 text-sm font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-150">
-                                Cancel
-                            </button>
-                            <button type="button" id="deleteConfirmButton" class="px-4 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors duration-150 shadow-sm">
-                                Delete
-                            </button>
-                        </div>
+
+
+                        <!-- =====================================
+                             NEXT IMAGE
+                             ===================================== -->
+                        <button
+                            type="button"
+                            id="imagePreviewNext"
+                            class="
+                                absolute
+                                right-5
+                                top-1/2
+                                z-30
+                                hidden
+                                h-12 w-12
+                                -translate-y-1/2
+                                items-center justify-center
+                                rounded-full
+                                bg-white/10
+                                text-white
+                                transition
+                                hover:bg-white/20
+                            "
+                            title="Next image"
+                            aria-label="Next image"
+                        >
+                            <i
+                                data-lucide="chevron-right"
+                                class="h-7 w-7"
+                            ></i>
+                        </button>
+
+
+                        <!-- =====================================
+                             IMAGE NUMBER
+                             Example: 2 / 5
+                             ===================================== -->
+                        <div
+                            id="imagePreviewCounter"
+                            class="
+                                absolute
+                                bottom-5
+                                left-1/2
+                                z-30
+                                hidden
+                                -translate-x-1/2
+                                rounded-full
+                                bg-black/45
+                                px-3
+                                py-1.5
+                                text-xs
+                                font-medium
+                                text-white
+                                backdrop-blur-sm
+                            "
+                        ></div>
                     </div>
-                </div>
-            `;
+                `;
+
                 document.body.appendChild(overlay);
-                if (window.lucide) lucide.createIcons();
 
-                overlay.querySelector('#deleteConfirmBackdrop').addEventListener('click', (e) => {
-                    if (e.target === overlay.querySelector('#deleteConfirmBackdrop')) {
-                        closeDeleteConfirm();
+                const backdrop =
+                    document.getElementById(
+                        'imagePreviewBackdrop'
+                    );
+
+                const previousButton =
+                    document.getElementById(
+                        'imagePreviewPrevious'
+                    );
+
+                const nextButton =
+                    document.getElementById(
+                        'imagePreviewNext'
+                    );
+
+                const forwardButton =
+                    document.getElementById(
+                        'imagePreviewForward'
+                    );
+
+                backdrop?.addEventListener(
+                    'click',
+                    event => {
+                        if (
+                            event.target === backdrop ||
+                            event.target.closest(
+                                '#imagePreviewClose'
+                            )
+                        ) {
+                            closeImagePreview();
+                        }
                     }
-                });
+                );
 
-                overlay.querySelector('#deleteConfirmButton').addEventListener('click', () => {
-                    const id = parseInt(overlay.dataset.conversationId || '0');
-                    if (id) deleteConversation(id);
-                });
-            }
-
-            overlay.dataset.conversationId = conversationId;
-
-            const backdrop = document.getElementById('deleteConfirmBackdrop');
-            const box = document.getElementById('deleteConfirmBox');
-
-            backdrop.classList.remove('opacity-0');
-            requestAnimationFrame(() => {
-                box.classList.remove('scale-95', 'opacity-0');
-                box.classList.add('scale-100', 'opacity-100');
-            });
-        }
-
-        window.closeDeleteConfirm = function() {
-            const backdrop = document.getElementById('deleteConfirmBackdrop');
-            const box = document.getElementById('deleteConfirmBox');
-            if (!backdrop || !box) return;
-
-            box.classList.remove('scale-100', 'opacity-100');
-            box.classList.add('scale-95', 'opacity-0');
-            backdrop.classList.add('opacity-0');
-
-            setTimeout(() => {
-                const overlay = document.getElementById('deleteConfirmOverlay');
-                if (overlay) overlay.remove();
-            }, 200);
-        }
-
-        async function deleteConversation(conversationId) {
-            closeDeleteConfirm();
-
-            const item = document.querySelector(`.conversation-item[data-id="${conversationId}"]`);
-            if (item) {
-                item.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-                item.style.transform = 'translateX(-20px)';
-                item.style.opacity = '0';
-                item.style.height = item.offsetHeight + 'px';
-                setTimeout(() => {
-                    item.style.padding = '0';
-                    item.style.margin = '0';
-                    item.style.height = '0';
-                    item.style.overflow = 'hidden';
-                    item.style.border = 'none';
-                }, 150);
-            }
-
-            if (currentConversationId == conversationId) {
-                resetModalChat();
-            }
-
-            try {
-                const response = await fetch(`/messages/conversations/${conversationId}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': csrfToken
+                previousButton?.addEventListener(
+                    'click',
+                    event => {
+                        event.stopPropagation();
+                        showPreviousPreviewImage();
                     }
-                });
+                );
 
-                if (response.ok) {
-                    setTimeout(() => {
-                        if (item) item.remove();
-                        const list = document.getElementById('modalConversationsList');
-                        if (list && list.children.length === 0) {
-                            const emptyState = document.getElementById('modalConversationsEmpty');
-                            if (emptyState) {
-                                emptyState.classList.remove('hidden');
-                                emptyState.classList.add('animate-fade-in');
+                nextButton?.addEventListener(
+                    'click',
+                    event => {
+                        event.stopPropagation();
+                        showNextPreviewImage();
+                    }
+                );
+
+                forwardButton?.addEventListener(
+                    'click',
+                    async event => {
+                        event.stopPropagation();
+
+                        if (!imagePreviewMessageId) {
+                            return;
+                        }
+
+                        const sourceMessageId =
+                            imagePreviewMessageId;
+
+                        // =================================================
+                        // KEEP IMAGE VIEWER OPEN
+                        //
+                        // Do NOT close the image preview here.
+                        // The Forward modal opens on top of the image.
+                        // =================================================
+
+                        // =================================================
+                        // USE THE SAME FORWARD MODAL AS THE THREE-DOT MENU
+                        // =================================================
+
+                        try {
+                            const response =
+                                await fetch(
+                                    '/messages/conversations',
+                                    {
+                                        headers: {
+                                            'Accept':
+                                                'application/json'
+                                        }
+                                    }
+                                );
+
+                            if (!response.ok) {
+                                return;
+                            }
+
+                            const payload =
+                                await response.json();
+
+                            const conversations =
+                                payload.data?.data ||
+                                payload.data ||
+                                [];
+
+                            const choices =
+                                conversations.filter(
+                                    conversation =>
+                                        Number(
+                                            conversation.conversation_id
+                                        ) !==
+                                        Number(
+                                            currentConversationId
+                                        )
+                                );
+
+                            if (!choices.length) {
+                                await showMessageActionDialog({
+                                    title: 'Forward',
+                                    text:
+                                        'There is no other conversation to forward this message to.',
+                                    confirmText: 'OK'
+                                });
+
+                                return;
+                            }
+
+                            showForwardMessageDialog(
+                                choices,
+                                sourceMessageId
+                            );
+                        } catch (error) {
+                            console.error(
+                                'Unable to open forward dialog:',
+                                error
+                            );
+                        }
+                    }
+                );
+
+                if (!window.__prismImagePreviewKeysBound) {
+                    window.__prismImagePreviewKeysBound = true;
+
+                    document.addEventListener(
+                        'keydown',
+                        event => {
+                            if (
+                                !document.getElementById(
+                                    'imagePreviewOverlay'
+                                )
+                            ) {
+                                return;
+                            }
+
+                            if (event.key === 'Escape') {
+                                closeImagePreview();
+                                return;
+                            }
+
+                            if (event.key === 'ArrowLeft') {
+                                showPreviousPreviewImage();
+                                return;
+                            }
+
+                            if (event.key === 'ArrowRight') {
+                                showNextPreviewImage();
                             }
                         }
-                    }, 300);
-                } else {
-                    if (item) {
-                        item.style.transform = '';
-                        item.style.opacity = '';
-                        item.style.height = '';
-                        item.style.padding = '';
-                        item.style.margin = '';
-                        item.style.overflow = '';
-                        item.style.border = '';
-                    }
+                    );
                 }
-            } catch (error) {
-                if (item) {
-                    item.style.transform = '';
-                    item.style.opacity = '';
-                    item.style.height = '';
-                    item.style.padding = '';
-                    item.style.margin = '';
-                    item.style.overflow = '';
-                    item.style.border = '';
-                }
+            }
+
+            updateImagePreview();
+
+            const backdrop =
+                document.getElementById(
+                    'imagePreviewBackdrop'
+                );
+
+            const container =
+                document.getElementById(
+                    'imagePreviewContainer'
+                );
+
+            backdrop?.classList.remove(
+                'opacity-0'
+            );
+
+            requestAnimationFrame(() => {
+                container?.classList.remove(
+                    'scale-95',
+                    'opacity-0'
+                );
+
+                container?.classList.add(
+                    'scale-100',
+                    'opacity-100'
+                );
+            });
+
+            if (window.lucide) {
+                lucide.createIcons();
             }
         }
 
-        function clearSelectedAttachment() {
-            selectedAttachment = null;
-            const input = document.getElementById('modalAttachmentInput');
-            const preview = document.getElementById('modalAttachmentPreview');
-            const progress = document.getElementById('modalAttachmentProgress');
-            if (input) input.value = '';
-            if (preview) preview.classList.add('hidden');
-            if (progress) progress.classList.add('hidden');
-        }
 
-        async function uploadModalAttachment(file) {
-            if (!file || !currentConversationId) return;
+        function updateImagePreview() {
+            const image =
+                imagePreviewGallery[
+                    imagePreviewIndex
+                ];
 
-            const preview = document.getElementById('modalAttachmentPreview');
-            const progressEl = document.getElementById('modalAttachmentProgress');
-            const progressBar = document.getElementById('modalAttachmentProgressBar');
-            const nameEl = document.getElementById('modalAttachmentName');
-            const sizeEl = document.getElementById('modalAttachmentSize');
-            const iconContainer = document.getElementById('modalAttachmentIcon');
-
-            if (preview) preview.classList.remove('hidden');
-            if (progressEl) progressEl.classList.remove('hidden');
-
-            const validTypes = [
-                'application/pdf',
-                'application/msword',
-                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                'application/vnd.ms-excel',
-                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                'application/vnd.ms-powerpoint',
-                'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-                'application/zip',
-                'application/x-rar-compressed',
-                'text/plain',
-                'image/jpeg',
-                'image/png',
-                'image/gif',
-                'image/webp',
-                'video/mp4',
-                'video/quicktime',
-                'audio/mpeg',
-                'audio/wav'
-            ];
-
-            const maxSize = 25 * 1024 * 1024;
-
-            if (file.size > maxSize) {
-                alert('File size must be less than 25MB.');
-                clearSelectedAttachment();
+            if (!image) {
                 return;
             }
 
-            const fileIcon = getFileIcon(file.type, file.name.split('.').pop());
-            if (iconContainer) {
-                iconContainer.className = `h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${fileIcon.color}`;
-                iconContainer.innerHTML = `<i data-lucide="${fileIcon.icon}" class="h-4 w-4"></i>`;
-                lucideCreateIcons();
+            // =====================================================
+            // CURRENT IMAGE'S ORIGINAL MESSAGE
+            // Forward must follow the image after Previous / Next.
+            // =====================================================
+
+            imagePreviewMessageId =
+                image.messageId ||
+                imagePreviewMessageId ||
+                null;
+
+            const img =
+                document.getElementById(
+                    'imagePreviewImg'
+                );
+
+            const downloadButton =
+                document.getElementById(
+                    'imagePreviewDownload'
+                );
+
+            const previousButton =
+                document.getElementById(
+                    'imagePreviewPrevious'
+                );
+
+            const nextButton =
+                document.getElementById(
+                    'imagePreviewNext'
+                );
+
+            const counter =
+                document.getElementById(
+                    'imagePreviewCounter'
+                );
+
+            const forwardButton =
+                document.getElementById(
+                    'imagePreviewForward'
+                );
+
+            if (img) {
+                img.src = image.url || '';
+                img.alt =
+                    image.name ||
+                    'Image preview';
             }
-            if (nameEl) nameEl.textContent = file.name;
-            if (sizeEl) sizeEl.textContent = formatFileSize(file.size);
 
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('conversation_id', currentConversationId);
+            if (downloadButton) {
+                downloadButton.href =
+                    image.url || '#';
 
-            try {
-                const xhr = new XMLHttpRequest();
-                xhr.open('POST', '/messages/upload');
-                xhr.setRequestHeader('X-CSRF-TOKEN', csrfToken);
-                xhr.setRequestHeader('Accept', 'application/json');
+                downloadButton.download =
+                    image.name || 'image';
+            }
 
-                xhr.upload.onprogress = (event) => {
-                    if (event.lengthComputable && progressBar) {
-                        const percent = (event.loaded / event.total) * 100;
-                        progressBar.style.width = percent + '%';
+            const hasMultiple =
+                imagePreviewGallery.length > 1;
+
+            // =====================================================
+            // PREVIOUS / NEXT EDGE VISIBILITY
+            //
+            // First image:
+            // hide Previous
+            //
+            // Middle images:
+            // show both
+            //
+            // Last image:
+            // hide Next
+            // =====================================================
+
+            const canGoPrevious =
+                hasMultiple &&
+                imagePreviewIndex > 0;
+
+            const canGoNext =
+                hasMultiple &&
+                imagePreviewIndex <
+                    imagePreviewGallery.length - 1;
+
+            if (previousButton) {
+                previousButton.classList.toggle(
+                    'hidden',
+                    !canGoPrevious
+                );
+
+                previousButton.classList.toggle(
+                    'flex',
+                    canGoPrevious
+                );
+            }
+
+            if (nextButton) {
+                nextButton.classList.toggle(
+                    'hidden',
+                    !canGoNext
+                );
+
+                nextButton.classList.toggle(
+                    'flex',
+                    canGoNext
+                );
+            }
+
+            if (counter) {
+                counter.textContent =
+                    `${imagePreviewIndex + 1} / ${imagePreviewGallery.length}`;
+
+                counter.classList.toggle(
+                    'hidden',
+                    !hasMultiple
+                );
+            }
+
+            if (forwardButton) {
+                forwardButton.disabled =
+                    !imagePreviewMessageId;
+            }
+        }
+
+
+        function showPreviousPreviewImage() {
+            // =====================================================
+            // HARD STOP AT THE FIRST IMAGE
+            //
+            // Example:
+            // 1 / 8 cannot go farther left.
+            // =====================================================
+
+            if (
+                imagePreviewGallery.length <= 1 ||
+                imagePreviewIndex <= 0
+            ) {
+                updateImagePreview();
+                return;
+            }
+
+            imagePreviewIndex--;
+
+            updateImagePreview();
+        }
+
+
+        function showNextPreviewImage() {
+            // =====================================================
+            // HARD STOP AT THE LAST IMAGE
+            //
+            // Example:
+            // 8 / 8 cannot go farther right.
+            // =====================================================
+
+            if (
+                imagePreviewGallery.length <= 1 ||
+                imagePreviewIndex >=
+                    imagePreviewGallery.length - 1
+            ) {
+                updateImagePreview();
+                return;
+            }
+
+            imagePreviewIndex++;
+
+            updateImagePreview();
+        }
+
+
+        function closeImagePreview() {
+            const backdrop =
+                document.getElementById(
+                    'imagePreviewBackdrop'
+                );
+
+            const container =
+                document.getElementById(
+                    'imagePreviewContainer'
+                );
+
+            if (!backdrop || !container) {
+                return;
+            }
+
+            container.classList.remove(
+                'scale-100',
+                'opacity-100'
+            );
+
+            container.classList.add(
+                'scale-95',
+                'opacity-0'
+            );
+
+            backdrop.classList.add(
+                'opacity-0'
+            );
+
+            setTimeout(() => {
+                document.getElementById(
+                    'imagePreviewOverlay'
+                )?.remove();
+            }, 200);
+        }
+
+
+        // IMAGE PREVIEW GLOBAL EXPORTS
+        //
+        // The message image buttons use inline onclick handlers.
+        // Inline handlers can only access functions on window.
+        // =====================================================
+        window.openImagePreview = openImagePreview;
+        window.openImagePreviewFromMessage = openImagePreviewFromMessage;
+        window.closeImagePreview = closeImagePreview;
+        window.showPreviousPreviewImage = showPreviousPreviewImage;
+        window.showNextPreviewImage = showNextPreviewImage;
+
+
+        function clearSelectedAttachments() {
+            selectedAttachments = [];
+            const input = document.getElementById('modalAttachmentInput');
+            if (input) input.value = '';
+            renderSelectedAttachments();
+        }
+
+        function removeSelectedAttachment(index) {
+            selectedAttachments.splice(index, 1);
+            renderSelectedAttachments();
+        }
+
+        function renderSelectedAttachments() {
+
+            const preview =
+                document.getElementById('modalAttachmentPreview');
+
+            const items =
+                document.getElementById('modalAttachmentItems');
+
+            if (!preview || !items) {
+                return;
+            }
+
+
+            // =====================================================
+            // NOTHING SELECTED
+            // =====================================================
+
+            if (!selectedAttachments.length) {
+
+                preview.classList.add('hidden');
+
+                items.innerHTML = '';
+
+                return;
+            }
+
+
+            preview.classList.remove('hidden');
+
+
+            // =====================================================
+            // CREATE ATTACHMENT THUMBNAILS
+            // =====================================================
+
+            const cards = selectedAttachments
+                .map((attachment, index) => {
+
+                    const isImage =
+                        isImageAttachment(attachment);
+
+
+                    // =================================================
+                    // IMAGE
+                    // =================================================
+
+                    if (isImage && attachment.url) {
+
+                        return `
+                            <div
+                                class="
+                                    group
+                                    relative
+                                    h-16
+                                    w-16
+                                    shrink-0
+                                    overflow-visible
+                                "
+                            >
+
+                                <div
+                                    class="
+                                        h-full
+                                        w-full
+                                        overflow-hidden
+                                        rounded-xl
+                                        bg-gray-100
+                                    "
+                                >
+                                    <img
+                                        src="${escapeHtml(attachment.url)}"
+                                        alt="${escapeHtml(attachment.name || 'Image')}"
+                                        class="
+                                            h-full
+                                            w-full
+                                            object-cover
+                                        "
+                                    >
+                                </div>
+
+
+                                <button
+                                    type="button"
+                                    data-remove-attachment="${index}"
+                                    class="
+                                        absolute
+                                        -right-1.5
+                                        -top-1.5
+                                        flex
+                                        h-5
+                                        w-5
+                                        items-center
+                                        justify-center
+                                        rounded-full
+                                        bg-gray-700
+                                        text-white
+                                        shadow
+                                        transition
+                                        hover:bg-gray-900
+                                    "
+                                    title="Remove"
+                                >
+                                    <i
+                                        data-lucide="x"
+                                        class="h-3 w-3"
+                                    ></i>
+                                </button>
+
+                            </div>
+                        `;
                     }
-                };
 
-                const response = await new Promise((resolve, reject) => {
-                    xhr.onload = () => resolve({
-                        status: xhr.status,
-                        data: JSON.parse(xhr.responseText)
-                    });
-                    xhr.onerror = () => reject(new Error('Upload failed'));
-                    xhr.send(formData);
+
+                    // =================================================
+                    // NORMAL FILE
+                    // PDF / WORD / EXCEL / ZIP ETC.
+                    // =================================================
+
+                    const icon =
+                        getFileIcon(
+                            attachment.type || '',
+                            attachment.extension || ''
+                        );
+
+                    return `
+                        <div
+                            class="
+                                relative
+                                flex
+                                h-16
+                                w-[150px]
+                                shrink-0
+                                items-center
+                                gap-2
+                                rounded-xl
+                                bg-gray-100
+                                px-3
+                            "
+                        >
+
+                            <div
+                                class="
+                                    flex
+                                    h-9
+                                    w-9
+                                    shrink-0
+                                    items-center
+                                    justify-center
+                                    rounded-lg
+                                    ${icon.color}
+                                "
+                            >
+                                <i
+                                    data-lucide="${icon.icon}"
+                                    class="h-4 w-4"
+                                ></i>
+                            </div>
+
+
+                            <div class="min-w-0 flex-1">
+
+                                <p
+                                    class="
+                                        truncate
+                                        text-xs
+                                        font-medium
+                                        text-gray-900
+                                    "
+                                >
+                                    ${escapeHtml(attachment.name || 'File')}
+                                </p>
+
+                                <p class="text-[10px] text-gray-500">
+                                    ${formatFileSize(attachment.size || 0)}
+                                </p>
+
+                            </div>
+
+
+                            <button
+                                type="button"
+                                data-remove-attachment="${index}"
+                                class="
+                                    absolute
+                                    -right-1.5
+                                    -top-1.5
+                                    flex
+                                    h-5
+                                    w-5
+                                    items-center
+                                    justify-center
+                                    rounded-full
+                                    bg-gray-700
+                                    text-white
+                                    shadow
+                                    hover:bg-gray-900
+                                "
+                                title="Remove"
+                            >
+                                <i
+                                    data-lucide="x"
+                                    class="h-3 w-3"
+                                ></i>
+                            </button>
+
+                        </div>
+                    `;
+
+                })
+                .join('');
+
+
+            // =====================================================
+            // ADD MORE BUTTON
+            //
+            // Same idea as Messenger's:
+            // "Upload another file"
+            // =====================================================
+
+            items.innerHTML = `
+
+                <button
+                    type="button"
+                    id="modalAttachmentAddMore"
+                    class="
+                        flex
+                        h-16
+                        w-12
+                        shrink-0
+                        items-center
+                        justify-center
+                        rounded-xl
+                        bg-gray-200
+                        text-gray-500
+                        transition
+                        hover:bg-gray-300
+                        hover:text-gray-900
+                    "
+                    title="Upload another file"
+                >
+                    <i
+                        data-lucide="plus"
+                        class="h-5 w-5"
+                    ></i>
+                </button>
+
+                ${cards}
+            `;
+
+
+            // =====================================================
+            // + BUTTON
+            // OPEN WINDOWS FILE EXPLORER AGAIN
+            // =====================================================
+
+            items
+                .querySelector('#modalAttachmentAddMore')
+                ?.addEventListener('click', () => {
+
+                    document
+                        .getElementById('modalAttachmentInput')
+                        ?.click();
+
                 });
 
-                if (response.status === 201) {
-                    selectedAttachment = response.data.data;
-                    if (progressBar) progressBar.classList.add('bg-emerald-500');
-                    if (progressBar) progressBar.style.width = '100%';
-                    setTimeout(() => {
-                        if (progressEl) progressEl.classList.add('hidden');
-                        if (progressBar) progressBar.classList.remove('bg-emerald-500');
-                        if (progressBar) progressBar.style.width = '0%';
-                    }, 1000);
-                } else {
-                    throw new Error(response.data.message || 'Upload failed');
+
+            // =====================================================
+            // X BUTTON
+            // REMOVE INDIVIDUAL ATTACHMENT
+            // =====================================================
+
+            items
+                .querySelectorAll('[data-remove-attachment]')
+                .forEach(button => {
+
+                    button.addEventListener('click', () => {
+
+                        removeSelectedAttachment(
+                            Number(
+                                button.dataset.removeAttachment
+                            )
+                        );
+
+                    });
+
+                });
+
+
+            lucideCreateIcons();
+        }
+
+        async function uploadModalAttachments(files) {
+            if (!files?.length || !currentConversationId) return;
+
+            const maxSize = 25 * 1024 * 1024;
+            for (const file of files) {
+                if (file.size > maxSize) {
+                    alert(`${file.name} must be less than 25MB.`);
+                    continue;
                 }
-            } catch (error) {
-                alert(error.message || 'Failed to upload file.');
-                clearSelectedAttachment();
+
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('conversation_id', currentConversationId);
+
+                try {
+                    const response = await fetch('/messages/upload', {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken
+                        },
+                        body: formData
+                    });
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(data.message || `Failed to upload ${file.name}.`);
+                    selectedAttachments.push(data.data);
+                    renderSelectedAttachments();
+                } catch (error) {
+                    alert(error.message || `Failed to upload ${file.name}.`);
+                }
             }
+
+            const input = document.getElementById('modalAttachmentInput');
+            if (input) input.value = '';
         }
 
         async function loadModalUsers(search = '') {
@@ -7312,7 +9995,6 @@
 
             const attachmentButton = document.getElementById('modalAttachmentButton');
             const attachmentInput = document.getElementById('modalAttachmentInput');
-            const attachmentRemove = document.getElementById('modalAttachmentRemove');
 
             if (attachmentButton && attachmentInput) {
                 attachmentButton.addEventListener('click', () => {
@@ -7320,18 +10002,13 @@
                 });
 
                 attachmentInput.addEventListener('change', (e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                        uploadModalAttachment(file);
+                    const files = Array.from(e.target.files || []);
+                    if (files.length) {
+                        uploadModalAttachments(files);
                     }
                 });
             }
 
-            if (attachmentRemove) {
-                attachmentRemove.addEventListener('click', () => {
-                    clearSelectedAttachment();
-                });
-            }
 
             const messagesContainer =
                 document.getElementById('modalMessagesContainer');
@@ -7675,10 +10352,120 @@
                 }
             }
         });
+
+        // =====================================================
+        // CONVERSATION SEARCH BUTTONS
+        // =====================================================
+
+        document
+            .getElementById(
+                'modalConversationSearchButton'
+            )
+            ?.addEventListener(
+                'click',
+                openConversationMessageSearch
+            );
+
+        document
+            .getElementById(
+                'modalConversationSearchClose'
+            )
+            ?.addEventListener(
+                'click',
+                closeConversationMessageSearch
+            );
+
+        document
+            .getElementById(
+                'modalConversationSearchPrevious'
+            )
+            ?.addEventListener(
+                'click',
+                () => {
+                    focusConversationSearchResult(
+                        conversationSearchIndex - 1
+                    );
+                }
+            );
+
+        document
+            .getElementById(
+                'modalConversationSearchNext'
+            )
+            ?.addEventListener(
+                'click',
+                () => {
+                    focusConversationSearchResult(
+                        conversationSearchIndex + 1
+                    );
+                }
+            );
+
+        document
+            .getElementById(
+                'modalConversationMessageSearch'
+            )
+            ?.addEventListener(
+                'input',
+                queueConversationSearch
+            );
+
+        document
+            .getElementById(
+                'modalConversationMessageSearch'
+            )
+            ?.addEventListener(
+                'keydown',
+                event => {
+
+                    if (event.key === 'Enter') {
+
+                        event.preventDefault();
+
+                        if (event.shiftKey) {
+                            focusConversationSearchResult(
+                                conversationSearchIndex - 1
+                            );
+                        } else {
+                            focusConversationSearchResult(
+                                conversationSearchIndex + 1
+                            );
+                        }
+                    }
+
+                    if (event.key === 'Escape') {
+                        closeConversationMessageSearch();
+                    }
+                }
+            );
+
+
     })();
+
 </script>
 
 <style>
+
+    /* ======================================
+    SEARCH INSIDE CONVERSATION
+    ====================================== */
+
+    .conversation-search-match .message-bubble {
+        outline: 1px solid rgba(17, 24, 39, 0.16);
+        outline-offset: 3px;
+        transition:
+            outline-color 0.2s ease,
+            box-shadow 0.2s ease,
+            transform 0.2s ease;
+    }
+
+    .conversation-search-current .message-bubble {
+        outline: 2px solid rgba(17, 24, 39, 0.55);
+        outline-offset: 3px;
+        box-shadow: 0 0 0 5px rgba(17, 24, 39, 0.08);
+    }
+
+
     /* ======================================
        KEYFRAMES
     ====================================== */
@@ -7944,21 +10731,20 @@
     ====================================== */
 
     #modalMessageInput {
-        transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+        background: transparent !important;
+        border: 0 !important;
+        box-shadow: none !important;
+        outline: none !important;
     }
 
     #modalMessageInput:focus {
-        border-color: #111827;
-        animation: inputFocusGlow 0.3s ease-out forwards;
-        background-color: #ffffff;
+        background: transparent !important;
+        border: 0 !important;
+        box-shadow: none !important;
+        outline: none !important;
     }
 
     #modalMessageInput::placeholder {
-        transition: color 0.2s ease, transform 0.2s ease;
-    }
-
-    #modalMessageInput:focus::placeholder {
-        transform: translateX(4px);
         color: #9CA3AF;
     }
 
