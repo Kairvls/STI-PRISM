@@ -121,9 +121,13 @@
 
                     {{-- ====================================== --}}
                     {{-- NORMAL CHAT HEADER --}}
-                    {{-- Search button is on the right --}}
+                    {{-- Info button opens the right sidebar --}}
+                    {{-- Search now lives inside that sidebar --}}
                     {{-- ====================================== --}}
-                    <div id="modalChatHeaderNormal" class="flex items-center gap-3 p-4">
+                    <div
+                        id="modalChatHeaderNormal"
+                        class="flex w-full min-w-0 items-center gap-3 py-4 pl-4 pr-14"
+                    >
                         <div id="modalChatAvatar" class="h-9 w-9 shrink-0 rounded-full bg-gradient-to-br from-emerald-100 to-emerald-200 flex items-center justify-center text-xs font-semibold text-emerald-700"></div>
 
                         <div class="min-w-0 flex-1">
@@ -131,15 +135,43 @@
                             <p id="modalChatSubtitle" class="text-xs text-gray-500 truncate"></p>
                         </div>
 
-                        <button
-                            type="button"
-                            id="modalConversationSearchButton"
-                            class="mr-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
-                            title="Search in conversation"
-                            aria-label="Search in conversation"
+                        {{-- ===================================================== --}}
+                        {{-- HEADER ACTIONS: AUDIO CALL / VIDEO CALL / INFO --}}
+                        {{-- ===================================================== --}}
+                        <div
+                            id="modalChatHeaderActions"
+                            class="ml-auto flex shrink-0 items-center justify-end gap-1"
                         >
-                            <i data-lucide="search" class="h-4 w-4"></i>
-                        </button>
+                            <button
+                                type="button"
+                                id="modalAudioCallButton"
+                                class="flex h-9 w-9 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
+                                title="Audio call"
+                                aria-label="Audio call"
+                            >
+                                <i data-lucide="phone" class="h-5 w-5"></i>
+                            </button>
+
+                            <button
+                                type="button"
+                                id="modalVideoCallButton"
+                                class="flex h-9 w-9 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
+                                title="Video call"
+                                aria-label="Video call"
+                            >
+                                <i data-lucide="video" class="h-5 w-5"></i>
+                            </button>
+
+                            <button
+                                type="button"
+                                id="modalConversationInfoButton"
+                                class="flex h-9 w-9 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
+                                title="Conversation info"
+                                aria-label="Conversation info"
+                            >
+                                <i data-lucide="info" class="h-5 w-5"></i>
+                            </button>
+                        </div>
                     </div>
 
                     {{-- ====================================== --}}
@@ -537,13 +569,653 @@
                 </div>
             </main>
 
+            {{-- ===================================================== --}}
+            {{-- CONVERSATION INFO / MEDIA & FILES RIGHT SIDEBAR --}}
+            {{-- ===================================================== --}}
+            <aside
+                id="modalConversationInfoSidebar"
+                class="
+                    hidden
+                    w-[330px]
+                    shrink-0
+                    flex-col
+                    overflow-hidden
+                    border-l
+                    border-gray-200
+                    bg-white
+                "
+            >
+                {{-- ============================================= --}}
+                {{-- MAIN INFO VIEW --}}
+                {{-- ============================================= --}}
+                <div
+                    id="modalConversationInfoHome"
+                    class="flex min-h-0 flex-1 flex-col"
+                >
+                    <div
+                        class="
+                            flex
+                            shrink-0
+                            items-center
+                            justify-between
+                            border-b
+                            border-gray-100
+                            px-4
+                            py-3
+                        "
+                    >
+                        <p class="text-sm font-semibold text-gray-900">
+                            Conversation info
+                        </p>
+
+                        {{-- ===================================================== --}}
+                        {{-- NO X HERE --}}
+                        {{-- Close this sidebar by clicking the header info icon again. --}}
+                        {{-- Hidden compatibility element keeps existing JS safe. --}}
+                        {{-- ===================================================== --}}
+                        <button
+                            type="button"
+                            id="modalConversationInfoClose"
+                            class="hidden"
+                            tabindex="-1"
+                            aria-hidden="true"
+                        ></button>
+                    </div>
+
+                    <div class="flex-1 overflow-y-auto px-4 py-5">
+
+                        {{-- USER --}}
+                        <div class="flex flex-col items-center text-center">
+                            <div
+                                id="modalConversationInfoAvatar"
+                                class="
+                                    flex
+                                    h-20
+                                    w-20
+                                    items-center
+                                    justify-center
+                                    overflow-hidden
+                                    rounded-full
+                                    bg-gray-200
+                                    text-xl
+                                    font-semibold
+                                    text-gray-600
+                                "
+                            ></div>
+
+                            <h3
+                                id="modalConversationInfoName"
+                                class="mt-3 text-base font-semibold text-gray-900"
+                            >
+                                Conversation
+                            </h3>
+
+                            <p
+                                id="modalConversationInfoStatus"
+                                class="mt-1 text-xs text-gray-500"
+                            ></p>
+                        </div>
+
+                        {{-- ===================================================== --}}
+                        {{-- SEARCH THIS CONVERSATION --}}
+                        {{-- Opens a dedicated right sidebar view like Messenger --}}
+                        {{-- ===================================================== --}}
+                        <div class="mt-5 flex justify-center">
+                            <button
+                                type="button"
+                                id="modalConversationSidebarSearchButton"
+                                class="
+                                    group
+                                    flex
+                                    flex-col
+                                    items-center
+                                    gap-1.5
+                                    text-sm
+                                    font-medium
+                                    text-gray-700
+                                "
+                            >
+                                {{-- ========================================= --}}
+                                {{-- ONLY THIS CIRCLE CHANGES ON HOVER --}}
+                                {{-- The button itself has no full-width BG. --}}
+                                {{-- ========================================= --}}
+                                <div
+                                    class="
+                                        flex
+                                        h-10
+                                        w-10
+                                        items-center
+                                        justify-center
+                                        rounded-full
+                                        bg-gray-100
+                                        text-gray-600
+                                        transition
+                                        group-hover:bg-gray-200
+                                        group-hover:text-gray-900
+                                    "
+                                >
+                                    <i data-lucide="search" class="h-5 w-5"></i>
+                                </div>
+
+                                <span>Search</span>
+                            </button>
+                        </div>
+
+                        {{-- ===================================================== --}}
+                        {{-- CHAT INFO --}}
+                        {{-- Messenger-style section above Media & files --}}
+                        {{-- ===================================================== --}}
+                        <div class="mt-2 border-t border-gray-100 pt-3">
+                            <button
+                                type="button"
+                                id="modalChatInfoAccordionButton"
+                                class="
+                                    flex
+                                    w-full
+                                    items-center
+                                    justify-between
+                                    rounded-lg
+                                    px-2
+                                    py-3
+                                    text-left
+                                    text-sm
+                                    font-semibold
+                                    text-gray-900
+                                    transition
+                                    hover:bg-gray-50
+                                "
+                            >
+                                <span>Chat info</span>
+
+                                <i
+                                    id="modalChatInfoAccordionChevron"
+                                    data-lucide="chevron-up"
+                                    class="h-4 w-4"
+                                ></i>
+                            </button>
+
+                            <div
+                                id="modalChatInfoAccordionContent"
+                                class="pb-2"
+                            >
+                                <button
+                                    type="button"
+                                    id="modalViewPinnedMessagesButton"
+                                    class="
+                                        flex
+                                        w-full
+                                        items-center
+                                        gap-3
+                                        rounded-lg
+                                        px-2
+                                        py-3
+                                        text-left
+                                        text-sm
+                                        font-semibold
+                                        text-gray-700
+                                        transition
+                                        hover:bg-gray-50
+                                    "
+                                >
+                                    <i data-lucide="pin" class="h-5 w-5"></i>
+
+                                    <span class="flex-1">
+                                        View pinned messages
+                                    </span>
+
+                                    <span
+                                        id="modalConversationPinnedCount"
+                                        class="text-xs text-gray-400"
+                                    >
+                                        0
+                                    </span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {{-- MEDIA AND FILES --}}
+                        <div class="mt-2 border-t border-gray-100 pt-3">
+                            <button
+                                type="button"
+                                id="modalMediaFilesAccordionButton"
+                                class="
+                                    flex
+                                    w-full
+                                    items-center
+                                    justify-between
+                                    rounded-lg
+                                    px-2
+                                    py-3
+                                    text-left
+                                    text-sm
+                                    font-semibold
+                                    text-gray-900
+                                    transition
+                                    hover:bg-gray-50
+                                "
+                            >
+                                <span>Media & files</span>
+
+                                <i
+                                    id="modalMediaFilesAccordionChevron"
+                                    data-lucide="chevron-up"
+                                    class="h-4 w-4"
+                                ></i>
+                            </button>
+
+                            <div
+                                id="modalMediaFilesAccordionContent"
+                                class="pb-2"
+                            >
+                                <button
+                                    type="button"
+                                    id="modalOpenConversationMedia"
+                                    class="
+                                        flex
+                                        w-full
+                                        items-center
+                                        gap-3
+                                        rounded-lg
+                                        px-2
+                                        py-3
+                                        text-left
+                                        text-sm
+                                        font-medium
+                                        text-gray-700
+                                        transition
+                                        hover:bg-gray-50
+                                    "
+                                >
+                                    <i data-lucide="image" class="h-5 w-5"></i>
+
+                                    <span class="flex-1">Media</span>
+
+                                    <span
+                                        id="modalConversationMediaCount"
+                                        class="text-xs text-gray-400"
+                                    >
+                                        0
+                                    </span>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    id="modalOpenConversationFiles"
+                                    class="
+                                        flex
+                                        w-full
+                                        items-center
+                                        gap-3
+                                        rounded-lg
+                                        px-2
+                                        py-3
+                                        text-left
+                                        text-sm
+                                        font-medium
+                                        text-gray-700
+                                        transition
+                                        hover:bg-gray-50
+                                    "
+                                >
+                                    <i data-lucide="file-text" class="h-5 w-5"></i>
+
+                                    <span class="flex-1">Files</span>
+
+                                    <span
+                                        id="modalConversationFileCount"
+                                        class="text-xs text-gray-400"
+                                    >
+                                        0
+                                    </span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- ===================================================== --}}
+                {{-- SEARCH CONVERSATION VIEW --}}
+                {{-- ===================================================== --}}
+                <div
+                    id="modalConversationSidebarSearchView"
+                    class="hidden min-h-0 flex-1 flex-col"
+                >
+                    {{-- HEADER --}}
+                    <div
+                        class="
+                            flex
+                            shrink-0
+                            items-center
+                            gap-3
+                            border-b
+                            border-gray-100
+                            px-4
+                            py-3
+                        "
+                    >
+                        <button
+                            type="button"
+                            id="modalConversationSidebarSearchBack"
+                            class="
+                                flex
+                                h-8
+                                w-8
+                                shrink-0
+                                items-center
+                                justify-center
+                                rounded-full
+                                text-gray-500
+                                transition
+                                hover:bg-gray-100
+                                hover:text-gray-900
+                            "
+                            title="Back"
+                            aria-label="Back"
+                        >
+                            <i data-lucide="arrow-left" class="h-4 w-4"></i>
+                        </button>
+
+                        <p class="text-sm font-semibold text-gray-900">
+                            Search
+                        </p>
+                    </div>
+
+                    {{-- SEARCH INPUT --}}
+                    <div class="shrink-0 px-4 pt-4">
+                        <div class="relative">
+                            <i
+                                data-lucide="search"
+                                class="
+                                    absolute
+                                    left-3
+                                    top-1/2
+                                    h-5
+                                    w-5
+                                    -translate-y-1/2
+                                    text-gray-400
+                                "
+                            ></i>
+
+                            <input
+                                type="text"
+                                id="modalConversationSidebarSearchInput"
+                                placeholder="Search in conversation"
+                                autocomplete="off"
+                                class="
+                                    w-full
+                                    rounded-full
+                                    border-0
+                                    bg-gray-100
+                                    py-2.5
+                                    pl-10
+                                    pr-10
+                                    text-sm
+                                    text-gray-900
+                                    outline-none
+                                    ring-0
+                                    placeholder:text-gray-400
+                                    focus:ring-2
+                                    focus:ring-gray-200
+                                "
+                            >
+
+                            <button
+                                type="button"
+                                id="modalConversationSidebarSearchClear"
+                                class="
+                                    absolute
+                                    right-2
+                                    top-1/2
+                                    hidden
+                                    h-7
+                                    w-7
+                                    -translate-y-1/2
+                                    items-center
+                                    justify-center
+                                    rounded-full
+                                    bg-gray-300
+                                    text-gray-600
+                                    transition
+                                    hover:bg-gray-400
+                                    hover:text-gray-900
+                                "
+                                title="Clear search"
+                            >
+                                <i data-lucide="x" class="h-4 w-4"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    {{-- STATUS BEFORE SEARCH --}}
+                    <div
+                        id="modalConversationSidebarSearchHint"
+                        class="
+                            flex
+                            flex-1
+                            items-start
+                            justify-center
+                            px-5
+                            pt-10
+                            text-center
+                            text-xs
+                            text-gray-500
+                        "
+                    >
+                        Type a word or phrase to search this conversation.
+                    </div>
+
+                    {{-- LOADING --}}
+                    <div
+                        id="modalConversationSidebarSearchLoading"
+                        class="
+                            hidden
+                            px-5
+                            pt-8
+                            text-center
+                            text-xs
+                            text-gray-500
+                        "
+                    >
+                        Searching conversation...
+                    </div>
+
+                    {{-- RESULTS HEADER --}}
+                    <div
+                        id="modalConversationSidebarSearchSummary"
+                        class="
+                            hidden
+                            shrink-0
+                            items-center
+                            justify-between
+                            px-4
+                            pb-2
+                            pt-4
+                        "
+                    >
+                        <p
+                            id="modalConversationSidebarSearchCount"
+                            class="text-xs font-medium text-gray-500"
+                        >
+                            0 results
+                        </p>
+                    </div>
+
+                    {{-- RESULTS --}}
+                    <div
+                        id="modalConversationSidebarSearchResults"
+                        class="
+                            hidden
+                            flex-1
+                            overflow-y-auto
+                            px-3
+                            pb-4
+                        "
+                    ></div>
+                </div>
+
+                {{-- ============================================= --}}
+                {{-- MEDIA / FILES RECORDS VIEW --}}
+                {{-- ============================================= --}}
+                <div
+                    id="modalConversationAssetsView"
+                    class="hidden min-h-0 flex-1 flex-col"
+                >
+                    <div
+                        class="
+                            flex
+                            shrink-0
+                            items-center
+                            gap-3
+                            border-b
+                            border-gray-100
+                            px-4
+                            py-3
+                        "
+                    >
+                        <button
+                            type="button"
+                            id="modalConversationAssetsBack"
+                            class="
+                                flex
+                                h-8
+                                w-8
+                                shrink-0
+                                items-center
+                                justify-center
+                                rounded-full
+                                text-gray-500
+                                transition
+                                hover:bg-gray-100
+                                hover:text-gray-900
+                            "
+                            title="Back"
+                        >
+                            <i data-lucide="arrow-left" class="h-4 w-4"></i>
+                        </button>
+
+                        <p class="text-sm font-semibold text-gray-900">
+                            Media and files
+                        </p>
+                    </div>
+
+                    {{-- TABS --}}
+                    <div
+                        class="
+                            flex
+                            shrink-0
+                            gap-5
+                            border-b
+                            border-gray-100
+                            px-4
+                            pt-3
+                        "
+                    >
+                        <button
+                            type="button"
+                            id="modalConversationMediaTab"
+                            class="
+                                border-b-2
+                                border-gray-900
+                                px-1
+                                pb-3
+                                text-sm
+                                font-semibold
+                                text-gray-900
+                            "
+                        >
+                            Media
+                        </button>
+
+                        <button
+                            type="button"
+                            id="modalConversationFilesTab"
+                            class="
+                                border-b-2
+                                border-transparent
+                                px-1
+                                pb-3
+                                text-sm
+                                font-semibold
+                                text-gray-500
+                            "
+                        >
+                            Files
+                        </button>
+                    </div>
+
+                    <div
+                        id="modalConversationAssetsLoading"
+                        class="hidden px-4 py-8 text-center text-sm text-gray-500"
+                    >
+                        Loading records...
+                    </div>
+
+                    <div
+                        id="modalConversationAssetsEmpty"
+                        class="hidden px-5 py-12 text-center"
+                    >
+                        <div
+                            class="
+                                mx-auto
+                                flex
+                                h-12
+                                w-12
+                                items-center
+                                justify-center
+                                rounded-full
+                                bg-gray-100
+                                text-gray-400
+                            "
+                        >
+                            <i data-lucide="folder-open" class="h-5 w-5"></i>
+                        </div>
+
+                        <p
+                            id="modalConversationAssetsEmptyTitle"
+                            class="mt-3 text-sm font-semibold text-gray-800"
+                        >
+                            No media yet
+                        </p>
+
+                        <p class="mt-1 text-xs text-gray-500">
+                            Shared attachments in this conversation will appear here.
+                        </p>
+                    </div>
+
+                    {{-- MEDIA GRID --}}
+                    <div
+                        id="modalConversationMediaGrid"
+                        class="
+                            grid
+                            flex-1
+                            grid-cols-3
+                            content-start
+                            gap-1
+                            overflow-y-auto
+                            p-3
+                        "
+                    ></div>
+
+                    {{-- FILE LIST --}}
+                    <div
+                        id="modalConversationFilesList"
+                        class="
+                            hidden
+                            flex-1
+                            overflow-y-auto
+                            p-3
+                        "
+                    ></div>
+                </div>
+            </aside>
+
             {{-- ===================================== --}}
             {{-- CLOSE BUTTON --}}
             {{-- ===================================== --}}
             <button
                 type="button"
                 id="messagingSmartCloseButton"
-                class="absolute top-4 right-4 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-gray-500 shadow-sm border border-gray-200 transition hover:bg-gray-100 hover:text-gray-900"
+                class="absolute top-4 right-4 z-20 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-gray-500 shadow-sm border border-gray-200 transition hover:bg-gray-100 hover:text-gray-900"
             >
                 <i data-lucide="x" class="h-4 w-4"></i>
             </button>
@@ -630,6 +1302,14 @@
         let imagePreviewIndex = 0;
         let imagePreviewMessageId = null;
 
+        // =====================================================
+        // CONVERSATION MEDIA & FILES SIDEBAR STATE
+        // =====================================================
+        let conversationAssets = [];
+        let conversationAssetsLoadedFor = null;
+        let conversationAssetsActiveTab = 'media';
+        let conversationAssetsLoading = false;
+
 
         // =====================================================
         // SEARCH INSIDE CURRENT CONVERSATION
@@ -638,6 +1318,13 @@
         let conversationSearchIndex = -1;
         let conversationSearchTimeout = null;
         let conversationSearchLoadingAll = false;
+        let conversationSearchLoadPromise = null;
+
+        // =====================================================
+        // RIGHT SIDEBAR SEARCH STATE
+        // =====================================================
+        let conversationSidebarSearchTimeout = null;
+        let conversationSidebarSearchRequest = 0;
 
         // =====================================================
         // USER ONLINE STATUS HEARTBEAT
@@ -1439,6 +2126,1813 @@
             };
         }
 
+        // =====================================================
+        // CONVERSATION INFO / MEDIA & FILES
+        //
+        // This uses the attachments already stored in messages.
+        // It loads every message page for the opened conversation,
+        // collects images and files, then gives the user one place
+        // to browse the complete attachment history.
+        // =====================================================
+
+        // =====================================================
+        // RIGHT SIDEBAR SEARCH
+        //
+        // Search was moved into Conversation Info.
+        // Results are shown in the right sidebar while the chat
+        // remains visible on the left, similar to Messenger.
+        // =====================================================
+
+        function escapeConversationSearchRegex(value) {
+            return String(value || '')
+                .replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+
+        function highlightConversationSearchText(text, query) {
+
+            const safeText = escapeHtml(String(text || ''));
+            const normalizedQuery = String(query || '').trim();
+
+            if (!normalizedQuery) {
+                return safeText;
+            }
+
+            const regex = new RegExp(
+                `(${escapeConversationSearchRegex(normalizedQuery)})`,
+                'ig'
+            );
+
+            return safeText.replace(
+                regex,
+                '<strong class="font-semibold text-gray-900">$1</strong>'
+            );
+        }
+
+
+        function getSidebarSearchMessageText(row) {
+
+            if (!row) {
+                return '';
+            }
+
+            const content =
+                String(
+                    row.dataset.messageContent || ''
+                ).trim();
+
+            const attachmentName =
+                String(
+                    row.querySelector(
+                        '[data-attachment-name]'
+                    )?.dataset.attachmentName ||
+                    ''
+                ).trim();
+
+            if (content) {
+                return content;
+            }
+
+            if (attachmentName) {
+                return attachmentName;
+            }
+
+            return 'Attachment';
+        }
+
+
+        function getSidebarSearchSenderName(row) {
+
+            if (!row) {
+                return '';
+            }
+
+            const isOwn =
+                Number(row.dataset.senderId) ===
+                Number(currentUserId);
+
+            if (isOwn) {
+                return 'You';
+            }
+
+            return (
+                currentConversationUserName ||
+                currentConversationUser?.user_full_name ||
+                'User'
+            );
+        }
+
+
+        function getSidebarSearchAvatarHtml(row) {
+
+            const isOwn =
+                Number(row?.dataset?.senderId) ===
+                Number(currentUserId);
+
+            // For your own messages use initials.
+            // The other participant uses the same avatar as
+            // Conversation Info.
+            if (isOwn) {
+                return `
+                    <div
+                        class="
+                            flex
+                            h-9
+                            w-9
+                            shrink-0
+                            items-center
+                            justify-center
+                            rounded-full
+                            bg-gray-200
+                            text-[11px]
+                            font-semibold
+                            text-gray-600
+                        "
+                    >
+                        You
+                    </div>
+                `;
+            }
+
+            const picture =
+                getConversationInfoPictureUrl(
+                    currentConversationUser || {}
+                );
+
+            if (picture) {
+                return `
+                    <img
+                        src="${escapeHtml(picture)}"
+                        alt="${escapeHtml(
+                            currentConversationUserName ||
+                            'User'
+                        )}"
+                        class="
+                            h-9
+                            w-9
+                            shrink-0
+                            rounded-full
+                            object-cover
+                        "
+                    >
+                `;
+            }
+
+            return `
+                <div
+                    class="
+                        flex
+                        h-9
+                        w-9
+                        shrink-0
+                        items-center
+                        justify-center
+                        rounded-full
+                        bg-gray-200
+                        text-[11px]
+                        font-semibold
+                        text-gray-600
+                    "
+                >
+                    ${escapeHtml(
+                        getInitials(
+                            currentConversationUserName ||
+                            'User'
+                        )
+                    )}
+                </div>
+            `;
+        }
+
+
+        function resetConversationSidebarSearch() {
+
+            if (conversationSidebarSearchTimeout) {
+                clearTimeout(
+                    conversationSidebarSearchTimeout
+                );
+
+                conversationSidebarSearchTimeout = null;
+            }
+
+            conversationSidebarSearchRequest++;
+
+            const input =
+                document.getElementById(
+                    'modalConversationSidebarSearchInput'
+                );
+
+            const clear =
+                document.getElementById(
+                    'modalConversationSidebarSearchClear'
+                );
+
+            const hint =
+                document.getElementById(
+                    'modalConversationSidebarSearchHint'
+                );
+
+            const loading =
+                document.getElementById(
+                    'modalConversationSidebarSearchLoading'
+                );
+
+            const summary =
+                document.getElementById(
+                    'modalConversationSidebarSearchSummary'
+                );
+
+            const results =
+                document.getElementById(
+                    'modalConversationSidebarSearchResults'
+                );
+
+            if (input) {
+                input.value = '';
+            }
+
+            clear?.classList.add('hidden');
+            clear?.classList.remove('flex');
+
+            hint?.classList.remove('hidden');
+
+            loading?.classList.add('hidden');
+
+            summary?.classList.add('hidden');
+            summary?.classList.remove('flex');
+
+            if (results) {
+                results.innerHTML = '';
+                results.classList.add('hidden');
+            }
+        }
+
+
+        function closeConversationSidebarSearchView() {
+
+            const home =
+                document.getElementById(
+                    'modalConversationInfoHome'
+                );
+
+            const searchView =
+                document.getElementById(
+                    'modalConversationSidebarSearchView'
+                );
+
+            searchView?.classList.add('hidden');
+            searchView?.classList.remove('flex');
+
+            home?.classList.remove('hidden');
+
+            resetConversationSidebarSearch();
+        }
+
+
+        function openConversationSidebarSearchView() {
+
+            if (!currentConversationId) {
+                return;
+            }
+
+            const home =
+                document.getElementById(
+                    'modalConversationInfoHome'
+                );
+
+            const assets =
+                document.getElementById(
+                    'modalConversationAssetsView'
+                );
+
+            const searchView =
+                document.getElementById(
+                    'modalConversationSidebarSearchView'
+                );
+
+            const input =
+                document.getElementById(
+                    'modalConversationSidebarSearchInput'
+                );
+
+            // Close Media / Files if it is currently open.
+            assets?.classList.add('hidden');
+            assets?.classList.remove('flex');
+
+            home?.classList.add('hidden');
+
+            searchView?.classList.remove('hidden');
+            searchView?.classList.add('flex');
+
+            resetConversationSidebarSearch();
+
+            lucideCreateIcons();
+
+            requestAnimationFrame(() => {
+                input?.focus();
+            });
+        }
+
+
+        async function searchConversationFromSidebar(query) {
+
+            const normalizedQuery =
+                String(query || '').trim();
+
+            const hint =
+                document.getElementById(
+                    'modalConversationSidebarSearchHint'
+                );
+
+            const loading =
+                document.getElementById(
+                    'modalConversationSidebarSearchLoading'
+                );
+
+            const summary =
+                document.getElementById(
+                    'modalConversationSidebarSearchSummary'
+                );
+
+            const count =
+                document.getElementById(
+                    'modalConversationSidebarSearchCount'
+                );
+
+            const results =
+                document.getElementById(
+                    'modalConversationSidebarSearchResults'
+                );
+
+            if (!results) {
+                return;
+            }
+
+            if (!normalizedQuery) {
+
+                hint?.classList.remove('hidden');
+                loading?.classList.add('hidden');
+
+                summary?.classList.add('hidden');
+                summary?.classList.remove('flex');
+
+                results.classList.add('hidden');
+                results.innerHTML = '';
+
+                return;
+            }
+
+            const requestId =
+                ++conversationSidebarSearchRequest;
+
+            hint?.classList.add('hidden');
+
+            loading?.classList.remove('hidden');
+
+            summary?.classList.add('hidden');
+            summary?.classList.remove('flex');
+
+            results.classList.add('hidden');
+            results.innerHTML = '';
+
+            // =============================================
+            // LOAD THE COMPLETE CONVERSATION FIRST
+            // =============================================
+            await loadAllMessagesForConversationSearch();
+
+            if (
+                requestId !==
+                conversationSidebarSearchRequest
+            ) {
+                return;
+            }
+
+            const currentInput =
+                document.getElementById(
+                    'modalConversationSidebarSearchInput'
+                );
+
+            if (
+                !currentInput ||
+                currentInput.value.trim() !==
+                    normalizedQuery
+            ) {
+                return;
+            }
+
+            const lowerQuery =
+                normalizedQuery.toLowerCase();
+
+            const rows =
+                Array.from(
+                    document.querySelectorAll(
+                        '#modalMessagesContainer .message-row'
+                    )
+                );
+
+            const matches =
+                rows
+                    .filter(row => {
+
+                        if (
+                            row.dataset.messageUnsent === '1'
+                        ) {
+                            return false;
+                        }
+
+                        const messageText =
+                            getSidebarSearchMessageText(row)
+                                .toLowerCase();
+
+                        return messageText.includes(
+                            lowerQuery
+                        );
+                    })
+                    .reverse();
+
+            loading?.classList.add('hidden');
+
+            summary?.classList.remove('hidden');
+            summary?.classList.add('flex');
+
+            results.classList.remove('hidden');
+
+            if (count) {
+                count.textContent =
+                    `${matches.length > 99 ? '99+' : matches.length} ${
+                        matches.length === 1
+                            ? 'result'
+                            : 'results'
+                    }`;
+            }
+
+            if (!matches.length) {
+
+                results.innerHTML = `
+                    <div
+                        class="
+                            px-4
+                            py-10
+                            text-center
+                            text-sm
+                            text-gray-500
+                        "
+                    >
+                        No messages found for
+                        <span class="font-medium text-gray-700">
+                            "${escapeHtml(normalizedQuery)}"
+                        </span>
+                    </div>
+                `;
+
+                return;
+            }
+
+            results.innerHTML =
+                matches
+                    .map((row, index) => {
+
+                        const sender =
+                            getSidebarSearchSenderName(row);
+
+                        const messageText =
+                            getSidebarSearchMessageText(row);
+
+                        const createdAt =
+                            row.dataset.createdAt || '';
+
+                        const relativeTime =
+                            createdAt
+                                ? formatMessageRelativeTime(
+                                    createdAt
+                                )
+                                : '';
+
+                        const messageId =
+                            row.dataset.messageId || '';
+
+                        return `
+                            <button
+                                type="button"
+                                data-sidebar-search-message-id="${escapeHtml(
+                                    messageId
+                                )}"
+                                class="
+                                    flex
+                                    w-full
+                                    items-start
+                                    gap-3
+                                    rounded-xl
+                                    px-3
+                                    py-3
+                                    text-left
+                                    transition
+                                    hover:bg-gray-100
+                                "
+                            >
+                                ${getSidebarSearchAvatarHtml(row)}
+
+                                <div class="min-w-0 flex-1">
+                                    <div
+                                        class="
+                                            flex
+                                            min-w-0
+                                            items-baseline
+                                            gap-1.5
+                                        "
+                                    >
+                                        <p
+                                            class="
+                                                truncate
+                                                text-sm
+                                                font-semibold
+                                                text-gray-900
+                                            "
+                                        >
+                                            ${escapeHtml(sender)}
+                                        </p>
+
+                                        ${
+                                            relativeTime
+                                                ? `
+                                                    <span
+                                                        class="
+                                                            shrink-0
+                                                            text-xs
+                                                            text-gray-400
+                                                        "
+                                                    >
+                                                        · ${escapeHtml(relativeTime)}
+                                                    </span>
+                                                `
+                                                : ''
+                                        }
+                                    </div>
+
+                                    <p
+                                        class="
+                                            mt-0.5
+                                            line-clamp-2
+                                            text-xs
+                                            leading-5
+                                            text-gray-500
+                                        "
+                                    >
+                                        ${highlightConversationSearchText(
+                                            messageText,
+                                            normalizedQuery
+                                        )}
+                                    </p>
+                                </div>
+                            </button>
+                        `;
+                    })
+                    .join('');
+        }
+
+
+        function queueConversationSidebarSearch() {
+
+            const input =
+                document.getElementById(
+                    'modalConversationSidebarSearchInput'
+                );
+
+            const clear =
+                document.getElementById(
+                    'modalConversationSidebarSearchClear'
+                );
+
+            if (!input) {
+                return;
+            }
+
+            const query =
+                input.value.trim();
+
+            clear?.classList.toggle(
+                'hidden',
+                !query
+            );
+
+            clear?.classList.toggle(
+                'flex',
+                Boolean(query)
+            );
+
+            if (conversationSidebarSearchTimeout) {
+                clearTimeout(
+                    conversationSidebarSearchTimeout
+                );
+            }
+
+            if (!query) {
+                searchConversationFromSidebar('');
+                return;
+            }
+
+            conversationSidebarSearchTimeout =
+                setTimeout(
+                    () =>
+                        searchConversationFromSidebar(
+                            query
+                        ),
+                    300
+                );
+        }
+
+
+        function jumpToSidebarSearchMessage(messageId) {
+
+            if (!messageId) {
+                return;
+            }
+
+            const target =
+                document.querySelector(
+                    `#modalMessagesContainer .message-row[data-message-id="${CSS.escape(
+                        String(messageId)
+                    )}"]`
+                );
+
+            if (!target) {
+                return;
+            }
+
+            document
+                .querySelectorAll(
+                    '#modalMessagesContainer .sidebar-search-selected'
+                )
+                .forEach(row => {
+                    row.classList.remove(
+                        'sidebar-search-selected'
+                    );
+                });
+
+            // =====================================================
+            // BORDER ONLY THE ACTUAL MESSAGE BUBBLE
+            //
+            // Do not highlight the full message row.
+            // This matches Messenger more closely.
+            // =====================================================
+            const bubble =
+                target.querySelector(
+                    '.message-bubble'
+                );
+
+            const highlightTarget =
+                bubble || target;
+
+            highlightTarget.classList.add(
+                'sidebar-search-selected',
+                'ring-2',
+                'ring-gray-400',
+                'ring-offset-1'
+            );
+
+            target.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center'
+            });
+
+            setTimeout(() => {
+                highlightTarget.classList.remove(
+                    'sidebar-search-selected',
+                    'ring-2',
+                    'ring-gray-400',
+                    'ring-offset-1'
+                );
+            }, 2200);
+        }
+
+
+        function getConversationInfoPictureUrl(user) {
+
+            const picture =
+                user?.user_profile_picture ||
+                user?.profile_picture ||
+                '';
+
+            if (!picture) {
+                return '';
+            }
+
+            let src = String(picture);
+
+            if (
+                !/^https?:\/\//i.test(src) &&
+                !src.startsWith('/')
+            ) {
+                src =
+                    `/storage/${src.replace(/^storage\//, '')}`;
+            }
+
+            return src;
+        }
+
+
+        function refreshConversationInfoProfile() {
+
+            const avatar =
+                document.getElementById(
+                    'modalConversationInfoAvatar'
+                );
+
+            const name =
+                document.getElementById(
+                    'modalConversationInfoName'
+                );
+
+            const status =
+                document.getElementById(
+                    'modalConversationInfoStatus'
+                );
+
+            const user =
+                currentConversationUser || {};
+
+            const displayName =
+                currentConversationUserName ||
+                user.user_full_name ||
+                'Conversation';
+
+            if (name) {
+                name.textContent = displayName;
+            }
+
+            if (status) {
+                status.textContent =
+                    formatUserActivity(
+                        user.last_active_at
+                    );
+            }
+
+            if (!avatar) {
+                return;
+            }
+
+            const picture =
+                getConversationInfoPictureUrl(user);
+
+            if (picture) {
+                avatar.innerHTML = `
+                    <img
+                        src="${escapeHtml(picture)}"
+                        alt="${escapeHtml(displayName)}"
+                        class="h-full w-full object-cover"
+                    >
+                `;
+            } else {
+                avatar.textContent =
+                    getInitials(displayName);
+            }
+        }
+
+
+        function resetConversationAssets() {
+
+            conversationAssets = [];
+            conversationAssetsLoadedFor = null;
+            conversationAssetsActiveTab = 'media';
+            conversationAssetsLoading = false;
+
+            const mediaGrid =
+                document.getElementById(
+                    'modalConversationMediaGrid'
+                );
+
+            const filesList =
+                document.getElementById(
+                    'modalConversationFilesList'
+                );
+
+            if (mediaGrid) {
+                mediaGrid.innerHTML = '';
+            }
+
+            if (filesList) {
+                filesList.innerHTML = '';
+            }
+
+            updateConversationAssetCounts();
+        }
+
+
+        function updateConversationAssetCounts() {
+
+            const mediaCount =
+                conversationAssets.filter(
+                    item => item.kind === 'media'
+                ).length;
+
+            const fileCount =
+                conversationAssets.filter(
+                    item => item.kind === 'file'
+                ).length;
+
+            const mediaCountElement =
+                document.getElementById(
+                    'modalConversationMediaCount'
+                );
+
+            const fileCountElement =
+                document.getElementById(
+                    'modalConversationFileCount'
+                );
+
+            if (mediaCountElement) {
+                mediaCountElement.textContent =
+                    String(mediaCount);
+            }
+
+            if (fileCountElement) {
+                fileCountElement.textContent =
+                    String(fileCount);
+            }
+        }
+
+
+        function collectConversationAssetsFromMessage(
+            msg,
+            seen
+        ) {
+
+            if (!msg || msg.is_unsent) {
+                return;
+            }
+
+            const rawAttachments =
+                Array.isArray(msg.attachments)
+                    ? msg.attachments
+                    : (
+                        msg.attachment
+                            ? [msg.attachment]
+                            : []
+                    );
+
+            const attachments =
+                normalizeAttachments(rawAttachments);
+
+            attachments.forEach(attachment => {
+
+                const url =
+                    String(
+                        attachment.url || ''
+                    );
+
+                if (!url) {
+                    return;
+                }
+
+                const key =
+                    String(
+                        attachment.attachment_id ||
+                        attachment.id ||
+                        `${msg.message_id || ''}::${url}`
+                    );
+
+                if (seen.has(key)) {
+                    return;
+                }
+
+                seen.add(key);
+
+                conversationAssets.push({
+                    key,
+                    messageId:
+                        msg.message_id || null,
+                    createdAt:
+                        msg.created_at || null,
+                    senderName:
+                        msg.sender?.user_full_name ||
+                        msg.sender?.name ||
+                        '',
+                    kind:
+                        isImageAttachment(attachment)
+                            ? 'media'
+                            : 'file',
+                    attachment
+                });
+            });
+        }
+
+
+        async function loadConversationAssets(
+            force = false
+        ) {
+
+            if (
+                !currentConversationId ||
+                conversationAssetsLoading
+            ) {
+                return;
+            }
+
+            if (
+                !force &&
+                Number(conversationAssetsLoadedFor) ===
+                    Number(currentConversationId)
+            ) {
+                renderConversationAssets();
+                return;
+            }
+
+            conversationAssetsLoading = true;
+
+            const loading =
+                document.getElementById(
+                    'modalConversationAssetsLoading'
+                );
+
+            loading?.classList.remove('hidden');
+
+            conversationAssets = [];
+
+            try {
+
+                // =============================================
+                // LOAD EVERY MESSAGE PAGE DIRECTLY
+                //
+                // This does not depend on what is currently
+                // visible in the chat window.
+                // =============================================
+
+                let page = 1;
+                let keepLoading = true;
+                const seen = new Set();
+
+                while (keepLoading) {
+
+                    const response =
+                        await fetch(
+                            `/messages/conversations/${currentConversationId}/messages?page=${page}`,
+                            {
+                                headers: {
+                                    'Accept':
+                                        'application/json'
+                                }
+                            }
+                        );
+
+                    if (!response.ok) {
+                        break;
+                    }
+
+                    const payload =
+                        await response.json();
+
+                    const paginator =
+                        payload.data || {};
+
+                    const messages =
+                        Array.isArray(paginator.data)
+                            ? paginator.data
+                            : [];
+
+                    messages.forEach(msg => {
+                        collectConversationAssetsFromMessage(
+                            msg,
+                            seen
+                        );
+                    });
+
+                    if (!messages.length) {
+                        break;
+                    }
+
+                    const currentPage =
+                        Number(
+                            paginator.current_page ||
+                            page
+                        );
+
+                    const lastPage =
+                        Number(
+                            paginator.last_page ||
+                            currentPage
+                        );
+
+                    if (
+                        currentPage >= lastPage ||
+                        !paginator.next_page_url
+                    ) {
+                        keepLoading = false;
+                    } else {
+                        page++;
+                    }
+                }
+
+                // Newest attachments first.
+                conversationAssets.sort(
+                    (a, b) =>
+                        new Date(b.createdAt || 0) -
+                        new Date(a.createdAt || 0)
+                );
+
+                conversationAssetsLoadedFor =
+                    currentConversationId;
+
+                updateConversationAssetCounts();
+                renderConversationAssets();
+
+            } catch (error) {
+
+                console.error(
+                    'Unable to load conversation media and files:',
+                    error
+                );
+
+            } finally {
+
+                conversationAssetsLoading = false;
+                loading?.classList.add('hidden');
+            }
+        }
+
+
+        function renderConversationAssets() {
+
+            const mediaGrid =
+                document.getElementById(
+                    'modalConversationMediaGrid'
+                );
+
+            const filesList =
+                document.getElementById(
+                    'modalConversationFilesList'
+                );
+
+            const empty =
+                document.getElementById(
+                    'modalConversationAssetsEmpty'
+                );
+
+            const emptyTitle =
+                document.getElementById(
+                    'modalConversationAssetsEmptyTitle'
+                );
+
+            if (!mediaGrid || !filesList) {
+                return;
+            }
+
+            const isMedia =
+                conversationAssetsActiveTab === 'media';
+
+            const records =
+                conversationAssets.filter(
+                    item =>
+                        item.kind ===
+                        conversationAssetsActiveTab
+                );
+
+            mediaGrid.classList.toggle(
+                'hidden',
+                !isMedia
+            );
+
+            filesList.classList.toggle(
+                'hidden',
+                isMedia
+            );
+
+            if (empty) {
+                empty.classList.toggle(
+                    'hidden',
+                    records.length > 0
+                );
+            }
+
+            if (emptyTitle) {
+                emptyTitle.textContent =
+                    isMedia
+                        ? 'No media yet'
+                        : 'No files yet';
+            }
+
+            if (isMedia) {
+
+                mediaGrid.innerHTML =
+                    records
+                        .map((item, index) => {
+
+                            const attachment =
+                                item.attachment;
+
+                            return `
+                                <button
+                                    type="button"
+                                    class="
+                                        group
+                                        relative
+                                        aspect-square
+                                        overflow-hidden
+                                        rounded-md
+                                        bg-gray-100
+                                    "
+                                    data-conversation-asset-index="${index}"
+                                    title="${escapeHtml(
+                                        attachment.name ||
+                                        'Image'
+                                    )}"
+                                >
+                                    <img
+                                        src="${escapeHtml(
+                                            attachment.url || ''
+                                        )}"
+                                        alt="${escapeHtml(
+                                            attachment.name ||
+                                            'Image'
+                                        )}"
+                                        class="
+                                            h-full
+                                            w-full
+                                            object-cover
+                                            transition
+                                            duration-200
+                                            group-hover:scale-105
+                                        "
+                                        loading="lazy"
+                                    >
+                                </button>
+                            `;
+                        })
+                        .join('');
+
+            } else {
+
+                filesList.innerHTML =
+                    records
+                        .map(item => {
+
+                            const attachment =
+                                item.attachment;
+
+                            const fileName =
+                                attachment.name ||
+                                'File';
+
+                            const fileSize =
+                                formatFileSize(
+                                    Number(
+                                        attachment.size || 0
+                                    )
+                                );
+
+                            const extension =
+                                String(
+                                    attachment.extension ||
+                                    fileName.split('.').pop() ||
+                                    ''
+                                ).toUpperCase();
+
+                            return `
+                                <a
+                                    href="${escapeHtml(
+                                        attachment.url || '#'
+                                    )}"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    download="${escapeHtml(
+                                        fileName
+                                    )}"
+                                    class="
+                                        flex
+                                        items-center
+                                        gap-3
+                                        rounded-xl
+                                        px-3
+                                        py-3
+                                        transition
+                                        hover:bg-gray-50
+                                    "
+                                >
+                                    <div
+                                        class="
+                                            flex
+                                            h-10
+                                            w-10
+                                            shrink-0
+                                            items-center
+                                            justify-center
+                                            rounded-lg
+                                            bg-gray-100
+                                            text-gray-600
+                                        "
+                                    >
+                                        <i
+                                            data-lucide="file-text"
+                                            class="h-5 w-5"
+                                        ></i>
+                                    </div>
+
+                                    <div class="min-w-0 flex-1">
+                                        <p
+                                            class="
+                                                truncate
+                                                text-sm
+                                                font-medium
+                                                text-gray-900
+                                            "
+                                        >
+                                            ${escapeHtml(fileName)}
+                                        </p>
+
+                                        <p
+                                            class="
+                                                mt-0.5
+                                                text-xs
+                                                text-gray-500
+                                            "
+                                        >
+                                            ${escapeHtml(
+                                                [
+                                                    extension,
+                                                    fileSize
+                                                ]
+                                                .filter(Boolean)
+                                                .join(' · ')
+                                            )}
+                                        </p>
+                                    </div>
+
+                                    <i
+                                        data-lucide="download"
+                                        class="
+                                            h-4
+                                            w-4
+                                            shrink-0
+                                            text-gray-400
+                                        "
+                                    ></i>
+                                </a>
+                            `;
+                        })
+                        .join('');
+            }
+
+            lucideCreateIcons();
+        }
+
+
+        function setConversationAssetsTab(tab) {
+
+            conversationAssetsActiveTab =
+                tab === 'file'
+                    ? 'file'
+                    : 'media';
+
+            const mediaTab =
+                document.getElementById(
+                    'modalConversationMediaTab'
+                );
+
+            const filesTab =
+                document.getElementById(
+                    'modalConversationFilesTab'
+                );
+
+            const mediaActive =
+                conversationAssetsActiveTab === 'media';
+
+            mediaTab?.classList.toggle(
+                'border-gray-900',
+                mediaActive
+            );
+
+            mediaTab?.classList.toggle(
+                'text-gray-900',
+                mediaActive
+            );
+
+            mediaTab?.classList.toggle(
+                'border-transparent',
+                !mediaActive
+            );
+
+            mediaTab?.classList.toggle(
+                'text-gray-500',
+                !mediaActive
+            );
+
+            filesTab?.classList.toggle(
+                'border-gray-900',
+                !mediaActive
+            );
+
+            filesTab?.classList.toggle(
+                'text-gray-900',
+                !mediaActive
+            );
+
+            filesTab?.classList.toggle(
+                'border-transparent',
+                mediaActive
+            );
+
+            filesTab?.classList.toggle(
+                'text-gray-500',
+                mediaActive
+            );
+
+            renderConversationAssets();
+        }
+
+
+        async function openConversationAssetsView(
+            tab = 'media'
+        ) {
+
+            const home =
+                document.getElementById(
+                    'modalConversationInfoHome'
+                );
+
+            const assets =
+                document.getElementById(
+                    'modalConversationAssetsView'
+                );
+
+            home?.classList.add('hidden');
+
+            assets?.classList.remove('hidden');
+            assets?.classList.add('flex');
+
+            setConversationAssetsTab(tab);
+
+            await loadConversationAssets();
+        }
+
+
+        function closeConversationAssetsView() {
+
+            const home =
+                document.getElementById(
+                    'modalConversationInfoHome'
+                );
+
+            const assets =
+                document.getElementById(
+                    'modalConversationAssetsView'
+                );
+
+            assets?.classList.add('hidden');
+            assets?.classList.remove('flex');
+
+            home?.classList.remove('hidden');
+        }
+
+
+        async function openConversationInfoSidebar() {
+
+            if (!currentConversationId) {
+                return;
+            }
+
+            const sidebar =
+                document.getElementById(
+                    'modalConversationInfoSidebar'
+                );
+
+            if (!sidebar) {
+                return;
+            }
+
+            refreshConversationInfoProfile();
+
+            sidebar.classList.remove('hidden');
+            sidebar.classList.add('flex');
+
+            // =====================================================
+            // HIDE MAIN MODAL X WHILE CONVERSATION INFO IS OPEN
+            // User closes this sidebar with the info icon instead.
+            // =====================================================
+            document
+                .getElementById('messagingSmartCloseButton')
+                ?.classList.add('hidden');
+
+            const chatHeaderNormal =
+                document.getElementById('modalChatHeaderNormal');
+
+            chatHeaderNormal?.classList.remove('pr-14');
+            chatHeaderNormal?.classList.add('pr-4');
+
+            closeConversationAssetsView();
+
+            lucideCreateIcons();
+
+            // Preload counts so Media and Files immediately show
+            // how many records exist in this conversation.
+            await Promise.all([
+                loadConversationAssets(),
+                updatePinnedMessagesCount()
+            ]);
+        }
+
+
+        function closeConversationInfoSidebar() {
+
+            const sidebar =
+                document.getElementById(
+                    'modalConversationInfoSidebar'
+                );
+
+            sidebar?.classList.add('hidden');
+            sidebar?.classList.remove('flex');
+
+            // =====================================================
+            // SHOW MAIN MODAL X AGAIN AFTER INFO SIDEBAR CLOSES
+            // =====================================================
+            document
+                .getElementById('messagingSmartCloseButton')
+                ?.classList.remove('hidden');
+
+            const chatHeaderNormal =
+                document.getElementById('modalChatHeaderNormal');
+
+            chatHeaderNormal?.classList.remove('pr-4');
+            chatHeaderNormal?.classList.add('pr-14');
+
+            closeConversationAssetsView();
+            closeConversationSidebarSearchView();
+        }
+
+
+        // =====================================================
+        // CHAT INFO ACCORDION
+        // =====================================================
+        function toggleChatInfoAccordion() {
+
+            const content =
+                document.getElementById(
+                    'modalChatInfoAccordionContent'
+                );
+
+            const chevron =
+                document.getElementById(
+                    'modalChatInfoAccordionChevron'
+                );
+
+            if (!content) {
+                return;
+            }
+
+            const willHide =
+                !content.classList.contains('hidden');
+
+            content.classList.toggle(
+                'hidden',
+                willHide
+            );
+
+            if (chevron) {
+                chevron.setAttribute(
+                    'data-lucide',
+                    willHide
+                        ? 'chevron-down'
+                        : 'chevron-up'
+                );
+
+                lucideCreateIcons();
+            }
+        }
+
+
+        function toggleMediaFilesAccordion() {
+
+            const content =
+                document.getElementById(
+                    'modalMediaFilesAccordionContent'
+                );
+
+            const chevron =
+                document.getElementById(
+                    'modalMediaFilesAccordionChevron'
+                );
+
+            if (!content) {
+                return;
+            }
+
+            const willHide =
+                !content.classList.contains('hidden');
+
+            content.classList.toggle(
+                'hidden',
+                willHide
+            );
+
+            if (chevron) {
+                chevron.setAttribute(
+                    'data-lucide',
+                    willHide
+                        ? 'chevron-down'
+                        : 'chevron-up'
+                );
+
+                lucideCreateIcons();
+            }
+        }
+
+
+        // =====================================================
+        // AUDIO AND VIDEO CALL BUTTONS
+        //
+        // UI is ready. Real calling requires WebRTC and signaling.
+        // These logs make the buttons safe until call logic is added.
+        // =====================================================
+        document
+            .getElementById('modalAudioCallButton')
+            ?.addEventListener(
+                'click',
+                () => {
+                    console.log(
+                        'Audio call requested:',
+                        currentConversationId
+                    );
+                }
+            );
+
+        document
+            .getElementById('modalVideoCallButton')
+            ?.addEventListener(
+                'click',
+                () => {
+                    console.log(
+                        'Video call requested:',
+                        currentConversationId
+                    );
+                }
+            );
+
+
+        // =====================================================
+        // CONVERSATION INFO BUTTON
+        //
+        // Click once  = open sidebar
+        // Click again = close sidebar
+        // =====================================================
+        document
+            .getElementById(
+                'modalConversationInfoButton'
+            )
+            ?.addEventListener(
+                'click',
+                () => {
+                    const sidebar =
+                        document.getElementById(
+                            'modalConversationInfoSidebar'
+                        );
+
+                    if (!sidebar) {
+                        return;
+                    }
+
+                    const isOpen =
+                        !sidebar.classList.contains('hidden');
+
+                    if (isOpen) {
+                        closeConversationInfoSidebar();
+                        return;
+                    }
+
+                    openConversationInfoSidebar();
+                }
+            );
+
+
+        document
+            .getElementById(
+                'modalConversationInfoClose'
+            )
+            ?.addEventListener(
+                'click',
+                closeConversationInfoSidebar
+            );
+
+
+        // =====================================================
+        // CHAT INFO SIDEBAR CONTROLS
+        // =====================================================
+        document
+            .getElementById(
+                'modalChatInfoAccordionButton'
+            )
+            ?.addEventListener(
+                'click',
+                toggleChatInfoAccordion
+            );
+
+
+        document
+            .getElementById(
+                'modalViewPinnedMessagesButton'
+            )
+            ?.addEventListener(
+                'click',
+                openPinnedMessagesModal
+            );
+
+
+        // =====================================================
+        // SEARCH BUTTON INSIDE CONVERSATION INFO SIDEBAR
+        // =====================================================
+        document
+            .getElementById(
+                'modalConversationSidebarSearchButton'
+            )
+            ?.addEventListener(
+                'click',
+                openConversationSidebarSearchView
+            );
+
+
+        document
+            .getElementById(
+                'modalConversationSidebarSearchBack'
+            )
+            ?.addEventListener(
+                'click',
+                closeConversationSidebarSearchView
+            );
+
+
+        document
+            .getElementById(
+                'modalConversationSidebarSearchInput'
+            )
+            ?.addEventListener(
+                'input',
+                queueConversationSidebarSearch
+            );
+
+
+        document
+            .getElementById(
+                'modalConversationSidebarSearchClear'
+            )
+            ?.addEventListener(
+                'click',
+                () => {
+
+                    const input =
+                        document.getElementById(
+                            'modalConversationSidebarSearchInput'
+                        );
+
+                    if (input) {
+                        input.value = '';
+                        input.focus();
+                    }
+
+                    queueConversationSidebarSearch();
+                }
+            );
+
+
+        document
+            .getElementById(
+                'modalConversationSidebarSearchResults'
+            )
+            ?.addEventListener(
+                'click',
+                event => {
+
+                    const result =
+                        event.target.closest(
+                            '[data-sidebar-search-message-id]'
+                        );
+
+                    if (!result) {
+                        return;
+                    }
+
+                    jumpToSidebarSearchMessage(
+                        result.dataset
+                            .sidebarSearchMessageId
+                    );
+                }
+            );
+
+
+        document
+            .getElementById(
+                'modalMediaFilesAccordionButton'
+            )
+            ?.addEventListener(
+                'click',
+                toggleMediaFilesAccordion
+            );
+
+
+        document
+            .getElementById(
+                'modalOpenConversationMedia'
+            )
+            ?.addEventListener(
+                'click',
+                () =>
+                    openConversationAssetsView(
+                        'media'
+                    )
+            );
+
+
+        document
+            .getElementById(
+                'modalOpenConversationFiles'
+            )
+            ?.addEventListener(
+                'click',
+                () =>
+                    openConversationAssetsView(
+                        'file'
+                    )
+            );
+
+
+        document
+            .getElementById(
+                'modalConversationAssetsBack'
+            )
+            ?.addEventListener(
+                'click',
+                closeConversationAssetsView
+            );
+
+
+        document
+            .getElementById(
+                'modalConversationMediaTab'
+            )
+            ?.addEventListener(
+                'click',
+                () =>
+                    setConversationAssetsTab(
+                        'media'
+                    )
+            );
+
+
+        document
+            .getElementById(
+                'modalConversationFilesTab'
+            )
+            ?.addEventListener(
+                'click',
+                () =>
+                    setConversationAssetsTab(
+                        'file'
+                    )
+            );
+
+
+        document
+            .getElementById(
+                'modalConversationMediaGrid'
+            )
+            ?.addEventListener(
+                'click',
+                event => {
+
+                    const button =
+                        event.target.closest(
+                            '[data-conversation-asset-index]'
+                        );
+
+                    if (!button) {
+                        return;
+                    }
+
+                    const records =
+                        conversationAssets.filter(
+                            item =>
+                                item.kind === 'media'
+                        );
+
+                    const item =
+                        records[
+                            Number(
+                                button.dataset
+                                    .conversationAssetIndex
+                            )
+                        ];
+
+                    if (!item) {
+                        return;
+                    }
+
+                    // Reuse the existing Messenger style
+                    // full image preview already in this file.
+                    openImagePreviewFromMessage(
+                        null,
+                        item.attachment.url || '',
+                        item.attachment.name || 'Image'
+                    );
+                }
+            );
+
+
         window.openMessagingModal = function() {
             const modal = document.getElementById('messagingModal');
             const backdrop = document.getElementById('messagingModalBackdrop');
@@ -1656,45 +4150,69 @@
 
         async function loadAllMessagesForConversationSearch() {
 
-            if (
-                !currentConversationId ||
-                conversationSearchLoadingAll
-            ) {
+            if (!currentConversationId) {
+                return;
+            }
+
+            // =============================================
+            // ALREADY LOADING
+            // Wait for the existing loading process.
+            // =============================================
+            if (conversationSearchLoadPromise) {
+                await conversationSearchLoadPromise;
+                return;
+            }
+
+            // =============================================
+            // EVERYTHING IS ALREADY LOADED
+            // Nothing else needs to be fetched.
+            // =============================================
+            if (!hasMoreMessages) {
                 return;
             }
 
             conversationSearchLoadingAll = true;
 
-            const count =
-                document.getElementById(
-                    'modalConversationSearchCount'
-                );
+            conversationSearchLoadPromise = (async () => {
 
-            if (count) {
-                count.textContent = 'Searching...';
-            }
+                try {
 
-            // =============================================
-            // LOAD EVERY OLDER PAGINATED PAGE
-            // =============================================
-            while (hasMoreMessages) {
+                    // =============================================
+                    // LOAD EVERY OLDER MESSAGE PAGE
+                    // =============================================
+                    while (hasMoreMessages) {
 
-                if (isLoadingMessages) {
-                    await new Promise(
-                        resolve => setTimeout(resolve, 80)
-                    );
-                    continue;
+                        // Another message request may currently
+                        // be running. Wait until it finishes.
+                        while (isLoadingMessages) {
+                            await new Promise(
+                                resolve => setTimeout(resolve, 80)
+                            );
+                        }
+
+                        // Check again because the request that
+                        // just finished may have reached the end.
+                        if (!hasMoreMessages) {
+                            break;
+                        }
+
+                        messagesPage++;
+
+                        await loadModalMessages(
+                            currentConversationId,
+                            true
+                        );
+                    }
+
+                } finally {
+
+                    conversationSearchLoadingAll = false;
+                    conversationSearchLoadPromise = null;
                 }
 
-                messagesPage++;
+            })();
 
-                await loadModalMessages(
-                    currentConversationId,
-                    true
-                );
-            }
-
-            conversationSearchLoadingAll = false;
+            await conversationSearchLoadPromise;
         }
 
 
@@ -1995,6 +4513,8 @@
         function resetModalChat() {
             cancelReply();
             closeConversationMessageSearch();
+            closeConversationInfoSidebar();
+            resetConversationAssets();
             currentConversationId = null;
             messagesPage = 1;
             isLoadingMessages = false;
@@ -2680,6 +5200,14 @@
         async function openModalConversation(conversationId) {
             cancelReply();
             closeConversationMessageSearch();
+
+            // =============================================
+            // NEW CONVERSATION
+            // Do not keep the previous user's media records.
+            // =============================================
+            closeConversationInfoSidebar();
+            resetConversationAssets();
+
             currentConversationId = conversationId;
             messagesPage = 1;
             hasMoreMessages = true;
@@ -2726,6 +5254,9 @@
             currentConversationUserName = name;
             currentConversationUser = otherParticipant;
 
+            // Keep conversation info sidebar synchronized.
+            refreshConversationInfoProfile();
+
             // =====================================================
             // USER INFORMATION
             // =====================================================
@@ -2768,11 +5299,26 @@
             // LOAD EXISTING MESSAGES
             // =====================================================
 
+            await loadModalMessages(
+                conversationId
+            );
+
+
             // =====================================================
-            // LOAD EXISTING MESSAGES
+            // ALWAYS START AT THE VERY LATEST MESSAGE
+            //
+            // Important for conversations containing images because
+            // their final height may not exist during initial render.
             // =====================================================
 
-            await loadModalMessages(
+            await scrollOpenedConversationToBottom();
+
+
+            // =====================================================
+            // MARK MESSAGES AS READ
+            // =====================================================
+
+            await markConversationAsRead(
                 conversationId
             );
 
@@ -3042,7 +5588,11 @@
             return `<div class="h-8 w-8 shrink-0 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-semibold text-gray-600">${escapeHtml(initials)}</div>`;
         }
 
-        function getMessageMoreMenuHtml(isOwn, isUnsent) {
+        function getMessageMoreMenuHtml(
+            isOwn,
+            isUnsent,
+            isPinned = false
+        ) {
             const editItem = isOwn && !isUnsent ? `
                 <button type="button" class="message-action-item message-edit-btn flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
                     <i data-lucide="pencil" class="h-4 w-4"></i><span>Edit</span>
@@ -3068,8 +5618,18 @@
                         ${destructiveItem}
                         ${forwardItem}
                         ${editItem}
-                        <button type="button" class="message-action-item message-pin-btn flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
-                            <i data-lucide="pin" class="h-4 w-4"></i><span>Pin</span>
+                        <button
+                            type="button"
+                            class="message-action-item message-pin-btn flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                        >
+                            <i
+                                data-lucide="${isPinned ? 'pin-off' : 'pin'}"
+                                class="h-4 w-4"
+                            ></i>
+
+                            <span>
+                                ${isPinned ? 'Unpin' : 'Pin'}
+                            </span>
                         </button>
                     </div>
                 </div>`;
@@ -3505,6 +6065,10 @@
                     : content;
             const hasText = Boolean(displayContent.trim());
             const hasAttachments = attachments.length > 0;
+            const isPinned =
+            msg.is_pinned === true ||
+            msg.is_pinned === 1 ||
+            msg.is_pinned === '1';
             const avatar = isOwn ? '' : getMessageAvatarHtml(msg, senderName);
             const actions = `
                 <div
@@ -3545,7 +6109,8 @@
 
                     ${getMessageMoreMenuHtml(
                         isOwn,
-                        isUnsent
+                        isUnsent,
+                        isPinned
                     )}
                 </div>
             `;
@@ -3605,6 +6170,33 @@
                     ${forwardedLabel}
                     ${replyEditedLabel}
                     ${editedOnlyLabel}
+
+                    ${isPinned
+                        ? `
+                            <div
+                                class="
+                                    message-pinned-label
+                                    mb-1
+                                    flex
+                                    items-center
+                                    gap-1
+                                    px-1
+                                    text-[11px]
+                                    text-gray-400
+                                "
+                            >
+                                <i
+                                    data-lucide="pin"
+                                    class="h-3 w-3"
+                                ></i>
+
+                                <span>
+                                    Pinned
+                                </span>
+                            </div>
+                        `
+                        : ''
+                    }
 
 
                     <!-- ===================================== -->
@@ -4192,6 +6784,210 @@
             modal.classList.add('hidden');
         }
 
+        async function restorePinSystemNotice() {
+
+            const container =
+                document.getElementById(
+                    'modalMessagesContainer'
+                );
+
+            if (
+                !container ||
+                !currentConversationId
+            ) {
+                return;
+            }
+
+
+            // =================================================
+            // REMOVE OLD NOTICE FIRST
+            // Prevent duplicate:
+            // "You pinned a message. See all"
+            // =================================================
+
+            container
+                .querySelectorAll(
+                    '.pin-system-notice'
+                )
+                .forEach(notice => {
+                    notice.remove();
+                });
+
+
+            try {
+
+                // =================================================
+                // USE YOUR EXISTING PINNED MESSAGES ENDPOINT
+                // =================================================
+
+                const response = await fetch(
+                    `/messages/conversations/${currentConversationId}/pinned`,
+                    {
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    }
+                );
+
+
+                if (!response.ok) {
+                    return;
+                }
+
+
+                const result =
+                    await response.json();
+
+
+                const messages =
+                    Array.isArray(result.data)
+                        ? result.data
+                        : [];
+
+
+                // =================================================
+                // NO PINNED MESSAGES
+                // Do not show the notice.
+                // =================================================
+
+                if (!messages.length) {
+                    return;
+                }
+
+
+                // =================================================
+                // CREATE THE PERSISTED PIN NOTICE
+                // =================================================
+
+                const notice =
+                    document.createElement('div');
+
+
+                notice.className =
+                    'pin-system-notice flex justify-center py-3';
+
+
+                notice.innerHTML = `
+                    <div
+                        class="
+                            flex
+                            items-center
+                            gap-1.5
+                            text-xs
+                            text-gray-400
+                        "
+                    >
+                        <span>
+                            You pinned a message.
+                        </span>
+
+                        <button
+                            type="button"
+                            class="
+                                pinned-see-all
+                                font-semibold
+                                text-gray-900
+                                hover:underline
+                            "
+                        >
+                            See all
+                        </button>
+                    </div>
+                `;
+
+
+                // =================================================
+                // KEEP NOTICE ABOVE TYPING INDICATOR
+                // Typing indicator must remain the last item.
+                // =================================================
+
+                const typingIndicator =
+                    document.getElementById(
+                        'modalTypingIndicator'
+                    );
+
+
+                if (typingIndicator) {
+
+                    typingIndicator.before(
+                        notice
+                    );
+
+                } else {
+
+                    container.appendChild(
+                        notice
+                    );
+                }
+
+
+                lucideCreateIcons();
+
+
+            } catch (error) {
+
+                console.error(
+                    'Unable to restore pin notice:',
+                    error
+                );
+            }
+        }
+
+
+        async function updatePinnedMessagesCount() {
+
+            const countElement =
+                document.getElementById(
+                    'modalConversationPinnedCount'
+                );
+
+            if (!countElement) {
+                return;
+            }
+
+            // No active conversation.
+            if (!currentConversationId) {
+                countElement.textContent = '0';
+                return;
+            }
+
+            try {
+
+                const response = await fetch(
+                    `/messages/conversations/${currentConversationId}/pinned`,
+                    {
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    }
+                );
+
+                if (!response.ok) {
+                    countElement.textContent = '0';
+                    return;
+                }
+
+                const result =
+                    await response.json();
+
+                const messages =
+                    Array.isArray(result.data)
+                        ? result.data
+                        : [];
+
+                countElement.textContent =
+                    String(messages.length);
+
+            } catch (error) {
+
+                console.error(
+                    'Unable to load pinned message count:',
+                    error
+                );
+
+                countElement.textContent = '0';
+            }
+        }
 
         // =====================================================
         // LOAD PINNED MESSAGES
@@ -4241,7 +7037,9 @@
                 const result = await response.json();
 
                 const messages =
-                    result.data || [];
+                    Array.isArray(result.data)
+                        ? result.data
+                        : [];
 
                 if (!messages.length) {
 
@@ -4254,18 +7052,39 @@
                     return;
                 }
 
+
+                // =====================================================
+                // CREATE EACH PINNED MESSAGE
+                // =====================================================
+
                 container.innerHTML =
                     messages.map(message => {
 
                         const sender =
                             message.sender || {};
 
+                        const isOwn =
+                            Number(
+                                sender.user_id ??
+                                message.sender_id
+                            ) === Number(currentUserId);
+
                         const senderName =
-                            sender.user_full_name ||
-                            'User';
+                            isOwn
+                                ? 'You'
+                                : (
+                                    sender.user_full_name ||
+                                    sender.name ||
+                                    'User'
+                                );
 
                         const initials =
                             getInitials(senderName);
+
+
+                        // =================================================
+                        // PROFILE PICTURE
+                        // =================================================
 
                         let picture =
                             sender.user_profile_picture ||
@@ -4283,13 +7102,23 @@
                                 !picture.startsWith('/')
                             ) {
                                 picture =
-                                    `/storage/${picture.replace(/^storage\//, '')}`;
+                                    `/storage/${picture.replace(
+                                        /^storage\//,
+                                        ''
+                                    )}`;
                             }
 
                             avatarHtml = `
                                 <img
                                     src="${escapeHtml(picture)}"
-                                    class="h-8 w-8 shrink-0 rounded-full object-cover"
+                                    alt="${escapeHtml(senderName)}"
+                                    class="
+                                        h-8
+                                        w-8
+                                        shrink-0
+                                        rounded-full
+                                        object-cover
+                                    "
                                 >
                             `;
 
@@ -4297,39 +7126,231 @@
 
                             avatarHtml = `
                                 <div
-                                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-200 text-[10px] font-semibold text-gray-600"
+                                    class="
+                                        flex
+                                        h-8
+                                        w-8
+                                        shrink-0
+                                        items-center
+                                        justify-center
+                                        rounded-full
+                                        bg-gray-200
+                                        text-[10px]
+                                        font-semibold
+                                        text-gray-600
+                                    "
                                 >
                                     ${escapeHtml(initials)}
                                 </div>
                             `;
                         }
 
+
+                        // =================================================
+                        // NORMALIZE ATTACHMENTS
+                        // Same attachment system as the main conversation.
+                        // =================================================
+
+                        const rawAttachments =
+                            Array.isArray(message.attachments)
+                                ? message.attachments
+                                : (
+                                    message.attachment
+                                        ? [message.attachment]
+                                        : []
+                                );
+
+                        const attachments =
+                            normalizeAttachments(rawAttachments);
+
+                        const hasAttachments =
+                            attachments.length > 0;
+
+
+                        // =================================================
+                        // REMOVE INTERNAL ATTACHMENT MARKERS
+                        // =================================================
+
+                        const attachmentMarkers = [
+                            '[attachment:image]',
+                            '[attachment:file]',
+                            '[attachment:multiple]'
+                        ];
+
+                        const rawContent =
+                            message.message_content || '';
+
+                        const displayContent =
+                            attachmentMarkers.includes(rawContent)
+                                ? ''
+                                : rawContent;
+
+                        const hasText =
+                            Boolean(displayContent.trim());
+
+
+                        // =================================================
+                        // ACTUAL MESSAGE CONTENT
+                        // =================================================
+
+                        let messageContentHtml = '';
+
+
+                        // =================================================
+                        // TEXT
+                        // =================================================
+
+                        if (hasText) {
+
+                            messageContentHtml += `
+                                <div
+                                    class="
+                                        w-fit
+                                        max-w-full
+                                        rounded-2xl
+                                        bg-gray-100
+                                        px-3.5
+                                        py-2
+                                        text-sm
+                                        leading-snug
+                                        text-gray-900
+                                    "
+                                >
+                                    <span
+                                        class="
+                                            whitespace-pre-wrap
+                                            break-words
+                                        "
+                                    >${escapeHtml(displayContent)}</span>
+                                </div>
+                            `;
+                        }
+
+
+                        // =================================================
+                        // IMAGES / FILES / DOCUMENTS
+                        //
+                        // Reuses your normal Messenger attachment renderer.
+                        // =================================================
+
+                        if (hasAttachments) {
+
+                            messageContentHtml += `
+                                <div
+                                    class="
+                                        ${hasText ? 'mt-1.5' : ''}
+                                        w-fit
+                                        max-w-full
+                                    "
+                                >
+                                    ${getAttachmentsMessageHtml(
+                                        attachments,
+                                        formatMessageTime(
+                                            message.created_at
+                                        ),
+                                        message.message_id
+                                    )}
+                                </div>
+                            `;
+                        }
+
+
+                        // =================================================
+                        // FALLBACK
+                        // Only appears if Laravel returned neither text
+                        // nor attachment information.
+                        // =================================================
+
+                        if (!hasText && !hasAttachments) {
+
+                            messageContentHtml = `
+                                <div
+                                    class="
+                                        rounded-2xl
+                                        bg-gray-100
+                                        px-3.5
+                                        py-2
+                                        text-sm
+                                        text-gray-500
+                                    "
+                                >
+                                    Message
+                                </div>
+                            `;
+                        }
+
+
+                        // =================================================
+                        // PINNED MESSAGE CARD
+                        // =================================================
+
                         return `
-                            <div class="border-b border-gray-100 py-4 last:border-0">
+                            <div
+                                class="
+                                    border-b
+                                    border-gray-100
+                                    py-4
+                                    last:border-0
+                                "
+                            >
 
-                                <div class="mb-2 flex items-center justify-between gap-3">
+                                <!-- ===================================== -->
+                                <!-- SENDER + TIME -->
+                                <!-- ===================================== -->
 
-                                    <span class="text-xs text-gray-500">
+                                <div
+                                    class="
+                                        mb-2
+                                        flex
+                                        items-center
+                                        justify-between
+                                        gap-3
+                                        pl-10
+                                    "
+                                >
+                                    <span
+                                        class="
+                                            text-xs
+                                            text-gray-500
+                                        "
+                                    >
                                         ${escapeHtml(senderName)}
                                     </span>
 
-                                    <span class="text-xs text-gray-400">
-                                        ${formatTime(message.created_at)}
+                                    <span
+                                        class="
+                                            text-xs
+                                            text-gray-400
+                                        "
+                                    >
+                                        ${formatTime(
+                                            message.created_at
+                                        )}
                                     </span>
-
                                 </div>
 
-                                <div class="flex items-start gap-2">
+
+                                <!-- ===================================== -->
+                                <!-- AVATAR + ACTUAL MESSAGE -->
+                                <!-- ===================================== -->
+
+                                <div
+                                    class="
+                                        flex
+                                        items-end
+                                        gap-2
+                                    "
+                                >
 
                                     ${avatarHtml}
 
                                     <div
-                                        class="max-w-[80%] rounded-2xl bg-gray-100 px-3.5 py-2 text-sm text-gray-900"
+                                        class="
+                                            min-w-0
+                                            max-w-[80%]
+                                        "
                                     >
-                                        ${escapeHtml(
-                                            message.message_content ||
-                                            'Message'
-                                        )}
+                                        ${messageContentHtml}
                                     </div>
 
                                 </div>
@@ -4338,6 +7359,10 @@
                         `;
 
                     }).join('');
+
+
+                // Rebuild Lucide icons used by file cards.
+                lucideCreateIcons();
 
             } catch (error) {
 
@@ -4430,6 +7455,38 @@
                 }
 
 
+                // =====================================================
+                // UPDATE PIN / UNPIN ICON IMMEDIATELY
+                // =====================================================
+
+                const pinIcon =
+                    row.querySelector(
+                        '.message-pin-btn i'
+                    );
+
+                if (pinIcon) {
+
+                    pinIcon.setAttribute(
+                        'data-lucide',
+                        data.is_pinned
+                            ? 'pin-off'
+                            : 'pin'
+                    );
+
+                    lucideCreateIcons();
+                }
+
+
+                // =====================================================
+                // UPDATE MESSAGE PIN STATE IN DOM
+                // =====================================================
+
+                row.dataset.messagePinned =
+                    data.is_pinned
+                        ? '1'
+                        : '0';
+
+
                 // =============================================
                 // SHOW MESSENGER STYLE SYSTEM NOTICE
                 // =============================================
@@ -4490,18 +7547,26 @@
 
                 if (isPinned) {
 
-                    const bubble =
+                    const messageContent =
                         row.querySelector(
-                            '.message-bubble'
+                            '.message-bubble, .message-attachments'
                         );
 
-                    if (bubble) {
+                    if (messageContent) {
 
-                        bubble.insertAdjacentHTML(
+                        messageContent.insertAdjacentHTML(
                             'beforebegin',
                             `
                                 <div
-                                    class="message-pinned-label mb-1 flex items-center gap-1 text-[11px] text-gray-400"
+                                    class="
+                                        message-pinned-label
+                                        mb-1
+                                        flex
+                                        items-center
+                                        gap-1
+                                        text-[11px]
+                                        text-gray-400
+                                    "
                                 >
                                     <i
                                         data-lucide="pin"
@@ -4894,7 +7959,29 @@
             lucideCreateIcons();
             refreshSeenAvatar();
 
+
+            // =====================================================
+            // RESTORE PERSISTED PIN NOTICE
+            // Only do this during the initial conversation load.
+            // Do NOT do this when loading older messages.
+            // =====================================================
+
+            if (!append) {
+
+                await restorePinSystemNotice();
+
+            }
+
+
+            // =====================================================
+            // KEEP TYPING INDICATOR AT THE VERY BOTTOM
+            // =====================================================
+
+            moveTypingIndicatorAfterLastMessage();
+
+
             scrollToBottom(false, !append);
+
             isLoadingMessages = false;
         }
 
@@ -7452,6 +10539,91 @@
             }
         }
 
+        async function scrollOpenedConversationToBottom() {
+
+            const container =
+                document.getElementById(
+                    'modalMessagesContainer'
+                );
+
+            if (!container) {
+                return;
+            }
+
+
+            // =====================================================
+            // WAIT FOR IMAGES INSIDE THE OPENED CONVERSATION
+            // =====================================================
+
+            const images =
+                Array.from(
+                    container.querySelectorAll('img')
+                );
+
+            const pendingImages =
+                images.filter(
+                    image => !image.complete
+                );
+
+            if (pendingImages.length > 0) {
+
+                await Promise.all(
+                    pendingImages.map(
+                        image =>
+                            new Promise(resolve => {
+
+                                image.addEventListener(
+                                    'load',
+                                    resolve,
+                                    { once: true }
+                                );
+
+                                image.addEventListener(
+                                    'error',
+                                    resolve,
+                                    { once: true }
+                                );
+
+                            })
+                    )
+                );
+            }
+
+
+            // =====================================================
+            // WAIT FOR BROWSER TO FINISH CALCULATING HEIGHTS
+            // =====================================================
+
+            await new Promise(resolve =>
+                requestAnimationFrame(() =>
+                    requestAnimationFrame(resolve)
+                )
+            );
+
+
+            // =====================================================
+            // GO TO THE ACTUAL BOTTOM
+            // =====================================================
+
+            container.scrollTop =
+                container.scrollHeight;
+
+
+            // =====================================================
+            // SAFETY CHECK
+            //
+            // Some attachment layouts can still resize shortly
+            // after the image load event.
+            // =====================================================
+
+            setTimeout(() => {
+
+                container.scrollTop =
+                    container.scrollHeight;
+
+            }, 100);
+        }
+
         async function sendModalMessage(e) {
             e.preventDefault();
 
@@ -9663,44 +12835,16 @@
 
             container.innerHTML = users.map((user, index) => {
 
-                // =================================================
-                // GET USER ACTIVITY
-                //
-                // Examples:
-                // Active now
-                // Active 5 minutes ago
-                // Active yesterday
-                // Offline
-                // =================================================
-
                 const activityStatus =
                     formatUserActivity(user.last_active_at);
 
-
-                // =================================================
-                // CHECK IF CURRENTLY ONLINE
-                // =================================================
-
                 const isOnline =
                     activityStatus === 'Active now';
-
-
-                // =================================================
-                // ONLINE DOT
-                //
-                // Green = Active now
-                // Gray = Offline / previously active
-                // =================================================
 
                 const statusDotClass =
                     isOnline
                         ? 'bg-emerald-500'
                         : 'bg-gray-300';
-
-
-                // =================================================
-                // ACTIVITY TEXT COLOR
-                // =================================================
 
                 const statusTextClass =
                     isOnline
@@ -9708,28 +12852,29 @@
                         : 'text-gray-400';
 
 
+                // =================================================
+                // SAFE USER NAME FOR DATA ATTRIBUTE
+                // =================================================
+
+                const safeName =
+                    escapeHtml(user.name);
+
+
                 return `
 
-                    <button
-                        type="button"
-                        data-user-id="${user.user_id}"
+                    <!-- ========================================= -->
+                    <!-- USER ROW WRAPPER -->
+                    <!-- ========================================= -->
+
+                    <div
                         class="
-                            user-row
+                            user-list-item
+                            group
+                            relative
                             w-full
-                            flex
-                            items-center
-                            gap-3
-                            px-3
-                            py-2.5
-                            rounded-xl
-                            text-left
-                            cursor-pointer
-                            transition-all
-                            duration-200
-                            ease-out
-                            hover:bg-gray-50
-                            active:bg-gray-100
                         "
+                        data-user-id="${user.user_id}"
+                        data-user-name="${safeName}"
                         style="
                             animation: userCardIn 0.3s
                             cubic-bezier(0.4, 0, 0.2, 1) both;
@@ -9738,111 +12883,165 @@
                     >
 
                         <!-- ===================================== -->
-                        <!-- AVATAR -->
+                        <!-- MAIN USER BUTTON -->
                         <!-- ===================================== -->
 
-                        <div class="relative shrink-0">
+                        <button
+                            type="button"
+                            class="
+                                user-row
+                                w-full
+                                flex
+                                items-center
+                                gap-3
+                                px-3
+                                pr-12
+                                py-2.5
+                                rounded-xl
+                                text-left
+                                cursor-pointer
+                                transition-all
+                                duration-200
+                                ease-out
+                                hover:bg-gray-50
+                                active:bg-gray-100
+                            "
+                        >
 
-                            <div
-                                class="
-                                    h-9
-                                    w-9
-                                    rounded-full
-                                    bg-gradient-to-br
-                                    from-gray-100
-                                    to-gray-200
-                                    flex
-                                    items-center
-                                    justify-center
-                                    text-xs
-                                    font-bold
-                                    text-gray-700
-                                    shadow-sm
-                                    ring-2
-                                    ring-white
-                                "
-                            >
-                                ${escapeHtml(user.initials)}
+                            <!-- ================================= -->
+                            <!-- AVATAR -->
+                            <!-- ================================= -->
+
+                            <div class="relative shrink-0">
+
+                                <div
+                                    class="
+                                        h-9
+                                        w-9
+                                        rounded-full
+                                        bg-gradient-to-br
+                                        from-gray-100
+                                        to-gray-200
+                                        flex
+                                        items-center
+                                        justify-center
+                                        text-xs
+                                        font-bold
+                                        text-gray-700
+                                        shadow-sm
+                                        ring-2
+                                        ring-white
+                                    "
+                                >
+                                    ${escapeHtml(user.initials)}
+                                </div>
+
+
+                                <!-- ============================= -->
+                                <!-- ONLINE / OFFLINE DOT -->
+                                <!-- ============================= -->
+
+                                <span
+                                    class="
+                                        absolute
+                                        -bottom-0.5
+                                        -right-0.5
+                                        h-3
+                                        w-3
+                                        rounded-full
+                                        border-2
+                                        border-white
+                                        shadow-sm
+                                        ${statusDotClass}
+                                    "
+                                ></span>
+
                             </div>
 
 
                             <!-- ================================= -->
-                            <!-- REAL ONLINE / OFFLINE DOT -->
+                            <!-- USER INFORMATION -->
                             <!-- ================================= -->
 
-                            <span
+                            <div class="flex-1 min-w-0">
+
+                                <p
+                                    class="
+                                        text-sm
+                                        font-semibold
+                                        text-gray-900
+                                        truncate
+                                        leading-tight
+                                    "
+                                >
+                                    ${escapeHtml(user.name)}
+                                </p>
+
+                                <p
+                                    class="
+                                        text-xs
+                                        text-gray-500
+                                        truncate
+                                        leading-tight
+                                    "
+                                >
+                                    ${escapeHtml(user.role)}
+                                </p>
+
+                                <p
+                                    class="
+                                        text-[10px]
+                                        truncate
+                                        leading-tight
+                                        mt-0.5
+                                        ${statusTextClass}
+                                        ${isOnline ? 'font-medium' : ''}
+                                    "
+                                >
+                                    ${escapeHtml(activityStatus)}
+                                </p>
+
+                            </div>
+
+                        </button>
+
+
+                        <!-- ===================================== -->
+                        <!-- THREE DOT USER MENU BUTTON -->
+                        <!-- Dropdown itself is rendered outside the scroll list -->
+                        <!-- ===================================== -->
+                        <div
+                            class="user-options-wrapper absolute right-2 top-1/2 z-30 -translate-y-1/2"
+                        >
+                            <button
+                                type="button"
                                 class="
-                                    absolute
-                                    -bottom-0.5
-                                    -right-0.5
-                                    h-3
-                                    w-3
+                                    user-options-button
+                                    flex
+                                    h-8
+                                    w-8
+                                    shrink-0
+                                    items-center
+                                    justify-center
                                     rounded-full
-                                    border-2
-                                    border-white
-                                    shadow-sm
-                                    ${statusDotClass}
-                                "
-                            ></span>
-
-                        </div>
-
-
-                        <!-- ===================================== -->
-                        <!-- USER INFORMATION -->
-                        <!-- ===================================== -->
-
-                        <div class="flex-1 min-w-0">
-
-                            <p
-                                class="
-                                    text-sm
-                                    font-semibold
-                                    text-gray-900
-                                    truncate
-                                    leading-tight
-                                "
-                            >
-                                ${escapeHtml(user.name)}
-                            </p>
-
-
-                            <!-- ================================= -->
-                            <!-- ROLE -->
-                            <!-- ================================= -->
-
-                            <p
-                                class="
-                                    text-xs
                                     text-gray-500
-                                    truncate
-                                    leading-tight
+                                    
+                                    transition
+                                    duration-150
+                                    hover:bg-gray-200
+                                    hover:text-gray-900
+                                    
+                                    
                                 "
+                                data-user-id="${user.user_id}"
+                                data-user-name="${safeName}"
+                                aria-label="More options for ${safeName}"
                             >
-                                ${escapeHtml(user.role)}
-                            </p>
-
-
-                            <!-- ================================= -->
-                            <!-- LAST ACTIVE STATUS -->
-                            <!-- ================================= -->
-
-                            <p
-                                class="
-                                    text-[10px]
-                                    truncate
-                                    leading-tight
-                                    mt-0.5
-                                    ${statusTextClass}
-                                    ${isOnline ? 'font-medium' : ''}
-                                "
-                            >
-                                ${escapeHtml(activityStatus)}
-                            </p>
-
+                                <i data-lucide="more-vertical" class="h-4 w-4"></i>
+                            </button>
                         </div>
 
-                    </button>
+                    </div>
                 `;
 
             }).join('');
@@ -9907,6 +13106,163 @@
             });
         }
 
+        // =====================================================
+        // USER THREE DOT OPTIONS MENU
+        // One floating dropdown is used for every user.
+        // It is outside the scroll list so it cannot overlap badly
+        // or get clipped by the Users panel overflow.
+        // =====================================================
+
+        let selectedOptionsUserId = null;
+        let selectedOptionsUserName = '';
+        let activeUserOptionsButton = null;
+        let activeUserOptionsMenu = null;
+
+        function getUserOptionsMenu() {
+            let menu = document.getElementById('floatingUserOptionsMenu');
+
+            if (menu) return menu;
+
+            menu = document.createElement('div');
+            menu.id = 'floatingUserOptionsMenu';
+            menu.className = `
+                user-options-menu
+                hidden
+                fixed
+                z-[10050]
+                w-64
+                overflow-hidden
+                rounded-xl
+                border
+                border-gray-200
+                bg-white
+                p-1.5
+                shadow-[0_12px_35px_rgba(0,0,0,0.16)]
+            `;
+
+            menu.innerHTML = `
+                <button
+                    type="button"
+                    class="user-create-group-button flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-gray-700 transition hover:bg-gray-100 hover:text-gray-900"
+                >
+                    <i data-lucide="users" class="h-4 w-4 shrink-0"></i>
+                    <span class="user-create-group-text min-w-0"></span>
+                </button>
+
+                <button
+                    type="button"
+                    class="user-mute-button flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-gray-700 transition hover:bg-gray-100 hover:text-gray-900"
+                >
+                    <i data-lucide="bell-off" class="h-4 w-4 shrink-0"></i>
+                    <span>Mute</span>
+                </button>
+            `;
+
+            document.body.appendChild(menu);
+            lucideCreateIcons();
+            return menu;
+        }
+
+        function closeUserOptionsMenu() {
+
+            // =====================================
+            // CLOSE CURRENT USER DROPDOWN
+            // Three dot buttons always stay visible
+            // =====================================
+            if (activeUserOptionsMenu) {
+                activeUserOptionsMenu.classList.add('hidden');
+            }
+
+            activeUserOptionsMenu = null;
+            activeUserOptionsButton = null;
+            selectedOptionsUserId = null;
+            selectedOptionsUserName = '';
+        }
+
+        function openUserOptionsMenu(button) {
+            if (!button) return;
+
+            const menu = getUserOptionsMenu();
+
+            selectedOptionsUserId = Number(button.dataset.userId || 0);
+            selectedOptionsUserName = button.dataset.userName || 'User';
+            activeUserOptionsButton = button;
+            activeUserOptionsMenu = menu;
+            
+
+            const groupText = menu.querySelector('.user-create-group-text');
+            if (groupText) {
+                groupText.textContent = `Create group chat with ${selectedOptionsUserName}`;
+            }
+
+            // =====================================================
+            // FIRST OPEN POSITION FIX
+            // =====================================================
+            // The menu is created dynamically on the first click.
+            // Make it render invisibly first, then measure it on the
+            // next browser frame so its width and height are correct.
+            // =====================================================
+            menu.classList.remove('hidden');
+            menu.style.visibility = 'hidden';
+            menu.style.left = '0px';
+            menu.style.top = '0px';
+
+            requestAnimationFrame(() => {
+                // The user may have closed the menu before this frame runs.
+                if (
+                    activeUserOptionsMenu !== menu ||
+                    activeUserOptionsButton !== button ||
+                    menu.classList.contains('hidden')
+                ) {
+                    menu.style.visibility = '';
+                    return;
+                }
+
+                const buttonRect = button.getBoundingClientRect();
+                const menuRect = menu.getBoundingClientRect();
+                const gap = 6;
+                const screenPadding = 10;
+
+                // Align the menu's right edge with the three dot button.
+                let left = buttonRect.right - menuRect.width;
+                left = Math.max(
+                    screenPadding,
+                    Math.min(
+                        left,
+                        window.innerWidth - menuRect.width - screenPadding
+                    )
+                );
+
+                // Normally open below. If there is not enough room, open above.
+                const roomBelow = window.innerHeight - buttonRect.bottom;
+                const roomAbove = buttonRect.top;
+                let top;
+
+                if (
+                    roomBelow >= menuRect.height + gap ||
+                    roomBelow >= roomAbove
+                ) {
+                    top = buttonRect.bottom + gap;
+                } else {
+                    top = buttonRect.top - menuRect.height - gap;
+                }
+
+                top = Math.max(
+                    screenPadding,
+                    Math.min(
+                        top,
+                        window.innerHeight - menuRect.height - screenPadding
+                    )
+                );
+
+                menu.style.left = `${Math.round(left)}px`;
+                menu.style.top = `${Math.round(top)}px`;
+                menu.style.visibility = 'visible';
+
+                lucideCreateIcons();
+            });
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             lucideCreateIcons();
             updateTopbarMessageBadge();
@@ -9936,16 +13292,119 @@
                 });
             }
 
+            // =====================================================
+            // USERS LIST CLICK HANDLING
+            // =====================================================
+
             const usersList = document.getElementById('modalUsersList');
+
             if (usersList) {
                 usersList.addEventListener('click', (e) => {
+
+                    // =============================================
+                    // THREE DOT BUTTON
+                    // =============================================
+                    const optionsButton = e.target.closest('.user-options-button');
+
+                    if (optionsButton) {
+                        e.preventDefault();
+                        e.stopPropagation();
+
+                        const sameButtonIsOpen =
+                            activeUserOptionsButton === optionsButton &&
+                            activeUserOptionsMenu &&
+                            !activeUserOptionsMenu.classList.contains('hidden');
+
+                        if (sameButtonIsOpen) {
+                            closeUserOptionsMenu();
+                        } else {
+                            openUserOptionsMenu(optionsButton);
+                        }
+
+                        return;
+                    }
+
+                    // =============================================
+                    // NORMAL USER ROW
+                    // =============================================
                     const row = e.target.closest('.user-row');
-                    if (row) {
-                        const userId = parseInt(row.getAttribute('data-user-id') || '0');
-                        if (userId) startConversationWithUser(userId);
+                    if (!row) return;
+
+                    const wrapper = row.closest('.user-list-item');
+                    const userId = Number(wrapper?.dataset.userId || 0);
+
+                    if (userId) {
+                        closeUserOptionsMenu();
+                        startConversationWithUser(userId);
                     }
                 });
             }
+
+            // =====================================================
+            // CLICK OUTSIDE DROPDOWN
+            // =====================================================
+            document.addEventListener('click', (e) => {
+                // =============================================
+                // FLOATING USER MENU ACTIONS
+                // =============================================
+                const createGroupButton = e.target.closest('.user-create-group-button');
+
+                if (createGroupButton) {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    console.log(
+                        'Create group chat with:',
+                        selectedOptionsUserId,
+                        selectedOptionsUserName
+                    );
+
+                    // GROUP CHAT LOGIC WILL GO HERE
+                    closeUserOptionsMenu();
+                    return;
+                }
+
+                const muteButton = e.target.closest('.user-mute-button');
+
+                if (muteButton) {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    console.log(
+                        'Mute user:',
+                        selectedOptionsUserId,
+                        selectedOptionsUserName
+                    );
+
+                    // MUTE LOGIC WILL GO HERE
+                    closeUserOptionsMenu();
+                    return;
+                }
+
+                if (
+                    !e.target.closest('.user-options-wrapper') &&
+                    !e.target.closest('#floatingUserOptionsMenu')
+                ) {
+                    closeUserOptionsMenu();
+                }
+            });
+
+            // Keep the floating menu attached visually to the button.
+            // Closing on scroll/resize avoids leaving it behind.
+            document
+                .getElementById('modalUsersContainer')
+                ?.addEventListener('scroll', closeUserOptionsMenu, { passive: true });
+
+            window.addEventListener('resize', closeUserOptionsMenu);
+
+            // =====================================================
+            // ESCAPE CLOSES DROPDOWN
+            // =====================================================
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    closeUserOptionsMenu();
+                }
+            });
 
             const conversationSearch = document.getElementById('modalConversationSearch');
             let searchTimeout;

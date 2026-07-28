@@ -818,6 +818,31 @@ class MessageController extends Controller
             $userId
         );
 
+
+        // =====================================================
+        // GET ALL MESSAGE IDS PINNED BY CURRENT USER
+        // =====================================================
+
+        $pinnedMessageIds = DB::table(
+            'conversation_pinned_messages'
+        )
+            ->where(
+                'conversation_id',
+                $conversation->conversation_id
+            )
+            ->where(
+                'user_id',
+                $userId
+            )
+            ->pluck('message_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+
+        // =====================================================
+        // LOAD CONVERSATION MESSAGES
+        // =====================================================
+
         $messages = $conversation->messages()
 
             // =============================================
@@ -848,11 +873,37 @@ class MessageController extends Controller
             ->orderByDesc('created_at')
             ->paginate(20);
 
+
+        // =====================================================
+        // ADD is_pinned TO EVERY MESSAGE
+        //
+        // Example:
+        // is_pinned: true
+        // is_pinned: false
+        // =====================================================
+
+        $messages->getCollection()
+            ->transform(
+                function ($message) use ($pinnedMessageIds) {
+
+                    $message->setAttribute(
+                        'is_pinned',
+                        in_array(
+                            (int) $message->message_id,
+                            $pinnedMessageIds,
+                            true
+                        )
+                    );
+
+                    return $message;
+                }
+            );
+
+
         return response()->json([
             'data' => $messages,
         ]);
     }
-
     // =====================================================
     // EDIT OWN MESSAGE
     // =====================================================
