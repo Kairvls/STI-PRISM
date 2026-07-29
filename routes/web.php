@@ -1716,6 +1716,27 @@ Route::middleware(['auth'])
             [MessageController::class, 'storeConversation']
         )->name('conversations.store');
 
+        Route::post(
+            '/conversations/group',
+            [MessageController::class, 'storeGroupConversation']
+        )->name('conversations.group.store');
+
+        Route::post(
+            '/conversations/{conversation}/mute',
+            [MessageController::class, 'muteConversation']
+        )->name('conversations.mute');
+
+        Route::post(
+            '/conversations/{conversation}/unmute',
+            [MessageController::class, 'unmuteConversation']
+        )->name('conversations.unmute');
+
+
+        Route::delete(
+            '/conversations/{conversation}',
+            [MessageController::class, 'destroy']
+        )->name('conversations.destroy');
+
         Route::delete(
             '/conversations/{conversation}',
             [MessageController::class, 'destroy']
@@ -1781,6 +1802,34 @@ Route::middleware(['auth'])
             '/conversations/{conversation}/pinned',
             [MessageController::class, 'pinnedMessages']
         )->name('pinned');
+
+        Route::post(
+            '/conversations/{conversation}/members',
+            [MessageController::class, 'addGroupMembers']
+        )->name('conversations.members.add');
+
+
+        // LEAVE GROUP
+        Route::post(
+            '/conversations/{conversation}/leave',
+            [MessageController::class, 'leaveGroup']
+        )->name('conversations.leave');
+
+        Route::patch(
+            '/conversations/{conversation}/name',
+            [MessageController::class, 'renameGroup']
+        )->name('messages.conversations.rename');
+
+        Route::post(
+            '/conversations/{conversation}/image',
+            [MessageController::class, 'updateGroupImage']
+        )->name('conversations.image.update');
+
+        Route::post(
+            '/calls/signal',
+            [MessageController::class, 'callSignal']
+        )->name('calls.signal');
+
 
     });
 

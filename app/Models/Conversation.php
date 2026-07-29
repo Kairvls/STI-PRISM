@@ -15,6 +15,8 @@ class Conversation extends Model
     public $timestamps = true;
 
     protected $fillable = [
+        'conversation_type',
+        'conversation_name',
         'last_message_id',
         'last_message_at',
     ];

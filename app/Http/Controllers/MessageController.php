@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Events\MessageSent;
 use App\Events\MessagesRead;
+use App\Events\CallSignal;
 use App\Events\MessageDelivered;
 use App\Events\UserTyping;
 use App\Events\MessageReactionUpdated;
@@ -18,6 +19,7 @@ use App\Models\MessageAttachment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
@@ -899,9 +901,107 @@ class MessageController extends Controller
                 }
             );
 
+        $conversationEvents = collect();
+
+        if ($conversation->conversation_type === 'group') {
+
+            $conversationEvents =
+                DB::table('conversation_events as ce')
+
+                    // =================================================
+                    // PERSON WHO PERFORMED THE ACTION
+                    // =================================================
+
+                    ->leftJoin(
+                        'users_table as actor',
+                        'actor.user_id',
+                        '=',
+                        'ce.actor_user_id'
+                    )
+
+                    // =================================================
+                    // PERSON WHO WAS ADDED
+                    // =================================================
+
+                    ->leftJoin(
+                        'users_table as target',
+                        'target.user_id',
+                        '=',
+                        'ce.target_user_id'
+                    )
+
+                    ->where(
+                        'ce.conversation_id',
+                        $conversation->conversation_id
+                    )
+
+                    ->select([
+                        'ce.conversation_event_id',
+                        'ce.conversation_id',
+                        'ce.actor_user_id',
+                        'ce.target_user_id',
+                        'ce.event_type',
+                        'ce.created_at',
+                        'ce.updated_at',
+
+                        'actor.user_full_name as actor_name',
+                        'target.user_full_name as target_name',
+                    ])
+
+                    ->orderBy(
+                        'ce.created_at'
+                    )
+
+                    ->get()
+
+                    ->map(function ($event) {
+
+                        return [
+                            // =========================================
+                            // TELLS JAVASCRIPT THIS IS NOT A MESSAGE
+                            // =========================================
+
+                            'item_type' =>
+                                'conversation_event',
+
+                            'conversation_event_id' =>
+                                (int) $event->conversation_event_id,
+
+                            'conversation_id' =>
+                                (int) $event->conversation_id,
+
+                            'actor_user_id' =>
+                                $event->actor_user_id !== null
+                                    ? (int) $event->actor_user_id
+                                    : null,
+
+                            'target_user_id' =>
+                                $event->target_user_id !== null
+                                    ? (int) $event->target_user_id
+                                    : null,
+
+                            'event_type' =>
+                                $event->event_type,
+
+                            'actor_name' =>
+                                $event->actor_name,
+
+                            'target_name' =>
+                                $event->target_name,
+
+                            'created_at' =>
+                                $event->created_at,
+
+                            'updated_at' =>
+                                $event->updated_at,
+                        ];
+                    });
+        }
 
         return response()->json([
             'data' => $messages,
+            'conversation_events' =>
+                $conversationEvents,
         ]);
     }
     // =====================================================
@@ -1392,6 +1492,295 @@ class MessageController extends Controller
     /**
      * Ensure the authenticated user belongs to the conversation.
      */
+    // =====================================================
+    // RENAME GROUP CONVERSATION
+    // Any current member can rename the group.
+    // =====================================================
+    public function renameGroup(
+        Request $request,
+        Conversation $conversation
+    ): JsonResponse
+    {
+        $userId = Auth::id();
+
+        $this->authorizeConversation($conversation, $userId);
+
+        if ($conversation->conversation_type !== 'group') {
+            return response()->json([
+                'message' => 'Only group conversations can be renamed.',
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'conversation_name' => ['required', 'string', 'max:255'],
+        ]);
+
+        $name = trim($validated['conversation_name']);
+
+        if ($name === '') {
+            return response()->json([
+                'message' => 'Group name is required.',
+            ], 422);
+        }
+
+        $conversation->update([
+            'conversation_name' => $name,
+        ]);
+
+        $conversation->load([
+            'lastMessage.sender',
+            'participants.user.role',
+        ]);
+
+        Broadcast::private("conversation.{$conversation->conversation_id}")
+            ->as('conversation.renamed')
+            ->with([
+                'conversation_id' => (int) $conversation->conversation_id,
+                'conversation_name' => $name,
+                'actor_user_id' => (int) $userId,
+            ])
+            ->send();
+
+        return response()->json([
+            'message' => 'Group name updated successfully.',
+            'data' => $conversation,
+        ]);
+    }
+
+    // =====================================================
+    // UPDATE GROUP PICTURE
+    // Any current group member can change the group picture.
+    // =====================================================
+
+    public function updateGroupImage(
+        Request $request,
+        Conversation $conversation
+    ): JsonResponse
+    {
+        $userId = Auth::id();
+
+
+        // =================================================
+        // USER MUST CURRENTLY BELONG TO THIS CONVERSATION
+        // =================================================
+
+        $this->authorizeConversation(
+            $conversation,
+            $userId
+        );
+
+
+        // =================================================
+        // GROUP CHAT ONLY
+        // =================================================
+
+        if ($conversation->conversation_type !== 'group') {
+
+            return response()->json([
+                'message' =>
+                    'Only group conversations can have a group picture.',
+            ], 422);
+        }
+
+
+        // =================================================
+        // VALIDATE IMAGE
+        //
+        // max:5120 = maximum 5 MB
+        // =================================================
+
+        $request->validate([
+            'conversation_image' => [
+                'required',
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'max:5120',
+            ],
+        ]);
+
+
+        $file =
+            $request->file('conversation_image');
+
+
+        // =================================================
+        // DELETE OLD CUSTOM GROUP PICTURE
+        // =================================================
+
+        if (
+            $conversation->conversation_image &&
+            Storage::disk('public')->exists(
+                $conversation->conversation_image
+            )
+        ) {
+
+            Storage::disk('public')->delete(
+                $conversation->conversation_image
+            );
+        }
+
+
+        // =================================================
+        // SAVE NEW GROUP PICTURE
+        // =================================================
+
+        $path = $file->store(
+            "messaging/groups/{$conversation->conversation_id}",
+            'public'
+        );
+
+
+        // =================================================
+        // UPDATE DATABASE
+        // =================================================
+
+        // =================================================
+        // SAVE THE IMAGE PATH DIRECTLY
+        //
+        // IMPORTANT:
+        // Do not rely on mass assignment here.
+        // If conversation_image is missing from the
+        // Conversation model's $fillable array, update([...])
+        // can leave the database value unchanged.
+        // =================================================
+
+        $conversation->conversation_image = $path;
+        $conversation->save();
+        $conversation->refresh();
+
+
+        // =================================================
+        // REALTIME GROUP PICTURE UPDATE
+        //
+        // Example:
+        // Kenn changes the picture.
+        // Leo already has the group open.
+        // Leo receives this event immediately.
+        // =================================================
+
+        Broadcast::private(
+            "conversation.{$conversation->conversation_id}"
+        )
+            ->as('conversation.image.updated')
+            ->with([
+                'conversation_id' =>
+                    (int) $conversation->conversation_id,
+
+                'conversation_image' =>
+                    $path,
+
+                'conversation_image_url' =>
+                    asset('storage/' . $path),
+
+                'actor_user_id' =>
+                    (int) $userId,
+            ])
+            ->send();
+
+
+        // =================================================
+        // RETURN UPDATED PICTURE TO PERSON WHO CHANGED IT
+        // =================================================
+
+        return response()->json([
+            'success' => true,
+
+            'message' =>
+                'Group picture updated successfully.',
+
+            'conversation_id' =>
+                (int) $conversation->conversation_id,
+
+            'conversation_image' =>
+                $path,
+
+            'conversation_image_url' =>
+                asset('storage/' . $path),
+        ]);
+    }
+
+
+    // =====================================================
+    // BROADCAST A SAVED GROUP ACTIVITY EVENT
+    // =====================================================
+    private function broadcastConversationActivity(
+        Conversation $conversation,
+        int $eventId,
+        string $eventType,
+        ?int $actorUserId,
+        ?int $targetUserId = null
+    ): void
+    {
+        $actorName = $actorUserId
+            ? User::where('user_id', $actorUserId)->value('user_full_name')
+            : null;
+
+        $targetName = $targetUserId
+            ? User::where('user_id', $targetUserId)->value('user_full_name')
+            : null;
+
+        Broadcast::private("conversation.{$conversation->conversation_id}")
+            ->as('conversation.activity')
+            ->with([
+                'conversation_id' => (int) $conversation->conversation_id,
+                'conversation_event_id' => $eventId,
+                'event_type' => $eventType,
+                'actor_user_id' => $actorUserId,
+                'actor_name' => $actorName,
+                'target_user_id' => $targetUserId,
+                'target_name' => $targetName,
+                'created_at' => now()->toISOString(),
+            ])
+            ->send();
+    }
+
+
+
+    // =====================================================
+    // PRIVATE AUDIO / VIDEO CALL SIGNALING
+    // WebRTC carries media. Laravel relays signaling only.
+    // =====================================================
+    public function callSignal(Request $request): JsonResponse
+    {
+        $userId = (int) Auth::id();
+
+        $validated = $request->validate([
+            'target_user_id' => ['required', 'integer', 'exists:users_table,user_id'],
+            'conversation_id' => ['nullable', 'integer', 'exists:conversations,conversation_id'],
+            'call_id' => ['required', 'string', 'max:100'],
+            'signal_type' => ['required', 'in:offer,answer,ice_candidate,decline,end,busy'],
+            'call_type' => ['nullable', 'in:audio,video'],
+            'payload' => ['nullable', 'array'],
+        ]);
+
+        $targetUserId = (int) $validated['target_user_id'];
+
+        if ($targetUserId === $userId) {
+            return response()->json(['message' => 'You cannot call yourself.'], 422);
+        }
+
+        if (!empty($validated['conversation_id'])) {
+            $conversation = Conversation::findOrFail((int) $validated['conversation_id']);
+            $this->authorizeConversation($conversation, $userId);
+        }
+
+        $caller = User::query()->select(['user_id','user_full_name','user_profile_picture'])->findOrFail($userId);
+
+        broadcast(new CallSignal(
+            targetUserId: $targetUserId,
+            fromUserId: $userId,
+            fromUserName: $caller->user_full_name ?: 'User',
+            fromUserPicture: $caller->user_profile_picture,
+            conversationId: isset($validated['conversation_id']) ? (int) $validated['conversation_id'] : null,
+            callId: $validated['call_id'],
+            signalType: $validated['signal_type'],
+            callType: $validated['call_type'] ?? 'audio',
+            payload: $validated['payload'] ?? [],
+        ));
+
+        return response()->json(['success' => true]);
+    }
+
     private function authorizeConversation(Conversation $conversation, int $userId): void
     {
         $isParticipant = ConversationParticipant::where('conversation_id', $conversation->conversation_id)
@@ -1406,21 +1795,47 @@ class MessageController extends Controller
     /**
      * Find an existing conversation between two users if it exists.
      */
-    private function findConversationBetween(int $userIdA, int $userIdB): ?Conversation
+    private function findConversationBetween(
+        int $userIdA,
+        int $userIdB
+    ): ?Conversation
     {
-        $conversationIds = Conversation::whereHas('participants', function ($query) use ($userIdA) {
-                $query->where('user_id', $userIdA);
-            })
-            ->whereHas('participants', function ($query) use ($userIdB) {
-                $query->where('user_id', $userIdB);
-            })
+        $conversationIds = Conversation::where(
+                'conversation_type',
+                'direct'
+            )
+            ->whereHas(
+                'participants',
+                function ($query) use ($userIdA) {
+                    $query->where(
+                        'user_id',
+                        $userIdA
+                    );
+                }
+            )
+            ->whereHas(
+                'participants',
+                function ($query) use ($userIdB) {
+                    $query->where(
+                        'user_id',
+                        $userIdB
+                    );
+                }
+            )
             ->pluck('conversation_id');
 
         foreach ($conversationIds as $conversationId) {
-            $participantCount = ConversationParticipant::where('conversation_id', $conversationId)->count();
+
+            $participantCount =
+                ConversationParticipant::where(
+                    'conversation_id',
+                    $conversationId
+                )->count();
 
             if ($participantCount === 2) {
-                return Conversation::find($conversationId);
+                return Conversation::find(
+                    $conversationId
+                );
             }
         }
 
@@ -1553,55 +1968,606 @@ class MessageController extends Controller
     /**
      * Create a new conversation between the authenticated user and another user.
      */
-    public function storeConversation(Request $request): JsonResponse
+    public function storeConversation(
+        Request $request
+    ): JsonResponse
     {
         $userId = Auth::id();
 
-        $request->validate([
-            'user_id' => ['required', 'integer', 'exists:users_table,user_id'],
+        $validated = $request->validate([
+            'user_id' => [
+                'required',
+                'integer',
+                'exists:users_table,user_id'
+            ],
         ]);
 
-        $otherUserId = (int) $request->input('user_id');
+        $otherUserId =
+            (int) $validated['user_id'];
+
+        // =================================================
+        // CANNOT MESSAGE YOURSELF
+        // =================================================
 
         if ($otherUserId === $userId) {
+
             return response()->json([
-                'message' => 'You cannot start a conversation with yourself.',
+                'message' =>
+                    'You cannot start a conversation with yourself.',
             ], 422);
         }
 
-        $conversation = $this->findConversationBetween($userId, $otherUserId);
+        // =================================================
+        // CHECK FOR EXISTING DIRECT CONVERSATION
+        // =================================================
+
+        $conversation =
+            $this->findConversationBetween(
+                $userId,
+                $otherUserId
+            );
+
+        // =================================================
+        // CREATE DIRECT CONVERSATION IF NONE EXISTS
+        // =================================================
 
         if (! $conversation) {
-            $conversation = Conversation::create([
-                'last_message_at' => null,
-            ]);
 
-            ConversationParticipant::insert([
-                [
-                    'conversation_id' => $conversation->conversation_id,
-                    'user_id' => $userId,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ],
-                [
-                    'conversation_id' => $conversation->conversation_id,
-                    'user_id' => $otherUserId,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ],
-            ]);
+            $conversation = DB::transaction(
+                function () use (
+                    $userId,
+                    $otherUserId
+                ) {
+
+                    $conversation =
+                        Conversation::create([
+                            'conversation_type' =>
+                                'direct',
+
+                            'conversation_name' =>
+                                null,
+
+                            'last_message_at' =>
+                                null,
+                        ]);
+
+                    ConversationParticipant::insert([
+                        [
+                            'conversation_id' =>
+                                $conversation->conversation_id,
+
+                            'user_id' =>
+                                $userId,
+
+                            'is_muted' =>
+                                false,
+
+                            'created_at' =>
+                                now(),
+
+                            'updated_at' =>
+                                now(),
+                        ],
+                        [
+                            'conversation_id' =>
+                                $conversation->conversation_id,
+
+                            'user_id' =>
+                                $otherUserId,
+
+                            'is_muted' =>
+                                false,
+
+                            'created_at' =>
+                                now(),
+
+                            'updated_at' =>
+                                now(),
+                        ],
+                    ]);
+
+                    return $conversation;
+                }
+            );
         }
 
         $conversation->load([
             'lastMessage.sender',
-            'participants.user',
+            'participants.user.role',
         ]);
 
         return response()->json([
-            'message' => 'Conversation created successfully.',
-            'data' => $conversation,
+            'message' =>
+                'Conversation created successfully.',
+
+            'data' =>
+                $conversation,
         ], 201);
     }
+
+    public function storeGroupConversation(
+        Request $request
+    ): JsonResponse
+    {
+        $userId = Auth::id();
+
+        $validated = $request->validate([
+
+            // =============================================
+            // GROUP NAME
+            // =============================================
+
+            'conversation_name' => [
+                'required',
+                'string',
+                'max:255',
+            ],
+
+            // =============================================
+            // OTHER GROUP MEMBERS
+            //
+            // Current logged in user is added automatically.
+            // =============================================
+
+            'user_ids' => [
+                'required',
+                'array',
+                'min:2',
+            ],
+
+            'user_ids.*' => [
+                'required',
+                'integer',
+                'distinct',
+                'exists:users_table,user_id',
+            ],
+        ]);
+
+        // =================================================
+        // CLEAN GROUP NAME
+        // =================================================
+
+        $groupName = trim(
+            $validated['conversation_name']
+        );
+
+        if ($groupName === '') {
+
+            return response()->json([
+                'message' =>
+                    'The group name is required.',
+            ], 422);
+        }
+
+        // =================================================
+        // CLEAN MEMBER IDS
+        //
+        // Remove current user if JavaScript accidentally
+        // sends their ID because they are added automatically.
+        // =================================================
+
+        $memberIds = collect(
+            $validated['user_ids']
+        )
+            ->map(
+                fn ($id) => (int) $id
+            )
+            ->reject(
+                fn ($id) =>
+                    $id === (int) $userId
+            )
+            ->unique()
+            ->values();
+
+        // =================================================
+        // REQUIRE AT LEAST TWO OTHER USERS
+        //
+        // Group = You + at least 2 other users.
+        // =================================================
+
+        if ($memberIds->count() < 2) {
+
+            return response()->json([
+                'message' =>
+                    'Select at least two other users for the group.',
+            ], 422);
+        }
+
+        // =================================================
+        // CREATE GROUP
+        // =================================================
+
+        $conversation = DB::transaction(
+            function () use (
+                $userId,
+                $groupName,
+                $memberIds
+            ) {
+
+                $conversation =
+                    Conversation::create([
+                        'conversation_type' =>
+                            'group',
+
+                        'conversation_name' =>
+                            $groupName,
+
+                        'last_message_at' =>
+                            null,
+                    ]);
+
+                // =========================================
+                // ADD CURRENT USER FIRST
+                // =========================================
+
+                $participants = [
+                    [
+                        'conversation_id' =>
+                            $conversation->conversation_id,
+
+                        'user_id' =>
+                            $userId,
+
+                        'is_muted' =>
+                            false,
+
+                        'created_at' =>
+                            now(),
+
+                        'updated_at' =>
+                            now(),
+                    ]
+                ];
+
+                // =========================================
+                // ADD SELECTED MEMBERS
+                // =========================================
+
+                foreach ($memberIds as $memberId) {
+
+                    $participants[] = [
+                        'conversation_id' =>
+                            $conversation->conversation_id,
+
+                        'user_id' =>
+                            $memberId,
+
+                        'is_muted' =>
+                            false,
+
+                        'created_at' =>
+                            now(),
+
+                        'updated_at' =>
+                            now(),
+                    ];
+                }
+
+                ConversationParticipant::insert(
+                    $participants
+                );
+
+                DB::table('conversation_events')->insert([
+                    'conversation_id' =>
+                        $conversation->conversation_id,
+
+                    'actor_user_id' =>
+                        $userId,
+
+                    'target_user_id' =>
+                        null,
+
+                    'event_type' =>
+                        'group_created',
+
+                    'created_at' =>
+                        now(),
+
+                    'updated_at' =>
+                        now(),
+                ]);
+
+                return $conversation;
+            }
+        );
+
+        // =================================================
+        // RETURN COMPLETE GROUP
+        // =================================================
+
+        $conversation->load([
+            'lastMessage.sender',
+            'participants.user.role',
+        ]);
+
+        return response()->json([
+            'message' =>
+                'Group conversation created successfully.',
+
+            'data' =>
+                $conversation,
+        ], 201);
+    }
+
+    public function muteConversation(
+        Conversation $conversation
+    ): JsonResponse
+    {
+        $userId = Auth::id();
+
+        $this->authorizeConversation(
+            $conversation,
+            $userId
+        );
+
+        ConversationParticipant::where(
+                'conversation_id',
+                $conversation->conversation_id
+            )
+            ->where(
+                'user_id',
+                $userId
+            )
+            ->update([
+                'is_muted' => true,
+                'updated_at' => now(),
+            ]);
+
+        return response()->json([
+            'message' =>
+                'Conversation muted successfully.',
+
+            'is_muted' =>
+                true,
+        ]);
+    }
+
+
+    // =====================================================
+    // UNMUTE CONVERSATION FOR CURRENT USER
+    // =====================================================
+
+    public function unmuteConversation(
+        Conversation $conversation
+    ): JsonResponse
+    {
+        $userId = Auth::id();
+
+        $this->authorizeConversation(
+            $conversation,
+            $userId
+        );
+
+        ConversationParticipant::where(
+                'conversation_id',
+                $conversation->conversation_id
+            )
+            ->where(
+                'user_id',
+                $userId
+            )
+            ->update([
+                'is_muted' => false,
+                'updated_at' => now(),
+            ]);
+
+        return response()->json([
+            'message' =>
+                'Conversation unmuted successfully.',
+
+            'is_muted' =>
+                false,
+        ]);
+    }
+
+    // =====================================================
+    // ADD PEOPLE TO GROUP
+    // Adds selected users without removing existing members.
+    // =====================================================
+
+    public function addGroupMembers(
+        Request $request,
+        Conversation $conversation
+    ): JsonResponse
+    {
+        $userId = Auth::id();
+
+        $this->authorizeConversation(
+            $conversation,
+            $userId
+        );
+
+        if ($conversation->conversation_type !== 'group') {
+            return response()->json([
+                'message' =>
+                    'People can only be added to a group conversation.',
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'user_ids' => [
+                'required',
+                'array',
+                'min:1',
+            ],
+
+            'user_ids.*' => [
+                'required',
+                'integer',
+                'distinct',
+                'exists:users_table,user_id',
+            ],
+        ]);
+
+        $memberIds = collect(
+            $validated['user_ids']
+        )
+            ->map(
+                fn ($id) => (int) $id
+            )
+            ->unique()
+            ->values();
+
+        $existingMemberIds =
+            ConversationParticipant::where(
+                'conversation_id',
+                $conversation->conversation_id
+            )
+            ->pluck('user_id')
+            ->map(
+                fn ($id) => (int) $id
+            );
+
+        $newMemberIds =
+            $memberIds->diff(
+                $existingMemberIds
+            );
+
+        foreach ($newMemberIds as $memberId) {
+
+            // =================================================
+            // ADD PERSON TO GROUP
+            // =================================================
+
+            ConversationParticipant::create([
+                'conversation_id' =>
+                    $conversation->conversation_id,
+
+                'user_id' =>
+                    $memberId,
+
+                'is_muted' =>
+                    false,
+            ]);
+
+
+            // =================================================
+            // RECORD WHO ADDED THIS PERSON
+            //
+            // Example:
+            // You added Ms. Receiving to the group.
+            // =================================================
+
+            $eventId = DB::table('conversation_events')->insertGetId([
+                'conversation_id' => $conversation->conversation_id,
+                'actor_user_id' => $userId,
+                'target_user_id' => $memberId,
+                'event_type' => 'member_added',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            // =================================================
+            // REALTIME GROUP ACTIVITY
+            // Everyone already inside the open group receives this
+            // immediately through the existing private conversation channel.
+            // =================================================
+            $this->broadcastConversationActivity(
+                $conversation,
+                $eventId,
+                'member_added',
+                $userId,
+                $memberId
+            );
+        }
+
+        $conversation->load([
+            'lastMessage.sender',
+            'participants.user.role',
+        ]);
+
+        return response()->json([
+            'message' =>
+                $newMemberIds->isEmpty()
+                    ? 'Selected users are already in the group.'
+                    : 'People added to the group successfully.',
+
+            'added_count' =>
+                $newMemberIds->count(),
+
+            'data' =>
+                $conversation,
+        ]);
+    }
+
+
+    // =====================================================
+    // LEAVE GROUP
+    // Removes ONLY the logged in user from the group.
+    // The conversation and other members remain untouched.
+    // =====================================================
+
+    public function leaveGroup(
+        Conversation $conversation
+    ): JsonResponse
+    {
+        $userId = Auth::id();
+
+        $this->authorizeConversation(
+            $conversation,
+            $userId
+        );
+
+        if ($conversation->conversation_type !== 'group') {
+            return response()->json([
+                'message' =>
+                    'You can only leave a group conversation.',
+            ], 422);
+        }
+
+        $eventId = DB::table('conversation_events')->insertGetId([
+            'conversation_id' => $conversation->conversation_id,
+            'actor_user_id' => $userId,
+            'target_user_id' => null,
+            'event_type' => 'member_left',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // Save the actor name before removing the participant.
+        $leavingUserName = User::where('user_id', $userId)
+            ->value('user_full_name');
+
+
+        // =====================================================
+        // REMOVE CURRENT USER FROM GROUP
+        // =====================================================
+
+        ConversationParticipant::where(
+                'conversation_id',
+                $conversation->conversation_id
+            )
+            ->where(
+                'user_id',
+                $userId
+            )
+            ->delete();
+
+        // =====================================================
+        // REALTIME LEAVE ACTIVITY
+        // The remaining members see "Name left the group."
+        // without refreshing the page.
+        // =====================================================
+        Broadcast::private("conversation.{$conversation->conversation_id}")
+            ->as('conversation.activity')
+            ->with([
+                'conversation_id' => (int) $conversation->conversation_id,
+                'conversation_event_id' => (int) $eventId,
+                'event_type' => 'member_left',
+                'actor_user_id' => (int) $userId,
+                'actor_name' => $leavingUserName,
+                'target_user_id' => null,
+                'target_name' => null,
+                'created_at' => now()->toISOString(),
+            ])
+            ->send();
+
+        return response()->json([
+            'message' =>
+                'You left the group successfully.',
+        ]);
+    }
+
 
     /**
      * Delete a conversation and all its messages.

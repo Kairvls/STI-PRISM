@@ -12,7 +12,7 @@
     {{-- Backdrop --}}
     <div id="messagingModalBackdrop" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm opacity-0 transition-opacity duration-300 ease-out">
         {{-- Modal Container --}}
-        <div id="messagingModalContainer" class="relative mx-4 w-full max-w-[960px] h-[78vh] max-h-[660px] bg-white rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.25)] overflow-hidden scale-[0.95] opacity-0 transition-all duration-300 ease-out flex">
+        <div id="messagingModalContainer" class="relative mx-4 w-full max-w-[1100px] h-[78vh] max-h-[660px] bg-white rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.25)] overflow-hidden scale-[0.95] opacity-0 transition-all duration-300 ease-out flex">
 
             {{-- ===================================== --}}
             {{-- LEFT PANEL --}}
@@ -625,42 +625,218 @@
                     <div class="flex-1 overflow-y-auto px-4 py-5">
 
                         {{-- USER --}}
+                        {{-- ===================================================== --}}
+                        {{-- CONVERSATION INFO PROFILE --}}
+                        {{-- Group chats allow picture and name editing --}}
+                        {{-- ===================================================== --}}
+
                         <div class="flex flex-col items-center text-center">
+
+                            {{-- ================================================= --}}
+                            {{-- AVATAR / GROUP PROFILE PICTURE --}}
+                            {{-- ================================================= --}}
+
                             <div
-                                id="modalConversationInfoAvatar"
+                                id="modalConversationInfoAvatarWrapper"
+                                class="group relative"
+                            >
+
+                                <div
+                                    id="modalConversationInfoAvatar"
+                                    class="
+                                        flex
+                                        h-20
+                                        w-20
+                                        items-center
+                                        justify-center
+                                        overflow-hidden
+                                        rounded-full
+                                        bg-gray-200
+                                        text-xl
+                                        font-semibold
+                                        text-gray-600
+                                    "
+                                ></div>
+
+
+                                {{-- ================================================= --}}
+                                {{-- GROUP PICTURE EDIT OVERLAY --}}
+                                {{-- Only shown by JS for group conversations --}}
+                                {{-- ================================================= --}}
+
+                                <button
+                                    type="button"
+                                    id="modalEditGroupImageButton"
+                                    class="
+                                        hidden
+                                        absolute
+                                        -bottom-1
+                                        -right-1
+                                        z-20
+                                        h-8
+                                        w-8
+                                        items-center
+                                        justify-center
+                                        rounded-full
+                                        border-[3px]
+                                        border-white
+                                        bg-gray-100
+                                        text-gray-600
+                                        opacity-0
+                                        shadow-sm
+                                        transition
+                                        hover:bg-gray-200
+                                        hover:text-gray-900
+                                        group-hover:opacity-100
+                                    "
+                                    title="Change group picture"
+                                    aria-label="Change group picture"
+                                >
+                                    <i
+                                        data-lucide="pencil"
+                                        class="h-4 w-4"
+                                    ></i>
+                                </button>
+
+
+                                {{-- ================================================= --}}
+                                {{-- HIDDEN FILE PICKER --}}
+                                {{-- Clicking pencil opens Windows File Explorer --}}
+                                {{-- ================================================= --}}
+
+                                <input
+                                    type="file"
+                                    id="modalGroupImageInput"
+                                    class="hidden"
+                                    accept="image/jpeg,image/png,image/webp"
+                                />
+
+                            </div>
+
+
+                            {{-- ================================================= --}}
+                            {{-- CONVERSATION / GROUP NAME --}}
+                            {{-- ================================================= --}}
+
+                            <div
+                                id="modalConversationInfoNameWrapper"
                                 class="
-                                    flex
-                                    h-20
-                                    w-20
+                                    group
+                                    relative
+                                    mt-3
+                                    inline-flex
                                     items-center
                                     justify-center
-                                    overflow-hidden
-                                    rounded-full
-                                    bg-gray-200
-                                    text-xl
-                                    font-semibold
-                                    text-gray-600
+                                    gap-1
                                 "
-                            ></div>
-
-                            <h3
-                                id="modalConversationInfoName"
-                                class="mt-3 text-base font-semibold text-gray-900"
                             >
-                                Conversation
-                            </h3>
+
+                                <h3
+                                    id="modalConversationInfoName"
+                                    class="
+                                        text-base
+                                        font-semibold
+                                        text-gray-900
+                                    "
+                                >
+                                    Conversation
+                                </h3>
+
+
+                                {{-- ================================================= --}}
+                                {{-- EDIT GROUP NAME --}}
+                                {{-- ================================================= --}}
+
+                                <button
+                                    type="button"
+                                    id="modalEditGroupNameButton"
+                                    class="
+                                        hidden
+                                        h-7
+                                        w-7
+                                        items-center
+                                        justify-center
+                                        rounded-full
+                                        text-gray-400
+                                        opacity-0
+                                        transition
+                                        hover:bg-gray-100
+                                        hover:text-gray-900
+                                        group-hover:opacity-100
+                                    "
+                                    title="Edit group name"
+                                    aria-label="Edit group name"
+                                >
+                                    <i
+                                        data-lucide="pencil"
+                                        class="h-4 w-4"
+                                    ></i>
+                                </button>
+
+                            </div>
+
+
+                            {{-- ================================================= --}}
+                            {{-- STATUS / MEMBER COUNT --}}
+                            {{-- ================================================= --}}
 
                             <p
                                 id="modalConversationInfoStatus"
                                 class="mt-1 text-xs text-gray-500"
                             ></p>
+
                         </div>
 
                         {{-- ===================================================== --}}
                         {{-- SEARCH THIS CONVERSATION --}}
                         {{-- Opens a dedicated right sidebar view like Messenger --}}
                         {{-- ===================================================== --}}
-                        <div class="mt-5 flex justify-center">
+                        <div class="mt-5 flex justify-center gap-8">
+
+                            {{-- ===================================================== --}}
+                            {{-- GROUP CHAT ONLY: MUTE / UNMUTE --}}
+                            {{-- ===================================================== --}}
+                            <button
+                                type="button"
+                                id="modalConversationMuteButton"
+                                class="
+                                    hidden
+                                    group
+                                    flex-col
+                                    items-center
+                                    gap-1.5
+                                    text-sm
+                                    font-medium
+                                    text-gray-700
+                                "
+                            >
+                                <div
+                                    class="
+                                        flex
+                                        h-10
+                                        w-10
+                                        items-center
+                                        justify-center
+                                        rounded-full
+                                        bg-gray-100
+                                        text-gray-600
+                                        transition
+                                        group-hover:bg-gray-200
+                                        group-hover:text-gray-900
+                                    "
+                                >
+                                    <i
+                                        id="modalConversationMuteIcon"
+                                        data-lucide="bell-off"
+                                        class="h-5 w-5"
+                                    ></i>
+                                </div>
+
+                                <span id="modalConversationMuteLabel">
+                                    Mute
+                                </span>
+                            </button>
+
                             <button
                                 type="button"
                                 id="modalConversationSidebarSearchButton"
@@ -675,10 +851,6 @@
                                     text-gray-700
                                 "
                             >
-                                {{-- ========================================= --}}
-                                {{-- ONLY THIS CIRCLE CHANGES ON HOVER --}}
-                                {{-- The button itself has no full-width BG. --}}
-                                {{-- ========================================= --}}
                                 <div
                                     class="
                                         flex
@@ -769,6 +941,89 @@
                                     >
                                         0
                                     </span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {{-- ===================================================== --}}
+                        {{-- GROUP CHAT ONLY: CHAT MEMBERS --}}
+                        {{-- ===================================================== --}}
+                        <div
+                            id="modalGroupMembersSection"
+                            class="mt-2 hidden border-t border-gray-100 pt-3"
+                        >
+                            <button
+                                type="button"
+                                id="modalGroupMembersAccordionButton"
+                                class="
+                                    flex
+                                    w-full
+                                    items-center
+                                    justify-between
+                                    rounded-lg
+                                    px-2
+                                    py-3
+                                    text-left
+                                    text-sm
+                                    font-semibold
+                                    text-gray-900
+                                    transition
+                                    hover:bg-gray-50
+                                "
+                            >
+                                <span>Chat members</span>
+
+                                <i
+                                    id="modalGroupMembersAccordionChevron"
+                                    data-lucide="chevron-up"
+                                    class="h-4 w-4"
+                                ></i>
+                            </button>
+
+                            <div
+                                id="modalGroupMembersAccordionContent"
+                                class="pb-2"
+                            >
+                                <div
+                                    id="modalGroupMembersList"
+                                    class="space-y-1"
+                                ></div>
+
+                                <button
+                                    type="button"
+                                    id="modalAddGroupPeopleButton"
+                                    class="
+                                        flex
+                                        w-full
+                                        items-center
+                                        gap-3
+                                        rounded-lg
+                                        px-2
+                                        py-3
+                                        text-left
+                                        text-sm
+                                        font-semibold
+                                        text-gray-700
+                                        transition
+                                        hover:bg-gray-50
+                                    "
+                                >
+                                    <span
+                                        class="
+                                            flex
+                                            h-9
+                                            w-9
+                                            shrink-0
+                                            items-center
+                                            justify-center
+                                            rounded-full
+                                            bg-gray-100
+                                        "
+                                    >
+                                        <i data-lucide="user-plus" class="h-5 w-5"></i>
+                                    </span>
+
+                                    <span>Add people</span>
                                 </button>
                             </div>
                         </div>
@@ -870,7 +1125,54 @@
                                 </button>
                             </div>
                         </div>
-                    </div>
+
+                        {{-- ===================================================== --}}
+                        {{-- GROUP CHAT: PERSISTENT LEAVE GROUP BUTTON --}}
+                        {{-- Shown only when the selected conversation is a group --}}
+                        {{-- ===================================================== --}}
+                        <div
+                            id="modalGroupLeaveSection"
+                            class="mt-2 hidden border-t border-gray-100 pt-3"
+                        >
+                            <button
+                                type="button"
+                                id="modalGroupLeaveButton"
+                                class="
+                                    flex
+                                    w-full
+                                    items-center
+                                    gap-3
+                                    rounded-lg
+                                    px-2
+                                    py-3
+                                    text-left
+                                    text-sm
+                                    font-semibold
+                                    text-gray-700
+                                    transition
+                                    hover:bg-gray-50
+                                "
+                            >
+                                <span
+                                    class="
+                                        flex
+                                        h-9
+                                        w-9
+                                        shrink-0
+                                        items-center
+                                        justify-center
+                                        rounded-full
+                                        bg-gray-100
+                                    "
+                                >
+                                    <i data-lucide="log-out" class="h-5 w-5"></i>
+                                </span>
+
+                                <span>Leave group</span>
+                            </button>
+                        </div>
+
+</div>
                 </div>
 
                 {{-- ===================================================== --}}
@@ -1274,6 +1576,837 @@
     </div>
 </div>
 
+{{-- ===================================================== --}}
+{{-- CREATE GROUP CHAT MODAL --}}
+{{-- ===================================================== --}}
+
+{{-- ========================================================= --}}
+{{-- GROUP CHAT MUTE MODAL --}}
+{{-- Opens when the Mute button in the group sidebar is clicked --}}
+{{-- ========================================================= --}}
+<div
+    id="groupMuteModal"
+    class="fixed inset-0 z-[99990] hidden items-center justify-center p-4"
+>
+    <div
+        id="groupMuteBackdrop"
+        class="absolute inset-0 bg-black/50"
+    ></div>
+
+    <div
+        class="
+            relative
+            z-10
+            w-full
+            max-w-[520px]
+            overflow-hidden
+            rounded-2xl
+            bg-white
+            shadow-2xl
+        "
+    >
+        <div
+            class="
+                flex
+                items-center
+                justify-between
+                border-b
+                border-gray-100
+                px-5
+                py-4
+            "
+        >
+            <h3 class="text-lg font-semibold text-gray-900">
+                Notifications for this chat
+            </h3>
+
+            <button
+                type="button"
+                id="groupMuteClose"
+                class="
+                    flex
+                    h-10
+                    w-10
+                    items-center
+                    justify-center
+                    rounded-full
+                    bg-gray-100
+                    text-gray-500
+                    transition
+                    hover:bg-gray-200
+                    hover:text-gray-900
+                "
+            >
+                <i data-lucide="x" class="h-5 w-5"></i>
+            </button>
+        </div>
+
+        <div class="px-5 py-5">
+            <div class="flex items-center justify-between gap-4">
+                <div>
+                    <p class="text-sm font-semibold text-gray-900">
+                        Mute this chat?
+                    </p>
+
+                    <p
+                        id="groupMuteDescription"
+                        class="mt-1 text-xs text-gray-500"
+                    >
+                        You are currently receiving notifications for this chat.
+                    </p>
+                </div>
+
+                <button
+                    type="button"
+                    id="groupMuteToggleButton"
+                    class="
+                        flex
+                        shrink-0
+                        items-center
+                        gap-2
+                        rounded-lg
+                        bg-gray-100
+                        px-4
+                        py-2
+                        text-sm
+                        font-semibold
+                        text-gray-700
+                        transition
+                        hover:bg-gray-200
+                    "
+                >
+                    <i
+                        id="groupMuteToggleIcon"
+                        data-lucide="bell-off"
+                        class="h-4 w-4"
+                    ></i>
+
+                    <span id="groupMuteToggleLabel">
+                        Mute
+                    </span>
+                </button>
+            </div>
+
+            <div class="my-5 border-t border-gray-100"></div>
+
+            <div>
+                <h4 class="text-base font-semibold text-gray-900">
+                    Activity
+                </h4>
+
+                <div class="mt-3 space-y-1">
+                    <label
+                        class="
+                            flex
+                            cursor-pointer
+                            items-center
+                            justify-between
+                            gap-4
+                            rounded-lg
+                            px-2
+                            py-2.5
+                            hover:bg-gray-50
+                        "
+                    >
+                        <div>
+                            <p class="text-sm font-semibold text-gray-800">
+                                Highlights
+                            </p>
+
+                            <p class="text-xs text-gray-500">
+                                Notifications will be combined when chats are busy.
+                            </p>
+                        </div>
+
+                        <input
+                            type="radio"
+                            name="groupNotificationActivity"
+                            value="highlights"
+                            class="h-5 w-5"
+                        >
+                    </label>
+
+                    <label
+                        class="
+                            flex
+                            cursor-pointer
+                            items-center
+                            justify-between
+                            gap-4
+                            rounded-lg
+                            px-2
+                            py-2.5
+                            hover:bg-gray-50
+                        "
+                    >
+                        <span class="text-sm font-semibold text-gray-800">
+                            All Activity
+                        </span>
+
+                        <input
+                            type="radio"
+                            name="groupNotificationActivity"
+                            value="all"
+                            class="h-5 w-5"
+                            checked
+                        >
+                    </label>
+
+                    <label
+                        class="
+                            flex
+                            cursor-pointer
+                            items-center
+                            justify-between
+                            gap-4
+                            rounded-lg
+                            px-2
+                            py-2.5
+                            hover:bg-gray-50
+                        "
+                    >
+                        <span class="text-sm font-semibold text-gray-800">
+                            Mentions and replies only
+                        </span>
+
+                        <input
+                            type="radio"
+                            name="groupNotificationActivity"
+                            value="mentions"
+                            class="h-5 w-5"
+                        >
+                    </label>
+
+                    <label
+                        class="
+                            flex
+                            cursor-pointer
+                            items-center
+                            justify-between
+                            gap-4
+                            rounded-lg
+                            px-2
+                            py-2.5
+                            hover:bg-gray-50
+                        "
+                    >
+                        <span class="text-sm font-semibold text-gray-800">
+                            None
+                        </span>
+
+                        <input
+                            type="radio"
+                            name="groupNotificationActivity"
+                            value="none"
+                            class="h-5 w-5"
+                        >
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div
+            class="
+                flex
+                justify-end
+                gap-2
+                border-t
+                border-gray-100
+                px-5
+                py-4
+            "
+        >
+            <button
+                type="button"
+                id="groupMuteCancel"
+                class="
+                    rounded-lg
+                    px-4
+                    py-2
+                    text-sm
+                    font-semibold
+                    text-gray-600
+                    transition
+                    hover:bg-gray-100
+                "
+            >
+                Cancel
+            </button>
+
+            <button
+                type="button"
+                id="groupMuteDone"
+                class="
+                    rounded-lg
+                    bg-gray-900
+                    px-5
+                    py-2
+                    text-sm
+                    font-semibold
+                    text-white
+                    transition
+                    hover:bg-gray-800
+                "
+            >
+                Done
+            </button>
+        </div>
+    </div>
+</div>
+
+
+{{-- ========================================================= --}}
+{{-- GROUP MEMBER 3-DOT MENU --}}
+{{-- Current user: Leave group only --}}
+{{-- Other members: Message, Audio call, Video chat --}}
+{{-- ========================================================= --}}
+<div
+    id="groupMemberMenu"
+    class="
+        fixed
+        z-[99995]
+        hidden
+        w-[250px]
+        overflow-hidden
+        rounded-xl
+        border
+        border-gray-200
+        bg-white
+        p-1.5
+        shadow-2xl
+    "
+></div>
+
+
+{{-- ========================================================= --}}
+{{-- LEAVE GROUP CONFIRMATION MODAL --}}
+{{-- ========================================================= --}}
+<div
+    id="leaveGroupConfirmModal"
+    class="fixed inset-0 z-[100000] hidden items-center justify-center p-4"
+>
+    <div
+        id="leaveGroupConfirmBackdrop"
+        class="absolute inset-0 bg-black/50"
+    ></div>
+
+    <div
+        class="
+            relative
+            z-10
+            w-full
+            max-w-[500px]
+            overflow-hidden
+            rounded-2xl
+            bg-white
+            shadow-2xl
+        "
+    >
+        <div
+            class="
+                flex
+                items-center
+                justify-between
+                border-b
+                border-gray-100
+                px-5
+                py-4
+            "
+        >
+            <h3 class="text-lg font-semibold text-gray-900">
+                Leave group chat?
+            </h3>
+
+            <button
+                type="button"
+                id="leaveGroupConfirmClose"
+                class="
+                    flex
+                    h-10
+                    w-10
+                    items-center
+                    justify-center
+                    rounded-full
+                    bg-gray-100
+                    text-gray-500
+                    transition
+                    hover:bg-gray-200
+                    hover:text-gray-900
+                "
+            >
+                <i data-lucide="x" class="h-5 w-5"></i>
+            </button>
+        </div>
+
+        <div class="px-5 py-5">
+            <p class="text-sm leading-6 text-gray-600">
+                You will stop receiving messages from this conversation and people will see that you left.
+            </p>
+        </div>
+
+        <div
+            class="
+                flex
+                justify-end
+                gap-2
+                border-t
+                border-gray-100
+                px-5
+                py-4
+            "
+        >
+            <button
+                type="button"
+                id="leaveGroupConfirmCancel"
+                class="
+                    rounded-lg
+                    px-5
+                    py-2
+                    text-sm
+                    font-semibold
+                    text-gray-600
+                    transition
+                    hover:bg-gray-100
+                "
+            >
+                Cancel
+            </button>
+
+            <button
+                type="button"
+                id="leaveGroupConfirmSubmit"
+                class="
+                    rounded-lg
+                    bg-gray-900
+                    px-5
+                    py-2
+                    text-sm
+                    font-semibold
+                    text-white
+                    transition
+                    hover:bg-gray-800
+                "
+            >
+                Leave group
+            </button>
+        </div>
+    </div>
+</div>
+
+
+{{-- ========================================================= --}}
+{{-- ADD PEOPLE TO GROUP MODAL --}}
+{{-- ========================================================= --}}
+<div
+    id="addGroupPeopleModal"
+    class="fixed inset-0 z-[100000] hidden items-center justify-center p-4"
+>
+    <div
+        id="addGroupPeopleBackdrop"
+        class="absolute inset-0 bg-black/40"
+    ></div>
+
+    <div
+        class="
+            relative
+            z-10
+            flex
+            max-h-[80vh]
+            w-full
+            max-w-md
+            flex-col
+            overflow-hidden
+            rounded-2xl
+            bg-white
+            shadow-2xl
+        "
+    >
+        <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+            <div>
+                <h3 class="text-base font-semibold text-gray-900">
+                    Add people
+                </h3>
+                <p class="mt-0.5 text-xs text-gray-500">
+                    Select users to add to this group
+                </p>
+            </div>
+
+            <button
+                type="button"
+                id="addGroupPeopleClose"
+                class="flex h-9 w-9 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100"
+            >
+                <i data-lucide="x" class="h-5 w-5"></i>
+            </button>
+        </div>
+
+        <div class="border-b border-gray-100 p-4">
+            <div class="flex items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3">
+                <i data-lucide="search" class="h-4 w-4 text-gray-400"></i>
+
+                <input
+                    type="text"
+                    id="addGroupPeopleSearch"
+                    class="h-10 w-full bg-transparent text-sm text-gray-900 outline-none"
+                    placeholder="Search users..."
+                >
+            </div>
+        </div>
+
+        <div
+            id="addGroupPeopleList"
+            class="min-h-0 flex-1 overflow-y-auto p-3"
+        ></div>
+
+        <p
+            id="addGroupPeopleError"
+            class="hidden px-5 pb-2 text-sm text-red-600"
+        ></p>
+
+        <div class="flex justify-end gap-2 border-t border-gray-100 px-5 py-4">
+            <button
+                type="button"
+                id="addGroupPeopleCancel"
+                class="rounded-lg px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100"
+            >
+                Cancel
+            </button>
+
+            <button
+                type="button"
+                id="addGroupPeopleSubmit"
+                class="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+                Add
+            </button>
+        </div>
+    </div>
+</div>
+
+
+<div
+    id="createGroupChatModal"
+    class="fixed inset-0 z-[10060] hidden"
+>
+    {{-- BACKDROP --}}
+    <div
+        id="createGroupChatBackdrop"
+        class="absolute inset-0 bg-black/50"
+    ></div>
+
+    <div class="relative flex min-h-full items-center justify-center p-4">
+
+        <div
+            class="
+                relative
+                flex
+                max-h-[620px]
+                w-full
+                max-w-md
+                flex-col
+                overflow-hidden
+                rounded-2xl
+                bg-white
+                shadow-2xl
+            "
+        >
+
+            {{-- HEADER --}}
+            <div
+                class="
+                    flex
+                    shrink-0
+                    items-center
+                    justify-between
+                    border-b
+                    border-gray-200
+                    px-5
+                    py-4
+                "
+            >
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900">
+                        Create group chat
+                    </h3>
+
+                    <p class="mt-0.5 text-xs text-gray-500">
+                        Add at least two other people.
+                    </p>
+                </div>
+
+                <button
+                    type="button"
+                    id="closeCreateGroupChatModal"
+                    class="
+                        flex
+                        h-9
+                        w-9
+                        items-center
+                        justify-center
+                        rounded-full
+                        bg-gray-100
+                        text-gray-500
+                        transition
+                        hover:bg-gray-200
+                        hover:text-gray-900
+                    "
+                >
+                    <i data-lucide="x" class="h-5 w-5"></i>
+                </button>
+            </div>
+
+            {{-- FORM --}}
+            <form
+                id="createGroupChatForm"
+                class="flex min-h-0 flex-1 flex-col"
+            >
+
+                {{-- GROUP NAME --}}
+                <div class="shrink-0 px-5 pt-5">
+
+                    <label
+                        for="createGroupChatName"
+                        class="mb-2 block text-xs font-semibold text-gray-700"
+                    >
+                        Group name
+                    </label>
+
+                    <input
+                        type="text"
+                        id="createGroupChatName"
+                        maxlength="255"
+                        placeholder="Enter group name"
+                        class="
+                            w-full
+                            rounded-xl
+                            border
+                            border-gray-200
+                            bg-gray-50
+                            px-4
+                            py-2.5
+                            text-sm
+                            text-gray-900
+                            outline-none
+                            transition
+                            focus:border-gray-400
+                            focus:bg-white
+                            focus:ring-4
+                            focus:ring-gray-100
+                        "
+                    >
+
+                </div>
+
+                {{-- MEMBERS --}}
+                <div class="min-h-0 flex-1 px-5 pt-5">
+
+                    <div class="mb-2 flex items-center justify-between">
+                        <p class="text-xs font-semibold text-gray-700">
+                            Members
+                        </p>
+
+                        <span
+                            id="createGroupSelectedCount"
+                            class="text-xs text-gray-400"
+                        >
+                            0 selected
+                        </span>
+                    </div>
+
+                    <div
+                        id="createGroupMembersList"
+                        class="
+                            max-h-[300px]
+                            overflow-y-auto
+                            rounded-xl
+                            border
+                            border-gray-200
+                        "
+                    ></div>
+
+                </div>
+
+                {{-- ERROR --}}
+                <p
+                    id="createGroupChatError"
+                    class="hidden shrink-0 px-5 pt-3 text-xs font-medium text-red-600"
+                ></p>
+
+                {{-- FOOTER --}}
+                <div
+                    class="
+                        mt-5
+                        flex
+                        shrink-0
+                        justify-end
+                        gap-2
+                        border-t
+                        border-gray-100
+                        px-5
+                        py-4
+                    "
+                >
+                    <button
+                        type="button"
+                        id="cancelCreateGroupChat"
+                        class="
+                            rounded-lg
+                            px-4
+                            py-2
+                            text-sm
+                            font-semibold
+                            text-gray-600
+                            transition
+                            hover:bg-gray-100
+                        "
+                    >
+                        Cancel
+                    </button>
+
+                    <button
+                        type="submit"
+                        id="createGroupChatSubmit"
+                        class="
+                            rounded-lg
+                            bg-gray-900
+                            px-4
+                            py-2
+                            text-sm
+                            font-semibold
+                            text-white
+                            transition
+                            hover:bg-gray-800
+                            disabled:cursor-not-allowed
+                            disabled:opacity-50
+                        "
+                    >
+                        Create group
+                    </button>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+</div>
+
+
+{{-- ===================================================== --}}
+{{-- RENAME GROUP MODAL --}}
+{{-- Sits above the main messaging modal just like Mute/Add/Leave --}}
+{{-- ===================================================== --}}
+<div id="renameGroupModal" class="fixed inset-0 z-[10050] hidden items-center justify-center p-4">
+    <div id="renameGroupBackdrop" class="absolute inset-0 bg-black/40"></div>
+    <div class="relative z-10 w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div class="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+            <div>
+                <h3 class="text-base font-semibold text-gray-900">Name this group</h3>
+                <p class="mt-0.5 text-xs text-gray-500">Everyone in the group will see this name</p>
+            </div>
+            <button type="button" id="renameGroupClose" class="flex h-9 w-9 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100">
+                <i data-lucide="x" class="h-5 w-5"></i>
+            </button>
+        </div>
+        <div class="p-5">
+            <input id="renameGroupInput" type="text" maxlength="255" class="h-11 w-full rounded-xl border border-gray-200 bg-gray-50 px-4 text-sm text-gray-900 outline-none focus:border-gray-400 focus:ring-4 focus:ring-gray-100" placeholder="Group name">
+            <p id="renameGroupError" class="mt-2 hidden text-sm text-red-600"></p>
+        </div>
+        <div class="flex justify-end gap-2 border-t border-gray-100 px-5 py-4">
+            <button type="button" id="renameGroupCancel" class="rounded-lg px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-100">Cancel</button>
+            <button type="button" id="renameGroupSave" class="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800">Save</button>
+        </div>
+    </div>
+</div>
+
+
+{{-- ===================================================== --}}
+{{-- FULL GROUP PICTURE VIEWER --}}
+{{-- Opens only when the group has a real custom picture. --}}
+{{-- The generated member collage does NOT open this modal. --}}
+{{-- ===================================================== --}}
+
+<div
+    id="modalGroupPictureViewer"
+    class="
+        fixed
+        inset-0
+        z-[9999]
+        hidden
+        items-center
+        justify-center
+        bg-black/80
+        p-6
+    "
+    aria-hidden="true"
+>
+    <button
+        type="button"
+        id="modalGroupPictureViewerClose"
+        class="
+            absolute
+            right-6
+            top-6
+            flex
+            h-10
+            w-10
+            items-center
+            justify-center
+            rounded-full
+            bg-white/10
+            text-white
+            transition
+            hover:bg-white/20
+        "
+        aria-label="Close picture"
+        title="Close"
+    >
+        <i data-lucide="x" class="h-6 w-6"></i>
+    </button>
+
+    <img
+        id="modalGroupPictureViewerImage"
+        src=""
+        alt="Group picture"
+        class="
+            max-h-[88vh]
+            max-w-[92vw]
+            rounded-xl
+            object-contain
+            shadow-2xl
+        "
+    >
+</div>
+
+
+{{-- ===================================================== --}}
+{{-- PRIVATE AUDIO / VIDEO CALL MODALS --}}
+{{-- ===================================================== --}}
+<div id="privateIncomingCallModal" class="fixed inset-0 z-[10050] hidden items-center justify-center bg-black/50 p-4">
+    <div class="w-full max-w-sm rounded-3xl bg-white p-6 text-center shadow-2xl">
+        <div id="privateIncomingCallAvatar" class="mx-auto flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-gray-100 text-xl font-semibold text-gray-700"></div>
+        <h3 id="privateIncomingCallName" class="mt-4 text-lg font-semibold text-gray-900">Incoming call</h3>
+        <p id="privateIncomingCallType" class="mt-1 text-sm text-gray-500">Incoming audio call</p>
+        <div class="mt-7 flex items-center justify-center gap-8">
+            <button type="button" id="privateCallDeclineButton" class="flex flex-col items-center gap-2 text-xs font-medium text-gray-600"><span class="flex h-14 w-14 items-center justify-center rounded-full bg-red-600 text-white"><i data-lucide="phone-off" class="h-6 w-6"></i></span><span>Decline</span></button>
+            <button type="button" id="privateCallAcceptButton" class="flex flex-col items-center gap-2 text-xs font-medium text-gray-600"><span class="flex h-14 w-14 items-center justify-center rounded-full bg-green-600 text-white"><i data-lucide="phone" class="h-6 w-6"></i></span><span>Accept</span></button>
+        </div>
+    </div>
+</div>
+
+<div id="privateActiveCallModal" class="fixed inset-0 z-[10040] hidden items-center justify-center bg-gray-950/95 p-4">
+    <div class="relative flex h-[min(720px,92vh)] w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-gray-900 shadow-2xl">
+        <div class="absolute left-5 top-5 z-20"><h3 id="privateActiveCallName" class="text-base font-semibold text-white">Call</h3><p id="privateActiveCallStatus" class="mt-0.5 text-sm text-white/60">Calling...</p></div>
+        <video id="privateRemoteVideo" autoplay playsinline class="h-full w-full bg-black object-cover"></video>
+        <div id="privateAudioCallVisual" class="absolute inset-0 flex items-center justify-center bg-gray-900"><div class="text-center"><div id="privateActiveCallAvatar" class="mx-auto flex h-28 w-28 items-center justify-center overflow-hidden rounded-full bg-gray-700 text-3xl font-semibold text-white"></div><p id="privateAudioCallName" class="mt-4 text-lg font-semibold text-white"></p></div></div>
+        <video id="privateLocalVideo" autoplay muted playsinline class="absolute bottom-24 right-5 z-20 hidden h-48 w-36 rounded-2xl bg-black object-cover shadow-xl"></video>
+        <div class="absolute bottom-5 left-1/2 z-30 flex -translate-x-1/2 items-center gap-3 rounded-full bg-black/40 px-4 py-3 backdrop-blur">
+            <button type="button" id="privateCallMuteButton" class="flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25" title="Mute"><i data-lucide="mic" class="h-5 w-5"></i></button>
+            <button type="button" id="privateCallCameraButton" class="hidden h-12 w-12 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25" title="Camera"><i data-lucide="video" class="h-5 w-5"></i></button>
+            <button type="button" id="privateCallEndButton" class="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700" title="End call"><i data-lucide="phone-off" class="h-5 w-5"></i></button>
+        </div>
+    </div>
+</div>
+
 
 <script>
     (function() {
@@ -1293,6 +2426,22 @@
         const remoteTypingTimeouts = new Map();
         let currentConversationUserName = '';
         let currentConversationUser = null;
+        let currentConversationType = 'direct';
+        let currentConversationData = null;
+        // PRIVATE CALL STATE
+        let privateCallPeer = null;
+        let privateCallLocalStream = null;
+        let privateCallId = null;
+        let privateCallTargetUserId = null;
+        let privateCallTargetName = '';
+        let privateCallTargetPicture = '';
+        let privateCallType = 'audio';
+        let privateCallConversationId = null;
+        let privateIncomingOffer = null;
+        let privateCallPendingIce = [];
+        let privateCallMuted = false;
+        let privateCallCameraEnabled = true;
+
         // =====================================================
         // IMAGE VIEWER STATE
         // Keeps the current message's images together so the
@@ -1903,6 +3052,325 @@
         function getInitials(name) {
             if (!name) return '?';
             return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+        }
+
+        function renderDefaultGroupAvatar(
+            participants,
+            size = 'large'
+        ) {
+
+            // =================================================
+            // GET VALID GROUP MEMBERS
+            // =================================================
+
+            const members =
+                Array.isArray(participants)
+                    ? participants
+                        .map(participant =>
+                            participant?.user || participant
+                        )
+                        .filter(user =>
+                            user &&
+                            (
+                                user.user_id ||
+                                user.user_full_name ||
+                                user.name
+                            )
+                        )
+                        .slice(0, 3)
+                    : [];
+
+
+            // =================================================
+            // SIZE PRESETS
+            //
+            // small:
+            // Conversation list + chat header
+            //
+            // large:
+            // First glance + conversation info
+            // =================================================
+
+            const isLarge =
+                size === 'large';
+
+            const containerClass =
+                isLarge
+                    ? 'h-[88px] w-[112px]'
+                    : 'h-[44px] w-[56px]';
+
+            const circleClass =
+                isLarge
+                    ? 'h-14 w-14'
+                    : 'h-7 w-7';
+
+            const textClass =
+                isLarge
+                    ? 'text-sm'
+                    : 'text-[8px]';
+
+            const borderClass =
+                isLarge
+                    ? 'border-[3px]'
+                    : 'border-2';
+
+
+            // =================================================
+            // MEMBER AVATAR
+            // =================================================
+
+            function memberAvatar(user, positionClass) {
+
+                const name =
+                    user?.user_full_name ||
+                    user?.name ||
+                    'User';
+
+                const picture =
+                    getConversationInfoPictureUrl(user);
+
+                const initials =
+                    getInitials(name);
+
+
+                // =============================================
+                // MEMBER HAS PROFILE PICTURE
+                // =============================================
+
+                if (picture) {
+
+                    return `
+                        <div
+                            class="
+                                absolute
+                                ${positionClass}
+                                ${circleClass}
+                                ${borderClass}
+                                overflow-hidden
+                                rounded-full
+                                border-white
+                                bg-gray-100
+                            "
+                        >
+                            <img
+                                src="${escapeHtml(picture)}"
+                                alt="${escapeHtml(name)}"
+                                class="
+                                    h-full
+                                    w-full
+                                    object-cover
+                                "
+                                onerror="
+                                    this.style.display='none';
+                                    this.nextElementSibling.style.display='flex';
+                                "
+                            >
+
+                            <div
+                                style="display:none;"
+                                class="
+                                    h-full
+                                    w-full
+                                    items-center
+                                    justify-center
+                                    bg-gray-100
+                                    ${textClass}
+                                    font-semibold
+                                    text-gray-600
+                                "
+                            >
+                                ${escapeHtml(initials)}
+                            </div>
+                        </div>
+                    `;
+                }
+
+
+                // =============================================
+                // NO MEMBER PROFILE PICTURE
+                // =============================================
+
+                return `
+                    <div
+                        class="
+                            absolute
+                            ${positionClass}
+                            ${circleClass}
+                            ${borderClass}
+                            flex
+                            items-center
+                            justify-center
+                            rounded-full
+                            border-white
+                            bg-gray-100
+                            ${textClass}
+                            font-semibold
+                            text-gray-600
+                        "
+                    >
+                        ${escapeHtml(initials)}
+                    </div>
+                `;
+            }
+
+
+            // =================================================
+            // FALLBACK
+            // =================================================
+
+            if (members.length === 0) {
+
+                return `
+                    <div
+                        class="
+                            ${containerClass}
+                            relative
+                            shrink-0
+                        "
+                    >
+                        <div
+                            class="
+                                absolute
+                                left-1/2
+                                top-1/2
+                                ${circleClass}
+                                flex
+                                -translate-x-1/2
+                                -translate-y-1/2
+                                items-center
+                                justify-center
+                                rounded-full
+                                bg-gray-100
+                                text-gray-500
+                            "
+                        >
+                            <i
+                                data-lucide="users"
+                                class="${
+                                    isLarge
+                                        ? 'h-6 w-6'
+                                        : 'h-3.5 w-3.5'
+                                }"
+                            ></i>
+                        </div>
+                    </div>
+                `;
+            }
+
+
+            // =================================================
+            // 1 MEMBER
+            // =================================================
+
+            if (members.length === 1) {
+
+                return `
+                    <div
+                        class="
+                            ${containerClass}
+                            relative
+                            shrink-0
+                        "
+                    >
+                        ${memberAvatar(
+                            members[0],
+                            `
+                                left-1/2
+                                top-1/2
+                                z-10
+                                -translate-x-1/2
+                                -translate-y-1/2
+                            `
+                        )}
+                    </div>
+                `;
+            }
+
+
+            // =================================================
+            // 2 MEMBERS
+            // =================================================
+
+            if (members.length === 2) {
+
+                return `
+                    <div
+                        class="
+                            ${containerClass}
+                            relative
+                            shrink-0
+                        "
+                    >
+                        ${memberAvatar(
+                            members[0],
+                            `
+                                left-[8%]
+                                bottom-[5%]
+                                z-10
+                            `
+                        )}
+
+                        ${memberAvatar(
+                            members[1],
+                            `
+                                right-[8%]
+                                top-[5%]
+                                z-20
+                            `
+                        )}
+                    </div>
+                `;
+            }
+
+
+            // =================================================
+            // 3 MEMBERS
+            //
+            // Exact same arrangement everywhere:
+            //
+            //            [ 2 ]
+            //
+            //      [ 1 ]     [ 3 ]
+            //
+            // =================================================
+
+            return `
+                <div
+                    class="
+                        ${containerClass}
+                        relative
+                        shrink-0
+                    "
+                >
+                    ${memberAvatar(
+                        members[0],
+                        `
+                            left-[3%]
+                            bottom-[3%]
+                            z-10
+                        `
+                    )}
+
+                    ${memberAvatar(
+                        members[1],
+                        `
+                            left-1/2
+                            top-0
+                            z-20
+                            -translate-x-1/2
+                        `
+                    )}
+
+                    ${memberAvatar(
+                        members[2],
+                        `
+                            right-[3%]
+                            bottom-[3%]
+                            z-30
+                        `
+                    )}
+                </div>
+            `;
         }
 
         function formatTime(dateString) {
@@ -2831,7 +4299,140 @@
         }
 
 
+
+        // =====================================================
+        // FULL GROUP PICTURE VIEWER
+        //
+        // IMPORTANT:
+        // Only a real conversation_image can open this.
+        // The generated member collage is intentionally ignored.
+        // =====================================================
+
+        function normalizeConversationImageUrl(image) {
+
+            if (!image) {
+                return '';
+            }
+
+            let imageUrl = String(image);
+
+            if (
+                !/^https?:\/\//i.test(imageUrl) &&
+                !imageUrl.startsWith('/')
+            ) {
+                imageUrl =
+                    `/storage/${imageUrl.replace(
+                        /^storage\//,
+                        ''
+                    )}`;
+            }
+
+            return imageUrl;
+        }
+
+
+        function openGroupPictureViewer(imageUrl) {
+
+            if (!imageUrl) {
+                return;
+            }
+
+            const viewer =
+                document.getElementById(
+                    'modalGroupPictureViewer'
+                );
+
+            const viewerImage =
+                document.getElementById(
+                    'modalGroupPictureViewerImage'
+                );
+
+            if (!viewer || !viewerImage) {
+                return;
+            }
+
+            viewerImage.src = imageUrl;
+
+            viewer.classList.remove('hidden');
+            viewer.classList.add('flex');
+            viewer.setAttribute('aria-hidden', 'false');
+        }
+
+
+        function closeGroupPictureViewer() {
+
+            const viewer =
+                document.getElementById(
+                    'modalGroupPictureViewer'
+                );
+
+            const viewerImage =
+                document.getElementById(
+                    'modalGroupPictureViewerImage'
+                );
+
+            if (!viewer) {
+                return;
+            }
+
+            viewer.classList.add('hidden');
+            viewer.classList.remove('flex');
+            viewer.setAttribute('aria-hidden', 'true');
+
+            if (viewerImage) {
+                viewerImage.src = '';
+            }
+        }
+
+
+        // =====================================================
+        // VIEWER EVENTS
+        // =====================================================
+
+        document
+            .getElementById('modalGroupPictureViewerClose')
+            ?.addEventListener(
+                'click',
+                closeGroupPictureViewer
+            );
+
+
+        document
+            .getElementById('modalGroupPictureViewer')
+            ?.addEventListener(
+                'click',
+                (event) => {
+
+                    if (
+                        event.target.id ===
+                        'modalGroupPictureViewer'
+                    ) {
+                        closeGroupPictureViewer();
+                    }
+                }
+            );
+
+
+        document.addEventListener(
+            'keydown',
+            (event) => {
+
+                if (event.key === 'Escape') {
+                    closeGroupPictureViewer();
+                }
+            }
+        );
+
+
+        // =====================================================
+        // REFRESH CONVERSATION INFO PROFILE
+        // Supports direct and group conversations
+        // =====================================================
+
         function refreshConversationInfoProfile() {
+
+            const conversation =
+                currentConversationData || {};
 
             const avatar =
                 document.getElementById(
@@ -2848,6 +4449,246 @@
                     'modalConversationInfoStatus'
                 );
 
+            const editImageButton =
+                document.getElementById(
+                    'modalEditGroupImageButton'
+                );
+
+            const editNameButton =
+                document.getElementById(
+                    'modalEditGroupNameButton'
+                );
+
+            const participants =
+                Array.isArray(conversation.participants)
+                    ? conversation.participants
+                    : [];
+
+
+            // =====================================================
+            // GROUP CHAT
+            // =====================================================
+
+            if (currentConversationType === 'group') {
+
+                const displayName =
+                    conversation.conversation_name ||
+                    'Group chat';
+
+                const memberCount =
+                    participants.length;
+
+                const groupImage =
+                    conversation.conversation_image || '';
+
+
+                // =================================================
+                // SHOW EDIT BUTTONS
+                // Any current group member can use them
+                // =================================================
+
+                if (editImageButton) {
+
+                    editImageButton.classList.remove(
+                        'hidden'
+                    );
+
+                    editImageButton.classList.add(
+                        'flex'
+                    );
+                }
+
+
+                if (editNameButton) {
+
+                    editNameButton.classList.remove(
+                        'hidden'
+                    );
+
+                    editNameButton.classList.add(
+                        'flex'
+                    );
+                }
+
+
+                // =================================================
+                // GROUP NAME
+                // =================================================
+
+                if (name) {
+
+                    name.textContent =
+                        displayName;
+                }
+
+
+                // =================================================
+                // MEMBER COUNT
+                // =================================================
+
+                if (status) {
+
+                    status.textContent =
+                        `${memberCount} ${
+                            memberCount === 1
+                                ? 'member'
+                                : 'members'
+                        }`;
+                }
+
+
+                if (!avatar) {
+                    return;
+                }
+
+
+                // =================================================
+                // CUSTOM GROUP PICTURE
+                // =================================================
+
+                if (groupImage) {
+
+                    let imageUrl =
+                        String(groupImage);
+
+
+                    if (
+                        !/^https?:\/\//i.test(imageUrl) &&
+                        !imageUrl.startsWith('/')
+                    ) {
+
+                        imageUrl =
+                            `/storage/${imageUrl.replace(
+                                /^storage\//,
+                                ''
+                            )}`;
+                    }
+
+
+                    avatar.className = `
+                        flex
+                        h-20
+                        w-20
+                        cursor-pointer
+                        items-center
+                        justify-center
+                        overflow-hidden
+                        rounded-full
+                        bg-gray-100
+                    `;
+
+                    // =============================================
+                    // REAL CUSTOM PICTURE
+                    // Click avatar to view the full image.
+                    // =============================================
+
+                    avatar.setAttribute(
+                        'role',
+                        'button'
+                    );
+
+                    avatar.setAttribute(
+                        'tabindex',
+                        '0'
+                    );
+
+                    avatar.setAttribute(
+                        'title',
+                        'View group picture'
+                    );
+
+                    avatar.onclick = () => {
+                        openGroupPictureViewer(imageUrl);
+                    };
+
+                    avatar.onkeydown = (event) => {
+
+                        if (
+                            event.key === 'Enter' ||
+                            event.key === ' '
+                        ) {
+                            event.preventDefault();
+                            openGroupPictureViewer(imageUrl);
+                        }
+                    };
+
+
+                    avatar.innerHTML = `
+                        <img
+                            src="${escapeHtml(imageUrl)}"
+                            alt="${escapeHtml(displayName)}"
+                            class="h-full w-full object-cover"
+                        >
+                    `;
+
+                } else {
+
+                    // =============================================
+                    // NO CUSTOM PICTURE
+                    // Keep member collage
+                    // =============================================
+
+                    avatar.className = `
+                        flex
+                        h-[92px]
+                        w-[112px]
+                        items-center
+                        justify-center
+                        overflow-visible
+                    `;
+
+                    // =============================================
+                    // GENERATED MEMBER COLLAGE
+                    // This is NOT a saved group picture.
+                    // Therefore it must not open the image viewer.
+                    // =============================================
+
+                    avatar.removeAttribute('role');
+                    avatar.removeAttribute('tabindex');
+                    avatar.removeAttribute('title');
+                    avatar.onclick = null;
+                    avatar.onkeydown = null;
+
+                    avatar.innerHTML =
+                        renderDefaultGroupAvatar(
+                            participants,
+                            'large'
+                        );
+                }
+
+
+                return;
+            }
+
+
+            // =====================================================
+            // DIRECT CHAT
+            // =====================================================
+
+            if (editImageButton) {
+
+                editImageButton.classList.add(
+                    'hidden'
+                );
+
+                editImageButton.classList.remove(
+                    'flex'
+                );
+            }
+
+
+            if (editNameButton) {
+
+                editNameButton.classList.add(
+                    'hidden'
+                );
+
+                editNameButton.classList.remove(
+                    'flex'
+                );
+            }
+
+
             const user =
                 currentConversationUser || {};
 
@@ -2856,25 +4697,51 @@
                 user.user_full_name ||
                 'Conversation';
 
+
             if (name) {
-                name.textContent = displayName;
+
+                name.textContent =
+                    displayName;
             }
 
+
             if (status) {
+
                 status.textContent =
                     formatUserActivity(
                         user.last_active_at
                     );
             }
 
+
             if (!avatar) {
                 return;
             }
 
+
+            avatar.className = `
+                flex
+                h-20
+                w-20
+                items-center
+                justify-center
+                overflow-hidden
+                rounded-full
+                bg-gray-200
+                text-xl
+                font-semibold
+                text-gray-600
+            `;
+
+
             const picture =
-                getConversationInfoPictureUrl(user);
+                getConversationInfoPictureUrl(
+                    user
+                );
+
 
             if (picture) {
+
                 avatar.innerHTML = `
                     <img
                         src="${escapeHtml(picture)}"
@@ -2882,10 +4749,254 @@
                         class="h-full w-full object-cover"
                     >
                 `;
+
             } else {
+
+                avatar.innerHTML = '';
+
                 avatar.textContent =
-                    getInitials(displayName);
+                    getInitials(
+                        displayName
+                    );
             }
+        }
+
+        const modalEditGroupImageButton =
+            document.getElementById(
+                'modalEditGroupImageButton'
+            );
+
+        const modalGroupImageInput =
+            document.getElementById(
+                'modalGroupImageInput'
+            );
+
+
+        if (
+            modalEditGroupImageButton &&
+            modalGroupImageInput
+        ) {
+
+            // =================================================
+            // CLICK PENCIL
+            // Open Windows File Explorer
+            // =================================================
+
+            modalEditGroupImageButton.addEventListener(
+                'click',
+                (event) => {
+
+                    // =============================================
+                    // DO NOT TRIGGER THE FULL PICTURE VIEWER
+                    // The pencil is only for changing the picture.
+                    // =============================================
+
+                    event.preventDefault();
+                    event.stopPropagation();
+
+                    if (
+                        currentConversationType !==
+                        'group'
+                    ) {
+                        return;
+                    }
+
+                    modalGroupImageInput.click();
+                }
+            );
+
+
+            // =================================================
+            // USER SELECTED IMAGE
+            // =================================================
+
+            modalGroupImageInput.addEventListener(
+                'change',
+                async () => {
+
+                    const file =
+                        modalGroupImageInput.files?.[0];
+
+                    if (
+                        !file ||
+                        !currentConversationId
+                    ) {
+                        return;
+                    }
+
+
+                    // =============================================
+                    // IMAGE TYPES ONLY
+                    // =============================================
+
+                    if (!file.type.startsWith('image/')) {
+
+                        showMessageToast?.(
+                            'Please select an image.',
+                            'error'
+                        );
+
+                        modalGroupImageInput.value = '';
+
+                        return;
+                    }
+
+
+                    // =============================================
+                    // BUILD UPLOAD
+                    // =============================================
+
+                    const formData =
+                        new FormData();
+
+                    formData.append(
+                        'conversation_image',
+                        file
+                    );
+
+
+                    modalEditGroupImageButton.disabled =
+                        true;
+
+
+                    try {
+
+                        const response =
+                            await fetch(
+                                `/messages/conversations/${currentConversationId}/image`,
+                                {
+                                    method: 'POST',
+
+                                    headers: {
+                                        'X-CSRF-TOKEN':
+                                            document
+                                                .querySelector(
+                                                    'meta[name="csrf-token"]'
+                                                )
+                                                ?.getAttribute(
+                                                    'content'
+                                                ) || '',
+
+                                        'Accept':
+                                            'application/json',
+                                    },
+
+                                    body: formData,
+                                }
+                            );
+
+
+                        const data =
+                            await response.json();
+
+
+                        if (!response.ok) {
+
+                            throw new Error(
+                                data.message ||
+                                'Unable to update group picture.'
+                            );
+                        }
+
+
+                        // =============================================
+                        // UPDATE CURRENT CONVERSATION DATA
+                        // =============================================
+
+                        if (currentConversationData) {
+
+                            currentConversationData
+                                .conversation_image =
+                                data.conversation_image ||
+                                data.conversation_image_url ||
+                                '';
+                        }
+
+
+                        // =============================================
+                        // UPDATE CONVERSATION INFO IMMEDIATELY
+                        // =============================================
+
+                        refreshConversationInfoProfile();
+
+
+                        // =============================================
+                        // UPDATE HEADER + LEFT CONVERSATION LIST
+                        //
+                        // Reloads UI data only.
+                        // This does NOT refresh the browser page.
+                        // =============================================
+
+                        await loadModalConversations();
+
+
+                        // =============================================
+                        // RELOAD CURRENT CHAT DATA
+                        // So header gets the new image too.
+                        // =============================================
+
+                        await openModalConversation(
+                            currentConversationId
+                        );
+
+
+                        showMessageToast?.(
+                            'Group picture updated.',
+                            'success'
+                        );
+
+                    } catch (error) {
+
+                        console.error(
+                            'Group image update failed:',
+                            error
+                        );
+
+                        showMessageToast?.(
+                            error.message ||
+                            'Unable to update group picture.',
+                            'error'
+                        );
+
+                    } finally {
+
+                        modalEditGroupImageButton.disabled =
+                            false;
+
+                        // Allows selecting the same image again later.
+                        modalGroupImageInput.value = '';
+                    }
+                }
+            );
+        }
+
+        const modalEditGroupNameButton =
+            document.getElementById(
+                'modalEditGroupNameButton'
+            );
+
+
+        if (modalEditGroupNameButton) {
+
+            modalEditGroupNameButton.addEventListener(
+                'click',
+                () => {
+
+                    if (
+                        currentConversationType !==
+                        'group'
+                    ) {
+                        return;
+                    }
+
+
+                    // =============================================
+                    // USE YOUR EXISTING RENAME GROUP MODAL
+                    // =============================================
+
+                    openRenameGroupModal();
+                }
+            );
         }
 
 
@@ -3499,6 +5610,7 @@
             }
 
             refreshConversationInfoProfile();
+            refreshGroupConversationSidebar();
 
             sidebar.classList.remove('hidden');
             sidebar.classList.add('flex');
@@ -3557,6 +5669,1302 @@
             closeConversationSidebarSearchView();
         }
 
+
+        // =====================================================
+        // GROUP CHAT INFO SIDEBAR
+        // Mute, members, add people, and leave group
+        // =====================================================
+
+        function getCurrentConversationParticipant() {
+            const participants =
+                Array.isArray(currentConversationData?.participants)
+                    ? currentConversationData.participants
+                    : [];
+
+            return participants.find(
+                participant =>
+                    Number(
+                        participant.user_id ??
+                        participant.user?.user_id
+                    ) === Number(currentUserId)
+            ) || null;
+        }
+
+
+        function refreshGroupConversationSidebar() {
+
+            const isGroup =
+                currentConversationType === 'group';
+
+            const muteButton =
+                document.getElementById(
+                    'modalConversationMuteButton'
+                );
+
+            const membersSection =
+                document.getElementById(
+                    'modalGroupMembersSection'
+                );
+
+            const leaveSection =
+                document.getElementById(
+                    'modalGroupLeaveSection'
+                );
+
+            leaveSection?.classList.toggle(
+                'hidden',
+                !isGroup
+            );
+
+muteButton?.classList.toggle(
+                'hidden',
+                !isGroup
+            );
+
+            muteButton?.classList.toggle(
+                'flex',
+                isGroup
+            );
+
+            membersSection?.classList.toggle(
+                'hidden',
+                !isGroup
+            );
+if (!isGroup) {
+                return;
+            }
+
+            refreshGroupMuteButton();
+            renderGroupMembers();
+            lucideCreateIcons();
+        }
+
+
+        function refreshGroupMuteButton() {
+
+            const participant =
+                getCurrentConversationParticipant();
+
+            const isMuted =
+                Boolean(
+                    Number(
+                        participant?.is_muted || 0
+                    )
+                );
+
+            const label =
+                document.getElementById(
+                    'modalConversationMuteLabel'
+                );
+
+            const icon =
+                document.getElementById(
+                    'modalConversationMuteIcon'
+                );
+
+            if (label) {
+                label.textContent =
+                    isMuted
+                        ? 'Unmute'
+                        : 'Mute';
+            }
+
+            if (icon) {
+                icon.setAttribute(
+                    'data-lucide',
+                    isMuted
+                        ? 'bell'
+                        : 'bell-off'
+                );
+            }
+
+            lucideCreateIcons();
+        }
+
+
+        function renderGroupMembers() {
+
+            const container =
+                document.getElementById(
+                    'modalGroupMembersList'
+                );
+
+            if (!container) {
+                return;
+            }
+
+            const participants =
+                Array.isArray(
+                    currentConversationData?.participants
+                )
+                    ? currentConversationData.participants
+                    : [];
+
+            container.innerHTML =
+                participants.map(participant => {
+
+                    const user =
+                        participant.user || {};
+
+                    const userId =
+                        Number(
+                            participant.user_id ??
+                            user.user_id
+                        );
+
+                    const name =
+                        user.user_full_name ||
+                        user.name ||
+                        'Unknown user';
+
+                    const role =
+                        user.role?.role_name ||
+                        '';
+
+                    const picture =
+                        getConversationInfoPictureUrl(
+                            user
+                        );
+
+                    const avatar =
+                        picture
+                            ? `
+                                <img
+                                    src="${escapeHtml(picture)}"
+                                    alt="${escapeHtml(name)}"
+                                    class="h-10 w-10 rounded-full object-cover"
+                                >
+                            `
+                            : `
+                                <div
+                                    class="
+                                        flex
+                                        h-10
+                                        w-10
+                                        items-center
+                                        justify-center
+                                        rounded-full
+                                        bg-gray-100
+                                        text-xs
+                                        font-semibold
+                                        text-gray-600
+                                    "
+                                >
+                                    ${escapeHtml(getInitials(name))}
+                                </div>
+                            `;
+
+                    const isCurrentUser =
+                        userId === Number(currentUserId);
+
+                    const memberLabel =
+                        isCurrentUser
+                            ? `${role || 'Member'} · You`
+                            : (role || 'Member');
+
+                    return `
+                        <div
+                            class="
+                                flex
+                                items-center
+                                gap-3
+                                rounded-lg
+                                px-2
+                                py-2
+                                transition
+                                hover:bg-gray-50
+                            "
+                        >
+                            <div class="shrink-0">
+                                ${avatar}
+                            </div>
+
+                            <div class="min-w-0 flex-1">
+                                <p
+                                    class="
+                                        truncate
+                                        text-sm
+                                        font-semibold
+                                        text-gray-900
+                                    "
+                                >
+                                    ${escapeHtml(name)}
+                                </p>
+
+                                <p
+                                    class="
+                                        truncate
+                                        text-xs
+                                        text-gray-500
+                                    "
+                                >
+                                    ${escapeHtml(memberLabel)}
+                                </p>
+                            </div>
+
+                            <button
+                                type="button"
+                                class="
+                                    group-member-menu-button
+                                    flex
+                                    h-9
+                                    w-9
+                                    shrink-0
+                                    items-center
+                                    justify-center
+                                    rounded-full
+                                    text-gray-500
+                                    transition
+                                    hover:bg-gray-100
+                                    hover:text-gray-900
+                                "
+                                data-user-id="${userId}"
+                                title="Member options"
+                                aria-label="Member options"
+                            >
+                                <i
+                                    data-lucide="ellipsis"
+                                    class="h-5 w-5"
+                                ></i>
+                            </button>
+                        </div>
+                    `;
+                }).join('');
+
+            container
+                .querySelectorAll(
+                    '.group-member-menu-button'
+                )
+                .forEach(button => {
+
+                    button.addEventListener(
+                        'click',
+                        event => {
+
+                            event.stopPropagation();
+
+                            const menu =
+                                document.getElementById(
+                                    'groupMemberMenu'
+                                );
+
+                            const userId =
+                                Number(
+                                    button.dataset.userId
+                                );
+
+                            // =============================================
+                            // CHECK IF THIS USER'S MENU IS ALREADY OPEN
+                            // =============================================
+
+                            const sameUserIsOpen =
+                                menu &&
+                                !menu.classList.contains('hidden') &&
+                                Number(menu.dataset.userId) === userId;
+
+                            // =============================================
+                            // SAME 3 DOTS CLICKED AGAIN
+                            // CLOSE THE MENU
+                            // =============================================
+
+                            if (sameUserIsOpen) {
+
+                                closeGroupMemberMenu();
+
+                                return;
+                            }
+
+                            // =============================================
+                            // OTHERWISE OPEN THIS USER'S MENU
+                            // =============================================
+
+                            openGroupMemberMenu(
+                                button,
+                                userId
+                            );
+                        }
+                    );
+                });
+
+            lucideCreateIcons();
+        }
+
+        function openGroupMuteModal() {
+
+            if (
+                !currentConversationId ||
+                currentConversationType !== 'group'
+            ) {
+                return;
+            }
+
+            const participant =
+                getCurrentConversationParticipant();
+
+            const isMuted =
+                Boolean(
+                    Number(
+                        participant?.is_muted || 0
+                    )
+                );
+
+            const modal =
+                document.getElementById(
+                    'groupMuteModal'
+                );
+
+            const description =
+                document.getElementById(
+                    'groupMuteDescription'
+                );
+
+            const label =
+                document.getElementById(
+                    'groupMuteToggleLabel'
+                );
+
+            const icon =
+                document.getElementById(
+                    'groupMuteToggleIcon'
+                );
+
+            if (description) {
+                description.textContent =
+                    isMuted
+                        ? 'Notifications are currently muted for this chat.'
+                        : 'You are currently receiving notifications for this chat.';
+            }
+
+            if (label) {
+                label.textContent =
+                    isMuted
+                        ? 'Unmute'
+                        : 'Mute';
+            }
+
+            if (icon) {
+                icon.setAttribute(
+                    'data-lucide',
+                    isMuted
+                        ? 'bell'
+                        : 'bell-off'
+                );
+            }
+
+            modal?.classList.remove('hidden');
+            modal?.classList.add('flex');
+
+            lucideCreateIcons();
+        }
+
+
+        function closeGroupMuteModal() {
+
+            const modal =
+                document.getElementById(
+                    'groupMuteModal'
+                );
+
+            modal?.classList.add('hidden');
+            modal?.classList.remove('flex');
+        }
+
+
+        async function saveGroupMuteSetting() {
+
+            if (
+                !currentConversationId ||
+                currentConversationType !== 'group'
+            ) {
+                return;
+            }
+
+            const participant =
+                getCurrentConversationParticipant();
+
+            const currentlyMuted =
+                Boolean(
+                    Number(
+                        participant?.is_muted || 0
+                    )
+                );
+
+            const selectedActivity =
+                document.querySelector(
+                    'input[name="groupNotificationActivity"]:checked'
+                )?.value || 'all';
+
+            // =====================================================
+            // Current database supports a simple muted / unmuted flag.
+            // "None" means muted.
+            // Other activity choices keep the chat unmuted.
+            // =====================================================
+            const shouldMute =
+                selectedActivity === 'none'
+                    ? true
+                    : currentlyMuted;
+
+            const action =
+                shouldMute
+                    ? 'mute'
+                    : 'unmute';
+
+            const response =
+                await fetch(
+                    `/messages/conversations/${currentConversationId}/${action}`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Accept':
+                                'application/json',
+                            'X-CSRF-TOKEN':
+                                csrfToken
+                        }
+                    }
+                );
+
+            const data =
+                await response.json();
+
+            if (!response.ok) {
+                alert(
+                    data.message ||
+                    'Unable to update mute setting.'
+                );
+                return;
+            }
+
+            if (participant) {
+                participant.is_muted =
+                    data.is_muted
+                        ? 1
+                        : 0;
+            }
+
+            refreshGroupMuteButton();
+            closeGroupMuteModal();
+        }
+
+
+        async function toggleMuteFromModal() {
+
+            if (
+                !currentConversationId ||
+                currentConversationType !== 'group'
+            ) {
+                return;
+            }
+
+            const participant =
+                getCurrentConversationParticipant();
+
+            const isMuted =
+                Boolean(
+                    Number(
+                        participant?.is_muted || 0
+                    )
+                );
+
+            const action =
+                isMuted
+                    ? 'unmute'
+                    : 'mute';
+
+            const response =
+                await fetch(
+                    `/messages/conversations/${currentConversationId}/${action}`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Accept':
+                                'application/json',
+                            'X-CSRF-TOKEN':
+                                csrfToken
+                        }
+                    }
+                );
+
+            const data =
+                await response.json();
+
+            if (!response.ok) {
+                alert(
+                    data.message ||
+                    'Unable to update mute setting.'
+                );
+                return;
+            }
+
+            if (participant) {
+                participant.is_muted =
+                    data.is_muted
+                        ? 1
+                        : 0;
+            }
+
+            refreshGroupMuteButton();
+            openGroupMuteModal();
+        }
+
+
+        function getGroupMemberByUserId(userId) {
+
+            const participants =
+                Array.isArray(
+                    currentConversationData?.participants
+                )
+                    ? currentConversationData.participants
+                    : [];
+
+            return participants.find(
+                participant =>
+                    Number(
+                        participant.user_id ??
+                        participant.user?.user_id
+                    ) === Number(userId)
+            ) || null;
+        }
+
+
+        function closeGroupMemberMenu() {
+
+            const menu =
+                document.getElementById(
+                    'groupMemberMenu'
+                );
+
+            menu?.classList.add('hidden');
+            menu?.removeAttribute('data-user-id');
+        }
+
+
+        function openGroupMemberMenu(
+            button,
+            userId
+        ) {
+
+            const menu =
+                document.getElementById(
+                    'groupMemberMenu'
+                );
+
+            if (!menu) {
+                return;
+            }
+
+            const participant =
+                getGroupMemberByUserId(
+                    userId
+                );
+
+            const user =
+                participant?.user || {};
+
+            const name =
+                user.user_full_name ||
+                user.name ||
+                'Member';
+
+            const isCurrentUser =
+                Number(userId) ===
+                Number(currentUserId);
+
+            if (isCurrentUser) {
+
+                menu.innerHTML = `
+                    <button
+                        type="button"
+                        id="groupMemberViewProfileButton"
+                        class="
+                            flex
+                            w-full
+                            items-center
+                            gap-3
+                            rounded-lg
+                            px-3
+                            py-2.5
+                            text-left
+                            text-sm
+                            font-semibold
+                            text-gray-700
+                            transition
+                            hover:bg-gray-100
+                        "
+                    >
+                        <i
+                            data-lucide="circle-user-round"
+                            class="h-5 w-5"
+                        ></i>
+
+                        <span>View profile</span>
+                    </button>
+
+                    <div class="my-1 border-t border-gray-100"></div>
+
+                    <button
+                        type="button"
+                        id="groupMemberLeaveButton"
+                        class="
+                            flex
+                            w-full
+                            items-center
+                            gap-3
+                            rounded-lg
+                            px-3
+                            py-2.5
+                            text-left
+                            text-sm
+                            font-semibold
+                            text-gray-700
+                            transition
+                            hover:bg-gray-100
+                        "
+                    >
+                        <i
+                            data-lucide="log-out"
+                            class="h-5 w-5"
+                        ></i>
+
+                        <span>Leave group</span>
+                    </button>
+                `;
+
+            } else {
+
+                menu.innerHTML = `
+                    <button
+                        type="button"
+                        class="
+                            group-member-action
+                            flex
+                            w-full
+                            items-center
+                            gap-3
+                            rounded-lg
+                            px-3
+                            py-2.5
+                            text-left
+                            text-sm
+                            font-semibold
+                            text-gray-700
+                            transition
+                            hover:bg-gray-100
+                        "
+                        data-action="message"
+                        data-user-id="${Number(userId)}"
+                    >
+                        <i
+                            data-lucide="message-circle"
+                            class="h-5 w-5"
+                        ></i>
+
+                        <span>Message</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        class="
+                            group-member-action
+                            flex
+                            w-full
+                            items-center
+                            gap-3
+                            rounded-lg
+                            px-3
+                            py-2.5
+                            text-left
+                            text-sm
+                            font-semibold
+                            text-gray-700
+                            transition
+                            hover:bg-gray-100
+                        "
+                        data-action="audio"
+                        data-user-id="${Number(userId)}"
+                    >
+                        <i
+                            data-lucide="phone"
+                            class="h-5 w-5"
+                        ></i>
+
+                        <span>Audio call</span>
+                    </button>
+
+                    <button
+                        type="button"
+                        class="
+                            group-member-action
+                            flex
+                            w-full
+                            items-center
+                            gap-3
+                            rounded-lg
+                            px-3
+                            py-2.5
+                            text-left
+                            text-sm
+                            font-semibold
+                            text-gray-700
+                            transition
+                            hover:bg-gray-100
+                        "
+                        data-action="video"
+                        data-user-id="${Number(userId)}"
+                    >
+                        <i
+                            data-lucide="video"
+                            class="h-5 w-5"
+                        ></i>
+
+                        <span>Video chat</span>
+                    </button>
+                `;
+            }
+
+            const rect =
+                button.getBoundingClientRect();
+
+            menu.style.top =
+                `${Math.min(
+                    rect.bottom + 6,
+                    window.innerHeight - 190
+                )}px`;
+
+            menu.style.left =
+                `${Math.max(
+                    8,
+                    Math.min(
+                        rect.right - 250,
+                        window.innerWidth - 258
+                    )
+                )}px`;
+
+            menu.dataset.userId =
+                String(userId);
+
+            menu.classList.remove('hidden');
+
+            document
+                .getElementById(
+                    'groupMemberViewProfileButton'
+                )
+                ?.addEventListener(
+                    'click',
+                    () => {
+                        closeGroupMemberMenu();
+
+                        // =====================================================
+                        // VIEW PROFILE
+                        // Use the current user's profile page.
+                        // =====================================================
+                        window.location.href = '/profile';
+                    }
+                );
+
+            document
+                .getElementById(
+                    'groupMemberLeaveButton'
+                )
+                ?.addEventListener(
+                    'click',
+                    () => {
+                        closeGroupMemberMenu();
+                        openLeaveGroupConfirmModal();
+                    }
+                );
+
+            menu
+                .querySelectorAll(
+                    '.group-member-action'
+                )
+                .forEach(actionButton => {
+                    actionButton.addEventListener(
+                        'click',
+                        () => {
+                            const action =
+                                actionButton.dataset.action;
+
+                            closeGroupMemberMenu();
+
+                            if (action === 'message') {
+                                startDirectConversation(
+                                    Number(userId)
+                                );
+                                return;
+                            }
+
+                            // =====================================================
+                            // PRIVATE CALL TO THE SELECTED GROUP MEMBER
+                            // =====================================================
+                            if (action === 'audio' || action === 'video') {
+                                const member = (currentConversationData?.participants || [])
+                                    .map(participant => participant?.user || {})
+                                    .find(user => Number(user.user_id) === Number(userId)) || {};
+
+                                startPrivateCall(
+                                    Number(userId),
+                                    name,
+                                    action === 'video' ? 'video' : 'audio',
+                                    privateCallPicture(member),
+                                    currentConversationId
+                                );
+                                return;
+                            }
+                        }
+                    );
+                });
+
+            lucideCreateIcons();
+        }
+
+
+        function openLeaveGroupConfirmModal() {
+
+            closeGroupMemberMenu();
+
+            const modal =
+                document.getElementById(
+                    'leaveGroupConfirmModal'
+                );
+
+            modal?.classList.remove('hidden');
+            modal?.classList.add('flex');
+
+            lucideCreateIcons();
+        }
+
+
+        function closeLeaveGroupConfirmModal() {
+
+            const modal =
+                document.getElementById(
+                    'leaveGroupConfirmModal'
+                );
+
+            modal?.classList.add('hidden');
+            modal?.classList.remove('flex');
+        }
+
+
+        async function confirmLeaveCurrentGroup() {
+
+            if (
+                !currentConversationId ||
+                currentConversationType !== 'group'
+            ) {
+                return;
+            }
+
+            const response =
+                await fetch(
+                    `/messages/conversations/${currentConversationId}/leave`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Accept':
+                                'application/json',
+                            'X-CSRF-TOKEN':
+                                csrfToken
+                        }
+                    }
+                );
+
+            const data =
+                await response.json();
+
+            if (!response.ok) {
+                alert(
+                    data.message ||
+                    'Unable to leave group.'
+                );
+                return;
+            }
+
+            closeLeaveGroupConfirmModal();
+            closeConversationInfoSidebar();
+
+            currentConversationId = null;
+            currentConversationData = null;
+            currentConversationType = 'direct';
+            currentConversationUser = null;
+            currentConversationUserName = '';
+
+            const messagesContainer =
+                document.getElementById(
+                    'modalMessagesContainer'
+                );
+
+            const chatHeader =
+                document.getElementById(
+                    'modalChatHeader'
+                );
+
+            const composer =
+                document.getElementById(
+                    'modalComposer'
+                );
+
+            const chatEmpty =
+                document.getElementById(
+                    'modalChatEmptyState'
+                );
+
+            messagesContainer?.classList.add('hidden');
+            chatHeader?.classList.add('hidden');
+            composer?.classList.add('hidden');
+            chatEmpty?.classList.remove('hidden');
+
+            await loadModalConversations();
+        }
+
+        function toggleGroupMembersAccordion() {
+
+            const content =
+                document.getElementById(
+                    'modalGroupMembersAccordionContent'
+                );
+
+            const chevron =
+                document.getElementById(
+                    'modalGroupMembersAccordionChevron'
+                );
+
+            if (!content) {
+                return;
+            }
+
+            const willHide =
+                !content.classList.contains('hidden');
+
+            content.classList.toggle(
+                'hidden',
+                willHide
+            );
+
+            if (chevron) {
+                chevron.setAttribute(
+                    'data-lucide',
+                    willHide
+                        ? 'chevron-down'
+                        : 'chevron-up'
+                );
+            }
+
+            lucideCreateIcons();
+        }
+
+
+        function closeAddGroupPeopleModal() {
+
+            const modal =
+                document.getElementById(
+                    'addGroupPeopleModal'
+                );
+
+            modal?.classList.add('hidden');
+            modal?.classList.remove('flex');
+
+            const search =
+                document.getElementById(
+                    'addGroupPeopleSearch'
+                );
+
+            if (search) {
+                search.value = '';
+            }
+        }
+
+
+        async function openAddGroupPeopleModal() {
+
+            if (
+                !currentConversationId ||
+                currentConversationType !== 'group'
+            ) {
+                return;
+            }
+
+            const modal =
+                document.getElementById(
+                    'addGroupPeopleModal'
+                );
+
+            modal?.classList.remove('hidden');
+            modal?.classList.add('flex');
+
+            await loadAddGroupPeopleUsers();
+
+            lucideCreateIcons();
+        }
+
+
+        async function loadAddGroupPeopleUsers() {
+
+            const list =
+                document.getElementById(
+                    'addGroupPeopleList'
+                );
+
+            const search =
+                document.getElementById(
+                    'addGroupPeopleSearch'
+                )?.value?.trim() || '';
+
+            if (!list) {
+                return;
+            }
+
+            list.innerHTML = `
+                <div class="py-8 text-center text-sm text-gray-500">
+                    Loading users...
+                </div>
+            `;
+
+            const params =
+                new URLSearchParams();
+
+            if (search) {
+                params.set(
+                    'search',
+                    search
+                );
+            }
+
+            const response =
+                await fetch(
+                    `/messages/users?${params.toString()}`,
+                    {
+                        headers: {
+                            'Accept':
+                                'application/json'
+                        }
+                    }
+                );
+
+            const result =
+                await response.json();
+
+            if (!response.ok) {
+                list.innerHTML = `
+                    <div class="py-8 text-center text-sm text-red-600">
+                        Unable to load users.
+                    </div>
+                `;
+                return;
+            }
+
+            const users =
+                Array.isArray(result.data)
+                    ? result.data
+                    : (
+                        Array.isArray(result.data?.data)
+                            ? result.data.data
+                            : []
+                    );
+
+            const existingIds =
+                new Set(
+                    (
+                        currentConversationData
+                            ?.participants || []
+                    ).map(
+                        participant =>
+                            Number(
+                                participant.user_id ??
+                                participant.user?.user_id
+                            )
+                    )
+                );
+
+            const availableUsers =
+                users.filter(
+                    user =>
+                        !existingIds.has(
+                            Number(
+                                user.user_id
+                            )
+                        )
+                );
+
+            if (availableUsers.length === 0) {
+                list.innerHTML = `
+                    <div class="py-8 text-center text-sm text-gray-500">
+                        No users available to add.
+                    </div>
+                `;
+                return;
+            }
+
+            list.innerHTML =
+                availableUsers.map(user => {
+
+                    const name =
+                        user.name ||
+                        user.user_full_name ||
+                        'Unknown user';
+
+                    const role =
+                        user.role ||
+                        user.role_name ||
+                        'User';
+
+                    return `
+                        <label
+                            class="
+                                flex
+                                cursor-pointer
+                                items-center
+                                gap-3
+                                rounded-xl
+                                px-3
+                                py-2.5
+                                hover:bg-gray-50
+                            "
+                        >
+                            <input
+                                type="checkbox"
+                                class="
+                                    add-group-person-checkbox
+                                    h-4
+                                    w-4
+                                    rounded
+                                    border-gray-300
+                                "
+                                value="${Number(user.user_id)}"
+                            >
+
+                            <div
+                                class="
+                                    flex
+                                    h-10
+                                    w-10
+                                    shrink-0
+                                    items-center
+                                    justify-center
+                                    rounded-full
+                                    bg-gray-100
+                                    text-xs
+                                    font-semibold
+                                    text-gray-600
+                                "
+                            >
+                                ${escapeHtml(getInitials(name))}
+                            </div>
+
+                            <div class="min-w-0 flex-1">
+                                <p class="truncate text-sm font-semibold text-gray-900">
+                                    ${escapeHtml(name)}
+                                </p>
+
+                                <p class="truncate text-xs text-gray-500">
+                                    ${escapeHtml(String(role))}
+                                </p>
+                            </div>
+                        </label>
+                    `;
+                }).join('');
+        }
+
+
+        async function submitAddGroupPeople() {
+
+            if (!currentConversationId) {
+                return;
+            }
+
+            const selected =
+                Array.from(
+                    document.querySelectorAll(
+                        '.add-group-person-checkbox:checked'
+                    )
+                ).map(
+                    checkbox =>
+                        Number(checkbox.value)
+                );
+
+            const error =
+                document.getElementById(
+                    'addGroupPeopleError'
+                );
+
+            if (selected.length === 0) {
+                if (error) {
+                    error.textContent =
+                        'Select at least one person.';
+                    error.classList.remove('hidden');
+                }
+                return;
+            }
+
+            error?.classList.add('hidden');
+
+            const response =
+                await fetch(
+                    `/messages/conversations/${currentConversationId}/members`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Accept':
+                                'application/json',
+                            'Content-Type':
+                                'application/json',
+                            'X-CSRF-TOKEN':
+                                csrfToken
+                        },
+                        body: JSON.stringify({
+                            user_ids: selected
+                        })
+                    }
+                );
+
+            const data =
+                await response.json();
+
+            if (!response.ok) {
+                if (error) {
+                    error.textContent =
+                        data.message ||
+                        'Unable to add people.';
+                    error.classList.remove('hidden');
+                }
+                return;
+            }
+
+            currentConversationData =
+                data.data;
+
+            refreshConversationInfoProfile();
+            refreshGroupConversationSidebar();
+
+            closeAddGroupPeopleModal();
+            await loadModalConversations();
+
+            messagesPage = 1;
+            hasMoreMessages = true;
+            isLoadingMessages = false;
+
+            await loadModalMessages(
+                currentConversationId,
+                false
+            );
+        }
+
+
+
+
+        // =====================================================
+        // RENAME GROUP MODAL CONTROLS
+        // =====================================================
+        document.getElementById('renameGroupClose')?.addEventListener('click', closeRenameGroupModal);
+        document.getElementById('renameGroupCancel')?.addEventListener('click', closeRenameGroupModal);
+        document.getElementById('renameGroupBackdrop')?.addEventListener('click', closeRenameGroupModal);
+        document.getElementById('renameGroupSave')?.addEventListener('click', saveRenamedGroup);
+        document.getElementById('renameGroupInput')?.addEventListener('keydown', event => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                saveRenamedGroup();
+            }
+        });
 
         // =====================================================
         // CHAT INFO ACCORDION
@@ -3636,34 +7044,554 @@
 
 
         // =====================================================
-        // AUDIO AND VIDEO CALL BUTTONS
-        //
-        // UI is ready. Real calling requires WebRTC and signaling.
-        // These logs make the buttons safe until call logic is added.
+        // PRIVATE AUDIO / VIDEO CALLING WITH WEBRTC
         // =====================================================
-        document
-            .getElementById('modalAudioCallButton')
-            ?.addEventListener(
-                'click',
-                () => {
-                    console.log(
-                        'Audio call requested:',
-                        currentConversationId
-                    );
-                }
+        const privateCallRtcConfig = {
+            iceServers: [
+                { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }
+            ]
+        };
+
+        function privateCallUuid() {
+            return window.crypto?.randomUUID
+                ? window.crypto.randomUUID()
+                : `call-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        }
+
+        function privateCallPicture(user) {
+            const value = user?.user_profile_picture || user?.profile_picture || '';
+            if (!value) return '';
+            if (/^https?:\/\//i.test(value) || value.startsWith('/')) return value;
+            return `/storage/${String(value).replace(/^storage\//, '')}`;
+        }
+
+        function privateCallAvatar(element, name, picture) {
+            if (!element) return;
+            if (picture) {
+                element.innerHTML = `<img src="${escapeHtml(picture)}" alt="${escapeHtml(name || 'User')}" class="h-full w-full object-cover">`;
+                return;
+            }
+            element.textContent = String(name || 'User').split(/\s+/).filter(Boolean).slice(0, 2).map(v => v[0]?.toUpperCase()).join('') || 'U';
+        }
+
+        async function sendPrivateCallSignal(targetUserId, signalType, payload = {}, overrides = {}) {
+            const response = await fetch('/messages/calls/signal', {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken
+                },
+                body: JSON.stringify({
+                    target_user_id: Number(targetUserId),
+                    conversation_id: overrides.conversationId ?? privateCallConversationId ?? null,
+                    call_id: overrides.callId ?? privateCallId,
+                    signal_type: signalType,
+                    call_type: overrides.callType ?? privateCallType,
+                    payload
+                })
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.message || 'Unable to send call signal.');
+            return data;
+        }
+
+        function showPrivateCallWindow(status = 'Calling...') {
+            document.getElementById('privateActiveCallName').textContent = privateCallTargetName || 'Call';
+            document.getElementById('privateAudioCallName').textContent = privateCallTargetName || 'Call';
+            document.getElementById('privateActiveCallStatus').textContent = status;
+            privateCallAvatar(document.getElementById('privateActiveCallAvatar'), privateCallTargetName, privateCallTargetPicture);
+
+            const isVideo = privateCallType === 'video';
+            document.getElementById('privateAudioCallVisual')?.classList.toggle('hidden', isVideo);
+            document.getElementById('privateRemoteVideo')?.classList.toggle('hidden', !isVideo);
+            document.getElementById('privateLocalVideo')?.classList.toggle('hidden', !isVideo);
+            const camera = document.getElementById('privateCallCameraButton');
+            camera?.classList.toggle('hidden', !isVideo);
+            camera?.classList.toggle('flex', isVideo);
+
+            const modal = document.getElementById('privateActiveCallModal');
+            modal?.classList.remove('hidden');
+            modal?.classList.add('flex');
+            lucideCreateIcons();
+        }
+
+        function showIncomingPrivateCall(event) {
+            document.getElementById('privateIncomingCallName').textContent = event.from_user_name || 'User';
+            document.getElementById('privateIncomingCallType').textContent = event.call_type === 'video' ? 'Incoming video call' : 'Incoming audio call';
+            privateCallAvatar(
+                document.getElementById('privateIncomingCallAvatar'),
+                event.from_user_name || 'User',
+                privateCallPicture({ user_profile_picture: event.from_user_picture })
+            );
+            const modal = document.getElementById('privateIncomingCallModal');
+            modal?.classList.remove('hidden');
+            modal?.classList.add('flex');
+            lucideCreateIcons();
+        }
+
+        function hideIncomingPrivateCall() {
+            const modal = document.getElementById('privateIncomingCallModal');
+            modal?.classList.add('hidden');
+            modal?.classList.remove('flex');
+        }
+
+        // =====================================================
+        // PRIVATE CALL SDP SERIALIZATION FIX
+        // Encode SDP before sending so line breaks survive JSON/broadcasting.
+        // =====================================================
+        function encodePrivateCallDescription(description) {
+            if (!description?.type || !description?.sdp) return null;
+
+            return {
+                type: String(description.type),
+                sdp_base64: btoa(unescape(encodeURIComponent(String(description.sdp))))
+            };
+        }
+
+        function decodePrivateCallDescription(description) {
+            if (!description) return null;
+
+            // New safe format.
+            if (description.sdp_base64) {
+                return {
+                    type: String(description.type || ''),
+                    sdp: decodeURIComponent(escape(atob(String(description.sdp_base64))))
+                };
+            }
+
+            // Backward compatibility with an already-open older browser tab.
+            if (description.type && description.sdp) {
+                return {
+                    type: String(description.type),
+                    sdp: String(description.sdp)
+                };
+            }
+
+            return null;
+        }
+
+        // =====================================================
+        // PRIVATE CALL MEDIA
+        // Video calls no longer fail completely when the webcam
+        // is unavailable. PRISM falls back to microphone only.
+        // =====================================================
+        function updatePrivateCallCameraButton() {
+            const button = document.getElementById('privateCallCameraButton');
+            const icon = button?.querySelector('i');
+
+            if (icon) {
+                icon.setAttribute(
+                    'data-lucide',
+                    privateCallCameraEnabled ? 'video' : 'video-off'
+                );
+            }
+
+            button?.classList.toggle('bg-white/15', privateCallCameraEnabled);
+            button?.classList.toggle('bg-red-600/80', !privateCallCameraEnabled);
+            button?.setAttribute(
+                'title',
+                privateCallCameraEnabled ? 'Turn camera off' : 'Turn camera on'
             );
 
-        document
-            .getElementById('modalVideoCallButton')
-            ?.addEventListener(
-                'click',
-                () => {
-                    console.log(
-                        'Video call requested:',
-                        currentConversationId
+            lucideCreateIcons();
+        }
+
+        async function privateCallMedia(type) {
+            if (!navigator.mediaDevices?.getUserMedia) {
+                throw new Error('Microphone/camera access is not supported by this browser.');
+            }
+
+            // Audio calls only need the microphone.
+            if (type !== 'video') {
+                privateCallCameraEnabled = false;
+
+                return navigator.mediaDevices.getUserMedia({
+                    audio: true,
+                    video: false
+                });
+            }
+
+            // First try the normal video-call setup.
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: true,
+                    video: true
+                });
+
+                privateCallCameraEnabled = stream.getVideoTracks().length > 0;
+                return stream;
+            } catch (videoError) {
+                console.warn(
+                    'Camera unavailable. Continuing the video call with microphone only.',
+                    videoError
+                );
+
+                // The camera failed, but that should not kill the call.
+                // Retry using only the microphone.
+                const audioOnlyStream = await navigator.mediaDevices.getUserMedia({
+                    audio: true,
+                    video: false
+                });
+
+                privateCallCameraEnabled = false;
+                return audioOnlyStream;
+            }
+        }
+
+        function buildPrivateCallPeer(targetUserId) {
+            privateCallPeer?.close();
+            privateCallPeer = new RTCPeerConnection(privateCallRtcConfig);
+
+            privateCallLocalStream?.getTracks().forEach(track => {
+                privateCallPeer.addTrack(track, privateCallLocalStream);
+            });
+
+            // Keep a video sender/transceiver available during a video call
+            // even when this user's camera failed at the beginning.
+            // This lets the camera button attach a webcam later without
+            // ending and restarting the call.
+            if (
+                privateCallType === 'video' &&
+                !(privateCallLocalStream?.getVideoTracks()?.length)
+            ) {
+                privateCallPeer.addTransceiver('video', {
+                    direction: 'sendrecv'
+                });
+            }
+
+            privateCallPeer.ontrack = event => {
+                const remote = document.getElementById('privateRemoteVideo');
+                if (remote && event.streams?.[0]) remote.srcObject = event.streams[0];
+                document.getElementById('privateActiveCallStatus').textContent = 'Connected';
+            };
+
+            privateCallPeer.onicecandidate = event => {
+                if (!event.candidate) return;
+                sendPrivateCallSignal(targetUserId, 'ice_candidate', { candidate: event.candidate.toJSON() }).catch(console.error);
+            };
+
+            privateCallPeer.onconnectionstatechange = () => {
+                const state = privateCallPeer?.connectionState;
+                if (state === 'connected') document.getElementById('privateActiveCallStatus').textContent = 'Connected';
+                if (state === 'failed' || state === 'closed') cleanupPrivateCall();
+            };
+        }
+
+        async function addQueuedPrivateIce() {
+            if (!privateCallPeer?.remoteDescription) return;
+            const queued = [...privateCallPendingIce];
+            privateCallPendingIce = [];
+            for (const candidate of queued) {
+                try { await privateCallPeer.addIceCandidate(new RTCIceCandidate(candidate)); }
+                catch (error) { console.error(error); }
+            }
+        }
+
+        async function startPrivateCall(targetUserId, targetName, type = 'audio', targetPicture = '', conversationId = null) {
+            if (!targetUserId) return;
+            if (privateCallId) { alert('A call is already active.'); return; }
+
+            privateCallId = privateCallUuid();
+            privateCallTargetUserId = Number(targetUserId);
+            privateCallTargetName = targetName || 'User';
+            privateCallTargetPicture = targetPicture || '';
+            privateCallType = type === 'video' ? 'video' : 'audio';
+            privateCallConversationId = conversationId ?? currentConversationId ?? null;
+            privateCallPendingIce = [];
+
+            try {
+                privateCallLocalStream = await privateCallMedia(privateCallType);
+                const local = document.getElementById('privateLocalVideo');
+                if (local) local.srcObject = privateCallLocalStream;
+
+                updatePrivateCallCameraButton();
+                buildPrivateCallPeer(privateCallTargetUserId);
+                const offer = await privateCallPeer.createOffer();
+                await privateCallPeer.setLocalDescription(offer);
+                showPrivateCallWindow('Calling...');
+                await sendPrivateCallSignal(privateCallTargetUserId, 'offer', { description: encodePrivateCallDescription(privateCallPeer.localDescription) });
+            } catch (error) {
+                console.error(error);
+                alert(error.message || 'Unable to start the call.');
+                cleanupPrivateCall();
+            }
+        }
+
+        async function acceptPrivateCall() {
+            if (!privateIncomingOffer || !privateCallTargetUserId) return;
+            hideIncomingPrivateCall();
+            try {
+                privateCallLocalStream = await privateCallMedia(privateCallType);
+                const local = document.getElementById('privateLocalVideo');
+                if (local) local.srcObject = privateCallLocalStream;
+
+                updatePrivateCallCameraButton();
+                buildPrivateCallPeer(privateCallTargetUserId);
+                const decodedOffer = decodePrivateCallDescription(privateIncomingOffer);
+                if (!decodedOffer) throw new Error('The incoming call offer is invalid.');
+                await privateCallPeer.setRemoteDescription(decodedOffer);
+                await addQueuedPrivateIce();
+                const answer = await privateCallPeer.createAnswer();
+                await privateCallPeer.setLocalDescription(answer);
+                showPrivateCallWindow('Connecting...');
+                await sendPrivateCallSignal(privateCallTargetUserId, 'answer', { description: encodePrivateCallDescription(privateCallPeer.localDescription) });
+                privateIncomingOffer = null;
+            } catch (error) {
+                console.error(error);
+                alert(error.message || 'Unable to accept the call.');
+                await sendPrivateCallSignal(privateCallTargetUserId, 'decline').catch(() => {});
+                cleanupPrivateCall();
+            }
+        }
+
+        async function declinePrivateCall() {
+            if (privateCallTargetUserId && privateCallId) await sendPrivateCallSignal(privateCallTargetUserId, 'decline').catch(console.error);
+            cleanupPrivateCall();
+        }
+
+        async function endPrivateCall() {
+            if (privateCallTargetUserId && privateCallId) await sendPrivateCallSignal(privateCallTargetUserId, 'end').catch(console.error);
+            cleanupPrivateCall();
+        }
+
+        function cleanupPrivateCall() {
+            hideIncomingPrivateCall();
+            if (privateCallPeer) {
+                privateCallPeer.ontrack = null;
+                privateCallPeer.onicecandidate = null;
+                privateCallPeer.onconnectionstatechange = null;
+                privateCallPeer.close();
+            }
+            privateCallLocalStream?.getTracks().forEach(track => track.stop());
+            privateCallPeer = null;
+            privateCallLocalStream = null;
+            const local = document.getElementById('privateLocalVideo');
+            const remote = document.getElementById('privateRemoteVideo');
+            if (local) local.srcObject = null;
+            if (remote) remote.srcObject = null;
+            const modal = document.getElementById('privateActiveCallModal');
+            modal?.classList.add('hidden');
+            modal?.classList.remove('flex');
+            privateCallId = null;
+            privateCallTargetUserId = null;
+            privateCallTargetName = '';
+            privateCallTargetPicture = '';
+            privateCallType = 'audio';
+            privateCallConversationId = null;
+            privateIncomingOffer = null;
+            privateCallPendingIce = [];
+            privateCallMuted = false;
+            privateCallCameraEnabled = true;
+        }
+
+        async function handlePrivateCallSignal(event) {
+            if (!event || Number(event.from_user_id) === Number(currentUserId)) return;
+            const fromUserId = Number(event.from_user_id);
+
+            if (event.signal_type === 'offer') {
+                if (privateCallId && String(privateCallId) !== String(event.call_id)) {
+                    await sendPrivateCallSignal(fromUserId, 'busy', {}, { callId: event.call_id, callType: event.call_type, conversationId: event.conversation_id }).catch(() => {});
+                    return;
+                }
+                privateCallId = event.call_id;
+                privateCallTargetUserId = fromUserId;
+                privateCallTargetName = event.from_user_name || 'User';
+                privateCallTargetPicture = privateCallPicture({ user_profile_picture: event.from_user_picture });
+                privateCallType = event.call_type === 'video' ? 'video' : 'audio';
+                privateCallConversationId = event.conversation_id || null;
+                privateIncomingOffer = event.payload?.description || null;
+                privateCallPendingIce = [];
+                showIncomingPrivateCall(event);
+                return;
+            }
+
+            if (!privateCallId || String(event.call_id) !== String(privateCallId)) return;
+
+            if (event.signal_type === 'answer' && event.payload?.description && privateCallPeer) {
+                const decodedAnswer = decodePrivateCallDescription(event.payload.description);
+                if (!decodedAnswer) throw new Error('The call answer is invalid.');
+                await privateCallPeer.setRemoteDescription(decodedAnswer);
+                await addQueuedPrivateIce();
+                document.getElementById('privateActiveCallStatus').textContent = 'Connecting...';
+                return;
+            }
+
+            if (event.signal_type === 'ice_candidate' && event.payload?.candidate) {
+                if (privateCallPeer?.remoteDescription) {
+                    try { await privateCallPeer.addIceCandidate(new RTCIceCandidate(event.payload.candidate)); }
+                    catch (error) { console.error(error); }
+                } else {
+                    privateCallPendingIce.push(event.payload.candidate);
+                }
+                return;
+            }
+
+            if (event.signal_type === 'decline') {
+                alert(`${privateCallTargetName || 'The user'} declined the call.`);
+                cleanupPrivateCall();
+                return;
+            }
+
+            if (event.signal_type === 'busy') {
+                alert(`${privateCallTargetName || 'The user'} is already on another call.`);
+                cleanupPrivateCall();
+                return;
+            }
+
+            if (event.signal_type === 'end') cleanupPrivateCall();
+        }
+
+        function listenToPrivateCallsRealtime() {
+            if (!window.Echo) return;
+            window.Echo.private(`user.${currentUserId}`).listen('.call.signal', event => {
+                handlePrivateCallSignal(event).catch(console.error);
+            });
+        }
+
+        document.getElementById('privateCallAcceptButton')?.addEventListener('click', acceptPrivateCall);
+        document.getElementById('privateCallDeclineButton')?.addEventListener('click', declinePrivateCall);
+        document.getElementById('privateCallEndButton')?.addEventListener('click', endPrivateCall);
+
+        document.getElementById('privateCallMuteButton')?.addEventListener('click', () => {
+            const tracks = privateCallLocalStream?.getAudioTracks() || [];
+            if (!tracks.length) return;
+            privateCallMuted = !privateCallMuted;
+            tracks.forEach(track => track.enabled = !privateCallMuted);
+            document.getElementById('privateCallMuteButton')?.querySelector('i')?.setAttribute('data-lucide', privateCallMuted ? 'mic-off' : 'mic');
+            lucideCreateIcons();
+        });
+
+        // =====================================================
+        // CAMERA BUTTON
+        // If a webcam track already exists, toggle it normally.
+        // If the call started microphone only, clicking this
+        // button retries the webcam and attaches it to WebRTC.
+        // =====================================================
+        document.getElementById('privateCallCameraButton')?.addEventListener('click', async () => {
+            if (privateCallType !== 'video' || !privateCallPeer) {
+                return;
+            }
+
+            const existingTracks =
+                privateCallLocalStream?.getVideoTracks() || [];
+
+            // Camera already exists. Just turn it on or off.
+            if (existingTracks.length) {
+                privateCallCameraEnabled = !privateCallCameraEnabled;
+
+                existingTracks.forEach(track => {
+                    track.enabled = privateCallCameraEnabled;
+                });
+
+                updatePrivateCallCameraButton();
+                return;
+            }
+
+            // No video track exists because the webcam failed when
+            // the call started. Retry the webcam now.
+            try {
+                const cameraStream =
+                    await navigator.mediaDevices.getUserMedia({
+                        audio: false,
+                        video: true
+                    });
+
+                const videoTrack =
+                    cameraStream.getVideoTracks()[0];
+
+                if (!videoTrack) {
+                    throw new Error('No camera video track was available.');
+                }
+
+                if (!privateCallLocalStream) {
+                    privateCallLocalStream = new MediaStream();
+                }
+
+                privateCallLocalStream.addTrack(videoTrack);
+
+                const local =
+                    document.getElementById('privateLocalVideo');
+
+                if (local) {
+                    local.srcObject = privateCallLocalStream;
+                    local.play?.().catch(() => {});
+                }
+
+                // buildPrivateCallPeer() creates a video transceiver
+                // for video calls that started without a webcam.
+                // Reuse that sender instead of restarting the call.
+                const videoSender =
+                    privateCallPeer
+                        .getSenders()
+                        .find(sender =>
+                            sender.track?.kind === 'video'
+                        )
+                    ||
+                    privateCallPeer
+                        .getTransceivers()
+                        .find(transceiver =>
+                            transceiver.receiver?.track?.kind === 'video'
+                        )
+                        ?.sender;
+
+                if (!videoSender) {
+                    videoTrack.stop();
+                    privateCallLocalStream.removeTrack(videoTrack);
+
+                    throw new Error(
+                        'The video connection is not ready to enable the camera.'
                     );
                 }
-            );
+
+                await videoSender.replaceTrack(videoTrack);
+
+                privateCallCameraEnabled = true;
+                updatePrivateCallCameraButton();
+
+                videoTrack.addEventListener(
+                    'ended',
+                    () => {
+                        privateCallCameraEnabled = false;
+                        updatePrivateCallCameraButton();
+                    },
+                    { once: true }
+                );
+            } catch (error) {
+                console.error('Unable to enable camera:', error);
+
+                privateCallCameraEnabled = false;
+                updatePrivateCallCameraButton();
+
+                // Do not end the call. The microphone connection
+                // remains active and the user can retry later.
+                const status =
+                    document.getElementById('privateActiveCallStatus');
+
+                if (status && privateCallPeer?.connectionState === 'connected') {
+                    status.textContent = 'Connected · Camera off';
+                }
+            }
+        });
+
+        document.getElementById('modalAudioCallButton')?.addEventListener('click', () => {
+            if (currentConversationType !== 'direct') {
+                alert('Group calling will be added after private calling is working.');
+                return;
+            }
+            const userId = Number(currentConversationUser?.user_id);
+            if (userId) startPrivateCall(userId, currentConversationUserName, 'audio', privateCallPicture(currentConversationUser), currentConversationId);
+        });
+
+        document.getElementById('modalVideoCallButton')?.addEventListener('click', () => {
+            if (currentConversationType !== 'direct') {
+                alert('Group calling will be added after private calling is working.');
+                return;
+            }
+            const userId = Number(currentConversationUser?.user_id);
+            if (userId) startPrivateCall(userId, currentConversationUserName, 'video', privateCallPicture(currentConversationUser), currentConversationId);
+        });
+
 
 
         // =====================================================
@@ -3708,6 +7636,154 @@
             ?.addEventListener(
                 'click',
                 closeConversationInfoSidebar
+            );
+
+
+        // =====================================================
+        // GROUP CHAT SIDEBAR CONTROLS
+        // =====================================================
+        document
+            .getElementById(
+                'modalConversationMuteButton'
+            )
+            ?.addEventListener(
+                'click',
+                openGroupMuteModal
+            );
+
+        document
+            .getElementById(
+                'modalGroupMembersAccordionButton'
+            )
+            ?.addEventListener(
+                'click',
+                toggleGroupMembersAccordion
+            );
+
+        document
+            .getElementById(
+                'modalAddGroupPeopleButton'
+            )
+            ?.addEventListener(
+                'click',
+                openAddGroupPeopleModal
+            );
+
+        document
+            .getElementById(
+                'modalGroupLeaveButton'
+            )
+            ?.addEventListener(
+                'click',
+                openLeaveGroupConfirmModal
+            );
+        // =====================================================
+        // MUTE MODAL CONTROLS
+        // =====================================================
+        document.getElementById('groupMuteClose')
+            ?.addEventListener('click', closeGroupMuteModal);
+
+        document.getElementById('groupMuteCancel')
+            ?.addEventListener('click', closeGroupMuteModal);
+
+        document.getElementById('groupMuteBackdrop')
+            ?.addEventListener('click', closeGroupMuteModal);
+
+        document.getElementById('groupMuteToggleButton')
+            ?.addEventListener('click', toggleMuteFromModal);
+
+        document.getElementById('groupMuteDone')
+            ?.addEventListener('click', saveGroupMuteSetting);
+
+
+        // =====================================================
+        // LEAVE GROUP CONFIRMATION MODAL
+        // =====================================================
+        document.getElementById('leaveGroupConfirmClose')
+            ?.addEventListener('click', closeLeaveGroupConfirmModal);
+
+        document.getElementById('leaveGroupConfirmCancel')
+            ?.addEventListener('click', closeLeaveGroupConfirmModal);
+
+        document.getElementById('leaveGroupConfirmBackdrop')
+            ?.addEventListener('click', closeLeaveGroupConfirmModal);
+
+        document.getElementById('leaveGroupConfirmSubmit')
+            ?.addEventListener('click', confirmLeaveCurrentGroup);
+
+
+        // =====================================================
+        // CLOSE MEMBER 3-DOT MENU WHEN CLICKING ELSEWHERE
+        // =====================================================
+        document.addEventListener('click', event => {
+            const menu = document.getElementById('groupMemberMenu');
+
+            if (
+                menu &&
+                !menu.classList.contains('hidden') &&
+                !menu.contains(event.target) &&
+                !event.target.closest('.group-member-menu-button')
+            ) {
+                closeGroupMemberMenu();
+            }
+        });
+
+
+        document
+            .getElementById(
+                'addGroupPeopleClose'
+            )
+            ?.addEventListener(
+                'click',
+                closeAddGroupPeopleModal
+            );
+
+        document
+            .getElementById(
+                'addGroupPeopleCancel'
+            )
+            ?.addEventListener(
+                'click',
+                closeAddGroupPeopleModal
+            );
+
+        document
+            .getElementById(
+                'addGroupPeopleBackdrop'
+            )
+            ?.addEventListener(
+                'click',
+                closeAddGroupPeopleModal
+            );
+
+        document
+            .getElementById(
+                'addGroupPeopleSubmit'
+            )
+            ?.addEventListener(
+                'click',
+                submitAddGroupPeople
+            );
+
+        let addGroupPeopleSearchTimer = null;
+
+        document
+            .getElementById(
+                'addGroupPeopleSearch'
+            )
+            ?.addEventListener(
+                'input',
+                () => {
+                    clearTimeout(
+                        addGroupPeopleSearchTimer
+                    );
+
+                    addGroupPeopleSearchTimer =
+                        setTimeout(
+                            loadAddGroupPeopleUsers,
+                            250
+                        );
+                }
             );
 
 
@@ -4662,25 +8738,33 @@
 
         // =====================================================
         // RENDER CONVERSATIONS
+        // Supports both direct chats and group chats
         // =====================================================
 
         function renderModalConversations(conversations) {
 
             const container =
-                document.getElementById('modalConversationsList');
+                document.getElementById(
+                    'modalConversationsList'
+                );
 
             const emptyState =
-                document.getElementById('modalConversationsEmpty');
+                document.getElementById(
+                    'modalConversationsEmpty'
+                );
 
             if (!container) {
                 return;
             }
 
+
             // =========================================
-            // GET CONVERSATION ARRAY FROM PAGINATOR
+            // GET CONVERSATION ARRAY
             // =========================================
 
-            const items = conversations?.data || [];
+            const items =
+                conversations?.data || [];
+
 
             // =========================================
             // NO CONVERSATIONS
@@ -4690,451 +8774,862 @@
 
                 container.innerHTML = '';
 
-                emptyState?.classList.remove('hidden');
+                emptyState?.classList.remove(
+                    'hidden'
+                );
 
                 return;
             }
 
-            emptyState?.classList.add('hidden');
+            emptyState?.classList.add(
+                'hidden'
+            );
+
 
             // =========================================
             // RENDER CONVERSATION LIST
             // =========================================
 
-            container.innerHTML = items.map(conv => {
+            container.innerHTML =
+                items.map(conv => {
 
-                const lastMessage =
-                    conv.last_message || {};
+                    const lastMessage =
+                        conv.last_message || {};
 
-                const otherParticipant =
-                    conv.participants?.find(
-                        p =>
-                        Number(p.user?.user_id) !==
-                        Number(currentUserId)
-                    )?.user || {};
+                    const participants =
+                        Array.isArray(conv.participants)
+                            ? conv.participants
+                            : [];
 
-                const name =
-                    otherParticipant.user_full_name || 'Unknown';
-
-                const initials =
-                    getInitials(name);
-
-                // =========================================
-                // ONLINE STATUS FOR CONVERSATION USER
-                // =========================================
-
-                const lastActiveAt =
-                    otherParticipant.last_active_at;
-
-                let isOnline = false;
-
-                if (lastActiveAt) {
-
-                    const lastActive =
-                        new Date(lastActiveAt);
-
-                    const now =
-                        new Date();
-
-                    const diffMinutes =
-                        Math.floor(
-                            (now - lastActive) / 60000
-                        );
-
-                    // Same rule as the chat header
-                    // Active within 2 minutes = online
-                    isOnline = diffMinutes <= 2;
-                }
-
-                // =========================================
-                // LAST MESSAGE OWNER
-                // =========================================
-
-                const lastMessageIsMine =
-                    Number(lastMessage.sender_id) ===
-                    Number(currentUserId);
-
-
-                // =========================================
-                // UNREAD MESSAGE COUNT
-                // =========================================
-
-                const unreadCount =
-                    Number(conv.unread_count || 0);
-
-
-                // =========================================
-                // CONVERSATION PREVIEW
-                //
-                // Messenger style behavior:
-                //
-                // 1 unread message:
-                // Show actual latest message.
-                //
-                // More than 1 unread:
-                // "4 new messages"
-                //
-                // Own message:
-                // "You: Hello"
-                //
-                // Attachments:
-                // "You sent a photo."
-                // "Administrator sent a photo."
-                // =========================================
-
-                let preview = 'No messages';
-
-                const rawMessage =
-                    lastMessage.message_content || '';
-
-
-                // =========================================
-                // MORE THAN ONE UNREAD MESSAGE
-                // =========================================
-
-                if (
-                    !lastMessageIsMine &&
-                    unreadCount > 1
-                ) {
-
-                    preview =
-                        `${unreadCount} new messages`;
-
-                }
-
-
-                // =========================================
-                // PHOTO
-                // =========================================
-
-                else if (
-                    rawMessage === '[attachment:image]'
-                ) {
-
-                    preview = lastMessageIsMine
-                        ? 'You sent a photo.'
-                        : `${name} sent a photo.`;
-
-                }
-
-
-                // =========================================
-                // FILE
-                // =========================================
-
-                else if (
-                    rawMessage === '[attachment:file]'
-                ) {
-
-                    preview = lastMessageIsMine
-                        ? 'You sent a file.'
-                        : `${name} sent a file.`;
-
-                }
-
-
-                // =========================================
-                // MULTIPLE ATTACHMENTS
-                // =========================================
-
-                else if (
-                    rawMessage === '[attachment:multiple]'
-                ) {
-
-                    const attachmentCount =
-                        Array.isArray(lastMessage.attachments)
-                            ? lastMessage.attachments.length
-                            : 0;
-
-                    const attachmentLabel =
-                        attachmentCount > 1
-                            ? `${attachmentCount} attachments`
-                            : 'attachments';
-
-                    preview = lastMessageIsMine
-                        ? `You sent ${attachmentLabel}.`
-                        : `${name} sent ${attachmentLabel}.`;
-
-                }
-
-
-                // =========================================
-                // NORMAL TEXT MESSAGE
-                // =========================================
-
-                else if (rawMessage) {
-
-                    const shortenedMessage =
-                        rawMessage.length > 50
-                            ? rawMessage.substring(0, 50) + '...'
-                            : rawMessage;
-
-                    preview = lastMessageIsMine
-                        ? `You: ${shortenedMessage}`
-                        : shortenedMessage;
-                }
-
-                const time =
-                    formatConversationRelativeTime(
-                        lastMessage.created_at
-                    );
-
-                // =========================================
-                // LAST MESSAGE STATUS
-                // Only show status if WE sent the message
-                // =========================================
-
-                
-
-                let conversationMessageStatus = '';
-                let conversationSeenHtml = '';
-
-                if (lastMessageIsMine && lastMessage.message_id) {
 
                     // =====================================
-                    // SEEN
-                    // Show receiver profile picture
+                    // DETECT GROUP CHAT
+                    // =====================================
+
+                    const isGroup =
+                        conv.conversation_type === 'group';
+
+
+                    // =====================================
+                    // OTHER PARTICIPANT
+                    // Only used for direct conversations
+                    // =====================================
+
+                    const otherParticipant =
+                        participants.find(
+                            participant =>
+                                Number(
+                                    participant.user?.user_id
+                                ) !==
+                                Number(currentUserId)
+                        )?.user || {};
+
+
+                    // =====================================
+                    // CONVERSATION DISPLAY NAME
+                    // =====================================
+
+                    const name =
+                        isGroup
+                            ? (
+                                conv.conversation_name ||
+                                'Group chat'
+                            )
+                            : (
+                                otherParticipant
+                                    .user_full_name ||
+                                'Unknown'
+                            );
+
+
+                    const initials =
+                        getInitials(name);
+
+
+                    // =====================================
+                    // ONLINE STATUS
+                    //
+                    // Direct chat:
+                    // Show the other user's status.
+                    //
+                    // Group chat:
+                    // Do not pretend the whole group is
+                    // online based on one participant.
+                    // =====================================
+
+                    let isOnline = false;
+
+                    if (!isGroup) {
+
+                        const lastActiveAt =
+                            otherParticipant.last_active_at;
+
+                        if (lastActiveAt) {
+
+                            const lastActive =
+                                new Date(lastActiveAt);
+
+                            const now =
+                                new Date();
+
+                            const diffMinutes =
+                                Math.floor(
+                                    (now - lastActive) /
+                                    60000
+                                );
+
+                            isOnline =
+                                diffMinutes <= 2;
+                        }
+                    }
+
+
+                    // =====================================
+                    // LAST MESSAGE SENDER
+                    // =====================================
+
+                    const lastMessageIsMine =
+                        Number(lastMessage.sender_id) ===
+                        Number(currentUserId);
+
+                    const lastMessageSender =
+                        lastMessage.sender || {};
+
+                    const lastMessageSenderName =
+                        lastMessageSender.user_full_name ||
+                        lastMessageSender.name ||
+                        (
+                            isGroup
+                                ? 'Someone'
+                                : name
+                        );
+
+
+                    // =====================================
+                    // UNREAD COUNT
+                    // =====================================
+
+                    const unreadCount =
+                        Number(
+                            conv.unread_count || 0
+                        );
+
+
+                    // =====================================
+                    // MESSAGE PREVIEW
+                    // =====================================
+
+                    let preview =
+                        'No messages';
+
+                    const rawMessage =
+                        lastMessage.message_content || '';
+
+
+                    // =====================================
+                    // MULTIPLE UNREAD
                     // =====================================
 
                     if (
-                        lastMessage.is_read ||
-                        lastMessage.read_at
+                        !lastMessageIsMine &&
+                        unreadCount > 1
                     ) {
 
-                        let seenPicture =
-                            otherParticipant.user_profile_picture ||
-                            otherParticipant.profile_picture ||
+                        preview =
+                            `${unreadCount} new messages`;
+
+                    }
+
+
+                    // =====================================
+                    // PHOTO
+                    // =====================================
+
+                    else if (
+                        rawMessage ===
+                        '[attachment:image]'
+                    ) {
+
+                        preview =
+                            lastMessageIsMine
+                                ? 'You sent a photo.'
+                                : `${lastMessageSenderName} sent a photo.`;
+
+                    }
+
+
+                    // =====================================
+                    // FILE
+                    // =====================================
+
+                    else if (
+                        rawMessage ===
+                        '[attachment:file]'
+                    ) {
+
+                        preview =
+                            lastMessageIsMine
+                                ? 'You sent a file.'
+                                : `${lastMessageSenderName} sent a file.`;
+
+                    }
+
+
+                    // =====================================
+                    // MULTIPLE ATTACHMENTS
+                    // =====================================
+
+                    else if (
+                        rawMessage ===
+                        '[attachment:multiple]'
+                    ) {
+
+                        const attachmentCount =
+                            Array.isArray(
+                                lastMessage.attachments
+                            )
+                                ? lastMessage
+                                    .attachments.length
+                                : 0;
+
+                        const attachmentLabel =
+                            attachmentCount > 1
+                                ? `${attachmentCount} attachments`
+                                : 'attachments';
+
+                        preview =
+                            lastMessageIsMine
+                                ? `You sent ${attachmentLabel}.`
+                                : `${lastMessageSenderName} sent ${attachmentLabel}.`;
+
+                    }
+
+
+                    // =====================================
+                    // NORMAL TEXT
+                    // =====================================
+
+                    else if (rawMessage) {
+
+                        const shortenedMessage =
+                            rawMessage.length > 50
+                                ? rawMessage.substring(
+                                    0,
+                                    50
+                                ) + '...'
+                                : rawMessage;
+
+                        if (lastMessageIsMine) {
+
+                            preview =
+                                `You: ${shortenedMessage}`;
+
+                        } else if (isGroup) {
+
+                            preview =
+                                `${lastMessageSenderName}: ${shortenedMessage}`;
+
+                        } else {
+
+                            preview =
+                                shortenedMessage;
+                        }
+                    }
+
+
+                    // =====================================
+                    // TIME
+                    // =====================================
+
+                    const time =
+                        formatConversationRelativeTime(
+                            lastMessage.created_at
+                        );
+
+
+                    // =====================================
+                    // SEEN STATUS
+                    //
+                    // Direct chats can use the other
+                    // participant's avatar.
+                    //
+                    // Group seen state needs separate
+                    // per participant handling later.
+                    // =====================================
+
+                    let conversationMessageStatus = '';
+                    let conversationSeenHtml = '';
+
+                    if (
+                        !isGroup &&
+                        lastMessageIsMine &&
+                        lastMessage.message_id
+                    ) {
+
+                        if (
+                            lastMessage.is_read ||
+                            lastMessage.read_at
+                        ) {
+
+                            let seenPicture =
+                                otherParticipant
+                                    .user_profile_picture ||
+                                otherParticipant
+                                    .profile_picture ||
+                                '';
+
+                            if (seenPicture) {
+
+                                seenPicture =
+                                    String(seenPicture);
+
+                                if (
+                                    !/^https?:\/\//i
+                                        .test(seenPicture) &&
+                                    !seenPicture
+                                        .startsWith('/')
+                                ) {
+
+                                    seenPicture =
+                                        `/storage/${
+                                            seenPicture.replace(
+                                                /^storage\//,
+                                                ''
+                                            )
+                                        }`;
+                                }
+
+                                conversationSeenHtml = `
+                                    <img
+                                        src="${escapeHtml(
+                                            seenPicture
+                                        )}"
+                                        alt="${escapeHtml(
+                                            name
+                                        )}"
+                                        title="Seen by ${escapeHtml(
+                                            name
+                                        )}"
+                                        class="
+                                            h-4
+                                            w-4
+                                            shrink-0
+                                            rounded-full
+                                            object-cover
+                                        "
+                                        onerror="
+                                            this.outerHTML =
+                                            '<div class=&quot;h-4 w-4 shrink-0 rounded-full bg-gray-300 flex items-center justify-center text-[7px] font-semibold text-gray-600&quot;>${escapeHtml(initials)}</div>'
+                                        "
+                                    >
+                                `;
+
+                            } else {
+
+                                conversationSeenHtml = `
+                                    <div
+                                        title="Seen by ${escapeHtml(
+                                            name
+                                        )}"
+                                        class="
+                                            h-4
+                                            w-4
+                                            shrink-0
+                                            rounded-full
+                                            bg-gray-300
+                                            flex
+                                            items-center
+                                            justify-center
+                                            text-[7px]
+                                            font-semibold
+                                            text-gray-600
+                                        "
+                                    >
+                                        ${escapeHtml(
+                                            initials
+                                        )}
+                                    </div>
+                                `;
+                            }
+                        }
+                    }
+
+
+                    // =====================================
+                    // ACTIVE CONVERSATION
+                    // =====================================
+
+                    const isActive =
+                        Number(
+                            conv.conversation_id
+                        ) ===
+                        Number(
+                            currentConversationId
+                        );
+
+                    const activeClass =
+                        isActive
+                            ? 'bg-gray-100'
+                            : '';
+
+
+                    // =====================================
+                    // CONVERSATION AVATAR
+                    // =====================================
+
+                    let conversationAvatarHtml = '';
+
+
+                    // =====================================
+                    // GROUP AVATAR
+                    //
+                    // For now groups use the initials of
+                    // the group name.
+                    //
+                    // Example:
+                    // Capstone Team = CT
+                    // =====================================
+
+                    if (isGroup) {
+
+                    let groupImage =
+                        conv.conversation_image || '';
+
+
+                    // =================================
+                    // GROUP HAS CUSTOM PICTURE
+                    // =================================
+
+                    if (groupImage) {
+
+                        groupImage =
+                            String(groupImage);
+
+                        if (
+                            !/^https?:\/\//i.test(groupImage) &&
+                            !groupImage.startsWith('/')
+                        ) {
+
+                            groupImage =
+                                `/storage/${
+                                    groupImage.replace(
+                                        /^storage\//,
+                                        ''
+                                    )
+                                }`;
+                        }
+
+
+                        conversationAvatarHtml = `
+                            <img
+                                src="${escapeHtml(groupImage)}"
+                                alt="${escapeHtml(name)}"
+                                class="
+                                    h-10
+                                    w-10
+                                    shrink-0
+                                    rounded-full
+                                    object-cover
+                                "
+                            >
+                        `;
+
+                    } else {
+
+                        // =================================
+                        // NO CUSTOM GROUP PICTURE
+                        // Keep existing member collage
+                        // =================================
+
+                        conversationAvatarHtml = `
+                            <div
+                                class="
+                                    flex
+                                    h-[44px]
+                                    w-[56px]
+                                    shrink-0
+                                    items-center
+                                    justify-center
+                                    overflow-visible
+                                "
+                            >
+                                ${renderDefaultGroupAvatar(
+                                    participants,
+                                    'small'
+                                )}
+                            </div>
+                        `;
+                    }
+
+                } else {
+
+                        // =================================
+                        // DIRECT CHAT PROFILE PICTURE
+                        // =================================
+
+                        let profilePicture =
+                            otherParticipant
+                                .user_profile_picture ||
+                            otherParticipant
+                                .profile_picture ||
                             '';
 
-                        if (seenPicture) {
+                        if (profilePicture) {
 
-                            seenPicture = String(seenPicture);
+                            profilePicture =
+                                String(profilePicture);
 
                             if (
-                                !/^https?:\/\//i.test(seenPicture) &&
-                                !seenPicture.startsWith('/')
+                                !/^https?:\/\//i
+                                    .test(profilePicture) &&
+                                !profilePicture
+                                    .startsWith('/')
                             ) {
-                                seenPicture =
-                                    `/storage/${seenPicture.replace(/^storage\//, '')}`;
+
+                                profilePicture =
+                                    `/storage/${
+                                        profilePicture.replace(
+                                            /^storage\//,
+                                            ''
+                                        )
+                                    }`;
                             }
 
-                            conversationSeenHtml = `
+                            conversationAvatarHtml = `
                                 <img
-                                    src="${escapeHtml(seenPicture)}"
-                                    alt="${escapeHtml(name)}"
-                                    title="Seen by ${escapeHtml(name)}"
-                                    class="h-4 w-4 shrink-0 rounded-full object-cover"
-                                    onerror="this.outerHTML='<div class=&quot;h-4 w-4 shrink-0 rounded-full bg-gray-300 flex items-center justify-center text-[7px] font-semibold text-gray-600&quot;>${escapeHtml(initials)}</div>'"
+                                    src="${escapeHtml(
+                                        profilePicture
+                                    )}"
+                                    alt="${escapeHtml(
+                                        name
+                                    )}"
+                                    class="
+                                        h-10
+                                        w-10
+                                        rounded-full
+                                        object-cover
+                                    "
+                                    onerror="
+                                        this.outerHTML =
+                                        '<div class=&quot;h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center text-xs font-semibold text-gray-600&quot;>${escapeHtml(initials)}</div>'
+                                    "
                                 >
                             `;
 
                         } else {
 
-                            conversationSeenHtml = `
+                            conversationAvatarHtml = `
                                 <div
-                                    title="Seen by ${escapeHtml(name)}"
-                                    class="h-4 w-4 shrink-0 rounded-full bg-gray-300 flex items-center justify-center text-[7px] font-semibold text-gray-600"
+                                    class="
+                                        flex
+                                        h-10
+                                        w-10
+                                        items-center
+                                        justify-center
+                                        rounded-full
+                                        bg-gray-100
+                                        text-xs
+                                        font-semibold
+                                        text-gray-600
+                                    "
                                 >
-                                    ${escapeHtml(initials)}
+                                    ${escapeHtml(
+                                        initials
+                                    )}
                                 </div>
                             `;
                         }
-
                     }
+
 
                     // =====================================
-                    // DELIVERED
+                    // STATUS DOT
+                    // Groups use a group icon instead.
                     // =====================================
 
-                    else {
-
-                        conversationMessageStatus = '';
-                    }
-                }
-
-                
-
-                const isActive =
-                    Number(conv.conversation_id) ===
-                    Number(currentConversationId);
-
-                const activeClass =
-                    isActive ? 'bg-gray-100' : '';
-
-                // =========================================
-                // CONVERSATION PROFILE PICTURE
-                // =========================================
-
-                let conversationAvatarHtml = '';
-
-                let profilePicture =
-                    otherParticipant.user_profile_picture ||
-                    otherParticipant.profile_picture ||
-                    '';
-
-                if (profilePicture) {
-
-                    profilePicture = String(profilePicture);
-
-                    if (
-                        !/^https?:\/\//i.test(profilePicture) &&
-                        !profilePicture.startsWith('/')
-                    ) {
-                        profilePicture =
-                            `/storage/${profilePicture.replace(/^storage\//, '')}`;
-                    }
-
-                    conversationAvatarHtml = `
-                        <img
-                            src="${escapeHtml(profilePicture)}"
-                            alt="${escapeHtml(name)}"
-                            class="h-10 w-10 rounded-full object-cover"
-                            onerror="this.outerHTML='<div class=&quot;h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center text-xs font-semibold text-gray-600&quot;>${escapeHtml(initials)}</div>'"
-                        >
-                    `;
-
-                } else {
-
-                    conversationAvatarHtml = `
-                        <div
-                            class="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center text-xs font-semibold text-gray-600"
-                        >
-                            ${escapeHtml(initials)}
-                        </div>
-                    `;
-                }
-
-                return `
-                    <div
-                        class="conversation-item group p-3 cursor-pointer transition-all duration-200 hover:bg-gray-50 ${activeClass}"
-                        data-id="${conv.conversation_id}"
-                    >
-
-                        <div class="flex items-start gap-3">
-
-                            <!-- ========================================= -->
-                            <!-- AVATAR WITH ONLINE STATUS DOT -->
-                            <!-- ========================================= -->
-
-                            <div class="relative shrink-0">
-
-                                ${conversationAvatarHtml}
+                    const avatarStatusHtml =
+                        isGroup
+                            ? `
                                 <span
-                                    class="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white ${
-                                        isOnline
-                                            ? 'bg-emerald-500'
-                                            : 'bg-gray-400'
-                                    }"
+                                    class="
+                                        absolute
+                                        bottom-0
+                                        right-0
+                                        flex
+                                        h-4
+                                        w-4
+                                        items-center
+                                        justify-center
+                                        rounded-full
+                                        border-2
+                                        border-white
+                                        bg-gray-200
+                                        text-gray-600
+                                    "
+                                    title="Group chat"
+                                >
+                                    <i
+                                        data-lucide="users"
+                                        class="h-2.5 w-2.5"
+                                    ></i>
+                                </span>
+                            `
+                            : `
+                                <span
+                                    class="
+                                        absolute
+                                        bottom-0
+                                        right-0
+                                        h-3
+                                        w-3
+                                        rounded-full
+                                        border-2
+                                        border-white
+                                        ${
+                                            isOnline
+                                                ? 'bg-emerald-500'
+                                                : 'bg-gray-400'
+                                        }
+                                    "
                                     title="${
                                         isOnline
                                             ? 'Active now'
                                             : 'Offline'
                                     }"
                                 ></span>
-
-                            </div>
-
-                            <div class="flex-1 min-w-0 pt-0.5">
-
-                                <div class="flex items-center justify-between gap-2">
-
-                                    <span
-                                        class="text-sm font-semibold text-gray-900 truncate"
-                                    >
-                                        ${escapeHtml(name)}
-                                    </span>
+                            `;
 
 
+                    // =====================================
+                    // HTML
+                    // =====================================
 
+                    return `
+                        <div
+                            class="
+                                conversation-item
+                                group
+                                p-3
+                                cursor-pointer
+                                transition-all
+                                duration-200
+                                hover:bg-gray-50
+                                ${activeClass}
+                            "
+                            data-id="${
+                                conv.conversation_id
+                            }"
+                            data-conversation-type="${
+                                isGroup
+                                    ? 'group'
+                                    : 'direct'
+                            }"
+                        >
+
+                            <div
+                                class="
+                                    flex
+                                    items-start
+                                    gap-3
+                                "
+                            >
+
+                                <div
+                                    class="
+                                        relative
+                                        shrink-0
+                                    "
+                                >
+                                    ${conversationAvatarHtml}
+
+                                    ${avatarStatusHtml}
                                 </div>
 
-                                <!-- ========================================= -->
-                                <!-- MESSAGE PREVIEW + STATUS -->
-                                <!-- ========================================= -->
 
-                                <div class="flex items-center justify-between gap-2 mt-0.5">
+                                <div
+                                    class="
+                                        flex-1
+                                        min-w-0
+                                        pt-0.5
+                                    "
+                                >
 
-                                    <!-- ========================================= -->
-                                    <!-- MESSAGE PREVIEW + TIME -->
-                                    <!-- MESSAGE CAN SHRINK, TIME CANNOT -->
-                                    <!-- ========================================= -->
+                                    <div
+                                        class="
+                                            flex
+                                            items-center
+                                            justify-between
+                                            gap-2
+                                        "
+                                    >
 
-                                    <div class="flex items-center gap-1 flex-1 min-w-0">
-
-                                        <!-- ONLY MESSAGE TEXT GETS TRUNCATED -->
-                                        <p
-                                            class="conversation-preview text-xs truncate min-w-0 ${
-                                                unreadCount > 0
-                                                    ? 'font-semibold text-gray-900'
-                                                    : 'text-gray-500'
-                                            }"
-                                            data-conversation-id="${conv.conversation_id}"
-                                            data-original-preview="${escapeHtml(preview)}"
+                                        <span
+                                            class="
+                                                text-sm
+                                                font-semibold
+                                                text-gray-900
+                                                truncate
+                                            "
                                         >
-                                            ${escapeHtml(preview)}
-                                        </p>
+                                            ${escapeHtml(name)}
+                                        </span>
 
-                                        <!-- TIME ALWAYS STAYS VISIBLE -->
+                                    </div>
+
+
+                                    <div
+                                        class="
+                                            flex
+                                            items-center
+                                            justify-between
+                                            gap-2
+                                            mt-0.5
+                                        "
+                                    >
+
+                                        <div
+                                            class="
+                                                flex
+                                                items-center
+                                                gap-1
+                                                flex-1
+                                                min-w-0
+                                            "
+                                        >
+
+                                            <p
+                                                class="
+                                                    conversation-preview
+                                                    text-xs
+                                                    truncate
+                                                    min-w-0
+                                                    ${
+                                                        unreadCount > 0
+                                                            ? 'font-semibold text-gray-900'
+                                                            : 'text-gray-500'
+                                                    }
+                                                "
+                                                data-conversation-id="${
+                                                    conv.conversation_id
+                                                }"
+                                                data-original-preview="${
+                                                    escapeHtml(preview)
+                                                }"
+                                            >
+                                                ${escapeHtml(preview)}
+                                            </p>
+
+
+                                            ${
+                                                lastMessage.created_at
+                                                    ? `
+                                                        <span
+                                                            class="
+                                                                conversation-relative-time
+                                                                shrink-0
+                                                                whitespace-nowrap
+                                                                text-xs
+                                                                font-normal
+                                                                text-gray-400
+                                                            "
+                                                            data-created-at="${
+                                                                escapeHtml(
+                                                                    lastMessage.created_at
+                                                                )
+                                                            }"
+                                                        >
+                                                            · ${time}
+                                                        </span>
+                                                    `
+                                                    : ''
+                                            }
+
+                                        </div>
+
+
                                         ${
-                                            lastMessage.created_at
+                                            unreadCount > 0
                                                 ? `
                                                     <span
-                                                        class="conversation-relative-time shrink-0 whitespace-nowrap text-xs font-normal text-gray-400"
-                                                        data-created-at="${escapeHtml(lastMessage.created_at)}"
-                                                    >
-                                                        · ${time}
-                                                    </span>
+                                                        class="
+                                                            shrink-0
+                                                            h-2.5
+                                                            w-2.5
+                                                            rounded-full
+                                                            bg-gray-900
+                                                        "
+                                                        title="${
+                                                            unreadCount
+                                                        } unread ${
+                                                            unreadCount === 1
+                                                                ? 'message'
+                                                                : 'messages'
+                                                        }"
+                                                    ></span>
                                                 `
-                                                : ''
+                                                : conversationSeenHtml
+                                                    ? conversationSeenHtml
+                                                    : conversationMessageStatus
+                                                        ? `
+                                                            <span
+                                                                class="
+                                                                    conversation-message-status
+                                                                    shrink-0
+                                                                    text-[10px]
+                                                                    text-gray-400
+                                                                    font-medium
+                                                                "
+                                                                data-message-id="${
+                                                                    lastMessage.message_id
+                                                                }"
+                                                            >
+                                                                ${conversationMessageStatus}
+                                                            </span>
+                                                        `
+                                                        : ''
                                         }
 
                                     </div>
 
-                                    ${
-                                        unreadCount > 0
-                                            ? `
-                                                <span
-                                                    class="shrink-0 h-2.5 w-2.5 rounded-full bg-gray-900"
-                                                    title="${unreadCount} unread ${
-                                                        unreadCount === 1
-                                                            ? 'message'
-                                                            : 'messages'
-                                                    }"
-                                                ></span>
-                                            `
-                                            : conversationSeenHtml
-                                                ? conversationSeenHtml
-
-                                                : conversationMessageStatus
-                                                    ? `
-                                                        <span
-                                                            class="conversation-message-status shrink-0 text-[10px] text-gray-400 font-medium"
-                                                            data-message-id="${lastMessage.message_id}"
-                                                        >
-                                                            ${conversationMessageStatus}
-                                                        </span>
-                                                    `
-                                                    : ''
-                                    }
-
                                 </div>
+
+
+                                <button
+                                    type="button"
+                                    onclick="
+                                        event.stopPropagation();
+                                        confirmDeleteConversation(
+                                            ${conv.conversation_id}
+                                        )
+                                    "
+                                    class="
+                                        conversation-delete-btn
+                                        opacity-0
+                                        group-hover:opacity-100
+                                        h-7
+                                        w-7
+                                        flex
+                                        items-center
+                                        justify-center
+                                        rounded-lg
+                                        text-gray-400
+                                        hover:text-red-600
+                                        hover:bg-red-50
+                                        transition
+                                    "
+                                >
+                                    <i
+                                        data-lucide="trash-2"
+                                        class="h-4 w-4"
+                                    ></i>
+                                </button>
 
                             </div>
 
-                            <button
-                                type="button"
-                                onclick="event.stopPropagation(); confirmDeleteConversation(${conv.conversation_id})"
-                                class="conversation-delete-btn opacity-0 group-hover:opacity-100 h-7 w-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition"
-                            >
-                                <i data-lucide="trash-2" class="h-4 w-4"></i>
-                            </button>
-
                         </div>
+                    `;
 
-                    </div>
-                `;
-
-            }).join('');
+                }).join('');
 
             lucideCreateIcons();
         }
@@ -5197,147 +9692,507 @@
             }
         }
 
-        async function openModalConversation(conversationId) {
+        // =====================================================
+        // OPEN CONVERSATION
+        // Supports direct and group conversations
+        // =====================================================
+
+        async function openModalConversation(
+            conversationId
+        ) {
+
             cancelReply();
+
             closeConversationMessageSearch();
 
             // =============================================
-            // NEW CONVERSATION
-            // Do not keep the previous user's media records.
+            // RESET PREVIOUS CONVERSATION
             // =============================================
-            closeConversationInfoSidebar();
+
+            //closeConversationInfoSidebar();
+
             resetConversationAssets();
 
-            currentConversationId = conversationId;
+
+            currentConversationId =
+                conversationId;
+
             messagesPage = 1;
+
             hasMoreMessages = true;
 
-            document.querySelectorAll('#modalConversationsList .conversation-item').forEach(el => {
-                el.classList.toggle('bg-gray-100', el.dataset.id == conversationId);
-            });
 
-            const chatEmpty = document.getElementById('modalChatEmptyState');
-            const messagesContainer = document.getElementById('modalMessagesContainer');
-            const chatHeader = document.getElementById('modalChatHeader');
-            const composer = document.getElementById('modalComposer');
-            const chatArea = document.getElementById('modalChatArea');
+            // =============================================
+            // ACTIVE LEFT LIST ITEM
+            // =============================================
 
-            if (chatEmpty) chatEmpty.classList.add('hidden');
-            if (messagesContainer) messagesContainer.classList.remove('hidden');
-            if (chatHeader) chatHeader.classList.remove('hidden');
-            if (composer) composer.classList.remove('hidden');
+            document
+                .querySelectorAll(
+                    '#modalConversationsList .conversation-item'
+                )
+                .forEach(el => {
 
-            if (chatArea) {
-                chatArea.classList.remove('hidden');
-                chatArea.classList.add('md:flex');
-            }
-
-            const response = await fetch(`/messages/conversations/${conversationId}`, {
-                headers: {
-                    'Accept': 'application/json'
-                }
-            });
-
-            if (!response.ok) return;
-
-            const data = await response.json();
-            const conversation = data.data;
-
-            const otherParticipant =
-                conversation.participants?.find(
-                    p => p.user?.user_id !== currentUserId
-                )?.user || {};
-
-            const name =
-                otherParticipant.user_full_name || 'Unknown';
-
-            currentConversationUserName = name;
-            currentConversationUser = otherParticipant;
-
-            // Keep conversation info sidebar synchronized.
-            refreshConversationInfoProfile();
-
-            // =====================================================
-            // USER INFORMATION
-            // =====================================================
-
-            const role =
-                otherParticipant.role?.role_name || '';
-
-            const lastActiveAt =
-                otherParticipant.last_active_at;
+                    el.classList.toggle(
+                        'bg-gray-100',
+                        el.dataset.id ==
+                            conversationId
+                    );
+                });
 
 
-            // =====================================================
-            // ONLINE STATUS
-            // =====================================================
+            const chatEmpty =
+                document.getElementById(
+                    'modalChatEmptyState'
+                );
 
-            const activityStatus =
-                formatUserActivity(
-                    lastActiveAt
+            const messagesContainer =
+                document.getElementById(
+                    'modalMessagesContainer'
+                );
+
+            const chatHeader =
+                document.getElementById(
+                    'modalChatHeader'
+                );
+
+            const composer =
+                document.getElementById(
+                    'modalComposer'
+                );
+
+            const chatArea =
+                document.getElementById(
+                    'modalChatArea'
                 );
 
 
-            // =====================================================
-            // UPDATE CHAT HEADER
-            // =====================================================
+            if (chatEmpty) {
+                chatEmpty.classList.add(
+                    'hidden'
+                );
+            }
 
-            document.getElementById(
-                'modalChatTitle'
-            ).textContent = name;
+            if (messagesContainer) {
+                messagesContainer.classList.remove(
+                    'hidden'
+                );
+            }
 
-            document.getElementById(
-                'modalChatSubtitle'
-            ).textContent = activityStatus;
+            if (chatHeader) {
+                chatHeader.classList.remove(
+                    'hidden'
+                );
+            }
 
-            document.getElementById(
-                'modalChatAvatar'
-            ).innerHTML = getInitials(name);
+            if (composer) {
+                composer.classList.remove(
+                    'hidden'
+                );
+            }
+
+            if (chatArea) {
+
+                chatArea.classList.remove(
+                    'hidden'
+                );
+
+                chatArea.classList.add(
+                    'md:flex'
+                );
+            }
 
 
-            // =====================================================
-            // LOAD EXISTING MESSAGES
-            // =====================================================
+            // =============================================
+            // GET CONVERSATION
+            // =============================================
+
+            const response =
+                await fetch(
+                    `/messages/conversations/${conversationId}`,
+                    {
+                        headers: {
+                            'Accept':
+                                'application/json'
+                        }
+                    }
+                );
+
+            if (!response.ok) {
+                return;
+            }
+
+
+            const data =
+                await response.json();
+
+            const conversation =
+                data.data;
+
+            if (!conversation) {
+                return;
+            }
+
+
+            // =============================================
+            // SAVE CURRENT CONVERSATION
+            // =============================================
+
+            currentConversationData =
+                conversation;
+
+            currentConversationType =
+                conversation.conversation_type ===
+                'group'
+                    ? 'group'
+                    : 'direct';
+
+            const conversationInfoSidebar =
+                document.getElementById(
+                    'modalConversationInfoSidebar'
+                );
+
+            const conversationInfoIsOpen =
+                conversationInfoSidebar &&
+                !conversationInfoSidebar.classList.contains(
+                    'hidden'
+                );
+
+            if (conversationInfoIsOpen) {
+
+                // Update avatar, conversation name,
+                // member count, online status, etc.
+                refreshConversationInfoProfile();
+
+                // Switch group only controls automatically.
+                // For direct chats this hides:
+                // Chat members
+                // Add people
+                // Leave group
+                //
+                // For group chats it shows them again.
+                refreshGroupConversationSidebar();
+
+                // Reset Media and Files because we changed
+                // to another conversation.
+                resetConversationAssets();
+
+                // Load counts belonging to the NEW conversation.
+                await Promise.all([
+                    loadConversationAssets(),
+                    updatePinnedMessagesCount()
+                ]);
+
+                lucideCreateIcons();
+            }
+
+
+            const isGroup =
+                currentConversationType ===
+                'group';
+
+
+            const participants =
+                Array.isArray(
+                    conversation.participants
+                )
+                    ? conversation.participants
+                    : [];
+
+
+            // =============================================
+            // DIRECT CHAT USER
+            // =============================================
+
+            const otherParticipant =
+                participants.find(
+                    participant =>
+                        Number(
+                            participant.user?.user_id
+                        ) !==
+                        Number(currentUserId)
+                )?.user || {};
+
+
+            // =============================================
+            // GROUP CHAT
+            // =============================================
+
+            if (isGroup) {
+
+                const groupName =
+                    conversation.conversation_name ||
+                    'Group chat';
+
+
+                // =========================================
+                // DO NOT STORE A RANDOM GROUP MEMBER
+                // AS THE CURRENT CONVERSATION USER
+                // =========================================
+
+                currentConversationUser =
+                    null;
+
+                currentConversationUserName =
+                    groupName;
+
+
+                // =========================================
+                // MEMBER COUNT
+                // =========================================
+
+                const memberCount =
+                    participants.length;
+
+
+                // =========================================
+                // CHAT HEADER
+                // =========================================
+
+                const title =
+                    document.getElementById(
+                        'modalChatTitle'
+                    );
+
+                const subtitle =
+                    document.getElementById(
+                        'modalChatSubtitle'
+                    );
+
+                const avatar =
+                    document.getElementById(
+                        'modalChatAvatar'
+                    );
+
+
+                if (title) {
+
+                    title.textContent =
+                        groupName;
+                }
+
+
+                if (subtitle) {
+
+                    subtitle.textContent =
+                        `${memberCount} ${
+                            memberCount === 1
+                                ? 'member'
+                                : 'members'
+                        }`;
+                }
+
+
+                if (avatar) {
+
+                    let groupImage =
+                        conversation.conversation_image || '';
+
+
+                    // =========================================
+                    // CUSTOM GROUP PICTURE
+                    // =========================================
+
+                    if (groupImage) {
+
+                        groupImage =
+                            String(groupImage);
+
+                        if (
+                            !/^https?:\/\//i.test(groupImage) &&
+                            !groupImage.startsWith('/')
+                        ) {
+
+                            groupImage =
+                                `/storage/${
+                                    groupImage.replace(
+                                        /^storage\//,
+                                        ''
+                                    )
+                                }`;
+                        }
+
+
+                        avatar.className = `
+                            flex
+                            h-10
+                            w-10
+                            shrink-0
+                            items-center
+                            justify-center
+                            overflow-hidden
+                            rounded-full
+                            bg-gray-100
+                        `;
+
+
+                        avatar.innerHTML = `
+                            <img
+                                src="${escapeHtml(groupImage)}"
+                                alt="${escapeHtml(groupName)}"
+                                class="
+                                    h-full
+                                    w-full
+                                    object-cover
+                                "
+                            >
+                        `;
+
+                    } else {
+
+                        // =========================================
+                        // NO CUSTOM GROUP PICTURE
+                        // Keep existing member collage
+                        // =========================================
+
+                        avatar.className = `
+                            flex
+                            h-[44px]
+                            w-[56px]
+                            shrink-0
+                            items-center
+                            justify-center
+                            overflow-visible
+                        `;
+
+
+                        avatar.innerHTML =
+                            renderDefaultGroupAvatar(
+                                participants,
+                                'small'
+                            );
+                    }
+                }
+
+            } else {
+
+                // =============================================
+                // DIRECT CONVERSATION
+                // =============================================
+
+                const name =
+                    otherParticipant
+                        .user_full_name ||
+                    'Unknown';
+
+
+                currentConversationUserName =
+                    name;
+
+                currentConversationUser =
+                    otherParticipant;
+
+
+                // =========================================
+                // ONLINE STATUS
+                // =========================================
+
+                const lastActiveAt =
+                    otherParticipant
+                        .last_active_at;
+
+                const activityStatus =
+                    formatUserActivity(
+                        lastActiveAt
+                    );
+
+
+                // =========================================
+                // HEADER
+                // =========================================
+
+                const title =
+                    document.getElementById(
+                        'modalChatTitle'
+                    );
+
+                const subtitle =
+                    document.getElementById(
+                        'modalChatSubtitle'
+                    );
+
+                const avatar =
+                    document.getElementById(
+                        'modalChatAvatar'
+                    );
+
+
+                if (title) {
+
+                    title.textContent =
+                        name;
+                }
+
+
+                if (subtitle) {
+
+                    subtitle.textContent =
+                        activityStatus;
+                }
+
+
+                if (avatar) {
+
+                    avatar.innerHTML =
+                        getInitials(name);
+
+                    // =====================================
+                    // RESTORE NORMAL DIRECT CHAT STYLE
+                    // =====================================
+
+                    avatar.className = `
+                        h-9
+                        w-9
+                        shrink-0
+                        rounded-full
+                        bg-gradient-to-br
+                        from-emerald-100
+                        to-emerald-200
+                        flex
+                        items-center
+                        justify-center
+                        text-xs
+                        font-semibold
+                        text-emerald-700
+                    `;
+                }
+            }
+
+
+            // =============================================
+            // UPDATE CONVERSATION INFO SIDEBAR
+            // =============================================
+
+            refreshConversationInfoProfile();
+
+
+            // =============================================
+            // LOAD MESSAGES
+            // =============================================
 
             await loadModalMessages(
                 conversationId
             );
 
 
-            // =====================================================
-            // ALWAYS START AT THE VERY LATEST MESSAGE
-            //
-            // Important for conversations containing images because
-            // their final height may not exist during initial render.
-            // =====================================================
+            // =============================================
+            // START AT LATEST MESSAGE
+            // =============================================
 
             await scrollOpenedConversationToBottom();
 
 
-            // =====================================================
-            // MARK MESSAGES AS READ
-            // =====================================================
+            // =============================================
+            // MARK AS READ
+            // =============================================
 
             await markConversationAsRead(
                 conversationId
             );
 
 
-            // =====================================================
-            // MARK MESSAGES AS READ
-            //
-            // This removes the unread badge when the user
-            // actually opens the conversation.
-            // =====================================================
-
-            await markConversationAsRead(
-                conversationId
-            );
-
-
-            // =====================================================
-            // START REAL TIME LISTENER
-            // =====================================================
+            // =============================================
+            // REAL TIME
+            // =============================================
 
             listenToConversationRealtime(
                 conversationId
@@ -6026,6 +10881,465 @@
             return attachments
                 .map(normalizeAttachment)
                 .filter(Boolean);
+        }
+
+        // =====================================================
+        // GROUP FIRST GLANCE
+        //
+        // Permanent group introduction.
+        //
+        // Always stays at the beginning of a group conversation,
+        // even when the group already contains messages.
+        // =====================================================
+        function renderGroupFirstGlance(conversationEvents = []) {
+            if (currentConversationType !== 'group') {
+                return '';
+            }
+
+            const participants = Array.isArray(currentConversationData?.participants)
+                ? currentConversationData.participants
+                : [];
+
+            const groupName = currentConversationData?.conversation_name || 'Group chat';
+            const createdEvent =
+                Array.isArray(conversationEvents)
+                    ? conversationEvents.find(
+                        event =>
+                            event.event_type === 'group_created'
+                    )
+                    : null;
+
+
+            // =====================================================
+            // CREATOR NAME
+            // =====================================================
+
+            let creatorName = 'Someone';
+
+            if (createdEvent) {
+
+                const creatorId =
+                    Number(createdEvent.actor_user_id);
+
+                const creatorIsMe =
+                    creatorId ===
+                    Number(currentUserId);
+
+
+                // =============================================
+                // CURRENT USER CREATED THE GROUP
+                // =============================================
+
+                if (creatorIsMe) {
+
+                    creatorName = 'You';
+
+                }
+
+
+                // =============================================
+                // LARAVEL RETURNED CREATOR NAME
+                // =============================================
+
+                else if (
+                    createdEvent.actor_name &&
+                    String(createdEvent.actor_name).trim()
+                ) {
+
+                    creatorName =
+                        String(createdEvent.actor_name).trim();
+
+                }
+
+
+                // =============================================
+                // FALLBACK
+                //
+                // Find creator from conversation participants.
+                // =============================================
+
+                else {
+
+                    const creatorParticipant =
+                        participants.find(participant => {
+
+                            const user =
+                                participant?.user || {};
+
+                            return (
+                                Number(user.user_id) ===
+                                creatorId
+                            );
+                        });
+
+
+                    const creatorUser =
+                        creatorParticipant?.user || {};
+
+
+                    creatorName =
+                        creatorUser.user_full_name ||
+                        creatorUser.name ||
+                        'Someone';
+                }
+            }
+
+            const avatarItems = participants.slice(0, 3).map((participant, index) => {
+                const user = participant.user || {};
+                const name = user.user_full_name || user.name || 'User';
+                const picture = getConversationInfoPictureUrl(user);
+                const offset = index * 28;
+
+                return picture
+                    ? `<img src="${escapeHtml(picture)}" alt="${escapeHtml(name)}" class="absolute h-14 w-14 rounded-full border-4 border-white object-cover" style="left:${offset}px;top:${index === 1 ? 0 : 16}px">`
+                    : `<div class="absolute flex h-14 w-14 items-center justify-center rounded-full border-4 border-white bg-gray-100 text-sm font-semibold text-gray-600" style="left:${offset}px;top:${index === 1 ? 0 : 16}px">${escapeHtml(getInitials(name))}</div>`;
+            }).join('');
+
+            return `
+                <div class="group-first-glance flex w-full shrink-0 flex-col items-center px-4 pb-8 pt-5 text-center">
+                    <div class="relative mb-3 h-[76px] w-[116px]">${avatarItems}</div>
+                    <h3 class="max-w-[90%] text-lg font-semibold text-gray-900">${escapeHtml(groupName)}</h3>
+                    <p class="mt-1 text-sm text-gray-500">${escapeHtml(creatorName)} created this group</p>
+                    <div class="mt-5 flex items-start justify-center gap-8">
+                        <button
+                            type="button"
+                            data-group-action="add"
+                            class="group flex flex-col items-center gap-1.5 text-sm font-medium text-gray-700"
+                        >
+                            <span class="flex h-11 w-11 items-center justify-center rounded-full bg-gray-100 transition group-hover:bg-gray-200">
+                                <i data-lucide="user-plus" class="h-5 w-5"></i>
+                            </span>
+
+                            <span>Add</span>
+                        </button>
+
+                        <button
+                            type="button"
+                            data-group-action="rename"
+                            class="group flex flex-col items-center gap-1.5 text-sm font-medium text-gray-700"
+                        >
+                            <span class="flex h-11 w-11 items-center justify-center rounded-full bg-gray-100 transition group-hover:bg-gray-200">
+                                <i data-lucide="pencil" class="h-5 w-5"></i>
+                            </span>
+
+                            <span>Name</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function removeGroupFirstGlance() {
+
+            // Do nothing.
+            // The group introduction must always remain.
+
+            return;
+        }
+
+        function openRenameGroupModal() {
+            if (currentConversationType !== 'group' || !currentConversationId) return;
+            const modal = document.getElementById('renameGroupModal');
+            const input = document.getElementById('renameGroupInput');
+            const error = document.getElementById('renameGroupError');
+            if (!modal || !input) return;
+            error?.classList.add('hidden');
+            input.value = currentConversationData?.conversation_name || '';
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            setTimeout(() => { input.focus(); input.select(); }, 50);
+        }
+
+        function closeRenameGroupModal() {
+            const modal = document.getElementById('renameGroupModal');
+            if (!modal) return;
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        async function saveRenamedGroup() {
+            if (!currentConversationId) return;
+            const input = document.getElementById('renameGroupInput');
+            const error = document.getElementById('renameGroupError');
+            const name = input?.value.trim() || '';
+            if (!name) {
+                if (error) { error.textContent = 'Enter a group name.'; error.classList.remove('hidden'); }
+                return;
+            }
+
+            const response = await fetch(`/messages/conversations/${currentConversationId}/name`, {
+                method: 'PATCH',
+                headers: {
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken
+                },
+                body: JSON.stringify({ conversation_name: name })
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                if (error) { error.textContent = data.message || 'Unable to rename the group.'; error.classList.remove('hidden'); }
+                return;
+            }
+
+            currentConversationData = data.data;
+            closeRenameGroupModal();
+            refreshConversationInfoProfile();
+            refreshGroupConversationSidebar();
+            document.getElementById('modalChatTitle').textContent = name;
+            document.querySelector('#modalMessagesContainer .group-first-glance h3')?.replaceChildren(document.createTextNode(name));
+            await loadModalConversations();
+        }
+
+        async function refreshOpenGroupAfterActivity() {
+            if (!currentConversationId || currentConversationType !== 'group') return;
+            const response = await fetch(`/messages/conversations/${currentConversationId}`, { headers: { 'Accept': 'application/json' } });
+            if (!response.ok) return;
+            const data = await response.json();
+            if (!data.data || Number(data.data.conversation_id) !== Number(currentConversationId)) return;
+            currentConversationData = data.data;
+            refreshConversationInfoProfile();
+            refreshGroupConversationSidebar();
+        }
+
+        function appendRealtimeConversationActivity(event) {
+            if (!event || Number(event.conversation_id) !== Number(currentConversationId)) return;
+            const container = document.getElementById('modalMessagesContainer');
+            if (!container) return;
+            const eventId = Number(event.conversation_event_id || 0);
+            if (eventId && container.querySelector(`.conversation-event-row[data-event-id="${eventId}"]`)) return;
+
+            const html = renderConversationEventRow({ ...event, item_type: 'conversation_event' });
+            if (!html) return;
+            const typingIndicator = document.getElementById('modalTypingIndicator');
+            if (typingIndicator) typingIndicator.insertAdjacentHTML('beforebegin', html);
+            else container.insertAdjacentHTML('beforeend', html);
+
+            moveTypingIndicatorAfterLastMessage();
+            lucideCreateIcons();
+            scrollToBottom(false, true);
+            refreshOpenGroupAfterActivity();
+        }
+
+        // =====================================================
+        // RENDER GROUP CONVERSATION EVENT
+        // Examples:
+        // You created the group chat.
+        // Kenn Mehares created the group chat.
+        // You added Leo Legitimas to the group.
+        // Kenn Mehares added you to the group.
+        // Kenn Mehares added Leo Legitimas to the group.
+        // You left the group.
+        // Leo Legitimas left the group.
+        // =====================================================
+
+        function renderConversationEventRow(event) {
+
+            if (!event) {
+                return '';
+            }
+
+
+            // =================================================
+            // CHECK WHO PERFORMED THE ACTION
+            // =================================================
+
+            const actorIsMe =
+                Number(event.actor_user_id) ===
+                Number(currentUserId);
+
+
+            // =================================================
+            // CHECK IF THE TARGET USER IS ME
+            //
+            // Example:
+            // Kenn adds Leo.
+            //
+            // If Leo is logged in:
+            // targetIsMe = true
+            //
+            // Result:
+            // "Kenn Mehares added you to the group."
+            // =================================================
+
+            const targetIsMe =
+                event.target_user_id !== null &&
+                event.target_user_id !== undefined &&
+                Number(event.target_user_id) ===
+                Number(currentUserId);
+
+
+            // =================================================
+            // ACTOR NAME
+            // =================================================
+
+            const actorName =
+                actorIsMe
+                    ? 'You'
+                    : (
+                        event.actor_name ||
+                        'Someone'
+                    );
+
+
+            // =================================================
+            // TARGET NAME
+            // =================================================
+
+            const targetName =
+                targetIsMe
+                    ? 'you'
+                    : (
+                        event.target_name ||
+                        'someone'
+                    );
+
+
+            let text = '';
+
+
+            // =================================================
+            // GROUP CREATED
+            // =================================================
+
+            if (
+                event.event_type ===
+                'group_created'
+            ) {
+
+                text = actorIsMe
+                    ? 'You created the group chat.'
+                    : `${actorName} created the group chat.`;
+            }
+
+
+            // =================================================
+            // MEMBER ADDED
+            // =================================================
+
+            else if (
+                event.event_type ===
+                'member_added'
+            ) {
+
+                // =============================================
+                // I ADDED SOMEONE
+                //
+                // Example:
+                // You added Leo Legitimas to the group.
+                // =============================================
+
+                if (actorIsMe) {
+
+                    text =
+                        `You added ${targetName} to the group.`;
+                }
+
+
+                // =============================================
+                // SOMEONE ADDED ME
+                //
+                // Example when Leo is logged in:
+                // Kenn Mehares added you to the group.
+                // =============================================
+
+                else if (targetIsMe) {
+
+                    text =
+                        `${actorName} added you to the group.`;
+                }
+
+
+                // =============================================
+                // SOMEONE ADDED ANOTHER PERSON
+                //
+                // Example:
+                // Kenn Mehares added Leo Legitimas to the group.
+                // =============================================
+
+                else {
+
+                    text =
+                        `${actorName} added ${targetName} to the group.`;
+                }
+            }
+
+
+            // =================================================
+            // MEMBER LEFT
+            // =================================================
+
+            else if (
+                event.event_type ===
+                'member_left'
+            ) {
+
+                text = actorIsMe
+                    ? 'You left the group.'
+                    : `${actorName} left the group.`;
+            }
+
+
+            // =================================================
+            // UNKNOWN EVENT
+            // =================================================
+
+            if (!text) {
+                return '';
+            }
+
+
+            // =================================================
+            // SYSTEM EVENT UI
+            //
+            // IMPORTANT:
+            // This is NOT a normal chat message.
+            //
+            // Therefore it has:
+            // no reactions
+            // no reply
+            // no edit
+            // no pin
+            // no forward
+            // no 3-dot menu
+            // =================================================
+
+            return `
+                <div
+                    class="
+                        conversation-event-row
+                        flex
+                        w-full
+                        justify-center
+                        px-6
+                        py-2
+                    "
+                    data-event-id="${
+                        Number(
+                            event.conversation_event_id
+                        )
+                    }"
+                    data-created-at="${
+                        escapeHtml(
+                            String(
+                                event.created_at || ''
+                            )
+                        )
+                    }"
+                >
+                    <p
+                        class="
+                            max-w-[75%]
+                            text-center
+                            text-xs
+                            leading-5
+                            text-gray-500
+                        "
+                    >
+                        ${escapeHtml(text)}
+                    </p>
+                </div>
+            `;
         }
 
         function renderMessengerMessageRow(msg, isOwn) {
@@ -7843,12 +13157,23 @@
             const data = await response.json();
             const messages = data.data;
 
+            const conversationEvents =
+                Array.isArray(
+                    data.conversation_events
+                )
+                    ? data.conversation_events
+                    : [];
+
             // =====================================================
             // NO MESSAGES YET
             // KEEP TYPING INDICATOR ALIVE
             // =====================================================
 
-            if (messages.data.length === 0 && !append) {
+            if (
+                messages.data.length === 0 &&
+                conversationEvents.length === 0 &&
+                !append
+            ) {
 
                 const typingIndicator =
                     document.getElementById('modalTypingIndicator');
@@ -7887,17 +13212,148 @@
                 return;
             }
 
-            if (messages.data.length === 0) {
+            if (
+                messages.data.length === 0 &&
+                conversationEvents.length === 0
+            ) {
+
                 hasMoreMessages = false;
                 isLoadingMessages = false;
+
                 return;
             }
 
+
+            // =====================================================
+            // THERE MAY BE EVENTS BUT ZERO NORMAL MESSAGES
+            // =====================================================
+
+            if (messages.data.length === 0) {
+                hasMoreMessages = false;
+            }
+
             const userId = {{ auth()->id() }};
-            const orderedMessages = [...messages.data].reverse();
-            const html = orderedMessages
-                .map(msg => renderMessengerMessageRow(msg, Number(msg.sender?.user_id ?? msg.sender_id) === Number(userId)))
-                .join('');
+            const orderedMessages =
+                [...messages.data]
+                    .reverse()
+                    .map(message => ({
+                        ...message,
+
+                        // =========================================
+                        // IDENTIFY NORMAL MESSAGE
+                        // =========================================
+
+                        item_type:
+                            'message'
+                    }));
+
+
+            // =====================================================
+            // CONVERSATION EVENTS
+            //
+            // Only insert them on the initial load.
+            //
+            // We do not insert the entire event history again when
+            // loading older paginated messages.
+            // =====================================================
+
+            const eventItems =
+                !append
+                    ? conversationEvents.map(event => ({
+                        ...event,
+
+                        item_type:
+                            'conversation_event'
+                    }))
+                    : [];
+
+
+            // =====================================================
+            // COMBINE MESSAGES + EVENTS
+            // =====================================================
+
+            const conversationItems = [
+                ...orderedMessages,
+                ...eventItems
+            ];
+
+
+            // =====================================================
+            // CHRONOLOGICAL ORDER
+            //
+            // Example:
+            //
+            // You created the group chat.
+            // 2:00 PM message
+            // You added Leo.
+            // 2:05 PM message
+            // =====================================================
+
+            conversationItems.sort(
+                (a, b) => {
+
+                    const first =
+                        new Date(
+                            a.created_at
+                        ).getTime();
+
+                    const second =
+                        new Date(
+                            b.created_at
+                        ).getTime();
+
+                    return first - second;
+                }
+            );
+
+
+            // =====================================================
+            // RENDER CORRECT TYPE
+            // =====================================================
+
+            const firstGlanceHtml =
+                (!append && currentConversationType === 'group' && messages.data.length === 0)
+                    ? renderGroupFirstGlance(conversationEvents)
+                    : '';
+
+            const html =
+                firstGlanceHtml +
+                conversationItems
+                    .map(item => {
+
+                        // =========================================
+                        // GROUP ACTIVITY
+                        // =========================================
+
+                        if (
+                            item.item_type ===
+                            'conversation_event'
+                        ) {
+
+                            return renderConversationEventRow(
+                                item
+                            );
+                        }
+
+
+                        // =========================================
+                        // NORMAL CHAT MESSAGE
+                        // =========================================
+
+                        const isOwn =
+                            Number(
+                                item.sender?.user_id ??
+                                item.sender_id
+                            ) ===
+                            Number(userId);
+
+
+                        return renderMessengerMessageRow(
+                            item,
+                            isOwn
+                        );
+                    })
+                    .join('');
 
             // =====================================================
             // INSERT MESSAGES WITHOUT DESTROYING TYPING INDICATOR
@@ -9798,6 +15254,9 @@
                     // CREATE RECEIVED MESSAGE BUBBLE
                     // =========================================
 
+                    // A real message is the ONLY thing that removes the group first glance.
+                    removeGroupFirstGlance();
+
                     const html = renderMessengerMessageRow(msg, false);
 
                     // =========================================
@@ -9861,6 +15320,113 @@
                         conversationId
                     );
 
+                })
+
+                // =====================================================
+                // REALTIME GROUP ACTIVITY
+                // member added / member left
+                // =====================================================
+                .listen('.conversation.activity', (event) => {
+                    appendRealtimeConversationActivity(event);
+                })
+
+                // =====================================================
+                // REALTIME GROUP RENAME
+                // =====================================================
+                .listen('.conversation.renamed', async (event) => {
+
+                    if (
+                        !event ||
+                        Number(event.conversation_id) !==
+                        Number(currentConversationId)
+                    ) {
+                        return;
+                    }
+
+                    if (currentConversationData) {
+                        currentConversationData.conversation_name =
+                            event.conversation_name;
+                    }
+
+                    const title =
+                        document.getElementById(
+                            'modalChatTitle'
+                        );
+
+                    if (title) {
+                        title.textContent =
+                            event.conversation_name ||
+                            'Group chat';
+                    }
+
+                    const introTitle =
+                        document.querySelector(
+                            '#modalMessagesContainer .group-first-glance h3'
+                        );
+
+                    if (introTitle) {
+                        introTitle.textContent =
+                            event.conversation_name ||
+                            'Group chat';
+                    }
+
+                    refreshConversationInfoProfile();
+
+                    await loadModalConversations();
+                })
+
+                .listen('.conversation.image.updated', async (event) => {
+
+                    if (!event) {
+                        return;
+                    }
+
+
+                    const conversationId =
+                        Number(event.conversation_id);
+
+
+                    // =================================================
+                    // UPDATE OPEN CONVERSATION
+                    // =================================================
+
+                    if (
+                        conversationId ===
+                        Number(currentConversationId)
+                    ) {
+
+                        if (currentConversationData) {
+
+                            currentConversationData
+                                .conversation_image =
+                                event.conversation_image ||
+                                event.conversation_image_url ||
+                                '';
+                        }
+
+
+                        // =============================================
+                        // CONVERSATION INFO PROFILE
+                        // =============================================
+
+                        refreshConversationInfoProfile();
+
+
+                        // =============================================
+                        // MAIN CHAT HEADER
+                        // Reload the conversation so the header receives
+                        // the new conversation_image too.
+                        // =============================================
+
+                        await refreshOpenGroupAfterActivity();
+                    }
+
+
+                    // =================================================
+                    // UPDATE LEFT CONVERSATION LIST
+                    // =================================================
+
+                    await loadModalConversations();
                 })
 
                 // =====================================================
@@ -10801,6 +16367,9 @@
                 // This replaces the temporary sending bubble after
                 // Laravel successfully saves the message.
                 // =====================================================
+
+                // A successfully saved real message removes the group first glance.
+                removeGroupFirstGlance();
 
                 const realHtml = renderMessengerMessageRow(msg, true);
                 const emptyState =
@@ -13107,6 +18676,497 @@
         }
 
         // =====================================================
+        // CREATE GROUP CHAT STATE
+        // =====================================================
+
+        let createGroupUsers = [];
+        let createGroupSelectedIds = new Set();
+        let createGroupRequiredUserId = null;
+
+
+        // =====================================================
+        // LOAD USERS FOR GROUP MODAL
+        // =====================================================
+
+        async function loadCreateGroupUsers() {
+
+            const response = await fetch('/messages/users', {
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Unable to load users.');
+            }
+
+            const data = await response.json();
+
+            createGroupUsers = Array.isArray(data.data)
+                ? data.data
+                : [];
+
+            renderCreateGroupMembers();
+        }
+
+
+        // =====================================================
+        // RENDER GROUP MEMBERS
+        // =====================================================
+
+        function renderCreateGroupMembers() {
+
+            const container =
+                document.getElementById(
+                    'createGroupMembersList'
+                );
+
+            if (!container) return;
+
+            const users = createGroupUsers.filter(
+                user =>
+                    Number(user.user_id) !==
+                    Number(currentUserId)
+            );
+
+            if (!users.length) {
+
+                container.innerHTML = `
+                    <div class="p-5 text-center text-sm text-gray-500">
+                        No other users available.
+                    </div>
+                `;
+
+                updateCreateGroupSelectedCount();
+
+                return;
+            }
+
+            container.innerHTML = users.map(user => {
+
+                const userId =
+                    Number(user.user_id);
+
+                const name =
+                    user.user_full_name ||
+                    user.name ||
+                    'User';
+
+                const role =
+                    user.role?.role_name ||
+                    user.role_name ||
+                    '';
+
+                const isRequired =
+                    userId ===
+                    Number(createGroupRequiredUserId);
+
+                const isSelected =
+                    createGroupSelectedIds.has(userId);
+
+                return `
+                    <button
+                        type="button"
+                        class="
+                            create-group-member
+                            flex
+                            w-full
+                            items-center
+                            gap-3
+                            border-b
+                            border-gray-100
+                            px-4
+                            py-3
+                            text-left
+                            transition
+                            last:border-b-0
+                            hover:bg-gray-50
+                        "
+                        data-user-id="${userId}"
+                        ${isRequired ? 'disabled' : ''}
+                    >
+
+                        <div
+                            class="
+                                flex
+                                h-9
+                                w-9
+                                shrink-0
+                                items-center
+                                justify-center
+                                rounded-full
+                                bg-gray-100
+                                text-xs
+                                font-semibold
+                                text-gray-600
+                            "
+                        >
+                            ${escapeHtml(getInitials(name))}
+                        </div>
+
+                        <div class="min-w-0 flex-1">
+
+                            <p
+                                class="
+                                    truncate
+                                    text-sm
+                                    font-semibold
+                                    text-gray-900
+                                "
+                            >
+                                ${escapeHtml(name)}
+                            </p>
+
+                            <p
+                                class="
+                                    truncate
+                                    text-xs
+                                    text-gray-500
+                                "
+                            >
+                                ${escapeHtml(role)}
+                            </p>
+
+                        </div>
+
+                        <div
+                            class="
+                                flex
+                                h-5
+                                w-5
+                                shrink-0
+                                items-center
+                                justify-center
+                                rounded-md
+                                border
+                                ${
+                                    isSelected
+                                        ? 'border-gray-900 bg-gray-900 text-white'
+                                        : 'border-gray-300 bg-white text-transparent'
+                                }
+                            "
+                        >
+                            <i
+                                data-lucide="check"
+                                class="h-3.5 w-3.5"
+                            ></i>
+                        </div>
+
+                    </button>
+                `;
+
+            }).join('');
+
+            updateCreateGroupSelectedCount();
+
+            lucideCreateIcons();
+        }
+
+
+        // =====================================================
+        // SELECT / UNSELECT GROUP MEMBER
+        // =====================================================
+
+        function toggleCreateGroupMember(userId) {
+
+            userId = Number(userId);
+
+            // =============================================
+            // USER WHO STARTED THE GROUP CANNOT BE REMOVED
+            // =============================================
+
+            if (
+                userId ===
+                Number(createGroupRequiredUserId)
+            ) {
+                return;
+            }
+
+            if (createGroupSelectedIds.has(userId)) {
+                createGroupSelectedIds.delete(userId);
+            } else {
+                createGroupSelectedIds.add(userId);
+            }
+
+            renderCreateGroupMembers();
+        }
+
+
+        // =====================================================
+        // UPDATE MEMBER COUNT
+        // =====================================================
+
+        function updateCreateGroupSelectedCount() {
+
+            const counter =
+                document.getElementById(
+                    'createGroupSelectedCount'
+                );
+
+            if (!counter) return;
+
+            const count =
+                createGroupSelectedIds.size;
+
+            counter.textContent =
+                `${count} selected`;
+        }
+
+
+        // =====================================================
+        // OPEN CREATE GROUP MODAL
+        // =====================================================
+
+        async function openCreateGroupChatModal(
+            requiredUserId,
+            requiredUserName
+        ) {
+
+            createGroupRequiredUserId =
+                Number(requiredUserId);
+
+            createGroupSelectedIds =
+                new Set([
+                    Number(requiredUserId)
+                ]);
+
+            const modal =
+                document.getElementById(
+                    'createGroupChatModal'
+                );
+
+            const nameInput =
+                document.getElementById(
+                    'createGroupChatName'
+                );
+
+            const error =
+                document.getElementById(
+                    'createGroupChatError'
+                );
+
+            if (!modal) return;
+
+            if (nameInput) {
+                nameInput.value = '';
+            }
+
+            if (error) {
+                error.textContent = '';
+                error.classList.add('hidden');
+            }
+
+            modal.classList.remove('hidden');
+
+            document.body.style.overflow =
+                'hidden';
+
+            try {
+
+                await loadCreateGroupUsers();
+
+                requestAnimationFrame(() => {
+                    nameInput?.focus();
+                });
+
+            } catch (error) {
+
+                showCreateGroupError(
+                    error.message ||
+                    'Unable to load users.'
+                );
+            }
+
+            lucideCreateIcons();
+        }
+
+
+        // =====================================================
+        // CLOSE CREATE GROUP MODAL
+        // =====================================================
+
+        function closeCreateGroupChatModal() {
+
+            const modal =
+                document.getElementById(
+                    'createGroupChatModal'
+                );
+
+            modal?.classList.add('hidden');
+
+            createGroupUsers = [];
+
+            createGroupSelectedIds.clear();
+
+            createGroupRequiredUserId = null;
+
+            // Keep body locked if main Messages modal is open.
+
+            const messagingModal =
+                document.getElementById(
+                    'messagingModal'
+                );
+
+            if (
+                !messagingModal ||
+                messagingModal.classList.contains('hidden')
+            ) {
+                document.body.style.overflow = '';
+            }
+        }
+
+
+        // =====================================================
+        // GROUP MODAL ERROR
+        // =====================================================
+
+        function showCreateGroupError(message) {
+
+            const error =
+                document.getElementById(
+                    'createGroupChatError'
+                );
+
+            if (!error) return;
+
+            error.textContent =
+                message || 'Something went wrong.';
+
+            error.classList.remove('hidden');
+        }
+
+
+        // =====================================================
+        // CREATE GROUP ON SERVER
+        // =====================================================
+
+        async function createGroupConversation() {
+
+            const nameInput =
+                document.getElementById(
+                    'createGroupChatName'
+                );
+
+            const submitButton =
+                document.getElementById(
+                    'createGroupChatSubmit'
+                );
+
+            const conversationName =
+                nameInput?.value.trim() || '';
+
+            const userIds =
+                Array.from(
+                    createGroupSelectedIds
+                );
+
+            if (!conversationName) {
+
+                showCreateGroupError(
+                    'Enter a group name.'
+                );
+
+                nameInput?.focus();
+
+                return;
+            }
+
+            // Backend requires two OTHER users.
+            if (userIds.length < 2) {
+
+                showCreateGroupError(
+                    'Select at least one more person.'
+                );
+
+                return;
+            }
+
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.textContent =
+                    'Creating...';
+            }
+
+            try {
+
+                const response = await fetch(
+                    '/messages/conversations/group',
+                    {
+                        method: 'POST',
+
+                        headers: {
+                            'Accept':
+                                'application/json',
+
+                            'Content-Type':
+                                'application/json',
+
+                            'X-CSRF-TOKEN':
+                                csrfToken
+                        },
+
+                        body: JSON.stringify({
+                            conversation_name:
+                                conversationName,
+
+                            user_ids:
+                                userIds
+                        })
+                    }
+                );
+
+                const data =
+                    await response.json();
+
+                if (!response.ok) {
+
+                    throw new Error(
+                        data.message ||
+                        Object.values(
+                            data.errors || {}
+                        )?.[0]?.[0] ||
+                        'Unable to create group.'
+                    );
+                }
+
+                const conversation =
+                    data.data;
+
+                closeCreateGroupChatModal();
+
+                switchModalTab(
+                    'conversations'
+                );
+
+                await loadModalConversations();
+
+                if (conversation?.conversation_id) {
+
+                    await openModalConversation(
+                        conversation.conversation_id
+                    );
+                }
+
+            } catch (error) {
+
+                showCreateGroupError(
+                    error.message ||
+                    'Unable to create group.'
+                );
+
+            } finally {
+
+                if (submitButton) {
+
+                    submitButton.disabled = false;
+
+                    submitButton.textContent =
+                        'Create group';
+                }
+            }
+        }
+
+        // =====================================================
         // USER THREE DOT OPTIONS MENU
         // One floating dropdown is used for every user.
         // It is outside the scroll list so it cannot overlap badly
@@ -13268,6 +19328,109 @@
             updateTopbarMessageBadge();
 
             document
+                .getElementById(
+                    'closeCreateGroupChatModal'
+                )
+                ?.addEventListener(
+                    'click',
+                    closeCreateGroupChatModal
+                );
+
+            document
+                .getElementById(
+                    'cancelCreateGroupChat'
+                )
+                ?.addEventListener(
+                    'click',
+                    closeCreateGroupChatModal
+                );
+
+            document
+                .getElementById(
+                    'createGroupChatBackdrop'
+                )
+                ?.addEventListener(
+                    'click',
+                    closeCreateGroupChatModal
+                );
+
+            document
+                .getElementById(
+                    'createGroupMembersList'
+                )
+                ?.addEventListener(
+                    'click',
+                    event => {
+
+                        const member =
+                            event.target.closest(
+                                '.create-group-member'
+                            );
+
+                        if (!member) return;
+
+                        toggleCreateGroupMember(
+                            member.dataset.userId
+                        );
+                    }
+                );
+
+            document
+                .getElementById('modalMessagesContainer')
+                ?.addEventListener('click', event => {
+
+                    const button =
+                        event.target.closest(
+                            '[data-group-action]'
+                        );
+
+                    if (!button) {
+                        return;
+                    }
+
+                    const action =
+                        button.dataset.groupAction;
+
+
+                    // =============================================
+                    // ADD PEOPLE
+                    // =============================================
+
+                    if (action === 'add') {
+
+                        openAddGroupPeopleModal();
+
+                        return;
+                    }
+
+
+                    // =============================================
+                    // RENAME GROUP
+                    // =============================================
+
+                    if (action === 'rename') {
+
+                        openRenameGroupModal();
+
+                        return;
+                    }
+                });
+
+            document
+                .getElementById(
+                    'createGroupChatForm'
+                )
+                ?.addEventListener(
+                    'submit',
+                    async event => {
+
+                        event.preventDefault();
+
+                        await createGroupConversation();
+                    }
+                );
+
+            document
                 .getElementById('closePinnedMessagesModal')
                 ?.addEventListener(
                     'click',
@@ -13341,53 +19504,244 @@
             }
 
             // =====================================================
-            // CLICK OUTSIDE DROPDOWN
+            // FIND DIRECT CONVERSATION WITH USER
             // =====================================================
-            document.addEventListener('click', (e) => {
-                // =============================================
-                // FLOATING USER MENU ACTIONS
-                // =============================================
-                const createGroupButton = e.target.closest('.user-create-group-button');
 
-                if (createGroupButton) {
-                    e.preventDefault();
-                    e.stopPropagation();
+            async function getDirectConversationForUser(
+                userId
+            ) {
 
-                    console.log(
-                        'Create group chat with:',
-                        selectedOptionsUserId,
-                        selectedOptionsUserName
+                // =============================================
+                // storeConversation already returns the existing
+                // direct conversation when one already exists.
+                // =============================================
+
+                const response = await fetch(
+                    '/messages/conversations',
+                    {
+                        method: 'POST',
+
+                        headers: {
+                            'Accept':
+                                'application/json',
+
+                            'Content-Type':
+                                'application/json',
+
+                            'X-CSRF-TOKEN':
+                                csrfToken
+                        },
+
+                        body: JSON.stringify({
+                            user_id:
+                                Number(userId)
+                        })
+                    }
+                );
+
+                const data =
+                    await response.json();
+
+                if (!response.ok) {
+
+                    throw new Error(
+                        data.message ||
+                        'Unable to open conversation.'
+                    );
+                }
+
+                return data.data;
+            }
+
+
+            // =====================================================
+            // MUTE / UNMUTE DIRECT CONVERSATION
+            // =====================================================
+
+            async function toggleMuteUserConversation(
+                userId
+            ) {
+
+                try {
+
+                    const conversation =
+                        await getDirectConversationForUser(
+                            userId
+                        );
+
+                    const conversationId =
+                        conversation?.conversation_id;
+
+                    if (!conversationId) {
+                        throw new Error(
+                            'Conversation was not found.'
+                        );
+                    }
+
+                    // =============================================
+                    // CURRENT USER PARTICIPANT
+                    // =============================================
+
+                    const currentParticipant =
+                        conversation.participants?.find(
+                            participant =>
+                                Number(
+                                    participant.user_id ??
+                                    participant.user?.user_id
+                                ) ===
+                                Number(currentUserId)
+                        );
+
+                    const isMuted =
+                        Boolean(
+                            Number(
+                                currentParticipant?.is_muted ||
+                                0
+                            )
+                        );
+
+                    const action =
+                        isMuted
+                            ? 'unmute'
+                            : 'mute';
+
+                    const response = await fetch(
+                        `/messages/conversations/${conversationId}/${action}`,
+                        {
+                            method: 'POST',
+
+                            headers: {
+                                'Accept':
+                                    'application/json',
+
+                                'X-CSRF-TOKEN':
+                                    csrfToken
+                            }
+                        }
                     );
 
-                    // GROUP CHAT LOGIC WILL GO HERE
-                    closeUserOptionsMenu();
-                    return;
-                }
+                    const data =
+                        await response.json();
 
-                const muteButton = e.target.closest('.user-mute-button');
+                    if (!response.ok) {
 
-                if (muteButton) {
-                    e.preventDefault();
-                    e.stopPropagation();
+                        throw new Error(
+                            data.message ||
+                            `Unable to ${action} conversation.`
+                        );
+                    }
 
-                    console.log(
-                        'Mute user:',
-                        selectedOptionsUserId,
-                        selectedOptionsUserName
+                    await loadModalConversations();
+
+                    // Refresh Users tab so the dropdown state
+                    // is correct the next time it is opened.
+
+                    await loadModalUsers(
+                        document.getElementById(
+                            'modalUserSearch'
+                        )?.value || ''
                     );
 
-                    // MUTE LOGIC WILL GO HERE
-                    closeUserOptionsMenu();
-                    return;
-                }
+                } catch (error) {
 
-                if (
-                    !e.target.closest('.user-options-wrapper') &&
-                    !e.target.closest('#floatingUserOptionsMenu')
-                ) {
-                    closeUserOptionsMenu();
+                    console.error(
+                        'Mute conversation error:',
+                        error
+                    );
+
+                    alert(
+                        error.message ||
+                        'Unable to update mute setting.'
+                    );
                 }
-            });
+            }
+
+            // =====================================================
+            // CLICK OUTSIDE DROPDOWN + USER ACTIONS
+            // =====================================================
+
+            document.addEventListener(
+                'click',
+                async (e) => {
+
+                    // =============================================
+                    // CREATE GROUP CHAT
+                    // =============================================
+
+                    const createGroupButton =
+                        e.target.closest(
+                            '.user-create-group-button'
+                        );
+
+                    if (createGroupButton) {
+
+                        e.preventDefault();
+                        e.stopPropagation();
+
+                        const userId =
+                            selectedOptionsUserId;
+
+                        const userName =
+                            selectedOptionsUserName;
+
+                        closeUserOptionsMenu();
+
+                        if (!userId) return;
+
+                        await openCreateGroupChatModal(
+                            userId,
+                            userName
+                        );
+
+                        return;
+                    }
+
+
+                    // =============================================
+                    // MUTE / UNMUTE USER CONVERSATION
+                    // =============================================
+
+                    const muteButton =
+                        e.target.closest(
+                            '.user-mute-button'
+                        );
+
+                    if (muteButton) {
+
+                        e.preventDefault();
+                        e.stopPropagation();
+
+                        const userId =
+                            selectedOptionsUserId;
+
+                        closeUserOptionsMenu();
+
+                        if (!userId) return;
+
+                        await toggleMuteUserConversation(
+                            userId
+                        );
+
+                        return;
+                    }
+
+
+                    // =============================================
+                    // CLOSE DROPDOWN WHEN CLICKING ELSEWHERE
+                    // =============================================
+
+                    if (
+                        !e.target.closest(
+                            '.user-options-wrapper'
+                        ) &&
+                        !e.target.closest(
+                            '#floatingUserOptionsMenu'
+                        )
+                    ) {
+                        closeUserOptionsMenu();
+                    }
+                }
+            );
 
             // Keep the floating menu attached visually to the button.
             // Closing on scroll/resize avoids leaving it behind.
@@ -13791,6 +20145,7 @@
             }
 
             listenToUserMessagesRealtime();
+            listenToPrivateCallsRealtime();
         });
 
         document.addEventListener('click', (event) => {

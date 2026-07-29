@@ -4902,7 +4902,7 @@
                     Maintenance Personnel Dashboard
                 </h1>
 
-                <p class="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
+                <p class="-mt-1 max-w-2xl text-sm leading-6 text-gray-500">
                     Review and manage incoming equipment maintenance requests and reports.
                 </p>
 
@@ -5621,113 +5621,6 @@
                 </div>
 
                 {{-- ===================================================== --}}
-                {{-- MAINTENANCE SCHEDULE WORKLOAD --}}
-                {{-- ===================================================== --}}
-
-                <section class="dashboard-analytics-card">
-                    <div class="dashboard-analytics-header">
-                        <div>
-                            <h2 class="dashboard-analytics-title">
-                                Maintenance Schedule Workload
-                            </h2>
-
-                            <p class="dashboard-analytics-subtitle">Scheduled maintenance workload for the next 30 days</p>
-                        </div>
-
-                        {{-- ================================================= --}}
-                        {{-- TOTAL SCHEDULED MAINTENANCE --}}
-                        {{-- ================================================= --}}
-
-                        <div class="activity-chart-total">
-                            {{
-                                array_sum(
-                                    $maintenanceWorkloadData,
-                                )
-                            }}
-
-                            <span> scheduled tasks </span>
-                        </div>
-                    </div>
-
-                    {{-- ===================================================== --}}
-                    {{-- CHART --}}
-                    {{-- ===================================================== --}}
-
-                    <div class="dashboard-report-activity-chart">
-                        <canvas id="maintenanceWorkloadChart"></canvas>
-                    </div>
-                </section>
-
-                {{-- ===================================================== --}}
-                {{-- BOTTOM ANALYTICS CHARTS --}}
-                {{-- REPORT STATUS + EQUIPMENT CONDITION --}}
-                {{-- ===================================================== --}}
-
-                <div class="dashboard-bottom-charts">
-                    {{-- ===================================================== --}}
-                    {{-- REPORT STATUS --}}
-                    {{-- ===================================================== --}}
-
-                    <section class="dashboard-analytics-card">
-                        <div class="dashboard-analytics-header">
-                            <div>
-                                <h2 class="dashboard-analytics-title">
-                                    Report Status
-                                </h2>
-
-                                <p class="dashboard-analytics-subtitle">Distribution of active maintenance reports</p>
-                            </div>
-                        </div>
-
-                        <div class="dashboard-small-chart">
-                            <canvas id="reportStatusChart"></canvas>
-                        </div>
-                    </section>
-
-                    {{-- ===================================================== --}}
-                    {{-- EQUIPMENT CONDITION --}}
-                    {{-- ===================================================== --}}
-
-                    <section class="dashboard-analytics-card">
-                        {{-- ===================================================== --}}
-                        {{-- HEADER --}}
-                        {{-- ===================================================== --}}
-
-                        <div class="dashboard-analytics-header">
-                            <div>
-                                <h2 class="dashboard-analytics-title">
-                                    Equipment Condition
-                                </h2>
-
-                                <p class="dashboard-analytics-subtitle">Current condition of registered equipment</p>
-                            </div>
-
-                            {{-- ===================================================== --}}
-                            {{-- TOTAL REGISTERED EQUIPMENT --}}
-                            {{-- ===================================================== --}}
-
-                            <div class="activity-chart-total">
-                                {{
-                                    collect(
-                                        $equipmentConditionChart["data"],
-                                    )->sum()
-                                }}
-
-                                <span> equipment </span>
-                            </div>
-                        </div>
-
-                        {{-- ===================================================== --}}
-                        {{-- CONCENTRIC BUBBLE CHART --}}
-                        {{-- ===================================================== --}}
-
-                        <div class="dashboard-small-chart">
-                            <canvas id="equipmentConditionChart"></canvas>
-                        </div>
-                    </section>
-                </div>
-
-                {{-- ===================================================== --}}
                 {{-- 3D CAMPUS / BUILDING OVERVIEW --}}
                 {{-- ADD THIS AFTER dashboard-bottom-charts --}}
                 {{-- ===================================================== --}}
@@ -5972,6 +5865,115 @@
                                 <i data-lucide="rotate-ccw"></i>
                             </button>
                         </div>
+                    </div>
+                </section>
+
+                {{-- ===================================================== --}}
+                {{-- BOTTOM ANALYTICS CHARTS --}}
+                {{-- REPORT STATUS + EQUIPMENT CONDITION --}}
+                {{-- ===================================================== --}}
+
+                <div class="dashboard-bottom-charts">
+                    {{-- ===================================================== --}}
+                    {{-- REPORT STATUS --}}
+                    {{-- ===================================================== --}}
+
+                    <section class="dashboard-analytics-card">
+                        <div class="dashboard-analytics-header">
+                            <div>
+                                <h2 class="dashboard-analytics-title">
+                                    Report Status
+                                </h2>
+
+                                <p class="dashboard-analytics-subtitle">Distribution of active maintenance reports</p>
+                            </div>
+                        </div>
+
+                        <div class="dashboard-small-chart">
+                            <canvas id="reportStatusChart"></canvas>
+                        </div>
+                    </section>
+
+                    {{-- ===================================================== --}}
+                    {{-- EQUIPMENT CONDITION --}}
+                    {{-- ===================================================== --}}
+
+                    <section class="dashboard-analytics-card">
+                        {{-- ===================================================== --}}
+                        {{-- HEADER --}}
+                        {{-- ===================================================== --}}
+
+                        <div class="dashboard-analytics-header">
+                            <div>
+                                <h2 class="dashboard-analytics-title">
+                                    Equipment Condition
+                                </h2>
+
+                                <p class="dashboard-analytics-subtitle">Current condition of registered equipment</p>
+                            </div>
+
+                            {{-- ===================================================== --}}
+                            {{-- TOTAL REGISTERED EQUIPMENT --}}
+                            {{-- ===================================================== --}}
+
+                            <div class="activity-chart-total">
+                                {{
+                                    collect(
+                                        $equipmentConditionChart["data"],
+                                    )->sum()
+                                }}
+
+                                <span> equipment </span>
+                            </div>
+                        </div>
+
+                        {{-- ===================================================== --}}
+                        {{-- CONCENTRIC BUBBLE CHART --}}
+                        {{-- ===================================================== --}}
+
+                        <div class="dashboard-small-chart">
+                            <canvas id="equipmentConditionChart"></canvas>
+                        </div>
+                    </section>
+                </div>
+
+                
+
+                {{-- ===================================================== --}}
+                {{-- MAINTENANCE SCHEDULE WORKLOAD --}}
+                {{-- ===================================================== --}}
+
+                <section class="dashboard-analytics-card">
+                    <div class="dashboard-analytics-header">
+                        <div>
+                            <h2 class="dashboard-analytics-title">
+                                Maintenance Schedule Workload
+                            </h2>
+
+                            <p class="dashboard-analytics-subtitle">Scheduled maintenance workload for the next 30 days</p>
+                        </div>
+
+                        {{-- ================================================= --}}
+                        {{-- TOTAL SCHEDULED MAINTENANCE --}}
+                        {{-- ================================================= --}}
+
+                        <div class="activity-chart-total">
+                            {{
+                                array_sum(
+                                    $maintenanceWorkloadData,
+                                )
+                            }}
+
+                            <span> scheduled tasks </span>
+                        </div>
+                    </div>
+
+                    {{-- ===================================================== --}}
+                    {{-- CHART --}}
+                    {{-- ===================================================== --}}
+
+                    <div class="dashboard-report-activity-chart">
+                        <canvas id="maintenanceWorkloadChart"></canvas>
                     </div>
                 </section>
             </main>
