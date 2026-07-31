@@ -558,46 +558,46 @@
 ====================================== */
 
 .admin-dashboard {
-    padding: 20px 24px;
+    padding: 12px 16px;
     max-width: 1440px;
     margin: 0 auto;
 }
 
 .dashboard-header {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
 }
 
 .dashboard-title {
-    font-size: 20px;
+    font-size: 16px;
     font-weight: 700;
     color: #0f172a;
     letter-spacing: -0.3px;
 }
 
 .dashboard-subtitle {
-    margin-top: 2px;
-    font-size: 13px;
+    margin-top: 1px;
+    font-size: 11px;
     color: #64748b;
 }
 
 .dashboard-header-right {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
 }
 
 .dashboard-date-badge {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
+    gap: 4px;
+    padding: 4px 10px;
     background: #f8fafc;
     border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    font-size: 12px;
+    border-radius: 8px;
+    font-size: 11px;
     font-weight: 500;
     color: #475569;
 }
@@ -610,12 +610,12 @@
 .stat-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 8px;
-    margin-bottom: 8px;
+    gap: 6px;
+    margin-bottom: 6px;
 }
 
 .stat-grid-row-2 {
-    margin-bottom: 12px;
+    margin-bottom: 8px;
 }
 
 .stat-card {
@@ -777,7 +777,7 @@
 .dashboard-main-grid {
     display: grid;
     grid-template-columns: 1fr 340px;
-    gap: 20px;
+    gap: 12px;
     align-items: start;
 }
 
@@ -789,7 +789,7 @@
 .dashboard-sidebar {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 10px;
 }
 
 
@@ -800,7 +800,7 @@
 .sidebar-calendar-card {
     background: #ffffff;
     border: 1px solid #e2e8f0;
-    border-radius: 14px;
+    border-radius: 10px;
     overflow: hidden;
 }
 
@@ -808,26 +808,26 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 14px 16px 8px;
+    padding: 8px 12px 4px;
 }
 
 .sidebar-calendar-title {
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 700;
     color: #0f172a;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
 }
 
 .sidebar-calendar-title-icon {
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     color: #6366f1;
 }
 
 .sidebar-calendar-month {
-    font-size: 11px;
+    font-size: 9px;
     font-weight: 600;
     color: #64748b;
     text-transform: uppercase;
@@ -837,17 +837,17 @@
 .sidebar-calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    padding: 6px 12px 4px;
+    padding: 4px 8px 2px;
     gap: 2px;
 }
 
 .cal-weekday {
-    font-size: 9px;
+    font-size: 8px;
     font-weight: 700;
     text-align: center;
     color: #94a3b8;
     text-transform: uppercase;
-    padding: 3px 0;
+    padding: 2px 0;
     letter-spacing: 0.3px;
 }
 
@@ -856,10 +856,10 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 11px;
+    font-size: 9px;
     font-weight: 500;
     color: #475569;
-    border-radius: 6px;
+    border-radius: 4px;
     cursor: default;
     transition: all 0.15s ease;
     position: relative;
@@ -902,26 +902,25 @@
 /* Events list */
 
 .sidebar-calendar-events {
-    padding: 4px 16px 14px;
+    padding: 2px 12px 10px;
 }
 
 .sidebar-calendar-events-title {
-    font-size: 11px;
+    font-size: 9px;
     font-weight: 700;
     color: #64748b;
     text-transform: uppercase;
     letter-spacing: 0.4px;
-    margin-bottom: 8px;
-    padding-top: 4px;
+    margin-bottom: 4px;
     border-top: 1px solid #f1f5f9;
-    padding-top: 10px;
+    padding-top: 8px;
 }
 
 .sidebar-calendar-event-item {
     display: flex;
     align-items: flex-start;
-    gap: 8px;
-    padding: 6px 0;
+    gap: 6px;
+    padding: 4px 0;
     border-bottom: 1px solid #f8fafc;
 }
 
@@ -930,11 +929,11 @@
 }
 
 .sidebar-calendar-event-dot {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
     flex-shrink: 0;
-    margin-top: 5px;
+    margin-top: 4px;
 }
 
 .event-dot-active {
@@ -952,7 +951,7 @@
 
 .sidebar-calendar-event-name {
     display: block;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
     color: #0f172a;
     white-space: nowrap;
@@ -962,9 +961,9 @@
 
 .sidebar-calendar-event-date {
     display: block;
-    font-size: 10px;
+    font-size: 9px;
     color: #94a3b8;
-    margin-top: 1px;
+    margin-top: 0;
 }
 
 .sidebar-calendar-event-freq {
@@ -972,10 +971,10 @@
 }
 
 .sidebar-calendar-event-badge {
-    font-size: 9px;
+    font-size: 8px;
     font-weight: 700;
-    padding: 2px 6px;
-    border-radius: 4px;
+    padding: 1px 4px;
+    border-radius: 3px;
     text-transform: uppercase;
     letter-spacing: 0.3px;
     flex-shrink: 0;
@@ -990,10 +989,10 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
-    padding: 14px 0;
+    gap: 4px;
+    padding: 10px 0;
     color: #94a3b8;
-    font-size: 12px;
+    font-size: 11px;
 }
 
 
@@ -1007,9 +1006,9 @@
 }
 
 .act-icon {
-    width: 28px;
-    height: 28px;
-    border-radius: 8px;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1032,7 +1031,7 @@
 
 .sidebar-activity-actor {
     font-weight: 400;
-    font-size: 11px;
+    font-size: 9px;
     color: #94a3b8;
 }
 
@@ -1043,9 +1042,9 @@
 
 .sidebar-stat-item-highlight {
     background: #fffbeb;
-    border-radius: 8px;
-    padding: 8px 10px !important;
-    margin: -2px -2px 2px -2px;
+    border-radius: 6px;
+    padding: 5px 8px !important;
+    margin: -1px -1px 1px -1px;
     border: 1px solid #fde68a;
 }
 
@@ -1055,7 +1054,7 @@
 }
 
 .sidebar-stat-value-highlight {
-    font-size: 16px;
+    font-size: 13px;
     font-weight: 800;
     color: #d97706;
 }
@@ -1069,12 +1068,12 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
-    padding: 20px 24px;
+    gap: 12px;
+    padding: 12px 16px;
     background: linear-gradient(135deg, #fffbeb, #fef3c7);
     border: 1px solid #fde68a;
-    border-radius: 16px;
-    margin-bottom: 20px;
+    border-radius: 10px;
+    margin-bottom: 8px;
 }
 
 .hero-alert-card-violet {
@@ -1085,13 +1084,13 @@
 .hero-alert-left {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
 }
 
 .hero-alert-icon {
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
     background: #f59e0b;
     color: white;
     display: flex;
@@ -1106,31 +1105,31 @@
 
 .hero-alert-icon i,
 .hero-alert-icon svg {
-    width: 22px;
-    height: 22px;
+    width: 16px;
+    height: 16px;
 }
 
 .hero-alert-title {
-    font-size: 15px;
+    font-size: 13px;
     font-weight: 700;
     color: #0f172a;
 }
 
 .hero-alert-desc {
-    margin-top: 2px;
-    font-size: 13px;
+    margin-top: 1px;
+    font-size: 11px;
     color: #64748b;
 }
 
 .hero-alert-btn {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 10px 20px;
+    gap: 6px;
+    padding: 6px 14px;
     background: #0f172a;
     color: white;
-    border-radius: 10px;
-    font-size: 13px;
+    border-radius: 8px;
+    font-size: 11px;
     font-weight: 600;
     text-decoration: none;
     white-space: nowrap;
@@ -1153,23 +1152,23 @@
 .hero-empty-card {
     display: flex;
     align-items: center;
-    padding: 20px 24px;
+    padding: 12px 16px;
     background: #f0fdf4;
     border: 1px solid #bbf7d0;
-    border-radius: 16px;
-    margin-bottom: 20px;
+    border-radius: 10px;
+    margin-bottom: 8px;
 }
 
 .hero-empty-left {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
 }
 
 .hero-empty-icon {
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
     background: #10b981;
     color: white;
     display: flex;
@@ -1180,19 +1179,19 @@
 
 .hero-empty-icon i,
 .hero-empty-icon svg {
-    width: 22px;
-    height: 22px;
+    width: 16px;
+    height: 16px;
 }
 
 .hero-empty-title {
-    font-size: 15px;
+    font-size: 13px;
     font-weight: 700;
     color: #0f172a;
 }
 
 .hero-empty-desc {
-    margin-top: 2px;
-    font-size: 13px;
+    margin-top: 1px;
+    font-size: 11px;
     color: #64748b;
 }
 
@@ -1204,30 +1203,30 @@
 .dashboard-chart-card {
     background: #ffffff;
     border: 1px solid #e2e8f0;
-    border-radius: 16px;
+    border-radius: 10px;
     overflow: hidden;
-    margin-bottom: 20px;
+    margin-bottom: 8px;
 }
 
 .dashboard-chart-header {
-    padding: 18px 22px;
+    padding: 10px 14px;
     border-bottom: 1px solid #f1f5f9;
 }
 
 .dashboard-chart-title {
-    font-size: 15px;
+    font-size: 13px;
     font-weight: 700;
     color: #0f172a;
 }
 
 .dashboard-chart-subtitle {
-    font-size: 13px;
+    font-size: 11px;
     color: #64748b;
-    margin-top: 2px;
+    margin-top: 1px;
 }
 
 .dashboard-chart-body {
-    padding: 16px 22px;
+    padding: 10px 14px;
 }
 
 
@@ -1238,7 +1237,7 @@
 .dashboard-table-card {
     background: #ffffff;
     border: 1px solid #e2e8f0;
-    border-radius: 16px;
+    border-radius: 10px;
     overflow: hidden;
 }
 
@@ -1246,27 +1245,27 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 18px 22px;
+    padding: 10px 14px;
     border-bottom: 1px solid #f1f5f9;
 }
 
 .dashboard-table-title {
-    font-size: 15px;
+    font-size: 13px;
     font-weight: 700;
     color: #0f172a;
 }
 
 .dashboard-table-subtitle {
-    font-size: 13px;
+    font-size: 11px;
     color: #64748b;
-    margin-top: 2px;
+    margin-top: 1px;
 }
 
 .dashboard-table-link {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    font-size: 13px;
+    gap: 4px;
+    font-size: 11px;
     font-weight: 600;
     color: #2563eb;
     text-decoration: none;
@@ -1275,7 +1274,7 @@
 
 .dashboard-table-link:hover {
     color: #1d4ed8;
-    gap: 10px;
+    gap: 8px;
 }
 
 .dashboard-table-body {
@@ -1292,9 +1291,9 @@
 }
 
 .dashboard-table th {
-    padding: 12px 22px;
+    padding: 8px 14px;
     text-align: left;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -1303,8 +1302,8 @@
 }
 
 .dashboard-table td {
-    padding: 14px 22px;
-    font-size: 13px;
+    padding: 8px 14px;
+    font-size: 12px;
     color: #475569;
     border-bottom: 1px solid #f1f5f9;
 }
@@ -1382,22 +1381,22 @@
 .sidebar-chart-card {
     background: #ffffff;
     border: 1px solid #e2e8f0;
-    border-radius: 16px;
+    border-radius: 10px;
     overflow: hidden;
 }
 
 .sidebar-chart-header {
-    padding: 18px 20px 0;
+    padding: 10px 14px 0;
 }
 
 .sidebar-chart-title {
-    font-size: 15px;
+    font-size: 12px;
     font-weight: 700;
     color: #0f172a;
 }
 
 .sidebar-chart-body {
-    padding: 10px 16px 16px;
+    padding: 6px 12px 10px;
 }
 
 
@@ -1406,28 +1405,28 @@
 .sidebar-stats-card {
     background: #ffffff;
     border: 1px solid #e2e8f0;
-    border-radius: 16px;
-    padding: 20px;
+    border-radius: 10px;
+    padding: 12px;
 }
 
 .sidebar-stats-title {
-    font-size: 15px;
+    font-size: 12px;
     font-weight: 700;
     color: #0f172a;
-    margin-bottom: 14px;
+    margin-bottom: 8px;
 }
 
 .sidebar-stats-list {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 4px;
 }
 
 .sidebar-stat-item {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 0;
+    padding: 5px 0;
     border-bottom: 1px solid #f8fafc;
 }
 
@@ -1438,12 +1437,12 @@
 .sidebar-stat-left {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 6px;
 }
 
 .sidebar-stat-dot {
-    width: 8px;
-    height: 8px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
 }
 
@@ -1455,12 +1454,12 @@
 .sidebar-dot-rose { background: #f43f5e; }
 
 .sidebar-stat-label {
-    font-size: 13px;
+    font-size: 11px;
     color: #475569;
 }
 
 .sidebar-stat-value {
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 700;
     color: #0f172a;
 }
@@ -1471,7 +1470,7 @@
 .sidebar-activity-card {
     background: #ffffff;
     border: 1px solid #e2e8f0;
-    border-radius: 16px;
+    border-radius: 10px;
     overflow: hidden;
 }
 
@@ -1479,18 +1478,18 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 18px 20px;
+    padding: 10px 14px;
     border-bottom: 1px solid #f1f5f9;
 }
 
 .sidebar-activity-title {
-    font-size: 15px;
+    font-size: 12px;
     font-weight: 700;
     color: #0f172a;
 }
 
 .sidebar-activity-link {
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 600;
     color: #2563eb;
     text-decoration: none;
@@ -1501,13 +1500,13 @@
 }
 
 .sidebar-activity-list {
-    padding: 8px 0;
+    padding: 4px 0;
 }
 
 .sidebar-activity-item {
     display: flex;
-    gap: 12px;
-    padding: 12px 20px;
+    gap: 8px;
+    padding: 8px 14px;
     transition: background 0.2s ease;
 }
 
@@ -1516,9 +1515,9 @@
 }
 
 .sidebar-activity-icon {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1532,7 +1531,7 @@
 }
 
 .sidebar-activity-title-text {
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 600;
     color: #0f172a;
     white-space: nowrap;
@@ -1541,27 +1540,27 @@
 }
 
 .sidebar-activity-desc {
-    font-size: 12px;
+    font-size: 10px;
     color: #64748b;
-    margin-top: 2px;
+    margin-top: 1px;
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 1;
     -webkit-box-orient: vertical;
     overflow: hidden;
 }
 
 .sidebar-activity-time {
-    font-size: 11px;
+    font-size: 9px;
     color: #94a3b8;
-    margin-top: 4px;
+    margin-top: 2px;
 }
 
 /* Activity Separator */
 .sidebar-activity-separator {
     display: flex;
     align-items: center;
-    padding: 8px 20px 4px;
-    gap: 8px;
+    padding: 4px 14px 2px;
+    gap: 6px;
 }
 
 .sidebar-activity-separator::before,
@@ -1573,7 +1572,7 @@
 }
 
 .sidebar-activity-separator-text {
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 700;
     color: #94a3b8;
     text-transform: uppercase;
