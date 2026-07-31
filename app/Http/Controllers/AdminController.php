@@ -194,11 +194,11 @@ class AdminController extends Controller
         }
 
         // =====================================================
-        // ACTIVITY LIST — Combined pending + completed activities
+        // ACTIVITY LIST — Separated into pending (3) + completed (2)
         // =====================================================
 
         try {
-            $activityLogs = DB::table('approval_logs_table')
+            $pendingActivityLogs = DB::table('approval_logs_table')
                 ->leftJoin('users_table', 'approval_logs_table.approval_log_approved_by', '=', 'users_table.user_id')
                 ->select(
                     'approval_logs_table.approval_log_id as id',
@@ -210,15 +210,40 @@ class AdminController extends Controller
                     'users_table.user_full_name as actor_name',
                     DB::raw("'approval' as log_source")
                 )
+                ->whereIn('approval_logs_table.approval_log_approval_status', ['Submitted', 'Under Review', 'Resubmitted', 'Pending'])
                 ->orderByDesc('approval_logs_table.approval_log_approved_at')
-                ->limit(15)
+                ->limit(3)
                 ->get()
                 ->map(function ($log) {
-                    $log->is_pending = ($log->status === 'Pending');
+                    $log->is_pending = true;
                     $log->title = $log->status . ' — ' . ($log->ref_type ?? 'RIS');
                     return $log;
                 });
-        } catch (\Throwable $e) { $activityLogs = collect(); }
+        } catch (\Throwable $e) { $pendingActivityLogs = collect(); }
+
+        try {
+            $completedActivityLogs = DB::table('approval_logs_table')
+                ->leftJoin('users_table', 'approval_logs_table.approval_log_approved_by', '=', 'users_table.user_id')
+                ->select(
+                    'approval_logs_table.approval_log_id as id',
+                    'approval_logs_table.approval_log_approval_status as status',
+                    'approval_logs_table.approval_log_approval_remarks as description',
+                    'approval_logs_table.approval_log_reference_type as ref_type',
+                    'approval_logs_table.approval_log_reference_id as ref_id',
+                    'approval_logs_table.approval_log_approved_at as created_at',
+                    'users_table.user_full_name as actor_name',
+                    DB::raw("'approval' as log_source")
+                )
+                ->whereIn('approval_logs_table.approval_log_approval_status', ['Approved', 'Co-signed', 'Rejected'])
+                ->orderByDesc('approval_logs_table.approval_log_approved_at')
+                ->limit(2)
+                ->get()
+                ->map(function ($log) {
+                    $log->is_pending = false;
+                    $log->title = $log->status . ' — ' . ($log->ref_type ?? 'RIS');
+                    return $log;
+                });
+        } catch (\Throwable $e) { $completedActivityLogs = collect(); }
 
 
         // =====================================================
@@ -383,8 +408,9 @@ class AdminController extends Controller
             'calendarEvents',
             'calendarEventsByDate',
 
-            // Activity list
-            'activityLogs',
+// Activity list (pending 3 + completed 2)
+            'pendingActivityLogs',
+            'completedActivityLogs',
         ));
     }
 

@@ -32,6 +32,25 @@
 
     <div class="stat-grid">
 
+        {{-- PENDING RIS (conditional - only show when > 0, at very top) --}}
+
+        @if($pendingRis > 0)
+        <div class="stat-card stat-card-warning" title="RIS forms currently waiting for review">
+            <div class="stat-card-top">
+                <div class="stat-icon stat-icon-amber">
+                    <i data-lucide="clock"></i>
+                </div>
+                <span class="stat-change stat-change-warn">
+                    <i data-lucide="alert-circle" class="h-3 w-3"></i>
+                    Needs attention
+                </span>
+            </div>
+            <p class="stat-label">Pending RIS</p>
+            <p class="stat-value">{{ $pendingRis }}</p>
+            <p class="stat-amount">₱{{ number_format($pendingRisAmount, 2) }} pending value</p>
+        </div>
+        @endif
+
         {{-- TOTAL USERS --}}
 
         <div class="stat-card stat-card-primary" title="Total registered users in the system">
@@ -82,24 +101,6 @@
             <p class="stat-label">Total RIS</p>
             <p class="stat-value">{{ $totalRis }}</p>
             <p class="stat-amount">₱{{ number_format($totalRisAmount, 2) }} total value</p>
-        </div>
-
-
-        {{-- PENDING RIS --}}
-
-        <div class="stat-card stat-card-warning" title="RIS forms currently waiting for review">
-            <div class="stat-card-top">
-                <div class="stat-icon stat-icon-amber">
-                    <i data-lucide="clock"></i>
-                </div>
-                <span class="stat-change stat-change-warn">
-                    <i data-lucide="alert-circle" class="h-3 w-3"></i>
-                    Needs attention
-                </span>
-            </div>
-            <p class="stat-label">Pending RIS</p>
-            <p class="stat-value">{{ $pendingRis }}</p>
-            <p class="stat-amount">₱{{ number_format($pendingRisAmount, 2) }} pending value</p>
         </div>
 
 
@@ -399,51 +400,89 @@
             </div>
 
 
-            {{-- 3. Activity List (NEW) --}}
+            {{-- 3. Activity List (Split into Pending + Completed with Toggle) --}}
 
-            <div class="sidebar-activity-card">
+            <div class="sidebar-activity-card" id="activityListCard">
                 <div class="sidebar-activity-header">
                     <h3 class="sidebar-activity-title">
                         <i data-lucide="list-checks" class="h-4 w-4" style="margin-right: 6px;"></i>
                         Activity List
                     </h3>
-                    <a href="{{ url('/admin/reports/approval-logs') }}" class="sidebar-activity-link">View all</a>
+                    <button type="button" id="activityToggleBtn" class="sidebar-activity-link" style="background:none;border:none;cursor:pointer;">
+                        Show completed
+                    </button>
                 </div>
                 <div class="sidebar-activity-list">
-                    @forelse($activityLogs as $log)
-                    <div class="sidebar-activity-item">
-                        <div class="sidebar-activity-status-icon">
-                            @if($log->status === 'Approved' || $log->status === 'Co-signed')
-                                <div class="act-icon act-icon-success">
-                                    <i data-lucide="check-circle" class="h-3.5 w-3.5"></i>
-                                </div>
-                            @elseif($log->status === 'Rejected')
-                                <div class="act-icon act-icon-danger">
-                                    <i data-lucide="x-circle" class="h-3.5 w-3.5"></i>
-                                </div>
-                            @else
+
+                    {{-- PENDING ACTIVITIES (always shown, up to 3) --}}
+                    <div id="pendingActivities">
+                        @forelse($pendingActivityLogs as $log)
+                        <div class="sidebar-activity-item">
+                            <div class="sidebar-activity-status-icon">
                                 <div class="act-icon act-icon-pending">
                                     <i data-lucide="clock" class="h-3.5 w-3.5"></i>
                                 </div>
-                            @endif
+                            </div>
+                            <div class="sidebar-activity-content">
+                                <p class="sidebar-activity-title-text">
+                                    {{ $log->title }}
+                                    @if($log->actor_name)
+                                    <span class="sidebar-activity-actor">by {{ $log->actor_name }}</span>
+                                    @endif
+                                </p>
+                                <p class="sidebar-activity-desc">{{ Str::limit($log->description ?? 'No remarks', 60) }}</p>
+                                <p class="sidebar-activity-time">{{ $log->created_at ? \Carbon\Carbon::parse($log->created_at)->diffForHumans() : '' }}</p>
+                            </div>
                         </div>
-                        <div class="sidebar-activity-content">
-                            <p class="sidebar-activity-title-text">
-                                {{ $log->title }}
-                                @if($log->actor_name)
-                                <span class="sidebar-activity-actor">by {{ $log->actor_name }}</span>
+                        @empty
+                        <div class="flex flex-col items-center py-4 text-gray-400">
+                            <i data-lucide="inbox" class="h-5 w-5 mb-1 text-gray-300"></i>
+                            <span class="text-xs">No pending activities</span>
+                        </div>
+                        @endforelse
+                    </div>
+
+                    {{-- COMPLETED ACTIVITIES (hidden by default, up to 2) --}}
+                    <div id="completedActivities" style="display: none;">
+                        <div class="sidebar-activity-separator">
+                            <span class="sidebar-activity-separator-text">Completed</span>
+                        </div>
+                        @forelse($completedActivityLogs as $log)
+                        <div class="sidebar-activity-item">
+                            <div class="sidebar-activity-status-icon">
+                                @if($log->status === 'Approved' || $log->status === 'Co-signed')
+                                    <div class="act-icon act-icon-success">
+                                        <i data-lucide="check-circle" class="h-3.5 w-3.5"></i>
+                                    </div>
+                                @elseif($log->status === 'Rejected')
+                                    <div class="act-icon act-icon-danger">
+                                        <i data-lucide="x-circle" class="h-3.5 w-3.5"></i>
+                                    </div>
+                                @else
+                                    <div class="act-icon act-icon-pending">
+                                        <i data-lucide="clock" class="h-3.5 w-3.5"></i>
+                                    </div>
                                 @endif
-                            </p>
-                            <p class="sidebar-activity-desc">{{ Str::limit($log->description ?? 'No remarks', 60) }}</p>
-                            <p class="sidebar-activity-time">{{ $log->created_at ? \Carbon\Carbon::parse($log->created_at)->diffForHumans() : '' }}</p>
+                            </div>
+                            <div class="sidebar-activity-content">
+                                <p class="sidebar-activity-title-text">
+                                    {{ $log->title }}
+                                    @if($log->actor_name)
+                                    <span class="sidebar-activity-actor">by {{ $log->actor_name }}</span>
+                                    @endif
+                                </p>
+                                <p class="sidebar-activity-desc">{{ Str::limit($log->description ?? 'No remarks', 60) }}</p>
+                                <p class="sidebar-activity-time">{{ $log->created_at ? \Carbon\Carbon::parse($log->created_at)->diffForHumans() : '' }}</p>
+                            </div>
                         </div>
+                        @empty
+                        <div class="flex flex-col items-center py-4 text-gray-400">
+                            <i data-lucide="inbox" class="h-5 w-5 mb-1 text-gray-300"></i>
+                            <span class="text-xs">No completed activities</span>
+                        </div>
+                        @endforelse
                     </div>
-                    @empty
-                    <div class="flex flex-col items-center py-6 text-gray-400">
-                        <i data-lucide="inbox" class="h-6 w-6 mb-1 text-gray-300"></i>
-                        <span class="text-xs">No activities logged</span>
-                    </div>
-                    @endforelse
+
                 </div>
             </div>
 
@@ -571,40 +610,40 @@
 .stat-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 14px;
-    margin-bottom: 14px;
+    gap: 8px;
+    margin-bottom: 8px;
 }
 
 .stat-grid-row-2 {
-    margin-bottom: 20px;
+    margin-bottom: 12px;
 }
 
 .stat-card {
     background: #ffffff;
     border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 14px 16px;
+    border-radius: 8px;
+    padding: 8px 10px;
     transition: all 0.2s ease;
     position: relative;
     overflow: hidden;
 }
 
 .stat-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
 }
 
 .stat-card-top {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
 }
 
 .stat-icon {
-    width: 34px;
-    height: 34px;
-    border-radius: 10px;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -613,8 +652,8 @@
 
 .stat-icon i,
 .stat-icon svg {
-    width: 16px;
-    height: 16px;
+    width: 12px;
+    height: 12px;
 }
 
 .stat-icon-blue {
@@ -660,10 +699,10 @@
 .stat-change {
     display: flex;
     align-items: center;
-    gap: 3px;
-    padding: 3px 8px;
-    border-radius: 16px;
-    font-size: 11px;
+    gap: 2px;
+    padding: 2px 6px;
+    border-radius: 12px;
+    font-size: 9px;
     font-weight: 600;
 }
 
@@ -678,48 +717,48 @@
 }
 
 .stat-label {
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 600;
     color: #64748b;
     text-transform: uppercase;
     letter-spacing: 0.4px;
-    margin-bottom: 2px;
+    margin-bottom: 1px;
 }
 
 .stat-value {
-    font-size: 24px;
+    font-size: 16px;
     font-weight: 700;
     color: #0f172a;
-    letter-spacing: -0.5px;
+    letter-spacing: -0.3px;
     line-height: 1;
 }
 
 .stat-amount {
-    margin-top: 4px;
-    font-size: 11px;
+    margin-top: 2px;
+    font-size: 9px;
     color: #94a3b8;
     font-weight: 500;
 }
 
 .stat-meta {
-    margin-top: 8px;
+    margin-top: 4px;
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 4px;
 }
 
 .stat-meta-item {
     display: flex;
     align-items: center;
-    gap: 4px;
-    font-size: 10px;
+    gap: 3px;
+    font-size: 9px;
     font-weight: 500;
     color: #64748b;
 }
 
 .stat-meta-dot {
-    width: 6px;
-    height: 6px;
+    width: 5px;
+    height: 5px;
     border-radius: 50%;
     flex-shrink: 0;
 }
@@ -1517,6 +1556,31 @@
     margin-top: 4px;
 }
 
+/* Activity Separator */
+.sidebar-activity-separator {
+    display: flex;
+    align-items: center;
+    padding: 8px 20px 4px;
+    gap: 8px;
+}
+
+.sidebar-activity-separator::before,
+.sidebar-activity-separator::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #e2e8f0;
+}
+
+.sidebar-activity-separator-text {
+    font-size: 10px;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    white-space: nowrap;
+}
+
 
 /* ======================================
    RESPONSIVE
@@ -1754,6 +1818,30 @@ document.addEventListener('DOMContentLoaded', function() {
                 calendarGrid.appendChild(cell);
             }
         }
+    }
+
+
+    // =====================================================
+    // ACTIVITY LIST TOGGLE (Pending / Completed)
+    // =====================================================
+
+    const toggleBtn = document.getElementById('activityToggleBtn');
+    const completedSection = document.getElementById('completedActivities');
+
+    if (toggleBtn && completedSection) {
+        let expanded = false;
+
+        toggleBtn.addEventListener('click', function() {
+            expanded = !expanded;
+
+            if (expanded) {
+                completedSection.style.display = 'block';
+                toggleBtn.textContent = 'Hide completed';
+            } else {
+                completedSection.style.display = 'none';
+                toggleBtn.textContent = 'Show completed';
+            }
+        });
     }
 
 });
