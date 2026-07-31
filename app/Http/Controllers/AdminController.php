@@ -18,9 +18,307 @@ class AdminController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    public function dashboard(): View
+    public function dashboard(Request $request): View
     {
-        return view('admin.dashboard');
+        // =====================================================
+        // ADMIN DASHBOARD
+        // All queries are wrapped in try-catch so the dashboard
+        // still renders even if tables/columns are missing.
+        // =====================================================
+
+        // =====================================================
+        // USER STATISTICS
+        // =====================================================
+
+        try {
+            $totalUsers = DB::table('users_table')->count();
+        } catch (\Throwable $e) { $totalUsers = 0; }
+
+        try {
+            $maintenancePersonnel = DB::table('users_table')
+                ->where('user_role_id', 2)->count();
+        } catch (\Throwable $e) { $maintenancePersonnel = 0; }
+
+        try {
+            $purchasers = DB::table('users_table')
+                ->where('user_role_id', 3)->count();
+        } catch (\Throwable $e) { $purchasers = 0; }
+
+        try {
+            $presidents = DB::table('users_table')
+                ->where('user_role_id', 4)->count();
+        } catch (\Throwable $e) { $presidents = 0; }
+
+        try {
+            $accounting = DB::table('users_table')
+                ->where('user_role_id', 5)->count();
+        } catch (\Throwable $e) { $accounting = 0; }
+
+        try {
+            $receivingOfficers = DB::table('users_table')
+                ->where('user_role_id', 6)->count();
+        } catch (\Throwable $e) { $receivingOfficers = 0; }
+
+        try {
+            $activeUsers = DB::table('users_table')
+                ->whereNotNull('last_active_at')
+                ->where('last_active_at', '>=', now()->subDays(7))
+                ->count();
+        } catch (\Throwable $e) { $activeUsers = 0; }
+
+
+        // =====================================================
+        // RIS STATISTICS
+        // =====================================================
+
+        $totalRis = 0;
+        $pendingRis = 0;
+        $amendRis = 0;
+        $approvedRis = 0;
+        $directApprovedRis = 0;
+        $cosignedRis = 0;
+        $totalRisAmount = 0;
+        $pendingRisAmount = 0;
+        $forCosigningCount = 0;
+        $cosignedCount = 0;
+
+        try {
+            $baseRIS = DB::table('requisition_issue_slip_table')
+                ->whereNotNull('ris_requested_by_date');
+
+            $totalRis = (clone $baseRIS)->count();
+
+            $pendingRis = (clone $baseRIS)
+                ->whereIn('ris_status', ['Submitted', 'Under Review', 'Resubmitted'])
+                ->count();
+
+            $amendRis = (clone $baseRIS)
+                ->where('ris_status', 'Rejected')
+                ->count();
+
+            $approvedRis = (clone $baseRIS)
+                ->where('ris_status', 'Approved')
+                ->whereNotNull('ris_approved_by_date')
+                ->where(function ($q) {
+                    $q->whereNull('ris_approved_by_signature')
+                      ->orWhere('ris_approved_by_signature', 'like', 'data:image%');
+                })
+                ->count();
+
+            $directApprovedRis = (clone $baseRIS)
+                ->where('ris_status', 'Approved')
+                ->whereNotNull('ris_approved_by_date')
+                ->whereNotNull('ris_approved_by_signature')
+                ->where('ris_approved_by_signature', 'not like', 'data:image%')
+                ->count();
+
+            $cosignedRis = (clone $baseRIS)
+                ->where('ris_status', 'Approved')
+                ->whereNotNull('ris_issued_by_date')
+                ->count();
+        } catch (\Throwable $e) { /* defaults stay 0 */ }
+
+        try {
+            $totalRisAmount = DB::table('requisition_issue_slip_table')
+                ->leftJoin(
+                    DB::raw('(SELECT ris_id, SUM(COALESCE(ris_total_amount, 0)) as ris_calculated_total FROM requisition_issue_slip_items_table GROUP BY ris_id) as ris_items_sum'),
+                    'requisition_issue_slip_table.ris_id', '=', 'ris_items_sum.ris_id'
+                )
+                ->whereNotNull('ris_requested_by_date')
+                ->sum('ris_items_sum.ris_calculated_total');
+        } catch (\Throwable $e) { $totalRisAmount = 0; }
+
+        try {
+            $pendingRisAmount = DB::table('requisition_issue_slip_table')
+                ->leftJoin(
+                    DB::raw('(SELECT ris_id, SUM(COALESCE(ris_total_amount, 0)) as ris_calculated_total FROM requisition_issue_slip_items_table GROUP BY ris_id) as ris_items_sum'),
+                    'requisition_issue_slip_table.ris_id', '=', 'ris_items_sum.ris_id'
+                )
+                ->whereNotNull('ris_requested_by_date')
+                ->whereIn('ris_status', ['Submitted', 'Under Review', 'Resubmitted'])
+                ->sum('ris_items_sum.ris_calculated_total');
+        } catch (\Throwable $e) { $pendingRisAmount = 0; }
+
+
+        // =====================================================
+        // DIGITAL SIGNATURE STATS
+        // =====================================================
+
+        try {
+            $forCosigningCount = DB::table('requisition_issue_slip_table')
+                ->where('ris_status', 'Approved')
+                ->whereNotNull('ris_approved_by_date')
+                ->where('ris_approved_by_signature', 'like', 'data:image%')
+                ->whereNull('ris_issued_by_date')
+                ->count();
+        } catch (\Throwable $e) { $forCosigningCount = 0; }
+
+        try {
+            $cosignedCount = DB::table('requisition_issue_slip_table')
+                ->where('ris_status', 'Approved')
+                ->whereNotNull('ris_issued_by_date')
+                ->count();
+        } catch (\Throwable $e) { $cosignedCount = 0; }
+
+
+        // =====================================================
+        // RECENT APPROVAL LOGS (ACTIVITY)
+        // =====================================================
+
+        try {
+            $recentActivities = DB::table('approval_logs_table')
+                ->leftJoin('users_table', 'approval_logs_table.approval_log_approved_by', '=', 'users_table.user_id')
+                ->select(
+                    'approval_logs_table.*',
+                    'users_table.user_full_name as approver_name'
+                )
+                ->orderByDesc('approval_logs_table.approval_log_approved_at')
+                ->limit(8)
+                ->get()
+                ->map(function ($activity) {
+                    $activity->title = $activity->approval_log_approval_status . ' - ' . ($activity->approval_log_reference_type ?? 'RIS');
+                    $activity->description = $activity->approval_log_approval_remarks ?? 'No remarks.';
+                    $activity->created_at = $activity->approval_log_approved_at;
+                    $activity->icon = match ($activity->approval_log_approval_status) {
+                        'Approved', 'Co-signed' => 'check-circle',
+                        'Rejected' => 'x-circle',
+                        default => 'activity',
+                    };
+                    $activity->background = match ($activity->approval_log_approval_status) {
+                        'Approved', 'Co-signed' => '#dcfce7',
+                        'Rejected' => '#fee2e2',
+                        default => '#f3f4f6',
+                    };
+                    $activity->color = match ($activity->approval_log_approval_status) {
+                        'Approved', 'Co-signed' => '#16a34a',
+                        'Rejected' => '#dc2626',
+                        default => '#374151',
+                    };
+                    return $activity;
+                });
+        } catch (\Throwable $e) { $recentActivities = collect(); }
+
+
+        // =====================================================
+        // RIS MONTHLY TREND (LAST 6 MONTHS)
+        // =====================================================
+
+        try {
+            $risMonthlyStartDate = now()->copy()->subMonths(5)->startOfMonth();
+
+            $risMonthlyRows = DB::table('requisition_issue_slip_table')
+                ->selectRaw('
+                    YEAR(ris_requested_by_date) AS ris_year,
+                    MONTH(ris_requested_by_date) AS ris_month,
+                    COUNT(*) AS ris_count
+                ')
+                ->whereNotNull('ris_requested_by_date')
+                ->where('ris_requested_by_date', '>=', $risMonthlyStartDate)
+                ->groupByRaw('YEAR(ris_requested_by_date), MONTH(ris_requested_by_date)')
+                ->orderByRaw('YEAR(ris_requested_by_date), MONTH(ris_requested_by_date)')
+                ->get()
+                ->keyBy(function ($row) {
+                    return $row->ris_year . '-' . str_pad($row->ris_month, 2, '0', STR_PAD_LEFT);
+                });
+
+            $risTrendLabels = [];
+            $risTrendData = [];
+
+            for ($i = 5; $i >= 0; $i--) {
+                $month = now()->copy()->subMonths($i)->startOfMonth();
+                $key = $month->format('Y-m');
+                $risTrendLabels[] = $month->format('M Y');
+                $risTrendData[] = (int) (optional($risMonthlyRows->get($key))->ris_count ?? 0);
+            }
+        } catch (\Throwable $e) {
+            $risTrendLabels = [];
+            $risTrendData = [];
+        }
+
+
+        // =====================================================
+        // RIS STATUS DISTRIBUTION FOR CHART
+        // =====================================================
+
+        $risStatusChart = [
+            'labels' => ['Pending', 'Forwarded to President', 'Direct Approved', 'Amend', 'Co-signed'],
+            'data' => [
+                $pendingRis,
+                $approvedRis,
+                $directApprovedRis,
+                $amendRis,
+                $cosignedRis,
+            ],
+        ];
+
+
+        // =====================================================
+        // RECENT RIS RECORDS (TABLE)
+        // =====================================================
+
+        try {
+            $recentRisRecords = DB::table('requisition_issue_slip_table')
+                ->leftJoin('procurement_requests_table', 'requisition_issue_slip_table.ris_procurement_request_id', '=', 'procurement_requests_table.procurement_request_id')
+                ->leftJoin('reports_table', 'procurement_requests_table.procurement_request_report_id', '=', 'reports_table.report_id')
+                ->leftJoin('equipment_table', 'reports_table.report_equipment_id', '=', 'equipment_table.equipment_id')
+                ->leftJoin(
+                    DB::raw('(SELECT ris_id, SUM(COALESCE(ris_total_amount, 0)) as ris_calculated_total FROM requisition_issue_slip_items_table GROUP BY ris_id) as ris_items_sum'),
+                    'requisition_issue_slip_table.ris_id',
+                    '=',
+                    'ris_items_sum.ris_id'
+                )
+                ->select(
+                    'requisition_issue_slip_table.*',
+                    'equipment_table.equipment_name',
+                    'reports_table.report_unlisted_equipment_name',
+                    'ris_items_sum.ris_calculated_total'
+                )
+                ->whereNotNull('ris_requested_by_date')
+                ->orderByDesc('ris_requested_by_date')
+                ->limit(5)
+                ->get();
+        } catch (\Throwable $e) { $recentRisRecords = collect(); }
+
+
+        // =====================================================
+        // RETURN VIEW
+        // =====================================================
+
+        return view('admin.dashboard', compact(
+            // User stats
+            'totalUsers',
+            'maintenancePersonnel',
+            'purchasers',
+            'presidents',
+            'accounting',
+            'receivingOfficers',
+            'activeUsers',
+
+            // RIS stats
+            'totalRis',
+            'pendingRis',
+            'amendRis',
+            'approvedRis',
+            'directApprovedRis',
+            'cosignedRis',
+            'totalRisAmount',
+            'pendingRisAmount',
+
+            // Digital signature stats
+            'forCosigningCount',
+            'cosignedCount',
+
+            // Activity
+            'recentActivities',
+
+            // Charts
+            'risTrendLabels',
+            'risTrendData',
+            'risStatusChart',
+
+            // Recent records
+            'recentRisRecords',
+        ));
     }
 
     /*
