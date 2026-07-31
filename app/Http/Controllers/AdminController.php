@@ -1159,25 +1159,311 @@ class AdminController extends Controller
 
     public function risApprovals(Request $request)
     {
-        // ADDED RIS ADMIN APPROVAL: submitted means Pending with requested date filled.
-        $risRecords = DB::table('requisition_issue_slip_table')
-            ->leftJoin('procurement_requests_table', 'requisition_issue_slip_table.ris_procurement_request_id', '=', 'procurement_requests_table.procurement_request_id')
-            ->leftJoin('reports_table', 'procurement_requests_table.procurement_request_report_id', '=', 'reports_table.report_id')
-            ->leftJoin('equipment_table', 'reports_table.report_equipment_id', '=', 'equipment_table.equipment_id')
+        // =====================================================
+        // RIS APPROVALS - Full implementation matching
+        // procurementReview() to provide all required variables
+        // for the admin.procurement-review views.
+        // =====================================================
+
+        // Get selected status filter.
+        $filter = strtolower($request->query('filter', 'all'));
+
+        // Get live search value.
+        $search = trim($request->query('search', ''));
+
+        // Only allow these filter values.
+        if (!in_array($filter, ['all', 'pending', 'approved', 'rejected', 'direct_approved'], true)) {
+            $filter = 'all';
+        }
+
+
+        // =====================================================
+        // BASE RIS QUERY
+        // =====================================================
+
+        $baseQuery = DB::table('requisition_issue_slip_table')
+
+            ->leftJoin(
+                'procurement_requests_table',
+                'requisition_issue_slip_table.ris_procurement_request_id',
+                '=',
+                'procurement_requests_table.procurement_request_id'
+            )
+
+            ->leftJoin(
+                'reports_table',
+                'procurement_requests_table.procurement_request_report_id',
+                '=',
+                'reports_table.report_id'
+            )
+
+            ->leftJoin(
+                'equipment_table',
+                'reports_table.report_equipment_id',
+                '=',
+                'equipment_table.equipment_id'
+            )
+
+            // LEFT JOIN RIS ITEMS SUBQUERY - computed total
+            ->leftJoin(
+                DB::raw('(SELECT ris_id, SUM(COALESCE(ris_total_amount, 0)) as ris_calculated_total FROM requisition_issue_slip_items_table GROUP BY ris_id) as ris_items_sum'),
+                'requisition_issue_slip_table.ris_id',
+                '=',
+                'ris_items_sum.ris_id'
+            )
+
+            // LEFT JOIN RIS ITEMS SUBQUERY - concatenated item names
+            ->leftJoin(
+                DB::raw('(SELECT ris_id, GROUP_CONCAT(COALESCE(ris_item_name_description, "N/A") SEPARATOR ", ") as ris_item_names FROM requisition_issue_slip_items_table GROUP BY ris_id) as ris_items_names'),
+                'requisition_issue_slip_table.ris_id',
+                '=',
+                'ris_items_names.ris_id'
+            )
+
             ->select(
                 'requisition_issue_slip_table.*',
                 'procurement_requests_table.procurement_request_id',
                 'reports_table.report_id',
                 'reports_table.report_unlisted_equipment_name',
-                'equipment_table.equipment_name'
+                'equipment_table.equipment_name',
+                'ris_items_sum.ris_calculated_total',
+                'ris_items_names.ris_item_names'
             )
-            ->where('requisition_issue_slip_table.ris_status', 'Pending')
-            ->whereNotNull('requisition_issue_slip_table.ris_requested_by_date')
-            ->whereNull('requisition_issue_slip_table.ris_approved_by_date')
-            ->orderByDesc('requisition_issue_slip_table.ris_requested_by_date')
-            ->paginate(10);
 
-        return view('admin.procurement-review.index', compact('risRecords'));
+            // Only RIS forms already submitted by Purchaser.
+            ->whereNotNull(
+                'requisition_issue_slip_table.ris_requested_by_date'
+            );
+
+
+        // =====================================================
+        // DASHBOARD CARD COUNTS
+        // =====================================================
+
+        $totalRis = (clone $baseQuery)->count();
+
+        $pendingRis = (clone $baseQuery)
+            ->where(
+                'requisition_issue_slip_table.ris_status',
+                'Pending'
+            )
+            ->count();
+
+        $amendRis = (clone $baseQuery)
+            ->where(
+                'requisition_issue_slip_table.ris_status',
+                'Rejected'
+            )
+            ->count();
+
+        $approvedRis = (clone $baseQuery)
+            ->where(
+                'requisition_issue_slip_table.ris_status',
+                'Approved'
+            )
+            ->whereNotNull(
+                'requisition_issue_slip_table.ris_approved_by_date'
+            )
+            ->where(function ($q) {
+                $q->whereNull('requisition_issue_slip_table.ris_approved_by_signature')
+                  ->orWhere('requisition_issue_slip_table.ris_approved_by_signature', 'like', 'data:image%');
+            })
+            ->count();
+
+        $directApprovedRis = (clone $baseQuery)
+            ->where(
+                'requisition_issue_slip_table.ris_status',
+                'Approved'
+            )
+            ->whereNotNull(
+                'requisition_issue_slip_table.ris_approved_by_date'
+            )
+            ->whereNotNull(
+                'requisition_issue_slip_table.ris_approved_by_signature'
+            )
+            ->where(
+                'requisition_issue_slip_table.ris_approved_by_signature',
+                'not like',
+                'data:image%'
+            )
+            ->count();
+
+
+        // =====================================================
+        // TABLE QUERY
+        // =====================================================
+
+        $query = clone $baseQuery;
+
+
+        // =====================================================
+        // STATUS FILTER
+        // =====================================================
+
+        if ($filter === 'pending') {
+
+            $query->where(
+                'requisition_issue_slip_table.ris_status',
+                'Pending'
+            );
+
+        } elseif ($filter === 'approved') {
+
+            $query->where(
+                'requisition_issue_slip_table.ris_status',
+                'Approved'
+            )
+            ->whereNotNull(
+                'requisition_issue_slip_table.ris_approved_by_date'
+            )
+            ->where(function ($q) {
+                $q->whereNull('requisition_issue_slip_table.ris_approved_by_signature')
+                  ->orWhere('requisition_issue_slip_table.ris_approved_by_signature', 'like', 'data:image%');
+            });
+
+        } elseif ($filter === 'direct_approved') {
+
+            $query->where(
+                'requisition_issue_slip_table.ris_status',
+                'Approved'
+            )
+            ->whereNotNull(
+                'requisition_issue_slip_table.ris_approved_by_date'
+            )
+            ->whereNotNull(
+                'requisition_issue_slip_table.ris_approved_by_signature'
+            )
+            ->where(
+                'requisition_issue_slip_table.ris_approved_by_signature',
+                'not like',
+                'data:image%'
+            );
+
+        } elseif ($filter === 'rejected') {
+
+            $query->where(
+                'requisition_issue_slip_table.ris_status',
+                'Rejected'
+            );
+
+        } else {
+
+            $query->whereIn(
+                'requisition_issue_slip_table.ris_status',
+                [
+                    'Pending',
+                    'Approved',
+                    'Rejected',
+                ]
+            );
+        }
+
+
+        // =====================================================
+        // SEARCH
+        // =====================================================
+
+        if ($search !== '') {
+
+            $query->where(function ($searchQuery) use ($search) {
+
+                $searchQuery
+                    ->where(
+                        'requisition_issue_slip_table.ris_form_number',
+                        'like',
+                        '%' . $search . '%'
+                    )
+                    ->orWhere(
+                        'requisition_issue_slip_table.ris_requested_by_signature',
+                        'like',
+                        '%' . $search . '%'
+                    )
+                    ->orWhere(
+                        'equipment_table.equipment_name',
+                        'like',
+                        '%' . $search . '%'
+                    )
+                    ->orWhere(
+                        'reports_table.report_unlisted_equipment_name',
+                        'like',
+                        '%' . $search . '%'
+                    )
+                    ->orWhere(
+                        'requisition_issue_slip_table.ris_status',
+                        'like',
+                        '%' . $search . '%'
+                    );
+
+            });
+        }
+
+
+        // =====================================================
+        // SORTING
+        // =====================================================
+
+        $risRecords = $query
+
+            ->orderByRaw("
+                CASE
+                    WHEN requisition_issue_slip_table.ris_status = 'Pending' THEN 0
+                    WHEN requisition_issue_slip_table.ris_status = 'Approved' THEN 1
+                    WHEN requisition_issue_slip_table.ris_status = 'Rejected' THEN 2
+                    ELSE 3
+                END
+            ")
+
+            ->orderByDesc(
+                'requisition_issue_slip_table.ris_requested_by_date'
+            )
+
+            ->orderByDesc(
+                'requisition_issue_slip_table.ris_id'
+            )
+
+            ->paginate(10)
+
+            ->appends([
+                'filter' => $filter,
+                'search' => $search,
+            ]);
+
+
+        // =====================================================
+        // RETURN VIEW
+        // =====================================================
+
+        if ($request->ajax() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
+
+            return view(
+                'admin.procurement-review._content',
+                compact(
+                    'risRecords',
+                    'filter',
+                    'search',
+                    'totalRis',
+                    'pendingRis',
+                    'amendRis',
+                    'approvedRis',
+                    'directApprovedRis'
+                )
+            );
+
+        }
+
+        return view(
+            'admin.procurement-review.index',
+            compact(
+                'risRecords',
+                'filter',
+                'search',
+                'totalRis',
+                'pendingRis',
+                'amendRis',
+                'approvedRis',
+                'directApprovedRis'
+            )
+        );
     }
 
 
