@@ -162,7 +162,67 @@ class AdminController extends Controller
 
 
         // =====================================================
-        // RECENT APPROVAL LOGS (ACTIVITY)
+        // CALENDAR OF EVENTS — UPCOMING MAINTENANCE SCHEDULES
+        // =====================================================
+
+        try {
+            $calendarEvents = DB::table('maintenance_schedules_table')
+                ->leftJoin('equipment_table', 'maintenance_schedules_table.maintenance_schedule_equipment_id', '=', 'equipment_table.equipment_id')
+                ->select(
+                    'maintenance_schedules_table.*',
+                    'equipment_table.equipment_name'
+                )
+                ->where(function ($q) {
+                    $q->where('maintenance_schedules_table.maintenance_schedule_status', 'Active')
+                      ->orWhere('maintenance_schedules_table.maintenance_schedule_status', 'Overdue');
+                })
+                ->orderBy('maintenance_schedules_table.maintenance_schedule_next_date')
+                ->limit(20)
+                ->get();
+        } catch (\Throwable $e) { $calendarEvents = collect(); }
+
+        // Group events by date for the calendar
+        $calendarEventsByDate = [];
+        foreach ($calendarEvents as $evt) {
+            $dateKey = $evt->maintenance_schedule_next_date ? \Carbon\Carbon::parse($evt->maintenance_schedule_next_date)->format('Y-m-d') : null;
+            if ($dateKey) {
+                if (!isset($calendarEventsByDate[$dateKey])) {
+                    $calendarEventsByDate[$dateKey] = [];
+                }
+                $calendarEventsByDate[$dateKey][] = $evt;
+            }
+        }
+
+        // =====================================================
+        // ACTIVITY LIST — Combined pending + completed activities
+        // =====================================================
+
+        try {
+            $activityLogs = DB::table('approval_logs_table')
+                ->leftJoin('users_table', 'approval_logs_table.approval_log_approved_by', '=', 'users_table.user_id')
+                ->select(
+                    'approval_logs_table.approval_log_id as id',
+                    'approval_logs_table.approval_log_approval_status as status',
+                    'approval_logs_table.approval_log_approval_remarks as description',
+                    'approval_logs_table.approval_log_reference_type as ref_type',
+                    'approval_logs_table.approval_log_reference_id as ref_id',
+                    'approval_logs_table.approval_log_approved_at as created_at',
+                    'users_table.user_full_name as actor_name',
+                    DB::raw("'approval' as log_source")
+                )
+                ->orderByDesc('approval_logs_table.approval_log_approved_at')
+                ->limit(15)
+                ->get()
+                ->map(function ($log) {
+                    $log->is_pending = ($log->status === 'Pending');
+                    $log->title = $log->status . ' — ' . ($log->ref_type ?? 'RIS');
+                    return $log;
+                });
+        } catch (\Throwable $e) { $activityLogs = collect(); }
+
+
+        // =====================================================
+        // RECENT APPROVAL LOGS (ACTIVITY) — kept for backward compat
         // =====================================================
 
         try {
@@ -318,6 +378,13 @@ class AdminController extends Controller
 
             // Recent records
             'recentRisRecords',
+
+            // Calendar events
+            'calendarEvents',
+            'calendarEventsByDate',
+
+            // Activity list
+            'activityLogs',
         ));
     }
 

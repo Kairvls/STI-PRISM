@@ -1,31 +1,20 @@
-# Signature History - Fixes
+# Admin Dashboard Restructuring Plan
 
-## Issues
-1. Total RIS card includes active (Pending) forms, doesn't equal combined individual counts
-2. Table defaults to "procurement_review" toggle instead of unified "all" view
-3. Active/pending RIS forms are included in history
+## Steps
 
-## Plan
+### Step 1: AdminController.php ✅
+- [x] Add queries for maintenance schedule events (calendar)
+- [x] Add queries for activity list (pending + completed from approval_logs & room_activity_logs)
+- [x] Pass new variables to view
 
-- [x] 1. `AdminController@signatureHistory`:
-       - Default filter: unified view (remove procurement_review/sign_ris toggle)
-       - Base query: exclude `ris_status = 'Pending'` (active forms)
-       - `$totalRis`: count only finished forms (= Direct Approved + Signed + Co-signed + Amended)
-       - Remove toggle branching in table query
-
-- [x] 2. `_signature-history-content.blade.php`:
-       - Remove toggle buttons (Procurement Review / Sign RIS)
-       - Show single unified filter state (default "All")
-       - Add "Amended" card to the stats row
-       - Updated card descriptions
-
-- [x] 3. `_signature-history-table.blade.php`:
-       - Simplify status badges (no toggle context needed)
-       - Each row shows its actual status: Direct Approved, Signed, Co-signed, Amended
-       - Fixed empty state text (removed $filter reference)
-
-- [x] 4. `signature-history.blade.php`:
-       - Updated page description
-       - Removed toggle filter JS logic
-       - Kept search + pagination + preview modal
+### Step 2: dashboard.blade.php ✅
+- [x] Compact stat cards (reduced padding, font sizes, spacing)
+- [x] Restructure sidebar:
+  1. Calendar of Events (mini calendar + upcoming schedule items)
+  2. RIS Status Overview (existing pie chart)
+  3. Activity List (new - pending/completed activities from approval logs)
+  4. Quick Summary (with Pending RIS as first priority)
+- [x] Remove old Recent Activity section (replaced by Activity List)
+- [x] Add calendar CSS/JS component
+- [x] Add activity list CSS/JS component
 

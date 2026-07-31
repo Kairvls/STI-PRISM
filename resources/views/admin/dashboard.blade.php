@@ -334,40 +334,142 @@
         </div>
 
 
-        {{-- RIGHT: ACTIVITY SIDEBAR --}}
+        {{-- RIGHT: SIDEBAR (reordered) --}}
 
         <div class="dashboard-sidebar">
 
-            {{-- RIS Status Distribution --}}
+            {{-- 1. Calendar of Events --}}
+
+            <div class="sidebar-calendar-card">
+                <div class="sidebar-calendar-header">
+                    <h3 class="sidebar-calendar-title">
+                        <i data-lucide="calendar-days" class="sidebar-calendar-title-icon"></i>
+                        Calendar of Events
+                    </h3>
+                    <span class="sidebar-calendar-month">{{ now()->format('F Y') }}</span>
+                </div>
+                <div class="sidebar-calendar-grid" id="miniCalendar">
+                    {{-- Weekday headers --}}
+                    <div class="cal-weekday">Sun</div>
+                    <div class="cal-weekday">Mon</div>
+                    <div class="cal-weekday">Tue</div>
+                    <div class="cal-weekday">Wed</div>
+                    <div class="cal-weekday">Thu</div>
+                    <div class="cal-weekday">Fri</div>
+                    <div class="cal-weekday">Sat</div>
+                </div>
+                {{-- Upcoming Events List --}}
+                <div class="sidebar-calendar-events">
+                    <div class="sidebar-calendar-events-title">Upcoming Schedules</div>
+                    @forelse($calendarEvents->take(5) as $event)
+                    <div class="sidebar-calendar-event-item">
+                        <div class="sidebar-calendar-event-dot {{ $event->maintenance_schedule_status === 'Overdue' ? 'event-dot-danger' : 'event-dot-active' }}"></div>
+                        <div class="sidebar-calendar-event-info">
+                            <span class="sidebar-calendar-event-name">{{ $event->maintenance_schedule_title }}</span>
+                            <span class="sidebar-calendar-event-date">
+                                {{ $event->maintenance_schedule_next_date ? \Carbon\Carbon::parse($event->maintenance_schedule_next_date)->format('M d, Y') : 'No date' }}
+                                @if($event->maintenance_schedule_frequency)
+                                <span class="sidebar-calendar-event-freq">· {{ $event->maintenance_schedule_frequency }}</span>
+                                @endif
+                            </span>
+                        </div>
+                        @if($event->maintenance_schedule_status === 'Overdue')
+                        <span class="sidebar-calendar-event-badge badge-overdue">Overdue</span>
+                        @endif
+                    </div>
+                    @empty
+                    <div class="sidebar-calendar-empty">
+                        <i data-lucide="calendar-x" class="h-4 w-4"></i>
+                        <span>No upcoming events</span>
+                    </div>
+                    @endforelse
+                </div>
+            </div>
+
+
+            {{-- 2. RIS Status Distribution --}}
 
             <div class="sidebar-chart-card">
                 <div class="sidebar-chart-header">
                     <h3 class="sidebar-chart-title">RIS Status Overview</h3>
                 </div>
                 <div class="sidebar-chart-body">
-                    <canvas id="risStatusChart" height="220"></canvas>
+                    <canvas id="risStatusChart" height="200"></canvas>
                 </div>
             </div>
 
 
-            {{-- Quick Stats Summary --}}
+            {{-- 3. Activity List (NEW) --}}
+
+            <div class="sidebar-activity-card">
+                <div class="sidebar-activity-header">
+                    <h3 class="sidebar-activity-title">
+                        <i data-lucide="list-checks" class="h-4 w-4" style="margin-right: 6px;"></i>
+                        Activity List
+                    </h3>
+                    <a href="{{ url('/admin/reports/approval-logs') }}" class="sidebar-activity-link">View all</a>
+                </div>
+                <div class="sidebar-activity-list">
+                    @forelse($activityLogs as $log)
+                    <div class="sidebar-activity-item">
+                        <div class="sidebar-activity-status-icon">
+                            @if($log->status === 'Approved' || $log->status === 'Co-signed')
+                                <div class="act-icon act-icon-success">
+                                    <i data-lucide="check-circle" class="h-3.5 w-3.5"></i>
+                                </div>
+                            @elseif($log->status === 'Rejected')
+                                <div class="act-icon act-icon-danger">
+                                    <i data-lucide="x-circle" class="h-3.5 w-3.5"></i>
+                                </div>
+                            @else
+                                <div class="act-icon act-icon-pending">
+                                    <i data-lucide="clock" class="h-3.5 w-3.5"></i>
+                                </div>
+                            @endif
+                        </div>
+                        <div class="sidebar-activity-content">
+                            <p class="sidebar-activity-title-text">
+                                {{ $log->title }}
+                                @if($log->actor_name)
+                                <span class="sidebar-activity-actor">by {{ $log->actor_name }}</span>
+                                @endif
+                            </p>
+                            <p class="sidebar-activity-desc">{{ Str::limit($log->description ?? 'No remarks', 60) }}</p>
+                            <p class="sidebar-activity-time">{{ $log->created_at ? \Carbon\Carbon::parse($log->created_at)->diffForHumans() : '' }}</p>
+                        </div>
+                    </div>
+                    @empty
+                    <div class="flex flex-col items-center py-6 text-gray-400">
+                        <i data-lucide="inbox" class="h-6 w-6 mb-1 text-gray-300"></i>
+                        <span class="text-xs">No activities logged</span>
+                    </div>
+                    @endforelse
+                </div>
+            </div>
+
+
+            {{-- 4. Quick Stats Summary (Pending RIS first) --}}
 
             <div class="sidebar-stats-card">
-                <h3 class="sidebar-stats-title">Quick Summary</h3>
+                <h3 class="sidebar-stats-title">
+                    <i data-lucide="bar-chart-3" class="h-4 w-4" style="margin-right: 6px;"></i>
+                    Quick Summary
+                </h3>
                 <div class="sidebar-stats-list">
+                    {{-- PENDING RIS — FIRST PRIORITY --}}
+                    <div class="sidebar-stat-item sidebar-stat-item-highlight">
+                        <div class="sidebar-stat-left">
+                            <div class="sidebar-stat-dot sidebar-dot-amber"></div>
+                            <span class="sidebar-stat-label sidebar-stat-label-highlight">Pending RIS</span>
+                        </div>
+                        <span class="sidebar-stat-value sidebar-stat-value-highlight">{{ $pendingRis }}</span>
+                    </div>
                     <div class="sidebar-stat-item">
                         <div class="sidebar-stat-left">
                             <div class="sidebar-stat-dot sidebar-dot-blue"></div>
                             <span class="sidebar-stat-label">Total Users</span>
                         </div>
                         <span class="sidebar-stat-value">{{ $totalUsers }}</span>
-                    </div>
-                    <div class="sidebar-stat-item">
-                        <div class="sidebar-stat-left">
-                            <div class="sidebar-stat-dot sidebar-dot-amber"></div>
-                            <span class="sidebar-stat-label">Pending RIS</span>
-                        </div>
-                        <span class="sidebar-stat-value">{{ $pendingRis }}</span>
                     </div>
                     <div class="sidebar-stat-item">
                         <div class="sidebar-stat-left">
@@ -400,35 +502,6 @@
                 </div>
             </div>
 
-
-            {{-- RECENT ACTIVITY FEED --}}
-
-            <div class="sidebar-activity-card">
-                <div class="sidebar-activity-header">
-                    <h3 class="sidebar-activity-title">Recent Activity</h3>
-                    <a href="{{ url('/admin/reports/approval-logs') }}" class="sidebar-activity-link">View all</a>
-                </div>
-                <div class="sidebar-activity-list">
-                    @forelse($recentActivities as $activity)
-                    <div class="sidebar-activity-item">
-                        <div class="sidebar-activity-icon" style="background: {{ $activity->background }}; color: {{ $activity->color }};">
-                            <i data-lucide="{{ $activity->icon }}" class="h-4 w-4"></i>
-                        </div>
-                        <div class="sidebar-activity-content">
-                            <p class="sidebar-activity-title-text">{{ $activity->title }}</p>
-                            <p class="sidebar-activity-desc">{{ $activity->description }}</p>
-                            <p class="sidebar-activity-time">{{ $activity->created_at ? \Carbon\Carbon::parse($activity->created_at)->diffForHumans() : '' }}</p>
-                        </div>
-                    </div>
-                    @empty
-                    <div class="flex flex-col items-center py-8 text-gray-400">
-                        <i data-lucide="activity" class="h-8 w-8 mb-2 text-gray-300"></i>
-                        <span class="text-sm">No recent activity</span>
-                    </div>
-                    @endforelse
-                </div>
-            </div>
-
         </div>
 
     </div>
@@ -446,7 +519,7 @@
 ====================================== */
 
 .admin-dashboard {
-    padding: 28px 32px;
+    padding: 20px 24px;
     max-width: 1440px;
     margin: 0 auto;
 }
@@ -455,83 +528,83 @@
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    margin-bottom: 28px;
+    margin-bottom: 20px;
 }
 
 .dashboard-title {
-    font-size: 24px;
+    font-size: 20px;
     font-weight: 700;
     color: #0f172a;
-    letter-spacing: -0.5px;
+    letter-spacing: -0.3px;
 }
 
 .dashboard-subtitle {
-    margin-top: 4px;
-    font-size: 14px;
+    margin-top: 2px;
+    font-size: 13px;
     color: #64748b;
 }
 
 .dashboard-header-right {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
 }
 
 .dashboard-date-badge {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 16px;
+    gap: 6px;
+    padding: 6px 12px;
     background: #f8fafc;
     border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    font-size: 13px;
+    border-radius: 10px;
+    font-size: 12px;
     font-weight: 500;
     color: #475569;
 }
 
 
 /* ======================================
-   STAT CARDS GRID - ROW 1
+   STAT CARDS GRID - Compact
 ====================================== */
 
 .stat-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 20px;
-    margin-bottom: 20px;
+    gap: 14px;
+    margin-bottom: 14px;
 }
 
 .stat-grid-row-2 {
-    margin-bottom: 28px;
+    margin-bottom: 20px;
 }
 
 .stat-card {
     background: #ffffff;
     border: 1px solid #e2e8f0;
-    border-radius: 16px;
-    padding: 22px 24px;
-    transition: all 0.25s ease;
+    border-radius: 12px;
+    padding: 14px 16px;
+    transition: all 0.2s ease;
     position: relative;
     overflow: hidden;
 }
 
 .stat-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.06);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
 }
 
 .stat-card-top {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    margin-bottom: 14px;
+    margin-bottom: 8px;
 }
 
 .stat-icon {
-    width: 42px;
-    height: 42px;
-    border-radius: 12px;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -540,8 +613,8 @@
 
 .stat-icon i,
 .stat-icon svg {
-    width: 20px;
-    height: 20px;
+    width: 16px;
+    height: 16px;
 }
 
 .stat-icon-blue {
@@ -587,10 +660,10 @@
 .stat-change {
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 4px 10px;
-    border-radius: 20px;
-    font-size: 12px;
+    gap: 3px;
+    padding: 3px 8px;
+    border-radius: 16px;
+    font-size: 11px;
     font-weight: 600;
 }
 
@@ -605,48 +678,48 @@
 }
 
 .stat-label {
-    font-size: 12px;
+    font-size: 10px;
     font-weight: 600;
     color: #64748b;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 4px;
+    letter-spacing: 0.4px;
+    margin-bottom: 2px;
 }
 
 .stat-value {
-    font-size: 32px;
+    font-size: 24px;
     font-weight: 700;
     color: #0f172a;
-    letter-spacing: -1px;
+    letter-spacing: -0.5px;
     line-height: 1;
 }
 
 .stat-amount {
-    margin-top: 6px;
-    font-size: 13px;
+    margin-top: 4px;
+    font-size: 11px;
     color: #94a3b8;
     font-weight: 500;
 }
 
 .stat-meta {
-    margin-top: 12px;
+    margin-top: 8px;
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 6px;
 }
 
 .stat-meta-item {
     display: flex;
     align-items: center;
-    gap: 5px;
-    font-size: 11px;
+    gap: 4px;
+    font-size: 10px;
     font-weight: 500;
     color: #64748b;
 }
 
 .stat-meta-dot {
-    width: 7px;
-    height: 7px;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
     flex-shrink: 0;
 }
@@ -665,8 +738,287 @@
 .dashboard-main-grid {
     display: grid;
     grid-template-columns: 1fr 340px;
-    gap: 24px;
+    gap: 20px;
     align-items: start;
+}
+
+
+/* ======================================
+   SIDEBAR GAP
+====================================== */
+
+.dashboard-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+
+/* ======================================
+   CALENDAR OF EVENTS
+====================================== */
+
+.sidebar-calendar-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+.sidebar-calendar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px 8px;
+}
+
+.sidebar-calendar-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: #0f172a;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.sidebar-calendar-title-icon {
+    width: 16px;
+    height: 16px;
+    color: #6366f1;
+}
+
+.sidebar-calendar-month {
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.sidebar-calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    padding: 6px 12px 4px;
+    gap: 2px;
+}
+
+.cal-weekday {
+    font-size: 9px;
+    font-weight: 700;
+    text-align: center;
+    color: #94a3b8;
+    text-transform: uppercase;
+    padding: 3px 0;
+    letter-spacing: 0.3px;
+}
+
+.cal-day {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 500;
+    color: #475569;
+    border-radius: 6px;
+    cursor: default;
+    transition: all 0.15s ease;
+    position: relative;
+}
+
+.cal-day:hover {
+    background: #f1f5f9;
+}
+
+.cal-day.other-month {
+    color: #cbd5e1;
+}
+
+.cal-day.today {
+    background: #6366f1;
+    color: #fff;
+    font-weight: 700;
+}
+
+.cal-day.today:hover {
+    background: #4f46e5;
+}
+
+.cal-day.has-event::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #f59e0b;
+}
+
+.cal-day.today.has-event::after {
+    background: #fff;
+}
+
+/* Events list */
+
+.sidebar-calendar-events {
+    padding: 4px 16px 14px;
+}
+
+.sidebar-calendar-events-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 8px;
+    padding-top: 4px;
+    border-top: 1px solid #f1f5f9;
+    padding-top: 10px;
+}
+
+.sidebar-calendar-event-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid #f8fafc;
+}
+
+.sidebar-calendar-event-item:last-child {
+    border-bottom: none;
+}
+
+.sidebar-calendar-event-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 5px;
+}
+
+.event-dot-active {
+    background: #10b981;
+}
+
+.event-dot-danger {
+    background: #ef4444;
+}
+
+.sidebar-calendar-event-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.sidebar-calendar-event-name {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #0f172a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sidebar-calendar-event-date {
+    display: block;
+    font-size: 10px;
+    color: #94a3b8;
+    margin-top: 1px;
+}
+
+.sidebar-calendar-event-freq {
+    color: #94a3b8;
+}
+
+.sidebar-calendar-event-badge {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    flex-shrink: 0;
+}
+
+.badge-overdue {
+    background: #fef2f2;
+    color: #dc2626;
+}
+
+.sidebar-calendar-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 14px 0;
+    color: #94a3b8;
+    font-size: 12px;
+}
+
+
+/* ======================================
+   ACTIVITY LIST - Status Icons
+====================================== */
+
+.sidebar-activity-status-icon {
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.act-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.act-icon-success {
+    background: #ecfdf5;
+    color: #059669;
+}
+
+.act-icon-danger {
+    background: #fef2f2;
+    color: #dc2626;
+}
+
+.act-icon-pending {
+    background: #fffbeb;
+    color: #d97706;
+}
+
+.sidebar-activity-actor {
+    font-weight: 400;
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+
+/* ======================================
+   QUICK SUMMARY - Pending Highlight
+====================================== */
+
+.sidebar-stat-item-highlight {
+    background: #fffbeb;
+    border-radius: 8px;
+    padding: 8px 10px !important;
+    margin: -2px -2px 2px -2px;
+    border: 1px solid #fde68a;
+}
+
+.sidebar-stat-label-highlight {
+    font-weight: 700;
+    color: #92400e;
+}
+
+.sidebar-stat-value-highlight {
+    font-size: 16px;
+    font-weight: 800;
+    color: #d97706;
 }
 
 
@@ -985,13 +1337,6 @@
 /* ======================================
    SIDEBAR COMPONENTS
 ====================================== */
-
-.dashboard-sidebar {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
 
 /* Sidebar Chart */
 
@@ -1317,10 +1662,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     legend: {
                         position: 'bottom',
                         labels: {
-                            padding: 16,
+                            padding: 14,
                             usePointStyle: true,
-                            pointStyleWidth: 10,
-                            font: { size: 11, weight: '500' },
+                            pointStyleWidth: 8,
+                            font: { size: 10, weight: '500' },
                             color: '#475569',
                         }
                     },
@@ -1328,7 +1673,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         backgroundColor: '#0f172a',
                         titleColor: '#fff',
                         bodyColor: '#e2e8f0',
-                        padding: 12,
+                        padding: 10,
                         cornerRadius: 8,
                         callbacks: {
                             label: function(context) {
@@ -1342,6 +1687,73 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         });
+    }
+
+
+    // =====================================================
+    // MINI CALENDAR RENDER
+    // =====================================================
+
+    const calendarGrid = document.getElementById('miniCalendar');
+    if (calendarGrid) {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = today.getMonth();
+
+        const firstDay = new Date(year, month, 1);
+        const lastDay = new Date(year, month + 1, 0);
+        const startOffset = firstDay.getDay(); // 0=Sun
+
+        // Parse backend events into a Set of date strings
+        const eventDates = new Set();
+        try {
+            const events = {!! json_encode($calendarEventsByDate) !!};
+            if (events) {
+                Object.keys(events).forEach(function(dateStr) {
+                    eventDates.add(dateStr);
+                });
+            }
+        } catch(e) {}
+
+        // Previous month trailing days
+        const prevLastDay = new Date(year, month, 0);
+        for (let i = startOffset - 1; i >= 0; i--) {
+            const day = prevLastDay.getDate() - i;
+            const cell = document.createElement('div');
+            cell.className = 'cal-day other-month';
+            cell.textContent = day;
+            calendarGrid.appendChild(cell);
+        }
+
+        // Current month days
+        for (let d = 1; d <= lastDay.getDate(); d++) {
+            const cell = document.createElement('div');
+            cell.className = 'cal-day';
+
+            const dateStr = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+            if (eventDates.has(dateStr)) {
+                cell.classList.add('has-event');
+            }
+
+            if (d === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
+                cell.classList.add('today');
+            }
+
+            cell.textContent = d;
+            calendarGrid.appendChild(cell);
+        }
+
+        // Next month leading days (fill remaining)
+        const totalCells = startOffset + lastDay.getDate();
+        const remaining = 7 - (totalCells % 7);
+        if (remaining < 7) {
+            for (let i = 1; i <= remaining; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'cal-day other-month';
+                cell.textContent = i;
+                calendarGrid.appendChild(cell);
+            }
+        }
     }
 
 });
