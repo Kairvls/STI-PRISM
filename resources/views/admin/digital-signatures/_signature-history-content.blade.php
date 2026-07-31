@@ -19,35 +19,7 @@
     {{-- RIS STATISTIC CARDS --}}
     {{-- ===================================================== --}}
 
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-
-
-        {{-- ================================================= --}}
-        {{-- TOTAL RIS --}}
-        {{-- ================================================= --}}
-
-        <div
-            class="rounded-xl border border-gray-200 bg-white px-5 py-5"
-            title="Total number of finished/completed RIS forms"
-        >
-
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Total RIS
-            </p>
-
-            <div class="mt-3">
-
-                <span class="text-3xl font-bold text-gray-900">
-                    {{ $totalRis }}
-                </span>
-
-            </div>
-
-            <div class="mt-1 text-xs text-gray-400">
-                Finished / Completed
-            </div>
-
-        </div>
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
 
 
         {{-- ================================================= --}}

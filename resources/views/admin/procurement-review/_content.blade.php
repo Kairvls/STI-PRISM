@@ -24,30 +24,6 @@
 
 
         {{-- ================================================= --}}
-        {{-- TOTAL RIS --}}
-        {{-- ================================================= --}}
-
-        <div
-            class="rounded-xl border border-gray-200 bg-white px-5 py-5"
-            title="Total number of submitted RIS forms"
-        >
-
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Total RIS
-            </p>
-
-            <div class="mt-3">
-
-                <span class="text-3xl font-bold text-gray-900">
-                    {{ $totalRis }}
-                </span>
-
-            </div>
-
-        </div>
-
-
-        {{-- ================================================= --}}
         {{-- PENDING --}}
         {{-- ================================================= --}}
 

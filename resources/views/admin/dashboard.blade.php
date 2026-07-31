@@ -164,19 +164,7 @@
         </div>
 
 
-        {{-- CO-SIGNED --}}
-
-        <div class="stat-card stat-card-success" title="RIS that have been fully co-signed">
-            <div class="stat-card-top">
-                <div class="stat-icon stat-icon-teal">
-                    <i data-lucide="signature"></i>
-                </div>
-            </div>
-            <p class="stat-label">Co-signed</p>
-            <p class="stat-value">{{ $cosignedCount }}</p>
-        </div>
-
-    </div>
+</div>
 
 
     {{-- ===================================================== --}}
@@ -778,7 +766,7 @@
     display: grid;
     grid-template-columns: 1fr 340px;
     gap: 12px;
-    align-items: start;
+    align-items: stretch;
 }
 
 

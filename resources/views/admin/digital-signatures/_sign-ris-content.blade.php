@@ -20,35 +20,7 @@
     {{-- RIS STATISTIC CARDS --}}
     {{-- ===================================================== --}}
 
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-
-
-        {{-- ================================================= --}}
-        {{-- TOTAL FOR SIGNING --}}
-        {{-- ================================================= --}}
-
-        <div
-            class="rounded-xl border border-gray-200 bg-white px-5 py-5"
-            title="Total number of President-approved RIS forms"
-        >
-
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Total for Signing
-            </p>
-
-            <div class="mt-3">
-
-                <span class="text-3xl font-bold text-gray-900">
-                    {{ $totalForSigning }}
-                </span>
-
-            </div>
-
-            <div class="mt-1 text-xs text-gray-400">
-                ₱{{ number_format((float) ($totalAmount ?? 0), 2) }}
-            </div>
-
-        </div>
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
 
 
         {{-- ================================================= --}}

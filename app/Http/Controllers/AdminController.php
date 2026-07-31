@@ -360,7 +360,7 @@ class AdminController extends Controller
                 )
                 ->whereNotNull('ris_requested_by_date')
                 ->orderByDesc('ris_requested_by_date')
-                ->limit(5)
+                ->limit(10)
                 ->get();
         } catch (\Throwable $e) { $recentRisRecords = collect(); }
 
@@ -511,8 +511,6 @@ class AdminController extends Controller
     // DASHBOARD CARD COUNTS
     // These counts are NOT affected by the selected filter.
     // =====================================================
-
-    $totalRis = (clone $baseQuery)->count();
 
     $pendingRis = (clone $baseQuery)
         ->where(
@@ -737,12 +735,12 @@ class AdminController extends Controller
                 'risRecords',
                 'filter',
                 'search',
-                'totalRis',
                 'pendingRis',
                 'amendRis',
                 'approvedRis',
                 'directApprovedRis'
             )
+
         );
 
     }
@@ -753,7 +751,6 @@ class AdminController extends Controller
             'risRecords',
             'filter',
             'search',
-            'totalRis',
             'pendingRis',
             'amendRis',
             'approvedRis',
@@ -857,11 +854,9 @@ class AdminController extends Controller
         );
 
 
-    // =====================================================
+// =====================================================
     // DASHBOARD CARD COUNTS - NOT affected by filter
     // =====================================================
-
-    $totalForSigning = (clone $baseQuery)->count();
 
     $forCosignCount = (clone $baseQuery)
         ->whereNull(
@@ -883,10 +878,6 @@ class AdminController extends Controller
     // Total amount for Co-signed
     $cosignedAmount = (clone $baseQuery)
         ->whereNotNull('requisition_issue_slip_table.ris_issued_by_date')
-        ->sum('ris_items_sum.ris_calculated_total');
-
-    // Total amount for all
-    $totalAmount = (clone $baseQuery)
         ->sum('ris_items_sum.ris_calculated_total');
 
 
@@ -1001,13 +992,12 @@ class AdminController extends Controller
                 'signableRisRecords',
                 'filter',
                 'search',
-                'totalForSigning',
                 'forCosignCount',
                 'cosignedCount',
                 'forCosignAmount',
-                'cosignedAmount',
-                'totalAmount'
+                'cosignedAmount'
             )
+
         );
 
     }
@@ -1018,12 +1008,10 @@ class AdminController extends Controller
             'signableRisRecords',
             'filter',
             'search',
-            'totalForSigning',
             'forCosignCount',
             'cosignedCount',
             'forCosignAmount',
-            'cosignedAmount',
-            'totalAmount'
+            'cosignedAmount'
         )
     );
 }
@@ -1142,13 +1130,10 @@ class AdminController extends Controller
             ->whereNotNull('requisition_issue_slip_table.ris_issued_by_date')
             ->count();
 
-        // Amended = Rejected status
+// Amended = Rejected status
         $amendedCount = (clone $baseQuery)
             ->where('requisition_issue_slip_table.ris_status', 'Rejected')
             ->count();
-
-        // Total = sum of all finished states (should equal directApproved + signed + cosigned + amended)
-        $totalRis = $directApprovedCount + $signedCount + $cosignedCount + $amendedCount;
 
 
         // =====================================================
@@ -1241,7 +1226,6 @@ class AdminController extends Controller
                 compact(
                     'signatureHistory',
                     'search',
-                    'totalRis',
                     'directApprovedCount',
                     'signedCount',
                     'cosignedCount',
@@ -1256,7 +1240,6 @@ class AdminController extends Controller
             compact(
                 'signatureHistory',
                 'search',
-                'totalRis',
                 'directApprovedCount',
                 'signedCount',
                 'cosignedCount',
@@ -1631,8 +1614,6 @@ class AdminController extends Controller
         // DASHBOARD CARD COUNTS
         // =====================================================
 
-        $totalRis = (clone $baseQuery)->count();
-
         $pendingRis = (clone $baseQuery)
             ->where(
                 'requisition_issue_slip_table.ris_status',
@@ -1832,7 +1813,6 @@ class AdminController extends Controller
                     'risRecords',
                     'filter',
                     'search',
-                    'totalRis',
                     'pendingRis',
                     'amendRis',
                     'approvedRis',
@@ -1848,7 +1828,6 @@ class AdminController extends Controller
                 'risRecords',
                 'filter',
                 'search',
-                'totalRis',
                 'pendingRis',
                 'amendRis',
                 'approvedRis',
