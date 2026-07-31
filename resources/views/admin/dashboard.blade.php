@@ -51,43 +51,7 @@
         </div>
         @endif
 
-        {{-- TOTAL USERS --}}
-
-        <div class="stat-card stat-card-primary" title="Total registered users in the system">
-            <div class="stat-card-top">
-                <div class="stat-icon stat-icon-blue">
-                    <i data-lucide="users"></i>
-                </div>
-                <span class="stat-change stat-change-up">
-                    <i data-lucide="trending-up" class="h-3 w-3"></i>
-                    {{ $activeUsers }} active
-                </span>
-            </div>
-            <p class="stat-label">Total Users</p>
-            <p class="stat-value">{{ $totalUsers }}</p>
-            <div class="stat-meta">
-                <div class="stat-meta-item">
-                    <span class="stat-meta-dot stat-dot-purple"></span>
-                    {{ $maintenancePersonnel }} Maintenance
-                </div>
-                <div class="stat-meta-item">
-                    <span class="stat-meta-dot stat-dot-cyan"></span>
-                    {{ $purchasers }} Purchaser
-                </div>
-                <div class="stat-meta-item">
-                    <span class="stat-meta-dot stat-dot-amber"></span>
-                    {{ $presidents }} President
-                </div>
-                <div class="stat-meta-item">
-                    <span class="stat-meta-dot stat-dot-emerald"></span>
-                    {{ $accounting }} Accounting
-                </div>
-                <div class="stat-meta-item">
-                    <span class="stat-meta-dot stat-dot-rose"></span>
-                    {{ $receivingOfficers }} Receiving
-                </div>
-            </div>
-        </div>
+{{-- TOTAL RIS --}}
 
 
         {{-- TOTAL RIS --}}
@@ -237,6 +201,62 @@
             @endif
 
 
+{{-- Quick Access Dashboards --}}
+
+            <div class="dashboard-quick-access">
+                <div class="dashboard-quick-header">
+                    <div>
+                        <h3 class="dashboard-quick-title">Quick Access</h3>
+                        <p class="dashboard-quick-subtitle">Navigate to key system sections</p>
+                    </div>
+                </div>
+                <div class="dashboard-quick-grid">
+                    <a href="/admin/procurement-review/ris" class="quick-access-card">
+                        <div class="quick-access-icon quick-access-icon-blue">
+                            <i data-lucide="clipboard-check"></i>
+                        </div>
+                        <span class="quick-access-label">Procurement Review</span>
+                        <span class="quick-access-desc">Review and approve RIS submissions</span>
+                    </a>
+                    <a href="/admin/digital-signatures/sign-ris" class="quick-access-card">
+                        <div class="quick-access-icon quick-access-icon-violet">
+                            <i data-lucide="pen-tool"></i>
+                        </div>
+                        <span class="quick-access-label">Sign RIS</span>
+                        <span class="quick-access-desc">Co-sign President-approved RIS</span>
+                    </a>
+                    <a href="/admin/digital-signatures/history" class="quick-access-card">
+                        <div class="quick-access-icon quick-access-icon-indigo">
+                            <i data-lucide="history"></i>
+                        </div>
+                        <span class="quick-access-label">Signature History</span>
+                        <span class="quick-access-desc">View completed signature records</span>
+                    </a>
+                    <a href="/admin/users" class="quick-access-card">
+                        <div class="quick-access-icon quick-access-icon-emerald">
+                            <i data-lucide="users"></i>
+                        </div>
+                        <span class="quick-access-label">User Management</span>
+                        <span class="quick-access-desc">Manage system users and roles</span>
+                    </a>
+                    <a href="/admin/reports/procurement-history" class="quick-access-card">
+                        <div class="quick-access-icon quick-access-icon-amber">
+                            <i data-lucide="file-text"></i>
+                        </div>
+                        <span class="quick-access-label">System Reports</span>
+                        <span class="quick-access-desc">View procurement and audit logs</span>
+                    </a>
+                    <a href="/admin/settings/campus-setup-pin" class="quick-access-card">
+                        <div class="quick-access-icon quick-access-icon-rose">
+                            <i data-lucide="settings"></i>
+                        </div>
+                        <span class="quick-access-label">System Settings</span>
+                        <span class="quick-access-desc">Configure campus and system options</span>
+                    </a>
+                </div>
+            </div>
+
+
             {{-- RIS Monthly Trend Chart --}}
 
             <div class="dashboard-chart-card">
@@ -267,13 +287,14 @@
                 </div>
                 <div class="dashboard-table-body">
                     <table class="dashboard-table">
-                        <thead>
+<thead>
                             <tr>
                                 <th>Reference</th>
                                 <th>Equipment</th>
                                 <th>Status</th>
                                 <th class="text-right">Amount</th>
                                 <th class="text-right">Date</th>
+                                <th class="text-center">Preview</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -304,10 +325,16 @@
                                 <td class="text-right text-sm text-gray-500">
                                     {{ $ris->ris_requested_by_date ? \Carbon\Carbon::parse($ris->ris_requested_by_date)->format('M d, Y') : 'N/A' }}
                                 </td>
+                                <td class="text-center">
+<a href="/admin/procurement-review/ris/{{ $ris->ris_id }}/print" target="_blank" class="table-preview-btn" title="Preview RIS form">
+                                        <i data-lucide="eye" class="h-4 w-4"></i>
+                                        Preview
+                                    </a>
+                                </td>
                             </tr>
                             @empty
                             <tr>
-                                <td colspan="5" class="text-center py-12 text-gray-400">
+                                <td colspan="6" class="text-center py-12 text-gray-400">
                                     <div class="flex flex-col items-center">
                                         <i data-lucide="inbox" class="h-8 w-8 mb-2 text-gray-300"></i>
                                         <span class="text-sm">No RIS records found</span>
@@ -327,56 +354,7 @@
 
         <div class="dashboard-sidebar">
 
-            {{-- 1. Calendar of Events --}}
-
-            <div class="sidebar-calendar-card">
-                <div class="sidebar-calendar-header">
-                    <h3 class="sidebar-calendar-title">
-                        <i data-lucide="calendar-days" class="sidebar-calendar-title-icon"></i>
-                        Calendar of Events
-                    </h3>
-                    <span class="sidebar-calendar-month">{{ now()->format('F Y') }}</span>
-                </div>
-                <div class="sidebar-calendar-grid" id="miniCalendar">
-                    {{-- Weekday headers --}}
-                    <div class="cal-weekday">Sun</div>
-                    <div class="cal-weekday">Mon</div>
-                    <div class="cal-weekday">Tue</div>
-                    <div class="cal-weekday">Wed</div>
-                    <div class="cal-weekday">Thu</div>
-                    <div class="cal-weekday">Fri</div>
-                    <div class="cal-weekday">Sat</div>
-                </div>
-                {{-- Upcoming Events List --}}
-                <div class="sidebar-calendar-events">
-                    <div class="sidebar-calendar-events-title">Upcoming Schedules</div>
-                    @forelse($calendarEvents->take(5) as $event)
-                    <div class="sidebar-calendar-event-item">
-                        <div class="sidebar-calendar-event-dot {{ $event->maintenance_schedule_status === 'Overdue' ? 'event-dot-danger' : 'event-dot-active' }}"></div>
-                        <div class="sidebar-calendar-event-info">
-                            <span class="sidebar-calendar-event-name">{{ $event->maintenance_schedule_title }}</span>
-                            <span class="sidebar-calendar-event-date">
-                                {{ $event->maintenance_schedule_next_date ? \Carbon\Carbon::parse($event->maintenance_schedule_next_date)->format('M d, Y') : 'No date' }}
-                                @if($event->maintenance_schedule_frequency)
-                                <span class="sidebar-calendar-event-freq">· {{ $event->maintenance_schedule_frequency }}</span>
-                                @endif
-                            </span>
-                        </div>
-                        @if($event->maintenance_schedule_status === 'Overdue')
-                        <span class="sidebar-calendar-event-badge badge-overdue">Overdue</span>
-                        @endif
-                    </div>
-                    @empty
-                    <div class="sidebar-calendar-empty">
-                        <i data-lucide="calendar-x" class="h-4 w-4"></i>
-                        <span>No upcoming events</span>
-                    </div>
-                    @endforelse
-                </div>
-            </div>
-
-
-            {{-- 2. RIS Status Distribution --}}
+{{-- 1. RIS Status Distribution --}}
 
             <div class="sidebar-chart-card">
                 <div class="sidebar-chart-header">
@@ -490,14 +468,8 @@
                             <span class="sidebar-stat-label sidebar-stat-label-highlight">Pending RIS</span>
                         </div>
                         <span class="sidebar-stat-value sidebar-stat-value-highlight">{{ $pendingRis }}</span>
-                    </div>
-                    <div class="sidebar-stat-item">
-                        <div class="sidebar-stat-left">
-                            <div class="sidebar-stat-dot sidebar-dot-blue"></div>
-                            <span class="sidebar-stat-label">Total Users</span>
-                        </div>
-                        <span class="sidebar-stat-value">{{ $totalUsers }}</span>
-                    </div>
+</div>
+
                     <div class="sidebar-stat-item">
                         <div class="sidebar-stat-left">
                             <div class="sidebar-stat-dot sidebar-dot-emerald"></div>
@@ -782,205 +754,151 @@
 
 
 /* ======================================
-   CALENDAR OF EVENTS
+   QUICK ACCESS DASHBOARDS
 ====================================== */
 
-.sidebar-calendar-card {
+.dashboard-quick-access {
     background: #ffffff;
     border: 1px solid #e2e8f0;
     border-radius: 10px;
     overflow: hidden;
+    margin-bottom: 8px;
 }
 
-.sidebar-calendar-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 12px 4px;
+.dashboard-quick-header {
+    padding: 10px 14px;
+    border-bottom: 1px solid #f1f5f9;
 }
 
-.sidebar-calendar-title {
-    font-size: 12px;
+.dashboard-quick-title {
+    font-size: 13px;
     font-weight: 700;
     color: #0f172a;
-    display: flex;
-    align-items: center;
-    gap: 4px;
 }
 
-.sidebar-calendar-title-icon {
+.dashboard-quick-subtitle {
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 1px;
+}
+
+.dashboard-quick-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    padding: 10px 14px;
+}
+
+.quick-access-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 4px;
+    padding: 12px 8px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.quick-access-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    border-color: #cbd5e1;
+    background: #ffffff;
+}
+
+.quick-access-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-bottom: 4px;
+}
+
+.quick-access-icon i,
+.quick-access-icon svg {
+    width: 16px;
+    height: 16px;
+}
+
+.quick-access-icon-blue {
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.quick-access-icon-violet {
+    background: #f5f3ff;
+    color: #7c3aed;
+}
+
+.quick-access-icon-indigo {
+    background: #eef2ff;
+    color: #4f46e5;
+}
+
+.quick-access-icon-emerald {
+    background: #ecfdf5;
+    color: #059669;
+}
+
+.quick-access-icon-amber {
+    background: #fffbeb;
+    color: #d97706;
+}
+
+.quick-access-icon-rose {
+    background: #fff1f2;
+    color: #e11d48;
+}
+
+.quick-access-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.quick-access-desc {
+    font-size: 9px;
+    color: #94a3b8;
+    line-height: 1.3;
+}
+
+
+/* ======================================
+   TABLE PREVIEW BUTTON
+====================================== */
+
+.table-preview-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #475569;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.table-preview-btn:hover {
+    background: #eef2ff;
+    border-color: #6366f1;
+    color: #4f46e5;
+}
+
+.table-preview-btn i,
+.table-preview-btn svg {
     width: 14px;
     height: 14px;
-    color: #6366f1;
-}
-
-.sidebar-calendar-month {
-    font-size: 9px;
-    font-weight: 600;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-}
-
-.sidebar-calendar-grid {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    padding: 4px 8px 2px;
-    gap: 2px;
-}
-
-.cal-weekday {
-    font-size: 8px;
-    font-weight: 700;
-    text-align: center;
-    color: #94a3b8;
-    text-transform: uppercase;
-    padding: 2px 0;
-    letter-spacing: 0.3px;
-}
-
-.cal-day {
-    aspect-ratio: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 9px;
-    font-weight: 500;
-    color: #475569;
-    border-radius: 4px;
-    cursor: default;
-    transition: all 0.15s ease;
-    position: relative;
-}
-
-.cal-day:hover {
-    background: #f1f5f9;
-}
-
-.cal-day.other-month {
-    color: #cbd5e1;
-}
-
-.cal-day.today {
-    background: #6366f1;
-    color: #fff;
-    font-weight: 700;
-}
-
-.cal-day.today:hover {
-    background: #4f46e5;
-}
-
-.cal-day.has-event::after {
-    content: '';
-    position: absolute;
-    bottom: 2px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 4px;
-    height: 4px;
-    border-radius: 50%;
-    background: #f59e0b;
-}
-
-.cal-day.today.has-event::after {
-    background: #fff;
-}
-
-/* Events list */
-
-.sidebar-calendar-events {
-    padding: 2px 12px 10px;
-}
-
-.sidebar-calendar-events-title {
-    font-size: 9px;
-    font-weight: 700;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    margin-bottom: 4px;
-    border-top: 1px solid #f1f5f9;
-    padding-top: 8px;
-}
-
-.sidebar-calendar-event-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 6px;
-    padding: 4px 0;
-    border-bottom: 1px solid #f8fafc;
-}
-
-.sidebar-calendar-event-item:last-child {
-    border-bottom: none;
-}
-
-.sidebar-calendar-event-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    margin-top: 4px;
-}
-
-.event-dot-active {
-    background: #10b981;
-}
-
-.event-dot-danger {
-    background: #ef4444;
-}
-
-.sidebar-calendar-event-info {
-    flex: 1;
-    min-width: 0;
-}
-
-.sidebar-calendar-event-name {
-    display: block;
-    font-size: 11px;
-    font-weight: 600;
-    color: #0f172a;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.sidebar-calendar-event-date {
-    display: block;
-    font-size: 9px;
-    color: #94a3b8;
-    margin-top: 0;
-}
-
-.sidebar-calendar-event-freq {
-    color: #94a3b8;
-}
-
-.sidebar-calendar-event-badge {
-    font-size: 8px;
-    font-weight: 700;
-    padding: 1px 4px;
-    border-radius: 3px;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    flex-shrink: 0;
-}
-
-.badge-overdue {
-    background: #fef2f2;
-    color: #dc2626;
-}
-
-.sidebar-calendar-empty {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
-    padding: 10px 0;
-    color: #94a3b8;
-    font-size: 11px;
 }
 
 
@@ -1742,70 +1660,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
     // =====================================================
-    // MINI CALENDAR RENDER
+    // MINI CALENDAR RENDER - REMOVED
     // =====================================================
-
-    const calendarGrid = document.getElementById('miniCalendar');
-    if (calendarGrid) {
-        const today = new Date();
-        const year = today.getFullYear();
-        const month = today.getMonth();
-
-        const firstDay = new Date(year, month, 1);
-        const lastDay = new Date(year, month + 1, 0);
-        const startOffset = firstDay.getDay(); // 0=Sun
-
-        // Parse backend events into a Set of date strings
-        const eventDates = new Set();
-        try {
-            const events = {!! json_encode($calendarEventsByDate) !!};
-            if (events) {
-                Object.keys(events).forEach(function(dateStr) {
-                    eventDates.add(dateStr);
-                });
-            }
-        } catch(e) {}
-
-        // Previous month trailing days
-        const prevLastDay = new Date(year, month, 0);
-        for (let i = startOffset - 1; i >= 0; i--) {
-            const day = prevLastDay.getDate() - i;
-            const cell = document.createElement('div');
-            cell.className = 'cal-day other-month';
-            cell.textContent = day;
-            calendarGrid.appendChild(cell);
-        }
-
-        // Current month days
-        for (let d = 1; d <= lastDay.getDate(); d++) {
-            const cell = document.createElement('div');
-            cell.className = 'cal-day';
-
-            const dateStr = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
-            if (eventDates.has(dateStr)) {
-                cell.classList.add('has-event');
-            }
-
-            if (d === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
-                cell.classList.add('today');
-            }
-
-            cell.textContent = d;
-            calendarGrid.appendChild(cell);
-        }
-
-        // Next month leading days (fill remaining)
-        const totalCells = startOffset + lastDay.getDate();
-        const remaining = 7 - (totalCells % 7);
-        if (remaining < 7) {
-            for (let i = 1; i <= remaining; i++) {
-                const cell = document.createElement('div');
-                cell.className = 'cal-day other-month';
-                cell.textContent = i;
-                calendarGrid.appendChild(cell);
-            }
-        }
-    }
 
 
     // =====================================================

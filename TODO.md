@@ -1,17 +1,9 @@
-# Admin Users Page - Modernization
+# TODO - Admin Dashboard & RIS Export Updates - COMPLETED
 
-## Steps
+## All Steps Completed
 
-- [x] Step 1: Plan approval
-- [x] Step 2: Rewrite `resources/views/admin/users/index.blade.php` with:
-  - [x] Modern page header (title + subtitle)
-  - [x] Stat cards row (Total Users, Active, Inactive, Deactivated)
-  - [x] Action bar (Create Account button + search)
-  - [x] Styled users table with proper columns
-  - [x] Action buttons (View, Edit, Deactivate/Reactivate, Delete)
-  - [x] Status badges (Active=green, Inactive=gray, Deactivated=red)
-  - [x] Role badges with colors
-  - [x] SweetAlert2 "Are you sure" confirmations (UI only)
-  - [x] Keep existing Create User modal with modern styling
-
-All steps completed!
+- [x] Step 1: Remove "Total Users" stat card from dashboard
+- [x] Step 2: Add Quick Access Dashboards Box above "RIS Submission Trend"
+- [x] Step 3: Remove "Calendar of Events" from sidebar
+- [x] Step 4: Add "Preview" button to Recent RIS Records table
+- [x] Step 5: Remove PDF export toolbar from RIS print view
