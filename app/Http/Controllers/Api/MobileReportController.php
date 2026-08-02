@@ -18,6 +18,7 @@ class MobileReportController extends Controller
     public function rooms()
     {
         $rooms = DB::table('rooms_table')
+
             ->when(
                 Schema::hasColumn('rooms_table', 'room_is_archived'),
                 fn ($query) => $query->where('rooms_table.room_is_archived', false)
@@ -30,24 +31,21 @@ class MobileReportController extends Controller
                 'floors_table.floor_id'
             )
 
-            ->leftJoin(
-                'buildings_table',
-                'floors_table.floor_building_id',
-                '=',
-                'buildings_table.building_id'
-            )
-
             ->select(
 
                 'rooms_table.room_id',
 
-                'rooms_table.room_name',
-
-                'floors_table.floor_level',
-
-                'buildings_table.building_name'
+                DB::raw("
+                    CONCAT(
+                        floors_table.floor_level,
+                        ' - ',
+                        rooms_table.room_name
+                    ) AS location
+                ")
 
             )
+
+            ->orderBy('floors_table.floor_level')
 
             ->orderBy('rooms_table.room_name')
 

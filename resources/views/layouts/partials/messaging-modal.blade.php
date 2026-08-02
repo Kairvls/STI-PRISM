@@ -2396,13 +2396,64 @@
 <div id="privateActiveCallModal" class="fixed inset-0 z-[10040] hidden items-center justify-center bg-gray-950/95 p-4">
     <div class="relative flex h-[min(720px,92vh)] w-full max-w-4xl flex-col overflow-hidden rounded-3xl bg-gray-900 shadow-2xl">
         <div class="absolute left-5 top-5 z-20"><h3 id="privateActiveCallName" class="text-base font-semibold text-white">Call</h3><p id="privateActiveCallStatus" class="mt-0.5 text-sm text-white/60">Calling...</p></div>
-        <video id="privateRemoteVideo" autoplay playsinline class="h-full w-full bg-black object-cover"></video>
+        <div class="relative h-full w-full">
+
+            <!-- Remote Video -->
+            <video
+                id="privateRemoteVideo"
+                autoplay
+                playsinline
+                class="h-full w-full bg-black object-cover transition-opacity duration-300"
+            ></video>
+
+            <!-- Camera Off Placeholder -->
+            <div
+                id="privateRemotePlaceholder"
+                class="absolute inset-0 hidden flex-col items-center justify-center bg-gray-900 transition-opacity duration-300"
+            >
+
+                <div
+                    id="privateRemotePlaceholderAvatar"
+                    class="flex h-32 w-32 items-center justify-center overflow-hidden rounded-full bg-gray-700 text-4xl font-semibold text-white shadow-lg"
+                ></div>
+
+                <h3
+                    id="privateRemotePlaceholderName"
+                    class="mt-5 text-xl font-semibold text-white"
+                >
+                    User
+                </h3>
+
+                <p class="mt-2 text-sm text-gray-400">
+                    Camera is off
+                </p>
+
+            </div>
+
+        </div>
         <div id="privateAudioCallVisual" class="absolute inset-0 flex items-center justify-center bg-gray-900"><div class="text-center"><div id="privateActiveCallAvatar" class="mx-auto flex h-28 w-28 items-center justify-center overflow-hidden rounded-full bg-gray-700 text-3xl font-semibold text-white"></div><p id="privateAudioCallName" class="mt-4 text-lg font-semibold text-white"></p></div></div>
         <video id="privateLocalVideo" autoplay muted playsinline class="absolute bottom-24 right-5 z-20 hidden h-48 w-36 rounded-2xl bg-black object-cover shadow-xl"></video>
-        <div class="absolute bottom-5 left-1/2 z-30 flex -translate-x-1/2 items-center gap-3 rounded-full bg-black/40 px-4 py-3 backdrop-blur">
+
+        {{-- Active call controls --}}
+        <div id="privateCallActiveControls" class="absolute bottom-5 left-1/2 z-30 flex -translate-x-1/2 items-center gap-3 rounded-full bg-black/40 px-4 py-3 backdrop-blur">
             <button type="button" id="privateCallMuteButton" class="flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25" title="Mute"><i data-lucide="mic" class="h-5 w-5"></i></button>
             <button type="button" id="privateCallCameraButton" class="hidden h-12 w-12 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25" title="Camera"><i data-lucide="video" class="h-5 w-5"></i></button>
             <button type="button" id="privateCallEndButton" class="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700" title="End call"><i data-lucide="phone-off" class="h-5 w-5"></i></button>
+        </div>
+
+        {{-- Call ended controls (Messenger-style) --}}
+        <div id="privateCallEndedControls" class="absolute bottom-8 left-1/2 z-30 hidden -translate-x-1/2 flex-col items-center">
+            <p id="privateCallEndedStatus" class="mb-6 text-sm text-white/70">Call ended</p>
+            <div class="flex items-center gap-10">
+                <button type="button" id="privateCallRedialButton" class="flex flex-col items-center gap-2 text-xs font-medium text-white">
+                    <span class="flex h-14 w-14 items-center justify-center rounded-full bg-green-500 text-white shadow-lg hover:bg-green-600"><i data-lucide="phone" class="h-6 w-6"></i></span>
+                    <span>Call Again</span>
+                </button>
+                <button type="button" id="privateCallCloseButton" class="flex flex-col items-center gap-2 text-xs font-medium text-white/80">
+                    <span class="flex h-14 w-14 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25"><i data-lucide="x" class="h-6 w-6"></i></span>
+                    <span>Close</span>
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -2474,6 +2525,14 @@
         // =====================================================
         let conversationSidebarSearchTimeout = null;
         let conversationSidebarSearchRequest = 0;
+        let privateCallAnswered = false;
+        let privateCallTimeout = null;
+        let privateCallEndStateTimeout = null;
+        let privateCallEndedRedialType = 'audio';
+        let privateCallEndedRedialTargetId = null;
+        let privateCallEndedRedialTargetName = '';
+        let privateCallEndedRedialTargetPicture = '';
+        let privateCallEndedRedialConversationId = null;
 
         // =====================================================
         // USER ONLINE STATUS HEARTBEAT
@@ -2505,6 +2564,8 @@
                 );
             }
         }
+
+
 
 
         // =====================================================
@@ -2675,6 +2736,93 @@
             // =========================================
 
             return `Active ${diffDays} days ago`;
+        }
+
+        let privateCallTimer = null;
+        let privateCallSeconds = 0;
+
+        function startPrivateCallTimer() {
+
+            stopPrivateCallTimer();
+
+            privateCallSeconds = 0;
+
+            updatePrivateCallTimer();
+
+            privateCallTimer = setInterval(() => {
+
+                privateCallSeconds++;
+
+                updatePrivateCallTimer();
+
+            }, 1000);
+
+        }
+
+        function stopPrivateCallTimer() {
+
+            if (privateCallTimer) {
+
+                clearInterval(privateCallTimer);
+
+                privateCallTimer = null;
+
+            }
+
+        }
+
+        function updatePrivateCallTimer() {
+
+            const minutes = String(
+                Math.floor(privateCallSeconds / 60)
+            ).padStart(2, '0');
+
+            const seconds = String(
+                privateCallSeconds % 60
+            ).padStart(2, '0');
+
+            document.getElementById(
+                'privateActiveCallStatus'
+            ).textContent = `${minutes}:${seconds}`;
+
+        }
+
+        function showRemoteCameraPlaceholder() {
+
+            const placeholder =
+                document.getElementById('privateRemotePlaceholder');
+
+            const video =
+                document.getElementById('privateRemoteVideo');
+
+            if (video) {
+                video.classList.add('hidden');
+            }
+
+            if (placeholder) {
+                placeholder.classList.remove('hidden');
+                placeholder.classList.add('flex');
+            }
+
+        }
+
+        function hideRemoteCameraPlaceholder() {
+
+            const placeholder =
+                document.getElementById('privateRemotePlaceholder');
+
+            const video =
+                document.getElementById('privateRemoteVideo');
+
+            if (placeholder) {
+                placeholder.classList.remove('flex');
+                placeholder.classList.add('hidden');
+            }
+
+            if (video) {
+                video.classList.remove('hidden');
+            }
+
         }
 
         // =====================================================
@@ -5260,6 +5408,32 @@
             }
         }
 
+        document
+            .getElementById('privateCallCloseButton')
+            .addEventListener('click', () => {
+
+                cleanupPrivateCall();
+
+            });
+
+        document
+            .getElementById('privateCallRedialButton')
+            .addEventListener('click', () => {
+
+                cleanupPrivateCall();
+
+                if (privateCallType === 'video') {
+
+                    startPrivateVideoCall();
+
+                } else {
+
+                    startPrivateAudioCall();
+
+                }
+
+            });
+
 
         function renderConversationAssets() {
 
@@ -7075,6 +7249,19 @@ if (!isGroup) {
         }
 
         async function sendPrivateCallSignal(targetUserId, signalType, payload = {}, overrides = {}) {
+            if (!targetUserId) {
+                console.error(
+                    'sendPrivateCallSignal(): targetUserId is missing.',
+                    {
+                        targetUserId,
+                        signalType,
+                        payload,
+                        overrides
+                    }
+                );
+
+                return;
+            }
             const response = await fetch('/messages/calls/signal', {
                 method: 'POST',
                 headers: {
@@ -7110,10 +7297,15 @@ if (!isGroup) {
             camera?.classList.toggle('hidden', !isVideo);
             camera?.classList.toggle('flex', isVideo);
 
-            const modal = document.getElementById('privateActiveCallModal');
-            modal?.classList.remove('hidden');
-            modal?.classList.add('flex');
-            lucideCreateIcons();
+            
+
+                const modal =
+                    document.getElementById('privateActiveCallModal');
+
+                modal?.classList.remove('hidden');
+                modal?.classList.add('flex');
+
+            
         }
 
         function showIncomingPrivateCall(event) {
@@ -7240,17 +7432,30 @@ if (!isGroup) {
         }
 
         function buildPrivateCallPeer(targetUserId) {
-            privateCallPeer?.close();
+
+            // =====================================================
+            // CLOSE ANY PREVIOUS PEER
+            // =====================================================
+
+            try {
+                privateCallPeer?.close();
+            } catch (e) {}
+
             privateCallPeer = new RTCPeerConnection(privateCallRtcConfig);
+
+            // =====================================================
+            // ADD LOCAL TRACKS
+            // =====================================================
 
             privateCallLocalStream?.getTracks().forEach(track => {
                 privateCallPeer.addTrack(track, privateCallLocalStream);
             });
 
-            // Keep a video sender/transceiver available during a video call
-            // even when this user's camera failed at the beginning.
-            // This lets the camera button attach a webcam later without
-            // ending and restarting the call.
+            // =====================================================
+            // KEEP VIDEO TRANSCEIVER READY
+            // Allows enabling the camera later without restarting
+            // =====================================================
+
             if (
                 privateCallType === 'video' &&
                 !(privateCallLocalStream?.getVideoTracks()?.length)
@@ -7260,22 +7465,199 @@ if (!isGroup) {
                 });
             }
 
+            // =====================================================
+            // REMOTE MEDIA
+            // =====================================================
+
             privateCallPeer.ontrack = event => {
-                const remote = document.getElementById('privateRemoteVideo');
-                if (remote && event.streams?.[0]) remote.srcObject = event.streams[0];
-                document.getElementById('privateActiveCallStatus').textContent = 'Connected';
+
+                const remoteVideo = document.getElementById('privateRemoteVideo');
+
+                if (
+                    remoteVideo &&
+                    event.streams &&
+                    event.streams[0]
+                ) {
+                    remoteVideo.srcObject = event.streams[0];
+                    hideRemoteCameraPlaceholder();
+
+                    remoteVideo.play?.().catch(() => {});
+                }
+
+                startPrivateCallTimer();
+
+                // ===============================================
+                // REMOTE CAMERA / MICROPHONE STOPPED
+                // ===============================================
+
+                event.track.addEventListener('ended', () => {
+
+                    console.log(
+                        '[Private Call] Remote track ended:',
+                        event.track.kind
+                    );
+
+                    if (event.track.kind === 'video') {
+
+                        document.getElementById(
+                            'privateActiveCallStatus'
+                        ).textContent = 'Remote camera turned off';
+
+                    }
+
+                });
+
             };
+
+            
+
+            // =====================================================
+            // ICE CANDIDATES
+            // =====================================================
 
             privateCallPeer.onicecandidate = event => {
-                if (!event.candidate) return;
-                sendPrivateCallSignal(targetUserId, 'ice_candidate', { candidate: event.candidate.toJSON() }).catch(console.error);
+
+                if (!event.candidate) {
+                    return;
+                }
+
+                sendPrivateCallSignal(
+                    targetUserId,
+                    'ice_candidate',
+                    {
+                        candidate: event.candidate.toJSON()
+                    }
+                ).catch(console.error);
+
             };
 
-            privateCallPeer.onconnectionstatechange = () => {
-                const state = privateCallPeer?.connectionState;
-                if (state === 'connected') document.getElementById('privateActiveCallStatus').textContent = 'Connected';
-                if (state === 'failed' || state === 'closed') cleanupPrivateCall();
+            // =====================================================
+            // ICE CONNECTION STATE
+            // Handles network interruptions
+            // =====================================================
+
+            privateCallPeer.oniceconnectionstatechange = () => {
+
+                const state =
+                    privateCallPeer?.iceConnectionState;
+
+                console.log(
+                    '[Private Call] ICE:',
+                    state
+                );
+
+                switch (state) {
+
+                    case 'checking':
+
+                        document.getElementById(
+                            'privateActiveCallStatus'
+                        ).textContent = 'Connecting...';
+
+                        break;
+
+                    case 'connected':
+
+                    case 'completed':
+
+                        document.getElementById(
+                            'privateActiveCallStatus'
+                        ).textContent = 'Connected';
+
+                        break;
+
+                    case 'disconnected':
+
+                        document.getElementById(
+                            'privateActiveCallStatus'
+                        ).textContent = 'Connection lost';
+
+                        break;
+
+                    case 'failed':
+
+                        document.getElementById(
+                            'privateActiveCallStatus'
+                        ).textContent = 'Connection failed';
+
+                        cleanupPrivateCall();
+
+                        break;
+
+                    case 'closed':
+
+                        cleanupPrivateCall();
+
+                        break;
+
+                }
+
             };
+
+            // =====================================================
+            // OVERALL CONNECTION STATE
+            // =====================================================
+
+            privateCallPeer.onconnectionstatechange = () => {
+
+                const state =
+                    privateCallPeer?.connectionState;
+
+                console.log(
+                    '[Private Call] Connection:',
+                    state
+                );
+
+                switch (state) {
+
+                    case 'new':
+
+                        break;
+
+                    case 'connecting':
+
+                        document.getElementById(
+                            'privateActiveCallStatus'
+                        ).textContent = 'Connecting...';
+
+                        break;
+
+                    case 'connected':
+
+                        document.getElementById(
+                            'privateActiveCallStatus'
+                        ).textContent = 'Connected';
+
+                        break;
+
+                    case 'disconnected':
+
+                        document.getElementById(
+                            'privateActiveCallStatus'
+                        ).textContent = 'Connection lost';
+
+                        break;
+
+                    case 'failed':
+
+                        document.getElementById(
+                            'privateActiveCallStatus'
+                        ).textContent = 'Connection failed';
+
+                        cleanupPrivateCall();
+
+                        break;
+
+                    case 'closed':
+
+                        cleanupPrivateCall();
+
+                        break;
+
+                }
+
+            };
+
         }
 
         async function addQueuedPrivateIce() {
@@ -7288,61 +7670,267 @@ if (!isGroup) {
             }
         }
 
-        async function startPrivateCall(targetUserId, targetName, type = 'audio', targetPicture = '', conversationId = null) {
-            if (!targetUserId) return;
-            if (privateCallId) { alert('A call is already active.'); return; }
+        async function startPrivateCall(
+            targetUserId,
+            targetName,
+            type = 'audio',
+            targetPicture = '',
+            conversationId = null
+        ) {
+
+            // =====================================================
+            // VALIDATION
+            // =====================================================
+
+            if (!targetUserId) {
+                return;
+            }
+
+            if (privateCallId) {
+                alert('A call is already active.');
+                return;
+            }
+
+            // =====================================================
+            // INITIALIZE CALL VARIABLES
+            // =====================================================
 
             privateCallId = privateCallUuid();
+
             privateCallTargetUserId = Number(targetUserId);
             privateCallTargetName = targetName || 'User';
             privateCallTargetPicture = targetPicture || '';
-            privateCallType = type === 'video' ? 'video' : 'audio';
-            privateCallConversationId = conversationId ?? currentConversationId ?? null;
+
+            document.getElementById(
+                'privateRemotePlaceholderName'
+            ).textContent =
+                privateCallTargetName || 'User';
+
+            privateCallAvatar(
+                document.getElementById('privateRemotePlaceholderAvatar'),
+                privateCallTargetName,
+                privateCallTargetPicture
+            );
+
+            privateCallType =
+                type === 'video'
+                    ? 'video'
+                    : 'audio';
+
+            privateCallConversationId =
+                conversationId ??
+                currentConversationId ??
+                null;
+
             privateCallPendingIce = [];
 
             try {
-                privateCallLocalStream = await privateCallMedia(privateCallType);
-                const local = document.getElementById('privateLocalVideo');
-                if (local) local.srcObject = privateCallLocalStream;
+
+                // =================================================
+                // GET CAMERA / MICROPHONE
+                // =================================================
+
+                privateCallLocalStream =
+                    await privateCallMedia(privateCallType);
+
+                const localVideo =
+                    document.getElementById(
+                        'privateLocalVideo'
+                    );
+
+                if (localVideo) {
+                    localVideo.srcObject =
+                        privateCallLocalStream;
+                }
 
                 updatePrivateCallCameraButton();
-                buildPrivateCallPeer(privateCallTargetUserId);
-                const offer = await privateCallPeer.createOffer();
-                await privateCallPeer.setLocalDescription(offer);
-                showPrivateCallWindow('Calling...');
-                await sendPrivateCallSignal(privateCallTargetUserId, 'offer', { description: encodePrivateCallDescription(privateCallPeer.localDescription) });
-            } catch (error) {
-                console.error(error);
-                alert(error.message || 'Unable to start the call.');
-                cleanupPrivateCall();
+
+                // =================================================
+                // CREATE PEER CONNECTION
+                // =================================================
+
+                buildPrivateCallPeer(
+                    privateCallTargetUserId
+                );
+
+                // =================================================
+                // CREATE SDP OFFER
+                // =================================================
+
+                const offer =
+                    await privateCallPeer.createOffer();
+
+                await privateCallPeer.setLocalDescription(
+                    offer
+                );
+
+                // =================================================
+                // SHOW CALL WINDOW
+                // =================================================
+
+                showPrivateCallWindow(
+                    'Calling...'
+                );
+
+                // =================================================
+                // SEND OFFER
+                // =================================================
+
+                await sendPrivateCallSignal(
+                    privateCallTargetUserId,
+                    'offer',
+                    {
+                        description:
+                            encodePrivateCallDescription(
+                                privateCallPeer.localDescription
+                            )
+                    }
+                );
+
+                console.log(
+                    '[Private Call] Offer sent.'
+                );
+
             }
+            catch (error) {
+
+                console.error(
+                    '[Private Call]',
+                    error
+                );
+
+                alert(
+                    error?.message ??
+                    'Unable to start the call.'
+                );
+
+                cleanupPrivateCall();
+
+            }
+
         }
 
         async function acceptPrivateCall() {
-            if (!privateIncomingOffer || !privateCallTargetUserId) return;
+
+            if (
+                !privateIncomingOffer ||
+                !privateCallTargetUserId
+            ) {
+                return;
+            }
+
             hideIncomingPrivateCall();
+
             try {
-                privateCallLocalStream = await privateCallMedia(privateCallType);
-                const local = document.getElementById('privateLocalVideo');
-                if (local) local.srcObject = privateCallLocalStream;
+
+                // ===============================================
+                // GET LOCAL MEDIA
+                // ===============================================
+
+                privateCallLocalStream =
+                    await privateCallMedia(
+                        privateCallType
+                    );
+
+                const localVideo =
+                    document.getElementById(
+                        'privateLocalVideo'
+                    );
+
+                if (localVideo) {
+                    localVideo.srcObject =
+                        privateCallLocalStream;
+                }
 
                 updatePrivateCallCameraButton();
-                buildPrivateCallPeer(privateCallTargetUserId);
-                const decodedOffer = decodePrivateCallDescription(privateIncomingOffer);
-                if (!decodedOffer) throw new Error('The incoming call offer is invalid.');
-                await privateCallPeer.setRemoteDescription(decodedOffer);
+
+                // ===============================================
+                // BUILD PEER
+                // ===============================================
+
+                buildPrivateCallPeer(
+                    privateCallTargetUserId
+                );
+
+                // ===============================================
+                // APPLY REMOTE OFFER
+                // ===============================================
+
+                const decodedOffer =
+                    decodePrivateCallDescription(
+                        privateIncomingOffer
+                    );
+
+                if (!decodedOffer) {
+                    throw new Error(
+                        'The incoming call offer is invalid.'
+                    );
+                }
+
+                await privateCallPeer.setRemoteDescription(
+                    decodedOffer
+                );
+
                 await addQueuedPrivateIce();
-                const answer = await privateCallPeer.createAnswer();
-                await privateCallPeer.setLocalDescription(answer);
-                showPrivateCallWindow('Connecting...');
-                await sendPrivateCallSignal(privateCallTargetUserId, 'answer', { description: encodePrivateCallDescription(privateCallPeer.localDescription) });
+
+                // ===============================================
+                // CREATE ANSWER
+                // ===============================================
+
+                const answer =
+                    await privateCallPeer.createAnswer();
+
+                await privateCallPeer.setLocalDescription(
+                    answer
+                );
+
+                showPrivateCallWindow(
+                    'Connecting...'
+                );
+
+                await sendPrivateCallSignal(
+                    privateCallTargetUserId,
+                    'answer',
+                    {
+                        description:
+                            encodePrivateCallDescription(
+                                privateCallPeer.localDescription
+                            )
+                    }
+                );
+
+                console.log(
+                    '[Private Call] Answer sent.'
+                );
+
                 privateIncomingOffer = null;
-            } catch (error) {
-                console.error(error);
-                alert(error.message || 'Unable to accept the call.');
-                await sendPrivateCallSignal(privateCallTargetUserId, 'decline').catch(() => {});
-                cleanupPrivateCall();
+
             }
+            catch (error) {
+
+                console.error(
+                    '[Private Call]',
+                    error
+                );
+
+                alert(
+                    error?.message ??
+                    'Unable to accept the call.'
+                );
+
+                try {
+
+                    await sendPrivateCallSignal(
+                        privateCallTargetUserId,
+                        'decline'
+                    );
+
+                } catch (e) {}
+
+                cleanupPrivateCall();
+
+            }
+
         }
 
         async function declinePrivateCall() {
@@ -7355,92 +7943,524 @@ if (!isGroup) {
             cleanupPrivateCall();
         }
 
-        function cleanupPrivateCall() {
-            hideIncomingPrivateCall();
-            if (privateCallPeer) {
-                privateCallPeer.ontrack = null;
-                privateCallPeer.onicecandidate = null;
-                privateCallPeer.onconnectionstatechange = null;
-                privateCallPeer.close();
+        function showPrivateNoAnswerScreen() {
+
+            document.getElementById('privateActiveCallStatus').textContent = 'No Answer';
+
+            document.getElementById('privateCallRedialButton').classList.remove('hidden');
+
+            document.getElementById('privateCallCloseButton').classList.remove('hidden');
+
+            document.getElementById('privateCallMicButton').classList.add('hidden');
+
+            document.getElementById('privateCallCameraButton').classList.add('hidden');
+
+            document.getElementById('privateCallEndButton').classList.add('hidden');
+
+        }
+
+        function cleanupPrivateCall(closeModal = true) {
+            stopPrivateCallTimer();
+
+            if (privateCallTimeout) {
+
+                clearTimeout(privateCallTimeout);
+
+                privateCallTimeout = null;
+
             }
-            privateCallLocalStream?.getTracks().forEach(track => track.stop());
-            privateCallPeer = null;
-            privateCallLocalStream = null;
-            const local = document.getElementById('privateLocalVideo');
-            const remote = document.getElementById('privateRemoteVideo');
-            if (local) local.srcObject = null;
-            if (remote) remote.srcObject = null;
-            const modal = document.getElementById('privateActiveCallModal');
-            modal?.classList.add('hidden');
-            modal?.classList.remove('flex');
-            privateCallId = null;
-            privateCallTargetUserId = null;
-            privateCallTargetName = '';
-            privateCallTargetPicture = '';
-            privateCallType = 'audio';
-            privateCallConversationId = null;
-            privateIncomingOffer = null;
-            privateCallPendingIce = [];
-            privateCallMuted = false;
-            privateCallCameraEnabled = true;
+
+            privateCallAnswered = false;
+
+            // =====================================================
+            // PREVENT DOUBLE CLEANUP
+            // =====================================================
+
+            if (window.privateCallCleaningUp) {
+                return;
+            }
+
+            window.privateCallCleaningUp = true;
+
+            try {
+
+                // =================================================
+                // HIDE INCOMING CALL UI
+                // =================================================
+
+                hideIncomingPrivateCall();
+
+                // =================================================
+                // REMOVE PEER EVENTS
+                // =================================================
+
+                if (privateCallPeer) {
+
+                    privateCallPeer.ontrack = null;
+                    privateCallPeer.onicecandidate = null;
+                    privateCallPeer.onconnectionstatechange = null;
+                    privateCallPeer.oniceconnectionstatechange = null;
+
+                    try {
+
+                        privateCallPeer.getSenders().forEach(sender => {
+
+                            try {
+
+                                sender.track?.stop();
+
+                            } catch (e) {}
+
+                        });
+
+                    } catch (e) {}
+
+                    try {
+
+                        privateCallPeer.getReceivers().forEach(receiver => {
+
+                            try {
+
+                                receiver.track?.stop();
+
+                            } catch (e) {}
+
+                        });
+
+                    } catch (e) {}
+
+                    try {
+
+                        privateCallPeer.close();
+
+                    } catch (e) {}
+
+                }
+
+                // =================================================
+                // STOP LOCAL CAMERA / MICROPHONE
+                // =================================================
+
+                if (privateCallLocalStream) {
+
+                    privateCallLocalStream.getTracks().forEach(track => {
+
+                        try {
+
+                            track.stop();
+
+                        } catch (e) {}
+
+                    });
+
+                }
+
+                // =================================================
+                // CLEAR VIDEO ELEMENTS
+                // =================================================
+
+                const localVideo =
+                    document.getElementById('privateLocalVideo');
+
+                const remoteVideo =
+                    document.getElementById('privateRemoteVideo');
+
+                if (localVideo) {
+
+                    localVideo.pause?.();
+                    localVideo.srcObject = null;
+
+                }
+
+                if (remoteVideo) {
+
+                    remoteVideo.pause?.();
+                    remoteVideo.srcObject = null;
+
+                }
+
+                // =================================================
+                // HIDE ACTIVE CALL MODAL
+                // =================================================
+
+                if (closeModal) {
+
+                    const modal =
+                        document.getElementById('privateActiveCallModal');
+
+                    modal?.classList.add('hidden');
+                    modal?.classList.remove('flex');
+
+                }
+
+                // =================================================
+                // RESET CALL STATUS
+                // =================================================
+
+                const status =
+                    document.getElementById('privateActiveCallStatus');
+
+                if (status) {
+
+                    status.textContent = '';
+
+                }
+
+                // =================================================
+                // RESET VARIABLES
+                // =================================================
+
+                privateCallPeer = null;
+                privateCallLocalStream = null;
+
+                if (closeModal) {
+
+                    privateCallId = null;
+                    privateCallTargetUserId = null;
+                    privateCallTargetName = '';
+                    privateCallTargetPicture = '';
+
+                    privateCallConversationId = null;
+                    privateIncomingOffer = null;
+
+                    privateCallPendingIce = [];
+
+                    privateCallMuted = false;
+                    privateCallCameraEnabled = true;
+                    privateCallType = 'audio';
+
+                }
+
+            }
+            finally {
+
+                // ===============================================
+                // ALLOW FUTURE CALLS
+                // ===============================================
+
+                window.privateCallCleaningUp = false;
+
+            }
+
         }
 
         async function handlePrivateCallSignal(event) {
-            if (!event || Number(event.from_user_id) === Number(currentUserId)) return;
-            const fromUserId = Number(event.from_user_id);
+
+            if (
+                !event ||
+                Number(event.from_user_id) === Number(currentUserId)
+            ) {
+                return;
+            }
+
+            const fromUserId =
+                Number(event.from_user_id);
+
+            // ==================================================
+            // OFFER
+            // ==================================================
 
             if (event.signal_type === 'offer') {
-                if (privateCallId && String(privateCallId) !== String(event.call_id)) {
-                    await sendPrivateCallSignal(fromUserId, 'busy', {}, { callId: event.call_id, callType: event.call_type, conversationId: event.conversation_id }).catch(() => {});
+
+                if (
+                    privateCallId &&
+                    String(privateCallId) !== String(event.call_id)
+                ) {
+
+                    await sendPrivateCallSignal(
+                        fromUserId,
+                        'busy',
+                        {},
+                        {
+                            callId: event.call_id,
+                            callType: event.call_type,
+                            conversationId: event.conversation_id
+                        }
+                    ).catch(() => {});
+
                     return;
                 }
+
                 privateCallId = event.call_id;
+
                 privateCallTargetUserId = fromUserId;
-                privateCallTargetName = event.from_user_name || 'User';
-                privateCallTargetPicture = privateCallPicture({ user_profile_picture: event.from_user_picture });
-                privateCallType = event.call_type === 'video' ? 'video' : 'audio';
-                privateCallConversationId = event.conversation_id || null;
-                privateIncomingOffer = event.payload?.description || null;
+                privateCallTargetName =
+                    event.from_user_name || 'User';
+
+                privateCallTargetPicture =
+                    privateCallPicture({
+                        user_profile_picture:
+                            event.from_user_picture
+                    });
+
+                privateCallType =
+                    event.call_type === 'video'
+                        ? 'video'
+                        : 'audio';
+
+                privateCallConversationId =
+                    event.conversation_id || null;
+
+                privateIncomingOffer =
+                    event.payload?.description || null;
+
                 privateCallPendingIce = [];
+
                 showIncomingPrivateCall(event);
+
+                return;
+
+            }
+
+            if (
+                !privateCallId ||
+                String(event.call_id) !==
+                String(privateCallId)
+            ) {
                 return;
             }
 
-            if (!privateCallId || String(event.call_id) !== String(privateCallId)) return;
+            // ==================================================
+            // ANSWER
+            // ==================================================
 
-            if (event.signal_type === 'answer' && event.payload?.description && privateCallPeer) {
-                const decodedAnswer = decodePrivateCallDescription(event.payload.description);
-                if (!decodedAnswer) throw new Error('The call answer is invalid.');
-                await privateCallPeer.setRemoteDescription(decodedAnswer);
-                await addQueuedPrivateIce();
-                document.getElementById('privateActiveCallStatus').textContent = 'Connecting...';
-                return;
-            }
+            if (
+                event.signal_type === 'answer' &&
+                event.payload?.description &&
+                privateCallPeer
+            ) {
 
-            if (event.signal_type === 'ice_candidate' && event.payload?.candidate) {
-                if (privateCallPeer?.remoteDescription) {
-                    try { await privateCallPeer.addIceCandidate(new RTCIceCandidate(event.payload.candidate)); }
-                    catch (error) { console.error(error); }
-                } else {
-                    privateCallPendingIce.push(event.payload.candidate);
+                try {
+
+                    const decodedAnswer =
+                        decodePrivateCallDescription(
+                            event.payload.description
+                        );
+
+                    if (!decodedAnswer) {
+
+                        throw new Error(
+                            'The call answer is invalid.'
+                        );
+
+                    }
+
+                    await privateCallPeer.setRemoteDescription(
+                        decodedAnswer
+                    );
+
+                    await addQueuedPrivateIce();
+
+                    privateCallAnswered = true;
+
+                    clearTimeout(privateCallTimeout);
+
+                    privateCallTimeout = null;
+
+                    document.getElementById(
+                        'privateActiveCallStatus'
+                    ).textContent =
+                        'Connecting...';
+
                 }
+                catch (error) {
+
+                    console.error(error);
+
+                    cleanupPrivateCall();
+
+                }
+
                 return;
+
             }
+
+            if (event.signal_type === 'camera_state') {
+
+                const remoteVideo =
+                    document.getElementById('privateRemoteVideo');
+
+                const status =
+                    document.getElementById('privateActiveCallStatus');
+
+                document.getElementById(
+                    'privateRemotePlaceholderName'
+                ).textContent =
+                    privateCallTargetName || 'User';
+
+                privateCallAvatar(
+                    document.getElementById(
+                        'privateRemotePlaceholderAvatar'
+                    ),
+                    privateCallTargetName,
+                    privateCallTargetPicture
+                );
+
+                if (event.payload?.enabled) {
+
+                    hideRemoteCameraPlaceholder();
+
+                    remoteVideo?.play?.().catch(() => {});
+
+                    if (status) {
+                        status.textContent = 'Connected';
+                    }
+
+                } else {
+
+                    if (remoteVideo) {
+                        remoteVideo.pause();
+                        remoteVideo.srcObject = null;
+                    }
+
+                    showRemoteCameraPlaceholder();
+
+                    if (status) {
+                        status.textContent = 'Connected · Camera off';
+                    }
+
+                }
+
+                return;
+
+            }
+
+            
+
+            // ==================================================
+            // ICE
+            // ==================================================
+
+            if (
+                event.signal_type === 'ice_candidate' &&
+                event.payload?.candidate
+            ) {
+
+                if (
+                    privateCallPeer?.remoteDescription
+                ) {
+
+                    try {
+
+                        await privateCallPeer.addIceCandidate(
+                            new RTCIceCandidate(
+                                event.payload.candidate
+                            )
+                        );
+
+                    }
+                    catch (error) {
+
+                        console.error(error);
+
+                    }
+
+                }
+                else {
+
+                    privateCallPendingIce.push(
+                        event.payload.candidate
+                    );
+
+                }
+
+                return;
+
+            }
+
+            // ==================================================
+            // DECLINED
+            // ==================================================
 
             if (event.signal_type === 'decline') {
-                alert(`${privateCallTargetName || 'The user'} declined the call.`);
+
+                alert(
+                    `${privateCallTargetName || 'The user'} declined the call.`
+                );
+
                 cleanupPrivateCall();
+
                 return;
+
             }
+
+            // ==================================================
+            // BUSY
+            // ==================================================
 
             if (event.signal_type === 'busy') {
-                alert(`${privateCallTargetName || 'The user'} is already on another call.`);
+
+                alert(
+                    `${privateCallTargetName || 'The user'} is already on another call.`
+                );
+
                 cleanupPrivateCall();
+
+                return;
+
+            }
+
+            // ==================================================
+            // REMOTE ENDED CALL
+            // ==================================================
+
+            if (event.signal_type === 'end') {
+
+                console.log(
+                    '[Private Call] Remote ended call.'
+                );
+
+                cleanupPrivateCall();
+
+                return;
+
+            }
+
+        }
+
+        window.addEventListener('beforeunload', () => {
+
+            if (!privateCallId || !privateCallTargetUserId) {
                 return;
             }
 
-            if (event.signal_type === 'end') cleanupPrivateCall();
-        }
+            try {
+
+                fetch('/messages/calls/signal', {
+
+                    method: 'POST',
+
+                    keepalive: true,
+
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken
+                    },
+
+                    body: JSON.stringify({
+
+                        target_user_id: Number(privateCallTargetUserId),
+
+                        conversation_id: privateCallConversationId,
+
+                        call_id: privateCallId,
+
+                        signal_type: 'end',
+
+                        call_type: privateCallType,
+
+                        payload: {}
+
+                    })
+
+                });
+
+            } catch (e) {}
+
+        });
+
+
 
         function listenToPrivateCallsRealtime() {
             if (!window.Echo) return;
@@ -7484,7 +8504,16 @@ if (!isGroup) {
                     track.enabled = privateCallCameraEnabled;
                 });
 
+                await sendPrivateCallSignal(
+                    privateCallTargetUserId,
+                    'camera_state',
+                    {
+                        enabled: privateCallCameraEnabled
+                    }
+                ).catch(console.error);
+
                 updatePrivateCallCameraButton();
+
                 return;
             }
 
@@ -7547,13 +8576,33 @@ if (!isGroup) {
                 await videoSender.replaceTrack(videoTrack);
 
                 privateCallCameraEnabled = true;
+
+                await sendPrivateCallSignal(
+                    privateCallTargetUserId,
+                    'camera_state',
+                    {
+                        enabled: true
+                    }
+                ).catch(console.error);
+
                 updatePrivateCallCameraButton();
 
                 videoTrack.addEventListener(
                     'ended',
                     () => {
+
                         privateCallCameraEnabled = false;
+
+                        sendPrivateCallSignal(
+                            privateCallTargetUserId,
+                            'camera_state',
+                            {
+                                enabled: false
+                            }
+                        ).catch(console.error);
+
                         updatePrivateCallCameraButton();
+
                     },
                     { once: true }
                 );
@@ -8736,6 +9785,121 @@ if (!isGroup) {
             }
         }
 
+        function normalizeCallType(callType) {
+            return String(callType).toLowerCase() === 'video'
+                ? 'video'
+                : 'audio';
+        }
+
+        function resolveCallDisplayStatus(call) {
+            const status = String(call?.status || '').toLowerCase();
+            const duration = Number(call?.duration || 0);
+            const wasAnswered = Boolean(call?.answered_at);
+
+            if (status === 'ended' && !wasAnswered && duration <= 0) {
+                return 'missed';
+            }
+
+            if (status === 'ended' && duration > 0) {
+                return 'completed';
+            }
+
+            return status;
+        }
+
+        function formatCallDurationClock(totalSeconds) {
+            const safeSeconds = Math.max(0, Number(totalSeconds) || 0);
+            const minutes = Math.floor(safeSeconds / 60);
+            const seconds = safeSeconds % 60;
+
+            return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        function formatCallDurationCompact(totalSeconds) {
+            const safeSeconds = Math.max(0, Number(totalSeconds) || 0);
+            const minutes = Math.floor(safeSeconds / 60);
+            const seconds = safeSeconds % 60;
+
+            if (minutes > 0 && seconds > 0) {
+                return `${minutes}m ${seconds}s`;
+            }
+
+            if (minutes > 0) {
+                return `${minutes}m`;
+            }
+
+            return `${seconds}s`;
+        }
+
+        function getCallCardTitle(call) {
+            const callType = normalizeCallType(call?.call_type);
+            const callTypeLabel = callType === 'video' ? 'video' : 'audio';
+            const displayStatus = resolveCallDisplayStatus(call);
+
+            switch (displayStatus) {
+                case 'missed':
+                    return `Missed ${callTypeLabel} call`;
+
+                case 'declined':
+                    return `Missed ${callTypeLabel} call`;
+
+                case 'busy':
+                    return `Missed ${callTypeLabel} call`;
+
+                case 'completed':
+                    return callType === 'video' ? 'Video call' : 'Audio call';
+
+                default:
+                    return callType === 'video' ? 'Video call' : 'Audio call';
+            }
+        }
+
+        function getCallCardSubtitle(call) {
+            const displayStatus = resolveCallDisplayStatus(call);
+            const duration = Number(call?.duration || 0);
+
+            if (displayStatus === 'completed' && duration > 0) {
+                return `Duration ${formatCallDurationClock(duration)}`;
+            }
+
+            return '';
+        }
+
+        function getConversationCallPreview(call, isOwn, senderName, fallbackName) {
+            const callType = normalizeCallType(call?.call_type);
+            const callTypeLabel = callType === 'video' ? 'video' : 'audio';
+            const duration = Number(call?.duration || 0);
+            const remoteName = fallbackName || senderName || 'User';
+            const displayStatus = resolveCallDisplayStatus(call);
+
+            switch (displayStatus) {
+                case 'missed':
+                    return isOwn
+                        ? `${remoteName} missed your ${callTypeLabel} call`
+                        : `Missed your ${callTypeLabel} call`;
+
+                case 'declined':
+                    return isOwn
+                        ? `${remoteName} declined your ${callTypeLabel} call`
+                        : `You declined ${remoteName}'s ${callTypeLabel} call`;
+
+                case 'busy':
+                    return isOwn
+                        ? `${remoteName} is busy`
+                        : 'You were busy';
+
+                case 'completed':
+                    if (duration > 0) {
+                        return `${callType === 'video' ? 'Video' : 'Audio'} call • ${formatCallDurationCompact(duration)}`;
+                    }
+
+                    return `${callType === 'video' ? 'Video' : 'Audio'} call`;
+
+                default:
+                    return `${callType === 'video' ? 'Video' : 'Audio'} call`;
+            }
+        }
+
         // =====================================================
         // RENDER CONVERSATIONS
         // Supports both direct chats and group chats
@@ -8925,12 +10089,21 @@ if (!isGroup) {
                     const rawMessage =
                         lastMessage.message_content || '';
 
-
-                    // =====================================
-                    // MULTIPLE UNREAD
-                    // =====================================
+                    const messageType =
+                        lastMessage.message_type || '';
 
                     if (
+                        messageType === 'call' &&
+                        lastMessage.call
+                    ) {
+                        preview = getConversationCallPreview(
+                            lastMessage.call,
+                            lastMessageIsMine,
+                            lastMessageSenderName,
+                            isGroup ? '' : name
+                        );
+                    }
+                    else if (
                         !lastMessageIsMine &&
                         unreadCount > 1
                     ) {
@@ -11343,6 +12516,13 @@ if (!isGroup) {
         }
 
         function renderMessengerMessageRow(msg, isOwn) {
+            
+            if (
+                msg.message_type === 'call' &&
+                typeof renderCallMessageRow === 'function'
+            ) {
+                return renderCallMessageRow(msg, isOwn);
+            }
             const senderName = msg.sender?.name || msg.sender?.user_full_name || (isOwn ? 'You' : 'Unknown');
 
             const rawAttachments = Array.isArray(msg.attachments)
@@ -11837,6 +13017,83 @@ if (!isGroup) {
                 </div>
             `;
         }
+
+
+        function renderCallMessageRow(msg, isOwn) {
+
+            const call = msg.call || {};
+            const fullTime = getFullMessageDateTime(msg.created_at);
+            const callType = normalizeCallType(call.call_type);
+            const title = getCallCardTitle(call);
+            const subtitle = getCallCardSubtitle(call);
+            const iconName = callType === 'video' ? 'video' : 'phone';
+            const targetUserId = isOwn
+                ? Number(call.receiver_id || 0)
+                : Number(call.caller_id || 0);
+
+            const subtitleHtml = subtitle
+                ? `
+                    <p class="mt-0.5 text-xs text-gray-500">
+                        ${escapeHtml(subtitle)}
+                    </p>
+                `
+                : '';
+
+            return `
+                <div class="
+                    message-row
+                    flex
+                    ${isOwn ? 'justify-end' : 'justify-start'}
+                    my-2
+                "
+                data-message-id="${Number(msg.message_id || 0)}">
+
+                    <div class="
+                        w-[min(100%,280px)]
+                        overflow-hidden
+                        rounded-2xl
+                        border
+                        border-gray-200
+                        bg-white
+                        shadow-sm
+                    " title="${escapeHtml(fullTime)}">
+
+                        <div class="flex items-start gap-3 px-4 py-3">
+                            <span class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-700">
+                                <i data-lucide="${iconName}" class="h-4 w-4"></i>
+                            </span>
+
+                            <div class="min-w-0 flex-1">
+                                <p class="text-sm font-semibold text-gray-900">
+                                    ${escapeHtml(title)}
+                                </p>
+
+                                ${subtitleHtml}
+
+                                <p class="mt-1 text-xs text-gray-400">
+                                    ${formatMessageTime(msg.created_at)}
+                                </p>
+                            </div>
+                        </div>
+
+                        <button
+                            type="button"
+                            class="call-again-button w-full border-t border-gray-200 bg-gray-50 px-4 py-2.5 text-sm font-semibold text-gray-900 transition hover:bg-gray-100"
+                            data-target-user-id="${targetUserId}"
+                            data-call-type="${escapeHtml(callType)}"
+                        >
+                            Call again
+                        </button>
+
+                    </div>
+
+                </div>
+            `;
+        }
+
+
+
+        
 
         function closeAllMessageMenus(except = null) {
             document.querySelectorAll('.message-more-menu').forEach(menu => {
@@ -20255,6 +21512,8 @@ if (!isGroup) {
 
 
     })();
+
+    
 
 </script>
 
