@@ -87,7 +87,20 @@
     {{-- STATISTIC CARDS ROW 2 --}}
     {{-- ===================================================== --}}
 
-    <div class="stat-grid stat-grid-row-2">
+<div class="stat-grid stat-grid-row-2">
+
+        {{-- TOTAL USERS --}}
+
+        <div class="stat-card" title="Total users registered in the system">
+            <div class="stat-card-top">
+                <div class="stat-icon stat-icon-blue">
+                    <i data-lucide="users"></i>
+                </div>
+            </div>
+            <p class="stat-label">Number of Users</p>
+            <p class="stat-value">{{ $totalUsers }}</p>
+        </div>
+
 
         {{-- FORWARDED TO PRESIDENT --}}
 
@@ -326,10 +339,10 @@
                                     {{ $ris->ris_requested_by_date ? \Carbon\Carbon::parse($ris->ris_requested_by_date)->format('M d, Y') : 'N/A' }}
                                 </td>
                                 <td class="text-center">
-<a href="/admin/procurement-review/ris/{{ $ris->ris_id }}/print" target="_blank" class="table-preview-btn" title="Preview RIS form">
+                                    <button type="button" onclick="openRisPreviewModal('{{ $ris->ris_id }}')" class="table-preview-btn" title="Preview RIS form">
                                         <i data-lucide="eye" class="h-4 w-4"></i>
                                         Preview
-                                    </a>
+                                    </button>
                                 </td>
                             </tr>
                             @empty
@@ -362,6 +375,100 @@
                 </div>
                 <div class="sidebar-chart-body">
                     <canvas id="risStatusChart" height="200"></canvas>
+                </div>
+            </div>
+
+
+            {{-- 2. Calendar of Events --}}
+
+            <div class="sidebar-calendar-card">
+                <div class="sidebar-calendar-header">
+                    <h3 class="sidebar-calendar-title">
+                        <i data-lucide="calendar" class="h-4 w-4" style="margin-right: 6px;"></i>
+                        Calendar of Events
+                    </h3>
+                </div>
+                <div class="sidebar-calendar-body">
+
+                    {{-- Calendar Header --}}
+                    <div class="calendar-month-header">
+                        <button type="button" id="calPrevBtn" class="cal-nav-btn" title="Previous month">
+                            <i data-lucide="chevron-left" class="h-3.5 w-3.5"></i>
+                        </button>
+                        <span id="calMonthLabel" class="cal-month-label">{{ now()->format('F Y') }}</span>
+                        <button type="button" id="calNextBtn" class="cal-nav-btn" title="Next month">
+                            <i data-lucide="chevron-right" class="h-3.5 w-3.5"></i>
+                        </button>
+                    </div>
+
+                    {{-- Calendar Grid --}}
+                    <div class="calendar-grid">
+                        <div class="cal-day-header">Sun</div>
+                        <div class="cal-day-header">Mon</div>
+                        <div class="cal-day-header">Tue</div>
+                        <div class="cal-day-header">Wed</div>
+                        <div class="cal-day-header">Thu</div>
+                        <div class="cal-day-header">Fri</div>
+                        <div class="cal-day-header">Sat</div>
+
+                        @php
+                            $now = now();
+                            $firstDay = $now->copy()->startOfMonth();
+                            $lastDay = $now->copy()->endOfMonth();
+                            $startPadding = $firstDay->dayOfWeek;
+                            $totalCells = $startPadding + $lastDay->day;
+                            $rows = ceil($totalCells / 7);
+                            $totalSlots = $rows * 7;
+                            $todayDate = $now->format('Y-m-d');
+                            $currentMonthKey = $now->format('Y-m');
+                        @endphp
+
+                        {{-- Empty cells before first day --}}
+                        @for($i = 0; $i < $startPadding; $i++)
+                            <div class="cal-day cal-day-empty"></div>
+                        @endfor
+
+                        {{-- Actual days --}}
+                        @for($day = 1; $day <= $lastDay->day; $day++)
+                            @php
+                                $dateKey = $currentMonthKey . '-' . str_pad($day, 2, '0', STR_PAD_LEFT);
+                                $hasEvents = isset($calendarEventsByDate[$dateKey]) && count($calendarEventsByDate[$dateKey]) > 0;
+                                $isToday = $dateKey === $todayDate;
+                                $dayEvents = $calendarEventsByDate[$dateKey] ?? [];
+                                $eventCount = count($dayEvents);
+                            @endphp
+                            <div class="cal-day {{ $isToday ? 'cal-day-today' : '' }} {{ $hasEvents ? 'cal-day-has-event' : '' }}"
+                                 title="{{ $hasEvents ? $eventCount . ' event(s)' : '' }}">
+                                <span class="cal-day-num">{{ $day }}</span>
+                                @if($hasEvents)
+                                    <span class="cal-day-dot"></span>
+                                @endif
+                            </div>
+                        @endfor
+
+                        {{-- Empty cells after last day --}}
+                        @for($i = $startPadding + $lastDay->day; $i < $totalSlots; $i++)
+                            <div class="cal-day cal-day-empty"></div>
+                        @endfor
+                    </div>
+
+                    {{-- Upcoming Events List --}}
+                    <div class="cal-upcoming">
+                        <h4 class="cal-upcoming-title">Upcoming Events</h4>
+                        @forelse($calendarEvents->take(3) as $event)
+                            <div class="cal-upcoming-item">
+                                <div class="cal-upcoming-dot"></div>
+                                <div class="cal-upcoming-content">
+                                    <span class="cal-upcoming-name">{{ $event->equipment_name ?? 'Equipment' }}</span>
+                                    <span class="cal-upcoming-date">
+                                        {{ $event->maintenance_schedule_next_date ? \Carbon\Carbon::parse($event->maintenance_schedule_next_date)->format('M d, Y') : 'No date set' }}
+                                    </span>
+                                </div>
+                            </div>
+                        @empty
+                            <div class="cal-upcoming-empty">No upcoming maintenance events</div>
+                        @endforelse
+                    </div>
                 </div>
             </div>
 
@@ -509,6 +616,35 @@
 
 
 {{-- ===================================================== --}}
+{{-- RIS PREVIEW MODAL --}}
+{{-- ===================================================== --}}
+
+<div id="risPreviewModal" class="ris-preview-modal-overlay" style="display: none;">
+    <div class="ris-preview-modal-container">
+        <div class="ris-preview-modal-header">
+            <h3 class="ris-preview-modal-title">RIS Preview</h3>
+            <button type="button" onclick="closeRisPreviewModal()" class="ris-preview-modal-close" title="Close preview">
+                <i data-lucide="x" class="h-4 w-4"></i>
+            </button>
+        </div>
+        <div class="ris-preview-modal-body" id="risPreviewModalBody">
+            <div class="ris-preview-loading">
+                <div class="ris-preview-spinner"></div>
+                <span>Loading preview...</span>
+            </div>
+        </div>
+        <div class="ris-preview-modal-footer">
+            <button type="button" onclick="closeRisPreviewModal()" class="ris-preview-modal-btn-close">Close</button>
+            <a href="#" id="risPreviewPrintLink" target="_blank" class="ris-preview-modal-btn-print">
+                <i data-lucide="printer" class="h-4 w-4"></i>
+                Open in Print View
+            </a>
+        </div>
+    </div>
+</div>
+
+
+{{-- ===================================================== --}}
 {{-- DASHBOARD STYLES --}}
 {{-- ===================================================== --}}
 <style>
@@ -518,8 +654,6 @@
 ====================================== */
 
 .admin-dashboard {
-    padding: 12px 16px;
-    max-width: 1440px;
     margin: 0 auto;
 }
 
@@ -887,6 +1021,7 @@
     color: #475569;
     text-decoration: none;
     transition: all 0.2s ease;
+    cursor: pointer;
 }
 
 .table-preview-btn:hover {
@@ -897,6 +1032,164 @@
 
 .table-preview-btn i,
 .table-preview-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+
+/* ======================================
+   RIS PREVIEW MODAL
+====================================== */
+
+.ris-preview-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.ris-preview-modal-container {
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    width: 100%;
+    max-width: 1100px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.ris-preview-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid #e2e8f0;
+    flex-shrink: 0;
+}
+
+.ris-preview-modal-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.ris-preview-modal-close {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #64748b;
+    transition: all 0.2s ease;
+}
+
+.ris-preview-modal-close:hover {
+    background: #fef2f2;
+    border-color: #fecdd3;
+    color: #e11d48;
+}
+
+.ris-preview-modal-body {
+    flex: 1;
+    overflow: auto;
+    padding: 0;
+    background: #f8fafc;
+    min-height: 400px;
+    max-height: calc(90vh - 110px);
+}
+
+.ris-preview-modal-body iframe {
+    width: 100%;
+    height: 100%;
+    min-height: 400px;
+    max-height: calc(90vh - 110px);
+    border: none;
+    display: block;
+}
+
+.ris-preview-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 60px 20px;
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.ris-preview-spinner {
+    width: 36px;
+    height: 36px;
+    border: 3px solid #e2e8f0;
+    border-top-color: #6366f1;
+    border-radius: 50%;
+    animation: ris-preview-spin 0.8s linear infinite;
+}
+
+@keyframes ris-preview-spin {
+    to { transform: rotate(360deg); }
+}
+
+.ris-preview-modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 20px;
+    border-top: 1px solid #e2e8f0;
+    flex-shrink: 0;
+}
+
+.ris-preview-modal-btn-close {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    font-size: 12px;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.ris-preview-modal-btn-close:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+}
+
+.ris-preview-modal-btn-print {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    background: #0f172a;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.ris-preview-modal-btn-print:hover {
+    background: #1e293b;
+}
+
+.ris-preview-modal-btn-print i,
+.ris-preview-modal-btn-print svg {
     width: 14px;
     height: 14px;
 }
@@ -1306,6 +1599,200 @@
 }
 
 
+/* ======================================
+   CALENDAR OF EVENTS
+====================================== */
+
+.sidebar-calendar-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.sidebar-calendar-header {
+    padding: 10px 14px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.sidebar-calendar-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #0f172a;
+    display: flex;
+    align-items: center;
+}
+
+.sidebar-calendar-body {
+    padding: 10px 12px 12px;
+}
+
+.calendar-month-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.cal-nav-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #64748b;
+    transition: all 0.2s ease;
+}
+
+.cal-nav-btn:hover {
+    background: #ffffff;
+    border-color: #cbd5e1;
+    color: #0f172a;
+}
+
+.cal-month-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    margin-bottom: 10px;
+}
+
+.cal-day-header {
+    text-align: center;
+    font-size: 8px;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    padding: 2px 0;
+}
+
+.cal-day {
+    text-align: center;
+    padding: 4px 1px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 500;
+    color: #475569;
+    cursor: default;
+    position: relative;
+    min-height: 22px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease;
+}
+
+.cal-day:hover {
+    background: #f8fafc;
+}
+
+.cal-day-empty {
+    cursor: default;
+    opacity: 0.3;
+}
+
+.cal-day-empty:hover {
+    background: transparent;
+}
+
+.cal-day-today {
+    background: #eef2ff;
+    color: #4f46e5;
+    font-weight: 700;
+}
+
+.cal-day-today:hover {
+    background: #e0e7ff;
+}
+
+.cal-day-has-event {
+    color: #0f172a;
+    font-weight: 600;
+}
+
+.cal-day-num {
+    line-height: 1;
+}
+
+.cal-day-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #f59e0b;
+    margin-top: 1px;
+    flex-shrink: 0;
+}
+
+.cal-upcoming {
+    border-top: 1px solid #f1f5f9;
+    padding-top: 8px;
+}
+
+.cal-upcoming-title {
+    font-size: 10px;
+    font-weight: 700;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin-bottom: 6px;
+}
+
+.cal-upcoming-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 4px 0;
+}
+
+.cal-upcoming-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #f59e0b;
+    margin-top: 4px;
+    flex-shrink: 0;
+}
+
+.cal-upcoming-content {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.cal-upcoming-name {
+    font-size: 11px;
+    font-weight: 600;
+    color: #0f172a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cal-upcoming-date {
+    font-size: 9px;
+    color: #94a3b8;
+}
+
+.cal-upcoming-empty {
+    font-size: 10px;
+    color: #94a3b8;
+    text-align: center;
+    padding: 6px 0;
+}
+
+
 /* Sidebar Stats */
 
 .sidebar-stats-card {
@@ -1659,12 +2146,33 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
 
-    // =====================================================
+// =====================================================
     // MINI CALENDAR RENDER - REMOVED
     // =====================================================
 
 
     // =====================================================
+    // CALENDAR MONTH NAVIGATION
+    // =====================================================
+
+    (function() {
+        var prevBtn = document.getElementById('calPrevBtn');
+        var nextBtn = document.getElementById('calNextBtn');
+        var monthLabel = document.getElementById('calMonthLabel');
+
+        if (prevBtn && nextBtn && monthLabel) {
+            // Disable navigation buttons for static display
+            prevBtn.style.opacity = '0.4';
+            prevBtn.style.cursor = 'not-allowed';
+            nextBtn.style.opacity = '0.4';
+            nextBtn.style.cursor = 'not-allowed';
+            prevBtn.title = 'Navigation disabled (static calendar)';
+            nextBtn.title = 'Navigation disabled (static calendar)';
+        }
+    })();
+
+
+// =====================================================
     // ACTIVITY LIST TOGGLE (Pending / Completed)
     // =====================================================
 
@@ -1685,6 +2193,81 @@ document.addEventListener('DOMContentLoaded', function() {
                 toggleBtn.textContent = 'Show completed';
             }
         });
+    }
+
+
+    // =====================================================
+    // RIS PREVIEW MODAL
+    // =====================================================
+
+    window.openRisPreviewModal = function(risId) {
+        const modal = document.getElementById('risPreviewModal');
+        const body = document.getElementById('risPreviewModalBody');
+        const printLink = document.getElementById('risPreviewPrintLink');
+
+        if (!modal || !body) return;
+
+        // Show modal with loading state
+        modal.style.display = 'flex';
+        body.innerHTML = `
+            <div class="ris-preview-loading">
+                <div class="ris-preview-spinner"></div>
+                <span>Loading preview...</span>
+            </div>
+        `;
+
+        // Update print link
+        const printUrl = '/admin/procurement-review/ris/' + risId + '/print';
+        printLink.href = printUrl;
+
+        // Fetch the print view HTML and embed it in an iframe
+        fetch(printUrl)
+            .then(function(response) {
+                if (!response.ok) throw new Error('Failed to load preview');
+                return response.text();
+            })
+            .then(function(html) {
+                body.innerHTML = '<iframe srcdoc="' + escapeHtml(html) + '" frameborder="0"></iframe>';
+            })
+            .catch(function(error) {
+                body.innerHTML = `
+                    <div class="ris-preview-loading" style="color:#e11d48;">
+                        <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
+                        </svg>
+                        <span>Failed to load preview. <a href="` + printUrl + `" target="_blank" style="color:#6366f1;text-decoration:underline;">Open in new tab instead</a></span>
+                    </div>
+                `;
+            });
+    };
+
+    window.closeRisPreviewModal = function() {
+        const modal = document.getElementById('risPreviewModal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    };
+
+    // Close modal on overlay click
+    document.addEventListener('click', function(e) {
+        const modal = document.getElementById('risPreviewModal');
+        if (modal && e.target === modal) {
+            closeRisPreviewModal();
+        }
+    });
+
+    // Close modal on Escape key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeRisPreviewModal();
+        }
+    });
+
+    // Helper to escape HTML for use in srcdoc
+    function escapeHtml(text) {
+        var div = document.createElement('div');
+        div.appendChild(document.createTextNode(text));
+        return div.innerHTML;
     }
 
 });

@@ -1,9 +1,9 @@
-# TODO - Admin Dashboard & RIS Export Updates - COMPLETED
+# Admin Dashboard Updates
 
-## All Steps Completed
+## Steps
 
-- [x] Step 1: Remove "Total Users" stat card from dashboard
-- [x] Step 2: Add Quick Access Dashboards Box above "RIS Submission Trend"
-- [x] Step 3: Remove "Calendar of Events" from sidebar
-- [x] Step 4: Add "Preview" button to Recent RIS Records table
-- [x] Step 5: Remove PDF export toolbar from RIS print view
+- [x] Step 1: Replace preview link with modal in "Recent RIS Records"
+- [x] Step 2: Revert - Add Calendar of Events back to sidebar
+- [x] Step 3: Revert - Add Number of Users / Total Users stat card
+
+All steps completed successfully.
