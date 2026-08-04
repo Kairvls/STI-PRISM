@@ -1670,7 +1670,10 @@ Route::middleware(['auth', 'receiving'])
         
     });
 
-
+Route::get(
+    '/maintenance/report-card/{id}',
+    [MaintenanceController::class, 'reportCard']
+)->name('maintenance.report.card');
 
 // =====================================================
 // MESSAGING ROUTES

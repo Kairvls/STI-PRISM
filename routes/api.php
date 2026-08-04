@@ -30,6 +30,19 @@ Route::get(
 
 Route::get(
 
+    '/suggested-issues/{equipmentId}',
+
+    [MobileReportController::class, 'suggestedIssues']
+
+);
+
+Route::get(
+    '/global-suggested-issues',
+    [MobileReportController::class, 'globalSuggestedIssues']
+);
+
+Route::get(
+
     '/reporter/{employeeId}',
 
     [MobileReportController::class, 'reporter']

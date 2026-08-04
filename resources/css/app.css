@@ -1,3 +1,25 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@keyframes reportFlash {
+
+    0% {
+
+        background: #fff8b3;
+
+    }
+
+    100% {
+
+        background: transparent;
+
+    }
+
+}
+
+.report-highlight {
+
+    animation: reportFlash 2s ease;
+
+}
