@@ -711,26 +711,12 @@ class AdminController extends Controller
 
 
     // =====================================================
-    // SORTING
-    //
-    // Pending RIS always appear first in All.
-    // Newest Pending RIS appear first.
+    // SORTING — latest first
     // =====================================================
 
     $risRecords = $query
 
-        ->orderByRaw("
-            CASE
-                WHEN requisition_issue_slip_table.ris_status IN ('Submitted', 'Under Review', 'Resubmitted', 'Pending') THEN 0
-                WHEN requisition_issue_slip_table.ris_status = 'Approved' THEN 1
-                WHEN requisition_issue_slip_table.ris_status IN ('Minor Revision', 'Rejected') THEN 2
-                ELSE 3
-            END
-        ")
-
-        ->orderByDesc(
-            'requisition_issue_slip_table.ris_requested_by_date'
-        )
+        ->orderByDesc(DB::raw('COALESCE(requisition_issue_slip_table.ris_submitted_at, requisition_issue_slip_table.ris_requested_by_date, requisition_issue_slip_table.ris_created_at)'))
 
         ->orderByDesc(
             'requisition_issue_slip_table.ris_id'
@@ -1872,23 +1858,12 @@ class AdminController extends Controller
 
 
         // =====================================================
-        // SORTING
+        // SORTING — latest first
         // =====================================================
 
         $risRecords = $query
 
-            ->orderByRaw("
-                CASE
-                    WHEN requisition_issue_slip_table.ris_status IN ('Submitted', 'Under Review', 'Resubmitted', 'Pending') THEN 0
-                    WHEN requisition_issue_slip_table.ris_status = 'Approved' THEN 1
-                    WHEN requisition_issue_slip_table.ris_status IN ('Minor Revision', 'Rejected') THEN 2
-                    ELSE 3
-                END
-            ")
-
-            ->orderByDesc(
-                'requisition_issue_slip_table.ris_requested_by_date'
-            )
+            ->orderByDesc(DB::raw('COALESCE(requisition_issue_slip_table.ris_submitted_at, requisition_issue_slip_table.ris_requested_by_date, requisition_issue_slip_table.ris_created_at)'))
 
             ->orderByDesc(
                 'requisition_issue_slip_table.ris_id'
@@ -1963,7 +1938,7 @@ class AdminController extends Controller
             ->where('ris_id', $risId)
             ->orderBy('ris_item_id')
             ->get()
-            ->pad(10, null);
+            ->pad(8, null);
 
         $presidentName = null;
 
@@ -2283,9 +2258,24 @@ class AdminController extends Controller
     // ADDED RIS ADMIN APPROVAL: APPROVE RIS
     // =====================================================
 
-    public function approveRis($risId)
+    public function approveRis(Request $request, $risId)
     {
-        return DB::transaction(function () use ($risId) {
+        return DB::transaction(function () use ($request, $risId) {
+            $validated = $request->validate([
+                'ris_issued_by' => ['required', 'string', 'max:255'],
+                'ris_issued_by_date' => ['required', 'string', 'max:20'],
+            ]);
+
+            try {
+                $issuedDate = \Carbon\Carbon::createFromFormat('d/m/Y', trim($validated['ris_issued_by_date']))
+                    ->format('Y-m-d');
+            } catch (\Throwable $e) {
+                return back()->with(
+                    'error',
+                    'Issued by date must be in dd/mm/yyyy format.'
+                );
+            }
+
             $ris = DB::table('requisition_issue_slip_table')
                 ->where('ris_id', $risId)
                 ->lockForUpdate()
@@ -2302,14 +2292,18 @@ class AdminController extends Controller
                 return back()->with('error', 'Only submitted pending RIS records can be approved.');
             }
 
-            $adminName = Auth::user()->user_full_name ?? 'Admin';
+            $adminName = trim($validated['ris_issued_by']);
 
+            // Admin signs Issued by only.
+            // Approved by stays blank for the President.
+            // approved_by_date marks it as forwarded into the President queue.
             DB::table('requisition_issue_slip_table')
                 ->where('ris_id', $risId)
                 ->update([
                     'ris_status' => 'Approved',
-                    'ris_approved_by_signature' => $adminName,
-
+                    'ris_issued_by_signature' => $adminName,
+                    'ris_issued_by_date' => $issuedDate,
+                    'ris_approved_by_signature' => null,
                     'ris_approved_by_date' => now()->toDateString(),
                 ]);
 
@@ -2321,15 +2315,47 @@ class AdminController extends Controller
                     'approval_log_level' => 'Admin',
                     'approval_log_approved_by' => Auth::id(),
                     'approval_log_approval_status' => 'Approved',
-                    'approval_log_approval_remarks' => 'RIS forwarded to President by ' . $adminName,
+                    'approval_log_approval_remarks' => 'RIS signed (Issued by) by ' . $adminName . ' and forwarded to President.',
                     'approval_log_approved_at' => now(),
                 ]);
             } catch (\Throwable $e) {
                 // Ignore logging failures
             }
 
-            return back()->with('success', 'RIS approved and forwarded to the President for final approval.');
+            return back()->with('success', 'RIS signed and forwarded to the President for final approval.');
         });
+    }
+
+    public function directApproveForm(Request $request, $risId)
+    {
+        $mode = strtolower($request->query('mode', 'direct'));
+        if (!in_array($mode, ['direct', 'forward'], true)) {
+            $mode = 'direct';
+        }
+
+        $ris = DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $risId)
+            ->first();
+
+        abort_if(!$ris, 404);
+
+        if (
+            !in_array($ris->ris_status, ['Submitted', 'Under Review', 'Resubmitted', 'Pending'], true) ||
+            empty($ris->ris_requested_by_date)
+        ) {
+            abort(403, 'Only submitted pending RIS records can be signed by Admin.');
+        }
+
+        $risItems = DB::table('requisition_issue_slip_items_table')
+            ->where('ris_id', $risId)
+            ->orderBy('ris_item_id')
+            ->get();
+
+        return view('admin.procurement-review._direct-approve-form', [
+            'ris' => $ris,
+            'risItems' => $risItems,
+            'mode' => $mode,
+        ]);
     }
 
     public function directApproveRis(Request $request, $risId)
@@ -2337,13 +2363,23 @@ class AdminController extends Controller
     return DB::transaction(function () use ($request, $risId) {
 
         // =====================================================
-        // VALIDATE INPUT
+        // VALIDATE INPUT — Issued by + date only
         // =====================================================
 
         $validated = $request->validate([
-            'admin_name' => ['required', 'string', 'max:255'],
-            'admin_date' => ['required', 'date'],
+            'ris_issued_by' => ['required', 'string', 'max:255'],
+            'ris_issued_by_date' => ['required', 'string', 'max:20'],
         ]);
+
+        try {
+            $issuedDate = \Carbon\Carbon::createFromFormat('d/m/Y', trim($validated['ris_issued_by_date']))
+                ->format('Y-m-d');
+        } catch (\Throwable $e) {
+            return back()->with(
+                'error',
+                'Issued by date must be in dd/mm/yyyy format.'
+            );
+        }
 
         // =====================================================
         // GET AND LOCK RIS
@@ -2385,8 +2421,8 @@ class AdminController extends Controller
             ->where('ris_id', $risId)
             ->update([
                 'ris_status' => 'Directly Approved',
-                'ris_issued_by_signature' => $validated['admin_name'],
-                'ris_issued_by_date' => $validated['admin_date'],
+                'ris_issued_by_signature' => trim($validated['ris_issued_by']),
+                'ris_issued_by_date' => $issuedDate,
                 'ris_approved_by_signature' => null,
                 'ris_approved_by_date' => null,
             ]);
@@ -2404,7 +2440,7 @@ class AdminController extends Controller
                 'approval_log_level' => 'Admin Direct Approval',
                 'approval_log_approved_by' => Auth::id(),
                 'approval_log_approval_status' => 'Directly Approved',
-                'approval_log_approval_remarks' => 'RIS directly approved by ' . $validated['admin_name'] . ' (Issued by) and returned to Purchaser.',
+                'approval_log_approval_remarks' => 'RIS directly approved by ' . trim($validated['ris_issued_by']) . ' (Issued by) and returned to Purchaser.',
                 'approval_log_approved_at' => now(),
             ]);
 

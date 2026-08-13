@@ -268,10 +268,15 @@ Route::middleware(['auth', 'admin'])
             [AdminController::class, 'approveRis']
         )->name('procurement-review.ris.approve');
 
+        Route::get(
+            '/procurement-review/ris/{ris}/direct-approve-form',
+            [AdminController::class, 'directApproveForm']
+        )->name('procurement-review.ris.direct-approve-form');
+
         Route::post(
-    '/procurement-review/ris/{ris}/direct-approve',
-    [AdminController::class, 'directApproveRis']
-)->name('procurement-review.ris.direct-approve');
+            '/procurement-review/ris/{ris}/direct-approve',
+            [AdminController::class, 'directApproveRis']
+        )->name('procurement-review.ris.direct-approve');
 
         Route::post(
             '/procurement-review/ris/{ris}/reject',
