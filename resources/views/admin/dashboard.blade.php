@@ -317,7 +317,7 @@
                                     <span class="table-ref-no">{{ $ris->ris_form_number ?? 'RIS-' . $ris->ris_id }}</span>
                                 </td>
                                 <td>
-                                    <span class="table-equip">{{ $ris->equipment_name ?? $ris->report_unlisted_equipment_name ?? 'N/A' }}</span>
+                                    <span class="table-equip">{{ $ris->ris_item_names ?: ($ris->ris_manual_title ?: ($ris->equipment_name ?? $ris->report_unlisted_equipment_name ?? ($ris->ris_request_type === 'manual' ? 'Manual Procurement' : 'N/A'))) }}</span>
                                 </td>
                                 <td>
                                     @if(in_array($ris->ris_status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true))
@@ -2232,42 +2232,28 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (!modal || !body) return;
 
-        // Show modal with loading state
+        const printUrl = '/admin/procurement-review/ris/' + risId + '/print?ts=' + Date.now();
+
+        if (printLink) {
+            printLink.href = printUrl;
+        }
+
         modal.style.display = 'flex';
-        body.innerHTML = `
-            <div class="ris-preview-loading">
-                <div class="ris-preview-spinner"></div>
-                <span>Loading preview...</span>
-            </div>
-        `;
+        body.innerHTML = '';
 
-        // Update print link
-        const printUrl = '/admin/procurement-review/ris/' + risId + '/print';
-        printLink.href = printUrl;
-
-        // Fetch the print view HTML and embed it in an iframe
-        fetch(printUrl)
-            .then(function(response) {
-                if (!response.ok) throw new Error('Failed to load preview');
-                return response.text();
-            })
-            .then(function(html) {
-                body.innerHTML = '<iframe srcdoc="' + escapeHtml(html) + '" frameborder="0"></iframe>';
-            })
-            .catch(function(error) {
-                body.innerHTML = `
-                    <div class="ris-preview-loading" style="color:#e11d48;">
-                        <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
-                        </svg>
-                        <span>Failed to load preview. <a href="` + printUrl + `" target="_blank" style="color:#6366f1;text-decoration:underline;">Open in new tab instead</a></span>
-                    </div>
-                `;
-            });
+        const iframe = document.createElement('iframe');
+        iframe.src = printUrl;
+        iframe.setAttribute('frameborder', '0');
+        iframe.title = 'RIS Form Preview';
+        body.appendChild(iframe);
     };
 
     window.closeRisPreviewModal = function() {
         const modal = document.getElementById('risPreviewModal');
+        const body = document.getElementById('risPreviewModalBody');
+        if (body) {
+            body.innerHTML = '';
+        }
         if (modal) {
             modal.style.display = 'none';
         }
@@ -2287,13 +2273,6 @@ document.addEventListener('DOMContentLoaded', function() {
             closeRisPreviewModal();
         }
     });
-
-// Helper to escape HTML for use in srcdoc
-    function escapeHtml(text) {
-        var div = document.createElement('div');
-        div.appendChild(document.createTextNode(text));
-        return div.innerHTML;
-    }
 
 
     // =====================================================

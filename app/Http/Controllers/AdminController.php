@@ -352,11 +352,18 @@ class AdminController extends Controller
                     '=',
                     'ris_items_sum.ris_id'
                 )
+                ->leftJoin(
+                    DB::raw('(SELECT ris_id, GROUP_CONCAT(COALESCE(ris_item_name_description, "N/A") SEPARATOR ", ") as ris_item_names FROM requisition_issue_slip_items_table GROUP BY ris_id) as ris_items_names'),
+                    'requisition_issue_slip_table.ris_id',
+                    '=',
+                    'ris_items_names.ris_id'
+                )
                 ->select(
                     'requisition_issue_slip_table.*',
                     'equipment_table.equipment_name',
                     'reports_table.report_unlisted_equipment_name',
-                    'ris_items_sum.ris_calculated_total'
+                    'ris_items_sum.ris_calculated_total',
+                    'ris_items_names.ris_item_names'
                 )
                 ->whereNotNull('ris_requested_by_date')
                 ->orderByDesc('ris_requested_by_date')
@@ -627,7 +634,7 @@ class AdminController extends Controller
     } else {
 
         // All statuses shown by this Procurement Review page.
-        // Includes new workflow statuses (Submitted / Under Review / Resubmitted).
+        // Includes current workflow, legacy, and archived forms.
         $query->whereIn(
             'requisition_issue_slip_table.ris_status',
             [
@@ -638,6 +645,7 @@ class AdminController extends Controller
                 'Approved',
                 'Minor Revision',
                 'Rejected',
+                'Archived',
             ]
         );
     }
@@ -1743,7 +1751,8 @@ class AdminController extends Controller
 
         } else {
 
-            // Includes new workflow statuses.
+            // Show all submitted RIS forms: current workflow + legacy + archived.
+            // Drafts without a requested date are already excluded by the base query.
             $query->whereIn(
                 'requisition_issue_slip_table.ris_status',
                 [
@@ -1754,6 +1763,7 @@ class AdminController extends Controller
                     'Approved',
                     'Minor Revision',
                     'Rejected',
+                    'Archived',
                 ]
             );
         }
@@ -1775,6 +1785,16 @@ class AdminController extends Controller
                     )
                     ->orWhere(
                         'requisition_issue_slip_table.ris_requested_by_signature',
+                        'like',
+                        '%' . $search . '%'
+                    )
+                    ->orWhere(
+                        'requisition_issue_slip_table.ris_manual_title',
+                        'like',
+                        '%' . $search . '%'
+                    )
+                    ->orWhere(
+                        'requisition_issue_slip_table.ris_purpose_description',
                         'like',
                         '%' . $search . '%'
                     )
@@ -1865,6 +1885,61 @@ class AdminController extends Controller
     }
 
 
+
+
+    // =====================================================
+    // ADMIN RIS PRINT / PREVIEW
+    // =====================================================
+
+    public function printRis($risId)
+    {
+        $ris = DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $risId)
+            ->first();
+
+        abort_if(!$ris, 404, 'RIS not found.');
+
+        $risItems = DB::table('requisition_issue_slip_items_table')
+            ->where('ris_id', $risId)
+            ->orderBy('ris_item_id')
+            ->get()
+            ->pad(10, null);
+
+        $presidentName = null;
+
+        if (
+            !empty($ris->ris_approved_by_signature) &&
+            str_starts_with((string) $ris->ris_approved_by_signature, 'data:image')
+        ) {
+            try {
+                $presidentApproval = DB::table('approval_logs_table')
+                    ->leftJoin(
+                        'users_table',
+                        'approval_logs_table.approval_log_approved_by',
+                        '=',
+                        'users_table.user_id'
+                    )
+                    ->where('approval_logs_table.approval_log_reference_type', 'RIS')
+                    ->where('approval_logs_table.approval_log_reference_id', (int) $risId)
+                    ->where('approval_logs_table.approval_log_level', 'President')
+                    ->where('approval_logs_table.approval_log_approval_status', 'Approved')
+                    ->select('users_table.user_full_name')
+                    ->first();
+
+                if ($presidentApproval && !empty($presidentApproval->user_full_name)) {
+                    $presidentName = $presidentApproval->user_full_name;
+                }
+            } catch (\Throwable $e) {
+                $presidentName = null;
+            }
+        }
+
+        return view('admin.ris.print', [
+            'ris' => $ris,
+            'risItems' => $risItems,
+            'presidentName' => $presidentName,
+        ]);
+    }
 
 
     // =====================================================

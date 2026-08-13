@@ -280,7 +280,7 @@ Route::middleware(['auth', 'admin'])
 
 Route::get(
             '/procurement-review/ris/{ris}/print',
-            [PurchaserController::class, 'printRis']
+            [AdminController::class, 'printRis']
         )->name('procurement-review.ris.print');
 
         // ==========================================

@@ -96,10 +96,10 @@
 
                     <div
                         class="max-w-[220px] truncate text-sm font-medium {{ !in_array($ris->ris_status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true) ? 'text-gray-500' : 'text-gray-700' }}"
-                        title="{{ $ris->ris_purpose_description ?? 'N/A' }}"
+                        title="{{ $ris->ris_purpose_description ?: ($ris->ris_manual_description ?? 'N/A') }}"
                     >
 
-                        {{ $ris->ris_purpose_description ?? 'N/A' }}
+                        {{ $ris->ris_purpose_description ?: ($ris->ris_manual_description ?? 'N/A') }}
 
                     </div>
 
@@ -117,7 +117,11 @@
                         title="Items / Equipment included in this RIS"
                     >
 
-                        {{ $ris->ris_item_names ?? ($ris->equipment_name ?? $ris->report_unlisted_equipment_name ?? 'Unknown Equipment') }}
+                        {{ $ris->ris_item_names
+                            ?: ($ris->ris_manual_title
+                                ?: ($ris->equipment_name
+                                    ?? $ris->report_unlisted_equipment_name
+                                    ?? ($ris->ris_request_type === 'manual' ? 'Manual Procurement' : 'Unknown Equipment'))) }}
 
                     </div>
 
