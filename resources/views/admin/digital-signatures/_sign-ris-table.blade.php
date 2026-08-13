@@ -73,7 +73,6 @@
                     $hasPresidentSignature = !empty($ris->ris_approved_by_signature)
                         && str_starts_with((string) $ris->ris_approved_by_signature, 'data:image');
                     $canCosign = is_null($ris->ris_issued_by_date) && $hasPresidentSignature;
-                    $isLegacyInvalid = is_null($ris->ris_issued_by_date) && !$hasPresidentSignature;
                 @endphp
 
 
@@ -234,89 +233,34 @@
 
                 <td class="px-5 py-4">
 
-                    <div class="flex flex-wrap items-center justify-center gap-2">
-
-
-                        {{-- ================================================= --}}
-                        {{-- VIEW / PREVIEW --}}
-                        {{-- ================================================= --}}
+                    <div class="flex items-center justify-center gap-1.5">
 
                         <button
                             type="button"
                             onclick="window.openSignRisPreviewModal('{{ $ris->ris_id }}')"
                             title="Preview this RIS form"
-                            class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
+                            aria-label="Preview RIS"
+                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
                         >
-
-                            <svg
-                                class="h-3.5 w-3.5"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                                ></path>
-
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                                ></path>
-
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                             </svg>
-
-                            View
-
                         </button>
-
-
-                        {{-- ================================================= --}}
-                        {{-- CO-SIGN BUTTON (only valid President-approved RIS) --}}
-                        {{-- ================================================= --}}
 
                         @if($canCosign)
 
                             <button
                                 type="button"
                                 title="Co-sign this President-approved RIS"
+                                aria-label="Co-sign"
                                 onclick="openCoSignModal('{{ $ris->ris_id }}')"
-                                class="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-white transition hover:bg-slate-800"
                             >
-
-                                <svg
-                                    class="h-3.5 w-3.5"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                >
-
-                                    <path
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        stroke-width="2"
-                                        d="M5 13l4 4L19 7"
-                                    ></path>
-
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
                                 </svg>
-
-                                Co-sign
-
                             </button>
-
-                        @elseif($isLegacyInvalid)
-
-                            <span
-                                class="inline-flex items-center rounded-lg border border-dashed border-gray-300 px-3 py-2 text-xs font-medium text-gray-400"
-                                title="This legacy/invalid RIS can be viewed and logged, but not co-signed"
-                            >
-                                View only
-                            </span>
 
                         @endif
 

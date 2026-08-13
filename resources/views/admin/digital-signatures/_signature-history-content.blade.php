@@ -189,9 +189,12 @@
 
                 <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 
-                    <div class="flex items-center gap-2">
+                    <div class="inline-flex items-center rounded-xl bg-slate-200/70 p-1">
 
-                        <span class="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm">
+                        <span
+                            class="flex h-9 items-center rounded-lg bg-white px-4 text-xs font-semibold text-slate-950 shadow-sm"
+                            title="Showing all finished RIS records"
+                        >
                             All
                         </span>
 

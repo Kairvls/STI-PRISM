@@ -192,90 +192,75 @@
 
 
                     {{-- ================================================= --}}
-                    {{-- STATUS FILTER TOGGLES --}}
+                    {{-- STATUS FILTER SWITCH --}}
                     {{-- ================================================= --}}
 
-                    <div class="flex flex-wrap items-center gap-2">
-
-
-                        {{-- ALL --}}
+                    <div class="inline-flex max-w-full items-center overflow-x-auto rounded-xl bg-slate-200/70 p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 
                         <button
                             type="button"
                             data-filter="all"
                             title="Show all RIS records"
-                            class="ris-filter-btn rounded-lg px-4 py-2 text-sm font-semibold transition
+                            class="ris-filter-btn flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold transition
                                 {{ $filter === 'all'
-                                    ? 'bg-slate-900 text-white shadow-sm'
-                                    : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                    ? 'bg-white text-slate-950 shadow-sm'
+                                    : 'text-slate-500 hover:text-slate-900'
                                 }}
                             "
                         >
                             All
                         </button>
 
-
-                        {{-- PENDING --}}
-
                         <button
                             type="button"
                             data-filter="pending"
                             title="Show only Pending RIS records"
-                            class="ris-filter-btn rounded-lg px-4 py-2 text-sm font-semibold transition
+                            class="ris-filter-btn flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold transition
                                 {{ $filter === 'pending'
-                                    ? 'border border-amber-300 bg-amber-50 text-amber-700'
-                                    : 'border border-gray-200 bg-white text-gray-600 hover:border-amber-200 hover:bg-amber-50 hover:text-amber-700'
+                                    ? 'bg-white text-slate-950 shadow-sm'
+                                    : 'text-slate-500 hover:text-slate-900'
                                 }}
                             "
                         >
                             Pending
                         </button>
 
-
-                        {{-- AMEND --}}
-
                         <button
                             type="button"
                             data-filter="rejected"
                             title="Show RIS records returned for amendment"
-                            class="ris-filter-btn rounded-lg px-4 py-2 text-sm font-semibold transition
+                            class="ris-filter-btn flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold transition
                                 {{ $filter === 'rejected'
-                                    ? 'border border-rose-300 bg-rose-50 text-rose-700'
-                                    : 'border border-gray-200 bg-white text-gray-600 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700'
+                                    ? 'bg-white text-slate-950 shadow-sm'
+                                    : 'text-slate-500 hover:text-slate-900'
                                 }}
                             "
                         >
                             Amend
                         </button>
 
-
-                        {{-- FORWARDED TO PRESIDENT --}}
-
                         <button
                             type="button"
                             data-filter="approved"
                             title="Show only RIS records forwarded to the President"
-                            class="ris-filter-btn rounded-lg px-4 py-2 text-sm font-semibold transition
+                            class="ris-filter-btn flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold transition
                                 {{ $filter === 'approved'
-                                    ? 'border border-emerald-300 bg-emerald-50 text-emerald-700'
-                                    : 'border border-gray-200 bg-white text-gray-600 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700'
+                                    ? 'bg-white text-slate-950 shadow-sm'
+                                    : 'text-slate-500 hover:text-slate-900'
                                 }}
                             "
                         >
-                            Forwarded to President
+                            Forwarded
                         </button>
-
-
-                        {{-- DIRECT APPROVED --}}
 
                         <button
                             type="button"
                             data-filter="direct_approved"
                             title="Show only Directly Approved RIS records"
-                            class="ris-filter-btn rounded-lg px-4 py-2 text-sm font-semibold transition
+                            class="ris-filter-btn flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold transition
                                 {{ $filter === 'direct_approved'
-                                    ? 'border border-slate-400 bg-slate-100 text-slate-900'
-                                    : 'border border-gray-200 bg-white text-gray-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900'
+                                    ? 'bg-white text-slate-950 shadow-sm'
+                                    : 'text-slate-500 hover:text-slate-900'
                                 }}
                             "
                         >

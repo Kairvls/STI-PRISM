@@ -252,121 +252,64 @@
 
                 <td class="px-5 py-4">
 
-                    <div class="flex flex-wrap items-center justify-center gap-2">
-
-
-                        {{-- ================================================= --}}
-                        {{-- VIEW / PREVIEW --}}
-                        {{-- ================================================= --}}
+                    <div class="flex items-center justify-center gap-1.5">
 
                         <button
                             type="button"
                             onclick="window.openRisPreviewModal('{{ $ris->ris_id }}')"
                             title="Preview this RIS form"
-                            class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
+                            aria-label="Preview RIS"
+                            class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
                         >
-
-                            <svg
-                                class="h-3.5 w-3.5"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                                ></path>
-
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                                ></path>
-
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                             </svg>
-
-                            View
-
                         </button>
 
-
-                        {{-- ================================================= --}}
-                        {{-- PENDING ACTIONS --}}
-                        {{-- ================================================= --}}
-
                         @if(in_array($ris->ris_status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true))
-
-
-                            {{-- ================================================= --}}
-                            {{-- FORWARD TO PRESIDENT --}}
-                            {{-- ================================================= --}}
 
                             <form
                                 method="POST"
                                 action="{{ route('admin.procurement-review.ris.approve', $ris->ris_id) }}"
+                                class="inline-flex"
                             >
-
                                 @csrf
-
                                 <button
                                     type="submit"
                                     title="Forward this RIS to the President for final approval"
+                                    aria-label="Forward to President"
                                     onclick="return confirm('Forward this RIS to the President for final approval?')"
-                                    class="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100"
                                 >
-                                    Forward to President
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                                    </svg>
                                 </button>
-
                             </form>
-
-
-                            {{-- ================================================= --}}
-                            {{-- DIRECT APPROVAL (opens modal) --}}
-                            {{-- ================================================= --}}
 
                             <button
                                 type="button"
                                 title="Directly approve this RIS and return it to the Purchaser"
+                                aria-label="Direct Approval"
                                 onclick="openDirectApproveModal('{{ $ris->ris_id }}')"
-                                class="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-white transition hover:bg-slate-800"
                             >
-
-                                <svg
-                                    class="h-3.5 w-3.5"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                >
-
-                                    <path
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        stroke-width="2"
-                                        d="M5 13l4 4L19 7"
-                                    ></path>
-
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                                 </svg>
-
-                                Direct Approval
-
                             </button>
-
-
-                            {{-- ================================================= --}}
-                            {{-- AMEND (opens modal for remarks) --}}
-                            {{-- ================================================= --}}
 
                             <button
                                 type="button"
                                 title="Return this RIS to the Purchaser for amendment with revision notes"
+                                aria-label="Amend"
                                 onclick="openAmendModal('{{ $ris->ris_id }}')"
-                                class="inline-flex items-center rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-100"
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-700 transition hover:bg-rose-100"
                             >
-                                Amend
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                </svg>
                             </button>
 
                         @endif
