@@ -28,7 +28,7 @@
         {{-- ================================================= --}}
 
         <div
-            class="rounded-xl border border-gray-200 bg-white px-5 py-5"
+            class="rounded-[18px] border border-gray-200 bg-white px-5 py-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)]"
             title="RIS forms awaiting your co-sign"
         >
 
@@ -38,7 +38,7 @@
 
             <div class="mt-3">
 
-                <span class="text-3xl font-bold text-amber-600">
+                <span class="font-['Outfit'] text-3xl font-bold text-amber-600">
                     {{ $forCosignCount }}
                 </span>
 
@@ -56,7 +56,7 @@
         {{-- ================================================= --}}
 
         <div
-            class="rounded-xl border border-gray-200 bg-white px-5 py-5"
+            class="rounded-[18px] border border-gray-200 bg-white px-5 py-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)]"
             title="RIS forms that have been co-signed"
         >
 
@@ -66,7 +66,7 @@
 
             <div class="mt-3">
 
-                <span class="text-3xl font-bold text-emerald-600">
+                <span class="font-['Outfit'] text-3xl font-bold text-emerald-600">
                     {{ $cosignedCount }}
                 </span>
 
@@ -85,7 +85,7 @@
     {{-- SIGN RIS TABLE CARD --}}
     {{-- ===================================================== --}}
 
-    <div class="mt-6 overflow-hidden rounded-xl border border-gray-200 bg-white">
+    <div class="mt-6 overflow-hidden rounded-[18px] border border-gray-200 bg-white shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
 
 
         {{-- ================================================= --}}

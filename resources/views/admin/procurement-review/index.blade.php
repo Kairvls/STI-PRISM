@@ -15,11 +15,11 @@
 
     <div>
 
-        <h1 class="text-2xl font-bold text-gray-900">
+        <h1 class="admin-page-title">
             RIS Approval
         </h1>
 
-        <p class="mt-1 text-sm text-gray-600">
+        <p class="admin-page-subtitle">
             Review and manage Requisition Issue Slips submitted by the Purchaser.
         </p>
 

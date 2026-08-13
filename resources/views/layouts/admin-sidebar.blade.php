@@ -1,3 +1,6 @@
+{{-- Admin design tokens (Inter/Outfit + STI blue) — matches Maintenance Personnel --}}
+@include('layouts.partials.admin-design')
+
 <div id="sidebar">
 
     {{-- ====================================== --}}

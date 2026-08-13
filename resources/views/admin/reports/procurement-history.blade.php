@@ -1,12 +1,14 @@
 @extends('layouts.admin-layout')
 
-@section('title', 'Maintenance History')
+@section('title', 'Procurement History')
 
 @section('content')
 
-<div class="page-header">
-    <h1>Maintenance History</h1>
-    <p>View completed maintenance records.</p>
+<div class="space-y-6">
+    <div>
+        <h1 class="admin-page-title">Procurement History</h1>
+        <p class="admin-page-subtitle">View completed procurement records.</p>
+    </div>
 </div>
 
 @endsection

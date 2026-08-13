@@ -12,10 +12,10 @@
 
     <div class="flex items-center justify-between">
         <div>
-            <h1 class="text-2xl font-bold text-gray-900">
+            <h1 class="admin-page-title">
                 User Management
             </h1>
-            <p class="mt-1 text-sm text-gray-600">
+            <p class="admin-page-subtitle">
                 View, manage, and control user accounts across the system.
             </p>
         </div>
@@ -50,7 +50,7 @@
     <div class="grid grid-cols-4 gap-4">
 
         {{-- TOTAL USERS --}}
-        <div class="rounded-lg border border-gray-200 bg-white px-5 py-4">
+        <div class="rounded-[18px] border border-gray-200 bg-white px-5 py-4 shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
             <div class="flex items-center justify-between">
                 <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
                     <i data-lucide="users" class="h-5 w-5"></i>
@@ -61,7 +61,7 @@
         </div>
 
         {{-- ACTIVE USERS --}}
-        <div class="rounded-lg border border-gray-200 bg-white px-5 py-4">
+        <div class="rounded-[18px] border border-gray-200 bg-white px-5 py-4 shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
             <div class="flex items-center justify-between">
                 <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600">
                     <i data-lucide="check-circle" class="h-5 w-5"></i>
@@ -72,7 +72,7 @@
         </div>
 
         {{-- INACTIVE USERS --}}
-        <div class="rounded-lg border border-gray-200 bg-white px-5 py-4">
+        <div class="rounded-[18px] border border-gray-200 bg-white px-5 py-4 shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
             <div class="flex items-center justify-between">
                 <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-600">
                     <i data-lucide="pause-circle" class="h-5 w-5"></i>
@@ -83,7 +83,7 @@
         </div>
 
         {{-- DEACTIVATED USERS --}}
-        <div class="rounded-lg border border-gray-200 bg-white px-5 py-4">
+        <div class="rounded-[18px] border border-gray-200 bg-white px-5 py-4 shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
             <div class="flex items-center justify-between">
                 <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-rose-50 text-rose-600">
                     <i data-lucide="ban" class="h-5 w-5"></i>
@@ -251,7 +251,7 @@
                         <td class="px-5 py-4 text-sm font-semibold text-gray-900">2026-004</td>
                         <td class="px-5 py-4 text-sm text-gray-700">Ana Gonzales</td>
                         <td class="px-5 py-4">
-                            <span class="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700 ring-1 ring-inset ring-indigo-200">
+                            <span class="inline-flex items-center rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-[#0037c7] ring-1 ring-inset ring-blue-200">
                                 Accounting
                             </span>
                         </td>

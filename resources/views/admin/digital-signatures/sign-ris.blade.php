@@ -13,11 +13,11 @@
 
     <div>
 
-        <h1 class="text-2xl font-bold text-gray-900">
+        <h1 class="admin-page-title">
             Sign RIS
         </h1>
 
-        <p class="mt-1 text-sm text-gray-600">
+        <p class="admin-page-subtitle">
             Review and co-sign President-approved Requisition Issue Slips.
         </p>
 

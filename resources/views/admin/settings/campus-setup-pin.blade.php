@@ -6,7 +6,7 @@
 
 <div class="mx-auto max-w-3xl space-y-6">
     <div>
-        <h1 class="text-3xl font-bold text-slate-900">Campus Setup PIN</h1>
+        <h1 class="admin-page-title">Campus Setup PIN</h1>
         <p class="mt-2 text-sm text-slate-600">
             Set the shared PIN used to unlock the campus setup wizard. This replaces the account password flow for campus setup.
         </p>

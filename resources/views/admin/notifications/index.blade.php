@@ -4,9 +4,11 @@
 
 @section('content')
 
-<div class="page-header">
-    <h1>Notifications</h1>
-    <p>View all system notifications.</p>
+<div class="space-y-6">
+    <div>
+        <h1 class="admin-page-title">Notifications</h1>
+        <p class="admin-page-subtitle">View all system notifications.</p>
+    </div>
 </div>
 
 @endsection

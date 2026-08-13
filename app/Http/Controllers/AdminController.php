@@ -198,26 +198,33 @@ class AdminController extends Controller
         // ACTIVITY LIST — Separated into pending (3) + completed (2)
         // =====================================================
 
+        // Pending items come from live RIS forms (not approval_logs),
+        // because submitted RIS may not have an approval log yet.
         try {
-            $pendingActivityLogs = DB::table('approval_logs_table')
-                ->leftJoin('users_table', 'approval_logs_table.approval_log_approved_by', '=', 'users_table.user_id')
+            $pendingActivityLogs = DB::table('requisition_issue_slip_table')
                 ->select(
-                    'approval_logs_table.approval_log_id as id',
-                    'approval_logs_table.approval_log_approval_status as status',
-                    'approval_logs_table.approval_log_approval_remarks as description',
-                    'approval_logs_table.approval_log_reference_type as ref_type',
-                    'approval_logs_table.approval_log_reference_id as ref_id',
-                    'approval_logs_table.approval_log_approved_at as created_at',
-                    'users_table.user_full_name as actor_name',
-                    DB::raw("'approval' as log_source")
+                    'ris_id as id',
+                    'ris_status as status',
+                    'ris_purpose_description as description',
+                    'ris_form_number',
+                    DB::raw("'RIS' as ref_type"),
+                    'ris_id as ref_id',
+                    DB::raw('COALESCE(ris_submitted_at, ris_requested_by_date, ris_created_at) as created_at'),
+                    'ris_requested_by_signature as actor_name',
+                    DB::raw("'ris' as log_source")
                 )
-                ->whereIn('approval_logs_table.approval_log_approval_status', ['Submitted', 'Under Review', 'Resubmitted', 'Pending'])
-                ->orderByDesc('approval_logs_table.approval_log_approved_at')
+                ->whereIn('ris_status', ['Submitted', 'Under Review', 'Resubmitted', 'Pending'])
+                ->orderByDesc(DB::raw('COALESCE(ris_submitted_at, ris_requested_by_date, ris_created_at)'))
+                ->orderByDesc('ris_id')
                 ->limit(3)
                 ->get()
                 ->map(function ($log) {
                     $log->is_pending = true;
-                    $log->title = $log->status . ' — ' . ($log->ref_type ?? 'RIS');
+                    $formNo = $log->ris_form_number ? 'RIS #' . $log->ris_form_number : 'RIS';
+                    $log->title = $log->status . ' — ' . $formNo;
+                    if (empty($log->description)) {
+                        $log->description = 'Awaiting admin review';
+                    }
                     return $log;
                 });
         } catch (\Throwable $e) { $pendingActivityLogs = collect(); }
@@ -749,6 +756,13 @@ class AdminController extends Controller
     // so the page does not fully reload.
     if ($request->ajax() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
 
+        if ($request->boolean('table_only')) {
+            return view(
+                'admin.procurement-review._quick-access',
+                compact('risRecords', 'filter', 'search')
+            );
+        }
+
         return view(
             'admin.procurement-review._content',
             compact(
@@ -1042,6 +1056,13 @@ class AdminController extends Controller
 
     if ($request->ajax() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
 
+        if ($request->boolean('table_only')) {
+            return view(
+                'admin.digital-signatures._sign-ris-quick-access',
+                compact('signableRisRecords', 'filter', 'search')
+            );
+        }
+
         return view(
             'admin.digital-signatures._sign-ris-content',
             compact(
@@ -1295,6 +1316,13 @@ class AdminController extends Controller
 
         // AJAX requests return only the content partial
         if ($request->ajax() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
+
+            if ($request->boolean('table_only')) {
+                return view(
+                    'admin.digital-signatures._signature-history-quick-access',
+                    compact('signatureHistory', 'search')
+                );
+            }
 
             return view(
                 'admin.digital-signatures._signature-history-content',
@@ -2521,7 +2549,7 @@ public function rejectRis(Request $request, $risId)
      */
     public function quickAccessProcurementContent(Request $request)
     {
-        // Reuse the risApprovals logic but with filter=all
+        $request->merge(['table_only' => true]);
         return $this->risApprovals($request);
     }
 
@@ -2531,6 +2559,7 @@ public function rejectRis(Request $request, $risId)
      */
     public function quickAccessSignRisContent(Request $request)
     {
+        $request->merge(['table_only' => true]);
         return $this->signRis($request);
     }
 
@@ -2540,6 +2569,7 @@ public function rejectRis(Request $request, $risId)
      */
     public function quickAccessHistoryContent(Request $request)
     {
+        $request->merge(['table_only' => true]);
         return $this->signatureHistory($request);
     }
 }
