@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\CampusSetupSetting;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -508,10 +509,13 @@ class AdminController extends Controller
             'ris_items_names.ris_item_names'
         )
 
-        // Only RIS forms already submitted by Purchaser.
-        ->whereNotNull(
-            'requisition_issue_slip_table.ris_requested_by_date'
-        );
+        // Include submitted + legacy/incomplete forms so old records stay visible for logging.
+        ->where(function ($q) {
+            $q->whereNotNull('requisition_issue_slip_table.ris_requested_by_date')
+                ->orWhereNotNull('requisition_issue_slip_table.ris_form_number')
+                ->orWhereNotNull('requisition_issue_slip_table.ris_submitted_at')
+                ->orWhereNotNull('requisition_issue_slip_table.ris_approved_by_date');
+        });
 
 
     // =====================================================
@@ -634,10 +638,11 @@ class AdminController extends Controller
     } else {
 
         // All statuses shown by this Procurement Review page.
-        // Includes current workflow, legacy, and archived forms.
+        // Includes current workflow, legacy, draft/incomplete, and archived forms.
         $query->whereIn(
             'requisition_issue_slip_table.ris_status',
             [
+                'Draft',
                 'Submitted',
                 'Under Review',
                 'Resubmitted',
@@ -783,9 +788,10 @@ class AdminController extends Controller
     public function signRis(Request $request)
 {
     // =====================================================
-    // SIGN RIS - Only RIS forms that have been President-approved
-    // President approval = ris_approved_by_signature is a base64 image
-    // (starts with 'data:image')
+    // SIGN RIS
+    // Shows President-approved RIS for co-sign, plus older /
+    // incomplete Approved records so admins can still view
+    // and log them even when they are not eligible to co-sign.
     // =====================================================
 
     // Get selected status filter.
@@ -795,14 +801,13 @@ class AdminController extends Controller
     $search = trim($request->query('search', ''));
 
     // Only allow these filter values.
-    if (!in_array($filter, ['all', 'for_cosign', 'cosigned'], true)) {
+    if (!in_array($filter, ['all', 'for_cosign', 'cosigned', 'legacy'], true)) {
         $filter = 'all';
     }
 
 
     // =====================================================
-    // BASE QUERY - Only President-approved RIS
-    // (ris_approved_by_signature starts with 'data:image')
+    // BASE QUERY - All Approved RIS (valid + legacy/invalid)
     // =====================================================
 
     $baseQuery = DB::table('requisition_issue_slip_table')
@@ -854,19 +859,18 @@ class AdminController extends Controller
             'ris_items_names.ris_item_names'
         )
 
-        // Only RIS approved by President (has base64 signature)
-        ->where(
-            'requisition_issue_slip_table.ris_status',
-            'Approved'
-        )
-        ->whereNotNull(
-            'requisition_issue_slip_table.ris_approved_by_date'
-        )
-        ->where(
-            'requisition_issue_slip_table.ris_approved_by_signature',
-            'like',
-            'data:image%'
-        );
+        // Approved (including legacy/incomplete) and archived approved-era records.
+        ->where(function ($q) {
+            $q->where('requisition_issue_slip_table.ris_status', 'Approved')
+                ->orWhere(function ($legacy) {
+                    $legacy->where('requisition_issue_slip_table.ris_status', 'Archived')
+                        ->where(function ($evidence) {
+                            $evidence->whereNotNull('requisition_issue_slip_table.ris_approved_by_date')
+                                ->orWhereNotNull('requisition_issue_slip_table.ris_issued_by_date')
+                                ->orWhereNotNull('requisition_issue_slip_table.ris_form_number');
+                        });
+                });
+        });
 
 
 // =====================================================
@@ -876,6 +880,11 @@ class AdminController extends Controller
     $forCosignCount = (clone $baseQuery)
         ->whereNull(
             'requisition_issue_slip_table.ris_issued_by_date'
+        )
+        ->where(
+            'requisition_issue_slip_table.ris_approved_by_signature',
+            'like',
+            'data:image%'
         )
         ->count();
 
@@ -888,6 +897,11 @@ class AdminController extends Controller
     // Total amount for For Co-sign (pending)
     $forCosignAmount = (clone $baseQuery)
         ->whereNull('requisition_issue_slip_table.ris_issued_by_date')
+        ->where(
+            'requisition_issue_slip_table.ris_approved_by_signature',
+            'like',
+            'data:image%'
+        )
         ->sum('ris_items_sum.ris_calculated_total');
 
     // Total amount for Co-signed
@@ -911,6 +925,11 @@ class AdminController extends Controller
 
         $query->whereNull(
             'requisition_issue_slip_table.ris_issued_by_date'
+        )
+        ->where(
+            'requisition_issue_slip_table.ris_approved_by_signature',
+            'like',
+            'data:image%'
         );
 
     } elseif ($filter === 'cosigned') {
@@ -919,8 +938,23 @@ class AdminController extends Controller
             'requisition_issue_slip_table.ris_issued_by_date'
         );
 
+    } elseif ($filter === 'legacy') {
+
+        // Old / invalid for co-sign: Approved/Archived without President base64 signature.
+        $query->whereNull(
+            'requisition_issue_slip_table.ris_issued_by_date'
+        )
+        ->where(function ($q) {
+            $q->whereNull('requisition_issue_slip_table.ris_approved_by_signature')
+                ->orWhere(
+                    'requisition_issue_slip_table.ris_approved_by_signature',
+                    'not like',
+                    'data:image%'
+                );
+        });
+
     }
-    // 'all' shows both
+    // 'all' shows both valid and legacy
 
 
     // =====================================================
@@ -940,6 +974,11 @@ class AdminController extends Controller
                 )
                 ->orWhere(
                     'requisition_issue_slip_table.ris_requested_by_signature',
+                    'like',
+                    '%' . $search . '%'
+                )
+                ->orWhere(
+                    'requisition_issue_slip_table.ris_manual_title',
                     'like',
                     '%' . $search . '%'
                 )
@@ -974,8 +1013,10 @@ class AdminController extends Controller
 
         ->orderByRaw("
             CASE
-                WHEN requisition_issue_slip_table.ris_issued_by_date IS NULL THEN 0
-                ELSE 1
+                WHEN requisition_issue_slip_table.ris_issued_by_date IS NULL
+                    AND requisition_issue_slip_table.ris_approved_by_signature LIKE 'data:image%' THEN 0
+                WHEN requisition_issue_slip_table.ris_issued_by_date IS NULL THEN 1
+                ELSE 2
             END
         ")
 
@@ -1104,16 +1145,18 @@ class AdminController extends Controller
                 'ris_items_names.ris_item_names'
             )
 
-            // Only RIS forms that have been submitted
-            ->whereNotNull(
-                'requisition_issue_slip_table.ris_requested_by_date'
-            )
+            // Keep finished + legacy records visible for logging,
+            // even when dates/signatures are incomplete.
+            ->where(function ($q) {
+                $q->whereNotNull('requisition_issue_slip_table.ris_requested_by_date')
+                    ->orWhereNotNull('requisition_issue_slip_table.ris_form_number')
+                    ->orWhereNotNull('requisition_issue_slip_table.ris_approved_by_date')
+                    ->orWhereNotNull('requisition_issue_slip_table.ris_issued_by_date')
+                    ->orWhereNotNull('requisition_issue_slip_table.ris_submitted_at');
+            })
 
-            // EXCLUDE active/in-progress forms — only finished ones.
-            // Active (new workflow): Draft, Submitted, Under Review,
-            // Resubmitted. Legacy: Pending.
-            // Minor Revision (Amended) IS shown so admins can view/access
-            // returned forms, matching the "Amended" summary card.
+            // EXCLUDE only active in-progress forms.
+            // Archived and incomplete Approved/Rejected remain visible.
             ->whereNotIn(
                 'requisition_issue_slip_table.ris_status',
                 [
@@ -1186,6 +1229,11 @@ class AdminController extends Controller
                     )
                     ->orWhere(
                         'requisition_issue_slip_table.ris_requested_by_signature',
+                        'like',
+                        '%' . $search . '%'
+                    )
+                    ->orWhere(
+                        'requisition_issue_slip_table.ris_manual_title',
                         'like',
                         '%' . $search . '%'
                     )
@@ -1631,10 +1679,13 @@ class AdminController extends Controller
                 'ris_items_names.ris_item_names'
             )
 
-            // Only RIS forms already submitted by Purchaser.
-            ->whereNotNull(
-                'requisition_issue_slip_table.ris_requested_by_date'
-            );
+            // Include submitted + legacy/incomplete forms so old records stay visible for logging.
+            ->where(function ($q) {
+                $q->whereNotNull('requisition_issue_slip_table.ris_requested_by_date')
+                    ->orWhereNotNull('requisition_issue_slip_table.ris_form_number')
+                    ->orWhereNotNull('requisition_issue_slip_table.ris_submitted_at')
+                    ->orWhereNotNull('requisition_issue_slip_table.ris_approved_by_date');
+            });
 
 
         // =====================================================
@@ -1751,11 +1802,11 @@ class AdminController extends Controller
 
         } else {
 
-            // Show all submitted RIS forms: current workflow + legacy + archived.
-            // Drafts without a requested date are already excluded by the base query.
+            // Show all RIS forms: current workflow + legacy + draft/incomplete + archived.
             $query->whereIn(
                 'requisition_issue_slip_table.ris_status',
                 [
+                    'Draft',
                     'Submitted',
                     'Under Review',
                     'Resubmitted',
@@ -1939,6 +1990,280 @@ class AdminController extends Controller
             'risItems' => $risItems,
             'presidentName' => $presidentName,
         ]);
+    }
+
+
+    // =====================================================
+    // ADMIN RIS TABLE PDF EXPORTS
+    // =====================================================
+
+    public function exportProcurementRisPdf(Request $request)
+    {
+        $filter = strtolower($request->query('filter', 'all'));
+        $search = trim($request->query('search', ''));
+
+        if (!in_array($filter, ['all', 'pending', 'approved', 'rejected', 'direct_approved'], true)) {
+            $filter = 'all';
+        }
+
+        $query = $this->adminRisJoinQuery()
+            ->where(function ($q) {
+                $q->whereNotNull('requisition_issue_slip_table.ris_requested_by_date')
+                    ->orWhereNotNull('requisition_issue_slip_table.ris_form_number')
+                    ->orWhereNotNull('requisition_issue_slip_table.ris_submitted_at')
+                    ->orWhereNotNull('requisition_issue_slip_table.ris_approved_by_date');
+            });
+
+        if ($filter === 'pending') {
+            $query->whereIn('requisition_issue_slip_table.ris_status', ['Submitted', 'Under Review', 'Resubmitted', 'Pending']);
+        } elseif ($filter === 'approved') {
+            $query->where('requisition_issue_slip_table.ris_status', 'Approved')
+                ->whereNotNull('requisition_issue_slip_table.ris_approved_by_date')
+                ->where(function ($q) {
+                    $q->whereNull('requisition_issue_slip_table.ris_approved_by_signature')
+                        ->orWhere('requisition_issue_slip_table.ris_approved_by_signature', 'like', 'data:image%');
+                });
+        } elseif ($filter === 'direct_approved') {
+            $query->where('requisition_issue_slip_table.ris_status', 'Approved')
+                ->whereNotNull('requisition_issue_slip_table.ris_approved_by_date')
+                ->whereNotNull('requisition_issue_slip_table.ris_approved_by_signature')
+                ->where('requisition_issue_slip_table.ris_approved_by_signature', 'not like', 'data:image%');
+        } elseif ($filter === 'rejected') {
+            $query->whereIn('requisition_issue_slip_table.ris_status', ['Minor Revision', 'Rejected']);
+        } else {
+            $query->whereIn('requisition_issue_slip_table.ris_status', [
+                'Draft', 'Submitted', 'Under Review', 'Resubmitted', 'Pending',
+                'Approved', 'Minor Revision', 'Rejected', 'Archived',
+            ]);
+        }
+
+        $this->applyAdminRisSearch($query, $search);
+
+        $rows = $query
+            ->orderByDesc('requisition_issue_slip_table.ris_id')
+            ->get()
+            ->map(fn ($ris) => $this->mapAdminRisExportRow($ris));
+
+        return $this->downloadAdminRisTablePdf(
+            'Procurement Review — RIS Records',
+            $rows,
+            'procurement-review-ris.pdf'
+        );
+    }
+
+    public function exportSignRisPdf(Request $request)
+    {
+        $filter = strtolower($request->query('filter', 'all'));
+        $search = trim($request->query('search', ''));
+
+        if (!in_array($filter, ['all', 'for_cosign', 'cosigned', 'legacy'], true)) {
+            $filter = 'all';
+        }
+
+        $query = $this->adminRisJoinQuery()
+            ->where(function ($q) {
+                $q->where('requisition_issue_slip_table.ris_status', 'Approved')
+                    ->orWhere(function ($legacy) {
+                        $legacy->where('requisition_issue_slip_table.ris_status', 'Archived')
+                            ->where(function ($evidence) {
+                                $evidence->whereNotNull('requisition_issue_slip_table.ris_approved_by_date')
+                                    ->orWhereNotNull('requisition_issue_slip_table.ris_issued_by_date')
+                                    ->orWhereNotNull('requisition_issue_slip_table.ris_form_number');
+                            });
+                    });
+            });
+
+        if ($filter === 'for_cosign') {
+            $query->whereNull('requisition_issue_slip_table.ris_issued_by_date')
+                ->where('requisition_issue_slip_table.ris_approved_by_signature', 'like', 'data:image%');
+        } elseif ($filter === 'cosigned') {
+            $query->whereNotNull('requisition_issue_slip_table.ris_issued_by_date');
+        } elseif ($filter === 'legacy') {
+            $query->whereNull('requisition_issue_slip_table.ris_issued_by_date')
+                ->where(function ($q) {
+                    $q->whereNull('requisition_issue_slip_table.ris_approved_by_signature')
+                        ->orWhere('requisition_issue_slip_table.ris_approved_by_signature', 'not like', 'data:image%');
+                });
+        }
+
+        $this->applyAdminRisSearch($query, $search);
+
+        $rows = $query
+            ->orderByDesc('requisition_issue_slip_table.ris_id')
+            ->get()
+            ->map(fn ($ris) => $this->mapAdminRisExportRow($ris));
+
+        return $this->downloadAdminRisTablePdf(
+            'Sign RIS — Records',
+            $rows,
+            'sign-ris-records.pdf'
+        );
+    }
+
+    public function exportSignatureHistoryPdf(Request $request)
+    {
+        $search = trim($request->query('search', ''));
+
+        $query = $this->adminRisJoinQuery()
+            ->where(function ($q) {
+                $q->whereNotNull('requisition_issue_slip_table.ris_requested_by_date')
+                    ->orWhereNotNull('requisition_issue_slip_table.ris_form_number')
+                    ->orWhereNotNull('requisition_issue_slip_table.ris_approved_by_date')
+                    ->orWhereNotNull('requisition_issue_slip_table.ris_issued_by_date')
+                    ->orWhereNotNull('requisition_issue_slip_table.ris_submitted_at');
+            })
+            ->whereNotIn('requisition_issue_slip_table.ris_status', [
+                'Draft', 'Submitted', 'Under Review', 'Resubmitted', 'Pending',
+            ]);
+
+        $this->applyAdminRisSearch($query, $search, true);
+
+        $rows = $query
+            ->orderByDesc('requisition_issue_slip_table.ris_id')
+            ->get()
+            ->map(fn ($ris) => $this->mapAdminRisExportRow($ris));
+
+        return $this->downloadAdminRisTablePdf(
+            'Signature History — RIS Records',
+            $rows,
+            'signature-history-ris.pdf'
+        );
+    }
+
+    private function adminRisJoinQuery()
+    {
+        return DB::table('requisition_issue_slip_table')
+            ->leftJoin(
+                'procurement_requests_table',
+                'requisition_issue_slip_table.ris_procurement_request_id',
+                '=',
+                'procurement_requests_table.procurement_request_id'
+            )
+            ->leftJoin(
+                'reports_table',
+                'procurement_requests_table.procurement_request_report_id',
+                '=',
+                'reports_table.report_id'
+            )
+            ->leftJoin(
+                'equipment_table',
+                'reports_table.report_equipment_id',
+                '=',
+                'equipment_table.equipment_id'
+            )
+            ->leftJoin(
+                DB::raw('(SELECT ris_id, SUM(COALESCE(ris_total_amount, 0)) as ris_calculated_total FROM requisition_issue_slip_items_table GROUP BY ris_id) as ris_items_sum'),
+                'requisition_issue_slip_table.ris_id',
+                '=',
+                'ris_items_sum.ris_id'
+            )
+            ->leftJoin(
+                DB::raw('(SELECT ris_id, GROUP_CONCAT(COALESCE(ris_item_name_description, "N/A") SEPARATOR ", ") as ris_item_names FROM requisition_issue_slip_items_table GROUP BY ris_id) as ris_items_names'),
+                'requisition_issue_slip_table.ris_id',
+                '=',
+                'ris_items_names.ris_id'
+            )
+            ->select(
+                'requisition_issue_slip_table.*',
+                'reports_table.report_unlisted_equipment_name',
+                'equipment_table.equipment_name',
+                'ris_items_sum.ris_calculated_total',
+                'ris_items_names.ris_item_names'
+            );
+    }
+
+    private function applyAdminRisSearch($query, string $search, bool $includeIssuedBy = false): void
+    {
+        if ($search === '') {
+            return;
+        }
+
+        $query->where(function ($searchQuery) use ($search, $includeIssuedBy) {
+            $searchQuery
+                ->where('requisition_issue_slip_table.ris_form_number', 'like', '%' . $search . '%')
+                ->orWhere('requisition_issue_slip_table.ris_requested_by_signature', 'like', '%' . $search . '%')
+                ->orWhere('requisition_issue_slip_table.ris_manual_title', 'like', '%' . $search . '%')
+                ->orWhere('equipment_table.equipment_name', 'like', '%' . $search . '%')
+                ->orWhere('reports_table.report_unlisted_equipment_name', 'like', '%' . $search . '%')
+                ->orWhere('requisition_issue_slip_table.ris_purpose_description', 'like', '%' . $search . '%')
+                ->orWhere('requisition_issue_slip_table.ris_status', 'like', '%' . $search . '%');
+
+            if ($includeIssuedBy) {
+                $searchQuery->orWhere(
+                    'requisition_issue_slip_table.ris_issued_by_signature',
+                    'like',
+                    '%' . $search . '%'
+                );
+            }
+        });
+    }
+
+    private function mapAdminRisExportRow(object $ris): array
+    {
+        $equipment = $ris->ris_item_names
+            ?: ($ris->ris_manual_title
+                ?: ($ris->equipment_name
+                    ?? $ris->report_unlisted_equipment_name
+                    ?? (($ris->ris_request_type ?? null) === 'manual' ? 'Manual Procurement' : 'N/A')));
+
+        return [
+            'reference' => $ris->ris_form_number ?? ('RIS-' . $ris->ris_id),
+            'purpose' => $ris->ris_purpose_description ?: ($ris->ris_manual_description ?? 'N/A'),
+            'equipment' => $equipment,
+            'requested_by' => $ris->ris_requested_by_signature ?? 'N/A',
+            'date' => $ris->ris_requested_by_date ?? ($ris->ris_approved_by_date ?? 'N/A'),
+            'status' => $this->formatAdminRisStatusLabel($ris),
+            'amount' => number_format((float) ($ris->ris_calculated_total ?? 0), 2),
+        ];
+    }
+
+    private function formatAdminRisStatusLabel(object $ris): string
+    {
+        if (in_array($ris->ris_status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true)) {
+            return 'Pending';
+        }
+
+        if (!empty($ris->ris_issued_by_date)) {
+            return 'Co-signed';
+        }
+
+        if (
+            $ris->ris_status === 'Approved'
+            && !empty($ris->ris_approved_by_date)
+            && !empty($ris->ris_approved_by_signature)
+            && !str_starts_with((string) $ris->ris_approved_by_signature, 'data:image')
+        ) {
+            return 'Direct Approved';
+        }
+
+        if (
+            $ris->ris_status === 'Approved'
+            && !empty($ris->ris_approved_by_signature)
+            && str_starts_with((string) $ris->ris_approved_by_signature, 'data:image')
+        ) {
+            return 'Signed';
+        }
+
+        if ($ris->ris_status === 'Approved' && !empty($ris->ris_approved_by_date)) {
+            return 'Forwarded to President';
+        }
+
+        if (in_array($ris->ris_status, ['Minor Revision', 'Rejected'], true)) {
+            return 'Amend';
+        }
+
+        return (string) ($ris->ris_status ?? 'N/A');
+    }
+
+    private function downloadAdminRisTablePdf(string $title, $rows, string $filename)
+    {
+        $pdf = Pdf::loadView('admin.ris.table-export-pdf', [
+            'title' => $title,
+            'rows' => $rows,
+            'generatedAt' => now()->format('Y-m-d H:i'),
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->download($filename);
     }
 
 

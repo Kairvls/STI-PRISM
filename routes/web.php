@@ -283,6 +283,21 @@ Route::get(
             [AdminController::class, 'printRis']
         )->name('procurement-review.ris.print');
 
+        Route::get(
+            '/procurement-review/export-pdf',
+            [AdminController::class, 'exportProcurementRisPdf']
+        )->name('procurement-review.export-pdf');
+
+        Route::get(
+            '/digital-signatures/sign-ris/export-pdf',
+            [AdminController::class, 'exportSignRisPdf']
+        )->name('digital-signatures.sign-ris.export-pdf');
+
+        Route::get(
+            '/digital-signatures/history/export-pdf',
+            [AdminController::class, 'exportSignatureHistoryPdf']
+        )->name('digital-signatures.history.export-pdf');
+
         // ==========================================
         // QUICK ACCESS MODAL CONTENT (AJAX)
         // ==========================================

@@ -69,6 +69,13 @@
                 "
             >
 
+                @php
+                    $hasPresidentSignature = !empty($ris->ris_approved_by_signature)
+                        && str_starts_with((string) $ris->ris_approved_by_signature, 'data:image');
+                    $canCosign = is_null($ris->ris_issued_by_date) && $hasPresidentSignature;
+                    $isLegacyInvalid = is_null($ris->ris_issued_by_date) && !$hasPresidentSignature;
+                @endphp
+
 
                 {{-- ================================================= --}}
                 {{-- RIS NUMBER --}}
@@ -96,10 +103,10 @@
 
                     <div
                         class="max-w-[220px] truncate text-sm font-medium {{ !is_null($ris->ris_issued_by_date) ? 'text-gray-500' : 'text-gray-700' }}"
-                        title="{{ $ris->ris_purpose_description ?? 'N/A' }}"
+                        title="{{ $ris->ris_purpose_description ?: ($ris->ris_manual_description ?? 'N/A') }}"
                     >
 
-                        {{ $ris->ris_purpose_description ?? 'N/A' }}
+                        {{ $ris->ris_purpose_description ?: ($ris->ris_manual_description ?? 'N/A') }}
 
                     </div>
 
@@ -117,7 +124,11 @@
                         title="Items / Equipment included in this RIS"
                     >
 
-                        {{ $ris->ris_item_names ?? ($ris->equipment_name ?? $ris->report_unlisted_equipment_name ?? 'Unknown Equipment') }}
+                        {{ $ris->ris_item_names
+                            ?: ($ris->ris_manual_title
+                                ?: ($ris->equipment_name
+                                    ?? $ris->report_unlisted_equipment_name
+                                    ?? (($ris->ris_request_type ?? null) === 'manual' ? 'Manual Procurement' : 'Unknown Equipment'))) }}
 
                     </div>
 
@@ -160,22 +171,9 @@
 
                 <td class="px-5 py-4">
 
+                    {{-- CO-SIGNED --}}
 
-                    {{-- FOR CO-SIGN (pending == ris_issued_by_date is null) --}}
-
-                    @if(is_null($ris->ris_issued_by_date))
-
-                        <span
-                            class="inline-flex items-center rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700"
-                            title="This RIS is awaiting your co-sign"
-                        >
-                            For Co-sign
-                        </span>
-
-
-                    {{-- CO-SIGNED (ris_issued_by_date is set) --}}
-
-                    @else
+                    @if(!is_null($ris->ris_issued_by_date))
 
                         <span
                             class="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700"
@@ -185,6 +183,30 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                             </svg>
                             Co-signed
+                        </span>
+
+
+                    {{-- FOR CO-SIGN (valid President signature) --}}
+
+                    @elseif($canCosign)
+
+                        <span
+                            class="inline-flex items-center rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700"
+                            title="This RIS is awaiting your co-sign"
+                        >
+                            For Co-sign
+                        </span>
+
+
+                    {{-- LEGACY / INVALID (visible for logging only) --}}
+
+                    @else
+
+                        <span
+                            class="inline-flex items-center rounded-lg border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-800"
+                            title="Old or incomplete RIS — visible for logging, not eligible for co-sign"
+                        >
+                            Legacy / Invalid
                         </span>
 
                     @endif
@@ -221,7 +243,7 @@
 
                         <button
                             type="button"
-                            onclick="openSignRisPreviewModal('{{ $ris->ris_id }}')"
+                            onclick="window.openSignRisPreviewModal('{{ $ris->ris_id }}')"
                             title="Preview this RIS form"
                             class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
                         >
@@ -255,10 +277,10 @@
 
 
                         {{-- ================================================= --}}
-                        {{-- CO-SIGN BUTTON (only for records not yet co-signed) --}}
+                        {{-- CO-SIGN BUTTON (only valid President-approved RIS) --}}
                         {{-- ================================================= --}}
 
-                        @if(is_null($ris->ris_issued_by_date))
+                        @if($canCosign)
 
                             <button
                                 type="button"
@@ -286,6 +308,15 @@
                                 Co-sign
 
                             </button>
+
+                        @elseif($isLegacyInvalid)
+
+                            <span
+                                class="inline-flex items-center rounded-lg border border-dashed border-gray-300 px-3 py-2 text-xs font-medium text-gray-400"
+                                title="This legacy/invalid RIS can be viewed and logged, but not co-signed"
+                            >
+                                View only
+                            </span>
 
                         @endif
 

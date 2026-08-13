@@ -73,7 +73,7 @@
 
         <div
             class="flex h-screen items-center justify-center bg-black/60 p-2 backdrop-blur-sm"
-            onclick="closeSignRisPreviewModal()"
+            onclick="window.closeSignRisPreviewModal()"
         >
 
             <div
@@ -98,19 +98,7 @@
                     <button
                         type="button"
                         class="inline-flex h-9 items-center justify-center rounded-lg bg-white border border-gray-200 px-3 text-xs font-semibold text-gray-700 shadow-sm transition-all duration-200 hover:bg-gray-50 active:scale-95"
-                        onclick="exportSignRisPdf()"
-                        title="Download this RIS as PDF"
-                    >
-                        <svg class="h-4 w-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                        </svg>
-                        Export PDF
-                    </button>
-
-                    <button
-                        type="button"
-                        class="inline-flex h-9 items-center justify-center rounded-lg bg-white border border-gray-200 px-3 text-xs font-semibold text-gray-700 shadow-sm transition-all duration-200 hover:bg-gray-50 active:scale-95"
-                        onclick="printSignRisPreview()"
+                        onclick="window.printSignRisPreview()"
                         title="Print this RIS form"
                     >
                         <svg class="h-4 w-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -122,7 +110,7 @@
                     <button
                         type="button"
                         class="flex h-9 w-9 items-center justify-center rounded-full bg-white border border-gray-200 text-slate-400 shadow-sm transition-all duration-200 hover:bg-slate-100 hover:text-slate-900 active:scale-90"
-                        onclick="closeSignRisPreviewModal()"
+                        onclick="window.closeSignRisPreviewModal()"
                         title="Close RIS preview"
                         aria-label="Close"
                     >
@@ -548,7 +536,7 @@
     // OPEN SIGN RIS PREVIEW
     // =====================================================
 
-    function openSignRisPreviewModal(risId) {
+    window.openSignRisPreviewModal = function (risId) {
 
         const modal =
             document.getElementById('risPreviewModal');
@@ -564,17 +552,17 @@
             `/admin/procurement-review/ris/${risId}/print?ts=${Date.now()}`;
 
         modal.classList.remove('hidden');
+        modal.style.display = 'block';
+        setTimeout(window.scaleSignRisPreviewToFit, 100);
 
-        setTimeout(scaleSignRisPreviewToFit, 100);
-
-    }
+    };
 
 
     // =====================================================
     // CLOSE SIGN RIS PREVIEW
     // =====================================================
 
-    function closeSignRisPreviewModal() {
+    window.closeSignRisPreviewModal = function () {
 
         const modal =
             document.getElementById('risPreviewModal');
@@ -588,16 +576,17 @@
 
         if (modal) {
             modal.classList.add('hidden');
+            modal.style.display = '';
         }
 
-    }
+    };
 
 
     // =====================================================
     // SCALE RIS IFRAME TO FIT VIEWPORT
     // =====================================================
 
-    function scaleSignRisPreviewToFit() {
+    window.scaleSignRisPreviewToFit = function () {
 
         const iframe =
             document.getElementById('signRisPreviewIframe');
@@ -624,14 +613,14 @@
         iframe.style.width = docWidthPx + 'px';
         iframe.style.height = docHeightPx + 'px';
 
-    }
+    };
 
 
     // =====================================================
     // PRINT RIS FORM
     // =====================================================
 
-    function printSignRisPreview() {
+    window.printSignRisPreview = function () {
 
         const iframe =
             document.getElementById('signRisPreviewIframe');
@@ -643,29 +632,7 @@
         iframe.contentWindow.focus();
         iframe.contentWindow.print();
 
-    }
-
-
-    // =====================================================
-    // EXPORT RIS AS PDF
-    // =====================================================
-
-    function exportSignRisPdf() {
-
-        const iframe =
-            document.getElementById('signRisPreviewIframe');
-
-        if (!iframe || !iframe.contentWindow) {
-            return;
-        }
-
-        iframe.contentWindow.focus();
-
-        setTimeout(function () {
-            iframe.contentWindow.print();
-        }, 300);
-
-    }
+    };
 
 
     // =====================================================
@@ -683,7 +650,7 @@
                 modal &&
                 !modal.classList.contains('hidden')
             ) {
-                scaleSignRisPreviewToFit();
+                window.scaleSignRisPreviewToFit();
             }
 
         }

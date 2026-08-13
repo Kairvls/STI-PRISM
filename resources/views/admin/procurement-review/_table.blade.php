@@ -261,7 +261,7 @@
 
                         <button
                             type="button"
-                            onclick="openRisPreviewModal('{{ $ris->ris_id }}')"
+                            onclick="window.openRisPreviewModal('{{ $ris->ris_id }}')"
                             title="Preview this RIS form"
                             class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
                         >

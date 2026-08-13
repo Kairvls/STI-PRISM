@@ -96,10 +96,10 @@
 
                     <div
                         class="max-w-[220px] truncate text-sm font-medium {{ !is_null($history->ris_issued_by_date) ? 'text-gray-500' : 'text-gray-700' }}"
-                        title="{{ $history->ris_purpose_description ?? 'N/A' }}"
+                        title="{{ $history->ris_purpose_description ?: ($history->ris_manual_description ?? 'N/A') }}"
                     >
 
-                        {{ $history->ris_purpose_description ?? 'N/A' }}
+                        {{ $history->ris_purpose_description ?: ($history->ris_manual_description ?? 'N/A') }}
 
                     </div>
 
@@ -117,7 +117,11 @@
                         title="Items / Equipment included in this RIS"
                     >
 
-                        {{ $history->ris_item_names ?? ($history->equipment_name ?? $history->report_unlisted_equipment_name ?? 'Unknown Equipment') }}
+                        {{ $history->ris_item_names
+                            ?: ($history->ris_manual_title
+                                ?: ($history->equipment_name
+                                    ?? $history->report_unlisted_equipment_name
+                                    ?? (($history->ris_request_type ?? null) === 'manual' ? 'Manual Procurement' : 'Unknown Equipment'))) }}
 
                     </div>
 
@@ -262,7 +266,7 @@
 
                         <button
                             type="button"
-                            onclick="openSignatureHistoryPreviewModal('{{ $history->ris_id }}')"
+                            onclick="window.openSignatureHistoryPreviewModal('{{ $history->ris_id }}')"
                             title="Preview this RIS form"
                             class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900"
                         >

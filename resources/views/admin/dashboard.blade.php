@@ -339,7 +339,7 @@
                                     {{ $ris->ris_requested_by_date ? \Carbon\Carbon::parse($ris->ris_requested_by_date)->format('M d, Y') : 'N/A' }}
                                 </td>
                                 <td class="text-center">
-                                    <button type="button" onclick="openRisPreviewModal('{{ $ris->ris_id }}')" class="table-preview-btn" title="Preview RIS form">
+                                    <button type="button" onclick="window.openRisPreviewModal('{{ $ris->ris_id }}')" class="table-preview-btn" title="Preview RIS form">
                                         <i data-lucide="eye" class="h-4 w-4"></i>
                                         Preview
                                     </button>
