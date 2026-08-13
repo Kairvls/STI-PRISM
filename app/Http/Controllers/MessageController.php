@@ -9,6 +9,7 @@ use App\Events\MessageDelivered;
 use App\Events\UserTyping;
 use App\Events\MessageReactionUpdated;
 use App\Events\MessageUpdated;
+use App\Models\Call;
 use App\Models\MessageReaction;
 use App\Models\Conversation;
 use App\Models\ConversationParticipant;
@@ -45,7 +46,8 @@ class MessageController extends Controller
             }
         )
         ->with([
-            'lastMessage:message_id,conversation_id,sender_id,reply_to_message_id,message_content,is_read,read_at,delivered_at,created_at',
+            'lastMessage:message_id,conversation_id,sender_id,reply_to_message_id,message_content,message_type,call_id,is_read,read_at,delivered_at,created_at',
+            'lastMessage.call:call_id,caller_id,receiver_id,call_type,status,duration,answered_at',
             'participants.user.role',
         ])
 
@@ -131,6 +133,8 @@ class MessageController extends Controller
             'data' => $conversation,
         ]);
     }
+
+    
 
     /**
      * Send a message to the conversation.
@@ -870,6 +874,7 @@ class MessageController extends Controller
                 'replyTo.sender',
                 'reactions.user',
                 'attachments',
+                'call',
             ])
 
             ->orderByDesc('created_at')
@@ -1529,6 +1534,7 @@ class MessageController extends Controller
 
         $conversation->load([
             'lastMessage.sender',
+            'lastMessage.call',
             'participants.user.role',
         ]);
 
@@ -1748,7 +1754,7 @@ class MessageController extends Controller
             'target_user_id' => ['required', 'integer', 'exists:users_table,user_id'],
             'conversation_id' => ['nullable', 'integer', 'exists:conversations,conversation_id'],
             'call_id' => ['required', 'string', 'max:100'],
-            'signal_type' => ['required', 'in:offer,answer,ice_candidate,decline,end,busy'],
+            'signal_type' => ['required', 'in:offer,answer,ice_candidate,decline,end,busy,camera_state',],
             'call_type' => ['nullable', 'in:audio,video'],
             'payload' => ['nullable', 'array'],
         ]);
@@ -1764,22 +1770,185 @@ class MessageController extends Controller
             $this->authorizeConversation($conversation, $userId);
         }
 
-        $caller = User::query()->select(['user_id','user_full_name','user_profile_picture'])->findOrFail($userId);
+        $caller = User::query()
+            ->select([
+                'user_id',
+                'user_full_name',
+                'user_profile_picture',
+            ])
+            ->findOrFail($userId);
+
+        $callType = $validated['call_type'] ?? 'audio';
+
+        $call = Call::where(
+            'call_uuid',
+            $validated['call_id']
+        )->first();
+
+        switch ($validated['signal_type']) {
+
+            // ==========================================
+            // START CALL
+            // ==========================================
+            case 'offer':
+
+                if (!$call) {
+
+                    $call = Call::create([
+
+                        'call_uuid' => $validated['call_id'],
+
+                        'conversation_id' =>
+                            $validated['conversation_id'] ?? null,
+
+                        'caller_id' =>
+                            $userId,
+
+                        'receiver_id' =>
+                            $targetUserId,
+
+                        'call_type' =>
+                            $callType,
+
+                        'status' =>
+                            'calling',
+
+                        'started_at' =>
+                            now(),
+                    ]);
+                }
+
+                break;
+
+            // ==========================================
+            // ACCEPTED
+            // ==========================================
+            case 'answer':
+
+                if ($call) {
+
+                    $call->update([
+
+                        'status' => 'accepted',
+
+                        'answered_at' => now(),
+                    ]);
+                }
+
+                break;
+
+            // ==========================================
+            // DECLINED
+            // ==========================================
+            case 'decline':
+
+                if ($call) {
+
+                    $call->update([
+
+                        'status' => 'declined',
+
+                        'ended_at' => now(),
+                    ]);
+
+                    $call->refresh();
+
+                    $this->createCallHistoryMessage($call);
+                }
+
+                break;
+
+            // ==========================================
+            // BUSY
+            // ==========================================
+            case 'busy':
+
+                if ($call) {
+
+                    $call->update([
+
+                        'status' => 'busy',
+
+                        'ended_at' => now(),
+                    ]);
+
+                    $call->refresh();
+
+                    $this->createCallHistoryMessage($call);
+                }
+
+                break;
+
+
+            case 'camera_state':
+
+                break;
+
+            // ==========================================
+            // ENDED
+            // ==========================================
+            case 'end':
+
+                if ($call) {
+
+                    $wasAnswered = (bool) $call->answered_at;
+
+                    $duration = 0;
+
+                    if ($wasAnswered) {
+
+                        $duration = now()->diffInSeconds(
+                            $call->answered_at
+                        );
+                    }
+
+                    $call->update([
+
+                        'status' => $wasAnswered ? 'ended' : 'missed',
+
+                        'ended_at' => now(),
+
+                        'duration' => $duration,
+                    ]);
+
+                    $call->refresh();
+
+                    $this->createCallHistoryMessage($call);
+                }
+
+                break;
+
+            
+        }
 
         broadcast(new CallSignal(
+
             targetUserId: $targetUserId,
+
             fromUserId: $userId,
+
             fromUserName: $caller->user_full_name ?: 'User',
+
             fromUserPicture: $caller->user_profile_picture,
-            conversationId: isset($validated['conversation_id']) ? (int) $validated['conversation_id'] : null,
+
+            conversationId: isset($validated['conversation_id'])
+                ? (int) $validated['conversation_id']
+                : null,
+
             callId: $validated['call_id'],
+
             signalType: $validated['signal_type'],
-            callType: $validated['call_type'] ?? 'audio',
+
+            callType: $callType,
+
             payload: $validated['payload'] ?? [],
         ));
 
-        return response()->json(['success' => true]);
+        return response()->json([
+            'success' => true,
+        ]);
     }
+    
 
     private function authorizeConversation(Conversation $conversation, int $userId): void
     {
@@ -2073,6 +2242,7 @@ class MessageController extends Controller
 
         $conversation->load([
             'lastMessage.sender',
+            'lastMessage.call',
             'participants.user.role',
         ]);
 
@@ -2277,6 +2447,7 @@ class MessageController extends Controller
 
         $conversation->load([
             'lastMessage.sender',
+            'lastMessage.call',
             'participants.user.role',
         ]);
 
@@ -2473,6 +2644,7 @@ class MessageController extends Controller
 
         $conversation->load([
             'lastMessage.sender',
+            'lastMessage.call',
             'participants.user.role',
         ]);
 
@@ -2826,5 +2998,59 @@ class MessageController extends Controller
         return response()->json([
             'data' => $orderedMessages,
         ]);
+    }
+
+    // =====================================================
+    // CREATE CALL HISTORY MESSAGE
+    // =====================================================
+
+    private function createCallHistoryMessage(Call $call): Message
+    {
+        if (
+            Message::where('call_id', $call->call_id)->exists()
+        ) {
+            return Message::where(
+                'call_id',
+                $call->call_id
+            )->first();
+        }
+
+        $message = Message::create([
+
+            'conversation_id' => $call->conversation_id,
+
+            // The caller "owns" the timeline entry
+            'sender_id' => $call->caller_id,
+
+            'message_type' => 'call',
+
+            'call_id' => $call->call_id,
+
+            // Leave blank for call messages
+            'message_content' => '',
+
+        ]);
+
+        Conversation::where(
+            'conversation_id',
+            $call->conversation_id
+        )->update([
+
+            'last_message_id' => $message->message_id,
+
+            'last_message_at' => now(),
+
+        ]);
+
+        $message->load([
+            'sender',
+            'call',
+        ]);
+
+        broadcast(
+            new MessageSent($message)
+        )->toOthers();
+
+        return $message;
     }
 }

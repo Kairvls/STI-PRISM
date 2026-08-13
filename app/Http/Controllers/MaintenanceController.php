@@ -2593,6 +2593,24 @@ class MaintenanceController extends Controller
             );
     }
 
+    // =====================================================
+    // RETURN A SINGLE REPORT CARD
+    // =====================================================
+
+    public function reportCard($id)
+    {
+        $report = $this->reportsQuery()
+            ->where('reports_table.report_id', $id)
+            ->first();
+
+        abort_if(!$report, 404);
+
+        return view(
+            'components.tables.partials.report-card',
+            compact('report')
+        );
+    }
+
 
     // =====================================================
     // REUSABLE EQUIPMENT DASHBOARD DATA

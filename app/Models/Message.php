@@ -20,6 +20,8 @@ class Message extends Model
         'reply_to_message_id',
         'forwarded_from_message_id',
         'message_content',
+        'message_type',
+        'call_id',
 
         // =============================================
         // MESSAGE ACTION STATES
@@ -122,6 +124,15 @@ class Message extends Model
             MessageHiddenUser::class,
             'message_id',
             'message_id'
+        );
+    }
+
+    public function call()
+    {
+        return $this->belongsTo(
+            Call::class,
+            'call_id',
+            'call_id'
         );
     }
 }

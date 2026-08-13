@@ -108,6 +108,11 @@ class MessageSent implements ShouldBroadcastNow
 
     public function broadcastWith(): array
     {
+        $this->message->loadMissing([
+            'sender',
+            'call',
+        ]);
+
         return [
             'message' => [
                 'message_id'
@@ -122,6 +127,12 @@ class MessageSent implements ShouldBroadcastNow
                 'message_content'
                     => $this->message->message_content,
 
+                'message_type'
+                    => $this->message->message_type,
+
+                'call_id'
+                    => $this->message->call_id,
+
                 'created_at'
                     => $this->message->created_at,
 
@@ -132,6 +143,19 @@ class MessageSent implements ShouldBroadcastNow
                     'user_full_name'
                         => $this->message->sender?->user_full_name,
                 ],
+
+                'call' => $this->message->call
+                    ? [
+                        'call_id' => $this->message->call->call_id,
+                        'caller_id' => $this->message->call->caller_id,
+                        'receiver_id' => $this->message->call->receiver_id,
+                        'call_type' => $this->message->call->call_type,
+                        'status' => $this->message->call->status,
+                        'duration' => $this->message->call->duration,
+                        'answered_at' => $this->message->call->answered_at,
+                    ]
+                    : null,
+
                 'reply_to_message_id'
                     => $this->message->reply_to_message_id,
 

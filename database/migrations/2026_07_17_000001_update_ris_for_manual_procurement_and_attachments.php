@@ -107,7 +107,7 @@ return new class extends Migration
                 $table->unsignedBigInteger('ris_attachment_size')
                     ->nullable();
 
-                $table->unsignedBigInteger('ris_attachment_uploaded_by')
+                $table->bigInteger('ris_attachment_uploaded_by')
                     ->nullable();
 
                 $table->dateTime('ris_attachment_created_at')
@@ -135,6 +135,12 @@ return new class extends Migration
         // Ensure ris_id column type matches the referenced signed BIGINT.
         try {
             DB::statement('ALTER TABLE ris_attachments_table MODIFY ris_id BIGINT NULL');
+        } catch (\Throwable $e) {
+            // Column type already matches or cannot be changed; continue.
+        }
+
+        try {
+            DB::statement('ALTER TABLE ris_attachments_table MODIFY ris_attachment_uploaded_by BIGINT NULL');
         } catch (\Throwable $e) {
             // Column type already matches or cannot be changed; continue.
         }

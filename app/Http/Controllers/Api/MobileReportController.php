@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 
 class MobileReportController extends Controller
 {
@@ -18,6 +20,7 @@ class MobileReportController extends Controller
     public function rooms()
     {
         $rooms = DB::table('rooms_table')
+
             ->when(
                 Schema::hasColumn('rooms_table', 'room_is_archived'),
                 fn ($query) => $query->where('rooms_table.room_is_archived', false)
@@ -30,24 +33,21 @@ class MobileReportController extends Controller
                 'floors_table.floor_id'
             )
 
-            ->leftJoin(
-                'buildings_table',
-                'floors_table.floor_building_id',
-                '=',
-                'buildings_table.building_id'
-            )
-
             ->select(
 
                 'rooms_table.room_id',
 
-                'rooms_table.room_name',
-
-                'floors_table.floor_level',
-
-                'buildings_table.building_name'
+                DB::raw("
+                    CONCAT(
+                        floors_table.floor_level,
+                        ' - ',
+                        rooms_table.room_name
+                    ) AS location
+                ")
 
             )
+
+            ->orderBy('floors_table.floor_level')
 
             ->orderBy('rooms_table.room_name')
 
@@ -102,6 +102,64 @@ class MobileReportController extends Controller
 
     /*
     |--------------------------------------------------------------------------
+    | GET SUGGESTED ISSUES
+    |--------------------------------------------------------------------------
+    */
+
+    public function suggestedIssues($equipmentId)
+    {
+        $equipment = DB::table('equipment_table')
+
+            ->where(
+                'equipment_id',
+                $equipmentId
+            )
+
+            ->first();
+
+        if (!$equipment) {
+
+            return response()->json([]);
+
+        }
+
+        $issues = DB::table('issue_templates_table')
+
+            ->where(
+                'issue_template_category_id',
+                $equipment->equipment_category_id
+            )
+
+            ->orderBy(
+                'issue_template_name'
+            )
+
+            ->get([
+                'issue_template_id',
+                'issue_template_name'
+            ]);
+
+        return response()->json($issues);
+    }
+
+    public function globalSuggestedIssues()
+    {
+        $issues = DB::table('issue_templates_table')
+
+            ->select(
+                'issue_template_id',
+                'issue_template_name'
+            )
+
+            ->orderBy('issue_template_name')
+
+            ->get();
+
+        return response()->json($issues);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | GET REPORTER INFORMATION
     |--------------------------------------------------------------------------
     */
@@ -136,27 +194,73 @@ class MobileReportController extends Controller
 
         $request->validate([
 
-            'report_reporter_employee_id' =>
+            'employee_id' => 'required',
 
-                'required',
+            'room_id' => 'required|integer',
 
-            'report_room_id' =>
+            'equipment_id' => 'nullable|integer',
 
-                'required',
+            'manual_equipment_name' => 'nullable|string|max:255',
 
-            'report_problem_description' =>
+            'issue_template_id' => 'nullable|integer',
 
-                'required',
+            'description' => 'nullable|string',
 
-            'report_urgency_level' =>
+            'priority' => 'required|in:Urgent,Non-Urgent',
 
-                'required'
+            'photo' => 'nullable|image|mimes:jpg,jpeg,png|max:5120',
 
         ]);
 
         /*
         |--------------------------------------------------------------------------
-        | CHECK REPORTER
+        | EQUIPMENT VALIDATION
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+
+            empty($request->equipment_id) &&
+            empty(trim($request->manual_equipment_name))
+
+        ) {
+
+            return response()->json([
+
+                'success' => false,
+
+                'message' => 'Please select equipment or enter a manual equipment name.'
+
+            ], 422);
+
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | ISSUE VALIDATION
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+
+            empty($request->issue_template_id) &&
+            empty(trim($request->description))
+
+        ) {
+
+            return response()->json([
+
+                'success' => false,
+
+                'message' => 'Please select a suggested issue or provide a description.'
+
+            ], 422);
+
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | VERIFY REPORTER
         |--------------------------------------------------------------------------
         */
 
@@ -164,12 +268,12 @@ class MobileReportController extends Controller
 
             ->where(
                 'reporter_employee_id',
-                $request->report_reporter_employee_id
+                $request->employee_id
             )
 
             ->first();
 
-        if(!$reporter){
+        if (!$reporter) {
 
             return response()->json([
 
@@ -178,26 +282,70 @@ class MobileReportController extends Controller
                 'message' => 'Employee ID not found.'
 
             ], 404);
+
         }
 
         /*
         |--------------------------------------------------------------------------
-        | IMAGE UPLOAD
+        | BUILD FINAL DESCRIPTION
         |--------------------------------------------------------------------------
         */
 
-        $imagePath = null;
+        $issueName = null;
 
-        if($request->hasFile('report_uploaded_image')){
+        if ($request->filled('issue_template_id')) {
 
-            $imagePath = $request
+            $issue = DB::table('issue_templates_table')
 
-                ->file('report_uploaded_image')
+                ->where(
+                    'issue_template_id',
+                    $request->issue_template_id
+                )
 
-                ->store(
-                    'report-images',
-                    'public'
-                );
+                ->first();
+
+            if ($issue) {
+
+                $issueName = $issue->issue_template_name;
+
+            }
+
+        }
+
+        $description = '';
+
+        if ($issueName) {
+
+            $description .= $issueName;
+
+        }
+
+        if (!empty(trim($request->description))) {
+
+            if (!empty($description)) {
+
+                $description .= "\n\n";
+
+            }
+
+            $description .= trim($request->description);
+
+        }
+
+        /*
+        |--------------------------------------------------------------------------
+        | SAVE PHOTO
+        |--------------------------------------------------------------------------
+        */
+
+        $photoPath = null;
+
+        if ($request->hasFile('photo')) {
+
+            $photoPath = $request
+                ->file('photo')
+                ->store('reports', 'public');
+
         }
 
         /*
@@ -206,51 +354,42 @@ class MobileReportController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        DB::table('reports_table')
+        $reportId = DB::table('reports_table')->insertGetId([
 
-            ->insert([
+            'report_reporter_employee_id' => $request->employee_id,
 
-                'report_reporter_employee_id' =>
+            'report_room_id' => $request->room_id,
 
-                    $request->report_reporter_employee_id,
+            'report_equipment_id' => $request->equipment_id,
 
-                'report_room_id' =>
+            'report_suggested_issue' => $issueName,
 
-                    $request->report_room_id,
+            'report_problem_description' => trim($request->description) ?: null,
 
-                'report_equipment_id' =>
+            'report_urgency_level' => $request->priority,
 
-                    $request->report_equipment_id,
+            'report_current_status' => 'Pending',
 
-                'report_problem_description' =>
+            'report_uploaded_image' => $photoPath,
 
-                    $request->report_problem_description,
+            'report_submitted_at' => now(),
 
-                'report_urgency_level' =>
+            'report_updated_at' => now(),
 
-                    $request->report_urgency_level,
+        ]);
 
-                'report_current_status' =>
+        $report = DB::table('reports_table')
+            ->where('report_id', $reportId)
+            ->first();
 
-                    'Pending',
-
-                'report_uploaded_image' =>
-
-                    $imagePath,
-
-                'report_submitted_at' =>
-
-                    now(),
-
-                'report_updated_at' =>
-
-                    now()
-
-            ]);
+        event(new \App\Events\ReportSubmitted($report));
+        Log::info('Broadcast fired', [
+            'report_id' => $reportId,
+        ]);
 
         /*
         |--------------------------------------------------------------------------
-        | SUCCESS RESPONSE
+        | SUCCESS
         |--------------------------------------------------------------------------
         */
 
@@ -261,5 +400,6 @@ class MobileReportController extends Controller
             'message' => 'Report submitted successfully.'
 
         ]);
+
     }
 }
