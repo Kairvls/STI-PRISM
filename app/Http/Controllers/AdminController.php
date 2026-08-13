@@ -89,11 +89,11 @@ class AdminController extends Controller
             $totalRis = (clone $baseRIS)->count();
 
             $pendingRis = (clone $baseRIS)
-                ->whereIn('ris_status', ['Submitted', 'Under Review', 'Resubmitted'])
+                ->whereIn('ris_status', ['Submitted', 'Under Review', 'Resubmitted', 'Pending'])
                 ->count();
 
             $amendRis = (clone $baseRIS)
-                ->where('ris_status', 'Rejected')
+                ->whereIn('ris_status', ['Minor Revision', 'Rejected'])
                 ->count();
 
             $approvedRis = (clone $baseRIS)
@@ -135,7 +135,7 @@ class AdminController extends Controller
                     'requisition_issue_slip_table.ris_id', '=', 'ris_items_sum.ris_id'
                 )
                 ->whereNotNull('ris_requested_by_date')
-                ->whereIn('ris_status', ['Submitted', 'Under Review', 'Resubmitted'])
+                ->whereIn('ris_status', ['Submitted', 'Under Review', 'Resubmitted', 'Pending'])
                 ->sum('ris_items_sum.ris_calculated_total');
         } catch (\Throwable $e) { $pendingRisAmount = 0; }
 
@@ -512,19 +512,21 @@ class AdminController extends Controller
     // These counts are NOT affected by the selected filter.
     // =====================================================
 
+    // New workflow statuses: Submitted / Under Review / Resubmitted.
+    // Legacy status: Pending.
     $pendingRis = (clone $baseQuery)
-        ->where(
+        ->whereIn(
             'requisition_issue_slip_table.ris_status',
-            'Pending'
+            ['Submitted', 'Under Review', 'Resubmitted', 'Pending']
         )
         ->count();
 
     // "Amend" is only the UI name.
-    // Database still uses "Rejected".
+    // New workflow uses "Minor Revision", legacy uses "Rejected".
     $amendRis = (clone $baseQuery)
-        ->where(
+        ->whereIn(
             'requisition_issue_slip_table.ris_status',
-            'Rejected'
+            ['Minor Revision', 'Rejected']
         )
         ->count();
 
@@ -576,9 +578,9 @@ class AdminController extends Controller
 
     if ($filter === 'pending') {
 
-        $query->where(
+        $query->whereIn(
             'requisition_issue_slip_table.ris_status',
-            'Pending'
+            ['Submitted', 'Under Review', 'Resubmitted', 'Pending']
         );
 
     } elseif ($filter === 'approved') {
@@ -615,21 +617,26 @@ class AdminController extends Controller
 
     } elseif ($filter === 'rejected') {
 
-        // Database still stores Rejected.
+        // New workflow uses Minor Revision; legacy uses Rejected.
         // The Blade page displays this as Amend.
-        $query->where(
+        $query->whereIn(
             'requisition_issue_slip_table.ris_status',
-            'Rejected'
+            ['Minor Revision', 'Rejected']
         );
 
     } else {
 
         // All statuses shown by this Procurement Review page.
+        // Includes new workflow statuses (Submitted / Under Review / Resubmitted).
         $query->whereIn(
             'requisition_issue_slip_table.ris_status',
             [
+                'Submitted',
+                'Under Review',
+                'Resubmitted',
                 'Pending',
                 'Approved',
+                'Minor Revision',
                 'Rejected',
             ]
         );
@@ -696,9 +703,9 @@ class AdminController extends Controller
 
         ->orderByRaw("
             CASE
-                WHEN requisition_issue_slip_table.ris_status = 'Pending' THEN 0
+                WHEN requisition_issue_slip_table.ris_status IN ('Submitted', 'Under Review', 'Resubmitted', 'Pending') THEN 0
                 WHEN requisition_issue_slip_table.ris_status = 'Approved' THEN 1
-                WHEN requisition_issue_slip_table.ris_status = 'Rejected' THEN 2
+                WHEN requisition_issue_slip_table.ris_status IN ('Minor Revision', 'Rejected') THEN 2
                 ELSE 3
             END
         ")
@@ -1094,11 +1101,20 @@ class AdminController extends Controller
                 'requisition_issue_slip_table.ris_requested_by_date'
             )
 
-            // EXCLUDE active (Pending) forms — only finished ones
-            ->where(
+            // EXCLUDE active/in-progress forms — only finished ones.
+            // Active (new workflow): Draft, Submitted, Under Review,
+            // Resubmitted. Legacy: Pending.
+            // Minor Revision (Amended) IS shown so admins can view/access
+            // returned forms, matching the "Amended" summary card.
+            ->whereNotIn(
                 'requisition_issue_slip_table.ris_status',
-                '!=',
-                'Pending'
+                [
+                    'Draft',
+                    'Submitted',
+                    'Under Review',
+                    'Resubmitted',
+                    'Pending',
+                ]
             );
 
 
@@ -1130,9 +1146,12 @@ class AdminController extends Controller
             ->whereNotNull('requisition_issue_slip_table.ris_issued_by_date')
             ->count();
 
-// Amended = Rejected status
-        $amendedCount = (clone $baseQuery)
-            ->where('requisition_issue_slip_table.ris_status', 'Rejected')
+// Amended = Minor Revision (new workflow) or Rejected (legacy)
+        // Counted from the full table because the finished-history query
+        // intentionally excludes active Minor Revision records.
+        $amendedCount = DB::table('requisition_issue_slip_table')
+            ->whereIn('ris_status', ['Minor Revision', 'Rejected'])
+            ->whereNotNull('ris_requested_by_date')
             ->count();
 
 
@@ -1614,17 +1633,20 @@ class AdminController extends Controller
         // DASHBOARD CARD COUNTS
         // =====================================================
 
+        // New workflow statuses: Submitted / Under Review / Resubmitted.
+        // Legacy status: Pending.
         $pendingRis = (clone $baseQuery)
-            ->where(
+            ->whereIn(
                 'requisition_issue_slip_table.ris_status',
-                'Pending'
+                ['Submitted', 'Under Review', 'Resubmitted', 'Pending']
             )
             ->count();
 
+        // New workflow uses Minor Revision; legacy uses Rejected.
         $amendRis = (clone $baseQuery)
-            ->where(
+            ->whereIn(
                 'requisition_issue_slip_table.ris_status',
-                'Rejected'
+                ['Minor Revision', 'Rejected']
             )
             ->count();
 
@@ -1674,9 +1696,9 @@ class AdminController extends Controller
 
         if ($filter === 'pending') {
 
-            $query->where(
+            $query->whereIn(
                 'requisition_issue_slip_table.ris_status',
-                'Pending'
+                ['Submitted', 'Under Review', 'Resubmitted', 'Pending']
             );
 
         } elseif ($filter === 'approved') {
@@ -1713,18 +1735,24 @@ class AdminController extends Controller
 
         } elseif ($filter === 'rejected') {
 
-            $query->where(
+            // New workflow uses Minor Revision; legacy uses Rejected.
+            $query->whereIn(
                 'requisition_issue_slip_table.ris_status',
-                'Rejected'
+                ['Minor Revision', 'Rejected']
             );
 
         } else {
 
+            // Includes new workflow statuses.
             $query->whereIn(
                 'requisition_issue_slip_table.ris_status',
                 [
+                    'Submitted',
+                    'Under Review',
+                    'Resubmitted',
                     'Pending',
                     'Approved',
+                    'Minor Revision',
                     'Rejected',
                 ]
             );
@@ -1778,9 +1806,9 @@ class AdminController extends Controller
 
             ->orderByRaw("
                 CASE
-                    WHEN requisition_issue_slip_table.ris_status = 'Pending' THEN 0
+                    WHEN requisition_issue_slip_table.ris_status IN ('Submitted', 'Under Review', 'Resubmitted', 'Pending') THEN 0
                     WHEN requisition_issue_slip_table.ris_status = 'Approved' THEN 1
-                    WHEN requisition_issue_slip_table.ris_status = 'Rejected' THEN 2
+                    WHEN requisition_issue_slip_table.ris_status IN ('Minor Revision', 'Rejected') THEN 2
                     ELSE 3
                 END
             ")
@@ -1853,7 +1881,12 @@ class AdminController extends Controller
 
             abort_if(!$ris, 404);
 
-            if ($ris->ris_status !== 'Pending' || !$ris->ris_requested_by_date) {
+            // New workflow: Submitted / Under Review / Resubmitted.
+            // Legacy status: Pending.
+            if (
+                !in_array($ris->ris_status, ['Submitted', 'Under Review', 'Resubmitted', 'Pending'], true)
+                || !$ris->ris_requested_by_date
+            ) {
                 return back()->with('error', 'Only submitted pending RIS records can be approved.');
             }
 
@@ -1916,8 +1949,10 @@ class AdminController extends Controller
         // Only submitted Pending RIS can be directly approved
         // =====================================================
 
+        // New workflow: Submitted / Under Review / Resubmitted.
+        // Legacy status: Pending.
         if (
-            $ris->ris_status !== 'Pending' ||
+            !in_array($ris->ris_status, ['Submitted', 'Under Review', 'Resubmitted', 'Pending'], true) ||
             empty($ris->ris_requested_by_date)
         ) {
             return back()->with(
@@ -1983,7 +2018,7 @@ class AdminController extends Controller
     // ADDED RIS ADMIN APPROVAL: REJECT RIS
     // =====================================================
 
-    public function rejectRis(Request $request, $risId)
+public function rejectRis(Request $request, $risId)
     {
         return DB::transaction(function () use ($request, $risId) {
             $ris = DB::table('requisition_issue_slip_table')
@@ -1993,7 +2028,12 @@ class AdminController extends Controller
 
             abort_if(!$ris, 404);
 
-            if ($ris->ris_status !== 'Pending' || !$ris->ris_requested_by_date) {
+            // New workflow: Submitted / Under Review / Resubmitted.
+            // Legacy status: Pending.
+            if (
+                !in_array($ris->ris_status, ['Submitted', 'Under Review', 'Resubmitted', 'Pending'], true)
+                || !$ris->ris_requested_by_date
+            ) {
                 return back()->with('error', 'Only submitted pending RIS records can be rejected.');
             }
 
@@ -2003,17 +2043,54 @@ class AdminController extends Controller
                 return back()->with('error', 'Please provide amendment remarks to inform the Purchaser what needs to be revised.');
             }
 
-            // Reset submission fields so the Purchaser can edit and resubmit
-            DB::table('requisition_issue_slip_table')
-                ->where('ris_id', $risId)
-                ->update([
-                    'ris_status' => 'Pending',
-                    'ris_requested_by_signature' => null,
-                    'ris_requested_by_date' => null,
-                    'ris_submitted_by' => null,
-                    'ris_submitted_at' => null,
-                    'ris_rejection_reason' => $remarks,
-                ]);
+            // =====================================================
+            // NEW WORKFLOW (Minor Revision)
+            //
+            // Keep the submission so the Purchaser can correct and
+            // resubmit. We set status to Minor Revision and record
+            // the revision note in ris_revision_notes_table.
+            // =====================================================
+            if (in_array($ris->ris_status, ['Submitted', 'Under Review', 'Resubmitted'], true)) {
+
+                DB::table('requisition_issue_slip_table')
+                    ->where('ris_id', $risId)
+                    ->update([
+                        'ris_status' => 'Minor Revision',
+                        'ris_rejection_reason' => $remarks,
+                        'ris_updated_at' => now(),
+                    ]);
+
+                try {
+                    DB::table('ris_revision_notes_table')->insert([
+                        'ris_id' => (int) $risId,
+                        'ris_revision_requested_by' => Auth::id(),
+                        'ris_revision_type' => 'Minor Revision',
+                        'ris_revision_note' => $remarks,
+                        'ris_revision_created_at' => now(),
+                    ]);
+                } catch (\Throwable $e) {
+                    // Ignore revision note failures
+                }
+
+            } else {
+
+                // =====================================================
+                // LEGACY WORKFLOW (Pending -> Draft)
+                //
+                // Reset submission fields so the Purchaser can edit
+                // and resubmit as a Draft.
+                // =====================================================
+                DB::table('requisition_issue_slip_table')
+                    ->where('ris_id', $risId)
+                    ->update([
+                        'ris_status' => 'Draft',
+                        'ris_requested_by_signature' => null,
+                        'ris_requested_by_date' => null,
+                        'ris_submitted_by' => null,
+                        'ris_submitted_at' => null,
+                        'ris_rejection_reason' => $remarks,
+                    ]);
+            }
 
             // Log the amendment activity
             try {
@@ -2032,6 +2109,38 @@ class AdminController extends Controller
 
             return back()->with('success', 'RIS returned to Purchaser for amendment with your remarks.');
         });
+    }
+
+    // =====================================================
+    // QUICK ACCESS MODAL CONTENT METHODS
+    // =====================================================
+
+    /**
+     * Return the procurement review content partial (all RIS, sorted by latest).
+     * Used by the Quick Access modal on the dashboard.
+     */
+    public function quickAccessProcurementContent(Request $request)
+    {
+        // Reuse the risApprovals logic but with filter=all
+        return $this->risApprovals($request);
+    }
+
+    /**
+     * Return the sign RIS content partial (all President-approved RIS).
+     * Used by the Quick Access modal on the dashboard.
+     */
+    public function quickAccessSignRisContent(Request $request)
+    {
+        return $this->signRis($request);
+    }
+
+    /**
+     * Return the signature history content partial.
+     * Used by the Quick Access modal on the dashboard.
+     */
+    public function quickAccessHistoryContent(Request $request)
+    {
+        return $this->signatureHistory($request);
     }
 }
 

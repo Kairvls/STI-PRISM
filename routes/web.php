@@ -278,10 +278,29 @@ Route::middleware(['auth', 'admin'])
             [AdminController::class, 'rejectRis']
         )->name('procurement-review.ris.reject');
 
-        Route::get(
+Route::get(
             '/procurement-review/ris/{ris}/print',
             [PurchaserController::class, 'printRis']
         )->name('procurement-review.ris.print');
+
+        // ==========================================
+        // QUICK ACCESS MODAL CONTENT (AJAX)
+        // ==========================================
+
+        Route::get(
+            '/quick-access/procurement-content',
+            [AdminController::class, 'quickAccessProcurementContent']
+        )->name('quick-access.procurement-content');
+
+        Route::get(
+            '/quick-access/signris-content',
+            [AdminController::class, 'quickAccessSignRisContent']
+        )->name('quick-access.signris-content');
+
+        Route::get(
+            '/quick-access/history-content',
+            [AdminController::class, 'quickAccessHistoryContent']
+        )->name('quick-access.history-content');
 
     });
 

@@ -62,7 +62,7 @@
             <tr
                 class="
                     transition hover:bg-gray-50/70
-                    {{ $ris->ris_status !== 'Pending'
+                    {{ !in_array($ris->ris_status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true)
                         ? 'bg-gray-50 text-gray-500'
                         : ''
                     }}
@@ -77,7 +77,7 @@
                 <td class="px-5 py-4">
 
                     <div
-                        class="text-sm font-semibold {{ $ris->ris_status !== 'Pending' ? 'text-gray-500' : 'text-gray-900' }}"
+                        class="text-sm font-semibold {{ !in_array($ris->ris_status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true) ? 'text-gray-500' : 'text-gray-900' }}"
                         title="RIS Number"
                     >
 
@@ -95,7 +95,7 @@
                 <td class="px-5 py-4">
 
                     <div
-                        class="max-w-[220px] truncate text-sm font-medium {{ $ris->ris_status !== 'Pending' ? 'text-gray-500' : 'text-gray-700' }}"
+                        class="max-w-[220px] truncate text-sm font-medium {{ !in_array($ris->ris_status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true) ? 'text-gray-500' : 'text-gray-700' }}"
                         title="{{ $ris->ris_purpose_description ?? 'N/A' }}"
                     >
 
@@ -113,7 +113,7 @@
                 <td class="px-5 py-4">
 
                     <div
-                        class="max-w-[220px] truncate text-sm {{ $ris->ris_status !== 'Pending' ? 'text-gray-500' : 'text-gray-700' }}"
+                        class="max-w-[220px] truncate text-sm {{ !in_array($ris->ris_status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true) ? 'text-gray-500' : 'text-gray-700' }}"
                         title="Items / Equipment included in this RIS"
                     >
 
@@ -131,7 +131,7 @@
                 <td class="px-5 py-4">
 
                     <div
-                        class="text-sm font-medium {{ $ris->ris_status !== 'Pending' ? 'text-gray-500' : 'text-gray-700' }}"
+                        class="text-sm font-medium {{ !in_array($ris->ris_status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true) ? 'text-gray-500' : 'text-gray-700' }}"
                         title="Person who sent this RIS request"
                     >
 
@@ -161,9 +161,9 @@
                 <td class="px-5 py-4">
 
 
-                    {{-- PENDING --}}
+                    {{-- PENDING (new workflow + legacy) --}}
 
-                    @if($ris->ris_status === 'Pending')
+                    @if(in_array($ris->ris_status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true))
 
                         <span
                             class="inline-flex items-center rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700"
@@ -200,9 +200,9 @@
 
 
                     {{-- AMEND --}}
-                    {{-- Database value remains Rejected --}}
+                    {{-- New workflow uses Minor Revision; legacy uses Rejected --}}
 
-                    @elseif($ris->ris_status === 'Rejected')
+                    @elseif(in_array($ris->ris_status, ['Minor Revision', 'Rejected'], true))
 
                         <span
                             class="inline-flex items-center rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700"
@@ -233,7 +233,7 @@
                 {{-- ================================================= --}}
 
                 <td
-                    class="px-5 py-4 text-right text-sm font-semibold {{ $ris->ris_status !== 'Pending' ? 'text-gray-500' : 'text-gray-900' }}"
+                    class="px-5 py-4 text-right text-sm font-semibold {{ !in_array($ris->ris_status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true) ? 'text-gray-500' : 'text-gray-900' }}"
                     title="Total computed amount of this RIS"
                 >
 
@@ -294,7 +294,7 @@
                         {{-- PENDING ACTIONS --}}
                         {{-- ================================================= --}}
 
-                        @if($ris->ris_status === 'Pending')
+                        @if(in_array($ris->ris_status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true))
 
 
                             {{-- ================================================= --}}

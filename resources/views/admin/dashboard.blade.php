@@ -220,52 +220,52 @@
                 <div class="dashboard-quick-header">
                     <div>
                         <h3 class="dashboard-quick-title">Quick Access</h3>
-                        <p class="dashboard-quick-subtitle">Navigate to key system sections</p>
+                        <p class="dashboard-quick-subtitle">Click to open section overview in a modal</p>
                     </div>
                 </div>
                 <div class="dashboard-quick-grid">
-                    <a href="/admin/procurement-review/ris" class="quick-access-card">
+                    <button type="button" onclick="openQuickAccessModal('procurement')" class="quick-access-card" style="cursor:pointer;border:none;width:100%;font-family:inherit;">
                         <div class="quick-access-icon quick-access-icon-blue">
                             <i data-lucide="clipboard-check"></i>
                         </div>
                         <span class="quick-access-label">Procurement Review</span>
                         <span class="quick-access-desc">Review and approve RIS submissions</span>
-                    </a>
-                    <a href="/admin/digital-signatures/sign-ris" class="quick-access-card">
+                    </button>
+                    <button type="button" onclick="openQuickAccessModal('signris')" class="quick-access-card" style="cursor:pointer;border:none;width:100%;font-family:inherit;">
                         <div class="quick-access-icon quick-access-icon-violet">
                             <i data-lucide="pen-tool"></i>
                         </div>
                         <span class="quick-access-label">Sign RIS</span>
                         <span class="quick-access-desc">Co-sign President-approved RIS</span>
-                    </a>
-                    <a href="/admin/digital-signatures/history" class="quick-access-card">
+                    </button>
+                    <button type="button" onclick="openQuickAccessModal('history')" class="quick-access-card" style="cursor:pointer;border:none;width:100%;font-family:inherit;">
                         <div class="quick-access-icon quick-access-icon-indigo">
                             <i data-lucide="history"></i>
                         </div>
                         <span class="quick-access-label">Signature History</span>
                         <span class="quick-access-desc">View completed signature records</span>
-                    </a>
-                    <a href="/admin/users" class="quick-access-card">
+                    </button>
+                    <button type="button" onclick="openQuickAccessModal('users')" class="quick-access-card" style="cursor:pointer;border:none;width:100%;font-family:inherit;">
                         <div class="quick-access-icon quick-access-icon-emerald">
                             <i data-lucide="users"></i>
                         </div>
                         <span class="quick-access-label">User Management</span>
                         <span class="quick-access-desc">Manage system users and roles</span>
-                    </a>
-                    <a href="/admin/reports/procurement-history" class="quick-access-card">
+                    </button>
+                    <button type="button" onclick="openQuickAccessModal('reports')" class="quick-access-card" style="cursor:pointer;border:none;width:100%;font-family:inherit;">
                         <div class="quick-access-icon quick-access-icon-amber">
                             <i data-lucide="file-text"></i>
                         </div>
                         <span class="quick-access-label">System Reports</span>
                         <span class="quick-access-desc">View procurement and audit logs</span>
-                    </a>
-                    <a href="/admin/settings/campus-setup-pin" class="quick-access-card">
+                    </button>
+                    <button type="button" onclick="openQuickAccessModal('settings')" class="quick-access-card" style="cursor:pointer;border:none;width:100%;font-family:inherit;">
                         <div class="quick-access-icon quick-access-icon-rose">
                             <i data-lucide="settings"></i>
                         </div>
                         <span class="quick-access-label">System Settings</span>
                         <span class="quick-access-desc">Configure campus and system options</span>
-                    </a>
+                    </button>
                 </div>
             </div>
 
@@ -320,13 +320,13 @@
                                     <span class="table-equip">{{ $ris->equipment_name ?? $ris->report_unlisted_equipment_name ?? 'N/A' }}</span>
                                 </td>
                                 <td>
-                                    @if($ris->ris_status === 'Pending')
+                                    @if(in_array($ris->ris_status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true))
                                         <span class="status-badge status-badge-amber">Pending</span>
                                     @elseif($ris->ris_status === 'Approved' && !empty($ris->ris_approved_by_signature) && !str_starts_with($ris->ris_approved_by_signature ?? '', 'data:image'))
                                         <span class="status-badge status-badge-slate">Direct Approved</span>
                                     @elseif($ris->ris_status === 'Approved' && !empty($ris->ris_approved_by_date))
                                         <span class="status-badge status-badge-emerald">Forwarded to President</span>
-                                    @elseif($ris->ris_status === 'Rejected')
+                                    @elseif(in_array($ris->ris_status, ['Minor Revision', 'Rejected'], true))
                                         <span class="status-badge status-badge-rose">Amend</span>
                                     @else
                                         <span class="status-badge status-badge-gray">{{ $ris->ris_status }}</span>
@@ -639,6 +639,31 @@
                 <i data-lucide="printer" class="h-4 w-4"></i>
                 Open in Print View
             </a>
+        </div>
+    </div>
+</div>
+
+
+{{-- ===================================================== --}}
+{{-- QUICK ACCESS MODAL --}}
+{{-- ===================================================== --}}
+
+<div id="quickAccessModal" class="ris-preview-modal-overlay" style="display: none;">
+    <div class="ris-preview-modal-container" style="max-width: 95vw; width: 1400px;">
+        <div class="ris-preview-modal-header">
+            <h3 class="ris-preview-modal-title" id="qaModalTitle">Quick Access</h3>
+            <button type="button" onclick="closeQuickAccessModal()" class="ris-preview-modal-close" title="Close">
+                <i data-lucide="x" class="h-4 w-4"></i>
+            </button>
+        </div>
+        <div class="ris-preview-modal-body" id="qaModalBody" style="background: #ffffff; min-height: 300px; max-height: calc(90vh - 110px); overflow: auto;">
+            <div class="ris-preview-loading">
+                <div class="ris-preview-spinner"></div>
+                <span>Loading...</span>
+            </div>
+        </div>
+        <div class="ris-preview-modal-footer">
+            <button type="button" onclick="closeQuickAccessModal()" class="ris-preview-modal-btn-close">Close</button>
         </div>
     </div>
 </div>
@@ -2263,12 +2288,104 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Helper to escape HTML for use in srcdoc
+// Helper to escape HTML for use in srcdoc
     function escapeHtml(text) {
         var div = document.createElement('div');
         div.appendChild(document.createTextNode(text));
         return div.innerHTML;
     }
+
+
+    // =====================================================
+    // QUICK ACCESS MODAL
+    // =====================================================
+
+    var qaModalOpen = false;
+
+    window.openQuickAccessModal = function(section) {
+        var modal = document.getElementById('quickAccessModal');
+        var body = document.getElementById('qaModalBody');
+        var title = document.getElementById('qaModalTitle');
+        if (!modal || !body || !title) return;
+
+        var titles = {
+            'procurement': 'Procurement Review — All RIS Records',
+            'signris': 'Sign RIS — President-Approved Records',
+            'history': 'Signature History — Completed Records',
+            'users': 'User Management',
+            'reports': 'System Reports',
+            'settings': 'System Settings'
+        };
+        title.textContent = titles[section] || 'Quick Access';
+
+        modal.style.display = 'flex';
+        body.innerHTML = '<div class="ris-preview-loading"><div class="ris-preview-spinner"></div><span>Loading...</span></div>';
+        qaModalOpen = true;
+
+        var iframeUrls = {
+            'users': '/admin/users',
+            'reports': '/admin/reports/procurement-history',
+            'settings': '/admin/settings/campus-setup-pin'
+        };
+
+        var ajaxUrls = {
+            'procurement': '/admin/quick-access/procurement-content',
+            'signris': '/admin/quick-access/signris-content',
+            'history': '/admin/quick-access/history-content'
+        };
+
+        if (iframeUrls[section]) {
+            body.innerHTML = '<iframe src="' + iframeUrls[section] + '" frameborder="0" style="width:100%;height:100%;min-height:70vh;"></iframe>';
+        } else if (ajaxUrls[section]) {
+            fetch(ajaxUrls[section], {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'text/html'
+                }
+            })
+            .then(function(response) {
+                if (!response.ok) throw new Error('Failed to load');
+                return response.text();
+            })
+            .then(function(html) {
+                body.innerHTML = html;
+                if (typeof lucide !== 'undefined' && lucide.createIcons) {
+                    lucide.createIcons();
+                }
+            })
+            .catch(function(error) {
+                console.error('Quick Access fetch error:', error);
+                body.innerHTML = '<div class="ris-preview-loading" style="color:#e11d48;"><span>Failed to load. <a href="' + (ajaxUrls[section] || '#') + '" style="color:#6366f1;text-decoration:underline;">Open in new tab instead</a></span></div>';
+            });
+        }
+    };
+
+    window.closeQuickAccessModal = function() {
+        var modal = document.getElementById('quickAccessModal');
+        var body = document.getElementById('qaModalBody');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+        if (body) {
+            body.innerHTML = '<div class="ris-preview-loading"><div class="ris-preview-spinner"></div><span>Loading...</span></div>';
+        }
+        qaModalOpen = false;
+    };
+
+    // Close Quick Access modal on overlay click
+    document.addEventListener('click', function(e) {
+        var modal = document.getElementById('quickAccessModal');
+        if (modal && e.target === modal) {
+            closeQuickAccessModal();
+        }
+    });
+
+    // Close on Escape key for QA modal
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && qaModalOpen) {
+            closeQuickAccessModal();
+        }
+    });
 
 });
 </script>

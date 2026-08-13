@@ -1082,7 +1082,7 @@ class PurchaserController extends Controller
         });
     }
 
-    // =====================================================
+// =====================================================
     // RIS PRINT / PREVIEW
     // Used by Purchaser, Admin, and President
     // =====================================================
@@ -1101,11 +1101,60 @@ class PurchaserController extends Controller
 
 
         // =====================================================
+        // GET RIS ITEMS
+        // =====================================================
+
+        $risItems = DB::table('requisition_issue_slip_items_table')
+            ->where('ris_id', $risId)
+            ->orderBy('ris_item_id')
+            ->get();
+
+        // Pad with empty items to fill 10 rows
+        $risItems = $risItems->pad(10, null);
+
+
+        // =====================================================
+        // GET PRESIDENT NAME (if President has signed)
+        //
+        // When the President signs (Forwarded to President),
+        // ris_approved_by_signature stores the base64 image.
+        // The President's name is stored in approval_logs_table.
+        // =====================================================
+
+        $presidentName = null;
+
+        if (
+            !empty($ris->ris_approved_by_signature) &&
+            strpos($ris->ris_approved_by_signature, 'data:image') === 0
+        ) {
+            // Try to get President name from approval logs
+            try {
+                $presidentApproval = DB::table('approval_logs_table')
+                    ->leftJoin('users_table', 'approval_logs_table.approval_log_approved_by', '=', 'users_table.user_id')
+                    ->where('approval_logs_table.approval_log_reference_type', 'RIS')
+                    ->where('approval_logs_table.approval_log_reference_id', (int) $risId)
+                    ->where('approval_logs_table.approval_log_level', 'President')
+                    ->where('approval_logs_table.approval_log_approval_status', 'Approved')
+                    ->select('users_table.user_full_name')
+                    ->first();
+
+                if ($presidentApproval && !empty($presidentApproval->user_full_name)) {
+                    $presidentName = $presidentApproval->user_full_name;
+                }
+            } catch (\Throwable $e) {
+                $presidentName = null;
+            }
+        }
+
+
+        // =====================================================
         // RETURN RIS PRINT VIEW
         // =====================================================
 
         return view('purchaser.ris.print', [
             'ris' => $ris,
+            'risItems' => $risItems,
+            'presidentName' => $presidentName,
         ]);
     }
 // =====================================================

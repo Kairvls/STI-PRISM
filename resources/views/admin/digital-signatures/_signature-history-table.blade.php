@@ -209,7 +209,8 @@
                         </span>
 
                     {{-- AMENDED --}}
-                    @elseif($history->ris_status === 'Rejected')
+                    {{-- New workflow uses Minor Revision; legacy uses Rejected --}}
+                    @elseif(in_array($history->ris_status, ['Minor Revision', 'Rejected'], true))
 
                         <span
                             class="inline-flex items-center rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700"
