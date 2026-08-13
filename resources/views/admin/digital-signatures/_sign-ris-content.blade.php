@@ -152,20 +152,25 @@
 
 
                     {{-- ================================================= --}}
-                    {{-- STATUS FILTER SWITCH --}}
+                    {{-- STATUS FILTER SLIDER --}}
                     {{-- ================================================= --}}
 
-                    <div class="inline-flex max-w-full items-center overflow-x-auto rounded-xl bg-slate-200/70 p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    <div
+                        id="signRisFilterSlider"
+                        class="relative inline-flex max-w-full items-center overflow-x-auto rounded-xl bg-slate-200/70 p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                    >
+                        <span
+                            class="sign-ris-filter-thumb pointer-events-none absolute top-1 left-0 z-0 h-9 rounded-lg bg-white shadow-sm will-change-transform"
+                            style="transform: translate3d(0, 0, 0); transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), width 220ms cubic-bezier(0.22, 1, 0.36, 1);"
+                            aria-hidden="true"
+                        ></span>
 
                         <button
                             type="button"
                             data-filter="all"
                             title="Show all President-approved RIS records"
-                            class="sign-ris-filter-btn flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold transition
-                                {{ $filter === 'all'
-                                    ? 'bg-white text-slate-950 shadow-sm'
-                                    : 'text-slate-500 hover:text-slate-900'
-                                }}
+                            class="sign-ris-filter-btn relative z-10 flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold transition-colors
+                                {{ $filter === 'all' ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
                             "
                         >
                             All
@@ -175,11 +180,8 @@
                             type="button"
                             data-filter="for_cosign"
                             title="Show only RIS records awaiting your co-sign"
-                            class="sign-ris-filter-btn flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold transition
-                                {{ $filter === 'for_cosign'
-                                    ? 'bg-white text-slate-950 shadow-sm'
-                                    : 'text-slate-500 hover:text-slate-900'
-                                }}
+                            class="sign-ris-filter-btn relative z-10 flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold transition-colors
+                                {{ $filter === 'for_cosign' ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
                             "
                         >
                             For Co-sign
@@ -189,11 +191,8 @@
                             type="button"
                             data-filter="cosigned"
                             title="Show only co-signed RIS records"
-                            class="sign-ris-filter-btn flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold transition
-                                {{ $filter === 'cosigned'
-                                    ? 'bg-white text-slate-950 shadow-sm'
-                                    : 'text-slate-500 hover:text-slate-900'
-                                }}
+                            class="sign-ris-filter-btn relative z-10 flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold transition-colors
+                                {{ $filter === 'cosigned' ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
                             "
                         >
                             Co-signed

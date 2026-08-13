@@ -189,15 +189,18 @@
 
                 <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 
-                    <div class="inline-flex items-center rounded-xl bg-slate-200/70 p-1">
-
+                    <div class="relative inline-flex items-center rounded-xl bg-slate-200/70 p-1">
                         <span
-                            class="flex h-9 items-center rounded-lg bg-white px-4 text-xs font-semibold text-slate-950 shadow-sm"
+                            class="pointer-events-none absolute top-1 left-1 z-0 h-9 rounded-lg bg-white shadow-sm"
+                            style="width: calc(100% - 0.5rem);"
+                            aria-hidden="true"
+                        ></span>
+                        <span
+                            class="relative z-10 flex h-9 items-center rounded-lg px-4 text-xs font-semibold text-slate-950"
                             title="Showing all finished RIS records"
                         >
                             All
                         </span>
-
                     </div>
 
 

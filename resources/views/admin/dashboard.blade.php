@@ -115,19 +115,6 @@
         </div>
 
 
-        {{-- AMEND --}}
-
-        <div class="stat-card stat-card-danger" title="RIS returned for amendment">
-            <div class="stat-card-top">
-                <div class="stat-icon stat-icon-rose">
-                    <i data-lucide="rotate-ccw"></i>
-                </div>
-            </div>
-            <p class="stat-label">Amend</p>
-            <p class="stat-value">{{ $amendRis }}</p>
-        </div>
-
-
         {{-- FOR CO-SIGNING --}}
 
         <div class="stat-card" title="RIS waiting for Admin co-signature">
@@ -597,13 +584,6 @@
                             <span class="sidebar-stat-label">Co-signed</span>
                         </div>
                         <span class="sidebar-stat-value">{{ $cosignedCount }}</span>
-                    </div>
-                    <div class="sidebar-stat-item">
-                        <div class="sidebar-stat-left">
-                            <div class="sidebar-stat-dot sidebar-dot-rose"></div>
-                            <span class="sidebar-stat-label">Amend</span>
-                        </div>
-                        <span class="sidebar-stat-value">{{ $amendRis }}</span>
                     </div>
                 </div>
             </div>

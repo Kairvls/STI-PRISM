@@ -192,20 +192,25 @@
 
 
                     {{-- ================================================= --}}
-                    {{-- STATUS FILTER SWITCH --}}
+                    {{-- STATUS FILTER SLIDER --}}
                     {{-- ================================================= --}}
 
-                    <div class="inline-flex max-w-full items-center overflow-x-auto rounded-xl bg-slate-200/70 p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    <div
+                        id="risFilterSlider"
+                        class="relative inline-flex max-w-full items-center overflow-x-auto rounded-xl bg-slate-200/70 p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                    >
+                        <span
+                            class="ris-filter-thumb pointer-events-none absolute top-1 left-0 z-0 h-9 rounded-lg bg-white shadow-sm will-change-transform"
+                            style="transform: translate3d(0, 0, 0); transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), width 220ms cubic-bezier(0.22, 1, 0.36, 1);"
+                            aria-hidden="true"
+                        ></span>
 
                         <button
                             type="button"
                             data-filter="all"
                             title="Show all RIS records"
-                            class="ris-filter-btn flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold transition
-                                {{ $filter === 'all'
-                                    ? 'bg-white text-slate-950 shadow-sm'
-                                    : 'text-slate-500 hover:text-slate-900'
-                                }}
+                            class="ris-filter-btn relative z-10 flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold transition-colors
+                                {{ $filter === 'all' ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
                             "
                         >
                             All
@@ -215,11 +220,8 @@
                             type="button"
                             data-filter="pending"
                             title="Show only Pending RIS records"
-                            class="ris-filter-btn flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold transition
-                                {{ $filter === 'pending'
-                                    ? 'bg-white text-slate-950 shadow-sm'
-                                    : 'text-slate-500 hover:text-slate-900'
-                                }}
+                            class="ris-filter-btn relative z-10 flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold transition-colors
+                                {{ $filter === 'pending' ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
                             "
                         >
                             Pending
@@ -229,11 +231,8 @@
                             type="button"
                             data-filter="rejected"
                             title="Show RIS records returned for amendment"
-                            class="ris-filter-btn flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold transition
-                                {{ $filter === 'rejected'
-                                    ? 'bg-white text-slate-950 shadow-sm'
-                                    : 'text-slate-500 hover:text-slate-900'
-                                }}
+                            class="ris-filter-btn relative z-10 flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold transition-colors
+                                {{ $filter === 'rejected' ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
                             "
                         >
                             Amend
@@ -243,11 +242,8 @@
                             type="button"
                             data-filter="approved"
                             title="Show only RIS records forwarded to the President"
-                            class="ris-filter-btn flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold transition
-                                {{ $filter === 'approved'
-                                    ? 'bg-white text-slate-950 shadow-sm'
-                                    : 'text-slate-500 hover:text-slate-900'
-                                }}
+                            class="ris-filter-btn relative z-10 flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold transition-colors
+                                {{ $filter === 'approved' ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
                             "
                         >
                             Forwarded
@@ -257,11 +253,8 @@
                             type="button"
                             data-filter="direct_approved"
                             title="Show only Directly Approved RIS records"
-                            class="ris-filter-btn flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold transition
-                                {{ $filter === 'direct_approved'
-                                    ? 'bg-white text-slate-950 shadow-sm'
-                                    : 'text-slate-500 hover:text-slate-900'
-                                }}
+                            class="ris-filter-btn relative z-10 flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold transition-colors
+                                {{ $filter === 'direct_approved' ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
                             "
                         >
                             Direct Approved

@@ -422,6 +422,7 @@
     // =====================================================
 
     let risSearchTimer = null;
+    let risFilterFetchTimer = null;
     let currentFilter = '{{ $filter ?? 'all' }}';
     let currentSearch = '{{ $search ?? '' }}';
 
@@ -537,6 +538,53 @@
     // BIND RIS EVENT LISTENERS
     // =====================================================
 
+    function updateRisFilterSlider(activeFilter, animate) {
+
+        const track = document.getElementById('risFilterSlider');
+        if (!track) {
+            return;
+        }
+
+        const thumb = track.querySelector('.ris-filter-thumb');
+        const buttons = track.querySelectorAll('.ris-filter-btn');
+        if (!thumb || !buttons.length) {
+            return;
+        }
+
+        let activeBtn = null;
+
+        for (let i = 0; i < buttons.length; i++) {
+            const btn = buttons[i];
+            const isActive = btn.getAttribute('data-filter') === activeFilter;
+            btn.style.color = isActive ? '#020617' : '#64748b';
+            if (isActive) {
+                activeBtn = btn;
+            }
+        }
+
+        if (!activeBtn) {
+            activeBtn = buttons[0];
+        }
+
+        const x = activeBtn.offsetLeft;
+        const w = activeBtn.offsetWidth;
+
+        if (!animate) {
+            const previous = thumb.style.transition;
+            thumb.style.transition = 'none';
+            thumb.style.width = w + 'px';
+            thumb.style.transform = 'translate3d(' + x + 'px, 0, 0)';
+            // Force layout so the next transition starts cleanly.
+            void thumb.offsetWidth;
+            thumb.style.transition = previous || 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1), width 220ms cubic-bezier(0.22, 1, 0.36, 1)';
+            return;
+        }
+
+        thumb.style.width = w + 'px';
+        thumb.style.transform = 'translate3d(' + x + 'px, 0, 0)';
+    }
+
+
     function bindRisEventListeners() {
 
 
@@ -554,6 +602,7 @@
                 function () {
 
                     clearTimeout(risSearchTimer);
+                    clearTimeout(risFilterFetchTimer);
 
                     const value = this.value;
 
@@ -601,17 +650,24 @@
                     }
 
                     currentFilter = filter;
+                    updateRisFilterSlider(currentFilter, true);
 
-                    fetchRisData(
-                        currentFilter,
-                        currentSearch,
-                        null
-                    );
+                    clearTimeout(risFilterFetchTimer);
+                    risFilterFetchTimer = setTimeout(function () {
+                        fetchRisData(
+                            currentFilter,
+                            currentSearch,
+                            null
+                        );
+                    }, 230);
 
                 }
             );
 
         });
+
+        // Snap into place after AJAX rebuild (no animation).
+        updateRisFilterSlider(currentFilter, false);
 
 
         // =====================================================
@@ -640,6 +696,7 @@
 
                     }
 
+                    clearTimeout(risFilterFetchTimer);
                     fetchRisData(
                         currentFilter,
                         currentSearch,

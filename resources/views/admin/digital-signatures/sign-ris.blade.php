@@ -321,6 +321,7 @@
     // =====================================================
 
     let signRisSearchTimer = null;
+    let signRisFilterFetchTimer = null;
     let currentFilter = '{{ $filter ?? 'all' }}';
     let currentSearch = '{{ $search ?? '' }}';
 
@@ -424,6 +425,52 @@
     // BIND SIGN RIS EVENT LISTENERS
     // =====================================================
 
+    function updateSignRisFilterSlider(activeFilter, animate) {
+
+        const track = document.getElementById('signRisFilterSlider');
+        if (!track) {
+            return;
+        }
+
+        const thumb = track.querySelector('.sign-ris-filter-thumb');
+        const buttons = track.querySelectorAll('.sign-ris-filter-btn');
+        if (!thumb || !buttons.length) {
+            return;
+        }
+
+        let activeBtn = null;
+
+        for (let i = 0; i < buttons.length; i++) {
+            const btn = buttons[i];
+            const isActive = btn.getAttribute('data-filter') === activeFilter;
+            btn.style.color = isActive ? '#020617' : '#64748b';
+            if (isActive) {
+                activeBtn = btn;
+            }
+        }
+
+        if (!activeBtn) {
+            activeBtn = buttons[0];
+        }
+
+        const x = activeBtn.offsetLeft;
+        const w = activeBtn.offsetWidth;
+
+        if (!animate) {
+            const previous = thumb.style.transition;
+            thumb.style.transition = 'none';
+            thumb.style.width = w + 'px';
+            thumb.style.transform = 'translate3d(' + x + 'px, 0, 0)';
+            void thumb.offsetWidth;
+            thumb.style.transition = previous || 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1), width 220ms cubic-bezier(0.22, 1, 0.36, 1)';
+            return;
+        }
+
+        thumb.style.width = w + 'px';
+        thumb.style.transform = 'translate3d(' + x + 'px, 0, 0)';
+    }
+
+
     function bindSignRisEventListeners() {
 
         // =====================================================
@@ -440,6 +487,7 @@
                 function () {
 
                     clearTimeout(signRisSearchTimer);
+                    clearTimeout(signRisFilterFetchTimer);
 
                     const value = this.value;
 
@@ -482,17 +530,23 @@
                     }
 
                     currentFilter = filter;
+                    updateSignRisFilterSlider(currentFilter, true);
 
-                    fetchSignRisData(
-                        currentFilter,
-                        currentSearch,
-                        null
-                    );
+                    clearTimeout(signRisFilterFetchTimer);
+                    signRisFilterFetchTimer = setTimeout(function () {
+                        fetchSignRisData(
+                            currentFilter,
+                            currentSearch,
+                            null
+                        );
+                    }, 230);
 
                 }
             );
 
         });
+
+        updateSignRisFilterSlider(currentFilter, false);
 
         // =====================================================
         // PAGINATION LINKS
@@ -518,6 +572,7 @@
                         return;
                     }
 
+                    clearTimeout(signRisFilterFetchTimer);
                     fetchSignRisData(
                         currentFilter,
                         currentSearch,
