@@ -515,7 +515,7 @@ class PurchaserController extends Controller
                 ->count(),
 
             'approved' => DB::table('requisition_issue_slip_table')
-                ->where('ris_status', 'Approved')
+                ->whereIn('ris_status', ['Approved', 'Directly Approved'])
                 ->count(),
 
             'rejected' => DB::table('requisition_issue_slip_table')

@@ -18,7 +18,7 @@
         </h1>
 
         <p class="admin-page-subtitle">
-            View all finished / completed RIS records (Direct Approved, Signed, Co-signed, Amended). Active/pending RIS forms are not shown here.
+            View all finished / completed RIS records (Directly Approved, Signed, Co-signed, Amended). Active/pending RIS forms are not shown here.
         </p>
 
     </div>

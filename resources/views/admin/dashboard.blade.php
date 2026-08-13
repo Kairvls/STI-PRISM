@@ -27,119 +27,97 @@
 
 
     {{-- ===================================================== --}}
-    {{-- STATISTIC CARDS ROW 1 --}}
-    {{-- ===================================================== --}}
-
-    <div class="stat-grid">
-
-        {{-- PENDING RIS (conditional - only show when > 0, at very top) --}}
-
-        @if($pendingRis > 0)
-        <div class="stat-card stat-card-warning" title="RIS forms currently waiting for review">
-            <div class="stat-card-top">
-                <div class="stat-icon stat-icon-amber">
-                    <i data-lucide="clock"></i>
-                </div>
-                <span class="stat-change stat-change-warn">
-                    <i data-lucide="alert-circle" class="h-3 w-3"></i>
-                    Needs attention
-                </span>
-            </div>
-            <p class="stat-label">Pending RIS</p>
-            <p class="stat-value">{{ $pendingRis }}</p>
-            <p class="stat-amount">₱{{ number_format($pendingRisAmount, 2) }} pending value</p>
-        </div>
-        @endif
-
-{{-- TOTAL RIS --}}
-
-
-        {{-- TOTAL RIS --}}
-
-        <div class="stat-card" title="Total Requisition Issue Slips submitted">
-            <div class="stat-card-top">
-                <div class="stat-icon stat-icon-indigo">
-                    <i data-lucide="file-text"></i>
-                </div>
-            </div>
-            <p class="stat-label">Total RIS</p>
-            <p class="stat-value">{{ $totalRis }}</p>
-            <p class="stat-amount">₱{{ number_format($totalRisAmount, 2) }} total value</p>
-        </div>
-
-
-        {{-- DIRECT APPROVED --}}
-
-        <div class="stat-card stat-card-success" title="RIS forms directly approved by Admin">
-            <div class="stat-card-top">
-                <div class="stat-icon stat-icon-emerald">
-                    <i data-lucide="check-circle"></i>
-                </div>
-            </div>
-            <p class="stat-label">Direct Approved</p>
-            <p class="stat-value">{{ $directApprovedRis }}</p>
-        </div>
-
-    </div>
-
-
-    {{-- ===================================================== --}}
-    {{-- STATISTIC CARDS ROW 2 --}}
-    {{-- ===================================================== --}}
-
-<div class="stat-grid stat-grid-row-2">
-
-        {{-- TOTAL USERS --}}
-
-        <div class="stat-card" title="Total users registered in the system">
-            <div class="stat-card-top">
-                <div class="stat-icon stat-icon-blue">
-                    <i data-lucide="users"></i>
-                </div>
-            </div>
-            <p class="stat-label">Number of Users</p>
-            <p class="stat-value">{{ $totalUsers }}</p>
-        </div>
-
-
-        {{-- FORWARDED TO PRESIDENT --}}
-
-        <div class="stat-card stat-card-info" title="RIS forwarded to President for approval">
-            <div class="stat-card-top">
-                <div class="stat-icon stat-icon-sky">
-                    <i data-lucide="send"></i>
-                </div>
-            </div>
-            <p class="stat-label">Forwarded to President</p>
-            <p class="stat-value">{{ $approvedRis }}</p>
-        </div>
-
-
-        {{-- FOR CO-SIGNING --}}
-
-        <div class="stat-card" title="RIS waiting for Admin co-signature">
-            <div class="stat-card-top">
-                <div class="stat-icon stat-icon-violet">
-                    <i data-lucide="pen-tool"></i>
-                </div>
-            </div>
-            <p class="stat-label">For Co-signing</p>
-            <p class="stat-value">{{ $forCosigningCount }}</p>
-        </div>
-
-
-</div>
-
-
-    {{-- ===================================================== --}}
-    {{-- MAIN CONTENT: HERO + ACTIVITY SIDEBAR --}}
+    {{-- MAIN CONTENT: STATS + HERO | SIDEBAR (aligned top) --}}
     {{-- ===================================================== --}}
 
     <div class="dashboard-main-grid">
 
-        {{-- LEFT: HERO SECTION --}}
+        {{-- LEFT: STATS + HERO SECTION --}}
 
         <div class="dashboard-hero">
+
+            {{-- ===================================================== --}}
+            {{-- STATISTIC CARDS --}}
+            {{-- ===================================================== --}}
+
+            <div class="stat-grid">
+
+                {{-- PENDING RIS — always first --}}
+                <div class="stat-card stat-card-warning" title="RIS forms currently waiting for review">
+                    <div class="stat-card-top">
+                        <div class="stat-icon stat-icon-amber">
+                            <i data-lucide="clock"></i>
+                        </div>
+                        @if($pendingRis > 0)
+                        <span class="stat-change stat-change-warn">
+                            <i data-lucide="alert-circle" class="h-3 w-3"></i>
+                            Needs attention
+                        </span>
+                        @else
+                        <span class="stat-change stat-change-up">
+                            <i data-lucide="check" class="h-3 w-3"></i>
+                            All clear
+                        </span>
+                        @endif
+                    </div>
+                    <p class="stat-label">Pending RIS</p>
+                    <p class="stat-value">{{ $pendingRis }}</p>
+                    <p class="stat-amount">₱{{ number_format($pendingRisAmount, 2) }} pending value</p>
+                </div>
+
+                <div class="stat-card" title="Total Requisition Issue Slips submitted">
+                    <div class="stat-card-top">
+                        <div class="stat-icon stat-icon-indigo">
+                            <i data-lucide="file-text"></i>
+                        </div>
+                    </div>
+                    <p class="stat-label">Total RIS</p>
+                    <p class="stat-value">{{ $totalRis }}</p>
+                    <p class="stat-amount">₱{{ number_format($totalRisAmount, 2) }} total value</p>
+                </div>
+
+                <div class="stat-card stat-card-success" title="RIS forms directly approved by Admin">
+                    <div class="stat-card-top">
+                        <div class="stat-icon stat-icon-emerald">
+                            <i data-lucide="check-circle"></i>
+                        </div>
+                    </div>
+                    <p class="stat-label">Directly Approved</p>
+                    <p class="stat-value">{{ $directApprovedRis }}</p>
+                </div>
+
+                <div class="stat-card" title="Total users registered in the system">
+                    <div class="stat-card-top">
+                        <div class="stat-icon stat-icon-blue">
+                            <i data-lucide="users"></i>
+                        </div>
+                    </div>
+                    <p class="stat-label">Number of Users</p>
+                    <p class="stat-value">{{ $totalUsers }}</p>
+                </div>
+
+                <div class="stat-card stat-card-info" title="RIS forwarded to President for approval">
+                    <div class="stat-card-top">
+                        <div class="stat-icon stat-icon-sky">
+                            <i data-lucide="send"></i>
+                        </div>
+                    </div>
+                    <p class="stat-label">Forwarded to President</p>
+                    <p class="stat-value">{{ $approvedRis }}</p>
+                </div>
+
+                <div class="stat-card" title="RIS waiting for Admin co-signature">
+                    <div class="stat-card-top">
+                        <div class="stat-icon stat-icon-violet">
+                            <i data-lucide="pen-tool"></i>
+                        </div>
+                    </div>
+                    <p class="stat-label">For Co-signing</p>
+                    <p class="stat-value">{{ $forCosigningCount }}</p>
+                </div>
+
+            </div>
+
 
             {{-- Pending RIS Alert --}}
 
@@ -239,20 +217,20 @@
                         <span class="quick-access-label">User Management</span>
                         <span class="quick-access-desc">Manage system users and roles</span>
                     </button>
-                    <button type="button" onclick="openQuickAccessModal('reports')" class="quick-access-card" style="cursor:pointer;border:none;width:100%;font-family:inherit;">
+                    <div class="quick-access-card quick-access-card-disabled" title="Temporarily unavailable" aria-disabled="true">
                         <div class="quick-access-icon quick-access-icon-amber">
                             <i data-lucide="file-text"></i>
                         </div>
                         <span class="quick-access-label">System Reports</span>
-                        <span class="quick-access-desc">View procurement and audit logs</span>
-                    </button>
-                    <button type="button" onclick="openQuickAccessModal('settings')" class="quick-access-card" style="cursor:pointer;border:none;width:100%;font-family:inherit;">
+                        <span class="quick-access-desc">Coming soon — temporarily unavailable</span>
+                    </div>
+                    <div class="quick-access-card quick-access-card-disabled" title="Temporarily unavailable" aria-disabled="true">
                         <div class="quick-access-icon quick-access-icon-rose">
                             <i data-lucide="settings"></i>
                         </div>
                         <span class="quick-access-label">System Settings</span>
-                        <span class="quick-access-desc">Configure campus and system options</span>
-                    </button>
+                        <span class="quick-access-desc">Coming soon — temporarily unavailable</span>
+                    </div>
                 </div>
             </div>
 
@@ -309,8 +287,8 @@
                                 <td>
                                     @if(in_array($ris->ris_status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true))
                                         <span class="status-badge status-badge-amber">Pending</span>
-                                    @elseif($ris->ris_status === 'Approved' && !empty($ris->ris_approved_by_signature) && !str_starts_with($ris->ris_approved_by_signature ?? '', 'data:image'))
-                                        <span class="status-badge status-badge-slate">Direct Approved</span>
+                                    @elseif($ris->ris_status === 'Directly Approved' || ($ris->ris_status === 'Approved' && !empty($ris->ris_approved_by_signature) && !str_starts_with($ris->ris_approved_by_signature ?? '', 'data:image') && empty($ris->ris_issued_by_date)))
+                                        <span class="status-badge status-badge-slate">Directly Approved</span>
                                     @elseif($ris->ris_status === 'Approved' && !empty($ris->ris_approved_by_date))
                                         <span class="status-badge status-badge-emerald">Forwarded to President</span>
                                     @elseif(in_array($ris->ris_status, ['Minor Revision', 'Rejected'], true))
@@ -567,7 +545,7 @@
                     <div class="sidebar-stat-item">
                         <div class="sidebar-stat-left">
                             <div class="sidebar-stat-dot sidebar-dot-emerald"></div>
-                            <span class="sidebar-stat-label">Direct Approved</span>
+                            <span class="sidebar-stat-label">Directly Approved</span>
                         </div>
                         <span class="sidebar-stat-value">{{ $directApprovedRis }}</span>
                     </div>
@@ -599,7 +577,29 @@
 {{-- RIS PREVIEW MODAL --}}
 {{-- ===================================================== --}}
 
-<div id="risPreviewModal" class="ris-preview-modal-overlay" style="display: none;">
+<div id="quickAccessModal" class="ris-preview-modal-overlay qa-modal-overlay" style="display: none;">
+    <div class="ris-preview-modal-container" style="max-width: 95vw; width: 1400px;">
+        <div class="ris-preview-modal-header">
+            <h3 class="ris-preview-modal-title" id="qaModalTitle">Quick Access</h3>
+            <button type="button" onclick="closeQuickAccessModal()" class="ris-preview-modal-close" title="Close">
+                <i data-lucide="x" class="h-4 w-4"></i>
+            </button>
+        </div>
+        <div class="ris-preview-modal-body" id="qaModalBody" style="background: #ffffff; min-height: 300px; max-height: calc(90vh - 110px); overflow: auto;">
+            <div class="ris-preview-loading">
+                <div class="ris-preview-spinner"></div>
+                <span>Loading...</span>
+            </div>
+        </div>
+        <div class="ris-preview-modal-footer">
+            <button type="button" onclick="closeQuickAccessModal()" class="ris-preview-modal-btn-close">Close</button>
+        </div>
+    </div>
+</div>
+
+
+{{-- RIS Preview must come AFTER Quick Access in the DOM and use a higher z-index --}}
+<div id="risPreviewModal" class="ris-preview-modal-overlay ris-preview-on-top" style="display: none;">
     <div class="ris-preview-modal-container">
         <div class="ris-preview-modal-header">
             <h3 class="ris-preview-modal-title">RIS Preview</h3>
@@ -619,31 +619,6 @@
                 <i data-lucide="printer" class="h-4 w-4"></i>
                 Open in Print View
             </a>
-        </div>
-    </div>
-</div>
-
-
-{{-- ===================================================== --}}
-{{-- QUICK ACCESS MODAL --}}
-{{-- ===================================================== --}}
-
-<div id="quickAccessModal" class="ris-preview-modal-overlay" style="display: none;">
-    <div class="ris-preview-modal-container" style="max-width: 95vw; width: 1400px;">
-        <div class="ris-preview-modal-header">
-            <h3 class="ris-preview-modal-title" id="qaModalTitle">Quick Access</h3>
-            <button type="button" onclick="closeQuickAccessModal()" class="ris-preview-modal-close" title="Close">
-                <i data-lucide="x" class="h-4 w-4"></i>
-            </button>
-        </div>
-        <div class="ris-preview-modal-body" id="qaModalBody" style="background: #ffffff; min-height: 300px; max-height: calc(90vh - 110px); overflow: auto;">
-            <div class="ris-preview-loading">
-                <div class="ris-preview-spinner"></div>
-                <span>Loading...</span>
-            </div>
-        </div>
-        <div class="ris-preview-modal-footer">
-            <button type="button" onclick="closeQuickAccessModal()" class="ris-preview-modal-btn-close">Close</button>
         </div>
     </div>
 </div>
@@ -711,13 +686,9 @@
 
 .stat-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 16px;
     margin-bottom: 16px;
-}
-
-.stat-grid-row-2 {
-    margin-bottom: 24px;
 }
 
 .stat-card {
@@ -881,9 +852,16 @@
 
 .dashboard-main-grid {
     display: grid;
-    grid-template-columns: 1fr 340px;
+    grid-template-columns: minmax(0, 1fr) 340px;
     gap: 24px;
-    align-items: stretch;
+    align-items: start;
+}
+
+.dashboard-hero {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
 }
 
 
@@ -895,6 +873,8 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
+    position: sticky;
+    top: 24px;
 }
 
 
@@ -955,6 +935,17 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
     border-color: #cbd5e1;
     background: #ffffff;
+}
+
+.quick-access-card-disabled,
+.quick-access-card-disabled:hover {
+    opacity: 0.55;
+    cursor: not-allowed;
+    pointer-events: none;
+    transform: none;
+    box-shadow: none;
+    background: #f8fafc;
+    border-color: #e2e8f0;
 }
 
 .quick-access-icon {
@@ -1064,6 +1055,14 @@
     align-items: center;
     justify-content: center;
     padding: 20px;
+}
+
+.qa-modal-overlay {
+    z-index: 10000;
+}
+
+.ris-preview-on-top {
+    z-index: 11000;
 }
 
 .ris-preview-modal-container {
@@ -2227,6 +2226,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (!modal || !body) return;
 
+        // Keep preview above Quick Access / other overlays
+        if (modal.parentElement !== document.body) {
+            document.body.appendChild(modal);
+        }
+
         const printUrl = '/admin/procurement-review/ris/' + risId + '/print?ts=' + Date.now();
 
         if (printLink) {
@@ -2234,6 +2238,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         modal.style.display = 'flex';
+        modal.style.zIndex = '11000';
         body.innerHTML = '';
 
         const iframe = document.createElement('iframe');
@@ -2241,6 +2246,14 @@ document.addEventListener('DOMContentLoaded', function() {
         iframe.setAttribute('frameborder', '0');
         iframe.title = 'RIS Form Preview';
         body.appendChild(iframe);
+    };
+
+    // Quick Access tables for Sign RIS / History use these names
+    window.openSignRisPreviewModal = function(risId) {
+        window.openRisPreviewModal(risId);
+    };
+    window.openSignatureHistoryPreviewModal = function(risId) {
+        window.openRisPreviewModal(risId);
     };
 
     window.closeRisPreviewModal = function() {
@@ -2262,10 +2275,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Close modal on Escape key
+    // Close modal on Escape key — RIS preview first, then Quick Access
     document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
+        if (e.key !== 'Escape') return;
+        const risModal = document.getElementById('risPreviewModal');
+        if (risModal && risModal.style.display === 'flex') {
             closeRisPreviewModal();
+            return;
+        }
+        if (typeof qaModalOpen !== 'undefined' && qaModalOpen) {
+            closeQuickAccessModal();
         }
     });
 
@@ -2286,9 +2305,7 @@ document.addEventListener('DOMContentLoaded', function() {
             'procurement': 'Procurement Review — All RIS Records',
             'signris': 'Sign RIS — President-Approved Records',
             'history': 'Signature History — Completed Records',
-            'users': 'User Management',
-            'reports': 'System Reports',
-            'settings': 'System Settings'
+            'users': 'User Management'
         };
         title.textContent = titles[section] || 'Quick Access';
 
@@ -2296,42 +2313,38 @@ document.addEventListener('DOMContentLoaded', function() {
         body.innerHTML = '<div class="ris-preview-loading"><div class="ris-preview-spinner"></div><span>Loading...</span></div>';
         qaModalOpen = true;
 
-        var iframeUrls = {
-            'users': '/admin/users',
-            'reports': '/admin/reports/procurement-history',
-            'settings': '/admin/settings/campus-setup-pin'
-        };
-
         var ajaxUrls = {
             'procurement': '/admin/quick-access/procurement-content',
             'signris': '/admin/quick-access/signris-content',
-            'history': '/admin/quick-access/history-content'
+            'history': '/admin/quick-access/history-content',
+            'users': '/admin/quick-access/users-content'
         };
 
-        if (iframeUrls[section]) {
-            body.innerHTML = '<iframe src="' + iframeUrls[section] + '" frameborder="0" style="width:100%;height:100%;min-height:70vh;"></iframe>';
-        } else if (ajaxUrls[section]) {
-            fetch(ajaxUrls[section], {
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'text/html'
-                }
-            })
-            .then(function(response) {
-                if (!response.ok) throw new Error('Failed to load');
-                return response.text();
-            })
-            .then(function(html) {
-                body.innerHTML = html;
-                if (typeof lucide !== 'undefined' && lucide.createIcons) {
-                    lucide.createIcons();
-                }
-            })
-            .catch(function(error) {
-                console.error('Quick Access fetch error:', error);
-                body.innerHTML = '<div class="ris-preview-loading" style="color:#e11d48;"><span>Failed to load. <a href="' + (ajaxUrls[section] || '#') + '" style="color:#0037c7;text-decoration:underline;">Open in new tab instead</a></span></div>';
-            });
+        if (!ajaxUrls[section]) {
+            body.innerHTML = '<div class="ris-preview-loading" style="color:#64748b;"><span>This section is temporarily unavailable.</span></div>';
+            return;
         }
+
+        fetch(ajaxUrls[section], {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'text/html'
+            }
+        })
+        .then(function(response) {
+            if (!response.ok) throw new Error('Failed to load');
+            return response.text();
+        })
+        .then(function(html) {
+            body.innerHTML = html;
+            if (typeof lucide !== 'undefined' && lucide.createIcons) {
+                lucide.createIcons();
+            }
+        })
+        .catch(function(error) {
+            console.error('Quick Access fetch error:', error);
+            body.innerHTML = '<div class="ris-preview-loading" style="color:#e11d48;"><span>Failed to load. <a href="' + (ajaxUrls[section] || '#') + '" style="color:#0037c7;text-decoration:underline;">Open in new tab instead</a></span></div>';
+        });
     };
 
     window.closeQuickAccessModal = function() {
@@ -2350,13 +2363,6 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('click', function(e) {
         var modal = document.getElementById('quickAccessModal');
         if (modal && e.target === modal) {
-            closeQuickAccessModal();
-        }
-    });
-
-    // Close on Escape key for QA modal
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape' && qaModalOpen) {
             closeQuickAccessModal();
         }
     });

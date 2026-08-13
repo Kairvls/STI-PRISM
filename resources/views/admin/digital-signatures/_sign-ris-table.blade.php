@@ -196,16 +196,13 @@
                             For Co-sign
                         </span>
 
-
-                    {{-- LEGACY / INVALID (visible for logging only) --}}
-
                     @else
 
                         <span
-                            class="inline-flex items-center rounded-lg border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-800"
-                            title="Old or incomplete RIS — visible for logging, not eligible for co-sign"
+                            class="inline-flex items-center rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-semibold text-gray-600"
+                            title="President-approved RIS"
                         >
-                            Legacy / Invalid
+                            Approved
                         </span>
 
                     @endif

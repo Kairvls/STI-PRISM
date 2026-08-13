@@ -76,8 +76,8 @@
 <body>
 
     <main class="ris-document">
-        @if ($ris->ris_status === 'Approved')
-            <div class="approval-watermark">APPROVED</div>
+        @if (in_array($ris->ris_status, ['Approved', 'Directly Approved'], true))
+            <div class="approval-watermark">{{ $ris->ris_status === 'Directly Approved' ? 'DIRECTLY APPROVED' : 'APPROVED' }}</div>
         @endif
 
         <section class="header">
@@ -134,7 +134,9 @@
                 <p>Approved by:</p>
                 <div class="signature-line"></div>
                 <div class="signature-name-wrapper">
-                    @if (!empty($ris->ris_approved_by_signature) && str_starts_with((string) $ris->ris_approved_by_signature, 'data:image'))
+                    @if ($ris->ris_status === 'Directly Approved')
+                        <div class="signature-name" style="color:#94a3b8;">—</div>
+                    @elseif (!empty($ris->ris_approved_by_signature) && str_starts_with((string) $ris->ris_approved_by_signature, 'data:image'))
                         <div class="signature-name">{{ $presidentName ?? 'President' }}</div>
                         <div class="signature-position">President</div>
                         <img src="{{ $ris->ris_approved_by_signature }}" alt="Approved by signature" class="signature-image" />
@@ -145,7 +147,7 @@
                         <div class="signature-name" style="color:#94a3b8;">—</div>
                     @endif
                 </div>
-                <div class="date-row"><span>Date:</span><div class="signature-line">{{ $ris->ris_approved_by_date ?? '—' }}</div></div>
+                <div class="date-row"><span>Date:</span><div class="signature-line">{{ $ris->ris_status === 'Directly Approved' ? '—' : ($ris->ris_approved_by_date ?? '—') }}</div></div>
             </div>
 
             <div class="signature-box">
@@ -154,18 +156,24 @@
                 <div class="signature-name-wrapper">
                     @php
                         $isPresidentSigned = !empty($ris->ris_approved_by_signature) && str_starts_with((string) $ris->ris_approved_by_signature, 'data:image');
-                        $isDirectApproved = !empty($ris->ris_approved_by_signature) && !str_starts_with((string) $ris->ris_approved_by_signature, 'data:image');
-                        $isCoSigned = !empty($ris->ris_issued_by_signature);
+                        $isDirectlyApproved = $ris->ris_status === 'Directly Approved'
+                            || (
+                                !empty($ris->ris_approved_by_signature)
+                                && !str_starts_with((string) $ris->ris_approved_by_signature, 'data:image')
+                                && empty($ris->ris_issued_by_signature)
+                            );
+                        $isCoSigned = !empty($ris->ris_issued_by_signature) && $isPresidentSigned;
+                        $hasIssuedByAdmin = !empty($ris->ris_issued_by_signature);
                     @endphp
 
-                    @if ($isCoSigned)
+                    @if ($hasIssuedByAdmin)
                         <div class="signature-name">{{ $ris->ris_issued_by_signature }}</div>
                         <div class="signature-position">Admin</div>
                     @elseif ($isPresidentSigned)
                         <div class="signature-name">{{ $presidentName ?? 'President' }}</div>
                         <div class="signature-position">President</div>
                         <img src="{{ $ris->ris_approved_by_signature }}" alt="President signature" class="signature-image" />
-                    @elseif ($isDirectApproved)
+                    @elseif ($isDirectlyApproved && !empty($ris->ris_approved_by_signature))
                         <div class="signature-name">{{ $ris->ris_approved_by_signature }}</div>
                         <div class="signature-position">Admin</div>
                     @else
@@ -175,10 +183,12 @@
                 <div class="date-row">
                     <span>Date:</span>
                     <div class="signature-line">
-                        @if ($isCoSigned)
+                        @if ($hasIssuedByAdmin)
                             {{ $ris->ris_issued_by_date ?? '—' }}
-                        @elseif ($isPresidentSigned || $isDirectApproved)
+                        @elseif ($isPresidentSigned)
                             {{ $ris->ris_approved_by_date ?? '—' }}
+                        @elseif ($isDirectlyApproved)
+                            {{ $ris->ris_issued_by_date ?? $ris->ris_approved_by_date ?? '—' }}
                         @else
                             —
                         @endif

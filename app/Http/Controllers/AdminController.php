@@ -107,15 +107,22 @@ class AdminController extends Controller
                 ->count();
 
             $directApprovedRis = (clone $baseRIS)
-                ->where('ris_status', 'Approved')
-                ->whereNotNull('ris_approved_by_date')
-                ->whereNotNull('ris_approved_by_signature')
-                ->where('ris_approved_by_signature', 'not like', 'data:image%')
+                ->where(function ($q) {
+                    $q->where('ris_status', 'Directly Approved')
+                        ->orWhere(function ($legacy) {
+                            $legacy->where('ris_status', 'Approved')
+                                ->whereNotNull('ris_approved_by_date')
+                                ->whereNotNull('ris_approved_by_signature')
+                                ->where('ris_approved_by_signature', 'not like', 'data:image%')
+                                ->whereNull('ris_issued_by_date');
+                        });
+                })
                 ->count();
 
             $cosignedRis = (clone $baseRIS)
                 ->where('ris_status', 'Approved')
                 ->whereNotNull('ris_issued_by_date')
+                ->where('ris_approved_by_signature', 'like', 'data:image%')
                 ->count();
         } catch (\Throwable $e) { /* defaults stay 0 */ }
 
@@ -158,6 +165,7 @@ class AdminController extends Controller
             $cosignedCount = DB::table('requisition_issue_slip_table')
                 ->where('ris_status', 'Approved')
                 ->whereNotNull('ris_issued_by_date')
+                ->where('ris_approved_by_signature', 'like', 'data:image%')
                 ->count();
         } catch (\Throwable $e) { $cosignedCount = 0; }
 
@@ -242,7 +250,7 @@ class AdminController extends Controller
                     'users_table.user_full_name as actor_name',
                     DB::raw("'approval' as log_source")
                 )
-                ->whereIn('approval_logs_table.approval_log_approval_status', ['Approved', 'Co-signed', 'Rejected'])
+                ->whereIn('approval_logs_table.approval_log_approval_status', ['Approved', 'Co-signed', 'Rejected', 'Directly Approved'])
                 ->orderByDesc('approval_logs_table.approval_log_approved_at')
                 ->limit(2)
                 ->get()
@@ -334,7 +342,7 @@ class AdminController extends Controller
         // =====================================================
 
         $risStatusChart = [
-            'labels' => ['Pending', 'Forwarded to President', 'Direct Approved', 'Amend', 'Co-signed'],
+            'labels' => ['Pending', 'Forwarded to President', 'Directly Approved', 'Amend', 'Co-signed'],
             'data' => [
                 $pendingRis,
                 $approvedRis,
@@ -563,23 +571,18 @@ class AdminController extends Controller
         })
         ->count();
 
-    // "Direct Approved" = Approved AND has approved_by_date AND has plain-text signature (admin name)
+    // "Directly Approved" = dedicated status, or older Approved+plain-text admin records
     $directApprovedRis = (clone $baseQuery)
-        ->where(
-            'requisition_issue_slip_table.ris_status',
-            'Approved'
-        )
-        ->whereNotNull(
-            'requisition_issue_slip_table.ris_approved_by_date'
-        )
-        ->whereNotNull(
-            'requisition_issue_slip_table.ris_approved_by_signature'
-        )
-        ->where(
-            'requisition_issue_slip_table.ris_approved_by_signature',
-            'not like',
-            'data:image%'
-        )
+        ->where(function ($q) {
+            $q->where('requisition_issue_slip_table.ris_status', 'Directly Approved')
+                ->orWhere(function ($legacy) {
+                    $legacy->where('requisition_issue_slip_table.ris_status', 'Approved')
+                        ->whereNotNull('requisition_issue_slip_table.ris_approved_by_date')
+                        ->whereNotNull('requisition_issue_slip_table.ris_approved_by_signature')
+                        ->where('requisition_issue_slip_table.ris_approved_by_signature', 'not like', 'data:image%')
+                        ->whereNull('requisition_issue_slip_table.ris_issued_by_date');
+                });
+        })
         ->count();
 
 
@@ -617,21 +620,16 @@ class AdminController extends Controller
 
     } elseif ($filter === 'direct_approved') {
 
-        $query->where(
-            'requisition_issue_slip_table.ris_status',
-            'Approved'
-        )
-        ->whereNotNull(
-            'requisition_issue_slip_table.ris_approved_by_date'
-        )
-        ->whereNotNull(
-            'requisition_issue_slip_table.ris_approved_by_signature'
-        )
-        ->where(
-            'requisition_issue_slip_table.ris_approved_by_signature',
-            'not like',
-            'data:image%'
-        );
+        $query->where(function ($q) {
+            $q->where('requisition_issue_slip_table.ris_status', 'Directly Approved')
+                ->orWhere(function ($legacy) {
+                    $legacy->where('requisition_issue_slip_table.ris_status', 'Approved')
+                        ->whereNotNull('requisition_issue_slip_table.ris_approved_by_date')
+                        ->whereNotNull('requisition_issue_slip_table.ris_approved_by_signature')
+                        ->where('requisition_issue_slip_table.ris_approved_by_signature', 'not like', 'data:image%')
+                        ->whereNull('requisition_issue_slip_table.ris_issued_by_date');
+                });
+        });
 
     } elseif ($filter === 'rejected') {
 
@@ -645,7 +643,6 @@ class AdminController extends Controller
     } else {
 
         // All statuses shown by this Procurement Review page.
-        // Includes current workflow, legacy, draft/incomplete, and archived forms.
         $query->whereIn(
             'requisition_issue_slip_table.ris_status',
             [
@@ -655,6 +652,7 @@ class AdminController extends Controller
                 'Resubmitted',
                 'Pending',
                 'Approved',
+                'Directly Approved',
                 'Minor Revision',
                 'Rejected',
                 'Archived',
@@ -803,9 +801,8 @@ class AdminController extends Controller
 {
     // =====================================================
     // SIGN RIS
-    // Shows President-approved RIS for co-sign, plus older /
-    // incomplete Approved records so admins can still view
-    // and log them even when they are not eligible to co-sign.
+    // Only President-returned signed RIS (base64 Approved by)
+    // for Admin co-sign. Directly Approved forms are excluded.
     // =====================================================
 
     // Get selected status filter.
@@ -815,13 +812,13 @@ class AdminController extends Controller
     $search = trim($request->query('search', ''));
 
     // Only allow these filter values.
-    if (!in_array($filter, ['all', 'for_cosign', 'cosigned', 'legacy'], true)) {
+    if (!in_array($filter, ['all', 'for_cosign', 'cosigned'], true)) {
         $filter = 'all';
     }
 
 
     // =====================================================
-    // BASE QUERY - All Approved RIS (valid + legacy/invalid)
+    // BASE QUERY - President-signed Approved RIS only
     // =====================================================
 
     $baseQuery = DB::table('requisition_issue_slip_table')
@@ -873,18 +870,12 @@ class AdminController extends Controller
             'ris_items_names.ris_item_names'
         )
 
-        // Approved (including legacy/incomplete) and archived approved-era records.
-        ->where(function ($q) {
-            $q->where('requisition_issue_slip_table.ris_status', 'Approved')
-                ->orWhere(function ($legacy) {
-                    $legacy->where('requisition_issue_slip_table.ris_status', 'Archived')
-                        ->where(function ($evidence) {
-                            $evidence->whereNotNull('requisition_issue_slip_table.ris_approved_by_date')
-                                ->orWhereNotNull('requisition_issue_slip_table.ris_issued_by_date')
-                                ->orWhereNotNull('requisition_issue_slip_table.ris_form_number');
-                        });
-                });
-        });
+        ->where('requisition_issue_slip_table.ris_status', 'Approved')
+        ->where(
+            'requisition_issue_slip_table.ris_approved_by_signature',
+            'like',
+            'data:image%'
+        );
 
 
 // =====================================================
@@ -952,23 +943,8 @@ class AdminController extends Controller
             'requisition_issue_slip_table.ris_issued_by_date'
         );
 
-    } elseif ($filter === 'legacy') {
-
-        // Old / invalid for co-sign: Approved/Archived without President base64 signature.
-        $query->whereNull(
-            'requisition_issue_slip_table.ris_issued_by_date'
-        )
-        ->where(function ($q) {
-            $q->whereNull('requisition_issue_slip_table.ris_approved_by_signature')
-                ->orWhere(
-                    'requisition_issue_slip_table.ris_approved_by_signature',
-                    'not like',
-                    'data:image%'
-                );
-        });
-
     }
-    // 'all' shows both valid and legacy
+    // 'all' shows for-cosign + co-signed President-signed RIS only
 
 
     // =====================================================
@@ -1102,10 +1078,10 @@ class AdminController extends Controller
         // that have reached a final state are shown.
         //
         // Finished states:
-        //   - Direct Approved (Approved + admin plain-text sig)
+        //   - Directly Approved (Issued by Admin)
         //   - Signed / Forwarded to President (Approved + President base64 sig)
-        //   - Co-signed (has issued_by_date)
-        //   - Amended (Rejected)
+        //   - Co-signed (has issued_by_date after President signature)
+        //   - Amended (Rejected / Minor Revision)
         // =====================================================
 
         // Get search value (default empty).
@@ -1196,13 +1172,18 @@ class AdminController extends Controller
         // Total = sum of all individual cards (no overlap).
         // =====================================================
 
-        // Direct Approved = Approved + plain-text admin name (NOT base64), NOT co-signed
+        // Directly Approved = dedicated status, or older Approved+plain-text admin records
         $directApprovedCount = (clone $baseQuery)
-            ->where('requisition_issue_slip_table.ris_status', 'Approved')
-            ->whereNotNull('requisition_issue_slip_table.ris_approved_by_date')
-            ->whereNotNull('requisition_issue_slip_table.ris_approved_by_signature')
-            ->where('requisition_issue_slip_table.ris_approved_by_signature', 'not like', 'data:image%')
-            ->whereNull('requisition_issue_slip_table.ris_issued_by_date')
+            ->where(function ($q) {
+                $q->where('requisition_issue_slip_table.ris_status', 'Directly Approved')
+                    ->orWhere(function ($legacy) {
+                        $legacy->where('requisition_issue_slip_table.ris_status', 'Approved')
+                            ->whereNotNull('requisition_issue_slip_table.ris_approved_by_date')
+                            ->whereNotNull('requisition_issue_slip_table.ris_approved_by_signature')
+                            ->where('requisition_issue_slip_table.ris_approved_by_signature', 'not like', 'data:image%')
+                            ->whereNull('requisition_issue_slip_table.ris_issued_by_date');
+                    });
+            })
             ->count();
 
         // Signed = Approved + base64 President signature, NOT co-signed (forwarded to President)
@@ -1213,9 +1194,11 @@ class AdminController extends Controller
             ->whereNull('requisition_issue_slip_table.ris_issued_by_date')
             ->count();
 
-        // Co-signed = has ris_issued_by_date set
+        // Co-signed = President signed then Admin issued
         $cosignedCount = (clone $baseQuery)
+            ->where('requisition_issue_slip_table.ris_status', 'Approved')
             ->whereNotNull('requisition_issue_slip_table.ris_issued_by_date')
+            ->where('requisition_issue_slip_table.ris_approved_by_signature', 'like', 'data:image%')
             ->count();
 
 // Amended = Minor Revision (new workflow) or Rejected (legacy)
@@ -1752,21 +1735,16 @@ class AdminController extends Controller
             ->count();
 
         $directApprovedRis = (clone $baseQuery)
-            ->where(
-                'requisition_issue_slip_table.ris_status',
-                'Approved'
-            )
-            ->whereNotNull(
-                'requisition_issue_slip_table.ris_approved_by_date'
-            )
-            ->whereNotNull(
-                'requisition_issue_slip_table.ris_approved_by_signature'
-            )
-            ->where(
-                'requisition_issue_slip_table.ris_approved_by_signature',
-                'not like',
-                'data:image%'
-            )
+            ->where(function ($q) {
+                $q->where('requisition_issue_slip_table.ris_status', 'Directly Approved')
+                    ->orWhere(function ($legacy) {
+                        $legacy->where('requisition_issue_slip_table.ris_status', 'Approved')
+                            ->whereNotNull('requisition_issue_slip_table.ris_approved_by_date')
+                            ->whereNotNull('requisition_issue_slip_table.ris_approved_by_signature')
+                            ->where('requisition_issue_slip_table.ris_approved_by_signature', 'not like', 'data:image%')
+                            ->whereNull('requisition_issue_slip_table.ris_issued_by_date');
+                    });
+            })
             ->count();
 
 
@@ -1804,21 +1782,16 @@ class AdminController extends Controller
 
         } elseif ($filter === 'direct_approved') {
 
-            $query->where(
-                'requisition_issue_slip_table.ris_status',
-                'Approved'
-            )
-            ->whereNotNull(
-                'requisition_issue_slip_table.ris_approved_by_date'
-            )
-            ->whereNotNull(
-                'requisition_issue_slip_table.ris_approved_by_signature'
-            )
-            ->where(
-                'requisition_issue_slip_table.ris_approved_by_signature',
-                'not like',
-                'data:image%'
-            );
+            $query->where(function ($q) {
+                $q->where('requisition_issue_slip_table.ris_status', 'Directly Approved')
+                    ->orWhere(function ($legacy) {
+                        $legacy->where('requisition_issue_slip_table.ris_status', 'Approved')
+                            ->whereNotNull('requisition_issue_slip_table.ris_approved_by_date')
+                            ->whereNotNull('requisition_issue_slip_table.ris_approved_by_signature')
+                            ->where('requisition_issue_slip_table.ris_approved_by_signature', 'not like', 'data:image%')
+                            ->whereNull('requisition_issue_slip_table.ris_issued_by_date');
+                    });
+            });
 
         } elseif ($filter === 'rejected') {
 
@@ -1830,7 +1803,7 @@ class AdminController extends Controller
 
         } else {
 
-            // Show all RIS forms: current workflow + legacy + draft/incomplete + archived.
+            // Show all RIS forms: current workflow + draft/incomplete + archived.
             $query->whereIn(
                 'requisition_issue_slip_table.ris_status',
                 [
@@ -1840,6 +1813,7 @@ class AdminController extends Controller
                     'Resubmitted',
                     'Pending',
                     'Approved',
+                    'Directly Approved',
                     'Minor Revision',
                     'Rejected',
                     'Archived',
@@ -1933,6 +1907,13 @@ class AdminController extends Controller
         // =====================================================
 
         if ($request->ajax() || $request->header('X-Requested-With') === 'XMLHttpRequest') {
+
+            if ($request->boolean('table_only')) {
+                return view(
+                    'admin.procurement-review._quick-access',
+                    compact('risRecords', 'filter', 'search')
+                );
+            }
 
             return view(
                 'admin.procurement-review._content',
@@ -2052,16 +2033,22 @@ class AdminController extends Controller
                         ->orWhere('requisition_issue_slip_table.ris_approved_by_signature', 'like', 'data:image%');
                 });
         } elseif ($filter === 'direct_approved') {
-            $query->where('requisition_issue_slip_table.ris_status', 'Approved')
-                ->whereNotNull('requisition_issue_slip_table.ris_approved_by_date')
-                ->whereNotNull('requisition_issue_slip_table.ris_approved_by_signature')
-                ->where('requisition_issue_slip_table.ris_approved_by_signature', 'not like', 'data:image%');
+            $query->where(function ($q) {
+                $q->where('requisition_issue_slip_table.ris_status', 'Directly Approved')
+                    ->orWhere(function ($legacy) {
+                        $legacy->where('requisition_issue_slip_table.ris_status', 'Approved')
+                            ->whereNotNull('requisition_issue_slip_table.ris_approved_by_date')
+                            ->whereNotNull('requisition_issue_slip_table.ris_approved_by_signature')
+                            ->where('requisition_issue_slip_table.ris_approved_by_signature', 'not like', 'data:image%')
+                            ->whereNull('requisition_issue_slip_table.ris_issued_by_date');
+                    });
+            });
         } elseif ($filter === 'rejected') {
             $query->whereIn('requisition_issue_slip_table.ris_status', ['Minor Revision', 'Rejected']);
         } else {
             $query->whereIn('requisition_issue_slip_table.ris_status', [
                 'Draft', 'Submitted', 'Under Review', 'Resubmitted', 'Pending',
-                'Approved', 'Minor Revision', 'Rejected', 'Archived',
+                'Approved', 'Directly Approved', 'Minor Revision', 'Rejected', 'Archived',
             ]);
         }
 
@@ -2084,34 +2071,22 @@ class AdminController extends Controller
         $filter = strtolower($request->query('filter', 'all'));
         $search = trim($request->query('search', ''));
 
-        if (!in_array($filter, ['all', 'for_cosign', 'cosigned', 'legacy'], true)) {
+        if (!in_array($filter, ['all', 'for_cosign', 'cosigned'], true)) {
             $filter = 'all';
         }
 
         $query = $this->adminRisJoinQuery()
-            ->where(function ($q) {
-                $q->where('requisition_issue_slip_table.ris_status', 'Approved')
-                    ->orWhere(function ($legacy) {
-                        $legacy->where('requisition_issue_slip_table.ris_status', 'Archived')
-                            ->where(function ($evidence) {
-                                $evidence->whereNotNull('requisition_issue_slip_table.ris_approved_by_date')
-                                    ->orWhereNotNull('requisition_issue_slip_table.ris_issued_by_date')
-                                    ->orWhereNotNull('requisition_issue_slip_table.ris_form_number');
-                            });
-                    });
-            });
+            ->where('requisition_issue_slip_table.ris_status', 'Approved')
+            ->where(
+                'requisition_issue_slip_table.ris_approved_by_signature',
+                'like',
+                'data:image%'
+            );
 
         if ($filter === 'for_cosign') {
-            $query->whereNull('requisition_issue_slip_table.ris_issued_by_date')
-                ->where('requisition_issue_slip_table.ris_approved_by_signature', 'like', 'data:image%');
+            $query->whereNull('requisition_issue_slip_table.ris_issued_by_date');
         } elseif ($filter === 'cosigned') {
             $query->whereNotNull('requisition_issue_slip_table.ris_issued_by_date');
-        } elseif ($filter === 'legacy') {
-            $query->whereNull('requisition_issue_slip_table.ris_issued_by_date')
-                ->where(function ($q) {
-                    $q->whereNull('requisition_issue_slip_table.ris_approved_by_signature')
-                        ->orWhere('requisition_issue_slip_table.ris_approved_by_signature', 'not like', 'data:image%');
-                });
         }
 
         $this->applyAdminRisSearch($query, $search);
@@ -2251,8 +2226,8 @@ class AdminController extends Controller
             return 'Pending';
         }
 
-        if (!empty($ris->ris_issued_by_date)) {
-            return 'Co-signed';
+        if ($ris->ris_status === 'Directly Approved') {
+            return 'Directly Approved';
         }
 
         if (
@@ -2260,8 +2235,17 @@ class AdminController extends Controller
             && !empty($ris->ris_approved_by_date)
             && !empty($ris->ris_approved_by_signature)
             && !str_starts_with((string) $ris->ris_approved_by_signature, 'data:image')
+            && empty($ris->ris_issued_by_date)
         ) {
-            return 'Direct Approved';
+            return 'Directly Approved';
+        }
+
+        if (
+            !empty($ris->ris_issued_by_date)
+            && !empty($ris->ris_approved_by_signature)
+            && str_starts_with((string) $ris->ris_approved_by_signature, 'data:image')
+        ) {
+            return 'Co-signed';
         }
 
         if (
@@ -2392,16 +2376,19 @@ class AdminController extends Controller
         // =====================================================
         // DIRECTLY APPROVE RIS
         //
-        // Store admin name as plain-text signature and date.
-        // This differentiates from President's base64 signature.
+        // Admin signs Issued by only. Approved by stays blank
+        // (reserved for President). Status = Directly Approved.
+        // Returned to Purchaser — never appears in Sign RIS.
         // =====================================================
 
         DB::table('requisition_issue_slip_table')
             ->where('ris_id', $risId)
             ->update([
-                'ris_status' => 'Approved',
-                'ris_approved_by_signature' => $validated['admin_name'],
-                'ris_approved_by_date' => $validated['admin_date'],
+                'ris_status' => 'Directly Approved',
+                'ris_issued_by_signature' => $validated['admin_name'],
+                'ris_issued_by_date' => $validated['admin_date'],
+                'ris_approved_by_signature' => null,
+                'ris_approved_by_date' => null,
             ]);
 
         // =====================================================
@@ -2416,8 +2403,8 @@ class AdminController extends Controller
                 'approval_log_reference_id' => (int) $risId,
                 'approval_log_level' => 'Admin Direct Approval',
                 'approval_log_approved_by' => Auth::id(),
-                'approval_log_approval_status' => 'Approved',
-                'approval_log_approval_remarks' => 'RIS directly approved by ' . $validated['admin_name'] . ' and returned to Purchaser.',
+                'approval_log_approval_status' => 'Directly Approved',
+                'approval_log_approval_remarks' => 'RIS directly approved by ' . $validated['admin_name'] . ' (Issued by) and returned to Purchaser.',
                 'approval_log_approved_at' => now(),
             ]);
 
@@ -2571,6 +2558,27 @@ public function rejectRis(Request $request, $risId)
     {
         $request->merge(['table_only' => true]);
         return $this->signatureHistory($request);
+    }
+
+    /**
+     * Return users table only for Quick Access modal.
+     */
+    public function quickAccessUsersContent(Request $request)
+    {
+        $users = DB::table('users_table')
+            ->leftJoin('roles_table', 'users_table.user_role_id', '=', 'roles_table.role_id')
+            ->select(
+                'users_table.user_id',
+                'users_table.user_employee_id',
+                'users_table.user_username',
+                'users_table.user_full_name',
+                'users_table.last_active_at',
+                'roles_table.role_name'
+            )
+            ->orderBy('users_table.user_full_name')
+            ->paginate(15);
+
+        return view('admin.users._quick-access', compact('users'));
     }
 }
 

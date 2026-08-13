@@ -317,6 +317,11 @@ Route::get(
             [AdminController::class, 'quickAccessHistoryContent']
         )->name('quick-access.history-content');
 
+        Route::get(
+            '/quick-access/users-content',
+            [AdminController::class, 'quickAccessUsersContent']
+        )->name('quick-access.users-content');
+
     });
 
     Route::get('/admin/users', function () {

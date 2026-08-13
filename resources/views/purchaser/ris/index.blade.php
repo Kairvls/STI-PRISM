@@ -1510,7 +1510,7 @@
                         @endif
 
                         {{-- CREATE ATP --}}
-                        @if($ris->ris_status === 'Approved')
+                        @if(in_array($ris->ris_status, ['Approved', 'Directly Approved'], true))
                             @if(!$ris->has_atp)
                                 <a
                                     href="{{ route('purchaser.atp.create', ['selected_ris' => $ris->ris_id]) }}"

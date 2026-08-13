@@ -164,23 +164,26 @@
 
                 <td class="px-5 py-4">
 
-                    {{-- DIRECT APPROVED --}}
+                    {{-- DIRECTLY APPROVED --}}
                     @if(
-                        $history->ris_status === 'Approved' &&
-                        !empty($history->ris_approved_by_date) &&
-                        !empty($history->ris_approved_by_signature) &&
-                        !str_starts_with($history->ris_approved_by_signature, 'data:image') &&
-                        is_null($history->ris_issued_by_date)
+                        $history->ris_status === 'Directly Approved'
+                        || (
+                            $history->ris_status === 'Approved' &&
+                            !empty($history->ris_approved_by_date) &&
+                            !empty($history->ris_approved_by_signature) &&
+                            !str_starts_with($history->ris_approved_by_signature, 'data:image') &&
+                            is_null($history->ris_issued_by_date)
+                        )
                     )
 
                         <span
                             class="inline-flex items-center rounded-lg border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-900"
-                            title="This RIS has been directly approved by Admin"
+                            title="This RIS has been directly approved by Admin and returned to Purchaser"
                         >
                             <svg class="mr-1 h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                             </svg>
-                            Direct Approved
+                            Directly Approved
                         </span>
 
                     {{-- SIGNED / FORWARDED TO PRESIDENT --}}

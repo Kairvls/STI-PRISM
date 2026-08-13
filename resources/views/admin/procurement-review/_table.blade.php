@@ -177,16 +177,24 @@
                         </span>
 
 
-                    {{-- DIRECT APPROVED --}}
-                    {{-- (Approved WITH plain-text signature from admin) --}}
+                    {{-- DIRECTLY APPROVED --}}
 
-                    @elseif($ris->ris_status === 'Approved' && !empty($ris->ris_approved_by_date) && !empty($ris->ris_approved_by_signature) && !str_starts_with($ris->ris_approved_by_signature, 'data:image'))
+                    @elseif(
+                        $ris->ris_status === 'Directly Approved'
+                        || (
+                            $ris->ris_status === 'Approved'
+                            && !empty($ris->ris_approved_by_date)
+                            && !empty($ris->ris_approved_by_signature)
+                            && !str_starts_with($ris->ris_approved_by_signature, 'data:image')
+                            && empty($ris->ris_issued_by_date)
+                        )
+                    )
 
                         <span
                             class="inline-flex items-center rounded-lg border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-900"
-                            title="This RIS has been directly approved by Admin"
+                            title="This RIS has been directly approved by Admin and returned to Purchaser"
                         >
-                            Direct Approved
+                            Directly Approved
                         </span>
 
 
