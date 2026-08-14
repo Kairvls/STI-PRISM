@@ -70,9 +70,9 @@
             >
 
                 @php
-                    $hasPresidentSignature = !empty($ris->ris_approved_by_signature)
-                        && str_starts_with((string) $ris->ris_approved_by_signature, 'data:image');
-                    $canCosign = is_null($ris->ris_issued_by_date) && $hasPresidentSignature;
+                    $isRejected = ($ris->ris_status ?? '') === 'Rejected';
+                    $isReleased = !empty($ris->released_ris_id);
+                    $awaitingReturn = !$isReleased && !$isRejected && !empty($ris->ris_approved_by_signature);
                 @endphp
 
 
@@ -172,37 +172,39 @@
 
                     {{-- CO-SIGNED --}}
 
-                    @if(!is_null($ris->ris_issued_by_date))
+                    @if($isReleased)
 
                         <span
                             class="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700"
-                            title="This RIS has been co-signed"
+                            title="Returned to Purchaser"
                         >
-                            <svg class="mr-1 h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
-                            Co-signed
+                            Returned
                         </span>
 
+                    @elseif($isRejected)
 
-                    {{-- FOR CO-SIGN (valid President signature) --}}
+                        <span
+                            class="inline-flex items-center rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700"
+                            title="President rejected this RIS"
+                        >
+                            Rejected
+                        </span>
 
-                    @elseif($canCosign)
+                    @elseif($awaitingReturn)
 
                         <span
                             class="inline-flex items-center rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700"
-                            title="This RIS is awaiting your co-sign"
+                            title="President approved — return to Purchaser"
                         >
-                            For Co-sign
+                            President Approved
                         </span>
 
                     @else
 
                         <span
                             class="inline-flex items-center rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-semibold text-gray-600"
-                            title="President-approved RIS"
                         >
-                            Approved
+                            {{ $ris->ris_status }}
                         </span>
 
                     @endif
@@ -245,17 +247,38 @@
                             </svg>
                         </button>
 
-                        @if($canCosign)
+                        @if($awaitingReturn)
+
+                            <form
+                                method="POST"
+                                action="{{ route('admin.digital-signatures.ris.return-purchaser', $ris->ris_id) }}"
+                                class="inline-flex"
+                            >
+                                @csrf
+                                <button
+                                    type="submit"
+                                    title="Return this RIS to the Purchaser"
+                                    aria-label="Return to Purchaser"
+                                    onclick="return confirm('Return this President-approved RIS to the Purchaser?')"
+                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-white transition hover:bg-slate-800"
+                                >
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                    </svg>
+                                </button>
+                            </form>
+
+                        @elseif($isRejected && !$isReleased)
 
                             <button
                                 type="button"
-                                title="Co-sign this President-approved RIS"
-                                aria-label="Co-sign"
-                                onclick="openCoSignModal('{{ $ris->ris_id }}')"
-                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-white transition hover:bg-slate-800"
+                                title="Return to Purchaser for revision with remarks"
+                                aria-label="Return for revision"
+                                onclick="openPresidentRejectModal('{{ $ris->ris_id }}')"
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-700 transition hover:bg-rose-100"
                             >
                                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                 </svg>
                             </button>
 

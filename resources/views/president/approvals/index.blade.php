@@ -55,28 +55,28 @@
             <div class="flex items-center gap-2">
                 <button
                     type="button"
-                    class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ !request('status') ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50' }}"
+                    class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ ($status ?? request('status', 'Pending')) === '' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50' }}"
                     data-status=""
                 >
                     All
                 </button>
                 <button
                     type="button"
-                    class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ request('status') == 'Pending' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-amber-700 border-amber-200 hover:bg-amber-50' }}"
+                    class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ ($status ?? request('status', 'Pending')) == 'Pending' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-amber-700 border-amber-200 hover:bg-amber-50' }}"
                     data-status="Pending"
                 >
                     Pending
                 </button>
                 <button
                     type="button"
-                    class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ request('status') == 'Approved' ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50' }}"
+                    class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ ($status ?? '') == 'Approved' ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50' }}"
                     data-status="Approved"
                 >
                     Approved
                 </button>
                 <button
                     type="button"
-                    class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ request('status') == 'Rejected' ? 'bg-rose-500 text-white border-rose-500' : 'bg-white text-rose-700 border-rose-200 hover:bg-rose-50' }}"
+                    class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ ($status ?? '') == 'Rejected' ? 'bg-rose-500 text-white border-rose-500' : 'bg-white text-rose-700 border-rose-200 hover:bg-rose-50' }}"
                     data-status="Rejected"
                 >
                     Rejected
@@ -151,6 +151,24 @@
                     <i data-lucide="x" class="h-4 w-4"></i>
                 </button>
             </div>
+        </div>
+    </div>
+</div>
+
+{{-- PRESIDENT APPROVE MODAL (physical RIS form) --}}
+<div id="presidentApproveModal" class="fixed inset-0 z-50 hidden">
+    <div class="flex h-screen items-center justify-center bg-black/60 p-2 backdrop-blur-sm md:p-4" onclick="if (event.target === this) closePresidentApproveModal()">
+        <div class="relative flex max-h-[95vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900">Approve RIS</h3>
+                    <p class="mt-1 text-sm text-gray-500">Sign Approved by on the RIS form, then confirm.</p>
+                </div>
+                <button type="button" onclick="closePresidentApproveModal()" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50">
+                    Close
+                </button>
+            </div>
+            <div id="presidentApproveModalBody" class="flex min-h-0 flex-1 flex-col overflow-hidden bg-white"></div>
         </div>
     </div>
 </div>
@@ -391,7 +409,7 @@
     const clearLink = document.getElementById('clearFiltersLink');
 
     // Track current active status ('' = All)
-    let activeStatus = '';
+    let activeStatus = '{{ $status ?? 'Pending' }}';
 
     function getActiveStatus() {
         for (const btn of filterButtons) {
@@ -716,6 +734,47 @@
         iframe.contentWindow.focus();
         iframe.contentWindow.print();
     }
+
+    window.openPresidentApproveModal = function(risId) {
+        var modal = document.getElementById('presidentApproveModal');
+        var body = document.getElementById('presidentApproveModalBody');
+        if (!modal || !body) return;
+
+        body.innerHTML = '<div class="flex flex-1 items-center justify-center gap-3 py-16 text-sm text-gray-500">Loading RIS form...</div>';
+        modal.classList.remove('hidden');
+
+        fetch('/president/approvals/ris/' + risId + '/approve-form', {
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'text/html' }
+        })
+        .then(function(response) {
+            if (!response.ok) throw new Error('Failed to load form');
+            return response.text();
+        })
+        .then(function(html) {
+            body.innerHTML = html;
+            var dateInput = document.getElementById('pa_approved_by_date');
+            if (dateInput) {
+                dateInput.addEventListener('input', function() {
+                    var digits = this.value.replace(/\D/g, '').slice(0, 8);
+                    var parts = [];
+                    if (digits.length > 0) parts.push(digits.slice(0, 2));
+                    if (digits.length > 2) parts.push(digits.slice(2, 4));
+                    if (digits.length > 4) parts.push(digits.slice(4, 8));
+                    this.value = parts.join('/');
+                });
+            }
+        })
+        .catch(function() {
+            body.innerHTML = '<div class="px-6 py-16 text-center text-sm text-rose-600">Failed to load RIS form. Please try again.</div>';
+        });
+    };
+
+    window.closePresidentApproveModal = function() {
+        var modal = document.getElementById('presidentApproveModal');
+        var body = document.getElementById('presidentApproveModalBody');
+        if (body) body.innerHTML = '';
+        if (modal) modal.classList.add('hidden');
+    };
 
     // Close modal on Escape key
     document.addEventListener('keydown', function(e) {

@@ -29,11 +29,11 @@
 
         <div
             class="rounded-[18px] border border-gray-200 bg-white px-5 py-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)]"
-            title="RIS forms awaiting your co-sign"
+            title="RIS forms awaiting your co-sign or return action"
         >
 
             <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                For Co-sign
+                Awaiting Action
             </p>
 
             <div class="mt-3">
@@ -57,11 +57,11 @@
 
         <div
             class="rounded-[18px] border border-gray-200 bg-white px-5 py-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)]"
-            title="RIS forms that have been co-signed"
+            title="RIS forms already returned to Purchaser"
         >
 
             <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Co-signed
+                Returned
             </p>
 
             <div class="mt-3">
@@ -106,11 +106,11 @@
                     <div>
 
                         <h2 class="text-sm font-semibold text-gray-900">
-                            President-Approved RIS
+                            President-Returned RIS
                         </h2>
 
                         <p class="mt-1 text-xs text-gray-500">
-                            President-approved RIS returned for Admin co-sign
+                            Approved forms can be returned to Purchaser. Rejected forms need remarks before revision.
                         </p>
 
                     </div>
@@ -184,7 +184,7 @@
                                 {{ $filter === 'for_cosign' ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
                             "
                         >
-                            For Co-sign
+                            Awaiting Action
                         </button>
 
                         <button
@@ -195,7 +195,7 @@
                                 {{ $filter === 'cosigned' ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
                             "
                         >
-                            Co-signed
+                            Returned
                         </button>
 
                     </div>

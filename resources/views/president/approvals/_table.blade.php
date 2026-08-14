@@ -13,14 +13,17 @@
         </td>
         <td class="px-2 py-4">
             @php
-                $statusBadge = match ($ris->ris_status) {
+                $awaitingPresident = ($ris->ris_status === 'Approved' || $ris->ris_status === 'Pending')
+                    && empty($ris->ris_approved_by_signature);
+                $statusLabel = $awaitingPresident ? 'Pending' : $ris->ris_status;
+                $statusBadge = match ($statusLabel) {
                     'Approved' => 'bg-emerald-50 text-emerald-700 border-emerald-200',
                     'Rejected' => 'bg-rose-50 text-rose-700 border-rose-200',
                     default => 'bg-amber-50 text-amber-700 border-amber-200',
                 };
             @endphp
             <span class="inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold border {{ $statusBadge }}">
-                {{ $ris->ris_status }}
+                {{ $statusLabel }}
             </span>
         </td>
         <td class="px-2 py-4 text-sm text-center font-semibold text-gray-800">
@@ -38,11 +41,11 @@
                     View
                 </button>
 
-                @if ($ris->ris_status === 'Pending')
+                @if ($awaitingPresident)
                 <button
                     type="button"
                     class="action-btn inline-flex h-9 items-center justify-center rounded-lg bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 border border-emerald-200 transition-all duration-200 hover:bg-emerald-100 active:scale-95"
-                    onclick="openDecisionModal('ris', '{{ $ris->ris_id }}', 'Approved')"
+                    onclick="openPresidentApproveModal('{{ $ris->ris_id }}')"
                 >
                     Approve
                 </button>

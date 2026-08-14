@@ -154,12 +154,12 @@
                         <i data-lucide="signature"></i>
                     </div>
                     <div>
-                        <h3 class="hero-alert-title">{{ $forCosigningCount }} RIS {{ $forCosigningCount === 1 ? 'needs' : 'need' }} your co-signature</h3>
-                        <p class="hero-alert-desc">President-approved RIS documents waiting for your digital signature to complete the approval chain.</p>
+                        <h3 class="hero-alert-title">{{ $forCosigningCount }} RIS {{ $forCosigningCount === 1 ? 'needs' : 'need' }} your action</h3>
+                        <p class="hero-alert-desc">President-returned RIS waiting to be sent back to Purchaser, or rejected forms that need revision remarks.</p>
                     </div>
                 </div>
                 <a href="{{ route('admin.digital-signatures.sign-ris', ['filter' => 'for_cosign']) }}" class="hero-alert-btn hero-alert-btn-violet">
-                    Sign Now
+                    Review Now
                     <i data-lucide="arrow-right" class="h-4 w-4"></i>
                 </a>
             </div>

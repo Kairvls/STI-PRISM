@@ -153,11 +153,26 @@ class AdminController extends Controller
         // =====================================================
 
         try {
-            $forCosigningCount = DB::table('requisition_issue_slip_table')
-                ->where('ris_status', 'Approved')
-                ->whereNotNull('ris_approved_by_date')
-                ->where('ris_approved_by_signature', 'like', 'data:image%')
-                ->whereNull('ris_issued_by_date')
+            $forCosigningCount = DB::table('requisition_issue_slip_table as ris')
+                ->whereNotNull('ris.ris_approved_by_date')
+                ->where(function ($q) {
+                    $q->where(function ($approved) {
+                        $approved->where('ris.ris_status', 'Approved')
+                            ->whereNotNull('ris.ris_approved_by_signature')
+                            ->where('ris.ris_approved_by_signature', '!=', '');
+                    })->orWhere('ris.ris_status', 'Rejected');
+                })
+                ->whereNotExists(function ($sub) {
+                    $sub->select(DB::raw(1))
+                        ->from('approval_logs_table as log')
+                        ->whereColumn('log.approval_log_reference_id', 'ris.ris_id')
+                        ->where('log.approval_log_reference_type', 'RIS')
+                        ->where(function ($released) {
+                            $released->where('log.approval_log_approval_remarks', 'like', '%returned to Purchaser%')
+                                ->orWhere('log.approval_log_approval_status', 'Co-signed')
+                                ->orWhereIn('log.approval_log_level', ['Admin Return', 'Admin Co-sign']);
+                        });
+                })
                 ->count();
         } catch (\Throwable $e) { $forCosigningCount = 0; }
 
@@ -821,67 +836,59 @@ class AdminController extends Controller
 
     public function signRis(Request $request)
 {
-    // =====================================================
-    // SIGN RIS
-    // Only President-returned signed RIS (base64 Approved by)
-    // for Admin co-sign. Directly Approved forms are excluded.
-    // =====================================================
+    // President-returned RIS: approved (awaiting return to Purchaser)
+    // or rejected (awaiting amendment remarks).
 
-    // Get selected status filter.
     $filter = strtolower($request->query('filter', 'all'));
-
-    // Get live search value.
     $search = trim($request->query('search', ''));
 
-    // Only allow these filter values.
     if (!in_array($filter, ['all', 'for_cosign', 'cosigned'], true)) {
         $filter = 'all';
     }
 
-
-    // =====================================================
-    // BASE QUERY - President-signed Approved RIS only
-    // =====================================================
+        $releasedJoin = DB::raw('(
+        SELECT DISTINCT approval_log_reference_id AS released_ris_id
+        FROM approval_logs_table
+        WHERE approval_log_reference_type = "RIS"
+          AND (
+                approval_log_approval_remarks LIKE "%returned to Purchaser%"
+             OR approval_log_approval_status = "Co-signed"
+             OR approval_log_level IN ("Admin Return", "Admin Co-sign")
+          )
+    ) as ris_released');
 
     $baseQuery = DB::table('requisition_issue_slip_table')
-
         ->leftJoin(
             'procurement_requests_table',
             'requisition_issue_slip_table.ris_procurement_request_id',
             '=',
             'procurement_requests_table.procurement_request_id'
         )
-
         ->leftJoin(
             'reports_table',
             'procurement_requests_table.procurement_request_report_id',
             '=',
             'reports_table.report_id'
         )
-
         ->leftJoin(
             'equipment_table',
             'reports_table.report_equipment_id',
             '=',
             'equipment_table.equipment_id'
         )
-
-        // LEFT JOIN RIS ITEMS SUBQUERY - computed total
         ->leftJoin(
             DB::raw('(SELECT ris_id, SUM(COALESCE(ris_total_amount, 0)) as ris_calculated_total FROM requisition_issue_slip_items_table GROUP BY ris_id) as ris_items_sum'),
             'requisition_issue_slip_table.ris_id',
             '=',
             'ris_items_sum.ris_id'
         )
-
-        // LEFT JOIN RIS ITEMS SUBQUERY - concatenated item names
         ->leftJoin(
             DB::raw('(SELECT ris_id, GROUP_CONCAT(COALESCE(ris_item_name_description, "N/A") SEPARATOR ", ") as ris_item_names FROM requisition_issue_slip_items_table GROUP BY ris_id) as ris_items_names'),
             'requisition_issue_slip_table.ris_id',
             '=',
             'ris_items_names.ris_id'
         )
-
+        ->leftJoin($releasedJoin, 'requisition_issue_slip_table.ris_id', '=', 'ris_released.released_ris_id')
         ->select(
             'requisition_issue_slip_table.*',
             'procurement_requests_table.procurement_request_id',
@@ -889,84 +896,39 @@ class AdminController extends Controller
             'reports_table.report_unlisted_equipment_name',
             'equipment_table.equipment_name',
             'ris_items_sum.ris_calculated_total',
-            'ris_items_names.ris_item_names'
+            'ris_items_names.ris_item_names',
+            'ris_released.released_ris_id'
         )
+        ->whereNotNull('requisition_issue_slip_table.ris_approved_by_date')
+        ->where(function ($q) {
+            $q->where(function ($approved) {
+                $approved->where('requisition_issue_slip_table.ris_status', 'Approved')
+                    ->whereNotNull('requisition_issue_slip_table.ris_approved_by_signature')
+                    ->where('requisition_issue_slip_table.ris_approved_by_signature', '!=', '');
+            })->orWhere('requisition_issue_slip_table.ris_status', 'Rejected');
+        });
 
-        ->where('requisition_issue_slip_table.ris_status', 'Approved')
-        ->where(
-            'requisition_issue_slip_table.ris_approved_by_signature',
-            'like',
-            'data:image%'
-        );
+    $awaitingQuery = function ($query) {
+        $query->whereNull('ris_released.released_ris_id');
+    };
 
+    $returnedQuery = function ($query) {
+        $query->whereNotNull('ris_released.released_ris_id');
+    };
 
-// =====================================================
-    // DASHBOARD CARD COUNTS - NOT affected by filter
-    // =====================================================
+    $forCosignCount = (clone $baseQuery)->where($awaitingQuery)->count();
+    $cosignedCount = (clone $baseQuery)->where($returnedQuery)->count();
 
-    $forCosignCount = (clone $baseQuery)
-        ->whereNull(
-            'requisition_issue_slip_table.ris_issued_by_date'
-        )
-        ->where(
-            'requisition_issue_slip_table.ris_approved_by_signature',
-            'like',
-            'data:image%'
-        )
-        ->count();
-
-    $cosignedCount = (clone $baseQuery)
-        ->whereNotNull(
-            'requisition_issue_slip_table.ris_issued_by_date'
-        )
-        ->count();
-
-    // Total amount for For Co-sign (pending)
-    $forCosignAmount = (clone $baseQuery)
-        ->whereNull('requisition_issue_slip_table.ris_issued_by_date')
-        ->where(
-            'requisition_issue_slip_table.ris_approved_by_signature',
-            'like',
-            'data:image%'
-        )
-        ->sum('ris_items_sum.ris_calculated_total');
-
-    // Total amount for Co-signed
-    $cosignedAmount = (clone $baseQuery)
-        ->whereNotNull('requisition_issue_slip_table.ris_issued_by_date')
-        ->sum('ris_items_sum.ris_calculated_total');
-
-
-    // =====================================================
-    // TABLE QUERY
-    // =====================================================
+    $forCosignAmount = (clone $baseQuery)->where($awaitingQuery)->sum('ris_items_sum.ris_calculated_total');
+    $cosignedAmount = (clone $baseQuery)->where($returnedQuery)->sum('ris_items_sum.ris_calculated_total');
 
     $query = clone $baseQuery;
 
-
-    // =====================================================
-    // STATUS FILTER
-    // =====================================================
-
     if ($filter === 'for_cosign') {
-
-        $query->whereNull(
-            'requisition_issue_slip_table.ris_issued_by_date'
-        )
-        ->where(
-            'requisition_issue_slip_table.ris_approved_by_signature',
-            'like',
-            'data:image%'
-        );
-
+        $query->whereNull('ris_released.released_ris_id');
     } elseif ($filter === 'cosigned') {
-
-        $query->whereNotNull(
-            'requisition_issue_slip_table.ris_issued_by_date'
-        );
-
+        $query->whereNotNull('ris_released.released_ris_id');
     }
-    // 'all' shows for-cosign + co-signed President-signed RIS only
 
 
     // =====================================================
@@ -1023,22 +985,7 @@ class AdminController extends Controller
 
     $signableRisRecords = $query
 
-        ->orderByRaw("
-            CASE
-                WHEN requisition_issue_slip_table.ris_issued_by_date IS NULL
-                    AND requisition_issue_slip_table.ris_approved_by_signature LIKE 'data:image%' THEN 0
-                WHEN requisition_issue_slip_table.ris_issued_by_date IS NULL THEN 1
-                ELSE 2
-            END
-        ")
-
-        ->orderByDesc(
-            'requisition_issue_slip_table.ris_approved_by_date'
-        )
-
-        ->orderByDesc(
-            'requisition_issue_slip_table.ris_id'
-        )
+        ->orderByDesc('requisition_issue_slip_table.ris_id')
 
         ->paginate(10)
 
@@ -1439,6 +1386,125 @@ class AdminController extends Controller
         return redirect()
             ->route('admin.digital-signatures.sign-ris')
             ->with('success', 'RIS co-signed successfully.');
+    }
+
+    public function returnRisToPurchaser($risId)
+    {
+        $ris = DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $risId)
+            ->first();
+
+        abort_if(!$ris, 404);
+
+        if (
+            $ris->ris_status !== 'Approved'
+            || empty($ris->ris_approved_by_signature)
+        ) {
+            return back()->with(
+                'error',
+                'Only President-approved RIS records can be returned to the Purchaser. Current status: ' . ($ris->ris_status ?: 'unknown')
+            );
+        }
+
+        $alreadyReturned = DB::table('approval_logs_table')
+            ->where('approval_log_reference_type', 'RIS')
+            ->where('approval_log_reference_id', (int) $risId)
+            ->where(function ($q) {
+                $q->where('approval_log_approval_remarks', 'like', '%returned to Purchaser%')
+                    ->orWhere('approval_log_approval_status', 'Co-signed')
+                    ->orWhereIn('approval_log_level', ['Admin Return', 'Admin Co-sign']);
+            })
+            ->exists();
+
+        if ($alreadyReturned) {
+            return back()->with('error', 'This RIS has already been returned to the Purchaser.');
+        }
+
+        try {
+            DB::table('approval_logs_table')->insert([
+                'approval_log_reference_type' => 'RIS',
+                'approval_log_reference_id' => (int) $risId,
+                'approval_log_level' => 'Admin',
+                'approval_log_approved_by' => Auth::id(),
+                'approval_log_approval_status' => 'Approved',
+                'approval_log_approval_remarks' => 'President-approved RIS returned to Purchaser.',
+                'approval_log_approved_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            try {
+                DB::table('approval_logs_table')->insert([
+                    'approval_log_reference_type' => 'RIS',
+                    'approval_log_reference_id' => (int) $risId,
+                    'approval_log_approved_by' => Auth::id(),
+                    'approval_log_approval_status' => 'Approved',
+                    'approval_log_approval_remarks' => 'President-approved RIS returned to Purchaser.',
+                    'approval_log_approved_at' => now(),
+                ]);
+            } catch (\Throwable $inner) {
+                return back()->with('error', 'Could not return this RIS to the Purchaser.');
+            }
+        }
+
+        return back()->with('success', 'RIS returned to the Purchaser. They can now create an ATP.');
+    }
+
+    public function returnRisForRevision(Request $request, $risId)
+    {
+        $remarks = trim((string) $request->input('remarks', ''));
+        if ($remarks === '') {
+            return back()->with('error', 'Please provide remarks so the Purchaser knows what to revise.');
+        }
+
+        return DB::transaction(function () use ($risId, $remarks) {
+            $ris = DB::table('requisition_issue_slip_table')
+                ->where('ris_id', $risId)
+                ->lockForUpdate()
+                ->first();
+
+            abort_if(!$ris, 404);
+
+            if ($ris->ris_status !== 'Rejected') {
+                return back()->with('error', 'Only President-rejected RIS records can be returned for revision.');
+            }
+
+            DB::table('requisition_issue_slip_table')
+                ->where('ris_id', $risId)
+                ->update([
+                    'ris_status' => 'Minor Revision',
+                    'ris_rejection_reason' => $remarks,
+                    'ris_approved_by_signature' => null,
+                    'ris_approved_by_date' => null,
+                    'ris_updated_at' => now(),
+                ]);
+
+            try {
+                DB::table('ris_revision_notes_table')->insert([
+                    'ris_id' => (int) $risId,
+                    'ris_revision_requested_by' => Auth::id(),
+                    'ris_revision_type' => 'Minor Revision',
+                    'ris_revision_note' => $remarks,
+                    'ris_revision_created_at' => now(),
+                ]);
+            } catch (\Throwable $e) {
+                // ignore
+            }
+
+            try {
+                DB::table('approval_logs_table')->insert([
+                    'approval_log_reference_type' => 'RIS',
+                    'approval_log_reference_id' => (int) $risId,
+                    'approval_log_level' => 'Admin',
+                    'approval_log_approved_by' => Auth::id(),
+                    'approval_log_approval_status' => 'Rejected',
+                    'approval_log_approval_remarks' => $remarks,
+                    'approval_log_approved_at' => now(),
+                ]);
+            } catch (\Throwable $e) {
+                // ignore
+            }
+
+            return back()->with('success', 'RIS returned to the Purchaser for revision.');
+        });
     }
 
     /*

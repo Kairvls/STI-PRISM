@@ -482,6 +482,18 @@ class PurchaserController extends Controller
             ->map(fn ($id) => (int) $id)
             ->all();
 
+        $releasedRisIds = DB::table('approval_logs_table')
+            ->where('approval_log_reference_type', 'RIS')
+            ->whereIn('approval_log_reference_id', $risRecords->pluck('ris_id'))
+            ->where(function ($q) {
+                $q->where('approval_log_approval_remarks', 'like', '%returned to Purchaser%')
+                    ->orWhere('approval_log_approval_status', 'Co-signed')
+                    ->orWhereIn('approval_log_level', ['Admin Return', 'Admin Co-sign']);
+            })
+            ->pluck('approval_log_reference_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
         // Revision history (Minor Revision notes from Admin)
         $risRevisions = DB::table('ris_revision_notes_table as revisions')
             ->leftJoin('users_table as users', 'users.user_id', '=', 'revisions.ris_revision_requested_by')
@@ -500,6 +512,9 @@ class PurchaserController extends Controller
             $ris->risAttachments = $attachmentsByRis->get($ris->ris_id, collect());
             $ris->risRevisions = $risRevisions->get($ris->ris_id, collect());
             $ris->has_atp = in_array($ris->ris_id, $risHasAtp);
+            $ris->released_to_purchaser = in_array((int) $ris->ris_id, $releasedRisIds, true);
+            $ris->can_create_atp = $ris->ris_status === 'Directly Approved'
+                || ($ris->ris_status === 'Approved' && $ris->released_to_purchaser);
         }
 
         // Dashboard counts

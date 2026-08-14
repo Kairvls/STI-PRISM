@@ -1195,7 +1195,11 @@
                                         'Rejected' => 'bg-red-50 text-red-700',
                                         default => 'bg-gray-100 text-gray-600',
                                     };
-                                    $statusLabel = $ris->ris_status === 'Directly Approved' ? 'Admin Approved' : $ris->ris_status;
+            $statusLabel = $ris->ris_status === 'Directly Approved'
+                ? 'Admin Approved'
+                : (($ris->ris_status === 'Approved' && empty($ris->released_to_purchaser) && !empty($ris->ris_approved_by_signature))
+                    ? 'Awaiting Admin'
+                    : $ris->ris_status);
                                 @endphp
                                 <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium {{ $statusClass }}">
                                     {{ $statusLabel }}
@@ -1283,7 +1287,11 @@
                                     'Rejected' => 'border-red-200 bg-red-50 text-red-700',
                                     default => 'border-gray-200 bg-gray-100 text-gray-700',
                                 };
-                                $statusLabel = $ris->ris_status === 'Directly Approved' ? 'Admin Approved' : $ris->ris_status;
+                                $statusLabel = $ris->ris_status === 'Directly Approved'
+                                    ? 'Admin Approved'
+                                    : (($ris->ris_status === 'Approved' && empty($ris->released_to_purchaser) && !empty($ris->ris_approved_by_signature))
+                                        ? 'Awaiting Admin'
+                                        : $ris->ris_status);
                             @endphp
 
                             <span class="rounded-full border px-3 py-1 text-xs font-medium {{ $statusClasses }}">
@@ -1514,7 +1522,7 @@
                         @endif
 
                         {{-- CREATE ATP --}}
-                        @if(in_array($ris->ris_status, ['Approved', 'Directly Approved'], true))
+                        @if(!empty($ris->can_create_atp))
                             @if(!$ris->has_atp)
                                 <a
                                     href="{{ route('purchaser.atp.create', ['selected_ris' => $ris->ris_id]) }}"

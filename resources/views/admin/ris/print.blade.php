@@ -131,23 +131,23 @@
     $isDirectlyApproved = ($ris->ris_status ?? '') === 'Directly Approved';
     $rawApproved = (string) ($ris->ris_approved_by_signature ?? '');
     $rawIssued = (string) ($ris->ris_issued_by_signature ?? '');
-    $hasPresidentSignature = $rawApproved !== '' && str_starts_with($rawApproved, 'data:image');
-    $legacyAdminInApproved = $rawApproved !== '' && !$hasPresidentSignature;
+    $hasPresidentImage = $rawApproved !== '' && str_starts_with($rawApproved, 'data:image');
+    $legacyAdminInApproved = $rawApproved !== '' && !$hasPresidentImage && $rawIssued === '';
+    $presidentText = ($rawApproved !== '' && !$hasPresidentImage && $rawIssued !== '') ? $rawApproved : '';
+    $hasPresidentSign = $hasPresidentImage || $presidentText !== '';
 
-    // Admin always signs "Issued by".
-    // Legacy rows may still store the admin name in Approved by — remap for display.
     $issuedDisplay = $rawIssued !== '' ? $rawIssued : ($legacyAdminInApproved ? $rawApproved : '');
     $issuedDate = $ris->ris_issued_by_date
         ?: (($legacyAdminInApproved && empty($rawIssued)) ? $ris->ris_approved_by_date : null);
 
-    $approvedDate = $hasPresidentSignature ? $ris->ris_approved_by_date : null;
-    $approvedName = $hasPresidentSignature ? ($presidentName ?? 'President') : '';
+    $approvedDate = $hasPresidentSign ? $ris->ris_approved_by_date : null;
+    $approvedName = $hasPresidentImage ? ($presidentName ?? 'President') : $presidentText;
 @endphp
 
     <div class="ris-original-form">
         @if ($isDirectlyApproved)
             <div class="approval-watermark">ADMIN APPROVED</div>
-        @elseif (($ris->ris_status ?? '') === 'Approved' && $hasPresidentSignature)
+        @elseif (($ris->ris_status ?? '') === 'Approved' && $hasPresidentSign)
             <div class="approval-watermark">APPROVED</div>
         @endif
 
@@ -210,9 +210,11 @@
             <div class="ris-signature-column">
                 <div class="ris-signature-label">Approved by:</div>
                 <div class="ris-signature-line ris-value-line">
-                    @if ($hasPresidentSignature)
+                    @if ($hasPresidentImage)
                         <img src="{{ $rawApproved }}" alt="Approved by signature" class="ris-signature-image" />
                         <span>{{ $approvedName }}</span>
+                    @elseif ($hasPresidentSign)
+                        {{ $approvedName }}
                     @else
                         {{ ' ' }}
                     @endif

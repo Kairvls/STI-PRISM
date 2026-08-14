@@ -133,6 +133,16 @@ Route::middleware(['auth', 'admin'])
             [AdminController::class, 'decideRis']
         )->name('digital-signatures.ris.decide');
 
+        Route::post(
+            '/digital-signatures/ris/{ris}/return-purchaser',
+            [AdminController::class, 'returnRisToPurchaser']
+        )->name('digital-signatures.ris.return-purchaser');
+
+        Route::post(
+            '/digital-signatures/ris/{ris}/return-revision',
+            [AdminController::class, 'returnRisForRevision']
+        )->name('digital-signatures.ris.return-revision');
+
         // ==========================================
         // NOTIFICATIONS
         // ==========================================
@@ -1583,6 +1593,11 @@ Route::middleware([
         // APPROVAL DECISION ENDPOINTS
         // =====================================================
 
+        Route::get(
+            '/approvals/ris/{ris}/approve-form',
+            [PresidentController::class, 'approveForm']
+        )->name('approvals.ris.approve-form');
+
         Route::post(
             '/approvals/ris/decide',
             [PresidentController::class, 'decideRis']
@@ -1618,12 +1633,10 @@ Route::middleware([
         
         // =====================================================
         // PRESIDENT: PRINTABLE RIS FOR APPROVAL PREVIEW
-        // Exposes the Purchaser printable RIS view under the
-        // president prefix so the president can preview RIS forms.
         // =====================================================
         Route::get(
             '/ris/{ris}/print',
-            [PurchaserController::class, 'printRis']
+            [PresidentController::class, 'viewRis']
         )
             ->name('ris.print');
 
