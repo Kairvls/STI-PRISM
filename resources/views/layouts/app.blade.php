@@ -55,6 +55,12 @@
 
         }
 
+        [x-cloak]{
+
+            display:none !important;
+
+        }
+
         /* SCROLLBAR */
 
         ::-webkit-scrollbar{
@@ -172,10 +178,14 @@
     #sidebar {
         width: 280px;
         height: 100vh;
+        max-height: 100vh;
+        min-height: 0;
+        overflow: hidden;
         background: #0d1120;
         color: white;
         display: flex;
         flex-direction: column;
+        flex-shrink: 0;
         border-right: 1px solid rgba(255, 255, 255, 0.05);
     }
 
@@ -183,14 +193,13 @@
    SCROLLABLE CONTENT
 ====================================== */
     .sidebar-content {
-    flex: 1;
-
-    overflow-y: auto;
-    overflow-x: hidden;
-
-    /* TOP | RIGHT | BOTTOM | LEFT */
-    padding: 20px 20px 20px 20px;
-}
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 20px 20px 32px 20px;
+        overscroll-behavior: contain;
+    }
     
 
     /* ======================================
@@ -214,6 +223,7 @@
         display: flex;
         align-items: center;
         gap: 14px;
+        flex-shrink: 0;
         /*margin-bottom: 32px;*/
     }
     .logo-icon {

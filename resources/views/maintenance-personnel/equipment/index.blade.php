@@ -1311,1118 +1311,262 @@
         
     </div>
 
-    <!-- VIEW EQUIPMENT MODAL -->
+    @php
+        $eqField = 'h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10';
+        $eqLabel = 'mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500';
+    @endphp
 
-    <!-- ========================================================= -->
-    <!-- VIEW EQUIPMENT MODAL -->
-    <!-- ========================================================= -->
-    <div
-        id="viewEquipmentModal"
-        class="fixed inset-0 z-50 hidden items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]"
-    >
-        <!-- MODAL CONTAINER -->
         <div
-            class="flex max-h-[70vh] w-full max-w-4xl flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-2xl"
-        >
-            <!-- ================================================= -->
-            <!-- HEADER -->
-            <!-- ================================================= -->
-            <div
-                class="flex shrink-0 items-center justify-between px-5 pb-3 pt-5 sm:px-7 sm:pt-6 border-b border-dashed border-slate-500"
-            >
-                <div class="block">
-                    <h2 class="text-base font-bold text-slate-900">
-                        Equipment Details
-                    </h2>
-
-                    <p class="mb-2 mt-1 text-xs font-medium text-slate-500">
-                        Complete inventory, location, and equipment information.
+        id="viewEquipmentModal"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/30 p-4 backdrop-blur-[2px]"
+    >
+        <div class="flex w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
+            <div class="flex items-start justify-between gap-4 px-6 pt-6">
+                <div class="min-w-0">
+                    <p id="modal_name" class="truncate text-xl font-semibold tracking-tight text-slate-900"></p>
+                    <p class="mt-1 truncate text-sm text-slate-500">
+                        <span id="modal_category"></span>
+                        <span class="mx-1.5 text-slate-300">·</span>
+                        <span id="modal_room"></span>
                     </p>
+                    <div class="mt-3 flex flex-wrap gap-2">
+                        <span id="modal_condition" class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700"></span>
+                        <span id="modal_status" class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700"></span>
+                    </div>
                 </div>
-
-                <button
-                    type="button"
-                    onclick="closeEquipmentModal()"
-                    class="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
-                    aria-label="Close modal"
-                >
+                <button type="button" onclick="closeEquipmentModal()" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
                     <i data-lucide="x" class="h-4 w-4"></i>
                 </button>
             </div>
 
-            <!-- ================================================= -->
-            <!-- SCROLLABLE CONTENT -->
-            <!-- ================================================= -->
-            <div class="min-h-0 flex-1 overflow-y-auto px-5 pb-5 pt-5 sm:px-7">
-
-                <!-- SECTION LABEL -->
-                <!--<p class="mb-3 text-xs font-medium text-slate-500">
-                    Complete inventory, location, and equipment information.
-                </p>-->
-
-                <!-- ================================================= -->
-                <!-- MAIN INFORMATION PANEL -->
-                <!-- ================================================= -->
-                <div
-                    class="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5"
-                >
-                    <!-- PANEL HEADER -->
-                    <!--<div class="mb-5">
-                        <h3 class="text-sm font-bold text-slate-900">
-                            Equipment Informations
-                        </h3>
-
-                        <p class="mt-1 text-xs text-slate-400">
-                            Complete inventory, location, and equipment information.
-                        </p>
-                    </div>-->
-
-                    <!-- ================================================= -->
-                    <!-- INFORMATION GRID -->
-                    <!-- ================================================= -->
-                    <div class="grid grid-cols-1 gap-x-4 gap-y-4 md:grid-cols-2">
-
-                        <!-- EQUIPMENT NAME -->
-                        <div>
-                            <p class="mb-1.5 text-xs font-semibold text-slate-700">
-                                Equipment Name
-                            </p>
-
-                            <div
-                                id="modal_name"
-                                class="min-h-[38px] w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-700"
-                            ></div>
-                        </div>
-
-                        <!-- ASSET TAG -->
-                        <div>
-                            <p class="mb-1.5 text-xs font-semibold text-slate-700">
-                                Asset Tag
-                            </p>
-
-                            <div
-                                id="modal_asset_tag"
-                                class="min-h-[38px] w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-700"
-                            ></div>
-                        </div>
-
-                        <!-- CATEGORY -->
-                        <div>
-                            <p class="mb-1.5 text-xs font-semibold text-slate-700">
-                                Category
-                            </p>
-
-                            <div
-                                id="modal_category"
-                                class="min-h-[38px] w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-700"
-                            ></div>
-                        </div>
-
-                        <!-- ROOM -->
-                        <div>
-                            <p class="mb-1.5 text-xs font-semibold text-slate-700">
-                                Room
-                            </p>
-
-                            <div
-                                id="modal_room"
-                                class="min-h-[38px] w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-700"
-                            ></div>
-                        </div>
-
-                        <!-- BRAND -->
-                        <div>
-                            <p class="mb-1.5 text-xs font-semibold text-slate-700">
-                                Brand
-                            </p>
-
-                            <div
-                                id="modal_brand"
-                                class="min-h-[38px] w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-700"
-                            ></div>
-                        </div>
-
-                        <!-- MODEL -->
-                        <div>
-                            <p class="mb-1.5 text-xs font-semibold text-slate-700">
-                                Model
-                            </p>
-
-                            <div
-                                id="modal_model"
-                                class="min-h-[38px] w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-700"
-                            ></div>
-                        </div>
-
-                        <!-- SERIAL NUMBER -->
-                        <div>
-                            <p class="mb-1.5 text-xs font-semibold text-slate-700">
-                                Serial Number
-                            </p>
-
-                            <div
-                                id="modal_serial"
-                                class="min-h-[38px] w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-700"
-                            ></div>
-                        </div>
-
-                        <!-- QUANTITY -->
-                        <div>
-                            <p class="mb-1.5 text-xs font-semibold text-slate-700">
-                                Quantity
-                            </p>
-
-                            <div
-                                id="modal_quantity"
-                                class="min-h-[38px] w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-700"
-                            ></div>
-                        </div>
-
-                        <!-- CONDITION -->
-                        <div>
-                            <p class="mb-1.5 text-xs font-semibold text-slate-700">
-                                Condition
-                            </p>
-
-                            <div
-                                id="modal_condition"
-                                class="min-h-[38px] w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-700"
-                            ></div>
-                        </div>
-
-                        <!-- STATUS -->
-                        <div>
-                            <p class="mb-1.5 text-xs font-semibold text-slate-700">
-                                Inventory Status
-                            </p>
-
-                            <div
-                                id="modal_status"
-                                class="min-h-[38px] w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-700"
-                            ></div>
-                        </div>
-
-                        <!-- PURCHASE DATE -->
-                        <div>
-                            <p class="mb-1.5 text-xs font-semibold text-slate-700">
-                                Purchase Date
-                            </p>
-
-                            <div
-                                id="modal_purchase_date"
-                                class="min-h-[38px] w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-700"
-                            ></div>
-                        </div>
-
-                        <!-- WARRANTY EXPIRATION -->
-                        <div>
-                            <p class="mb-1.5 text-xs font-semibold text-slate-700">
-                                Warranty Expiration
-                            </p>
-
-                            <div
-                                id="modal_warranty"
-                                class="min-h-[38px] w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-700"
-                            ></div>
-                        </div>
-
-                        <!-- BORROWABLE -->
-                        <div class="md:col-span-2">
-                            <p class="mb-1.5 text-xs font-semibold text-slate-700">
-                                Borrowable
-                            </p>
-
-                            <div
-                                id="modal_borrowable"
-                                class="min-h-[38px] w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-700"
-                            ></div>
-                        </div>
-
-                    </div>
+            <div class="mt-5 grid grid-cols-2 gap-3 px-6">
+                <div class="rounded-2xl bg-slate-50 px-4 py-3">
+                    <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Quantity</p>
+                    <p id="modal_quantity" class="mt-1 text-lg font-semibold text-slate-900"></p>
+                </div>
+                <div class="rounded-2xl bg-slate-50 px-4 py-3">
+                    <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Borrowable</p>
+                    <p id="modal_borrowable" class="mt-1 text-lg font-semibold text-slate-900"></p>
                 </div>
             </div>
 
-            <div class="border-t border-dashed border-slate-500"></div>
+            <div class="mt-4 space-y-2.5 px-6 pb-2 text-sm">
+                <div class="flex justify-between gap-4"><span class="text-slate-400">Asset tag</span><span id="modal_asset_tag" class="text-right font-medium text-slate-800"></span></div>
+                <div class="flex justify-between gap-4"><span class="text-slate-400">Brand</span><span id="modal_brand" class="text-right font-medium text-slate-800"></span></div>
+                <div class="flex justify-between gap-4"><span class="text-slate-400">Model</span><span id="modal_model" class="text-right font-medium text-slate-800"></span></div>
+                <div class="flex justify-between gap-4"><span class="text-slate-400">Serial</span><span id="modal_serial" class="text-right font-medium text-slate-800"></span></div>
+                <div class="flex justify-between gap-4"><span class="text-slate-400">Purchased</span><span id="modal_purchase_date" class="text-right font-medium text-slate-800"></span></div>
+                <div class="flex justify-between gap-4"><span class="text-slate-400">Warranty</span><span id="modal_warranty" class="text-right font-medium text-slate-800"></span></div>
+            </div>
 
-            <!-- ================================================= -->
-            <!-- FOOTER -->
-            <!-- ================================================= -->
-            <div
-                class="flex shrink-0 items-center justify-end gap-2 border-t border-slate-100 px-5 py-4 sm:px-7"
-            >
-                <button
-                    type="button"
-                    onclick="closeEquipmentModal()"
-                    class="rounded-lg px-3.5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
-                >
-                    Close
+            <div class="flex justify-end px-6 py-4">
+                <button type="button" onclick="closeEquipmentModal()" class="h-10 rounded-xl bg-slate-900 px-4 text-sm font-medium text-white">Close</button>
+            </div>
+        </div>
+    </div>
+<div
+        id="addEquipmentModal"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/30 p-4 backdrop-blur-[2px]"
+    >
+        <form action="/maintenance/equipment/store" method="POST" class="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
+            @csrf
+            <div class="flex items-start justify-between px-6 pt-6">
+                <div>
+                    <h2 class="text-lg font-semibold tracking-tight text-slate-900">Add equipment</h2>
+                    <p class="mt-1 text-sm text-slate-500">Identity on the left, status on the right.</p>
+                </div>
+                <button type="button" onclick="closeAddEquipmentModal()" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
+                    <i data-lucide="x" class="h-4 w-4"></i>
                 </button>
             </div>
-        </div>
-    </div>
 
-    <!-- ADD EQUIPMENT MODAL -->
-
-    <!-- ========================================================= -->
-    <!-- ADD EQUIPMENT MODAL -->
-    <!-- ========================================================= -->
-    <div
-    id="addEquipmentModal"
-    class="fixed inset-0 z-50 hidden items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]"
->
-    <!-- ===================================== -->
-    <!-- ADD EQUIPMENT MODAL -->
-    <!-- ===================================== -->
-    <div
-        class="flex max-h-[70vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
-    >
-        <!-- ===================================== -->
-        <!-- MODAL HEADER -->
-        <!-- ===================================== -->
-        <div
-            class="flex shrink-0 items-start justify-between gap-6 px-6 pb-5 pt-6 border-b border-dashed border-slate-500"
-        >
-            <div class="min-w-0">
-                <p
-                    class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400"
-                >
-                    Equipment Inventory
-                </p>
-
-                <h2
-                    class="mt-1.5 text-lg font-bold tracking-tight text-slate-950"
-                >
-                    Add equipment
-                </h2>
-
-                <p class="mt-1 text-sm text-slate-500">
-                    Register equipment and assign its initial inventory details.
-                </p>
+            <div class="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+                <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                    <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
+                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">What & where</p>
+                        <div>
+                            <label for="add_equipment_name" class="{{ $eqLabel }}">Equipment name <span class="text-rose-500">*</span></label>
+                            <input id="add_equipment_name" type="text" name="equipment_name" required placeholder="e.g. Mouse" class="{{ $eqField }}" />
+                        </div>
+                        <div>
+                            <label for="add_equipment_category" class="{{ $eqLabel }}">Category <span class="text-rose-500">*</span></label>
+                            <select id="add_equipment_category" name="equipment_category_id" required class="{{ $eqField }}">
+                                <option value="">Select category</option>
+                                @foreach ($categories as $category)
+                                    <option value="{{ $category->equipment_category_id }}">{{ $category->equipment_category_name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label for="add_equipment_room" class="{{ $eqLabel }}">Room <span class="text-rose-500">*</span></label>
+                            <select id="add_equipment_room" name="equipment_room_id" required class="{{ $eqField }}">
+                                <option value="">Select room</option>
+                                @foreach ($rooms as $room)
+                                    <option value="{{ $room->room_id }}">{{ $room->room_name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                    <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
+                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Status</p>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label for="add_equipment_quantity" class="{{ $eqLabel }}">Qty</label>
+                                <input id="add_equipment_quantity" type="number" min="1" value="1" name="equipment_quantity" class="{{ $eqField }}" />
+                            </div>
+                            <div>
+                                <label for="add_equipment_condition" class="{{ $eqLabel }}">Condition</label>
+                                <select id="add_equipment_condition" name="equipment_condition_status" class="{{ $eqField }}">
+                                    <option value="Good">Good</option>
+                                    <option value="Damaged">Damaged</option>
+                                    <option value="Under Maintenance">Under maintenance</option>
+                                    <option value="Disposed">Disposed</option>
+                                </select>
+                            </div>
+                        </div>
+                        <label class="flex items-center justify-between rounded-2xl bg-white px-4 py-3 ring-1 ring-slate-200/80">
+                            <span class="text-sm font-medium text-slate-900">Can be borrowed</span>
+                            <input id="add_equipment_borrowable" type="checkbox" name="equipment_is_borrowable" value="1" class="peer sr-only">
+                            <span class="relative h-6 w-11 rounded-full bg-slate-300 transition peer-checked:bg-slate-900 after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-5"></span>
+                        </label>
+                    </div>
+                </div>
+                <details class="mt-5 rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200/80">
+                    <summary class="cursor-pointer text-sm font-medium text-slate-700">More details</summary>
+                    <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        <div>
+                            <label for="add_equipment_asset_tag" class="{{ $eqLabel }}">Asset tag</label>
+                            <input id="add_equipment_asset_tag" type="text" name="equipment_asset_tag" class="{{ $eqField }}" />
+                        </div>
+                        <div>
+                            <label for="add_equipment_brand" class="{{ $eqLabel }}">Brand name</label>
+                            <input id="add_equipment_brand" type="text" name="equipment_brand_name" class="{{ $eqField }}" />
+                        </div>
+                        <div>
+                            <label for="add_equipment_model" class="{{ $eqLabel }}">Model</label>
+                            <input id="add_equipment_model" type="text" name="equipment_model" class="{{ $eqField }}" />
+                        </div>
+                        <div>
+                            <label for="add_equipment_serial" class="{{ $eqLabel }}">Serial number</label>
+                            <input id="add_equipment_serial" type="text" name="equipment_serial_number" class="{{ $eqField }}" />
+                        </div>
+                    </div>
+                </details>
             </div>
 
-            <!-- CLOSE BUTTON -->
-            <button
-                type="button"
-                onclick="closeAddEquipmentModal()"
-                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
-                aria-label="Close modal"
-            >
-                <i data-lucide="x" class="h-4 w-4"></i>
-            </button>
-        </div>
-
-        <!-- ===================================== -->
-        <!-- ADD EQUIPMENT FORM -->
-        <!-- ===================================== -->
-        <form
-            action="/maintenance/equipment/store"
-            method="POST"
-            class="flex min-h-0 flex-1 flex-col"
-        >
-            @csrf
-
-            <!-- ===================================== -->
-            <!-- SCROLLABLE FORM CONTENT -->
-            <!-- ===================================== -->
-            <div
-                class="min-h-0 flex-1 overflow-y-auto border-y border-slate-100 px-6 py-6"
-            >
-                <div class="space-y-8">
-
-                    <!-- ===================================== -->
-                    <!-- PLACEMENT -->
-                    <!-- ===================================== -->
-                    <section>
-                        <div class="mb-4">
-                            <h3 class="text-sm font-medium text-slate-900">
-                                Placement
-                            </h3>
-
-                            <p class="mt-1 text-sm text-slate-500">
-                                Assign the equipment category and room.
-                            </p>
-                        </div>
-
-                        <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
-
-                            <!-- CATEGORY -->
-                            <div>
-                                <label
-                                    for="add_equipment_category"
-                                    class="mb-2 block text-sm font-medium text-slate-700"
-                                >
-                                    Category
-                                </label>
-
-                                <select
-                                    id="add_equipment_category"
-                                    name="equipment_category_id"
-                                    required
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                                >
-                                    <option value="">
-                                        Select category
-                                    </option>
-
-                                    @foreach ($categories as $category)
-                                        <option
-                                            value="{{ $category->equipment_category_id }}"
-                                        >
-                                            {{ $category->equipment_category_name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-
-                            <!-- ROOM -->
-                            <div>
-                                <label
-                                    for="add_equipment_room"
-                                    class="mb-2 block text-sm font-medium text-slate-700"
-                                >
-                                    Room
-                                </label>
-
-                                <select
-                                    id="add_equipment_room"
-                                    name="equipment_room_id"
-                                    required
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                                >
-                                    <option value="">
-                                        Select room
-                                    </option>
-
-                                    @foreach ($rooms as $room)
-                                        <option value="{{ $room->room_id }}">
-                                            {{ $room->room_name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- ===================================== -->
-                    <!-- SECTION DIVIDER -->
-                    <!-- ===================================== -->
-                    <div class="border-t border-slate-100"></div>
-
-                    <!-- ===================================== -->
-                    <!-- EQUIPMENT DETAILS -->
-                    <!-- ===================================== -->
-                    <section>
-                        <div class="mb-4">
-                            <h3 class="text-sm font-medium text-slate-900">
-                                Equipment details
-                            </h3>
-
-                            <p class="mt-1 text-sm text-slate-500">
-                                Enter identification and technical information.
-                            </p>
-                        </div>
-
-                        <div
-                            class="grid grid-cols-1 gap-5 md:grid-cols-12"
-                        >
-                            <!-- EQUIPMENT NAME -->
-                            <div class="md:col-span-7">
-                                <label
-                                    for="add_equipment_name"
-                                    class="mb-2 block text-sm font-medium text-slate-700"
-                                >
-                                    Equipment name
-                                </label>
-
-                                <input
-                                    id="add_equipment_name"
-                                    type="text"
-                                    name="equipment_name"
-                                    required
-                                    placeholder="e.g. Dell OptiPlex Desktop"
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                                />
-                            </div>
-
-                            <!-- ASSET TAG -->
-                            <div class="md:col-span-5">
-                                <div
-                                    class="mb-2 flex items-center justify-between gap-4"
-                                >
-                                    <label
-                                        for="add_equipment_asset_tag"
-                                        class="text-sm font-medium text-slate-700"
-                                    >
-                                        Asset tag
-                                    </label>
-
-                                    <span class="text-xs text-slate-400">
-                                        Optional
-                                    </span>
-                                </div>
-
-                                <input
-                                    id="add_equipment_asset_tag"
-                                    type="text"
-                                    name="equipment_asset_tag"
-                                    placeholder="e.g. STI-PC-001"
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                                />
-                            </div>
-
-                            <!-- BRAND -->
-                            <div class="md:col-span-4">
-                                <label
-                                    for="add_equipment_brand"
-                                    class="mb-2 block text-sm font-medium text-slate-700"
-                                >
-                                    Brand
-                                </label>
-
-                                <input
-                                    id="add_equipment_brand"
-                                    type="text"
-                                    name="equipment_brand_name"
-                                    placeholder="e.g. Dell"
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                                />
-                            </div>
-
-                            <!-- MODEL -->
-                            <div class="md:col-span-4">
-                                <label
-                                    for="add_equipment_model"
-                                    class="mb-2 block text-sm font-medium text-slate-700"
-                                >
-                                    Model
-                                </label>
-
-                                <input
-                                    id="add_equipment_model"
-                                    type="text"
-                                    name="equipment_model"
-                                    placeholder="e.g. OptiPlex 7010"
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                                />
-                            </div>
-
-                            <!-- SERIAL NUMBER -->
-                            <div class="md:col-span-4">
-                                <label
-                                    for="add_equipment_serial"
-                                    class="mb-2 block text-sm font-medium text-slate-700"
-                                >
-                                    Serial number
-                                </label>
-
-                                <input
-                                    id="add_equipment_serial"
-                                    type="text"
-                                    name="equipment_serial_number"
-                                    placeholder="Enter serial number"
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                                />
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- ===================================== -->
-                    <!-- SECTION DIVIDER -->
-                    <!-- ===================================== -->
-                    <div class="border-t border-slate-100"></div>
-
-                    <!-- ===================================== -->
-                    <!-- INVENTORY INFORMATION -->
-                    <!-- ===================================== -->
-                    <section>
-                        <div class="mb-4">
-                            <h3 class="text-sm font-medium text-slate-900">
-                                Inventory information
-                            </h3>
-
-                            <p class="mt-1 text-sm text-slate-500">
-                                Set the initial quantity and equipment condition.
-                            </p>
-                        </div>
-
-                        <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
-
-                            <!-- QUANTITY -->
-                            <div>
-                                <label
-                                    for="add_equipment_quantity"
-                                    class="mb-2 block text-sm font-medium text-slate-700"
-                                >
-                                    Quantity
-                                </label>
-
-                                <input
-                                    id="add_equipment_quantity"
-                                    type="number"
-                                    min="1"
-                                    value="1"
-                                    name="equipment_quantity"
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                                />
-                            </div>
-
-                            <!-- CONDITION -->
-                            <div>
-                                <label
-                                    for="add_equipment_condition"
-                                    class="mb-2 block text-sm font-medium text-slate-700"
-                                >
-                                    Condition
-                                </label>
-
-                                <select
-                                    id="add_equipment_condition"
-                                    name="equipment_condition_status"
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                                >
-                                    <option value="Good">
-                                        Good
-                                    </option>
-
-                                    <option value="Damaged">
-                                        Damaged
-                                    </option>
-
-                                    <option value="Under Maintenance">
-                                        Under maintenance
-                                    </option>
-
-                                    <option value="Disposed">
-                                        Disposed
-                                    </option>
-                                </select>
-                            </div>
-
-                            <!-- ===================================== -->
-                            <!-- BORROWABLE -->
-                            <!-- Place below the Condition field -->
-                            <!-- ===================================== -->
-
-                            <div class="sm:col-span-2">
-                                <label
-                                    for="add_equipment_borrowable"
-                                    class="mb-2 block text-sm font-medium text-slate-700"
-                                >
-                                    Borrowable
-                                </label>
-
-                                <label
-                                    class="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 transition hover:border-slate-300"
-                                >
-                                    <div>
-                                        <p class="text-sm font-medium text-slate-900">
-                                            Allow equipment borrowing
-                                        </p>
-
-                                        <p class="mt-1 text-xs text-slate-500">
-                                            Enable this if the equipment can be borrowed by authorized users.
-                                        </p>
-                                    </div>
-
-                                    <input
-                                        id="add_equipment_borrowable"
-                                        type="checkbox"
-                                        name="equipment_is_borrowable"
-                                        value="1"
-                                        class="peer sr-only"
-                                    >
-
-                                    <div
-                                        class="relative h-6 w-11 rounded-full bg-slate-300 transition
-                                            peer-checked:bg-emerald-500
-                                            after:absolute after:left-0.5 after:top-0.5
-                                            after:h-5 after:w-5 after:rounded-full
-                                            after:bg-white after:transition-all
-                                            peer-checked:after:translate-x-5"
-                                    ></div>
-                                </label>
-                            </div>
-                        </div>
-                    </section>
-                </div>
-            </div>
-
-            <div class="border-t border-dashed border-slate-500"></div>
-
-            <!-- ===================================== -->
-            <!-- MODAL FOOTER -->
-            <!-- ===================================== -->
-            <div
-                class="flex shrink-0 items-center justify-between gap-4 px-6 py-4"
-            >
-                <p class="hidden text-xs text-slate-400 sm:block">
-                    Required fields must be completed before saving.
-                </p>
-
-                <div class="flex items-center gap-2">
-                    <button
-                        type="button"
-                        onclick="closeAddEquipmentModal()"
-                        class="rounded-lg px-3.5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
-                    >
-                        Cancel
-                    </button>
-
-                    <button
-                        type="submit"
-                        class="rounded-lg bg-[rgba(0,55,199,0.85)] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[rgba(0,44,155,0.85)] focus:outline-none focus:ring-4 focus:ring-slate-200 active:bg-black"
-                    >
-                        Add equipment
-                    </button>
-                </div>
+            <div class="flex items-center justify-end gap-2 px-6 py-4">
+                <button type="button" onclick="closeAddEquipmentModal()" class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100">Cancel</button>
+                <button type="submit" class="h-10 rounded-xl bg-slate-900 px-5 text-sm font-medium text-white transition hover:bg-slate-800">Add equipment</button>
             </div>
         </form>
     </div>
-</div>
 
-    <!-- EDIT EQUIPMENT MODAL -->
-    <!-- ========================================================= -->
-    <!-- EDIT EQUIPMENT MODAL -->
-    <!-- ========================================================= -->
     <div
-    id="editEquipmentModal"
-    class="fixed inset-0 z-50 hidden items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]"
->
-    <!-- ===================================== -->
-    <!-- EDIT EQUIPMENT MODAL -->
-    <!-- ===================================== -->
-    <div
-        class="flex max-h-[70vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
+        id="editEquipmentModal"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/30 p-4 backdrop-blur-[2px]"
     >
-        <!-- ===================================== -->
-        <!-- MODAL HEADER -->
-        <!-- ===================================== -->
-        <div
-            class="flex shrink-0 items-start justify-between gap-6 px-6 pb-5 pt-6 border-b border-dashed border-slate-500"
-        >
-            <div class="min-w-0">
-                <p
-                    class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400"
-                >
-                    Equipment Inventory
-                </p>
-
-                <h2
-                    class="mt-1.5 text-lg font-bold tracking-tight text-slate-950"
-                >
-                    Edit equipment
-                </h2>
-
-                <p class="mt-1 text-sm text-slate-500">
-                    Update equipment details, placement, and inventory information.
-                </p>
-            </div>
-
-            <!-- CLOSE BUTTON -->
-            <button
-                type="button"
-                onclick="closeEditEquipmentModal()"
-                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
-                aria-label="Close modal"
-            >
-                <i data-lucide="x" class="h-4 w-4"></i>
-            </button>
-        </div>
-
-        <!-- ===================================== -->
-        <!-- EDIT EQUIPMENT FORM -->
-        <!-- ===================================== -->
-        <form
-            id="editEquipmentForm"
-            method="POST"
-            class="flex min-h-0 flex-1 flex-col"
-        >
+        <form id="editEquipmentForm" method="POST" class="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
             @csrf
-            
-
-            <!-- ===================================== -->
-            <!-- SCROLLABLE FORM CONTENT -->
-            <!-- ===================================== -->
-            <div
-                class="min-h-0 flex-1 overflow-y-auto border-y border-slate-100 px-6 py-6"
-            >
-                <div class="space-y-8">
-
-                    <!-- ===================================== -->
-                    <!-- PLACEMENT -->
-                    <!-- ===================================== -->
-                    <section>
-                        <div class="mb-4">
-                            <h3 class="text-sm font-medium text-slate-900">
-                                Placement
-                            </h3>
-
-                            <p class="mt-1 text-sm text-slate-500">
-                                Update the equipment category and assigned room.
-                            </p>
-                        </div>
-
-                        <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
-
-                            <!-- CATEGORY -->
-                            <div>
-                                <label
-                                    for="edit_category"
-                                    class="mb-2 block text-sm font-medium text-slate-700"
-                                >
-                                    Category
-                                </label>
-
-                                <select
-                                    id="edit_category"
-                                    name="equipment_category_id"
-                                    required
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                                >
-                                    <option value="">
-                                        Select category
-                                    </option>
-
-                                    @foreach ($categories as $category)
-                                        <option
-                                            value="{{ $category->equipment_category_id }}"
-                                        >
-                                            {{ $category->equipment_category_name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-
-                            <!-- ROOM -->
-                            <div>
-                                <label
-                                    for="edit_room"
-                                    class="mb-2 block text-sm font-medium text-slate-700"
-                                >
-                                    Room
-                                </label>
-
-                                <select
-                                    id="edit_room"
-                                    name="equipment_room_id"
-                                    required
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                                >
-                                    <option value="">
-                                        Select room
-                                    </option>
-
-                                    @foreach ($rooms as $room)
-                                        <option value="{{ $room->room_id }}">
-                                            {{ $room->room_name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- ===================================== -->
-                    <!-- SECTION DIVIDER -->
-                    <!-- ===================================== -->
-                    <div class="border-t border-slate-100"></div>
-
-                    <!-- ===================================== -->
-                    <!-- EQUIPMENT DETAILS -->
-                    <!-- ===================================== -->
-                    <section>
-                        <div class="mb-4">
-                            <h3 class="text-sm font-medium text-slate-900">
-                                Equipment details
-                            </h3>
-
-                            <p class="mt-1 text-sm text-slate-500">
-                                Update identification and technical information.
-                            </p>
-                        </div>
-
-                        <div class="grid grid-cols-1 gap-5 md:grid-cols-12">
-
-                            <!-- EQUIPMENT NAME -->
-                            <div class="md:col-span-7">
-                                <label
-                                    for="edit_equipment_name"
-                                    class="mb-2 block text-sm font-medium text-slate-700"
-                                >
-                                    Equipment name
-                                </label>
-
-                                <input
-                                    id="edit_equipment_name"
-                                    type="text"
-                                    name="equipment_name"
-                                    required
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                                />
-                            </div>
-
-                            <!-- ASSET TAG -->
-                            <div class="md:col-span-5">
-                                <div
-                                    class="mb-2 flex items-center justify-between gap-4"
-                                >
-                                    <label
-                                        for="edit_asset_tag"
-                                        class="text-sm font-medium text-slate-700"
-                                    >
-                                        Asset tag
-                                    </label>
-
-                                    <span class="text-xs text-slate-400">
-                                        Optional
-                                    </span>
-                                </div>
-
-                                <input
-                                    id="edit_asset_tag"
-                                    type="text"
-                                    name="equipment_asset_tag"
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                                />
-                            </div>
-
-                            <!-- BRAND -->
-                            <div class="md:col-span-4">
-                                <label
-                                    for="edit_brand"
-                                    class="mb-2 block text-sm font-medium text-slate-700"
-                                >
-                                    Brand
-                                </label>
-
-                                <input
-                                    id="edit_brand"
-                                    type="text"
-                                    name="equipment_brand_name"
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                                />
-                            </div>
-
-                            <!-- MODEL -->
-                            <div class="md:col-span-4">
-                                <label
-                                    for="edit_model"
-                                    class="mb-2 block text-sm font-medium text-slate-700"
-                                >
-                                    Model
-                                </label>
-
-                                <input
-                                    id="edit_model"
-                                    type="text"
-                                    name="equipment_model"
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                                />
-                            </div>
-
-                            <!-- SERIAL NUMBER -->
-                            <div class="md:col-span-4">
-                                <label
-                                    for="edit_serial"
-                                    class="mb-2 block text-sm font-medium text-slate-700"
-                                >
-                                    Serial number
-                                </label>
-
-                                <input
-                                    id="edit_serial"
-                                    type="text"
-                                    name="equipment_serial_number"
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                                />
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- ===================================== -->
-                    <!-- SECTION DIVIDER -->
-                    <!-- ===================================== -->
-                    <div class="border-t border-slate-100"></div>
-
-                    <!-- ===================================== -->
-                    <!-- INVENTORY INFORMATION -->
-                    <!-- ===================================== -->
-                    <section>
-                        <div class="mb-4">
-                            <h3 class="text-sm font-medium text-slate-900">
-                                Inventory information
-                            </h3>
-
-                            <p class="mt-1 text-sm text-slate-500">
-                                Update quantity, physical condition, and inventory status.
-                            </p>
-                        </div>
-
-                        <div class="grid grid-cols-1 gap-5 md:grid-cols-3">
-
-                            <!-- QUANTITY -->
-                            <div>
-                                <label
-                                    for="edit_quantity"
-                                    class="mb-2 block text-sm font-medium text-slate-700"
-                                >
-                                    Quantity
-                                </label>
-
-                                <input
-                                    id="edit_quantity"
-                                    type="number"
-                                    min="1"
-                                    name="equipment_quantity"
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                                />
-                            </div>
-
-                            <!-- CONDITION -->
-                            <div>
-                                <label
-                                    for="edit_condition"
-                                    class="mb-2 block text-sm font-medium text-slate-700"
-                                >
-                                    Condition
-                                </label>
-
-                                <select
-                                    id="edit_condition"
-                                    name="equipment_condition_status"
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                                >
-                                    <option value="Good">
-                                        Good
-                                    </option>
-
-                                    <option value="Damaged">
-                                        Damaged
-                                    </option>
-
-                                    <option value="Under Maintenance">
-                                        Under maintenance
-                                    </option>
-
-                                    <option value="Disposed">
-                                        Disposed
-                                    </option>
-                                </select>
-                            </div>
-
-                            <!-- BORROWABLE -->
-                            <div class="md:col-span-3">
-                                <label
-                                    for="edit_equipment_borrowable"
-                                    class="mb-2 block text-sm font-medium text-slate-700"
-                                >
-                                    Borrowable
-                                </label>
-
-                                <label
-                                    class="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 transition hover:border-slate-300"
-                                >
-                                    <div>
-                                        <p class="text-sm font-medium text-slate-900">
-                                            Allow equipment borrowing
-                                        </p>
-
-                                        <p class="mt-1 text-xs text-slate-500">
-                                            Enable this if the equipment can be borrowed by authorized users.
-                                        </p>
-                                    </div>
-
-                                    <input
-                                        id="edit_equipment_borrowable"
-                                        type="checkbox"
-                                        name="equipment_is_borrowable"
-                                        value="1"
-                                        class="peer sr-only"
-                                    >
-
-                                    <div
-                                        class="relative h-6 w-11 rounded-full bg-slate-300 transition
-                                            peer-checked:bg-emerald-500
-                                            after:absolute after:left-0.5 after:top-0.5
-                                            after:h-5 after:w-5 after:rounded-full
-                                            after:bg-white after:transition-all
-                                            peer-checked:after:translate-x-5"
-                                    ></div>
-                                </label>
-                            </div>
-
-                            <!-- INVENTORY STATUS -->
-                            <div>
-                                <label
-                                    for="edit_status"
-                                    class="mb-2 block text-sm font-medium text-slate-700"
-                                >
-                                    Inventory status
-                                </label>
-
-                                <select
-                                    id="edit_status"
-                                    name="equipment_inventory_status"
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                                >
-                                    <option value="Active">
-                                        Active
-                                    </option>
-
-                                    <option value="Under Maintenance">
-                                        Under maintenance
-                                    </option>
-
-                                    <option value="Borrowed">
-                                        Borrowed
-                                    </option>
-
-                                    <option value="For Replacement">
-                                        For replacement
-                                    </option>
-
-                                    <option value="Disposed">
-                                        Disposed
-                                    </option>
-                                </select>
-                            </div>
-                        </div>
-                    </section>
+            <div class="flex items-start justify-between px-6 pt-6">
+                <div>
+                    <h2 class="text-lg font-semibold tracking-tight text-slate-900">Edit equipment</h2>
+                    <p class="mt-1 text-sm text-slate-500">Identity on the left, status on the right.</p>
                 </div>
+                <button type="button" onclick="closeEditEquipmentModal()" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
+                    <i data-lucide="x" class="h-4 w-4"></i>
+                </button>
             </div>
 
-            <div class="border-t border-dashed border-slate-500"></div>
-
-            <!-- ===================================== -->
-            <!-- MODAL FOOTER -->
-            <!-- ===================================== -->
-            <div
-                class="flex shrink-0 items-center justify-between gap-4 px-6 py-4"
-            >
-                <p class="hidden text-xs text-slate-400 sm:block">
-                    Changes will update the equipment inventory record.
-                </p>
-
-                <div class="flex items-center gap-2">
-                    <button
-                        type="button"
-                        onclick="closeEditEquipmentModal()"
-                        class="rounded-lg px-3.5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
-                    >
-                        Cancel
-                    </button>
-
-                    <button
-                        type="submit"
-                        class="rounded-lg bg-[rgba(0,55,199,0.85)] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[rgba(0,44,155,0.85)] focus:outline-none focus:ring-4 focus:ring-slate-200 active:bg-black"
-                    >
-                        Save changes
-                    </button>
+            <div class="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+                <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                    <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
+                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">What & where</p>
+                        <div>
+                            <label for="edit_equipment_name" class="{{ $eqLabel }}">Equipment name <span class="text-rose-500">*</span></label>
+                            <input id="edit_equipment_name" type="text" name="equipment_name" required class="{{ $eqField }}" />
+                        </div>
+                        <div>
+                            <label for="edit_category" class="{{ $eqLabel }}">Category <span class="text-rose-500">*</span></label>
+                            <select id="edit_category" name="equipment_category_id" required class="{{ $eqField }}">
+                                <option value="">Select category</option>
+                                @foreach ($categories as $category)
+                                    <option value="{{ $category->equipment_category_id }}">{{ $category->equipment_category_name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div>
+                            <label for="edit_room" class="{{ $eqLabel }}">Room <span class="text-rose-500">*</span></label>
+                            <select id="edit_room" name="equipment_room_id" required class="{{ $eqField }}">
+                                <option value="">Select room</option>
+                                @foreach ($rooms as $room)
+                                    <option value="{{ $room->room_id }}">{{ $room->room_name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                    <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
+                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Status</p>
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label for="edit_quantity" class="{{ $eqLabel }}">Qty</label>
+                                <input id="edit_quantity" type="number" min="1" name="equipment_quantity" class="{{ $eqField }}" />
+                            </div>
+                            <div>
+                                <label for="edit_condition" class="{{ $eqLabel }}">Condition</label>
+                                <select id="edit_condition" name="equipment_condition_status" class="{{ $eqField }}">
+                                    <option value="Good">Good</option>
+                                    <option value="Damaged">Damaged</option>
+                                    <option value="Under Maintenance">Under maintenance</option>
+                                    <option value="Disposed">Disposed</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <label for="edit_status" class="{{ $eqLabel }}">Inventory status</label>
+                            <select id="edit_status" name="equipment_inventory_status" class="{{ $eqField }}">
+                                <option value="Active">Active</option>
+                                <option value="Under Maintenance">Under maintenance</option>
+                                <option value="Borrowed">Borrowed</option>
+                                <option value="For Replacement">For replacement</option>
+                                <option value="Disposed">Disposed</option>
+                            </select>
+                        </div>
+                        <label class="flex items-center justify-between rounded-2xl bg-white px-4 py-3 ring-1 ring-slate-200/80">
+                            <span class="text-sm font-medium text-slate-900">Can be borrowed</span>
+                            <input id="edit_equipment_borrowable" type="checkbox" name="equipment_is_borrowable" value="1" class="peer sr-only">
+                            <span class="relative h-6 w-11 rounded-full bg-slate-300 transition peer-checked:bg-slate-900 after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-5"></span>
+                        </label>
+                    </div>
                 </div>
+                <details class="mt-5 rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200/80">
+                    <summary class="cursor-pointer text-sm font-medium text-slate-700">More details</summary>
+                    <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        <div>
+                            <label for="edit_asset_tag" class="{{ $eqLabel }}">Asset tag</label>
+                            <input id="edit_asset_tag" type="text" name="equipment_asset_tag" class="{{ $eqField }}" />
+                        </div>
+                        <div>
+                            <label for="edit_brand" class="{{ $eqLabel }}">Brand name</label>
+                            <input id="edit_brand" type="text" name="equipment_brand_name" class="{{ $eqField }}" />
+                        </div>
+                        <div>
+                            <label for="edit_model" class="{{ $eqLabel }}">Model</label>
+                            <input id="edit_model" type="text" name="equipment_model" class="{{ $eqField }}" />
+                        </div>
+                        <div>
+                            <label for="edit_serial" class="{{ $eqLabel }}">Serial number</label>
+                            <input id="edit_serial" type="text" name="equipment_serial_number" class="{{ $eqField }}" />
+                        </div>
+                    </div>
+                </details>
+            </div>
+
+            <div class="flex items-center justify-end gap-2 px-6 py-4">
+                <button type="button" onclick="closeEditEquipmentModal()" class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100">Cancel</button>
+                <button type="submit" class="h-10 rounded-xl bg-slate-900 px-5 text-sm font-medium text-white transition hover:bg-slate-800">Save changes</button>
             </div>
         </form>
     </div>
-</div>
 
     <script>
         function openEquipmentModal(
@@ -2516,13 +1660,13 @@
 
             document.getElementById("edit_quantity").value = quantity;
 
-            document.getElementById("edit_condition").value = condition;
+            setEqSelectValue("edit_condition", condition);
 
-            document.getElementById("edit_status").value = status;
+            setEqSelectValue("edit_status", status);
 
-            document.getElementById("edit_category").value = category;
+            setEqSelectValue("edit_category", category);
 
-            document.getElementById("edit_room").value = room;
+            setEqSelectValue("edit_room", room);
 
             document.getElementById("edit_equipment_borrowable").checked =
                 borrowable == 1;
@@ -2535,6 +1679,9 @@
         }
 
         function closeEditEquipmentModal() {
+            if (window.closeEqSelectPanel) {
+                closeEqSelectPanel();
+            }
             document
                 .getElementById("editEquipmentModal")
                 .classList.add("hidden");

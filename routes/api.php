@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\Api\MobileReportController;
 use App\Http\Controllers\Api\MobileMaintenanceController;
+use App\Http\Controllers\Api\MicrosoftAuthController;
 
 /*
 |--------------------------------------------------------------------------
@@ -62,38 +63,71 @@ Route::prefix('maintenance')->group(function () {
     // ==========================================
     // MICROSOFT LOGIN
     // ==========================================
-    Route::post('/login', [MobileMaintenanceController::class, 'login']);
 
-    // ==========================================
-    // GET EQUIPMENT BY QR
-    // ==========================================
-    Route::get('/equipment/{qr}', [MobileMaintenanceController::class, 'equipment']);
-
-    // ==========================================
-    // UPDATE EQUIPMENT
-    // ==========================================
-    Route::put('/equipment/{id}', [MobileMaintenanceController::class, 'updateEquipment']);
-
-    // ==========================================
-    // MAINTENANCE HISTORY
-    // ==========================================
-    Route::get('/history/{equipmentId}', [MobileMaintenanceController::class, 'history']);
-
-    Route::post('/history', [MobileMaintenanceController::class, 'storeHistory']);
-
-    // ==========================================
-    // MAINTENANCE SCHEDULE
-    // ==========================================
-    Route::get(
-        '/schedule/{equipmentId}',
-        [MobileMaintenanceController::class, 'schedule']
+    Route::post(
+        '/login',
+        [MicrosoftAuthController::class, 'login']
     );
 
-    // UPDATE A SPECIFIC SCHEDULE
-    Route::put(
-        '/schedule/{scheduleId}',
-        [MobileMaintenanceController::class, 'updateSchedule']
-    );
+    Route::middleware('auth:sanctum')->group(function () {
+
+        // List / dashboard endpoints (register before parameterized routes)
+        Route::get(
+            '/equipments',
+            [MobileMaintenanceController::class, 'listEquipment']
+        );
+
+        Route::get(
+            '/histories',
+            [MobileMaintenanceController::class, 'listHistory']
+        );
+
+        Route::get(
+            '/schedules',
+            [MobileMaintenanceController::class, 'listSchedules']
+        );
+
+        Route::get(
+            '/recent',
+            [MobileMaintenanceController::class, 'recent']
+        );
+
+        Route::get(
+            '/equipment/{qr}',
+            [MobileMaintenanceController::class, 'equipment']
+        );
+
+        Route::put(
+            '/equipment/{id}',
+            [MobileMaintenanceController::class, 'updateEquipment']
+        );
+
+        Route::get(
+            '/history/{equipmentId}',
+            [MobileMaintenanceController::class, 'history']
+        );
+
+        Route::post(
+            '/history',
+            [MobileMaintenanceController::class, 'storeHistory']
+        );
+
+        Route::get(
+            '/schedule/{equipmentId}',
+            [MobileMaintenanceController::class, 'schedule']
+        );
+
+        Route::post(
+            '/schedule',
+            [MobileMaintenanceController::class, 'storeSchedule']
+        );
+
+        Route::put(
+            '/schedule/{scheduleId}',
+            [MobileMaintenanceController::class, 'updateSchedule']
+        );
+
+    });
 
 });
 

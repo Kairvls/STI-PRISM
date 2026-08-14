@@ -516,6 +516,57 @@
 
 
                     {{-- ================================================= --}}
+                    {{-- LOCATION FILTER --}}
+                    {{-- ================================================= --}}
+
+                    <div class="relative">
+
+                        <select
+                            name="room"
+
+                            class="h-10 min-w-[180px]
+                                appearance-none rounded-lg
+                                border border-slate-200
+                                bg-white pl-3 pr-9
+                                text-sm text-slate-600
+                                outline-none transition
+                                focus:border-slate-400
+                                focus:ring-2 focus:ring-slate-100"
+                        >
+
+                            <option value="">
+                                All Locations
+                            </option>
+
+                            @foreach ($rooms as $room)
+
+                                <option
+                                    value="{{ $room->room_id }}"
+
+                                    @selected(
+                                        request('room')
+                                        == $room->room_id
+                                    )
+                                >
+                                    {{ $room->room_name }}{{ $room->floor_level ? ' · '.$room->floor_level : '' }}
+                                </option>
+
+                            @endforeach
+
+                        </select>
+
+
+                        <i
+                            data-lucide="chevron-down"
+                            class="pointer-events-none absolute
+                                right-3 top-1/2 h-4 w-4
+                                -translate-y-1/2 text-slate-400"
+                        ></i>
+
+                    </div>
+
+
+                    {{-- ================================================= --}}
                     {{-- QR STATUS FILTER --}}
                     {{-- ================================================= --}}
 
@@ -598,6 +649,7 @@
                     @if (
                         request()->filled('search')
                         || request()->filled('category')
+                        || request()->filled('room')
                         || request()->filled('qr_status')
                     )
 
@@ -638,7 +690,7 @@
 
             <div class="overflow-x-auto">
 
-                <table class="w-full min-w-[850px] text-left">
+                <table class="w-full min-w-[1000px] text-left">
 
                     {{-- ================================================= --}}
                     {{-- TABLE HEADER --}}
@@ -657,6 +709,10 @@
 
                             <th class="px-5 py-3">
                                 Category
+                            </th>
+
+                            <th class="px-5 py-3">
+                                Location
                             </th>
 
                             <th class="px-5 py-3">
@@ -760,6 +816,25 @@
                                         }}
                                     </span>
 
+                                </td>
+
+
+
+                                {{-- ===================================== --}}
+                                {{-- LOCATION --}}
+                                {{-- ===================================== --}}
+
+                                <td class="px-5 py-4">
+                                    @if ($item->room_name)
+                                        <p class="text-sm font-medium text-slate-800">
+                                            {{ $item->room_name }}
+                                        </p>
+                                        <p class="mt-0.5 text-[11px] text-slate-400">
+                                            {{ collect([$item->building_name, $item->floor_level])->filter()->implode(' · ') ?: 'Room' }}
+                                        </p>
+                                    @else
+                                        <span class="text-sm text-slate-400">Unassigned</span>
+                                    @endif
                                 </td>
 
 
@@ -881,14 +956,15 @@
 
                                     <div
                                         class="relative inline-block"
-                                        x-data="{ open: false }"
+                                        x-data="qrActionMenu()"
                                     >
 
                                         {{-- ACTION MENU BUTTON --}}
                                         <button
                                             type="button"
+                                            x-ref="trigger"
 
-                                            @click="open = !open"
+                                            @click="toggle()"
 
                                             @click.outside="open = false"
 
@@ -908,14 +984,15 @@
 
                                         {{-- ACTION DROPDOWN --}}
                                         <div
+                                            x-ref="menu"
+
                                             x-cloak
 
                                             x-show="open"
 
-                                            x-transition.origin.top.right
+                                            x-transition
 
-                                            class="absolute right-0 top-10 z-50
-                                                w-44 overflow-hidden
+                                            class="fixed z-[200] w-44 overflow-hidden
                                                 rounded-xl
                                                 border border-slate-200
                                                 bg-white p-1.5
@@ -1116,6 +1193,8 @@
                                                 method="POST"
 
                                                 action="/maintenance/equipment/qr/generate/{{ $item->equipment_id }}"
+
+                                                @submit.prevent="confirmQrGenerate($el, {{ $hasQrCode ? 'true' : 'false' }}, @js($item->equipment_name))"
                                             >
 
                                                 @csrf
@@ -1253,7 +1332,7 @@
                             <tr>
 
                                 <td
-                                    colspan="4"
+                                    colspan="5"
                                     class="px-6 py-16 text-center"
                                 >
 
@@ -1402,6 +1481,7 @@
         x-show="open"
         x-cloak
         x-transition.opacity
+        style="display: none;"
         class="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]"
     >
 
@@ -1640,6 +1720,8 @@
                         <div
 
                             x-show="downloadOpen"
+
+                            x-cloak
 
                             x-transition
 
@@ -1948,6 +2030,71 @@
         }
 
         
+
+        function confirmQrGenerate(form, isRegenerate, equipmentName) {
+            if (!isRegenerate) {
+                form.submit();
+                return;
+            }
+
+            Swal.fire({
+                icon: 'warning',
+                title: 'Regenerate this QR code?',
+                html:
+                    '<p class="text-sm text-slate-600">This will replace the QR for <span class="font-semibold text-slate-900">' +
+                    equipmentName +
+                    '</span>.</p>' +
+                    '<p class="mt-2 text-sm text-slate-500">Printed labels and saved scans for the old code may no longer match this equipment.</p>',
+                showCancelButton: true,
+                confirmButtonText: 'Regenerate QR',
+                cancelButtonText: 'Cancel',
+                reverseButtons: true,
+                buttonsStyling: false,
+                customClass: {
+                    popup: 'rounded-3xl border border-slate-200 shadow-2xl',
+                    title: 'text-lg font-semibold text-slate-900',
+                    htmlContainer: 'text-left',
+                    confirmButton: 'rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-medium text-white',
+                    cancelButton: 'rounded-xl px-5 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100',
+                    actions: 'gap-2',
+                },
+            }).then(function (result) {
+                if (result.isConfirmed) {
+                    form.submit();
+                }
+            });
+        }
+
+        function qrActionMenu() {
+            return {
+                open: false,
+                toggle() {
+                    this.open = !this.open;
+                    if (this.open) {
+                        this.$nextTick(() => this.place());
+                    }
+                },
+                place() {
+                    const trigger = this.$refs.trigger;
+                    const menu = this.$refs.menu;
+                    if (!trigger || !menu) {
+                        return;
+                    }
+
+                    const rect = trigger.getBoundingClientRect();
+                    const menuHeight = menu.offsetHeight || 160;
+                    const menuWidth = menu.offsetWidth || 176;
+                    const spaceBelow = window.innerHeight - rect.bottom - 8;
+                    const spaceAbove = rect.top - 8;
+                    const openUp = spaceBelow < menuHeight && spaceAbove > spaceBelow;
+
+                    menu.style.left = Math.max(8, rect.right - menuWidth) + 'px';
+                    menu.style.top = openUp
+                        ? Math.max(8, rect.top - menuHeight - 4) + 'px'
+                        : (rect.bottom + 4) + 'px';
+                },
+            };
+        }
 
         function openQrModal(data){
 

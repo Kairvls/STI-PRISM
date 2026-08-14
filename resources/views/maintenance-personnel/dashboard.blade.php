@@ -426,7 +426,8 @@
 
                     gap: 24px;
 
-                    align-items: start;
+                    /* Stretch both columns so bottoms always align */
+                    align-items: stretch;
                 }
 
 
@@ -442,6 +443,8 @@
                     flex-direction: column;
 
                     gap: 24px;
+
+                    height: 100%;
                 }
 
 
@@ -457,6 +460,47 @@
                     flex-direction: column;
 
                     gap: 20px;
+
+                    height: 100%;
+                }
+
+
+                /* Last left card (workload) fills leftover height */
+                .maintenance-dashboard-main > .dashboard-analytics-card:last-child {
+                    flex: 1 1 auto;
+
+                    display: flex;
+
+                    flex-direction: column;
+
+                    min-height: 0;
+                }
+
+                .maintenance-dashboard-main > .dashboard-analytics-card:last-child .dashboard-report-activity-chart {
+                    flex: 1 1 auto;
+
+                    min-height: 320px;
+
+                    height: auto;
+                }
+
+                /* Activity card fills leftover sidebar height */
+                .maintenance-dashboard-sidebar > .activity-sidebar-card {
+                    flex: 1 1 auto;
+
+                    display: flex;
+
+                    flex-direction: column;
+
+                    min-height: 0;
+                }
+
+                .maintenance-dashboard-sidebar .activity-list-panel {
+                    flex: 1 1 auto;
+                }
+
+                .maintenance-dashboard-sidebar .activity-sidebar-footer {
+                    margin-top: auto;
                 }
 
 
@@ -4014,7 +4058,12 @@
 
             overflow: hidden;
 
-            background: #020b14;
+            /* Exterior: black studio — white clay shell pops */
+            background: #020617;
+        }
+
+        #building3DViewport.is-interior-view {
+            background: #020617;
         }
 
 
@@ -4062,30 +4111,37 @@
 
             padding: 4px;
 
-            /* MATCH ENTER BUILDING / RETURN DESIGN */
-            background: rgba(2, 11, 20, 0.82);
+            /* Soft frosted control — blends with clay exterior */
+            background: rgba(255, 255, 255, 0.72);
 
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
 
-            
+            border: 1px solid rgba(148, 163, 184, 0.35);
 
-            border-radius: 10px;
+            border-radius: 12px;
 
             box-shadow:
-                0 8px 24px rgba(0, 0, 0, 0.18);
+                0 8px 24px rgba(15, 23, 42, 0.10);
+        }
+
+        #building3DViewport.is-interior-view .building-3d-controls {
+            background: rgba(255, 255, 255, 0.88);
+            border-color: rgba(148, 163, 184, 0.35);
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.10);
         }
 
         /* =====================================================
         ENTER BUILDING BUTTON
-        Top right control inside the 3D viewport
+        Anchored to the building roof center in 3D (via JS)
         ===================================================== */
 
         .building-enter-btn {
             position: absolute;
 
-            top: 20px;
-            right: 20px;
+            left: 50%;
+            top: 40%;
+            right: auto;
 
             z-index: 20;
 
@@ -4097,38 +4153,69 @@
 
             padding: 10px 16px;
 
-            border: 1px solid rgba(103, 232, 249, 0.35);
+            border: 1px solid rgba(59, 130, 246, 0.35);
 
-            border-radius: 10px;
+            border-radius: 999px;
 
-            background: rgba(2, 11, 20, 0.82);
+            background: rgba(255, 255, 255, 0.92);
 
-            color: #e6faff;
+            color: #0f172a;
 
             font-size: 13px;
-            font-weight: 600;
+            font-weight: 700;
 
             cursor: pointer;
 
             backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+
+            box-shadow:
+                0 10px 28px rgba(15, 23, 42, 0.18),
+                0 0 0 1px rgba(148, 163, 184, 0.25);
+
+            transform: translate(-50%, -115%);
 
             transition:
                 background 0.2s ease,
                 border-color 0.2s ease,
+                box-shadow 0.2s ease,
                 transform 0.2s ease;
+
+            white-space: nowrap;
+            pointer-events: auto;
         }
 
         .building-enter-btn:hover {
-            background: rgba(8, 47, 73, 0.92);
+            background: #ffffff;
 
-            border-color: rgba(103, 232, 249, 0.7);
+            border-color: rgba(37, 99, 235, 0.55);
 
-            transform: translateY(-1px);
+            box-shadow:
+                0 14px 32px rgba(15, 23, 42, 0.22),
+                0 0 0 1px rgba(59, 130, 246, 0.25);
+
+            transform: translate(-50%, calc(-115% - 3px));
         }
 
         .building-enter-btn i {
             width: 16px;
             height: 16px;
+            color: #2563eb;
+        }
+
+        /* Small pointer so it feels attached to the roof */
+        .building-enter-btn::after {
+            content: "";
+            position: absolute;
+            left: 50%;
+            bottom: -7px;
+            width: 12px;
+            height: 12px;
+            background: rgba(255, 255, 255, 0.92);
+            border-right: 1px solid rgba(59, 130, 246, 0.35);
+            border-bottom: 1px solid rgba(59, 130, 246, 0.35);
+            transform: translateX(-50%) rotate(45deg);
+            box-shadow: 2px 2px 6px rgba(15, 23, 42, 0.08);
         }
 
 
@@ -4152,23 +4239,25 @@
             align-items: center;
             justify-content: center;
 
-            /* SAME DARK CYAN DESIGN */
-            border: 1px solid rgba(103, 232, 249, 0.35);
-            border-radius: 8px;
+            /* Soft light control — blends with exterior shell */
+            border: 1px solid rgba(148, 163, 184, 0.4);
+            border-radius: 9px;
 
-            background: rgba(2, 11, 20, 0.82);
+            background: rgba(255, 255, 255, 0.88);
 
-            color: #e6faff;
+            color: #475569;
 
             cursor: pointer;
 
             backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
 
             transition:
                 background 0.2s ease,
                 border-color 0.2s ease,
                 color 0.2s ease,
-                transform 0.2s ease;
+                transform 0.2s ease,
+                box-shadow 0.2s ease;
         }
 
 
@@ -4177,13 +4266,29 @@
         ===================================================== */
 
         .building-3d-control:hover {
-            background: rgba(8, 47, 73, 0.92);
+            background: #ffffff;
 
-            border-color: rgba(103, 232, 249, 0.7);
+            border-color: rgba(59, 130, 246, 0.45);
 
-            color: white;
+            color: #2563eb;
+
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12);
 
             transform: translateY(-1px);
+        }
+
+        #building3DViewport.is-interior-view .building-3d-control {
+            border-color: rgba(148, 163, 184, 0.4);
+            background: rgba(255, 255, 255, 0.95);
+            color: #334155;
+            box-shadow: none;
+        }
+
+        #building3DViewport.is-interior-view .building-3d-control:hover {
+            background: #ffffff;
+            border-color: rgba(100, 116, 139, 0.55);
+            color: #0f172a;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
         }
 
 
@@ -4685,10 +4790,9 @@
 
         /* =====================================================
         ENTER BUILDING + RETURN BUTTON
-        Both use the exact same position and design
+        Return stays top-right; Enter is roof-anchored in 3D
         ===================================================== */
 
-        .building-enter-btn,
         .building-back-overview-btn {
             position: absolute;
 
@@ -4734,7 +4838,6 @@
         HOVER
         ===================================================== */
 
-        .building-enter-btn:hover,
         .building-back-overview-btn:hover {
             transform: translateY(-2px);
 
@@ -4748,7 +4851,6 @@
         ICON SIZE
         ===================================================== */
 
-        .building-enter-btn i,
         .building-back-overview-btn i {
             width: 17px;
             height: 17px;
@@ -5001,6 +5103,241 @@
                 {{-- MAINTENANCE OPERATIONS HERO --}}
                 {{-- ===================================================== --}}
 
+                {{-- ===================================================== --}}
+                {{-- 3D CAMPUS / BUILDING OVERVIEW --}}
+                {{-- ADD THIS AFTER dashboard-bottom-charts --}}
+                {{-- ===================================================== --}}
+
+                <section class="dashboard-building-section">
+                    {{-- HEADER --}}
+                    <div class="dashboard-building-header">
+                        <div>
+                            <p class="dashboard-building-eyebrow">INFRASTRUCTURE OVERVIEW</p>
+
+                            <h2 class="dashboard-building-title">
+                                Building Rooms
+                            </h2>
+
+                            <p class="dashboard-building-subtitle">Interactive overview of rooms, equipment, and maintenance status.</p>
+                        </div>
+
+                        <a href="#" class="dashboard-building-action">
+                            <i data-lucide="maximize-2"></i>
+                            <span>View Building</span>
+                        </a>
+                    </div>
+
+                    {{-- 3D BUILDING VIEW --}}
+                    {{-- ===================================================== --}}
+                    {{-- PHASE 1: INTERACTIVE 3D BUILDING VIEWPORT --}}
+                    {{-- ===================================================== --}}
+
+                    <div class="dashboard-building-view">
+                        {{-- THREE.JS WILL RENDER THE 3D SCENE HERE --}}
+                        <div id="building3DViewport"></div>
+
+                        {{-- ===================================================== --}}
+                        {{-- ENTER BUILDING BUTTON --}}
+                        {{-- Opens the interior without clicking the 3D shell --}}
+                        {{-- ===================================================== --}}
+
+                        <button
+                            type="button"
+                            id="enterBuildingBtn"
+                            class="building-enter-btn"
+                        >
+                            <i data-lucide="door-open" class="h-4 w-4"></i>
+
+                            <span class="text-xs">Enter Building</span>
+                        </button>
+
+                        {{-- ===================================================== --}}
+                        {{-- PHASE 7.8: COMPACT ROOM DETAILS PANEL --}}
+                        {{-- ===================================================== --}}
+
+                        <div
+                            id="buildingRoomDetailsPanel"
+                            class="building-room-details-panel"
+                        >
+                            {{-- HEADER --}}
+                            <div class="building-room-details-header">
+                                <div>
+                                    <span class="building-room-details-eyebrow">
+                                        SELECTED ROOM
+                                    </span>
+
+                                    <h3 id="buildingRoomDetailsName">Room</h3>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    id="buildingRoomDetailsClose"
+                                    class="building-room-details-close"
+                                    aria-label="Close room details"
+                                >
+                                    <i data-lucide="x"></i>
+                                </button>
+                            </div>
+
+                            {{-- ROOM INFORMATION --}}
+                            <div class="building-room-details-info">
+                                <div class="building-room-details-row">
+                                    <span>Floor</span>
+
+                                    <strong id="buildingRoomDetailsFloor">
+                                        Unknown
+                                    </strong>
+                                </div>
+
+                                <div class="building-room-details-row">
+                                    <span>Status</span>
+
+                                    <strong id="buildingRoomDetailsStatus">
+                                        Available
+                                    </strong>
+                                </div>
+                            </div>
+
+                            {{-- MAINTENANCE SUMMARY --}}
+                            <div class="building-room-details-stats">
+                                <div class="building-room-details-stat">
+                                    <span>Active Reports</span>
+
+                                    <strong
+                                        id="buildingRoomDetailsActiveReports"
+                                    >
+                                        0
+                                    </strong>
+                                </div>
+
+                                <div class="building-room-details-stat">
+                                    <span>Urgent Reports</span>
+
+                                    <strong
+                                        id="buildingRoomDetailsUrgentReports"
+                                    >
+                                        0
+                                    </strong>
+                                </div>
+
+                                <div class="building-room-details-stat">
+                                    <span>Maintenance</span>
+
+                                    <strong id="buildingRoomDetailsMaintenance">
+                                        0
+                                    </strong>
+                                </div>
+                            </div>
+
+                            {{-- ACTION --}}
+                            <button
+                                type="button"
+                                id="buildingRoomDetailsView"
+                                class="building-room-details-view"
+                            >
+                                View Room
+
+                                <i data-lucide="arrow-right"></i>
+                            </button>
+                        </div>
+
+                        {{-- ===================================================== --}}
+                        {{-- PHASE 7.7: ROOM HOVER TOOLTIP --}}
+                        {{-- ===================================================== --}}
+
+                        <div
+                            id="buildingRoomTooltip"
+                            class="building-room-tooltip"
+                        >
+                            <div class="building-room-tooltip-header">
+                                <span
+                                    id="buildingRoomTooltipDot"
+                                    class="building-room-tooltip-dot"
+                                ></span>
+
+                                <span class="building-room-tooltip-eyebrow">
+                                    ROOM
+                                </span>
+                            </div>
+
+                            <div
+                                id="buildingRoomTooltipName"
+                                class="building-room-tooltip-name"
+                            >
+                                Room
+                            </div>
+
+                            <div class="building-room-tooltip-details">
+                                <span id="buildingRoomTooltipFloor">
+                                    Floor
+                                </span>
+
+                                <span class="building-room-tooltip-separator">
+                                    •
+                                </span>
+
+                                <span id="buildingRoomTooltipStatus">
+                                    Available
+                                </span>
+                            </div>
+                        </div>
+
+                        {{-- FLOATING LABEL --}}
+                        <!--<div class="dashboard-building-badge">
+                            <span class="dashboard-building-badge-dot"></span>
+
+                            Interactive Building Overview
+                        </div>-->
+
+                        {{-- ===================================================== --}}
+                        {{-- PHASE 7.4: FLOOR FILTER CONTROLS --}}
+                        {{-- ===================================================== --}}
+
+                        <div
+                            id="buildingFloorFilters"
+                            class="building-floor-filters"
+                            style="display: none"
+                        >
+                            <button
+                                type="button"
+                                class="building-floor-filter active"
+                                data-floor-filter="all"
+                            >
+                                All Floors
+                            </button>
+
+                            <div
+                                id="buildingFloorFilterButtons"
+                                class="building-floor-filter-dynamic"
+                            ></div>
+                        </div>
+
+                        <button
+                            type="button"
+                            id="backToBuildingOverview"
+                            style="display: none"
+                            class="building-back-overview-btn"
+                        >
+                             <i data-lucide="chevrons-left" class="h-4 w-4"></i>
+                            
+                            <span class="text-xs">Return</span>
+                        </button>
+
+                        {{-- 3D CONTROLS (reset icon hidden; use hold + R) --}}
+                        <div class="building-3d-controls" style="display: none" aria-hidden="true">
+                            <button
+                                type="button"
+                                id="buildingReset"
+                                class="building-3d-control"
+                                title="Reset View"
+                                tabindex="-1"
+                            >
+                                <i data-lucide="rotate-ccw"></i>
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
                 <div class="dashboard-overview-row">
                     {{-- ===================================================== --}}
                     {{-- PREMIUM FLOW ANALYTICS CARD --}}
@@ -5013,6 +5350,10 @@
                         $maintenancePercent = round(($underMaintenance / $total) * 100);
                         $borrowedPercent = round(($borrowedEquipment / $total) * 100);
                     @endphp
+
+                    
+
+
                     <div class="flow-card">
                         <div>
                             {{-- Header --}}
@@ -5620,253 +5961,7 @@
                     </section>
                 </div>
 
-                {{-- ===================================================== --}}
-                {{-- 3D CAMPUS / BUILDING OVERVIEW --}}
-                {{-- ADD THIS AFTER dashboard-bottom-charts --}}
-                {{-- ===================================================== --}}
-
-                <section class="dashboard-building-section">
-                    {{-- HEADER --}}
-                    <div class="dashboard-building-header">
-                        <div>
-                            <p class="dashboard-building-eyebrow">INFRASTRUCTURE OVERVIEW</p>
-
-                            <h2 class="dashboard-building-title">
-                                Building Rooms
-                            </h2>
-
-                            <p class="dashboard-building-subtitle">Interactive overview of rooms, equipment, and maintenance status.</p>
-                        </div>
-
-                        <a href="#" class="dashboard-building-action">
-                            <i data-lucide="maximize-2"></i>
-                            <span>View Building</span>
-                        </a>
-                    </div>
-
-                    {{-- 3D BUILDING VIEW --}}
-                    {{-- ===================================================== --}}
-                    {{-- PHASE 1: INTERACTIVE 3D BUILDING VIEWPORT --}}
-                    {{-- ===================================================== --}}
-
-                    <div class="dashboard-building-view">
-                        {{-- THREE.JS WILL RENDER THE 3D SCENE HERE --}}
-                        <div id="building3DViewport"></div>
-
-                        {{-- ===================================================== --}}
-                        {{-- ENTER BUILDING BUTTON --}}
-                        {{-- Opens the interior without clicking the 3D shell --}}
-                        {{-- ===================================================== --}}
-
-                        <button
-                            type="button"
-                            id="enterBuildingBtn"
-                            class="building-enter-btn"
-                        >
-                            <i data-lucide="door-open" class="h-4 w-4"></i>
-
-                            <span class="text-xs">Enter Building</span>
-                        </button>
-
-                        {{-- ===================================================== --}}
-                        {{-- PHASE 7.8: COMPACT ROOM DETAILS PANEL --}}
-                        {{-- ===================================================== --}}
-
-                        <div
-                            id="buildingRoomDetailsPanel"
-                            class="building-room-details-panel"
-                        >
-                            {{-- HEADER --}}
-                            <div class="building-room-details-header">
-                                <div>
-                                    <span class="building-room-details-eyebrow">
-                                        SELECTED ROOM
-                                    </span>
-
-                                    <h3 id="buildingRoomDetailsName">Room</h3>
-                                </div>
-
-                                <button
-                                    type="button"
-                                    id="buildingRoomDetailsClose"
-                                    class="building-room-details-close"
-                                    aria-label="Close room details"
-                                >
-                                    <i data-lucide="x"></i>
-                                </button>
-                            </div>
-
-                            {{-- ROOM INFORMATION --}}
-                            <div class="building-room-details-info">
-                                <div class="building-room-details-row">
-                                    <span>Floor</span>
-
-                                    <strong id="buildingRoomDetailsFloor">
-                                        Unknown
-                                    </strong>
-                                </div>
-
-                                <div class="building-room-details-row">
-                                    <span>Status</span>
-
-                                    <strong id="buildingRoomDetailsStatus">
-                                        Available
-                                    </strong>
-                                </div>
-                            </div>
-
-                            {{-- MAINTENANCE SUMMARY --}}
-                            <div class="building-room-details-stats">
-                                <div class="building-room-details-stat">
-                                    <span>Active Reports</span>
-
-                                    <strong
-                                        id="buildingRoomDetailsActiveReports"
-                                    >
-                                        0
-                                    </strong>
-                                </div>
-
-                                <div class="building-room-details-stat">
-                                    <span>Urgent Reports</span>
-
-                                    <strong
-                                        id="buildingRoomDetailsUrgentReports"
-                                    >
-                                        0
-                                    </strong>
-                                </div>
-
-                                <div class="building-room-details-stat">
-                                    <span>Maintenance</span>
-
-                                    <strong id="buildingRoomDetailsMaintenance">
-                                        0
-                                    </strong>
-                                </div>
-                            </div>
-
-                            {{-- ACTION --}}
-                            <button
-                                type="button"
-                                id="buildingRoomDetailsView"
-                                class="building-room-details-view"
-                            >
-                                View Room
-
-                                <i data-lucide="arrow-right"></i>
-                            </button>
-                        </div>
-
-                        {{-- ===================================================== --}}
-                        {{-- PHASE 7.7: ROOM HOVER TOOLTIP --}}
-                        {{-- ===================================================== --}}
-
-                        <div
-                            id="buildingRoomTooltip"
-                            class="building-room-tooltip"
-                        >
-                            <div class="building-room-tooltip-header">
-                                <span
-                                    id="buildingRoomTooltipDot"
-                                    class="building-room-tooltip-dot"
-                                ></span>
-
-                                <span class="building-room-tooltip-eyebrow">
-                                    ROOM
-                                </span>
-                            </div>
-
-                            <div
-                                id="buildingRoomTooltipName"
-                                class="building-room-tooltip-name"
-                            >
-                                Room
-                            </div>
-
-                            <div class="building-room-tooltip-details">
-                                <span id="buildingRoomTooltipFloor">
-                                    Floor
-                                </span>
-
-                                <span class="building-room-tooltip-separator">
-                                    •
-                                </span>
-
-                                <span id="buildingRoomTooltipStatus">
-                                    Available
-                                </span>
-                            </div>
-                        </div>
-
-                        {{-- FLOATING LABEL --}}
-                        <!--<div class="dashboard-building-badge">
-                            <span class="dashboard-building-badge-dot"></span>
-
-                            Interactive Building Overview
-                        </div>-->
-
-                        {{-- ===================================================== --}}
-                        {{-- PHASE 7.4: FLOOR FILTER CONTROLS --}}
-                        {{-- ===================================================== --}}
-
-                        <div class="building-floor-filters">
-                            <button
-                                type="button"
-                                class="building-floor-filter active"
-                                data-floor-filter="all"
-                            >
-                                All Floors
-                            </button>
-
-                            <div
-                                id="buildingFloorFilterButtons"
-                                class="building-floor-filter-dynamic"
-                            ></div>
-                        </div>
-
-                        <button
-                            type="button"
-                            id="backToBuildingOverview"
-                            style="display: none"
-                            class="building-back-overview-btn"
-                        >
-                             <i data-lucide="chevrons-left" class="h-4 w-4"></i>
-                            
-                            <span class="text-xs">Return</span>
-                        </button>
-
-                        {{-- 3D CONTROLS --}}
-                        <div class="building-3d-controls">
-                            <!--<button
-                                type="button"
-                                id="buildingZoomOut"
-                                class="building-3d-control"
-                                title="Zoom Out"
-                            >
-                                <i data-lucide="minus"></i>
-                            </button>-->
-
-                            <!--<button
-                                type="button"
-                                id="buildingZoomIn"
-                                class="building-3d-control"
-                                title="Zoom In"
-                            >
-                                <i data-lucide="plus"></i>
-                            </button>-->
-
-                            <button
-                                type="button"
-                                id="buildingReset"
-                                class="building-3d-control"
-                                title="Reset View"
-                            >
-                                <i data-lucide="rotate-ccw"></i>
-                            </button>
-                        </div>
-                    </div>
-                </section>
+                
 
                 {{-- ===================================================== --}}
                 {{-- BOTTOM ANALYTICS CHARTS --}}
@@ -6737,6 +6832,100 @@
             </aside>
         </div>
     </div>
+
+    @php
+        $showDailyReminder =
+            ($urgentReportsToday ?? 0) > 0
+            || ($overdueMaintenance ?? 0) > 0;
+    @endphp
+
+    @if ($showDailyReminder)
+        {{-- Daily login reminder: urgent reports today + overdue schedules --}}
+        <div
+            id="dailyPriorityReminderModal"
+            class="fixed inset-0 z-[70] hidden items-center justify-center bg-black/40 p-4 backdrop-blur-[2px]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="dailyPriorityReminderTitle"
+        >
+            <div class="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.22)]">
+                <div class="border-b border-slate-100 px-6 pb-4 pt-6">
+                    <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-rose-500">
+                        Daily reminder
+                    </p>
+                    <h2
+                        id="dailyPriorityReminderTitle"
+                        class="mt-1 text-lg font-semibold tracking-tight text-slate-950"
+                    >
+                        Attention needed today
+                    </h2>
+                    <p class="mt-1 text-sm text-slate-500">
+                        This reminder appears once per day after you open the dashboard.
+                    </p>
+                </div>
+
+                <div class="space-y-3 px-6 py-5">
+                    @if (($urgentReportsToday ?? 0) > 0)
+                        <div class="flex items-start gap-3 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3">
+                            <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-rose-600">
+                                <i data-lucide="triangle-alert" class="h-5 w-5"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-semibold text-rose-900">
+                                    {{ $urgentReportsToday }} urgent {{ \Illuminate\Support\Str::plural('report', $urgentReportsToday) }} today
+                                </p>
+                                <p class="mt-0.5 text-xs text-rose-700/80">
+                                    New urgent reports submitted today still need action.
+                                </p>
+                            </div>
+                        </div>
+                    @endif
+
+                    @if (($overdueMaintenance ?? 0) > 0)
+                        <div class="flex items-start gap-3 rounded-xl border border-orange-100 bg-orange-50 px-4 py-3">
+                            <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-orange-600">
+                                <i data-lucide="calendar-x-2" class="h-5 w-5"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-semibold text-orange-900">
+                                    {{ $overdueMaintenance }} overdue {{ \Illuminate\Support\Str::plural('schedule', $overdueMaintenance) }}
+                                </p>
+                                <p class="mt-0.5 text-xs text-orange-800/80">
+                                    Maintenance is past the scheduled date and still open.
+                                </p>
+                            </div>
+                        </div>
+                    @endif
+                </div>
+
+                <div class="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 px-6 py-4">
+                    <button
+                        type="button"
+                        id="dailyPriorityReminderDismiss"
+                        class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                    >
+                        Remind me tomorrow
+                    </button>
+
+                    @if (($urgentReportsToday ?? 0) > 0)
+                        <a
+                            href="{{ url('/maintenance/reports/urgent') }}"
+                            class="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700"
+                        >
+                            View urgent reports
+                        </a>
+                    @elseif (($overdueMaintenance ?? 0) > 0)
+                        <a
+                            href="{{ url('/maintenance/schedules') }}"
+                            class="rounded-xl bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700"
+                        >
+                            View schedules
+                        </a>
+                    @endif
+                </div>
+            </div>
+        </div>
+    @endif
 
     <!-- ========================================================= -->
     <!-- ADD EQUIPMENT MODAL -->
@@ -10303,18 +10492,92 @@ document.addEventListener(
 
             // =====================================================
             // SCENE
-            // DEEP BLUE BLACK HOLOGRAPHIC BACKGROUND
+            // Exterior: soft cool sky + quiet clouds
+            // Goal: white clay shell is the hero; sky supports, doesn't compete
             // =====================================================
 
             const scene = new THREE.Scene();
 
-            scene.background = new THREE.Color(0x020b14);
+            function createSoftCloudSkyTexture() {
+                const size = 1024;
+                const canvas = document.createElement("canvas");
+                canvas.width = size;
+                canvas.height = size;
+                const ctx = canvas.getContext("2d");
 
-            // =====================================================
-            // MATCH FOG WITH NEW BACKGROUND
-            // =====================================================
+                // Cool soft blue sky → near-white horizon
+                // Mid blue gives contrast so pure-white shell stands out
+                const sky = ctx.createLinearGradient(0, 0, 0, size);
+                sky.addColorStop(0, "#8fb4d4");
+                sky.addColorStop(0.22, "#b5cee4");
+                sky.addColorStop(0.48, "#d2e2f0");
+                sky.addColorStop(0.72, "#e6eef6");
+                sky.addColorStop(1, "#f2f6fa");
+                ctx.fillStyle = sky;
+                ctx.fillRect(0, 0, size, size);
 
-            scene.fog = new THREE.FogExp2(0x020b14, 0.012);
+                // Quiet cloud layer — soft, readable, not busy
+                const clouds = [
+                    [180, 130, 340, 0.5],
+                    [480, 95, 380, 0.46],
+                    [780, 140, 320, 0.48],
+                    [320, 220, 300, 0.34],
+                    [640, 240, 340, 0.36],
+                    [120, 280, 240, 0.28],
+                    [900, 260, 220, 0.3],
+                ];
+
+                clouds.forEach(([x, y, r, alpha]) => {
+                    const drawPuff = (cx, cy, rx, ry, a) => {
+                        const g = ctx.createRadialGradient(
+                            cx,
+                            cy,
+                            Math.min(rx, ry) * 0.08,
+                            cx,
+                            cy,
+                            Math.max(rx, ry),
+                        );
+                        g.addColorStop(0, `rgba(255,255,255,${a})`);
+                        g.addColorStop(0.4, `rgba(255,255,255,${a * 0.55})`);
+                        g.addColorStop(1, "rgba(255,255,255,0)");
+                        ctx.fillStyle = g;
+                        ctx.beginPath();
+                        ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                    };
+
+                    drawPuff(x, y, r, r * 0.42, alpha);
+                    drawPuff(x - r * 0.4, y + r * 0.05, r * 0.65, r * 0.36, alpha * 0.75);
+                    drawPuff(x + r * 0.38, y + r * 0.04, r * 0.7, r * 0.38, alpha * 0.8);
+                    drawPuff(x + r * 0.05, y - r * 0.12, r * 0.5, r * 0.32, alpha * 0.65);
+                });
+
+                const texture = new THREE.CanvasTexture(canvas);
+                texture.colorSpace = THREE.SRGBColorSpace;
+                texture.needsUpdate = true;
+                return texture;
+            }
+
+            const exteriorCloudSkyTexture = createSoftCloudSkyTexture();
+
+            scene.background = new THREE.Color(0x020617);
+
+            const exteriorSkyDome = new THREE.Mesh(
+                new THREE.SphereGeometry(220, 48, 28),
+                new THREE.MeshBasicMaterial({
+                    map: exteriorCloudSkyTexture,
+                    side: THREE.BackSide,
+                    depthWrite: false,
+                    fog: false,
+                }),
+            );
+            exteriorSkyDome.renderOrder = -2000;
+            exteriorSkyDome.frustumCulled = false;
+            exteriorSkyDome.visible = false; // black studio — no sky dome
+            scene.add(exteriorSkyDome);
+
+            // Soft falloff into black
+            scene.fog = new THREE.Fog(0x020617, 90, 220);
 
             // =====================================================
             // CAMERA
@@ -10370,14 +10633,15 @@ document.addEventListener(
 
             // =====================================================
             // HOLOGRAPHIC CYAN BLOOM
+            // Off for exterior clay look; enabled inside building
             // =====================================================
 
             const bloomPass = new UnrealBloomPass(
                 new THREE.Vector2(container.clientWidth, container.clientHeight),
 
-                0.45, // Strength, was 1.0
-                0.3, // Radius, was 0.45
-                0.55, // Threshold, was 0.35
+                0.0, // Strength — exterior starts with no bloom
+                0.3, // Radius
+                0.55, // Threshold
             );
 
             composer.addPass(bloomPass);
@@ -10401,8 +10665,8 @@ document.addEventListener(
             controls.enableZoom = true;
             controls.enablePan = true;
 
-            controls.minDistance = 8;
-            controls.maxDistance = 35;
+            controls.minDistance = 4;
+            controls.maxDistance = 42;
 
             controls.target.set(0, 2.5, 0);
 
@@ -10412,107 +10676,201 @@ document.addEventListener(
 
             // =====================================================
             // LIGHTING
-            // BRIGHT BLUE CYAN HOLOGRAPHIC LIGHTING
+            // Soft high-key studio light for white clay shell
             // =====================================================
 
-            // =====================================================
-            // BLUE AMBIENT LIGHT
-            // PROVIDES SOFT BLUE LIGHT ACROSS THE WHOLE SCENE
-            // =====================================================
-
-            const ambientLight = new THREE.AmbientLight(0x38bdf8, 1.2);
+            // Hemisphere: cool sky + soft ground bounce (blue clay look)
+            const ambientLight = new THREE.HemisphereLight(0xffffff, 0x1e293b, 0.85);
 
             scene.add(ambientLight);
 
-            // =====================================================
-            // CYAN TOP LIGHT
-            // CREATES BRIGHT LIGHT FROM ABOVE
-            // =====================================================
+            // Soft fill from above
+            const topLight = new THREE.PointLight(0xffffff, 2.4, 120);
 
-            const topLight = new THREE.PointLight(0x22d3ee, 12, 100);
-
-            topLight.position.set(0, 20, 0);
+            topLight.position.set(0, 24, 0);
 
             scene.add(topLight);
 
-            // =====================================================
-            // BLUE GROUND LIGHT
-            // CREATES BLUE GLOW UNDER THE BUILDING
-            // =====================================================
+            // Soft bounce fill under/around the shell
+            const groundLight = new THREE.PointLight(0xcbd5e1, 1.0, 90);
 
-            const groundLight = new THREE.PointLight(0x008cff, 15, 50);
-
-            groundLight.position.set(0, 1, 5);
+            groundLight.position.set(-4, 1.2, 4);
 
             scene.add(groundLight);
 
-            // =====================================================
-            // SOFT DIRECTIONAL LIGHT
-            // KEEPS THE BUILDING SHAPE VISIBLE
-            // =====================================================
+            // Key light — white clay pops on black
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 2.7);
 
-            const directionalLight = new THREE.DirectionalLight(0xbfe8ff, 1.5);
-
-            directionalLight.position.set(10, 18, 12);
+            directionalLight.position.set(16, 20, 8);
 
             directionalLight.castShadow = true;
+
+            directionalLight.shadow.mapSize.set(2048, 2048);
+            directionalLight.shadow.bias = -0.00025;
+            directionalLight.shadow.normalBias = 0.035;
+            directionalLight.shadow.radius = 4;
+            directionalLight.shadow.camera.near = 1;
+            directionalLight.shadow.camera.far = 80;
+            directionalLight.shadow.camera.left = -30;
+            directionalLight.shadow.camera.right = 30;
+            directionalLight.shadow.camera.top = 30;
+            directionalLight.shadow.camera.bottom = -30;
 
             scene.add(directionalLight);
 
             // =====================================================
-            // BLUE HOLOGRAPHIC GROUND PLANE
-            // REPLACES EXISTING DIGITAL TWIN BASE PLATFORM
+            // BLUEPRINT GROUND (like the reference under the model)
             // =====================================================
+
+            function createBlueprintTexture() {
+                const size = 1024;
+                const canvas = document.createElement('canvas');
+                canvas.width = size;
+                canvas.height = size;
+                const ctx = canvas.getContext('2d');
+
+                // Paper base — slightly cooler so white shell lifts off ground
+                ctx.fillStyle = '#d9e6f2';
+                ctx.fillRect(0, 0, size, size);
+
+                // Soft vignette sheets
+                ctx.fillStyle = 'rgba(180, 208, 232, 0.28)';
+                for (let i = 0; i < 5; i++) {
+                    const x = 40 + (i % 3) * 280;
+                    const y = 50 + Math.floor(i / 3) * 420;
+                    ctx.fillRect(x, y, 300, 380);
+                    ctx.strokeStyle = 'rgba(96, 140, 180, 0.35)';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(x, y, 300, 380);
+                }
+
+                // Blueprint grid
+                ctx.strokeStyle = 'rgba(90, 140, 190, 0.28)';
+                ctx.lineWidth = 1;
+                for (let i = 0; i <= size; i += 32) {
+                    ctx.beginPath();
+                    ctx.moveTo(i, 0);
+                    ctx.lineTo(i, size);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(0, i);
+                    ctx.lineTo(size, i);
+                    ctx.stroke();
+                }
+
+                // Stronger major grid
+                ctx.strokeStyle = 'rgba(70, 120, 170, 0.4)';
+                ctx.lineWidth = 1.5;
+                for (let i = 0; i <= size; i += 128) {
+                    ctx.beginPath();
+                    ctx.moveTo(i, 0);
+                    ctx.lineTo(i, size);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(0, i);
+                    ctx.lineTo(size, i);
+                    ctx.stroke();
+                }
+
+                // Fake floor-plan rooms
+                const rooms = [
+                    [80, 90, 160, 110], [260, 90, 120, 110], [400, 90, 140, 70],
+                    [80, 220, 100, 140], [200, 220, 180, 90], [400, 180, 120, 160],
+                    [560, 120, 150, 100], [560, 240, 150, 120], [740, 120, 160, 240],
+                    [80, 520, 200, 130], [300, 520, 160, 130], [480, 520, 220, 90],
+                    [720, 500, 180, 160], [120, 700, 240, 140], [400, 680, 180, 160],
+                    [620, 700, 220, 120],
+                ];
+
+                rooms.forEach(([x, y, w, h], idx) => {
+                    ctx.fillStyle = idx % 2 === 0 ? 'rgba(170, 205, 230, 0.22)' : 'rgba(150, 190, 220, 0.16)';
+                    ctx.fillRect(x, y, w, h);
+                    ctx.strokeStyle = 'rgba(55, 105, 155, 0.65)';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(x, y, w, h);
+
+                    // Dimension ticks
+                    ctx.strokeStyle = 'rgba(55, 105, 155, 0.45)';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(x, y - 8);
+                    ctx.lineTo(x + w, y - 8);
+                    ctx.stroke();
+                });
+
+                // Annotation-like dots/lines
+                ctx.fillStyle = 'rgba(50, 100, 150, 0.5)';
+                for (let i = 0; i < 40; i++) {
+                    const x = (i * 97) % size;
+                    const y = (i * 173) % size;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                const texture = new THREE.CanvasTexture(canvas);
+                texture.wrapS = THREE.RepeatWrapping;
+                texture.wrapT = THREE.RepeatWrapping;
+                texture.repeat.set(2.5, 2.5);
+                texture.anisotropy = 8;
+                texture.colorSpace = THREE.SRGBColorSpace;
+                return texture;
+            }
+
+            const blueprintTexture = createBlueprintTexture();
 
             const floor = new THREE.Mesh(
                 new THREE.PlaneGeometry(100, 100),
 
-                new THREE.MeshBasicMaterial({
-                    color: 0x031d2e,
-
-                    transparent: true,
-
-                    opacity: 0.45,
-
+                new THREE.MeshStandardMaterial({
+                    map: blueprintTexture,
+                    color: 0xffffff,
+                    roughness: 0.96,
+                    metalness: 0,
                     side: THREE.DoubleSide,
                 }),
             );
 
             floor.rotation.x = -Math.PI / 2;
 
-            // =====================================================
-            // PLACE SLIGHTLY BELOW GRID
-            // PREVENTS GRID FLICKERING
-            // =====================================================
-
             floor.position.y = -0.02;
+
+            floor.receiveShadow = true;
 
             scene.add(floor);
 
-            // =====================================================
-            // FUTURISTIC BLUE DIGITAL GRID
-            // REPLACES EXISTING DIGITAL BLUEPRINT GRID
-            // =====================================================
+            // Soft blue contact shadow under the shell
+            const groundShadow = new THREE.Mesh(
+                new THREE.CircleGeometry(18, 64),
+                new THREE.MeshBasicMaterial({
+                    color: 0x5b7fa3,
+                    transparent: true,
+                    opacity: 0.22,
+                    depthWrite: false,
+                }),
+            );
 
+            groundShadow.rotation.x = -Math.PI / 2;
+            groundShadow.position.y = 0.005;
+            groundShadow.scale.set(1.45, 0.92, 1);
+            scene.add(groundShadow);
+
+            // Keep a very light grid for orbit sense; blueprint carries the look
             const grid = new THREE.GridHelper(
                 100,
 
-                100,
+                40,
 
-                0x00cfff,
+                0x7eb0d8,
 
-                0x075985,
+                0xa8c8e4,
             );
 
-            // =====================================================
-            // KEEP GRID SLIGHTLY ABOVE GROUND
-            // =====================================================
-
-            grid.position.y = 0.01;
+            grid.position.y = 0.012;
 
             grid.material.transparent = true;
 
-            grid.material.opacity = 0.35;
+            grid.material.opacity = 0.22;
 
             scene.add(grid);
 
@@ -10558,17 +10916,80 @@ document.addEventListener(
             // interior = user is viewing floors and rooms
             // =====================================================
 
+            // Default after refresh/load: exterior shell (screenshot angle).
+            // Enter Building opens floors; Return comes back to this shell.
             let currentBuildingView = "exterior";
 
             let isBuildingViewTransitioning = false;
 
             // =====================================================
+            // SCENE THEME
+            // exterior + interior = same white clay studio
+            // =====================================================
+
+            function applyBuildingSceneTheme(mode) {
+                const isExterior = mode === "exterior";
+
+                container.classList.toggle("is-interior-view", !isExterior);
+
+                // Uniform black studio for shell and floors
+                scene.background = new THREE.Color(0x020617);
+                scene.fog = new THREE.Fog(0x020617, 90, 220);
+
+                if (typeof exteriorSkyDome !== "undefined" && exteriorSkyDome) {
+                    exteriorSkyDome.visible = false;
+                }
+
+                bloomPass.strength = 0;
+
+                // Soft fill so white clay reads clean on black
+                ambientLight.color.set(0xffffff);
+                if (ambientLight.groundColor) {
+                    ambientLight.groundColor.set(0x1e293b);
+                }
+                ambientLight.intensity = 0.85;
+
+                topLight.color.set(0xffffff);
+                topLight.intensity = 2.4;
+
+                groundLight.color.set(0xcbd5e1);
+                groundLight.intensity = 1.0;
+
+                directionalLight.color.set(0xffffff);
+                directionalLight.intensity = 2.7;
+
+                if (floor.material) {
+                    floor.material.color.set(0xffffff);
+                    floor.material.opacity = 1;
+                    floor.material.transparent = false;
+                    if (floor.material.map) {
+                        floor.material.map = blueprintTexture;
+                        floor.material.needsUpdate = true;
+                    }
+                }
+
+                if (typeof groundShadow !== "undefined" && groundShadow) {
+                    groundShadow.visible = true;
+                }
+
+                if (grid.material) {
+                    grid.material.opacity = 0.22;
+                    if (grid.material.color) {
+                        grid.material.color.set(0x64748b);
+                    }
+                }
+
+                renderer.toneMappingExposure = 1.05;
+            }
+
+            applyBuildingSceneTheme("exterior");
+
+            // =====================================================
             // PHASE 8.2
             // INITIAL BUILDING VISIBILITY
             //
-            // Dashboard starts in Exterior Mode.
-            // Hide the interior rooms and floors.
-            // Show the exterior building shell.
+            // Dashboard starts in Exterior Mode (shell overview).
+            // Hide interior rooms; show the exterior wireframe shell.
             // =====================================================
 
             building.visible = false;
@@ -10587,40 +11008,46 @@ document.addEventListener(
 
             // =====================================================
             // EXTERIOR MATERIAL
-            // RESTORED ORIGINAL HOLOGRAPHIC GLASS EFFECT
+            // Pure white clay shell (shadows from lighting only)
             // =====================================================
 
             const exteriorMaterial = new THREE.MeshPhysicalMaterial({
-                color: 0x0c4a6e,
+                color: 0xffffff,
 
-                emissive: 0x063b52,
+                emissive: 0xffffff,
 
-                emissiveIntensity: 0.35,
+                emissiveIntensity: 0.06,
 
                 transparent: true,
 
-                opacity: 0.18,
+                opacity: 1,
 
-                roughness: 0.15,
+                roughness: 0.58,
 
-                metalness: 0.1,
+                metalness: 0.0,
+
+                clearcoat: 0.12,
+
+                clearcoatRoughness: 0.55,
+
+                sheen: 1,
+
+                sheenRoughness: 0.75,
+
+                sheenColor: new THREE.Color(0xffffff),
 
                 side: THREE.DoubleSide,
 
-                depthWrite: false,
+                depthWrite: true,
             });
 
-            // =====================================================
-            // EXTERIOR EDGE MATERIAL
-            // RESTORED ORIGINAL CYAN ARCHITECTURAL WIREFRAME
-            // =====================================================
-
+            // Very light seams — keep form without graying the shell
             const exteriorEdgeMaterial = new THREE.LineBasicMaterial({
-                color: 0x67e8f9,
+                color: 0xe2e8f0,
 
                 transparent: true,
 
-                opacity: 0.85,
+                opacity: 0.28,
             });
 
             // =====================================================
@@ -10688,30 +11115,45 @@ document.addEventListener(
                 const straightHeight = Math.max(height - curveRadius, height * 0.45);
 
                 // =================================================
-                // ARCH MATERIAL
-                //
-                // Keep this consistent with the existing
-                // blueprint exterior style.
+                // ARCH MATERIAL — white clay (matches shell)
                 // =================================================
 
-                const archMaterial = new THREE.MeshBasicMaterial({
-                    color: 0x17375e,
+                const archMaterial = new THREE.MeshPhysicalMaterial({
+                    color: 0xffffff,
+
+                    emissive: 0xffffff,
+
+                    emissiveIntensity: 0.06,
+
+                    roughness: 0.58,
+
+                    metalness: 0.0,
+
+                    clearcoat: 0.12,
+
+                    clearcoatRoughness: 0.55,
+
+                    sheen: 1,
+
+                    sheenRoughness: 0.75,
+
+                    sheenColor: new THREE.Color(0xffffff),
+
+                    transparent: true,
+
+                    opacity: 1,
+
+                    side: THREE.DoubleSide,
+
+                    depthWrite: true,
+                });
+
+                const archEdgeMaterial = new THREE.LineBasicMaterial({
+                    color: 0xe2e8f0,
 
                     transparent: true,
 
                     opacity: 0.28,
-
-                    side: THREE.DoubleSide,
-
-                    depthWrite: false,
-                });
-
-                const archEdgeMaterial = new THREE.LineBasicMaterial({
-                    color: 0x79cfff,
-
-                    transparent: true,
-
-                    opacity: 0.75,
                 });
 
                 // =================================================
@@ -10948,10 +11390,10 @@ document.addEventListener(
                     return;
                 }
 
-                // Bright cyan hover effect
-                room.material.emissive.setHex(0x22d3ee);
+                // Soft slate hover — matches clay studio
+                room.material.emissive.setHex(0x94a3b8);
 
-                room.material.emissiveIntensity = 0.8;
+                room.material.emissiveIntensity = 0.35;
             }
 
             function applyRoomSelectedVisual(room) {
@@ -11093,9 +11535,9 @@ document.addEventListener(
 
                     roomTooltipDot.style.boxShadow = "0 0 8px rgba(245, 158, 11, 0.9)";
                 } else {
-                    roomTooltipDot.style.background = "#22d3ee";
+                    roomTooltipDot.style.background = "#94a3b8";
 
-                    roomTooltipDot.style.boxShadow = "0 0 8px rgba(34, 211, 238, 0.9)";
+                    roomTooltipDot.style.boxShadow = "0 0 8px rgba(148, 163, 184, 0.7)";
                 }
 
                 // =================================================
@@ -11187,21 +11629,25 @@ document.addEventListener(
             // =====================================================
 
             const roomMaterials = {
-                // NORMAL ROOM
+                // NORMAL ROOM — white clay (matches shell)
                 normal: new THREE.MeshPhysicalMaterial({
-                    color: 0x0c4a6e,
+                    color: 0xffffff,
 
-                    emissive: 0x062f46,
+                    emissive: 0xffffff,
 
-                    emissiveIntensity: 0.45,
+                    emissiveIntensity: 0.04,
 
                     transparent: true,
 
-                    opacity: 0.38,
+                    opacity: 0.72,
 
-                    roughness: 0.2,
+                    roughness: 0.58,
 
-                    metalness: 0.15,
+                    metalness: 0.0,
+
+                    clearcoat: 0.1,
+
+                    clearcoatRoughness: 0.55,
 
                     side: THREE.DoubleSide,
 
@@ -11210,19 +11656,19 @@ document.addEventListener(
 
                 // MAINTENANCE / ACTIVE REPORT
                 warning: new THREE.MeshPhysicalMaterial({
-                    color: 0x78350f,
+                    color: 0xfef3c7,
 
                     emissive: 0xf59e0b,
 
-                    emissiveIntensity: 0.45,
+                    emissiveIntensity: 0.22,
 
                     transparent: true,
 
-                    opacity: 0.48,
+                    opacity: 0.78,
 
-                    roughness: 0.25,
+                    roughness: 0.5,
 
-                    metalness: 0.1,
+                    metalness: 0.0,
 
                     side: THREE.DoubleSide,
 
@@ -11231,19 +11677,19 @@ document.addEventListener(
 
                 // URGENT / CRITICAL
                 urgent: new THREE.MeshPhysicalMaterial({
-                    color: 0x7f1d1d,
+                    color: 0xfee2e2,
 
                     emissive: 0xef4444,
 
-                    emissiveIntensity: 0.6,
+                    emissiveIntensity: 0.28,
 
                     transparent: true,
 
-                    opacity: 0.52,
+                    opacity: 0.8,
 
-                    roughness: 0.25,
+                    roughness: 0.5,
 
-                    metalness: 0.1,
+                    metalness: 0.0,
 
                     side: THREE.DoubleSide,
 
@@ -11253,15 +11699,15 @@ document.addEventListener(
 
             // =====================================================
             // ROOM BORDER MATERIAL
-            // CYAN HOLOGRAPHIC OUTLINE
+            // Soft clay seams (matches exterior shell edges)
             // =====================================================
 
             const roomEdgeMaterial = new THREE.LineBasicMaterial({
-                color: 0x67e8f9,
+                color: 0xcbd5e1,
 
                 transparent: true,
 
-                opacity: 0.9,
+                opacity: 0.45,
             });
 
             // =====================================================
@@ -11386,7 +11832,7 @@ document.addEventListener(
                 // LABEL BORDER
                 // =================================================
 
-                context.strokeStyle = "#22d3ee";
+                context.strokeStyle = "#94a3b8";
 
                 context.lineWidth = 4;
 
@@ -11468,7 +11914,7 @@ document.addEventListener(
                 // LABEL BORDER
                 // =================================================
 
-                context.strokeStyle = "rgba(34, 211, 238, 0.85)";
+                context.strokeStyle = "rgba(148, 163, 184, 0.85)";
 
                 context.lineWidth = 4;
 
@@ -11625,23 +12071,27 @@ document.addEventListener(
                 );
 
                 const slabMaterial = new THREE.MeshPhysicalMaterial({
-                    color: 0x063b52,
+                    color: 0xffffff,
 
-                    emissive: 0x002b3d,
+                    emissive: 0xffffff,
 
-                    emissiveIntensity: 0.25,
+                    emissiveIntensity: 0.05,
 
                     transparent: true,
 
-                    opacity: 0.28,
+                    opacity: 0.92,
 
-                    roughness: 0.2,
+                    roughness: 0.58,
 
-                    metalness: 0.15,
+                    metalness: 0.0,
+
+                    clearcoat: 0.1,
+
+                    clearcoatRoughness: 0.55,
 
                     side: THREE.DoubleSide,
 
-                    depthWrite: false,
+                    depthWrite: true,
                 });
 
                 const floorSlab = new THREE.Mesh(slabGeometry, slabMaterial);
@@ -11660,11 +12110,11 @@ document.addEventListener(
                 const slabEdges = new THREE.EdgesGeometry(slabGeometry);
 
                 const slabEdgeMaterial = new THREE.LineBasicMaterial({
-                    color: 0x22d3ee,
+                    color: 0xe2e8f0,
 
                     transparent: true,
 
-                    opacity: 0.75,
+                    opacity: 0.35,
                 });
 
                 const slabOutline = new THREE.LineSegments(slabEdges, slabEdgeMaterial);
@@ -13713,6 +14163,130 @@ document.addEventListener(
                 stiEntranceCanopy.userData.isBuildingExterior = true;
 
                 stiEntranceCanopy.userData.isStiEntrance = true;
+
+                // =================================================
+                // STI COLLEGE ORMOC BANNER (FRONTMOST LAYER)
+                // Uses public/image/STI_College_Ormoc_Logo.png
+                // Left facade only (no arch overlap)
+                // =================================================
+
+                // Keep banner on the LEFT street facade only —
+                // stop before the center Robinsons arch.
+                const archHalfWidth = frontFeatureWidth / 2;
+                const gapFromArch = Math.max(buildingWidth * 0.035, 0.55);
+                const leftFacadeInner =
+                    center.x - archHalfWidth - gapFromArch;
+                const leftFacadeOuter =
+                    center.x - buildingWidth * 0.47;
+
+                const stiBannerWidth = Math.max(
+                    Math.min(
+                        leftFacadeInner - leftFacadeOuter,
+                        buildingWidth * 0.13,
+                    ),
+                    2.2,
+                );
+
+                const stiBannerHeight = Math.max(
+                    upperFacadeHeight * 0.62,
+                    0.75,
+                );
+                const stiBannerDepth = 0.14;
+
+                const stiBannerCenterX =
+                    leftFacadeInner - stiBannerWidth / 2;
+
+                // Placeholder yellow until banner image loads
+                const stiBannerMaterial = new THREE.MeshBasicMaterial({
+                    color: 0xffd200,
+                    toneMapped: false,
+                    depthTest: true,
+                    depthWrite: true,
+                    polygonOffset: true,
+                    polygonOffsetFactor: -4,
+                    polygonOffsetUnits: -4,
+                });
+
+                const stiBanner = new THREE.Mesh(
+                    new THREE.BoxGeometry(
+                        stiBannerWidth,
+                        stiBannerHeight,
+                        stiBannerDepth,
+                    ),
+                    stiBannerMaterial,
+                );
+
+                const stiBannerZ =
+                    (typeof frontWindowZ !== "undefined"
+                        ? frontWindowZ
+                        : frontZ + facadeBandDepth + 0.2) +
+                    stiBannerDepth / 2 +
+                    1.25;
+
+                stiBanner.position.set(
+                    stiBannerCenterX,
+                    center.y + buildingHeight * 0.30,
+                    stiBannerZ,
+                );
+
+                stiBanner.renderOrder = 999;
+                stiBanner.castShadow = true;
+                stiBanner.receiveShadow = true;
+                stiBanner.userData.isBuildingExterior = true;
+                stiBanner.userData.isStiBanner = true;
+
+                exteriorBuilding.add(stiBanner);
+
+                const stiBannerMount = new THREE.Mesh(
+                    new THREE.BoxGeometry(
+                        stiBannerWidth + 0.1,
+                        stiBannerHeight + 0.08,
+                        0.05,
+                    ),
+                    new THREE.MeshBasicMaterial({
+                        color: 0x334155,
+                        depthTest: true,
+                        depthWrite: true,
+                        polygonOffset: true,
+                        polygonOffsetFactor: -2,
+                        polygonOffsetUnits: -2,
+                    }),
+                );
+
+                stiBannerMount.position.set(
+                    stiBanner.position.x,
+                    stiBanner.position.y,
+                    stiBannerZ - stiBannerDepth / 2 - 0.03,
+                );
+
+                stiBannerMount.renderOrder = 998;
+                stiBannerMount.userData.isBuildingExterior = true;
+                exteriorBuilding.add(stiBannerMount);
+
+                // Full campus banner image
+                const stiBannerUrl = @json(asset('image/STI_College_Ormoc_Logo.png'));
+                const stiBannerLoader = new THREE.TextureLoader();
+
+                stiBannerLoader.load(
+                    stiBannerUrl,
+                    (bannerTexture) => {
+                        bannerTexture.colorSpace = THREE.SRGBColorSpace;
+                        bannerTexture.anisotropy = 8;
+                        bannerTexture.needsUpdate = true;
+
+                        stiBannerMaterial.map = bannerTexture;
+                        stiBannerMaterial.color.set(0xffffff);
+                        stiBannerMaterial.needsUpdate = true;
+                    },
+                    undefined,
+                    () => {
+                        console.warn(
+                            "STI College Ormoc banner failed to load:",
+                            stiBannerUrl,
+                        );
+                    },
+                );
+
             }
 
             // =====================================================
@@ -13766,7 +14340,8 @@ document.addEventListener(
             centerExteriorBuildingOnGrid();
 
             // =====================================================
-            // SET DEFAULT CAMERA TO REAR EXTERIOR VIEW
+            // SET DEFAULT CAMERA TO EXTERIOR SHELL OVERVIEW
+            // Matches the first-load / refresh angle (screenshot)
             // =====================================================
 
             const defaultExteriorView = getExteriorFocusView();
@@ -13786,12 +14361,91 @@ document.addEventListener(
             );
 
             // =====================================================
+            // ENTER BUILDING — ANCHOR TO ROOF CENTER
+            // Projects the shell roof top into screen space
+            // =====================================================
+
+            const enterButtonProjected = new THREE.Vector3();
+
+            function getExteriorRoofAnchor() {
+                exteriorBuilding.updateMatrixWorld(true);
+
+                const box = new THREE.Box3().setFromObject(exteriorBuilding);
+
+                if (box.isEmpty()) {
+                    return new THREE.Vector3(0, 8, 0);
+                }
+
+                const center = box.getCenter(new THREE.Vector3());
+
+                // Center of the roof plane, slightly above so the
+                // button sits on top of the shell like a roof label.
+                return new THREE.Vector3(
+                    center.x,
+                    box.max.y + 0.55,
+                    center.z,
+                );
+            }
+
+            function updateEnterBuildingButtonPosition() {
+                if (!enterBuildingButton) {
+                    return;
+                }
+
+                const isHidden =
+                    enterBuildingButton.style.display === "none" ||
+                    currentBuildingView !== "exterior";
+
+                if (isHidden) {
+                    return;
+                }
+
+                const anchor = getExteriorRoofAnchor();
+
+                enterButtonProjected.copy(anchor).project(camera);
+
+                // Behind the camera / clipped
+                if (enterButtonProjected.z > 1) {
+                    enterBuildingButton.style.visibility = "hidden";
+                    return;
+                }
+
+                const x =
+                    (enterButtonProjected.x * 0.5 + 0.5) *
+                    container.clientWidth;
+
+                const y =
+                    (-enterButtonProjected.y * 0.5 + 0.5) *
+                    container.clientHeight;
+
+                // Keep on-screen with a small margin
+                const margin = 28;
+                const clampedX = Math.min(
+                    Math.max(x, margin),
+                    container.clientWidth - margin,
+                );
+                const clampedY = Math.min(
+                    Math.max(y, margin + 18),
+                    container.clientHeight - margin,
+                );
+
+                enterBuildingButton.style.visibility = "visible";
+                enterBuildingButton.style.left = `${clampedX}px`;
+                enterBuildingButton.style.top = `${clampedY}px`;
+                enterBuildingButton.style.right = "auto";
+            }
+
+            // =====================================================
             // PHASE 7.4
             // GENERATE FLOOR FILTER BUTTONS
             // =====================================================
 
             const floorFilterButtonContainer = document.getElementById(
                 "buildingFloorFilterButtons",
+            );
+
+            const floorFiltersBar = document.getElementById(
+                "buildingFloorFilters",
             );
 
             // =====================================================
@@ -13805,11 +14459,12 @@ document.addEventListener(
 
             // =====================================================
             // PHASE 8.2
-            // HIDE FLOOR FILTERS WHILE VIEWING EXTERIOR
+            // HIDE FLOOR FILTERS ON EXTERIOR SHELL
+            // (All Floors + floor buttons only inside)
             // =====================================================
 
-            if (floorFilterButtonContainer) {
-                floorFilterButtonContainer.style.display =
+            if (floorFiltersBar) {
+                floorFiltersBar.style.display =
                     currentBuildingView === "exterior" ? "none" : "";
             }
 
@@ -14156,42 +14811,37 @@ document.addEventListener(
                 // Get complete exterior building bounds
                 const box = new THREE.Box3().setFromObject(exteriorBuilding);
 
+                if (box.isEmpty()) {
+                    return {
+                        position: new THREE.Vector3(22, 7, 28),
+                        target: new THREE.Vector3(0, 2.8, 0),
+                    };
+                }
+
                 // Get building center and size
                 const center = box.getCenter(new THREE.Vector3());
                 const size = box.getSize(new THREE.Vector3());
 
-                // Responsive camera distance
-                const distance = Math.max(
-                    size.x,
-                    size.y,
-                    size.z
-                );
+                // Slightly more zoomed out than the ultra-close framing
+                const distance = Math.max(size.x, size.y, size.z, 8) * 0.98;
 
                 // =================================================
-                // REAR EXTERIOR CAMERA POSITION
-                //
-                // +X = view from right corner
-                // +Y = elevated camera
-                // -Z = BACK / REAR of your building
-                //
-                // THIS IS THE ANGLE SHOWN IN IMAGE 2
+                // DEFAULT / RESET EXTERIOR ANGLE
+                // Camera pushed far right so the front/right
+                // side edge is the visual reference
                 // =================================================
 
                 const position = new THREE.Vector3(
-                    center.x - distance * 0.65,
-                    center.y + distance * 0.50,
-                    center.z - distance * 0.95
+                    center.x + distance * 0.92,
+                    center.y + distance * 0.18,
+                    center.z + distance * 0.88
                 );
 
-                // =================================================
-                // CAMERA LOOK TARGET
-                // Keep camera looking toward center of building
-                // =================================================
-
+                // Aim near the right front corner edge
                 const target = new THREE.Vector3(
-                    center.x,
-                    center.y + size.y * 0.08,
-                    center.z
+                    center.x + size.x * 0.12,
+                    center.y - size.y * 0.04,
+                    center.z + size.z * 0.12
                 );
 
                 return {
@@ -14203,127 +14853,43 @@ document.addEventListener(
 
             // =====================================================
             // INTERIOR DEFAULT CAMERA VIEW
-            // MATCHES THE ANGLE SHOWN IN YOUR SCREENSHOT
-            // =====================================================
-
-            // =====================================================
-            // INTERIOR DEFAULT CAMERA VIEW
-            //
-            // REAR -> FRONT VIEW
-            //
-            // Blueprint orientation:
-            //
-            // +Z = FRONT
-            // -Z = REAR
-            //
-            // Therefore the camera must stay on -Z
-            // so we are viewing from the REAR toward the FRONT.
-            // =====================================================
-
-            // =====================================================
-            // INTERIOR DEFAULT CAMERA VIEW
-            // CORRECT REAR VIEW
+            // After Enter Building / interior Reset
+            // Matches the floor overview screenshot angle
             // =====================================================
 
             function getInteriorFocusView() {
 
-                // =================================================
-                // MAKE SURE BUILDING TRANSFORMS ARE UPDATED
-                // =================================================
-
                 building.updateMatrixWorld(true);
-
-
-                // =================================================
-                // GET COMPLETE INTERIOR BOUNDS
-                // =================================================
 
                 const box = new THREE.Box3().setFromObject(building);
 
-
-                // =================================================
-                // FALLBACK
-                // =================================================
-
                 if (box.isEmpty()) {
-
                     return {
-                        position: new THREE.Vector3(
-                            18,
-                            14,
-                            20
-                        ),
-
-                        target: new THREE.Vector3(
-                            0,
-                            3,
-                            0
-                        ),
+                        position: new THREE.Vector3(-22, 12, -28),
+                        target: new THREE.Vector3(0, 3, 0),
                     };
                 }
 
+                const center = box.getCenter(new THREE.Vector3());
+                const size = box.getSize(new THREE.Vector3());
 
-                // =================================================
-                // GET CENTER AND SIZE
-                // =================================================
+                // Wide enough to see all floors + room blocks
+                const distance = Math.max(size.x, size.y, size.z, 8) * 1.75;
 
-                const center = box.getCenter(
-                    new THREE.Vector3()
-                );
-
-                const size = box.getSize(
-                    new THREE.Vector3()
-                );
-
-
-                // =================================================
-                // CAMERA DISTANCE
-                // =================================================
-
-                const distance = Math.max(
-                    size.x,
-                    size.z
-                );
-
-
-                // =================================================
-                // CORRECT INTERIOR CAMERA POSITION
-                //
-                // +X = keep the correct left/right orientation
-                //
-                // +Z = view from the opposite side
-                //
-                // Higher Y = elevated overview
-                // =================================================
-
+                // Rear-left corner (other side of the rear face)
+                // -X = left, +Y = elevated, -Z = REAR
                 const position = new THREE.Vector3(
-
-                    center.x + distance * 0.85,
-
-                    center.y + distance * 0.75,
-
-                    center.z + distance * 1.20
-
+                    center.x - distance * 0.55,
+                    center.y + distance * 0.42,
+                    center.z - distance * 1.35
                 );
 
-
-                // =================================================
-                // TARGET
-                //
-                // Slightly above center so the floors remain
-                // vertically centered in the viewport
-                // =================================================
-
+                // Geometric center = vertically centered in viewport
                 const target = new THREE.Vector3(
-
                     center.x,
-
-                    center.y + size.y * 0.08,
-
+                    center.y,
                     center.z
-
                 );
-
 
                 return {
                     position,
@@ -14331,12 +14897,7 @@ document.addEventListener(
                 };
             }
 
-            
 
-            // =====================================================
-            // ENTER INTERIOR MODE
-            // Exterior -> Interior
-            // =====================================================
 
             function enterInteriorMode() {
 
@@ -14372,6 +14933,8 @@ document.addEventListener(
                 // =================================================
 
                 building.visible = true;
+
+                applyBuildingSceneTheme("interior");
 
 
                 // =================================================
@@ -14435,28 +14998,28 @@ document.addEventListener(
 
                         materials.forEach((material) => {
 
-                            // Exterior transparent surfaces
-                            if (material.isMeshPhysicalMaterial) {
+                            // Exterior clay surfaces
+                            if (material.isMeshPhysicalMaterial || material.isMeshBasicMaterial) {
 
                                 material.transparent = true;
 
                                 material.opacity =
                                     THREE.MathUtils.lerp(
-                                        0.18,
+                                        1,
                                         0,
                                         progress
                                     );
                             }
 
 
-                            // Exterior cyan lines
+                            // Soft edge lines
                             if (material.isLineBasicMaterial) {
 
                                 material.transparent = true;
 
                                 material.opacity =
                                     THREE.MathUtils.lerp(
-                                        0.85,
+                                        0.28,
                                         0,
                                         progress
                                     );
@@ -14496,13 +15059,15 @@ document.addEventListener(
                     // Change mode
                     currentBuildingView = "interior";
 
+                    applyBuildingSceneTheme("interior");
+
 
                     // =================================================
-                    // SHOW FLOOR FILTERS
+                    // SHOW FLOOR FILTERS (All Floors + floors)
                     // =================================================
 
-                    if (floorFilterButtonContainer) {
-                        floorFilterButtonContainer.style.display = "";
+                    if (floorFiltersBar) {
+                        floorFiltersBar.style.display = "";
                     }
 
 
@@ -14649,14 +15214,11 @@ document.addEventListener(
 
 
                 // =================================================
-                // HIDE INTERIOR FLOOR FILTERS
+                // HIDE FLOOR FILTERS ON SHELL
                 // =================================================
 
-                if (floorFilterButtonContainer) {
-
-                    floorFilterButtonContainer.style.display =
-                        "none";
-
+                if (floorFiltersBar) {
+                    floorFiltersBar.style.display = "none";
                 }
 
 
@@ -14690,6 +15252,8 @@ document.addEventListener(
 
                 exteriorBuilding.visible = true;
 
+                applyBuildingSceneTheme("exterior");
+
 
                 // =================================================
                 // START EXTERIOR AT ZERO OPACITY
@@ -14717,7 +15281,7 @@ document.addEventListener(
                         // EXTERIOR SURFACE
                         // =========================================
 
-                        if (material.isMeshPhysicalMaterial) {
+                        if (material.isMeshPhysicalMaterial || material.isMeshBasicMaterial) {
 
                             material.opacity = 0;
 
@@ -14814,12 +15378,12 @@ document.addEventListener(
                             // EXTERIOR TRANSPARENT SURFACES
                             // =====================================
 
-                            if (material.isMeshPhysicalMaterial) {
+                            if (material.isMeshPhysicalMaterial || material.isMeshBasicMaterial) {
 
                                 material.opacity =
                                     THREE.MathUtils.lerp(
                                         0,
-                                        0.18,
+                                        1,
                                         progress
                                     );
 
@@ -14827,7 +15391,7 @@ document.addEventListener(
 
 
                             // =====================================
-                            // CYAN WIREFRAME
+                            // SOFT EDGE LINES
                             // =====================================
 
                             if (material.isLineBasicMaterial) {
@@ -14835,7 +15399,7 @@ document.addEventListener(
                                 material.opacity =
                                     THREE.MathUtils.lerp(
                                         0,
-                                        0.85,
+                                        0.28,
                                         progress
                                     );
 
@@ -14891,6 +15455,8 @@ document.addEventListener(
 
                     currentBuildingView =
                         "exterior";
+
+                    applyBuildingSceneTheme("exterior");
 
 
                     // =============================================
@@ -15275,85 +15841,119 @@ document.addEventListener(
                 });
 
             // =====================================================
-            // RESET BUTTON
+            // RESET VIEW
+            // Hidden icon — same action via:
+            // hold left-click on the building → press R → release
             // =====================================================
 
-            // =====================================================
-            // RESET VIEW BUTTON
-            //
-            // EXTERIOR MODE:
-            // Reset to the default exterior camera.
-            //
-            // INTERIOR MODE:
-            // Reset to the default interior angle shown when
-            // entering the building.
-            // =====================================================
-
-            document.getElementById("buildingReset")?.addEventListener("click", () => {
-
-                // =================================================
-                // CLEAR SELECTED ROOM
-                // =================================================
-
+            function resetBuildingCameraView() {
                 if (selectedRoom) {
-
                     restoreRoomVisual(selectedRoom);
-
                     selectedRoom = null;
                 }
 
                 hoveredRoom = null;
-
                 hideRoomTooltip();
-
                 roomDetailsPanel?.classList.remove("visible");
-
-                // Stop any camera animation currently running
                 cameraTransition = null;
 
-
-                // =================================================
-                // INTERIOR MODE
-                //
-                // Reset to the default interior overview angle.
-                // This is the angle shown in your screenshot.
-                // =================================================
-
                 if (currentBuildingView === "interior") {
-
                     const interiorView = getInteriorFocusView();
-
-                    camera.position.copy(
-                        interiorView.position
-                    );
-
-                    controls.target.copy(
-                        interiorView.target
-                    );
-
+                    camera.position.copy(interiorView.position);
+                    controls.target.copy(interiorView.target);
                     controls.update();
-
                     return;
                 }
 
-
-                // =================================================
-                // EXTERIOR MODE
-                //
-                // Reset to the default exterior/rear building view.
-                // =================================================
-
                 const exteriorView = getExteriorFocusView();
-
-                camera.position.copy(
-                    exteriorView.position
-                );
-
-                controls.target.copy(
-                    exteriorView.target
-                );
-
+                camera.position.copy(exteriorView.position);
+                controls.target.copy(exteriorView.target);
                 controls.update();
+            }
+
+            document
+                .getElementById("buildingReset")
+                ?.addEventListener("click", () => {
+                    resetBuildingCameraView();
+                });
+
+            // Hold left-click on building + R + release → reset
+            let isHoldingBuildingPointer = false;
+            let armedBuildingViewReset = false;
+            const buildingResetPointer = new THREE.Vector2();
+
+            function isPointerOnBuilding(clientX, clientY) {
+                const rect = renderer.domElement.getBoundingClientRect();
+                buildingResetPointer.x =
+                    ((clientX - rect.left) / rect.width) * 2 - 1;
+                buildingResetPointer.y =
+                    -((clientY - rect.top) / rect.height) * 2 + 1;
+
+                raycaster.setFromCamera(buildingResetPointer, camera);
+
+                const targets = [];
+                if (currentBuildingView === "exterior") {
+                    targets.push(exteriorBuilding);
+                } else {
+                    targets.push(building);
+                }
+
+                const hits = raycaster.intersectObjects(targets, true);
+                return hits.length > 0;
+            }
+
+            renderer.domElement.addEventListener("pointerdown", (event) => {
+                if (event.button !== 0) {
+                    return;
+                }
+
+                isHoldingBuildingPointer = isPointerOnBuilding(
+                    event.clientX,
+                    event.clientY,
+                );
+                armedBuildingViewReset = false;
+            });
+
+            window.addEventListener("pointerup", (event) => {
+                if (event.button !== 0) {
+                    return;
+                }
+
+                if (isHoldingBuildingPointer && armedBuildingViewReset) {
+                    resetBuildingCameraView();
+                }
+
+                isHoldingBuildingPointer = false;
+                armedBuildingViewReset = false;
+            });
+
+            window.addEventListener("keydown", (event) => {
+                if (event.repeat) {
+                    return;
+                }
+
+                const key = event.key?.toLowerCase();
+                if (key !== "r") {
+                    return;
+                }
+
+                const active = document.activeElement;
+                const typing =
+                    active &&
+                    (active.tagName === "INPUT" ||
+                        active.tagName === "TEXTAREA" ||
+                        active.isContentEditable);
+
+                if (typing) {
+                    return;
+                }
+
+                if (!isHoldingBuildingPointer) {
+                    return;
+                }
+
+                armedBuildingViewReset = true;
+                event.preventDefault();
             });
 
             // =====================================================
@@ -15507,10 +16107,15 @@ document.addEventListener(
 
                 controls.update();
 
+                updateEnterBuildingButtonPosition();
+
                 composer.render();
             }
 
             animate();
+
+            // Place once after exterior is ready
+            updateEnterBuildingButtonPosition();
 
             console.log("Three.js building viewer started successfully.");
         }
@@ -18671,6 +19276,54 @@ document.addEventListener(
             // =====================================================
 
             updateUrgentCarouselButtons();
+        });
+
+        // =====================================================
+        // DAILY PRIORITY REMINDER
+        // Shows once per calendar day per user
+        // =====================================================
+
+        document.addEventListener("DOMContentLoaded", function () {
+            const modal = document.getElementById("dailyPriorityReminderModal");
+
+            if (!modal) {
+                return;
+            }
+
+            const storageKey =
+                "maintenanceDailyReminder:{{ Auth::id() }}";
+            const todayKey = new Date().toISOString().slice(0, 10);
+
+            if (localStorage.getItem(storageKey) === todayKey) {
+                return;
+            }
+
+            const dismissReminder = function () {
+                localStorage.setItem(storageKey, todayKey);
+                modal.classList.add("hidden");
+                modal.classList.remove("flex");
+            };
+
+            modal.classList.remove("hidden");
+            modal.classList.add("flex");
+
+            if (window.lucide && typeof lucide.createIcons === "function") {
+                lucide.createIcons();
+            }
+
+            const dismissButton = document.getElementById(
+                "dailyPriorityReminderDismiss",
+            );
+
+            if (dismissButton) {
+                dismissButton.addEventListener("click", dismissReminder);
+            }
+
+            modal.addEventListener("click", function (event) {
+                if (event.target === modal) {
+                    dismissReminder();
+                }
+            });
         });
     </script>
 

@@ -10,6 +10,7 @@ use App\Models\Asset;
 use App\Models\WorkstationSlot;
 use App\Models\RoomActivityLog;
 use App\Models\CampusSetupSetting;
+use App\Support\RoomName;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -545,36 +546,46 @@ class InfrastructureController extends Controller
 
                 }
 
-                $submittedRoomNames = [];
+                $submittedRooms = [];
 
                 foreach (($floorData['rooms'] ?? []) as $roomData) {
-                    $normalizedName = mb_strtolower(trim((string) ($roomData['name'] ?? '')));
+                    $roomName = trim((string) ($roomData['name'] ?? ''));
 
-                    if ($normalizedName === '') {
+                    if ($roomName === '') {
                         continue;
                     }
 
-                    if (in_array($normalizedName, $submittedRoomNames, true)) {
-                        throw ValidationException::withMessages([
-                            'floors' => [
-                                "Duplicate room name '{$roomData['name']}' found in {$floorData['level']}.",
-                            ],
-                        ])->errorBag('campusWizard');
+                    foreach ($submittedRooms as $submitted) {
+                        if (RoomName::matches($roomName, $submitted)) {
+                            throw ValidationException::withMessages([
+                                'floors' => [
+                                    "Duplicate room name '{$roomData['name']}' found in {$floorData['level']}.",
+                                ],
+                            ])->errorBag('campusWizard');
+                        }
                     }
 
-                    $submittedRoomNames[] = $normalizedName;
+                    $submittedRooms[] = $roomName;
                 }
 
-                foreach (($floorData['rooms'] ?? []) as $roomIndex => $roomData) {
-                    $duplicateExists = DB::table('rooms_table')
-                        ->where('room_floor_id', $floorId)
-                        ->whereRaw('LOWER(room_name) = ?', [mb_strtolower(trim((string) $roomData['name']))])
-                        ->exists();
+                $existingRooms = DB::table('rooms_table')
+                    ->when(
+                        Schema::hasColumn('rooms_table', 'room_is_archived'),
+                        fn ($q) => $q->where(function ($query) {
+                            $query->where('room_is_archived', false)->orWhereNull('room_is_archived');
+                        })
+                    )
+                    ->get(['room_name']);
 
-                    if ($duplicateExists) {
+                foreach (($floorData['rooms'] ?? []) as $roomIndex => $roomData) {
+                    $matched = $existingRooms->first(
+                        fn ($existing) => RoomName::matches((string) $roomData['name'], (string) $existing->room_name)
+                    );
+
+                    if ($matched) {
                         throw ValidationException::withMessages([
                             'floors' => [
-                                "Room '{$roomData['name']}' already exists in {$floorData['level']}.",
+                                "Room '{$roomData['name']}' already exists as '{$matched->room_name}'.",
                             ],
                         ])->errorBag('campusWizard');
                     }

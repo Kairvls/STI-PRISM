@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Barryvdh\DomPDF\Facade\Pdf;
 
@@ -24,6 +25,21 @@ class QRController extends Controller
                 'asc'
             )
 
+            ->get();
+
+        $rooms = DB::table('rooms_table')
+            ->leftJoin(
+                'floors_table',
+                'rooms_table.room_floor_id',
+                '=',
+                'floors_table.floor_id'
+            )
+            ->orderBy('rooms_table.room_name')
+            ->select(
+                'rooms_table.room_id',
+                'rooms_table.room_name',
+                'floors_table.floor_level'
+            )
             ->get();
 
 
@@ -50,16 +66,31 @@ class QRController extends Controller
             'rooms_table.room_id'
         )
 
+        ->leftJoin(
+            'floors_table',
+            'rooms_table.room_floor_id',
+            '=',
+            'floors_table.floor_id'
+        )
+
+        ->leftJoin(
+            'buildings_table',
+            'floors_table.floor_building_id',
+            '=',
+            'buildings_table.building_id'
+        )
+
         ->select(
 
             'equipment_table.*',
 
             'equipment_categories_table.equipment_category_name',
 
-            // ===========================
-            // ADD THIS
-            // ===========================
-            'rooms_table.room_name'
+            'rooms_table.room_name',
+
+            'floors_table.floor_level',
+
+            'buildings_table.building_name'
 
         );
 
@@ -107,6 +138,18 @@ class QRController extends Controller
                     'equipment_table.equipment_qr_code',
                     'LIKE',
                     '%' . $request->search . '%'
+                )
+
+                ->orWhere(
+                    'rooms_table.room_name',
+                    'LIKE',
+                    '%' . $request->search . '%'
+                )
+
+                ->orWhere(
+                    'buildings_table.building_name',
+                    'LIKE',
+                    '%' . $request->search . '%'
                 );
 
             });
@@ -123,6 +166,16 @@ class QRController extends Controller
             $query->where(
                 'equipment_table.equipment_category_id',
                 $request->category
+            );
+
+        }
+
+
+        if ($request->filled('room')) {
+
+            $query->where(
+                'equipment_table.equipment_room_id',
+                $request->room
             );
 
         }
@@ -273,6 +326,7 @@ class QRController extends Controller
             compact(
                 'equipment',
                 'categories',
+                'rooms',
 
                 'totalQrEquipment',
                 'generatedQrCodes',
@@ -309,12 +363,25 @@ class QRController extends Controller
             );
         }
 
-        $qrCode = 'QR-' . str_pad(
-            $equipment->equipment_id,
-            6,
-            '0',
-            STR_PAD_LEFT
-        );
+        $isRegenerate = filled($equipment->equipment_qr_code);
+
+        if ($isRegenerate) {
+            do {
+                $qrCode = 'QR-'.str_pad((string) $equipment->equipment_id, 6, '0', STR_PAD_LEFT).'-'.strtoupper(Str::random(6));
+            } while (
+                DB::table('equipment_table')
+                    ->where('equipment_qr_code', $qrCode)
+                    ->where('equipment_id', '!=', $equipment->equipment_id)
+                    ->exists()
+            );
+        } else {
+            $qrCode = 'QR-'.str_pad(
+                $equipment->equipment_id,
+                6,
+                '0',
+                STR_PAD_LEFT
+            );
+        }
 
         DB::table('equipment_table')
 
@@ -331,7 +398,9 @@ class QRController extends Controller
 
         return back()->with(
             'success',
-            'QR generated successfully.'
+            $isRegenerate
+                ? 'QR regenerated. Print a new label; the old code will no longer match this equipment.'
+                : 'QR generated successfully.'
         );
     }
 

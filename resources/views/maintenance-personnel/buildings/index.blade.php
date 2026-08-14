@@ -99,7 +99,7 @@
     <div class="bg-white rounded-2xl shadow p-6">
 
     <h2 class="text-xl font-bold mb-6">
-        Buildings & Rooms
+        Buildings Layout
     </h2>
 
     @foreach($buildings as $building)

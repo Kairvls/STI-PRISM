@@ -1,4 +1,4 @@
-<style>
+﻿<style>
     @keyframes scanner {
         0% {
             left: -40%;
@@ -29,472 +29,16 @@
     }
 </style>
 <div id="reports-container"></div>
-@if ($allReports ?? false)
-
 <div
-    class="overflow-hidden rounded-lg border-t border-b border-slate-300 bg-gray-100 shadow-sm"
->
-    <div
-        class="grid grid-cols-1 divide-y divide-slate-200 md:grid-cols-2 md:divide-y-0 xl:grid-cols-[380px_1fr_1fr_1fr] "
-    >
-        <!-- Total Equipment -->
-        <div class="flex items-center justify-between px-8 py-6">
-
-            <!-- Total Reports -->
-            <div class="flex flex-col">
-                <p class="text-sm font-medium text-slate-500">
-                    Total Reports
-                </p>
-
-                <h2
-                    id="totalReportsCount"
-                    class="mt-2 text-5xl font-medium text-slate-900">
-                    {{ number_format($totalReports) }}
-                </h2>
-
-                <p class="mt-3 text-sm">
-                    {{-- ===================================================== --}}
-                    {{-- REAL REPORT MONTHLY PERCENTAGE --}}
-                    {{-- ===================================================== --}}
-
-                    @if (is_null($reportMonthlyPercentage))
-
-                        <span class="font-semibold text-emerald-500">
-                            New this month
-                        </span>
-
-                    @else
-
-                        <span
-                            class="font-semibold
-                            {{
-                                $reportMonthlyPercentage > 0
-                                    ? 'text-emerald-500'
-                                    : (
-                                        $reportMonthlyPercentage < 0
-                                            ? 'text-red-500'
-                                            : 'text-slate-500'
-                                    )
-                            }}"
-                        >
-                            {{
-                                $reportMonthlyPercentage > 0
-                                    ? '+'
-                                    : ''
-                            }}
-
-                            {{
-                                number_format(
-                                    $reportMonthlyPercentage,
-                                    2
-                                )
-                            }}%
-                        </span>
-
-                        <span class="text-slate-500">
-                            From last month
-                        </span>
-
-                    @endif
-                </p>
-            </div>
-
-            <!-- Right Graph -->
-            {{-- ===================================================== --}}
-            {{-- REAL 12 MONTH REPORT TREND --}}
-            {{-- ===================================================== --}}
-
-            @php
-
-                // =====================================================
-                // GET COUNTS
-                // =====================================================
-
-                $trendCounts =
-                    $reportMonthlyTrend
-                        ->pluck('count');
-
-
-                // =====================================================
-                // GRAPH SIZE
-                // =====================================================
-
-                $graphWidth = 300;
-
-                $graphHeight = 100;
-
-                $graphTopPadding = 10;
-
-                $graphBottomPadding = 10;
-
-
-                // =====================================================
-                // MAX VALUE
-                //
-                // AT LEAST 1 TO PREVENT DIVISION BY ZERO
-                // =====================================================
-
-                $maxTrendCount =
-                    max(
-                        1,
-                        $trendCounts->max()
-                    );
-
-
-                // =====================================================
-                // NUMBER OF POINTS
-                // =====================================================
-
-                $pointCount =
-                    $trendCounts->count();
-
-
-                // =====================================================
-                // BUILD SVG POINTS
-                // =====================================================
-
-                $graphPoints =
-                    $trendCounts
-
-                        ->values()
-
-                        ->map(function (
-                            $count,
-                            $index
-                        ) use (
-                            $graphWidth,
-                            $graphHeight,
-                            $graphTopPadding,
-                            $graphBottomPadding,
-                            $maxTrendCount,
-                            $pointCount
-                        ) {
-
-                            // =========================================
-                            // X POSITION
-                            // =========================================
-
-                            $x =
-                                $pointCount > 1
-
-                                    ? (
-                                        $index
-                                        / ($pointCount - 1)
-                                    )
-                                    * $graphWidth
-
-                                    : $graphWidth / 2;
-
-
-                            // =========================================
-                            // AVAILABLE GRAPH HEIGHT
-                            // =========================================
-
-                            $usableHeight =
-                                $graphHeight
-                                - $graphTopPadding
-                                - $graphBottomPadding;
-
-
-                            // =========================================
-                            // Y POSITION
-                            //
-                            // SVG Y AXIS RUNS FROM TOP TO BOTTOM
-                            // =================================================
-
-                            $y =
-                                $graphHeight
-                                - $graphBottomPadding
-                                - (
-                                    ($count / $maxTrendCount)
-                                    * $usableHeight
-                                );
-
-
-                            return
-                                round($x, 2)
-                                . ','
-                                . round($y, 2);
-
-                        })
-
-                        ->implode(' ');
-
-
-                // =====================================================
-                // BUILD AREA POINTS
-                // =====================================================
-
-                $areaPoints =
-                    '0,100 '
-                    . $graphPoints
-                    . ' 300,100';
-
-            @endphp
-
-
-            <div class="ml-6 h-20 w-40 shrink-0">
-
-                <svg
-                    viewBox="0 0 300 100"
-                    class="h-full w-full"
-                    fill="none"
-                    aria-label="Equipment added during the last 12 months"
-                >
-
-                    {{-- ================================================= --}}
-                    {{-- AREA FILL --}}
-                    {{-- ================================================= --}}
-
-                    <polygon
-                        points="{{ $areaPoints }}"
-
-                        fill="currentColor"
-
-                        fill-opacity=".08"
-
-                        class="text-slate-900"
-                    />
-
-
-                    {{-- ================================================= --}}
-                    {{-- TREND LINE --}}
-                    {{-- ================================================= --}}
-
-                    <polyline
-                        points="{{ $graphPoints }}"
-
-                        fill="none"
-
-                        stroke="currentColor"
-
-                        stroke-width="2.5"
-
-                        stroke-linecap="round"
-
-                        stroke-linejoin="round"
-
-                        class="text-slate-900"
-                    />
-
-                </svg>
-
-            </div>
-
-        </div>
-
-        <!-- Pending -->
-        <div class="relative flex flex-col justify-between px-8 py-7">
-
-            <span
-                class="absolute left-0 top-8 hidden h-[68%] border-l border-slate-200 xl:block"
-            ></span>
-
-            <p class="text-md font-medium text-slate-600">
-                Pending
-            </p>
-
-            <h2
-                id="pendingReportsCount"
-                class="text-5xl font-medium text-slate-900">
-                {{ number_format($pendingReports) }}
-            </h2>
-
-            {{-- ===================================================== --}}
-            {{-- PENDING MONTHLY CHANGE --}}
-            {{-- ===================================================== --}}
-
-            <p class="text-base">
-
-                @if (is_null($pendingMonthlyPercentage))
-
-                    <span class="font-semibold text-emerald-500">
-                        New this month
-                    </span>
-
-                @else
-
-                    <span
-                        class="font-semibold
-                        {{
-                            $pendingMonthlyPercentage > 0
-                                ? 'text-red-500'
-                                : (
-                                    $pendingMonthlyPercentage < 0
-                                        ? 'text-emerald-500'
-                                        : 'text-slate-500'
-                                )
-                        }}"
-                    >
-                        {{
-                            $pendingMonthlyPercentage > 0
-                                ? '+'
-                                : ''
-                        }}
-
-                        {{
-                            number_format(
-                                $pendingMonthlyPercentage,
-                                2
-                            )
-                        }}%
-                    </span>
-
-                    <span class="text-slate-500">
-                        From last month
-                    </span>
-
-                @endif
-
-            </p>
-        </div>
-
-        <!-- Processing -->
-        <div class="relative flex flex-col justify-between px-8 py-7">
-
-            <span
-                class="absolute left-0 top-8 hidden h-[68%] border-l border-slate-200 xl:block"
-            ></span>
-
-            <p class="text-md font-medium text-slate-600">
-                Processing
-            </p>
-
-            <h2
-                id="processingReportsCount"
-                class="text-5xl font-medium text-slate-900">
-                {{ number_format($processingReports) }}
-            </h2>
-
-            {{-- ===================================================== --}}
-            {{-- PROCESSING MONTHLY CHANGE --}}
-            {{-- ===================================================== --}}
-
-            <p class="text-base">
-
-                @if (is_null($processingMonthlyPercentage))
-
-                    <span class="font-semibold text-amber-500">
-                        New this month
-                    </span>
-
-                @else
-
-                    <span
-                        class="font-semibold
-                        {{
-                            $processingMonthlyPercentage > 0
-                                ? 'text-amber-500'
-                                : (
-                                    $processingMonthlyPercentage < 0
-                                        ? 'text-emerald-500'
-                                        : 'text-slate-500'
-                                )
-                        }}"
-                    >
-                        {{
-                            $processingMonthlyPercentage > 0
-                                ? '+'
-                                : ''
-                        }}
-
-                        {{
-                            number_format(
-                                $processingMonthlyPercentage,
-                                2
-                            )
-                        }}%
-                    </span>
-
-                    <span class="text-slate-500">
-                        From last month
-                    </span>
-
-                @endif
-
-            </p>
-        </div>
-
-        <!-- Resolved -->
-        <div class="relative flex flex-col justify-between px-8 py-7">
-
-            <span
-                class="absolute left-0 top-8 hidden h-[68%] border-l border-slate-200 xl:block"
-            ></span>
-
-            <p class="text-md font-medium text-slate-600">
-                Resolved
-            </p>
-
-            <h2
-                id="resolvedReportsCount"
-                class="text-5xl font-medium text-slate-900">
-                {{ number_format($resolvedReports) }}
-            </h2>
-
-            {{-- ===================================================== --}}
-            {{-- RESOLVED MONTHLY CHANGE --}}
-            {{-- ===================================================== --}}
-
-            <p class="text-base">
-
-                @if (is_null($resolvedMonthlyPercentage))
-
-                    <span class="font-semibold text-emerald-500">
-                        New this month
-                    </span>
-
-                @else
-
-                    <span
-                        class="font-semibold
-                        {{
-                            $resolvedMonthlyPercentage > 0
-                                ? 'text-emerald-500'
-                                : (
-                                    $resolvedMonthlyPercentage < 0
-                                        ? 'text-red-500'
-                                        : 'text-slate-500'
-                                )
-                        }}"
-                    >
-                        {{
-                            $resolvedMonthlyPercentage > 0
-                                ? '+'
-                                : ''
-                        }}
-
-                        {{
-                            number_format(
-                                $resolvedMonthlyPercentage,
-                                2
-                            )
-                        }}%
-                    </span>
-
-                    <span class="text-slate-500">
-                        From last month
-                    </span>
-
-                @endif
-
-            </p>
-        </div>
-    </div>
-</div>
-
-@endif
-
-<div
-    class="overflow-hidden rounded-2xl mt-6 border border-gray-200 bg-white shadow-sm"
+    class="{{ request()->is('maintenance/reports') ? '' : 'mt-6 ' }}overflow-visible rounded-2xl border border-gray-200 bg-white shadow-sm"
 >
 
     <!-- FILTER BAR -->
-    <div class="border-b border-gray-100 bg-white px-5 py-4">
+    <div class="border-b border-slate-100 bg-slate-50/70 px-5 py-4">
         <div class="flex flex-col gap-3 lg:flex-row lg:items-center">
             <form
                 method="GET"
-                class="flex flex-1 flex-col items-center gap-3 lg:flex-row"
+                class="flex flex-1 flex-col items-stretch gap-2.5 lg:flex-row lg:items-center"
             >
                 <input
                     type="hidden"
@@ -503,8 +47,8 @@
                 />
 
                 <!-- SEARCH -->
-                <div class="relative flex-1">
-                    <svg class="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <div class="relative min-w-0 flex-1">
+                    <svg class="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
                         <circle cx="11" cy="11" r="8" />
                         <path d="m21 21-4.35-4.35" />
                     </svg>
@@ -512,15 +56,16 @@
                         type="text"
                         name="search"
                         value="{{ request('search') }}"
-                        placeholder="Search report ID, equipment, room, reporter…"
-                        class="h-9 w-full rounded-xl border border-gray-200 bg-gray-50 pl-10 pr-4 text-sm text-gray-700 placeholder-gray-400 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-200"
+                        placeholder="Search report ID, equipment, room, reporter"
+                        class="h-9 w-full rounded-lg border border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-700 placeholder:text-slate-400 outline-none transition focus:border-slate-300 focus:ring-2 focus:ring-slate-900/5"
                     />
                 </div>
 
                 <!-- STATUS -->
+                <div class="relative shrink-0">
                 <select
                     name="status"
-                    class="h-9 cursor-pointer rounded-xl border border-gray-200 bg-gray-50 px-3 pr-8 text-sm text-gray-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                    class="h-9 w-full cursor-pointer appearance-none rounded-lg border border-slate-200 bg-white py-0 pl-3.5 pr-9 text-sm text-slate-700 outline-none transition focus:border-slate-300 focus:ring-2 focus:ring-slate-900/5 lg:w-[160px]"
                 >
                     @if (request("archive"))
                         <option value="">All Archived Statuses</option>
@@ -618,17 +163,22 @@
 
                     @endif
                 </select>
+                    <svg class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                        <path d="m6 9 6 6 6-6" />
+                    </svg>
+                </div>
 
                 <!-- DIVIDER -->
                 @if (!request()->is("maintenance/reports/urgent"))
-                    <div class="hidden h-6 w-px bg-gray-200 lg:block"></div>
+                    <div class="hidden h-6 w-px bg-slate-200 lg:block"></div>
                 @endif
 
                 <!-- PRIORITIES BUTTON -->
                 @if (!request()->is("maintenance/reports/urgent"))
+                    <div class="relative shrink-0">
                     <select
                         name="urgency"
-                        class="h-9 cursor-pointer rounded-xl border border-gray-200 bg-gray-50 px-3 pr-8 text-sm text-gray-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                        class="h-9 w-full cursor-pointer appearance-none rounded-lg border border-slate-200 bg-white py-0 pl-3.5 pr-9 text-sm text-slate-700 outline-none transition focus:border-slate-300 focus:ring-2 focus:ring-slate-900/5 lg:w-[160px]"
                     >
                         <option value="">All Priorities</option>
 
@@ -654,28 +204,45 @@
                             Non-Urgent
                         </option>
                     </select>
+                    <svg class="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                        <path d="m6 9 6 6 6-6" />
+                    </svg>
+                    </div>
 
                 @endif
 
                 <!-- SEARCH BUTTON -->
                 <button
-                    class="h-9 rounded-xl border border-[rgba(0,55,199,0.4)] bg-[rgba(0,55,199,0.85)] px-5 text-sm text-[#f0f2f8] font-semibold shadow-sm transition hover:bg-[rgba(0,44,155,0.85)]"
+                    type="submit"
+                    
+                    aria-label="Search"
+                    class="group relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-neutral-100 text-slate-600 ring-1 ring-slate-200/80 transition hover:bg-neutral-200 hover:text-slate-800"
                 >
-                    Search
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" viewBox="0 0 24 24">
+                        <path d="M4 8h2" />
+                        <circle cx="9" cy="8" r="2.2" fill="currentColor" stroke="none" />
+                        <path d="M12 8h8" />
+                        <path d="M4 16h8" />
+                        <circle cx="15" cy="16" r="2.2" fill="currentColor" stroke="none" />
+                        <path d="M18 16h2" />
+                    </svg>
+                    <span class="pointer-events-none absolute bottom-full left-1/2 z-30 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
+                        Search
+                    </span>
                 </button>
 
                 <!-- DIVIDER -->
-                <div class="hidden h-6 w-px bg-gray-200 lg:block"></div>
+                <div class="hidden h-6 w-px bg-slate-200 lg:block"></div>
 
                 <div
-                    class="flex shrink-0 items-center gap-0.5 rounded-xl bg-gray-100 p-1"
+                    class="flex shrink-0 items-center rounded-lg bg-slate-100 p-1"
                 >
                     <a
                         href="{{ request()->url() }}?archive=0"
-                        class="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition
+                        class="flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-xs font-semibold transition
                     {{ !request('archive')
-                            ? 'bg-[#FFF200] text-gray-900 shadow-sm'
-                            : 'text-gray-500 hover:text-gray-700'
+                            ? 'bg-white text-slate-900 shadow-sm'
+                            : 'text-slate-400 hover:text-slate-600'
                     }}"
                     >
                         <i data-lucide="folder-open" class="h-3.5 w-3.5"></i>
@@ -684,10 +251,10 @@
 
                     <a
                         href="{{ request()->url() }}?archive=1"
-                        class="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition
+                        class="flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-xs font-semibold transition
                     {{ request('archive')
-                            ? 'bg-[#FFF200] text-gray-900 shadow-sm'
-                            : 'text-gray-500 hover:text-gray-700'
+                            ? 'bg-white text-slate-900 shadow-sm'
+                            : 'text-slate-400 hover:text-slate-600'
                     }}"
                     >
                         <i data-lucide="archive" class="h-3.5 w-3.5"></i>
@@ -697,17 +264,17 @@
             </form>
 
             <!-- DIVIDER -->
-            <div class="hidden h-6 w-px bg-gray-200 lg:block"></div>
+            <div class="hidden h-6 w-px bg-slate-200 lg:block"></div>
 
             <!-- VIEW TOGGLE -->
             <div
-                class="flex shrink-0 items-center gap-0.5 rounded-xl bg-gray-100 p-1"
+                class="flex shrink-0 items-center rounded-lg bg-slate-100 p-1"
             >
                 <button
                     type="button"
                     id="card-view-btn"
                     onclick="setReportView('card')"
-                    class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-gray-500 transition hover:text-gray-700"
+                    class="flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-xs font-semibold text-slate-400 transition hover:text-slate-600"
                 >
                     <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                         <rect x="3" y="3" width="7" height="7" rx="1" />
@@ -721,7 +288,7 @@
                     type="button"
                     id="table-view-btn"
                     onclick="setReportView('table')"
-                    class="flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-gray-500 transition hover:text-gray-700"
+                    class="flex items-center gap-1.5 rounded-md px-3.5 py-1.5 text-xs font-semibold text-slate-400 transition hover:text-slate-600"
                 >
                     <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 10h18M3 6h18M3 14h18M3 18h18" /></svg>
                     Table
@@ -902,7 +469,7 @@
                         $urgencyPill =
                             $report->report_urgency_level == "Urgent"
                                 ? "bg-red-50 text-red-700 border border-red-200"
-                                : "bg-emerald-50 text-emerald-700 border border-emerald-200";
+                                : "bg-neutral-50 text-slate-500 border border-slate-200";
 
                         $statusMap = [
                             "Pending" => [
@@ -971,10 +538,21 @@
 
                         <td class="px-5 py-4 text-sm text-gray-600">
                             <div>
-                                <p class="font-medium text-slate-800">
-                                    {{ $report->equipment_name }}
-                                </p>
-
+                                <div class="flex items-center gap-1.5">
+                                    <p class="font-medium text-slate-800">
+                                        {{ $report->equipment_name }}
+                                    </p>
+                                    @if ((int) ($report->report_related_count ?? 1) > 1)
+                                        <button
+                                            type="button"
+                                            onclick="openReportHistory({{ $report->report_id }})"
+                                            title="{{ (int) $report->report_related_count }} reports on this equipment while it is still open"
+                                            class="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold leading-none text-white transition hover:bg-rose-700"
+                                        >
+                                            {{ (int) $report->report_related_count }}
+                                        </button>
+                                    @endif
+                                </div>
                                 <p class="text-xs text-slate-400">
                                     {{ $report->room_name }}
                                 </p>
@@ -1012,7 +590,7 @@
                                 <button
                                     type="button"
                                     title="View Report"
-                                    onclick="openReportModal('view-modal-{{ $report->report_id }}')"
+                                    onclick="openReportModal('view-modal-{{ $report->report_id }}'); switchReportViewTab({{ $report->report_id }}, 'details')"
                                     class="flex h-9 items-center justify-center gap-x-1.5 rounded-lg  bg-slate-100 px-3 text-xs  text-slate-800 transition shadow-sm hover:bg-slate-200 hover:text-gray-600"
                                 >
                                     <i
@@ -1021,6 +599,16 @@
                                     ></i>
                                     
                                 </button>
+                                @if ($report->report_equipment_id)
+                                    <button
+                                        type="button"
+                                        title="Previous reports for this equipment"
+                                        onclick="openReportHistory({{ $report->report_id }})"
+                                        class="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-700 transition hover:bg-slate-200"
+                                    >
+                                        <i data-lucide="history" class="h-3.5 w-3.5"></i>
+                                    </button>
+                                @endif
                                 @if ($canUpdate)
                                     <button
                                         type="button"
@@ -1234,517 +822,188 @@
         $urgencyPill =
             $report->report_urgency_level == "Urgent"
                 ? "bg-red-50 text-red-700 border border-red-200"
-                : "bg-emerald-50 text-emerald-700 border border-emerald-200";
+                : "bg-neutral-50 text-slate-500 border border-slate-200";
+    @endphp
+
+    @php
+        $historyCount = collect($report->equipment_report_history ?? [])->count();
+        $reporterInitials = collect(explode(' ', trim($report->reporter_full_name ?? 'R')))
+            ->filter()
+            ->map(fn ($part) => mb_strtoupper(mb_substr($part, 0, 1)))
+            ->take(2)
+            ->implode('');
     @endphp
 
     <div
-    id="view-modal-{{ $report->report_id }}"
-    class="fixed inset-0 z-50 hidden overflow-hidden"
->
-    <!-- ===================================== -->
-    <!-- MODAL BACKDROP -->
-    <!-- ===================================== -->
-    <div
-        class="flex min-h-screen items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]"
+        id="view-modal-{{ $report->report_id }}"
+        class="fixed inset-0 z-50 hidden overflow-hidden"
     >
-        <!-- ===================================== -->
-        <!-- REPORT DETAILS MODAL -->
-        <!-- ===================================== -->
-        <div
-            class="flex max-h-[80vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
-            onclick="event.stopPropagation()"
-        >
-            <!-- ===================================== -->
-            <!-- MODAL HEADER -->
-            <!-- ===================================== -->
+        <div class="flex min-h-screen items-center justify-center bg-[#0b1220]/70 p-3 sm:p-6">
             <div
-                class="flex shrink-0 items-start justify-between gap-6 px-6 pb-5 pt-6 border-b border-dashed border-slate-500"
+                class="flex max-h-[70vh] w-full max-w-5xl overflow-hidden rounded-[28px] bg-[#f6f7f9] shadow-[0_40px_120px_rgba(0,0,0,0.35)]"
+                onclick="event.stopPropagation()"
             >
-                <div class="min-w-0">
-                    <div class="flex flex-wrap items-center gap-2">
-                        <p
-                            class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400"
-                        >
-                            Maintenance Report
+                {{-- Identity rail --}}
+                <aside class="relative hidden w-[300px] shrink-0 flex-col justify-between bg-[#1e293b] px-8 py-8 text-white md:flex">
+                    <div>
+                        <p class="inline-flex items-center rounded-md bg-[#FFF200] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-900">
+                            Ticket {{ $report->report_id }}
+                        </p>
+                        <h2 class="mt-5 text-[28px] font-semibold leading-8 tracking-tight text-white">
+                            {{ $report->equipment_name ?? 'Unlisted' }}
+                        </h2>
+                        <p class="mt-2 text-sm font-medium text-slate-200">
+                            {{ $report->room_name ?? 'No room' }}
                         </p>
 
-                        <span class="text-xs text-slate-300">
-                            /
-                        </span>
-
-                        <span class="text-xs font-medium text-slate-500">
-                            Ticket #{{ $report->report_id }}
-                        </span>
-                    </div>
-
-                    <h2
-                        class="mt-2 truncate text-xl font-bold tracking-tight text-slate-950"
-                    >
-                        {{
-                            $report->equipment_name ??
-                                "Unlisted Equipment"
-                        }}
-                    </h2>
-
-                    <p class="mt-1 text-sm text-slate-500">
-                        Report details and maintenance workflow information.
-                    </p>
-                </div>
-
-                <!-- CLOSE BUTTON -->
-                <button
-                    type="button"
-                    onclick="closeReportModal('view-modal-{{ $report->report_id }}')"
-                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
-                    aria-label="Close modal"
-                >
-                    <i data-lucide="x" class="h-4 w-4"></i>
-                </button>
-            </div>
-
-            <!-- ===================================== -->
-            <!-- SCROLLABLE CONTENT -->
-            <!-- ===================================== -->
-            <div
-                class="min-h-0 flex-1 overflow-y-auto border-y border-slate-100"
-            >
-                <!-- ===================================== -->
-                <!-- STATUS SUMMARY -->
-                <!-- ===================================== -->
-                <div
-                    class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 px-6 py-4"
-                >
-                    <div class="flex flex-wrap items-center gap-2">
-                        <span
-                            class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium {{ $statusMap[$report->report_current_status] ?? 'bg-slate-100 text-slate-600' }}"
-                        >
-                            {{ $report->report_current_status }}
-                        </span>
-
-                        <span
-                            class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium {{ $urgencyPill }}"
-                        >
-                            {{ $report->report_urgency_level }}
-                        </span>
-                    </div>
-
-                    <span class="text-xs text-slate-400">
-                        Submitted
-                        {{
-                            \Carbon\Carbon::parse(
-                                $report->report_submitted_at,
-                            )->format("M d, Y · h:i A")
-                        }}
-                    </span>
-                </div>
-
-                <!-- ===================================== -->
-                <!-- REPORT INFORMATION -->
-                <!-- ===================================== -->
-                <div class="px-6 py-2">
-                    <!-- EQUIPMENT -->
-                    <div
-                        class="flex items-start justify-between gap-8 py-3.5"
-                    >
-                        <span class="shrink-0 text-sm text-slate-500">
-                            Equipment
-                        </span>
-
-                        <span
-                            class="max-w-[65%] break-words text-right text-sm font-medium text-slate-950"
-                        >
-                            {{
-                                $report->equipment_name ??
-                                    "Unlisted Equipment"
-                            }}
-                        </span>
-                    </div>
-
-                    <!-- ROOM -->
-                    <div
-                        class="flex items-start justify-between gap-8 border-t border-slate-100 py-3.5"
-                    >
-                        <span class="shrink-0 text-sm text-slate-500">
-                            Room
-                        </span>
-
-                        <span
-                            class="max-w-[65%] break-words text-right text-sm font-medium text-slate-900"
-                        >
-                            {{
-                                $report->room_name ??
-                                    "No Assigned Room"
-                            }}
-                        </span>
-                    </div>
-
-                    <!-- REPORTER -->
-                    <div
-                        class="flex items-start justify-between gap-8 border-t border-slate-100 py-3.5"
-                    >
-                        <span class="shrink-0 text-sm text-slate-500">
-                            Reporter
-                        </span>
-
-                        <div class="max-w-[65%] text-right">
-                            <p class="text-sm font-medium text-slate-900">
-                                {{
-                                    $report->reporter_full_name ??
-                                        "Unknown Reporter"
-                                }}
-                            </p>
-
-                            <p class="mt-0.5 text-xs text-slate-400">
-                                Employee ID:
-                                {{
-                                    $report->reporter_employee_id ??
-                                        "—"
-                                }}
-                            </p>
+                        <div class="mt-10 space-y-5">
+                            <div>
+                                <p class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-300">Status</p>
+                                <p class="mt-1.5 inline-flex rounded-md bg-white/15 px-2.5 py-1 text-sm font-semibold text-white">
+                                    {{ $report->report_current_status }}
+                                </p>
+                            </div>
+                            <div>
+                                <p class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-300">Priority</p>
+                                <p class="mt-1.5 inline-flex rounded-md px-2.5 py-1 text-sm font-semibold {{ $report->report_urgency_level === 'Urgent' ? 'bg-rose-400/15 text-rose-200 ring-1 ring-rose-300/25' : 'bg-white/15 text-white' }}">
+                                    {{ $report->report_urgency_level }}
+                                </p>
+                            </div>
+                            <div>
+                                <p class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-300">Filed</p>
+                                <p class="mt-1.5 text-sm font-semibold text-white">
+                                    {{ \Carbon\Carbon::parse($report->report_submitted_at)->format('M d, Y') }}
+                                </p>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- DATE SUBMITTED -->
-                    <div
-                        class="flex items-start justify-between gap-8 border-t border-slate-100 py-3.5"
-                    >
-                        <span class="shrink-0 text-sm text-slate-500">
-                            Date submitted
-                        </span>
-
-                        <span
-                            class="max-w-[65%] text-right text-sm font-medium text-slate-900"
+                    @if ($historyCount > 0)
+                        <div
+                            id="report-rail-history-count-{{ $report->report_id }}"
+                            class="hidden rounded-2xl bg-white/10 px-4 py-3"
                         >
-                            {{
-                                \Carbon\Carbon::parse(
-                                    $report->report_submitted_at,
-                                )->format("M d, Y h:i A")
-                            }}
-                        </span>
+                            <p class="text-2xl font-semibold tracking-tight text-white">{{ $historyCount }}</p>
+                            <p class="mt-0.5 text-xs text-white/50">reports on this equipment</p>
+                        </div>
+                    @endif
+                </aside>
+
+                {{-- Canvas --}}
+                <div class="flex min-w-0 flex-1 flex-col">
+                    <div class="flex items-center justify-between gap-3 px-5 pt-5 sm:px-7">
+                        <div class="inline-flex rounded-full bg-white p-1 shadow-sm ring-1 ring-black/5">
+                            <button
+                                type="button"
+                                id="report-tab-details-{{ $report->report_id }}"
+                                onclick="switchReportViewTab({{ $report->report_id }}, 'details')"
+                                class="rounded-full px-4 py-1.5 text-sm font-medium bg-slate-900 text-white"
+                            >
+                                Brief
+                            </button>
+                            <button
+                                type="button"
+                                id="report-tab-history-{{ $report->report_id }}"
+                                onclick="switchReportViewTab({{ $report->report_id }}, 'history')"
+                                class="rounded-full px-4 py-1.5 text-sm font-medium text-slate-500"
+                            >
+                                Timeline{{ $historyCount ? ' · '.$historyCount : '' }}
+                            </button>
+                        </div>
+
+                        <button
+                            type="button"
+                            onclick="closeReportModal('view-modal-{{ $report->report_id }}')"
+                            class="flex h-9 w-9 items-center justify-center rounded-full bg-white text-slate-400 shadow-sm ring-1 ring-black/5 transition hover:text-slate-900"
+                            aria-label="Close"
+                        >
+                            <i data-lucide="x" class="h-4 w-4"></i>
+                        </button>
                     </div>
 
-                    {{-- ===================================================== --}}
-                    {{-- HANDLED BY SECTION HERE --}}
-                    {{-- ===================================================== --}}
-                    <div class="flex items-start justify-between gap-8 border-t border-slate-100 py-3.5">
-                        <span class="shrink-0 text-sm text-slate-500">
-                            Handled By
-                        </span>
+                    <div class="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-7">
+                        <div id="report-panel-details-{{ $report->report_id }}">
+                            <div class="overflow-hidden rounded-[22px] bg-white shadow-sm ring-1 ring-black/5">
+                                <div class="flex items-center gap-4 border-b border-slate-100 px-5 py-4">
+                                    <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900 text-sm font-semibold text-white">
+                                        {{ $reporterInitials ?: 'R' }}
+                                    </div>
+                                    <div class="min-w-0">
+                                        <p class="truncate text-sm font-semibold text-slate-900">
+                                            {{ $report->reporter_full_name ?? 'Unknown reporter' }}
+                                        </p>
+                                        <p class="text-xs text-slate-400">
+                                            {{ $report->reporter_employee_id ?? '-' }}
+                                            · {{ \Carbon\Carbon::parse($report->report_submitted_at)->format('M d · h:i A') }}
+                                        </p>
+                                    </div>
+                                </div>
 
-                        <div class="max-w-[65%] text-right text-sm font-medium text-slate-900">
-                            @if ($report->assigned_personnel_name)
-                                <p class="font-semibold text-slate-900">
-                                    {{ $report->assigned_personnel_name }}
+                                <div class="grid grid-cols-2 divide-x divide-slate-100">
+                                    <div class="px-5 py-4">
+                                        <p class="text-[10px] uppercase tracking-[0.16em] text-slate-400">Issue</p>
+                                        <p class="mt-1.5 text-sm font-medium leading-6 text-slate-900">
+                                            {{ $report->report_suggested_issue ?? 'None given' }}
+                                        </p>
+                                    </div>
+                                    <div class="px-5 py-4">
+                                        <p class="text-[10px] uppercase tracking-[0.16em] text-slate-400">Assigned</p>
+                                        <p class="mt-1.5 text-sm font-medium text-slate-900">
+                                            {{ $report->assigned_personnel_name ?? $report->assigned_purchaser_name ?? 'Unassigned' }}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mt-4 rounded-[22px] bg-white px-5 py-5 shadow-sm ring-1 ring-black/5">
+                                <p class="text-[10px] uppercase tracking-[0.16em] text-slate-400">What happened</p>
+                                <p class="mt-3 whitespace-pre-wrap text-[15px] leading-7 text-slate-600">
+                                    {{ $report->report_problem_description ?? 'No description provided.' }}
                                 </p>
-                                <p class="text-xs text-slate-500 font-normal">
-                                    Maintenance Personnel
-                                </p>
-                            @elseif ($report->assigned_purchaser_name)
-                                <p class="font-semibold text-slate-900">
-                                    {{ $report->assigned_purchaser_name }}
-                                </p>
-                                <p class="text-xs text-slate-500 font-normal">
-                                    Purchaser
-                                </p>
-                            @else
-                                <p class="text-slate-500 font-normal">
-                                    No assigned
-                                </p>
+                            </div>
+
+                            @if ($report->report_uploaded_image)
+                                <button
+                                    type="button"
+                                    onclick="window.open('{{ asset('storage/'.$report->report_uploaded_image) }}', '_blank')"
+                                    class="mt-4 block w-full overflow-hidden rounded-[22px] bg-white shadow-sm ring-1 ring-black/5"
+                                >
+                                    <img
+                                        src="{{ asset('storage/'.$report->report_uploaded_image) }}"
+                                        alt="Report photo"
+                                        class="max-h-56 w-full object-cover"
+                                    />
+                                </button>
+                            @endif
+
+                            @if ($report->report_current_status === "Resolved")
+                                <div class="mt-4 rounded-[22px] bg-emerald-50 px-5 py-4">
+                                    <p class="text-[10px] uppercase tracking-[0.16em] text-emerald-700">Resolution</p>
+                                    <p class="mt-2 text-sm leading-6 text-emerald-950/80">{{ $report->report_resolution_notes ?: 'No notes.' }}</p>
+                                </div>
+                            @endif
+                            @if ($report->report_current_status === "Rejected")
+                                <div class="mt-4 rounded-[22px] bg-rose-50 px-5 py-4">
+                                    <p class="text-[10px] uppercase tracking-[0.16em] text-rose-700">Rejected</p>
+                                    <p class="mt-2 text-sm leading-6 text-rose-950/80">{{ $report->report_rejection_notes ?: 'No notes.' }}</p>
+                                </div>
+                            @endif
+                            @if ($report->report_current_status === "For Replacement")
+                                <div class="mt-4 rounded-[22px] bg-amber-50 px-5 py-4">
+                                    <p class="text-[10px] uppercase tracking-[0.16em] text-amber-800">Replacement</p>
+                                    <p class="mt-2 text-sm leading-6 text-amber-950/80">{{ $report->report_replacement_notes ?: 'No notes.' }}</p>
+                                </div>
                             @endif
                         </div>
+
+                        <div id="report-panel-history-{{ $report->report_id }}" class="hidden">
+                            @include('components.tables.partials.equipment-report-history', ['report' => $report])
+                        </div>
                     </div>
                 </div>
-
-                <!-- ===================================== -->
-                <!-- REPORT CONTENT -->
-                <!-- ===================================== -->
-                <div
-                    class="space-y-6 border-t border-slate-100 px-6 py-5"
-                >
-                    <!-- SUGGESTED ISSUE -->
-                    <div>
-                        <p
-                            class="text-sm font-medium text-slate-700"
-                        >
-                            Suggested issue
-                        </p>
-
-                        <p
-                            class="mt-2 whitespace-pre-wrap border border-dashed border-slate-500 rounded-lg break-words text-sm leading-6 text-slate-600"
-                        >
-                            {{
-                                $report->report_suggested_issue ??
-                                    "No suggested issue provided."
-                            }}
-                        </p>
-                    </div>
-
-                    <!-- PROBLEM DESCRIPTION -->
-                    <div>
-                        <p
-                            class="text-sm font-medium text-slate-700"
-                        >
-                            Problem description
-                        </p>
-
-                        <p
-                            class="mt-2 whitespace-pre-wrap border border-dashes border-slate-500 rounded-lg break-words text-sm leading-6 text-slate-600"
-                        >
-                            {{
-                                $report->report_problem_description ??
-                                    "No problem description provided."
-                            }}
-                        </p>
-                    </div>
-
-                    {{-- ===================================================== --}}
-                    {{-- ORIGINAL REPORT IMAGE HERE --}}
-                    {{-- IMAGE SUBMITTED BY THE REPORTER --}}
-                    {{-- ===================================================== --}}
-
-                    <div class="mt-6">
-
-                        <div class="mb-2">
-
-                            <p class="text-xs font-medium text-gray-400">
-                                Report Image
-                            </p>
-
-                            <p class="mt-1 text-sm text-gray-500">
-                                Image submitted by the reporter
-                            </p>
-
-                        </div>
-
-
-                        @if ($report->report_uploaded_image)
-
-                            <div
-                                class="
-                                    overflow-hidden
-                                    rounded-xl
-                                    border
-                                    border-gray-200
-                                    bg-gray-50
-                                "
-                            >
-
-                                <img
-
-                                    src="{{
-                                        asset(
-                                            'storage/'
-                                            .
-                                            $report->report_uploaded_image
-                                        )
-                                    }}"
-
-                                    alt="Image submitted for Report #{{ $report->report_id }}"
-
-                                    class="
-                                        max-h-96
-                                        w-full
-                                        cursor-pointer
-                                        object-contain
-                                    "
-
-                                    onclick="window.open(this.src, '_blank')"
-
-                                >
-
-                            </div>
-
-                        @else
-
-                            <div
-                                class="
-                                    flex
-                                    min-h-32
-                                    items-center
-                                    justify-center
-                                    rounded-xl
-                                    border
-                                    border-dashed
-                                    border-gray-200
-                                    bg-gray-50
-                                "
-                            >
-
-                                <p class="text-sm text-gray-400">
-                                    No report image was submitted
-                                </p>
-
-                            </div>
-
-                        @endif
-
-                    </div>
-
-                </div>
-
-                <!-- ===================================== -->
-                <!-- RESOLVED RESULT -->
-                <!-- ===================================== -->
-                @if ($report->report_current_status === "Resolved")
-                    <div
-                        class="border-t border-slate-100 px-6 py-5"
-                    >
-                        <div
-                            class="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4"
-                        >
-                            <div class="flex items-start gap-3">
-                                <div
-                                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600"
-                                >
-                                    <i
-                                        data-lucide="check"
-                                        class="h-4 w-4"
-                                    ></i>
-                                </div>
-
-                                <div class="min-w-0 flex-1">
-                                    <p
-                                        class="text-sm font-medium text-emerald-900"
-                                    >
-                                        Resolution notes
-                                    </p>
-
-                                    <p
-                                        class="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-600"
-                                    >
-                                        {{
-                                            $report->report_resolution_notes ?:
-                                                "No resolution notes provided."
-                                        }}
-                                    </p>
-
-                                    @if ($report->report_resolution_image)
-                                        <div class="mt-4">
-                                            <img
-                                                src="{{ asset('storage/'.$report->report_resolution_image) }}"
-                                                alt="Resolution proof"
-                                                class="max-h-64 w-full rounded-lg border border-emerald-200 object-contain"
-                                            />
-                                        </div>
-                                    @endif
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                @endif
-
-                <!-- ===================================== -->
-                <!-- REJECTED RESULT -->
-                <!-- ===================================== -->
-                @if ($report->report_current_status === "Rejected")
-                    <div
-                        class="border-t border-slate-100 px-6 py-5"
-                    >
-                        <div
-                            class="rounded-xl border border-rose-200 bg-rose-50/40 p-4"
-                        >
-                            <div class="flex items-start gap-3">
-                                <div
-                                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-600"
-                                >
-                                    <i
-                                        data-lucide="x"
-                                        class="h-4 w-4"
-                                    ></i>
-                                </div>
-
-                                <div class="min-w-0 flex-1">
-                                    <p
-                                        class="text-sm font-medium text-rose-900"
-                                    >
-                                        Rejection notes
-                                    </p>
-
-                                    <p
-                                        class="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-600"
-                                    >
-                                        {{
-                                            $report->report_rejection_notes ?:
-                                                "No rejection details provided."
-                                        }}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                @endif
-
-                <!-- ===================================== -->
-                <!-- FOR REPLACEMENT RESULT -->
-                <!-- ===================================== -->
-                @if ($report->report_current_status === "For Replacement")
-                    <div
-                        class="border-t border-slate-100 px-6 py-5"
-                    >
-                        <div
-                            class="rounded-xl border border-amber-200 bg-amber-50/40 p-4"
-                        >
-                            <div class="flex items-start gap-3">
-                                <div
-                                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600"
-                                >
-                                    <i
-                                        data-lucide="refresh-cw"
-                                        class="h-4 w-4"
-                                    ></i>
-                                </div>
-
-                                <div class="min-w-0 flex-1">
-                                    <p
-                                        class="text-sm font-medium text-amber-900"
-                                    >
-                                        Replacement justification
-                                    </p>
-
-                                    <p
-                                        class="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-600"
-                                    >
-                                        {{
-                                            $report->report_replacement_notes ?:
-                                                "No replacement justification provided."
-                                        }}
-                                    </p>
-
-                                    @if ($report->report_replacement_image)
-                                        <div class="mt-4">
-                                            <img
-                                                src="{{ asset('storage/'.$report->report_replacement_image) }}"
-                                                alt="Replacement proof"
-                                                class="max-h-64 w-full rounded-lg border border-amber-200 object-contain"
-                                            />
-                                        </div>
-                                    @endif
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                @endif
-            </div>
-
-            <div class="border-t border-dashed border-slate-500"></div>
-
-            <!-- ===================================== -->
-            <!-- MODAL FOOTER -->
-            <!-- ===================================== -->
-            <div
-                class="flex shrink-0 items-center justify-end px-6 py-4"
-            >
-                <button
-                    type="button"
-                    onclick="closeReportModal('view-modal-{{ $report->report_id }}')"
-                    class="rounded-lg px-3.5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
-                >
-                    Close
-                </button>
             </div>
         </div>
     </div>
-</div>
 @endforeach
 
 <!-- UPDATE MODALS -->
@@ -2223,6 +1482,39 @@
         if (modal) modal.classList.add("hidden");
     }
 
+    function switchReportViewTab(reportId, tab) {
+        const detailsPanel = document.getElementById(`report-panel-details-${reportId}`);
+        const historyPanel = document.getElementById(`report-panel-history-${reportId}`);
+        const detailsTab = document.getElementById(`report-tab-details-${reportId}`);
+        const historyTab = document.getElementById(`report-tab-history-${reportId}`);
+
+        if (!detailsPanel || !historyPanel || !detailsTab || !historyTab) {
+            return;
+        }
+
+        const showHistory = tab === "history";
+        detailsPanel.classList.toggle("hidden", showHistory);
+        historyPanel.classList.toggle("hidden", !showHistory);
+
+        const historyCountBox = document.getElementById(`report-rail-history-count-${reportId}`);
+        if (historyCountBox) {
+            historyCountBox.classList.toggle("hidden", !showHistory);
+        }
+
+        detailsTab.className = showHistory
+            ? "rounded-full px-4 py-1.5 text-sm font-medium text-slate-500"
+            : "rounded-full px-4 py-1.5 text-sm font-medium bg-slate-900 text-white";
+
+        historyTab.className = showHistory
+            ? "rounded-full px-4 py-1.5 text-sm font-medium bg-slate-900 text-white"
+            : "rounded-full px-4 py-1.5 text-sm font-medium text-slate-500";
+    }
+
+    function openReportHistory(reportId) {
+        openReportModal(`view-modal-${reportId}`);
+        switchReportViewTab(reportId, "history");
+    }
+
     function setReportView(view) {
         const tableView = document.getElementById("table-view");
         const cardView = document.getElementById("card-view");
@@ -2234,8 +1526,8 @@
         tableView.classList.toggle("hidden", !showTable);
         cardView.classList.toggle("hidden", showTable);
 
-        const activeClass = ["bg-[#FFF200]", "text-gray-900", "shadow-sm"];
-        const inactiveClass = ["text-gray-500"];
+        const activeClass = ["bg-white", "text-slate-900", "shadow-sm"];
+        const inactiveClass = ["text-slate-400"];
 
         [tableBtn, cardBtn].forEach((btn) => {
             btn.classList.remove(...activeClass, ...inactiveClass);

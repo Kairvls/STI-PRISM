@@ -901,6 +901,31 @@ Route::delete(
     [MaintenanceController::class, 'deleteEquipmentCategory']
 );
 
+Route::get(
+    '/maintenance/equipment/suggested-issues',
+    [MaintenanceController::class, 'suggestedIssues']
+);
+
+Route::post(
+    '/maintenance/equipment/suggested-issues',
+    [MaintenanceController::class, 'storeSuggestedIssue']
+);
+
+Route::put(
+    '/maintenance/equipment/suggested-issues/{id}',
+    [MaintenanceController::class, 'updateSuggestedIssue']
+);
+
+Route::delete(
+    '/maintenance/equipment/suggested-issues/{id}',
+    [MaintenanceController::class, 'deleteSuggestedIssue']
+);
+
+Route::get(
+    '/maintenance/equipment/history',
+    [MaintenanceController::class, 'equipmentHistory']
+);
+
 
 /*
 |--------------------------------------------------------------------------
@@ -933,6 +958,36 @@ Route::get(
     '/maintenance/infrastructure',
     [InfrastructureController::class, 'index']
 )->name('maintenance.infrastructure.index');
+
+Route::get(
+    '/maintenance/rooms',
+    [MaintenanceController::class, 'roomsDirectory']
+)->name('maintenance.rooms.index');
+
+Route::post(
+    '/maintenance/rooms',
+    [MaintenanceController::class, 'storeDirectoryRoom']
+)->name('maintenance.rooms.store');
+
+Route::post(
+    '/maintenance/rooms/merge',
+    [MaintenanceController::class, 'mergeDuplicateRooms']
+)->name('maintenance.rooms.merge');
+
+Route::get(
+    '/maintenance/rooms/{id}/equipment',
+    [MaintenanceController::class, 'roomEquipmentPeek']
+)->name('maintenance.rooms.equipment');
+
+Route::post(
+    '/maintenance/rooms/{id}',
+    [MaintenanceController::class, 'updateDirectoryRoom']
+)->name('maintenance.rooms.update');
+
+Route::post(
+    '/maintenance/rooms/{id}/archive',
+    [MaintenanceController::class, 'archiveDirectoryRoom']
+)->name('maintenance.rooms.archive');
 
 Route::get(
     '/maintenance/infrastructure/campus',
@@ -1159,6 +1214,16 @@ Route::post(
     [MaintenanceController::class, 'storeDisposal']
 );
 
+Route::post(
+    '/maintenance/disposal/restore',
+    [MaintenanceController::class, 'restoreDisposal']
+);
+
+Route::post(
+    '/maintenance/disposal/confirm',
+    [MaintenanceController::class, 'confirmDisposal']
+);
+
 Route::delete(
     '/maintenance/disposal/delete',
     [MaintenanceController::class, 'deleteDisposal']
@@ -1174,6 +1239,26 @@ Route::delete(
 Route::get(
     '/maintenance/reporters',
     [MaintenanceController::class, 'reporters']
+);
+
+Route::post(
+    '/maintenance/reporters/store',
+    [MaintenanceController::class, 'storeReporter']
+);
+
+Route::get(
+    '/maintenance/reporters/import/template',
+    [MaintenanceController::class, 'downloadReporterTemplate']
+);
+
+Route::post(
+    '/maintenance/reporters/import/preview',
+    [MaintenanceController::class, 'previewReporterImport']
+);
+
+Route::post(
+    '/maintenance/reporters/import',
+    [MaintenanceController::class, 'importReporters']
 );
 
 Route::post(

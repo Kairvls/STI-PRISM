@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Support\ReportGrouping;
+use App\Support\SuggestedIssues;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -64,37 +66,17 @@ class MobileReportController extends Controller
 
     public function equipment($roomId)
     {
-        $equipment = DB::table('equipment_table')
-
-            ->where(
-                'equipment_room_id',
-                $roomId
-            )
-
-            ->where(
-                'equipment_inventory_status',
-                'Active'
-            )
-
-            ->where(
-                'equipment_condition_status',
-                'Good'
-            )
-
+        $equipment = ReportGrouping::applyReporterEquipmentFilters(
+            DB::table('equipment_table')
+                ->where('equipment_room_id', $roomId)
+        )
             ->select(
-
                 'equipment_id',
-
                 'equipment_name',
-
                 'equipment_brand_name',
-
                 'equipment_model'
-
             )
-
             ->orderBy('equipment_name')
-
             ->get();
 
         return response()->json($equipment);
@@ -123,21 +105,14 @@ class MobileReportController extends Controller
 
         }
 
-        $issues = DB::table('issue_templates_table')
-
-            ->where(
-                'issue_template_category_id',
-                $equipment->equipment_category_id
-            )
-
-            ->orderBy(
-                'issue_template_name'
-            )
-
-            ->get([
-                'issue_template_id',
-                'issue_template_name'
-            ]);
+        $issues = SuggestedIssues::namesForEquipment($equipment)
+            ->map(function ($name, $index) {
+                return [
+                    'issue_template_id' => $index + 1,
+                    'issue_template_name' => $name,
+                ];
+            })
+            ->values();
 
         return response()->json($issues);
     }
@@ -350,11 +325,57 @@ class MobileReportController extends Controller
 
         /*
         |--------------------------------------------------------------------------
+        | BLOCK EQUIPMENT ALREADY FOR REPLACEMENT
+        |--------------------------------------------------------------------------
+        */
+
+        if (!empty($request->equipment_id)) {
+            $listedEquipment = DB::table('equipment_table')
+                ->where('equipment_id', $request->equipment_id)
+                ->where('equipment_room_id', $request->room_id)
+                ->first();
+
+            if (!$listedEquipment) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Selected equipment does not belong to the selected room.',
+                ], 422);
+            }
+
+            if (ReportGrouping::equipmentIsForReplacement((int) $request->equipment_id)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This equipment is already marked for replacement and cannot be reported again.',
+                ], 422);
+            }
+
+            $openReport = ReportGrouping::findOpenReport(
+                (int) $request->equipment_id,
+                (int) $request->room_id
+            );
+
+            if ($openReport) {
+                ReportGrouping::mergeIntoOpenReport($openReport, [
+                    'reporter_id' => $request->employee_id,
+                    'urgency' => $request->priority,
+                    'issue' => $issueName ?: trim((string) $request->description),
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'merged' => true,
+                    'message' => 'This equipment already has an open report. Your report was added to it instead of creating a duplicate.',
+                ]);
+            }
+        }
+
+        /*
+        |--------------------------------------------------------------------------
         | INSERT REPORT
         |--------------------------------------------------------------------------
         */
 
-        $reportId = DB::table('reports_table')->insertGetId([
+        $reportPayload = [
 
             'report_reporter_employee_id' => $request->employee_id,
 
@@ -376,16 +397,30 @@ class MobileReportController extends Controller
 
             'report_updated_at' => now(),
 
-        ]);
+        ];
+
+        if (Schema::hasColumn('reports_table', 'report_related_count')) {
+            $reportPayload['report_related_count'] = 1;
+        }
+
+        $reportId = DB::table('reports_table')->insertGetId($reportPayload);
 
         $report = DB::table('reports_table')
             ->where('report_id', $reportId)
             ->first();
 
-        event(new \App\Events\ReportSubmitted($report));
-        Log::info('Broadcast fired', [
-            'report_id' => $reportId,
-        ]);
+        // Report is already saved. Don't fail the API if Reverb/Pusher is offline.
+        try {
+            event(new \App\Events\ReportSubmitted($report));
+            Log::info('Broadcast fired', [
+                'report_id' => $reportId,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Report broadcast failed (report still saved)', [
+                'report_id' => $reportId,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         /*
         |--------------------------------------------------------------------------

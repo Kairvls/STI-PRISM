@@ -93,7 +93,7 @@
             >
                 <i data-lucide="qr-code"></i>
 
-                <span>Generate QR</span>
+                <span>QR Tools</span>
             </a>
 
 
@@ -145,7 +145,14 @@
             class="menu-item {{ request()->is('maintenance/infrastructure*') ? 'active' : '' }}"
         >
             <i class="h-5 w-5" data-lucide="building-2"></i>
-            <span>Buildings & Rooms</span>
+            <span>Buildings Layout</span>
+        </a>
+        <a
+            href="/maintenance/rooms"
+            class="menu-item {{ request()->is('maintenance/rooms*') ? 'active' : '' }} mt-1"
+        >
+            <i class="h-5 w-5" data-lucide="door-open"></i>
+            <span>Rooms</span>
         </a>
 
         <div class="menu-title" id="equipment-section">EQUIPMENT</div>
@@ -154,7 +161,7 @@
             class="menu-item {{ request()->is('maintenance/equipment/inventory*') ? 'active' : '' }}"
         >
             <i class="h-5 w-5" data-lucide="package"></i>
-            <span>Inventory & Status</span>
+            <span>Inventory</span>
         </a>
         <a
             href="/maintenance/equipment/categories"
@@ -165,18 +172,32 @@
             <span>Categories</span>
         </a>
         <a
+            href="/maintenance/equipment/suggested-issues"
+            class="menu-item {{ request()->is('maintenance/equipment/suggested-issues*') ? 'active' : '' }} mt-1"
+        >
+            <i class="h-5 w-5" data-lucide="list-checks"></i>
+            <span>Suggested Issues</span>
+        </a>
+        <a
             href="/maintenance/equipment/qr-tools"
             class="menu-item {{ request()->is('maintenance/equipment/qr-tools*') ? 'active' : '' }} mt-1"
         >
             <i class="h-5 w-5" data-lucide="qr-code"></i>
-            <span>QR Code Tools</span>
+            <span>QR Tools</span>
         </a>
         <a
             href="/maintenance/equipment/transfer"
             class="menu-item {{ request()->is('maintenance/equipment/transfer*') ? 'active' : '' }} mt-1"
         >
             <i class="h-5 w-5" data-lucide="move"></i>
-            <span>Transfer & History</span>
+            <span>Transfers</span>
+        </a>
+        <a
+            href="/maintenance/equipment/history"
+            class="menu-item {{ request()->is('maintenance/equipment/history') ? 'active' : '' }} mt-1"
+        >
+            <i class="h-5 w-5" data-lucide="history"></i>
+            <span>History</span>
         </a>
         <a
             href="/maintenance/borrowing"
@@ -228,10 +249,14 @@
     #sidebar {
         width: 280px;
         height: 100vh;
+        max-height: 100vh;
+        min-height: 0;
+        overflow: hidden;
         background: #0d1120;
         color: white;
         display: flex;
         flex-direction: column;
+        flex-shrink: 0;
         border-right: 1px solid rgba(255, 255, 255, 0.05);
     }
 
@@ -239,14 +264,13 @@
    SCROLLABLE CONTENT
 ====================================== */
     .sidebar-content {
-    flex: 1;
-
-    overflow-y: auto;
-    overflow-x: hidden;
-
-    /* TOP | RIGHT | BOTTOM | LEFT */
-    padding: 20px 20px 20px 20px;
-}
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 20px 20px 32px 20px;
+        overscroll-behavior: contain;
+    }
     
 
     /* ======================================
@@ -270,6 +294,7 @@
         display: flex;
         align-items: center;
         gap: 14px;
+        flex-shrink: 0;
         /*margin-bottom: 32px;*/
     }
     .logo-icon {

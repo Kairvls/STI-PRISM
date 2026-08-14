@@ -19,6 +19,383 @@ class MobileMaintenanceController extends Controller
     }
 
     // =====================================================
+    // LIST EQUIPMENT
+    // =====================================================
+
+    public function listEquipment(Request $request): JsonResponse
+    {
+        $search = trim((string) $request->query('search', ''));
+        $limit = min((int) $request->query('limit', 100), 200);
+
+        $query = DB::table('equipment_table')
+            ->leftJoin(
+                'equipment_categories_table',
+                'equipment_table.equipment_category_id',
+                '=',
+                'equipment_categories_table.equipment_category_id'
+            )
+            ->leftJoin(
+                'rooms_table',
+                'equipment_table.equipment_room_id',
+                '=',
+                'rooms_table.room_id'
+            )
+            ->select(
+                'equipment_table.equipment_id as id',
+                'equipment_table.equipment_qr_code as qr_code',
+                'equipment_table.equipment_asset_tag as asset_tag',
+                'equipment_table.equipment_name as name',
+                'equipment_table.equipment_brand_name as brand',
+                'equipment_table.equipment_model as model',
+                'equipment_table.equipment_serial_number as serial_number',
+                'rooms_table.room_name as room',
+                'equipment_categories_table.equipment_category_name as category',
+                'equipment_table.equipment_condition_status as condition',
+                'equipment_table.equipment_inventory_status as inventory_status',
+                'equipment_table.equipment_warranty_expiration as warranty_expiration'
+            )
+            // Mobile only surfaces QR-tagged equipment: a generated QR code is
+            // the enrollment gate for maintenance monitoring/scheduling.
+            ->whereNotNull('equipment_table.equipment_qr_code')
+            ->where('equipment_table.equipment_qr_code', '!=', '')
+            ->orderBy('equipment_table.equipment_name');
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('equipment_table.equipment_name', 'like', "%{$search}%")
+                    ->orWhere('equipment_table.equipment_asset_tag', 'like', "%{$search}%")
+                    ->orWhere('equipment_table.equipment_qr_code', 'like', "%{$search}%")
+                    ->orWhere('rooms_table.room_name', 'like', "%{$search}%")
+                    ->orWhere('equipment_table.equipment_brand_name', 'like', "%{$search}%");
+            });
+        }
+
+        $equipment = $query->limit($limit)->get();
+
+        return response()->json([
+            'success' => true,
+            'equipment' => $equipment,
+        ]);
+    }
+
+    // =====================================================
+    // LIST ALL MAINTENANCE HISTORY
+    // =====================================================
+
+    public function listHistory(Request $request): JsonResponse
+    {
+        $limit = min((int) $request->query('limit', 50), 100);
+
+        $history = DB::table('equipment_maintenance_history_table')
+            ->leftJoin(
+                'users_table',
+                'equipment_maintenance_history_table.equipment_maintenance_personnel_id',
+                '=',
+                'users_table.user_id'
+            )
+            ->leftJoin(
+                'equipment_table',
+                'equipment_maintenance_history_table.equipment_maintenance_equipment_id',
+                '=',
+                'equipment_table.equipment_id'
+            )
+            ->leftJoin(
+                'rooms_table',
+                'equipment_table.equipment_room_id',
+                '=',
+                'rooms_table.room_id'
+            )
+            ->select(
+                'equipment_maintenance_history_table.*',
+                'users_table.user_full_name',
+                'equipment_table.equipment_id',
+                'equipment_table.equipment_name',
+                'equipment_table.equipment_qr_code',
+                'rooms_table.room_name'
+            )
+            // Mobile only surfaces QR-tagged equipment.
+            ->whereNotNull('equipment_table.equipment_qr_code')
+            ->where('equipment_table.equipment_qr_code', '!=', '')
+            ->orderBy(
+                'equipment_maintenance_created_at',
+                'desc'
+            )
+            ->limit($limit)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'history' => $history,
+        ]);
+    }
+
+    // =====================================================
+    // LIST ALL MAINTENANCE SCHEDULES
+    // =====================================================
+
+    public function listSchedules(Request $request): JsonResponse
+    {
+        $limit = min((int) $request->query('limit', 50), 100);
+
+        // Keep overdue flag fresh for Active schedules past next_date.
+        DB::table('maintenance_schedules_table')
+            ->where('maintenance_schedule_status', 'Active')
+            ->whereNotNull('maintenance_schedule_next_date')
+            ->whereDate('maintenance_schedule_next_date', '<', today())
+            ->update([
+                'maintenance_schedule_status' => 'Overdue',
+            ]);
+
+        $schedules = DB::table('maintenance_schedules_table')
+            ->leftJoin(
+                'equipment_table',
+                'maintenance_schedules_table.maintenance_schedule_equipment_id',
+                '=',
+                'equipment_table.equipment_id'
+            )
+            ->leftJoin(
+                'rooms_table',
+                'equipment_table.equipment_room_id',
+                '=',
+                'rooms_table.room_id'
+            )
+            ->select(
+                'maintenance_schedules_table.*',
+                'equipment_table.equipment_id',
+                'equipment_table.equipment_name',
+                'equipment_table.equipment_qr_code',
+                'rooms_table.room_name'
+            )
+            // Mobile only surfaces schedules whose equipment has a QR code.
+            ->whereNotNull('equipment_table.equipment_qr_code')
+            ->where('equipment_table.equipment_qr_code', '!=', '')
+            ->orderByRaw("
+                CASE maintenance_schedule_status
+                    WHEN 'Overdue' THEN 0
+                    WHEN 'Active' THEN 1
+                    ELSE 2
+                END
+            ")
+            ->orderBy(
+                'maintenance_schedule_next_date',
+                'asc'
+            )
+            ->limit($limit)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'schedules' => $schedules,
+        ]);
+    }
+
+    // =====================================================
+    // RECENT ACTIVITY (HOME DASHBOARD)
+    // =====================================================
+
+    public function recent(): JsonResponse
+    {
+        // Active schedules within this many days are treated as "Due soon".
+        $dueSoonDays = 7;
+
+        // Keep overdue flag fresh for Active schedules past next_date.
+        DB::table('maintenance_schedules_table')
+            ->where('maintenance_schedule_status', 'Active')
+            ->whereNotNull('maintenance_schedule_next_date')
+            ->whereDate('maintenance_schedule_next_date', '<', today())
+            ->update([
+                'maintenance_schedule_status' => 'Overdue',
+            ]);
+
+        // Mobile only counts QR-tagged equipment (the monitoring gate).
+        $equipmentCount = DB::table('equipment_table')
+            ->whereNotNull('equipment_qr_code')
+            ->where('equipment_qr_code', '!=', '')
+            ->count();
+
+        $underMaintenance = DB::table('equipment_table')
+            ->where('equipment_inventory_status', 'Under Maintenance')
+            ->whereNotNull('equipment_qr_code')
+            ->where('equipment_qr_code', '!=', '')
+            ->count();
+
+        // Only count schedules whose equipment has a QR code (mobile scope).
+        $overdueSchedules = DB::table('maintenance_schedules_table')
+            ->join(
+                'equipment_table',
+                'maintenance_schedules_table.maintenance_schedule_equipment_id',
+                '=',
+                'equipment_table.equipment_id'
+            )
+            ->where('maintenance_schedule_status', 'Overdue')
+            ->whereNotNull('equipment_table.equipment_qr_code')
+            ->where('equipment_table.equipment_qr_code', '!=', '')
+            ->count();
+
+        $dueSoonSchedulesCount = DB::table('maintenance_schedules_table')
+            ->join(
+                'equipment_table',
+                'maintenance_schedules_table.maintenance_schedule_equipment_id',
+                '=',
+                'equipment_table.equipment_id'
+            )
+            ->where('maintenance_schedule_status', 'Active')
+            ->whereNotNull('maintenance_schedule_next_date')
+            ->whereNotNull('equipment_table.equipment_qr_code')
+            ->where('equipment_table.equipment_qr_code', '!=', '')
+            ->whereDate('maintenance_schedule_next_date', '>=', today())
+            ->whereDate(
+                'maintenance_schedule_next_date',
+                '<=',
+                today()->addDays($dueSoonDays)
+            )
+            ->count();
+
+        $scheduleSelect = function ($query) {
+            return $query
+                ->leftJoin(
+                    'equipment_table',
+                    'maintenance_schedules_table.maintenance_schedule_equipment_id',
+                    '=',
+                    'equipment_table.equipment_id'
+                )
+                ->leftJoin(
+                    'rooms_table',
+                    'equipment_table.equipment_room_id',
+                    '=',
+                    'rooms_table.room_id'
+                )
+                ->select(
+                    'maintenance_schedules_table.*',
+                    'equipment_table.equipment_id',
+                    'equipment_table.equipment_name',
+                    'equipment_table.equipment_qr_code',
+                    'rooms_table.room_name'
+                )
+                // Mobile scope: schedules for QR-tagged equipment only.
+                ->whereNotNull('equipment_table.equipment_qr_code')
+                ->where('equipment_table.equipment_qr_code', '!=', '');
+        };
+
+        $recentHistory = DB::table('equipment_maintenance_history_table')
+            ->leftJoin(
+                'users_table',
+                'equipment_maintenance_history_table.equipment_maintenance_personnel_id',
+                '=',
+                'users_table.user_id'
+            )
+            ->leftJoin(
+                'equipment_table',
+                'equipment_maintenance_history_table.equipment_maintenance_equipment_id',
+                '=',
+                'equipment_table.equipment_id'
+            )
+            ->leftJoin(
+                'rooms_table',
+                'equipment_table.equipment_room_id',
+                '=',
+                'rooms_table.room_id'
+            )
+            ->select(
+                'equipment_maintenance_history_table.*',
+                'users_table.user_full_name',
+                'equipment_table.equipment_id',
+                'equipment_table.equipment_name',
+                'equipment_table.equipment_qr_code',
+                'rooms_table.room_name'
+            )
+            // Mobile scope: recent fixes for QR-tagged equipment only.
+            ->whereNotNull('equipment_table.equipment_qr_code')
+            ->where('equipment_table.equipment_qr_code', '!=', '')
+            ->orderBy('equipment_maintenance_created_at', 'desc')
+            ->limit(3)
+            ->get();
+
+        $dueSoonSchedules = $scheduleSelect(
+            DB::table('maintenance_schedules_table')
+        )
+            ->where('maintenance_schedule_status', 'Active')
+            ->whereNotNull('maintenance_schedule_next_date')
+            ->whereDate('maintenance_schedule_next_date', '>=', today())
+            ->whereDate(
+                'maintenance_schedule_next_date',
+                '<=',
+                today()->addDays($dueSoonDays)
+            )
+            ->orderBy('maintenance_schedule_next_date', 'asc')
+            ->limit(3)
+            ->get();
+
+        $upcomingSchedules = $scheduleSelect(
+            DB::table('maintenance_schedules_table')
+        )
+            ->whereIn('maintenance_schedule_status', ['Active', 'Overdue'])
+            ->orderByRaw("
+                CASE maintenance_schedule_status
+                    WHEN 'Overdue' THEN 0
+                    ELSE 1
+                END
+            ")
+            ->orderBy('maintenance_schedule_next_date', 'asc')
+            ->limit(5)
+            ->get();
+
+        $attentionEquipment = DB::table('equipment_table')
+            ->leftJoin(
+                'rooms_table',
+                'equipment_table.equipment_room_id',
+                '=',
+                'rooms_table.room_id'
+            )
+            ->leftJoin(
+                'equipment_categories_table',
+                'equipment_table.equipment_category_id',
+                '=',
+                'equipment_categories_table.equipment_category_id'
+            )
+            ->select(
+                'equipment_table.equipment_id as id',
+                'equipment_table.equipment_qr_code as qr_code',
+                'equipment_table.equipment_asset_tag as asset_tag',
+                'equipment_table.equipment_name as name',
+                'equipment_table.equipment_brand_name as brand',
+                'equipment_table.equipment_model as model',
+                'equipment_table.equipment_serial_number as serial_number',
+                'rooms_table.room_name as room',
+                'equipment_categories_table.equipment_category_name as category',
+                'equipment_table.equipment_condition_status as condition',
+                'equipment_table.equipment_inventory_status as inventory_status',
+                'equipment_table.equipment_warranty_expiration as warranty_expiration'
+            )
+            ->whereIn('equipment_inventory_status', [
+                'Under Maintenance',
+                'For Replacement',
+            ])
+            ->whereNotNull('equipment_table.equipment_qr_code')
+            ->where('equipment_table.equipment_qr_code', '!=', '')
+            // Most-recent first (newest-added as recency proxy).
+            ->orderByDesc('equipment_table.equipment_created_at')
+            ->orderByDesc('equipment_table.equipment_id')
+            ->limit(3)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'summary' => [
+                'equipment_count' => $equipmentCount,
+                'under_maintenance' => $underMaintenance,
+                'overdue_schedules' => $overdueSchedules,
+                'due_soon_schedules' => $dueSoonSchedulesCount,
+                'due_soon_days' => $dueSoonDays,
+            ],
+            'recent_history' => $recentHistory,
+            'due_soon_schedules' => $dueSoonSchedules,
+            'upcoming_schedules' => $upcomingSchedules,
+            'attention_equipment' => $attentionEquipment,
+        ]);
+    }
+
+    // =====================================================
     // GET EQUIPMENT BY QR
     // =====================================================
 
@@ -554,6 +931,58 @@ class MobileMaintenanceController extends Controller
             'schedules' => $schedules
 
         ]);
+    }
+
+    // =====================================================
+    // CREATE MAINTENANCE SCHEDULE
+    // =====================================================
+
+    public function storeSchedule(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'equipment_id' => [
+                'required',
+                'integer',
+                'exists:equipment_table,equipment_id',
+            ],
+            'title' => [
+                'required',
+                'string',
+                'max:255',
+            ],
+            'description' => [
+                'nullable',
+                'string',
+            ],
+            'frequency' => [
+                'required',
+                'string',
+                'max:100',
+            ],
+            'next_date' => [
+                'required',
+                'date',
+            ],
+        ]);
+
+        $scheduleId = DB::table('maintenance_schedules_table')->insertGetId([
+            'maintenance_schedule_equipment_id' => $validated['equipment_id'],
+            'maintenance_schedule_title' => $validated['title'],
+            'maintenance_schedule_description' => $validated['description'] ?? null,
+            'maintenance_schedule_frequency' => $validated['frequency'],
+            'maintenance_schedule_next_date' => $validated['next_date'],
+            'maintenance_schedule_status' => 'Active',
+        ]);
+
+        $schedule = DB::table('maintenance_schedules_table')
+            ->where('maintenance_schedule_id', $scheduleId)
+            ->first();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Maintenance schedule created successfully.',
+            'schedule' => $schedule,
+        ], 201);
     }
 
     // =====================================================

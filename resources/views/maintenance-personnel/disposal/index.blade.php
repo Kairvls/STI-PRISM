@@ -10,7 +10,7 @@
                 Disposal Records
             </h1>
 
-            <p class="mt-1 text-slate-500">Monitor equipment inventory, condition, and operational status.</p>
+            'Monitor equipment waiting for replacement, then mark it disposed when it actually leaves the campus.'
         </div>
 
         <button
@@ -805,7 +805,9 @@
                                                 class="mt-0.5 text-[11px]
                                                     text-slate-400"
                                             >
-                                                Disposed equipment
+                                                {{ ($record->equipment_inventory_status ?? '') === 'For Replacement'
+                                                    ? 'Awaiting replacement / disposal'
+                                                    : 'Disposed equipment' }}
                                             </p>
 
                                         </div>
@@ -981,6 +983,31 @@
                                     <div
                                         class="flex items-center justify-center gap-2"
                                     >
+                                        <form method="POST" action="/maintenance/disposal/restore">
+                                            @csrf
+                                            <input type="hidden" name="disposal_id" value="{{ $record->disposal_record_id }}" />
+                                            <button
+                                                type="submit"
+                                                class="flex h-9 items-center rounded-xl bg-white px-2.5 text-[11px] font-medium text-slate-600 ring-1 ring-slate-200 transition hover:bg-slate-50"
+                                                title="Return to Inventory"
+                                            >
+                                                Restore
+                                            </button>
+                                        </form>
+
+                                        @if (($record->equipment_inventory_status ?? '') !== 'Disposed')
+                                            <form method="POST" action="/maintenance/disposal/confirm">
+                                                @csrf
+                                                <input type="hidden" name="disposal_id" value="{{ $record->disposal_record_id }}" />
+                                                <button
+                                                    type="submit"
+                                                    class="flex h-9 items-center rounded-xl bg-slate-900 px-2.5 text-[11px] font-medium text-white transition hover:bg-slate-800"
+                                                    title="Mark actually disposed"
+                                                >
+                                                    Dispose
+                                                </button>
+                                            </form>
+                                        @endif
 
                                         {{-- ================================= --}}
                                         {{-- VIEW BUTTON --}}

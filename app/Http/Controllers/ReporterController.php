@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\ReportGrouping;
+use App\Support\SuggestedIssues;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -62,20 +64,10 @@ class ReporterController extends Controller
         |--------------------------------------------------------------------------
         */
 
-        $equipment = DB::table('equipment_table')
-
-            ->where(
-                'equipment_inventory_status',
-                'Active'
-            )
-
-            ->where(
-                'equipment_condition_status',
-                'Good'
-            )
-
+        $equipment = ReportGrouping::applyReporterEquipmentFilters(
+            DB::table('equipment_table')
+        )
             ->orderBy('equipment_name')
-
             ->get();
 
         /*
@@ -331,6 +323,13 @@ class ReporterController extends Controller
                 );
 
             }
+
+            if (ReportGrouping::equipmentIsForReplacement((int) $equipment->equipment_id)) {
+                return back()->with(
+                    'error',
+                    'This equipment is already marked for replacement and cannot be reported again.'
+                );
+            }
         }
 
         /*
@@ -358,13 +357,38 @@ class ReporterController extends Controller
 
         /*
         |--------------------------------------------------------------------------
+        | MERGE INTO OPEN REPORT FOR THE SAME EQUIPMENT
+        |--------------------------------------------------------------------------
+        */
+
+        if ($equipment) {
+            $openReport = ReportGrouping::findOpenReport(
+                (int) $equipment->equipment_id,
+                (int) $request->report_room_id
+            );
+
+            if ($openReport) {
+                ReportGrouping::mergeIntoOpenReport($openReport, [
+                    'reporter_id' => $request->report_reporter_employee_id,
+                    'urgency' => $request->report_urgency_level,
+                    'issue' => $request->report_suggested_issue
+                        ?: $request->report_problem_description,
+                ]);
+
+                return back()->with(
+                    'success',
+                    'This equipment already has an open report. Your report was added to it instead of creating a duplicate.'
+                );
+            }
+        }
+
+        /*
+        |--------------------------------------------------------------------------
         | INSERT REPORT
         |--------------------------------------------------------------------------
         */
 
-        DB::table('reports_table')
-
-            ->insert([
+        $insertData = [
 
                 /*
                 |--------------------------------------------------------------------------
@@ -468,7 +492,13 @@ class ReporterController extends Controller
 
                     now()
 
-            ]);
+            ];
+
+        if (Schema::hasColumn('reports_table', 'report_related_count')) {
+            $insertData['report_related_count'] = 1;
+        }
+
+        DB::table('reports_table')->insert($insertData);
 
         /*
         |--------------------------------------------------------------------------
@@ -493,34 +523,11 @@ class ReporterController extends Controller
 
     public function getEquipmentByRoom($roomId)
     {
-        $equipment = DB::table('equipment_table')
-
-            ->where(
-
-                'equipment_room_id',
-
-                $roomId
-
-            )
-
-            ->where(
-
-                'equipment_inventory_status',
-
-                'Active'
-
-            )
-
-            ->where(
-
-                'equipment_condition_status',
-
-                'Good'
-
-            )
-
+        $equipment = ReportGrouping::applyReporterEquipmentFilters(
+            DB::table('equipment_table')
+                ->where('equipment_room_id', $roomId)
+        )
             ->orderBy('equipment_name')
-
             ->get();
 
         return response()->json($equipment);
@@ -596,21 +603,8 @@ class ReporterController extends Controller
 
         }
 
-        $suggestions = DB::table(
-            'issue_templates_table'
-        )
-
-        ->where(
-            'issue_template_category_id',
-            $equipment->equipment_category_id
-        )
-
-        ->pluck(
-            'issue_template_name'
-        );
-
         return response()->json(
-            $suggestions
+            SuggestedIssues::namesForEquipment($equipment)
         );
     }
 }

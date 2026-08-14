@@ -2,11 +2,12 @@
 
 namespace App\Providers;
 
+use Illuminate\Pagination\Paginator;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\ServiceProvider;
 use SocialiteProviders\Manager\SocialiteWasCalled;
 use SocialiteProviders\Microsoft\Provider;
-use Illuminate\Support\Facades\Event;
-use Illuminate\Support\Facades\File;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -23,6 +24,10 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        if (request()->is('maintenance*')) {
+            Paginator::defaultView('pagination.maintenance');
+        }
+
         Event::listen(function (SocialiteWasCalled $event) {
 
             $event->extendSocialite(

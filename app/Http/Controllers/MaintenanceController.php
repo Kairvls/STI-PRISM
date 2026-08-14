@@ -2,6 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\ReportGrouping;
+use App\Support\ReporterImport;
+use App\Support\RoomCategories;
+use App\Support\RoomName;
+use App\Support\SuggestedIssues;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -81,7 +86,19 @@ class MaintenanceController extends Controller
 
 
         $overdueMaintenance = DB::table('maintenance_schedules_table')
-            ->where('maintenance_schedule_status', 'Overdue')
+            ->where(function ($query) {
+                $query
+                    ->where('maintenance_schedule_status', 'Overdue')
+                    ->orWhere(function ($activePastDue) {
+                        $activePastDue
+                            ->where('maintenance_schedule_status', 'Active')
+                            ->whereDate(
+                                'maintenance_schedule_next_date',
+                                '<',
+                                today()
+                            );
+                    });
+            })
             ->count();
 
 
@@ -93,6 +110,26 @@ class MaintenanceController extends Controller
             ->where('report_current_status', 'Pending')
             ->whereDate('report_submitted_at', today())
             ->where('report_is_archived', false)
+            ->count();
+
+
+        // =====================================================
+        // URGENT REPORTS SUBMITTED TODAY
+        // Used by the once-per-day login reminder modal
+        // =====================================================
+
+        $urgentReportsToday = DB::table('reports_table')
+            ->where('report_urgency_level', 'Urgent')
+            ->whereDate('report_submitted_at', today())
+            ->where('report_is_archived', false)
+            ->whereNotIn(
+                'report_current_status',
+                [
+                    'Resolved',
+                    'Rejected',
+                    'For Replacement',
+                ]
+            )
             ->count();
 
 
@@ -2288,6 +2325,8 @@ class MaintenanceController extends Controller
 
                 'pendingReportsToday',
 
+                'urgentReportsToday',
+
                 'urgentReports',
 
                 'totalEquipment',
@@ -2383,6 +2422,15 @@ class MaintenanceController extends Controller
     // REPLACE YOUR CURRENT dashboard() METHOD
     // END HERE
     // =====================================================
+
+    private function applyReportStatusUpdate($id, $report, array $updates): void
+    {
+        DB::table('reports_table')
+            ->where('report_id', $id)
+            ->update($updates);
+
+        ReportGrouping::syncOpenSiblings($report, $updates);
+    }
 
     /*
     |--------------------------------------------------------------------------
@@ -2543,6 +2591,75 @@ class MaintenanceController extends Controller
                         'reports_table.report_is_archived',
                         false
                     );
+
+                    // One card/row per equipment+room group, including
+                    // Resolved and For Replacement — not one card per report.
+                    $query->where(function ($groupQuery) {
+                        $groupQuery
+                            ->whereNull('reports_table.report_equipment_id')
+                            ->orWhereNotIn(
+                                'reports_table.report_current_status',
+                                ReportGrouping::groupedStatuses()
+                            )
+                            ->orWhereRaw(
+                                'reports_table.report_id = (
+                                    SELECT MAX(duplicate_reports.report_id)
+                                    FROM reports_table AS duplicate_reports
+                                    WHERE duplicate_reports.report_equipment_id = reports_table.report_equipment_id
+                                      AND duplicate_reports.report_room_id = reports_table.report_room_id
+                                      AND duplicate_reports.report_is_archived = 0
+                                      AND duplicate_reports.report_current_status IN (?, ?, ?, ?)
+                                      AND '.ReportGrouping::groupBucketSql('duplicate_reports').'
+                                        = '.ReportGrouping::groupBucketSql('reports_table').'
+                                )',
+                                ReportGrouping::groupedStatuses()
+                            );
+                    });
+                }
+            )
+
+            ->leftJoin(
+                DB::raw('(
+                    SELECT
+                        report_equipment_id,
+                        report_room_id,
+                        CASE
+                            WHEN report_current_status IN (\'Pending\', \'Processing\') THEN \'open\'
+                            WHEN report_current_status = \'Resolved\' THEN \'resolved\'
+                            WHEN report_current_status = \'For Replacement\' THEN \'replacement\'
+                            ELSE report_current_status
+                        END AS report_group_bucket,
+                        COUNT(*) AS open_count,
+                        MAX(CASE WHEN report_urgency_level = \'Urgent\' THEN 1 ELSE 0 END) AS has_urgent
+                    FROM reports_table
+                    WHERE report_equipment_id IS NOT NULL
+                      AND report_is_archived = 0
+                      AND report_current_status IN (\'Pending\', \'Processing\', \'Resolved\', \'For Replacement\')
+                    GROUP BY
+                        report_equipment_id,
+                        report_room_id,
+                        CASE
+                            WHEN report_current_status IN (\'Pending\', \'Processing\') THEN \'open\'
+                            WHEN report_current_status = \'Resolved\' THEN \'resolved\'
+                            WHEN report_current_status = \'For Replacement\' THEN \'replacement\'
+                            ELSE report_current_status
+                        END
+                ) AS open_report_group'),
+                function ($join) {
+                    $join
+                        ->on(
+                            'open_report_group.report_equipment_id',
+                            '=',
+                            'reports_table.report_equipment_id'
+                        )
+                        ->on(
+                            'open_report_group.report_room_id',
+                            '=',
+                            'reports_table.report_room_id'
+                        )
+                        ->whereRaw(
+                            'open_report_group.report_group_bucket = '.ReportGrouping::groupBucketSql('reports_table')
+                        );
                 }
             )
 
@@ -2590,6 +2707,10 @@ class MaintenanceController extends Controller
                 'assigned_purchaser.user_full_name
                     as assigned_purchaser_name',
 
+                DB::raw('COALESCE(open_report_group.open_count, reports_table.report_related_count, 1) as grouped_report_count'),
+
+                DB::raw("CASE WHEN open_report_group.has_urgent = 1 THEN 'Urgent' ELSE reports_table.report_urgency_level END as grouped_urgency")
+
             );
     }
 
@@ -2604,6 +2725,8 @@ class MaintenanceController extends Controller
             ->first();
 
         abort_if(!$report, 404);
+
+        $this->attachEquipmentReportHistory(collect([$report]));
 
         return view(
             'components.tables.partials.report-card',
@@ -2975,7 +3098,7 @@ class MaintenanceController extends Controller
             ->paginate(10)
             ->withQueryString();
 
-        return $this->reportsView($reports);
+        return $this->reportsView($reports, true);
     }
 
     /*
@@ -3050,14 +3173,84 @@ class MaintenanceController extends Controller
     // RETURN REPORTS PAGE WITH SHARED DASHBOARD DATA
     // =====================================================
 
-    private function reportsView($reports)
+    private function attachEquipmentReportHistory($reports): void
     {
+        $equipmentIds = collect($reports)
+            ->pluck('report_equipment_id')
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($equipmentIds->isEmpty()) {
+            foreach ($reports as $report) {
+                $report->equipment_report_history = collect();
+            }
+
+            return;
+        }
+
+        $history = DB::table('reports_table')
+            ->leftJoin(
+                'reporters_table',
+                'reports_table.report_reporter_employee_id',
+                '=',
+                'reporters_table.reporter_employee_id'
+            )
+            ->leftJoin(
+                'rooms_table',
+                'reports_table.report_room_id',
+                '=',
+                'rooms_table.room_id'
+            )
+            ->whereIn('reports_table.report_equipment_id', $equipmentIds)
+            ->orderByDesc('reports_table.report_submitted_at')
+            ->select(
+                'reports_table.report_id',
+                'reports_table.report_equipment_id',
+                'reports_table.report_reporter_employee_id',
+                'reports_table.report_urgency_level',
+                'reports_table.report_current_status',
+                'reports_table.report_suggested_issue',
+                'reports_table.report_problem_description',
+                'reports_table.report_submitted_at',
+                'reports_table.report_is_archived',
+                'reporters_table.reporter_full_name',
+                'rooms_table.room_name'
+            )
+            ->get()
+            ->groupBy('report_equipment_id');
+
+        foreach ($reports as $report) {
+            $report->equipment_report_history = $history->get(
+                $report->report_equipment_id,
+                collect()
+            );
+        }
+    }
+
+    private function reportsView($reports, bool $showReportStats = false)
+    {
+        $reports->getCollection()->transform(function ($report) {
+            if (isset($report->grouped_report_count)) {
+                $report->report_related_count = (int) $report->grouped_report_count;
+            }
+
+            if (!empty($report->grouped_urgency)) {
+                $report->report_urgency_level = $report->grouped_urgency;
+            }
+
+            return $report;
+        });
+
+        $this->attachEquipmentReportHistory($reports->getCollection());
+
         return view(
             'maintenance-personnel.reports.all-reports',
 
             array_merge(
                 [
                     'reports' => $reports,
+                    'allReports' => $showReportStats,
                 ],
 
                 // =====================================================
@@ -3715,7 +3908,10 @@ class MaintenanceController extends Controller
         // DATABASE TRANSACTION HERE
         // =====================================================
 
-        return DB::transaction(function () use (
+        $equipmentToDispose = null;
+        $disposeReason = $request->remarks;
+
+        $response = DB::transaction(function () use (
 
             $request,
 
@@ -3727,7 +3923,9 @@ class MaintenanceController extends Controller
 
             $undoRequested,
 
-            $imagePath
+            $imagePath,
+
+            &$equipmentToDispose
 
         ) {
 
@@ -3865,25 +4063,11 @@ class MaintenanceController extends Controller
                 // CAN CLAIM THE REPORT.
                 // =================================================
 
-                DB::table('reports_table')
-
-                    ->where(
-                        'report_id',
-                        $id
-                    )
-
-                    ->update([
-
-                        'report_current_status' =>
-                            'Pending',
-
-                        'report_assigned_personnel_id' =>
-                            null,
-
-                        'report_updated_at' =>
-                            now(),
-
-                    ]);
+                $this->applyReportStatusUpdate($id, $report, [
+                    'report_current_status' => 'Pending',
+                    'report_assigned_personnel_id' => null,
+                    'report_updated_at' => now(),
+                ]);
 
                     $this->logActivity(
                         'Returned report to pending',
@@ -4016,25 +4200,11 @@ class MaintenanceController extends Controller
                     'Processing'
                 ) {
 
-                    DB::table('reports_table')
-
-                        ->where(
-                            'report_id',
-                            $id
-                        )
-
-                        ->update([
-
-                            'report_current_status' =>
-                                'Processing',
-
-                            'report_assigned_personnel_id' =>
-                                $personnelId,
-
-                            'report_updated_at' =>
-                                now(),
-
-                        ]);
+                    $this->applyReportStatusUpdate($id, $report, [
+                        'report_current_status' => 'Processing',
+                        'report_assigned_personnel_id' => $personnelId,
+                        'report_updated_at' => now(),
+                    ]);
 
                         $this->logActivity(
                             'Started processing report',
@@ -4077,25 +4247,11 @@ class MaintenanceController extends Controller
                     'Rejected'
                 ) {
 
-                    DB::table('reports_table')
-
-                        ->where(
-                            'report_id',
-                            $id
-                        )
-
-                        ->update([
-
-                            'report_current_status' =>
-                                'Rejected',
-
-                            'report_rejection_notes' =>
-                                $request->remarks,
-
-                            'report_updated_at' =>
-                                now(),
-
-                        ]);
+                    $this->applyReportStatusUpdate($id, $report, [
+                        'report_current_status' => 'Rejected',
+                        'report_rejection_notes' => $request->remarks,
+                        'report_updated_at' => now(),
+                    ]);
 
                         $this->logActivity(
                             'Rejected report',
@@ -4187,28 +4343,12 @@ class MaintenanceController extends Controller
                     'Resolved'
                 ) {
 
-                    DB::table('reports_table')
-
-                        ->where(
-                            'report_id',
-                            $id
-                        )
-
-                        ->update([
-
-                            'report_current_status' =>
-                                'Resolved',
-
-                            'report_resolution_notes' =>
-                                $request->remarks,
-
-                            'report_resolution_image' =>
-                                $imagePath,
-
-                            'report_updated_at' =>
-                                now(),
-
-                        ]);
+                    $this->applyReportStatusUpdate($id, $report, [
+                        'report_current_status' => 'Resolved',
+                        'report_resolution_notes' => $request->remarks,
+                        'report_resolution_image' => $imagePath,
+                        'report_updated_at' => now(),
+                    ]);
 
                         $this->logActivity(
                             'Resolved report',
@@ -4254,31 +4394,17 @@ class MaintenanceController extends Controller
                     // UPDATE REPORT HERE
                     // =================================================
 
-                    DB::table('reports_table')
+                    $this->applyReportStatusUpdate($id, $report, [
+                        'report_current_status' => 'For Replacement',
+                        'report_replacement_notes' => $request->remarks,
+                        'report_replacement_image' => $imagePath,
+                        'report_replacement_submitted_to_purchaser' => 1,
+                        'report_updated_at' => now(),
+                    ]);
 
-                        ->where(
-                            'report_id',
-                            $id
-                        )
-
-                        ->update([
-
-                            'report_current_status' =>
-                                'For Replacement',
-
-                            'report_replacement_notes' =>
-                                $request->remarks,
-
-                            'report_replacement_image' =>
-                                $imagePath,
-
-                            'report_replacement_submitted_to_purchaser' =>
-                                1,
-
-                            'report_updated_at' =>
-                                now(),
-
-                        ]);
+                    if (!empty($report->report_equipment_id)) {
+                        $equipmentToDispose = (int) $report->report_equipment_id;
+                    }
 
                         $this->logActivity(
                             'Submitted report for replacement',
@@ -4402,6 +4528,15 @@ class MaintenanceController extends Controller
             );
 
         });
+
+        if (!empty($equipmentToDispose)) {
+            ReportGrouping::moveUnusableEquipmentToDisposal(
+                (int) $equipmentToDispose,
+                $disposeReason
+            );
+        }
+
+        return $response;
     }
 
     public function archiveReport($id)
@@ -4887,6 +5022,11 @@ class MaintenanceController extends Controller
                 $request->status
             );
 
+        } else {
+            $query->whereNotIn(
+                'equipment_table.equipment_inventory_status',
+                ['Disposed', 'For Replacement']
+            );
         }
 
 
@@ -4955,6 +5095,369 @@ class MaintenanceController extends Controller
                 'equipmentMonthlyTrend'
             )
         );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | ROOMS DIRECTORY
+    |--------------------------------------------------------------------------
+    */
+
+    public function roomsDirectory(Request $request)
+    {
+        $sort = $request->get('sort', 'room_name');
+        $dir = $request->get('dir') === 'desc' ? 'desc' : 'asc';
+        $orderColumns = [
+            'room_name' => 'rooms_table.room_name',
+            'type' => 'rooms_table.room_type',
+            'floor' => 'floors_table.floor_level',
+            'equipment' => 'equipment_count',
+        ];
+        $orderBy = $orderColumns[$sort] ?? 'rooms_table.room_name';
+
+        $query = DB::table('rooms_table')
+            ->when(
+                Schema::hasColumn('rooms_table', 'room_is_archived'),
+                fn ($q) => $q->where('rooms_table.room_is_archived', false)
+            )
+            ->leftJoin(
+                'floors_table',
+                'rooms_table.room_floor_id',
+                '=',
+                'floors_table.floor_id'
+            )
+            ->leftJoin(
+                'buildings_table',
+                'floors_table.floor_building_id',
+                '=',
+                'buildings_table.building_id'
+            )
+            ->leftJoin(
+                'equipment_table',
+                function ($join) {
+                    $join->on(
+                        'rooms_table.room_id',
+                        '=',
+                        'equipment_table.equipment_room_id'
+                    )->whereNotIn(
+                        'equipment_table.equipment_inventory_status',
+                        ['Disposed']
+                    );
+                }
+            )
+            ->select(
+                'rooms_table.room_id',
+                'rooms_table.room_name',
+                'rooms_table.room_type',
+                'rooms_table.room_floor_id',
+                'rooms_table.room_status',
+                'floors_table.floor_level',
+                'buildings_table.building_id',
+                'buildings_table.building_name',
+                DB::raw('COUNT(equipment_table.equipment_id) as equipment_count')
+            )
+            ->groupBy(
+                'rooms_table.room_id',
+                'rooms_table.room_name',
+                'rooms_table.room_type',
+                'rooms_table.room_floor_id',
+                'rooms_table.room_status',
+                'floors_table.floor_level',
+                'buildings_table.building_id',
+                'buildings_table.building_name'
+            );
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('rooms_table.room_name', 'like', '%'.$search.'%')
+                    ->orWhere('buildings_table.building_name', 'like', '%'.$search.'%')
+                    ->orWhere('floors_table.floor_level', 'like', '%'.$search.'%');
+            });
+        }
+
+        if ($request->filled('building')) {
+            $query->where('buildings_table.building_id', $request->building);
+        }
+
+        $rooms = $query
+            ->orderBy($orderBy, $dir)
+            ->paginate(10)
+            ->withQueryString();
+
+        $buildings = DB::table('buildings_table')
+            ->orderBy('building_name')
+            ->get();
+
+        $floors = DB::table('floors_table')
+            ->leftJoin(
+                'buildings_table',
+                'floors_table.floor_building_id',
+                '=',
+                'buildings_table.building_id'
+            )
+            ->select(
+                'floors_table.floor_id',
+                'floors_table.floor_level',
+                'buildings_table.building_name'
+            )
+            ->orderBy('buildings_table.building_name')
+            ->orderBy('floors_table.floor_level')
+            ->get();
+
+        $roomTypes = RoomCategories::options();
+
+        $totalRooms = DB::table('rooms_table')
+            ->when(
+                Schema::hasColumn('rooms_table', 'room_is_archived'),
+                fn ($q) => $q->where('room_is_archived', false)
+            )
+            ->count();
+
+        return view(
+            'maintenance-personnel.rooms.index',
+            compact('rooms', 'buildings', 'floors', 'roomTypes', 'totalRooms', 'sort', 'dir')
+        );
+    }
+
+    public function storeDirectoryRoom(Request $request)
+    {
+        $roomTypes = RoomCategories::values();
+
+        $validated = $request->validate([
+            'room_name' => ['required', 'string', 'max:255'],
+            'room_floor_id' => ['required', 'exists:floors_table,floor_id'],
+            'room_type' => ['nullable', 'in:'.implode(',', $roomTypes)],
+            'room_status' => ['nullable', 'in:Normal,Maintenance Needed,Critical'],
+        ]);
+
+        $name = trim($validated['room_name']);
+        $floorId = $validated['room_floor_id'];
+
+        $matched = $this->matchingRoomName($name);
+        if ($matched) {
+            return back()
+                ->withErrors([
+                    'room_name' => '“'.$name.'” is the same room as “'.$matched->room_name.'”. Spellings like ComLab 1, Com Lab 1, and Computer Laboratory 1 are treated as one room.',
+                ])
+                ->withInput();
+        }
+
+        $index = DB::table('rooms_table')
+            ->where('room_floor_id', $floorId)
+            ->count();
+
+        $type = $validated['room_type'] ?: 'Lecture Room';
+        $values = [
+            'room_floor_id' => $floorId,
+            'room_name' => $name,
+            'room_type' => $type,
+            'room_status' => $validated['room_status'] ?: 'Normal',
+            'room_x' => 70 + (($index % 6) * 190),
+            'room_y' => 80 + ((int) floor($index / 6) * 190),
+            'room_width' => 150,
+            'room_height' => 105,
+        ];
+
+        if (Schema::hasColumn('rooms_table', 'room_color')) {
+            $values['room_color'] = '#60A5FA';
+        }
+
+        if (Schema::hasColumn('rooms_table', 'room_is_archived')) {
+            $values['room_is_archived'] = false;
+        }
+
+        if (Schema::hasColumn('rooms_table', 'room_created_at')) {
+            $values['room_created_at'] = now();
+        }
+
+        if (Schema::hasColumn('rooms_table', 'room_updated_at')) {
+            $values['room_updated_at'] = now();
+        }
+
+        if (Schema::hasColumn('rooms_table', 'created_at')) {
+            $values['created_at'] = now();
+        }
+
+        if (Schema::hasColumn('rooms_table', 'updated_at')) {
+            $values['updated_at'] = now();
+        }
+
+        DB::table('rooms_table')->insert($values);
+
+        return redirect()
+            ->route('maintenance.rooms.index')
+            ->with('success', 'Room added.');
+    }
+
+    public function updateDirectoryRoom(Request $request, $id)
+    {
+        $roomTypes = RoomCategories::values();
+        $validated = $request->validate([
+            'room_name' => ['required', 'string', 'max:255'],
+            'room_floor_id' => ['required', 'exists:floors_table,floor_id'],
+            'room_type' => ['nullable', 'in:'.implode(',', $roomTypes)],
+            'room_status' => ['nullable', 'in:Normal,Maintenance Needed,Critical'],
+        ]);
+
+        $room = DB::table('rooms_table')->where('room_id', $id)->first();
+        if (! $room) {
+            return back()->withErrors(['room_name' => 'Room not found.']);
+        }
+
+        $matched = $this->matchingRoomName($validated['room_name'], (int) $id);
+        if ($matched) {
+            return back()
+                ->withErrors([
+                    'room_name' => '“'.$validated['room_name'].'” is the same room as “'.$matched->room_name.'”.',
+                ])
+                ->withInput();
+        }
+
+        $values = [
+            'room_name' => trim($validated['room_name']),
+            'room_floor_id' => $validated['room_floor_id'],
+            'room_type' => $validated['room_type'] ?: $room->room_type,
+            'room_status' => $validated['room_status'] ?: ($room->room_status ?? 'Normal'),
+        ];
+        if (Schema::hasColumn('rooms_table', 'room_updated_at')) {
+            $values['room_updated_at'] = now();
+        }
+        if (Schema::hasColumn('rooms_table', 'updated_at')) {
+            $values['updated_at'] = now();
+        }
+
+        DB::table('rooms_table')->where('room_id', $id)->update($values);
+
+        return redirect()->route('maintenance.rooms.index')->with('success', 'Room updated.');
+    }
+
+    public function archiveDirectoryRoom($id)
+    {
+        $room = DB::table('rooms_table')->where('room_id', $id)->first();
+        if (! $room) {
+            return back()->withErrors(['room_name' => 'Room not found.']);
+        }
+
+        if (! Schema::hasColumn('rooms_table', 'room_is_archived')) {
+            return back()->withErrors(['room_name' => 'Archiving is not available.']);
+        }
+
+        DB::table('rooms_table')->where('room_id', $id)->update([
+            'room_is_archived' => true,
+            'room_archived_at' => Schema::hasColumn('rooms_table', 'room_archived_at') ? now() : null,
+        ]);
+
+        return redirect()->route('maintenance.rooms.index')->with('success', 'Room archived.');
+    }
+
+    public function mergeDuplicateRooms()
+    {
+        $rooms = DB::table('rooms_table')
+            ->when(
+                Schema::hasColumn('rooms_table', 'room_is_archived'),
+                fn ($q) => $q->where(function ($query) {
+                    $query->where('room_is_archived', false)->orWhereNull('room_is_archived');
+                })
+            )
+            ->orderBy('room_id')
+            ->get();
+
+        $groups = [];
+        foreach ($rooms as $room) {
+            $placed = false;
+            foreach ($groups as $index => $group) {
+                if (RoomName::matches($room->room_name, $group[0]->room_name)) {
+                    $groups[$index][] = $room;
+                    $placed = true;
+                    break;
+                }
+            }
+            if (! $placed) {
+                $groups[] = [$room];
+            }
+        }
+
+        $merged = 0;
+        foreach ($groups as $group) {
+            if (count($group) < 2) {
+                continue;
+            }
+            $keep = $group[0];
+            foreach (array_slice($group, 1) as $duplicate) {
+                DB::table('equipment_table')
+                    ->where('equipment_room_id', $duplicate->room_id)
+                    ->update(['equipment_room_id' => $keep->room_id]);
+
+                if (Schema::hasColumn('rooms_table', 'room_is_archived')) {
+                    DB::table('rooms_table')->where('room_id', $duplicate->room_id)->update([
+                        'room_is_archived' => true,
+                        'room_archived_at' => Schema::hasColumn('rooms_table', 'room_archived_at') ? now() : null,
+                    ]);
+                } else {
+                    DB::table('rooms_table')->where('room_id', $duplicate->room_id)->delete();
+                }
+                $merged++;
+            }
+        }
+
+        return redirect()
+            ->route('maintenance.rooms.index')
+            ->with('success', $merged > 0 ? "Merged {$merged} duplicate room(s)." : 'No duplicate rooms found.');
+    }
+
+    private function matchingRoomName(string $name, ?int $ignoreId = null)
+    {
+        $existingRooms = DB::table('rooms_table')
+            ->when(
+                Schema::hasColumn('rooms_table', 'room_is_archived'),
+                fn ($q) => $q->where(function ($query) {
+                    $query->where('room_is_archived', false)->orWhereNull('room_is_archived');
+                })
+            )
+            ->when($ignoreId, fn ($q) => $q->where('room_id', '!=', $ignoreId))
+            ->get(['room_id', 'room_name']);
+
+        return $existingRooms->first(
+            fn ($existing) => RoomName::matches($name, (string) $existing->room_name)
+        );
+    }
+
+    public function roomEquipmentPeek($id)
+    {
+        $room = DB::table('rooms_table')
+            ->where('room_id', $id)
+            ->first();
+
+        if (! $room) {
+            return response()->json(['message' => 'Room not found.'], 404);
+        }
+
+        $items = DB::table('equipment_table')
+            ->leftJoin(
+                'equipment_categories_table',
+                'equipment_table.equipment_category_id',
+                '=',
+                'equipment_categories_table.equipment_category_id'
+            )
+            ->where('equipment_table.equipment_room_id', $id)
+            ->whereNotIn('equipment_table.equipment_inventory_status', ['Disposed', 'For Replacement'])
+            ->orderBy('equipment_table.equipment_name')
+            ->select(
+                'equipment_table.equipment_id',
+                'equipment_table.equipment_name',
+                'equipment_table.equipment_quantity',
+                'equipment_table.equipment_inventory_status',
+                'equipment_categories_table.equipment_category_name'
+            )
+            ->get();
+
+        return response()->json([
+            'room' => $room->room_name,
+            'count' => $items->count(),
+            'items' => $items,
+            'inventory_url' => url('/maintenance/equipment/inventory').'?room='.$id,
+        ]);
     }
 
     /*
@@ -5568,6 +6071,191 @@ class MaintenanceController extends Controller
         );
     }
 
+    public function suggestedIssues(Request $request)
+    {
+        $query = DB::table('issue_templates_table')
+            ->leftJoin(
+                'equipment_categories_table',
+                'issue_templates_table.issue_template_category_id',
+                '=',
+                'equipment_categories_table.equipment_category_id'
+            )
+            ->select(
+                'issue_templates_table.*',
+                'equipment_categories_table.equipment_category_name'
+            );
+
+        if ($request->filled('search')) {
+            $query->where(function ($q) use ($request) {
+                $q->where('issue_templates_table.issue_template_name', 'LIKE', '%'.$request->search.'%')
+                    ->orWhere('equipment_categories_table.equipment_category_name', 'LIKE', '%'.$request->search.'%');
+            });
+        }
+
+        if ($request->filled('category')) {
+            $query->where('issue_templates_table.issue_template_category_id', $request->category);
+        }
+
+        $issues = $query
+            ->orderBy('equipment_categories_table.equipment_category_name')
+            ->when(
+                Schema::hasColumn('issue_templates_table', 'issue_template_component'),
+                fn ($q) => $q->orderBy('issue_templates_table.issue_template_component')
+            )
+            ->orderBy('issue_templates_table.issue_template_name')
+            ->paginate(12)
+            ->withQueryString();
+
+        $categories = DB::table('equipment_categories_table')
+            ->orderBy('equipment_category_name')
+            ->get();
+
+        $components = SuggestedIssues::components();
+
+        return view('maintenance-personnel.equipment.suggested-issues', compact('issues', 'categories', 'components'));
+    }
+
+    public function storeSuggestedIssue(Request $request)
+    {
+        $validated = $request->validate([
+            'issue_template_category_id' => 'required|exists:equipment_categories_table,equipment_category_id',
+            'issue_template_name' => 'required|string|max:255',
+            'issue_template_component' => 'nullable|string|max:64',
+        ]);
+
+        $payload = [
+            'issue_template_category_id' => $validated['issue_template_category_id'],
+            'issue_template_name' => trim($validated['issue_template_name']),
+            'issue_template_created_at' => now(),
+        ];
+
+        if (Schema::hasColumn('issue_templates_table', 'issue_template_component')) {
+            $payload['issue_template_component'] = $validated['issue_template_component'] ?: null;
+        }
+
+        DB::table('issue_templates_table')->insert($payload);
+
+        return back()->with('success', 'Suggested issue added.');
+    }
+
+    public function updateSuggestedIssue(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'issue_template_category_id' => 'required|exists:equipment_categories_table,equipment_category_id',
+            'issue_template_name' => 'required|string|max:255',
+            'issue_template_component' => 'nullable|string|max:64',
+        ]);
+
+        $payload = [
+            'issue_template_category_id' => $validated['issue_template_category_id'],
+            'issue_template_name' => trim($validated['issue_template_name']),
+        ];
+
+        if (Schema::hasColumn('issue_templates_table', 'issue_template_component')) {
+            $payload['issue_template_component'] = $validated['issue_template_component'] ?: null;
+        }
+
+        DB::table('issue_templates_table')
+            ->where('issue_template_id', $id)
+            ->update($payload);
+
+        return back()->with('success', 'Suggested issue updated.');
+    }
+
+    public function deleteSuggestedIssue($id)
+    {
+        DB::table('issue_templates_table')
+            ->where('issue_template_id', $id)
+            ->delete();
+
+        return back()->with('success', 'Suggested issue deleted.');
+    }
+
+    public function equipmentHistory(Request $request)
+    {
+        $query = DB::table('equipment_table')
+            ->leftJoin(
+                'equipment_categories_table',
+                'equipment_table.equipment_category_id',
+                '=',
+                'equipment_categories_table.equipment_category_id'
+            )
+            ->leftJoin(
+                'rooms_table',
+                'equipment_table.equipment_room_id',
+                '=',
+                'rooms_table.room_id'
+            )
+            ->leftJoin('reports_table', function ($join) {
+                $join->on('reports_table.report_equipment_id', '=', 'equipment_table.equipment_id');
+            })
+            ->select(
+                'equipment_table.equipment_id',
+                'equipment_table.equipment_name',
+                'equipment_table.equipment_inventory_status',
+                'equipment_table.equipment_condition_status',
+                'equipment_categories_table.equipment_category_name',
+                'rooms_table.room_name',
+                DB::raw('COUNT(reports_table.report_id) as report_count'),
+                DB::raw('MAX(reports_table.report_submitted_at) as last_reported_at')
+            )
+            ->groupBy(
+                'equipment_table.equipment_id',
+                'equipment_table.equipment_name',
+                'equipment_table.equipment_inventory_status',
+                'equipment_table.equipment_condition_status',
+                'equipment_categories_table.equipment_category_name',
+                'rooms_table.room_name'
+            );
+
+        if ($request->filled('search')) {
+            $query->where(function ($q) use ($request) {
+                $q->where('equipment_table.equipment_name', 'LIKE', '%'.$request->search.'%')
+                    ->orWhere('rooms_table.room_name', 'LIKE', '%'.$request->search.'%')
+                    ->orWhere('equipment_categories_table.equipment_category_name', 'LIKE', '%'.$request->search.'%');
+            });
+        }
+
+        $equipment = $query
+            ->orderByDesc('last_reported_at')
+            ->orderBy('equipment_table.equipment_name')
+            ->paginate(12)
+            ->withQueryString();
+
+        $historyByEquipment = collect();
+        $ids = $equipment->getCollection()->pluck('equipment_id')->filter();
+
+        if ($ids->isNotEmpty()) {
+            $historyByEquipment = DB::table('reports_table')
+                ->leftJoin(
+                    'reporters_table',
+                    'reports_table.report_reporter_employee_id',
+                    '=',
+                    'reporters_table.reporter_employee_id'
+                )
+                ->whereIn('reports_table.report_equipment_id', $ids)
+                ->orderByDesc('reports_table.report_submitted_at')
+                ->select(
+                    'reports_table.report_id',
+                    'reports_table.report_equipment_id',
+                    'reports_table.report_current_status',
+                    'reports_table.report_urgency_level',
+                    'reports_table.report_suggested_issue',
+                    'reports_table.report_submitted_at',
+                    'reporters_table.reporter_full_name'
+                )
+                ->get()
+                ->groupBy('report_equipment_id');
+        }
+
+        $equipment->getCollection()->transform(function ($item) use ($historyByEquipment) {
+            $item->history = $historyByEquipment->get($item->equipment_id, collect());
+            return $item;
+        });
+
+        return view('maintenance-personnel.equipment.history', compact('equipment'));
+    }
+
     /*
     |--------------------------------------------------------------------------
     | VIEW EQUIPMENT
@@ -5679,6 +6367,18 @@ class MaintenanceController extends Controller
             'equipment_quantity' => 'required'
 
         ]);
+
+        $duplicateName = DB::table('equipment_table')
+            ->where('equipment_room_id', $request->equipment_room_id)
+            ->whereRaw('LOWER(equipment_name) = ?', [mb_strtolower(trim((string) $request->equipment_name))])
+            ->whereNotIn('equipment_inventory_status', ['Disposed'])
+            ->exists();
+
+        if ($duplicateName) {
+            return back()
+                ->withErrors(['equipment_name' => 'That equipment name already exists in this room.'])
+                ->withInput();
+        }
 
 
         // =====================================================
@@ -5812,6 +6512,19 @@ class MaintenanceController extends Controller
                 'error',
                 'Equipment not found.'
             );
+        }
+
+        $duplicateName = DB::table('equipment_table')
+            ->where('equipment_room_id', $request->equipment_room_id)
+            ->where('equipment_id', '!=', $id)
+            ->whereRaw('LOWER(equipment_name) = ?', [mb_strtolower(trim((string) $request->equipment_name))])
+            ->whereNotIn('equipment_inventory_status', ['Disposed'])
+            ->exists();
+
+        if ($duplicateName) {
+            return back()
+                ->withErrors(['equipment_name' => 'That equipment name already exists in this room.'])
+                ->withInput();
         }
 
 
@@ -9205,6 +9918,7 @@ class MaintenanceController extends Controller
 
     public function disposal(Request $request)
     {
+        ReportGrouping::backfillMissingDisposals();
         // =====================================================
         // BUILD DISPOSAL RECORDS QUERY
         // SEARCH AND FILTERS APPLY BEFORE PAGINATION
@@ -9230,6 +9944,7 @@ class MaintenanceController extends Controller
                 'disposal_records_table.*',
                 'equipment_table.equipment_name',
                 'equipment_table.equipment_condition_status',
+                'equipment_table.equipment_inventory_status',
                 'equipment_categories_table.equipment_category_name'
             );
 
@@ -9788,6 +10503,55 @@ class MaintenanceController extends Controller
             'success',
             'Equipment disposed successfully.'
         );
+    }
+
+    public function restoreDisposal(Request $request)
+    {
+        $record = DB::table('disposal_records_table')
+            ->where('disposal_record_id', $request->disposal_id)
+            ->first();
+
+        if (! $record) {
+            return back()->with('error', 'Disposal record not found.');
+        }
+
+        DB::table('equipment_table')
+            ->where('equipment_id', $record->disposal_equipment_id)
+            ->update([
+                'equipment_inventory_status' => 'Active',
+                'equipment_condition_status' => 'Good',
+            ]);
+
+        DB::table('disposal_records_table')
+            ->where('disposal_record_id', $request->disposal_id)
+            ->delete();
+
+        return back()->with('success', 'Equipment restored to Inventory.');
+    }
+
+    public function confirmDisposal(Request $request)
+    {
+        $record = DB::table('disposal_records_table')
+            ->where('disposal_record_id', $request->disposal_id)
+            ->first();
+
+        if (! $record) {
+            return back()->with('error', 'Disposal record not found.');
+        }
+
+        DB::table('equipment_table')
+            ->where('equipment_id', $record->disposal_equipment_id)
+            ->update([
+                'equipment_inventory_status' => 'Disposed',
+            ]);
+
+        DB::table('disposal_records_table')
+            ->where('disposal_record_id', $request->disposal_id)
+            ->update([
+                'disposal_disposed_at' => now(),
+            ]);
+
+        return back()->with('success', 'Equipment marked as disposed.');
     }
 
     /*
@@ -10673,6 +11437,40 @@ class MaintenanceController extends Controller
 
 
             // =====================================================
+            // MERGE INTO OPEN REPORT FOR THE SAME EQUIPMENT
+            // =====================================================
+
+            if ($request->filled('report_equipment_id')) {
+                if (ReportGrouping::equipmentIsForReplacement((int) $request->report_equipment_id)) {
+                    return back()
+                        ->withErrors([
+                            'report_equipment_id' =>
+                                'This equipment is already marked for replacement and cannot be reported again.',
+                        ])
+                        ->withInput();
+                }
+
+                $openReport = ReportGrouping::findOpenReport(
+                    (int) $request->report_equipment_id,
+                    (int) $request->report_room_id
+                );
+
+                if ($openReport) {
+                    ReportGrouping::mergeIntoOpenReport($openReport, [
+                        'reporter_id' => $reporter->reporter_employee_id,
+                        'urgency' => $request->report_urgency_level,
+                        'issue' => $request->report_suggested_issue
+                            ?: $request->report_problem_description,
+                    ]);
+
+                    return back()->with(
+                        'success',
+                        'This equipment already has an open report. Your report was added to it instead of creating a duplicate.'
+                    );
+                }
+            }
+
+            // =====================================================
             // INSERT REPORT
             // CHANGED FROM insert() TO insertGetId()
             // THIS GIVES US THE NEW REPORT ID
@@ -10809,28 +11607,41 @@ class MaintenanceController extends Controller
 
     public function updateReporter(Request $request)
     {
+        $request->validate([
+            'reporter_id' => 'required',
+            'employee_id' => 'required|string|max:100',
+            'first_name' => 'required|string|max:100',
+            'middle_name' => 'nullable|string|max:100',
+            'last_name' => 'required|string|max:100',
+            'type' => 'nullable|string|max:50',
+            'email' => 'nullable|email|max:255',
+            'contact' => 'nullable|string|max:50',
+        ]);
+
+        $first = trim($request->first_name);
+        $middle = trim((string) $request->middle_name);
+        $last = trim($request->last_name);
+
+        $payload = [
+            'reporter_employee_id' => trim($request->employee_id),
+            'reporter_full_name' => ReporterImport::composeFullName($first, $middle, $last),
+            'reporter_email_address' => $request->email ?: null,
+            'reporter_contact_number' => $request->contact ?: null,
+        ];
+
+        if (ReporterImport::hasNameColumns()) {
+            $payload['reporter_first_name'] = $first;
+            $payload['reporter_middle_name'] = $middle !== '' ? $middle : null;
+            $payload['reporter_last_name'] = $last;
+        }
+
+        if (ReporterImport::hasTypeColumn()) {
+            $payload['reporter_employment_type'] = $request->filled('type') ? trim($request->type) : null;
+        }
+
         DB::table('reporters_table')
-
-            ->where(
-                'reporter_id',
-                $request->reporter_id
-            )
-
-            ->update([
-
-                'reporter_employee_id'
-                    => $request->employee_id,
-
-                'reporter_full_name'
-                    => $request->full_name,
-
-                'reporter_email_address'
-                    => $request->email,
-
-                'reporter_contact_number'
-                    => $request->contact
-
-            ]);
+            ->where('reporter_id', $request->reporter_id)
+            ->update($payload);
 
         return back()->with(
             'success',
@@ -12552,5 +13363,268 @@ class MaintenanceController extends Controller
                     ]);
             }
         }
+    }
+
+    public function storeReporter(Request $request)
+    {
+        $request->validate([
+            'employee_id' => 'required|string|max:100',
+            'first_name' => 'required|string|max:100',
+            'middle_name' => 'nullable|string|max:100',
+            'last_name' => 'required|string|max:100',
+            'type' => 'nullable|string|max:50',
+            'email' => 'nullable|email|max:255',
+            'contact' => 'nullable|string|max:50',
+        ]);
+
+        $employeeId = trim($request->employee_id);
+
+        $exists = DB::table('reporters_table')
+            ->where('reporter_employee_id', $employeeId)
+            ->exists();
+
+        if ($exists) {
+            return back()->with('error', 'That employee ID is already registered.');
+        }
+
+        $first = trim($request->first_name);
+        $middle = trim((string) $request->middle_name);
+        $last = trim($request->last_name);
+        $fullName = ReporterImport::composeFullName($first, $middle, $last);
+
+        $payload = [
+            'reporter_employee_id' => $employeeId,
+            'reporter_full_name' => $fullName,
+            'reporter_email_address' => $request->email ?: null,
+            'reporter_contact_number' => $request->contact ?: null,
+            'reporter_status' => 'Active',
+            'reporter_created_at' => now(),
+        ];
+
+        if (ReporterImport::hasNameColumns()) {
+            $payload['reporter_first_name'] = $first;
+            $payload['reporter_middle_name'] = $middle !== '' ? $middle : null;
+            $payload['reporter_last_name'] = $last;
+        }
+
+        if (ReporterImport::hasTypeColumn() && $request->filled('type')) {
+            $payload['reporter_employment_type'] = trim($request->type);
+        }
+
+        DB::table('reporters_table')->insert($payload);
+
+        return back()->with('success', 'Reporter added successfully.');
+    }
+
+    public function downloadReporterTemplate()
+    {
+        $filename = 'reporter-import-template.csv';
+        $headers = [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+        ];
+
+        $callback = function () {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, array_values(ReporterImport::FIELDS));
+            fputcsv($handle, ['OMC0130F', 'John', 'Michael', 'Smith', 'Full-Time', 'john@company.com', "\t09171234567"]);
+            fputcsv($handle, ['', 'Sarah', '', 'Connor', 'Part-Time', 'sarah@company.com', "\t09179876543"]);
+            fclose($handle);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    public function previewReporterImport(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:csv,txt,xlsx|max:5120',
+        ]);
+
+        $file = $request->file('file');
+        $rows = ReporterImport::parseFile($file->getRealPath(), $file->getClientOriginalName());
+
+        if (count($rows) < 2) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'The file needs a header row and at least one reporter.',
+            ], 422);
+        }
+
+        $headers = $rows[0];
+        $body = array_values(array_filter(array_slice($rows, 1), function ($row) {
+            return collect($row)->filter(fn ($cell) => trim((string) $cell) !== '')->isNotEmpty();
+        }));
+
+        $mapping = ReporterImport::suggestMapping($headers);
+        $cell = function (array $row, string $field) use ($mapping) {
+            $index = $mapping[$field] ?? '';
+            if ($index === '' || $index === null) {
+                return '';
+            }
+
+            $value = trim((string) ($row[(int) $index] ?? ''));
+
+            return $field === 'contact_number'
+                ? ReporterImport::normalizeContact($value)
+                : $value;
+        };
+
+        $people = collect($body)->map(function ($row) use ($cell) {
+            return [
+                'employee_id' => $cell($row, 'employee_id'),
+                'first_name' => $cell($row, 'first_name'),
+                'middle_name' => $cell($row, 'middle_name'),
+                'last_name' => $cell($row, 'last_name'),
+                'type' => $cell($row, 'type'),
+                'email_address' => $cell($row, 'email_address'),
+                'contact_number' => $cell($row, 'contact_number'),
+            ];
+        })->values();
+
+        return response()->json([
+            'ok' => true,
+            'headers' => $headers,
+            'mapping' => $mapping,
+            'fields' => ReporterImport::FIELDS,
+            'people' => $people->take(20)->all(),
+            'total' => $people->count(),
+        ]);
+    }
+
+    public function importReporters(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:csv,txt,xlsx|max:5120',
+            'auto_assign_ids' => 'nullable',
+            'mapping' => 'required|string',
+        ]);
+
+        $mapping = json_decode($request->mapping, true);
+
+        if (! is_array($mapping)) {
+            return back()->with('error', 'Column mapping is invalid.');
+        }
+
+        $file = $request->file('file');
+        $rows = ReporterImport::parseFile($file->getRealPath(), $file->getClientOriginalName());
+
+        if (count($rows) < 2) {
+            return back()->with('error', 'The file needs a header row and at least one reporter.');
+        }
+
+        $body = array_values(array_filter(array_slice($rows, 1), function ($row) {
+            return collect($row)->filter(fn ($cell) => trim((string) $cell) !== '')->isNotEmpty();
+        }));
+
+        $autoAssign = $request->boolean('auto_assign_ids');
+        $cell = function (array $row, string $field) use ($mapping) {
+            $index = $mapping[$field] ?? '';
+            if ($index === '' || $index === null) {
+                return '';
+            }
+
+            return trim((string) ($row[(int) $index] ?? ''));
+        };
+
+        $existingIds = DB::table('reporters_table')
+            ->pluck('reporter_employee_id')
+            ->filter()
+            ->map(fn ($id) => strtoupper((string) $id))
+            ->all();
+
+        $existingEmails = DB::table('reporters_table')
+            ->pluck('reporter_email_address')
+            ->filter()
+            ->map(fn ($email) => strtolower((string) $email))
+            ->all();
+
+        $generated = ReporterImport::nextEmployeeIds(count($body));
+        $created = 0;
+        $skipped = 0;
+        $errors = [];
+        $generatedIndex = 0;
+        $hasType = ReporterImport::hasTypeColumn();
+
+        foreach ($body as $offset => $row) {
+            $line = $offset + 2;
+            $first = $cell($row, 'first_name');
+            $middle = $cell($row, 'middle_name');
+            $last = $cell($row, 'last_name');
+            $fullName = ReporterImport::composeFullName($first, $middle, $last);
+            $employeeId = $cell($row, 'employee_id');
+            $email = strtolower($cell($row, 'email_address'));
+            $contact = ReporterImport::normalizeContact($cell($row, 'contact_number'));
+            $type = $cell($row, 'type');
+
+            if ($first === '' || $last === '') {
+                $skipped++;
+                $errors[] = "Row {$line}: first and last name are required.";
+                continue;
+            }
+
+            if ($employeeId === '' && $autoAssign) {
+                $employeeId = $generated[$generatedIndex] ?? null;
+                $generatedIndex++;
+            }
+
+            if ($employeeId === '') {
+                $skipped++;
+                $errors[] = "Row {$line}: employee ID is missing.";
+                continue;
+            }
+
+            $idKey = strtoupper($employeeId);
+
+            if (in_array($idKey, $existingIds, true)) {
+                $skipped++;
+                $errors[] = "Row {$line}: employee ID {$employeeId} already exists.";
+                continue;
+            }
+
+            if ($email !== '' && in_array($email, $existingEmails, true)) {
+                $skipped++;
+                $errors[] = "Row {$line}: email {$email} already exists.";
+                continue;
+            }
+
+            $payload = [
+                'reporter_employee_id' => $employeeId,
+                'reporter_full_name' => $fullName,
+                'reporter_email_address' => $email !== '' ? $email : null,
+                'reporter_contact_number' => $contact !== '' ? $contact : null,
+                'reporter_status' => 'Active',
+                'reporter_created_at' => now(),
+            ];
+
+            if ($hasType && $type !== '') {
+                $payload['reporter_employment_type'] = $type;
+            }
+
+            if (ReporterImport::hasNameColumns()) {
+                $payload['reporter_first_name'] = $first !== '' ? $first : null;
+                $payload['reporter_middle_name'] = $middle !== '' ? $middle : null;
+                $payload['reporter_last_name'] = $last !== '' ? $last : null;
+            }
+
+            DB::table('reporters_table')->insert($payload);
+
+            $existingIds[] = $idKey;
+            if ($email !== '') {
+                $existingEmails[] = $email;
+            }
+            $created++;
+        }
+
+        $message = "Imported {$created} reporter".($created === 1 ? '' : 's').'.';
+        if ($skipped > 0) {
+            $message .= " Skipped {$skipped}.";
+        }
+
+        return back()->with('import_result', [
+            'created' => $created,
+            'skipped' => $skipped,
+            'errors' => array_slice($errors, 0, 20),
+        ]);
     }
 }

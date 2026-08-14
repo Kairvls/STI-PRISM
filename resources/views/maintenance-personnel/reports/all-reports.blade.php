@@ -16,206 +16,73 @@
 )
 
 @section ("content")
+    <div class="-mt-8">
     @php
-        // =====================================================
-        // CURRENT REPORT PAGE TYPE
-        // =====================================================
-
-        $isUrgentPage =
-            request()->is('maintenance/reports/urgent');
-
-        $isPendingPage =
-            request()->is('maintenance/reports/pending');
-
-        $isTodayPage =
-            request()->is('maintenance/reports/today');
-
-
-        // =====================================================
-        // LIVE PAGE TITLE
-        // =====================================================
+        $isUrgentPage = request()->is('maintenance/reports/urgent');
+        $isPendingPage = request()->is('maintenance/reports/pending');
+        $isTodayPage = request()->is('maintenance/reports/today');
+        $isMainReportsPage = !$isUrgentPage && !$isPendingPage && !$isTodayPage;
 
         $pageTitle = match (true) {
-
-            $isUrgentPage =>
-                'Urgent Reports',
-
-            $isPendingPage =>
-                'Pending Reports',
-
-            $isTodayPage =>
-                "Today's Reports",
-
-            default =>
-                'Reports',
-
+            $isUrgentPage => 'Urgent Reports',
+            $isPendingPage => 'Pending Reports',
+            $isTodayPage => "Today's Reports",
+            default => 'Reports',
         };
-
-
-        // =====================================================
-        // LIVE PAGE DESCRIPTION
-        // =====================================================
 
         $pageDescription = match (true) {
-
-            $isUrgentPage =>
-                'View and manage urgent maintenance reports requiring immediate attention.',
-
-            $isPendingPage =>
-                'View and manage maintenance reports waiting for review and action.',
-
-            $isTodayPage =>
-                'View and manage maintenance reports submitted today.',
-
-            default =>
-                'View and manage all maintenance reports.',
-
+            $isUrgentPage => 'View and manage urgent maintenance reports requiring immediate attention.',
+            $isPendingPage => 'View and manage maintenance reports waiting for review and action.',
+            $isTodayPage => 'View and manage maintenance reports submitted today.',
+            default => 'View and manage all maintenance reports.',
         };
 
-
-        // =====================================================
-        // LIVE COUNT LABEL
-        // =====================================================
-
         $countLabel = match (true) {
-
-            $isUrgentPage =>
-                'Urgent Reports',
-
-            $isPendingPage =>
-                'Pending Reports',
-
-            $isTodayPage =>
-                'Reports Today',
-
-            default =>
-                'On This Page',
-
+            $isUrgentPage => 'Urgent Reports',
+            $isPendingPage => 'Pending Reports',
+            $isTodayPage => 'Reports Today',
+            default => 'On This Page',
         };
     @endphp
 
-    <div
-        class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
-    >
-        <div>
-            <!--<nav
-                class="mb-1 flex select-none items-center gap-1.5 text-xs font-semibold tracking-wide text-gray-400"
-            >
-                <span
-                    class="cursor-pointer transition-colors hover:text-gray-600"
-                >
-                    Maintenance
-                </span>
-
-                <span>&rsaquo;</span>
-
-                <span class="text-gray-600">
-                    {{
-                        $isUrgentPage
-                            ? "Urgent Reports"
-                            : "Dashboard"
-                    }}
-                </span>
-            </nav>-->
-
-            {{-- ===================================================== --}}
-            {{-- LIVE PAGE TITLE --}}
-            {{-- ===================================================== --}}
-
-            <h1
-                class="flex items-center gap-3
-                    text-4xl font-extrabold
-                    tracking-tight text-gray-900"
-            >
-
-                {{ $pageTitle }}
-
-
-                {{-- ================================================= --}}
-                {{-- URGENT PAGE PRIORITY BADGE --}}
-                {{-- ================================================= --}}
-
-                @if ($isUrgentPage)
-
-                    <span
-                        class="inline-flex items-center gap-1
-                            rounded-full border border-red-200
-                            bg-red-50 px-2.5 py-1
-                            text-xs font-bold uppercase
-                            tracking-wider text-red-700"
-                    >
-
-                        <span
-                            class="h-2 w-2 animate-pulse
-                                rounded-full bg-red-500"
-                        ></span>
-
-                        Priority
-
-                    </span>
-
-                @endif
-
+    @if ($isMainReportsPage)
+        <div class="mb-4">
+            <h1 class="text-4xl font-black tracking-tight text-slate-950">
+                Reports
             </h1>
-
-            {{-- ===================================================== --}}
-            {{-- LIVE PAGE DESCRIPTION --}}
-            {{-- ===================================================== --}}
-
-            <p class="mt-1 text-gray-500">
-
-                {{ $pageDescription }}
-
+            <p class="mt-1 text-slate-500">
+                View and manage maintenance reports.
             </p>
         </div>
+    @else
+        <div class="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+                <h1 class="flex items-center gap-3 text-4xl font-black tracking-tight text-slate-950">
+                    {{ $pageTitle }}
+                    @if ($isUrgentPage)
+                        <span class="inline-flex items-center rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-medium text-rose-700">
+                            Priority
+                        </span>
+                    @endif
+                </h1>
+                <p class="mt-1 text-slate-500">
+                    {{ $pageDescription }}
+                </p>
+            </div>
 
-        <!-- Live Count Badge -->
-        <div class="flex items-center gap-2 self-start sm:self-center">
-            <div
-                class="shadow-3xs inline-flex items-center gap-2 rounded-xl border border-gray-200/60 bg-gray-100/80 px-3.5 py-2"
-            >
-                @php
-                    $countDotClass = match (true) {
-
-                        $isUrgentPage =>
-                            'bg-red-500',
-
-                        $isPendingPage =>
-                            'bg-amber-500',
-
-                        default =>
-                            'bg-emerald-500',
-
-                    };
-                @endphp
-
-                <span
-                    class="h-2 w-2 rounded-full {{ $countDotClass }} animate-pulse"
-                ></span>
-
-                {{-- ===================================================== --}}
-                {{-- LIVE COUNT LABEL --}}
-                {{-- ===================================================== --}}
-
-                <span
-                    class="text-xs font-bold uppercase
-                        tracking-wider text-gray-400"
-                >
-
-                    {{ $countLabel }}
-
-                </span>
-
-                <span
-                    class="shadow-2xs min-w-[24px] rounded-md bg-gray-900 px-2 py-0.5 text-center text-xs font-black text-white"
-                >
+            <div class="flex items-baseline gap-2">
+                <span class="text-4xl font-black tracking-tight text-slate-950">
                     {{ $reports->count() }}
+                </span>
+                <span class="text-xs font-medium uppercase tracking-[0.16em] text-slate-400">
+                    {{ $countLabel }}
                 </span>
             </div>
         </div>
-    </div>
+    @endif
 
     @include ("components.tables.reports-table",
         ["reports" => $reports])
+    </div>
 
 @endsection
