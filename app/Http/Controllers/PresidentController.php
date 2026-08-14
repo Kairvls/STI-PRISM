@@ -40,7 +40,7 @@ class PresidentController extends Controller
 
         $rejectedDecisionsCount =
             DB::table('requisition_issue_slip_table')
-                ->where('ris_status', 'Rejected')
+                ->whereIn('ris_status', ['Rejected', 'Rejected by President'])
                 ->count();
 
         // ================================
@@ -64,7 +64,7 @@ class PresidentController extends Controller
                 ->count();
 
             $rejected = DB::table('requisition_issue_slip_table')
-                ->where('ris_status', 'Rejected')
+                ->whereIn('ris_status', ['Rejected', 'Rejected by President'])
                 ->whereYear('ris_created_at', $y)
                 ->whereMonth('ris_created_at', $m)
                 ->count();
@@ -149,7 +149,7 @@ class PresidentController extends Controller
             ->count();
 
         $totalRejectedRis = (clone $forwardedBase)
-            ->where('ris_status', 'Rejected')
+            ->whereIn('ris_status', ['Rejected', 'Rejected by President'])
             ->count();
 
         // ================================
@@ -196,7 +196,7 @@ class PresidentController extends Controller
                 ->whereNotNull('ris.ris_approved_by_signature')
                 ->where('ris.ris_approved_by_signature', '!=', '');
         } elseif ($status === 'Rejected') {
-            $query->where('ris.ris_status', 'Rejected');
+            $query->whereIn('ris.ris_status', ['Rejected', 'Rejected by President']);
         }
 
         // ================================
@@ -268,7 +268,7 @@ class PresidentController extends Controller
                 'log.approval_log_approved_at as decided_at',
                 DB::raw('COALESCE(SUM(items.ris_total_amount), 0) as total_amount')
             )
-            ->whereIn('ris.ris_status', ['Approved', 'Rejected'])
+            ->whereIn('ris.ris_status', ['Approved', 'Rejected', 'Rejected by President'])
             ->groupBy(
                 'ris.ris_id',
                 'ris.ris_form_number',
@@ -351,7 +351,7 @@ class PresidentController extends Controller
         }
 
         $updateValues = [
-            'ris_status' => $decision === 'Approved' ? 'Approved' : 'Rejected',
+            'ris_status' => $decision === 'Approved' ? 'Approved' : 'Rejected by President',
         ];
 
         if ($decision === 'Approved') {
@@ -500,7 +500,7 @@ class PresidentController extends Controller
             ->withQueryString();
 
         $totalApproved = DB::table('requisition_issue_slip_table')->where('ris_status', 'Approved')->count();
-        $totalRejected = DB::table('requisition_issue_slip_table')->where('ris_status', 'Rejected')->count();
+        $totalRejected = DB::table('requisition_issue_slip_table')->whereIn('ris_status', ['Rejected', 'Rejected by President'])->count();
         $totalPending = DB::table('requisition_issue_slip_table')->where('ris_status', 'Pending')->count();
         $totalDecisions = $totalApproved + $totalRejected + $totalPending;
 
@@ -550,14 +550,14 @@ class PresidentController extends Controller
         // ================================
 
         $risApproved = (clone $risQuery)->where('ris_status', 'Approved')->count();
-        $risRejected = (clone $risQuery)->where('ris_status', 'Rejected')->count();
+        $risRejected = (clone $risQuery)->whereIn('ris_status', ['Rejected', 'Rejected by President'])->count();
         $risPending = (clone $risQuery)->where('ris_status', 'Pending')->count();
         $totalRis = $risApproved + $risRejected + $risPending;
 
         // Total amount (filtered)
         $totalAmountQuery = DB::table('requisition_issue_slip_items_table as items')
             ->join('requisition_issue_slip_table as ris', 'items.ris_id', '=', 'ris.ris_id')
-            ->whereIn('ris.ris_status', ['Approved', 'Rejected', 'Pending']);
+            ->whereIn('ris.ris_status', ['Approved', 'Rejected', 'Rejected by President', 'Pending']);
 
         if ($filterMonth && $filterYear) {
             $totalAmountQuery->whereYear('ris.ris_created_at', $filterYear)
@@ -573,7 +573,7 @@ class PresidentController extends Controller
 
         $rejectedAmount = DB::table('requisition_issue_slip_items_table as items')
             ->join('requisition_issue_slip_table as ris', 'items.ris_id', '=', 'ris.ris_id')
-            ->where('ris.ris_status', 'Rejected');
+            ->whereIn('ris.ris_status', ['Rejected', 'Rejected by President']);
 
         if ($filterMonth && $filterYear) {
             $approvedAmount->whereYear('ris.ris_created_at', $filterYear)
@@ -601,7 +601,7 @@ class PresidentController extends Controller
                 ->count();
 
             $rejected = DB::table('requisition_issue_slip_table')
-                ->where('ris_status', 'Rejected')
+                ->whereIn('ris_status', ['Rejected', 'Rejected by President'])
                 ->whereBetween('ris_created_at', [$weekStart, $weekEnd])
                 ->count();
 
@@ -622,7 +622,7 @@ class PresidentController extends Controller
 
             $weekRejectedAmount = DB::table('requisition_issue_slip_items_table as items')
                 ->join('requisition_issue_slip_table as ris', 'items.ris_id', '=', 'ris.ris_id')
-                ->where('ris.ris_status', 'Rejected')
+                ->whereIn('ris.ris_status', ['Rejected', 'Rejected by President'])
                 ->whereBetween('ris.ris_created_at', [$weekStart, $weekEnd])
                 ->sum('items.ris_total_amount');
 
@@ -686,7 +686,7 @@ class PresidentController extends Controller
                 ->count();
 
             $rejected = DB::table('requisition_issue_slip_table')
-                ->where('ris_status', 'Rejected')
+                ->whereIn('ris_status', ['Rejected', 'Rejected by President'])
                 ->whereYear('ris_created_at', $filterYear)
                 ->whereMonth('ris_created_at', $filterMonth)
                 ->count();
@@ -710,7 +710,7 @@ class PresidentController extends Controller
 
             $monthRejectedAmount = DB::table('requisition_issue_slip_items_table as items')
                 ->join('requisition_issue_slip_table as ris', 'items.ris_id', '=', 'ris.ris_id')
-                ->where('ris.ris_status', 'Rejected')
+                ->whereIn('ris.ris_status', ['Rejected', 'Rejected by President'])
                 ->whereYear('ris.ris_created_at', $filterYear)
                 ->whereMonth('ris.ris_created_at', $filterMonth)
                 ->sum('items.ris_total_amount');
@@ -767,7 +767,7 @@ class PresidentController extends Controller
                     ->count();
 
                 $rejected = DB::table('requisition_issue_slip_table')
-                    ->where('ris_status', 'Rejected')
+                    ->whereIn('ris_status', ['Rejected', 'Rejected by President'])
                     ->whereYear('ris_created_at', $y)
                     ->whereMonth('ris_created_at', $m)
                     ->count();
@@ -791,7 +791,7 @@ class PresidentController extends Controller
 
                 $monthRejectedAmount = DB::table('requisition_issue_slip_items_table as items')
                     ->join('requisition_issue_slip_table as ris', 'items.ris_id', '=', 'ris.ris_id')
-                    ->where('ris.ris_status', 'Rejected')
+                    ->whereIn('ris.ris_status', ['Rejected', 'Rejected by President'])
                     ->whereYear('ris.ris_created_at', $y)
                     ->whereMonth('ris.ris_created_at', $m)
                     ->sum('items.ris_total_amount');

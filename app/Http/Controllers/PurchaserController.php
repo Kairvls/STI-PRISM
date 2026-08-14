@@ -534,7 +534,7 @@ class PurchaserController extends Controller
                 ->count(),
 
             'rejected' => DB::table('requisition_issue_slip_table')
-                ->where('ris_status', 'Rejected')
+                ->whereIn('ris_status', ['Rejected', 'Rejected by President'])
                 ->count(),
         ];
         // RIS MODULE: load approved replacement requests without an existing RIS

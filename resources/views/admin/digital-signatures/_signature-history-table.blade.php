@@ -164,60 +164,30 @@
 
                 <td class="px-5 py-4">
 
-                    {{-- DIRECTLY APPROVED --}}
-                    @if(
-                        $history->ris_status === 'Directly Approved'
-                        || (
-                            $history->ris_status === 'Approved' &&
-                            !empty($history->ris_approved_by_date) &&
-                            !empty($history->ris_approved_by_signature) &&
-                            !str_starts_with($history->ris_approved_by_signature, 'data:image') &&
-                            is_null($history->ris_issued_by_date)
-                        )
-                    )
+                    @php
+                        $approvedSignature = trim((string) ($history->ris_approved_by_signature ?? ''));
+                        $isReleased = !empty($history->released_ris_id);
+                    @endphp
+
+                    @if($history->ris_status === 'Directly Approved')
 
                         <span
                             class="inline-flex items-center rounded-lg border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-900"
                             title="This RIS has been approved by Admin and returned to Purchaser"
                         >
-                            <svg class="mr-1 h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
                             Admin Approved
                         </span>
 
-                    {{-- SIGNED / FORWARDED TO PRESIDENT --}}
-                    @elseif(
-                        $history->ris_status === 'Approved' &&
-                        !empty($history->ris_approved_by_date) &&
-                        !empty($history->ris_approved_by_signature) &&
-                        str_starts_with($history->ris_approved_by_signature, 'data:image') &&
-                        is_null($history->ris_issued_by_date)
-                    )
+                    @elseif($history->ris_status === 'Approved' && $isReleased)
 
                         <span
                             class="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700"
-                            title="This RIS has been approved/signed by the President"
-                        >
-                            Signed
-                        </span>
-
-                    {{-- CO-SIGNED --}}
-                    @elseif(!is_null($history->ris_issued_by_date))
-
-                        <span
-                            class="inline-flex items-center rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700"
                             title="This RIS has been co-signed"
                         >
-                            <svg class="mr-1 h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                            </svg>
                             Co-signed
                         </span>
 
-                    {{-- AMENDED --}}
-                    {{-- New workflow uses Minor Revision; legacy uses Rejected --}}
-                    @elseif(in_array($history->ris_status, ['Minor Revision', 'Rejected'], true))
+                    @elseif(in_array($history->ris_status, ['Minor Revision', 'Rejected', 'Rejected by President'], true))
 
                         <span
                             class="inline-flex items-center rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700"

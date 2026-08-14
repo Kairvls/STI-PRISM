@@ -18,7 +18,7 @@
         </h1>
 
         <p class="admin-page-subtitle">
-            Review President-returned RIS. Return approved forms to Purchaser, or send rejected forms back for revision.
+            Review President-approved RIS and return them to the Purchaser. President rejections are logged here.
         </p>
 
     </div>
@@ -59,36 +59,6 @@
 
         @include('admin.digital-signatures._sign-ris-content')
 
-    </div>
-
-
-    {{-- PRESIDENT REJECT → REVISION REMARKS --}}
-    <div id="presidentRejectModal" class="fixed inset-0 z-50 hidden">
-        <div class="flex min-h-screen items-center justify-center bg-black/40 p-4" onclick="closePresidentRejectModal()">
-            <div class="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl" onclick="event.stopPropagation()">
-                <div class="border-b border-gray-100 px-6 py-4">
-                    <h3 class="text-lg font-semibold text-gray-900">Return for Revision</h3>
-                    <p class="mt-1 text-sm text-gray-500">Add remarks so the Purchaser can redo this RIS.</p>
-                </div>
-                <form id="presidentRejectForm" method="POST" action="">
-                    @csrf
-                    <div class="px-6 py-5">
-                        <label class="block text-sm font-medium text-gray-700">Remarks</label>
-                        <textarea
-                            name="remarks"
-                            required
-                            rows="5"
-                            class="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-rose-200"
-                            placeholder="Explain what the Purchaser should correct..."
-                        ></textarea>
-                    </div>
-                    <div class="flex justify-end gap-2 border-t border-gray-100 px-6 py-4">
-                        <button type="button" onclick="closePresidentRejectModal()" class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
-                        <button type="submit" class="rounded-lg bg-rose-700 px-4 py-2 text-sm font-medium text-white hover:bg-rose-800">Send for Revision</button>
-                    </div>
-                </form>
-            </div>
-        </div>
     </div>
 
 
@@ -955,19 +925,6 @@
 
     }
 
-
-    window.openPresidentRejectModal = function(risId) {
-        var modal = document.getElementById('presidentRejectModal');
-        var form = document.getElementById('presidentRejectForm');
-        if (!modal || !form) return;
-        form.action = '/admin/digital-signatures/ris/' + risId + '/return-revision';
-        modal.classList.remove('hidden');
-    };
-
-    window.closePresidentRejectModal = function() {
-        var modal = document.getElementById('presidentRejectModal');
-        if (modal) modal.classList.add('hidden');
-    };
 
     {{-- Canvas signature validation removed -- now using Name + Date fields --}}
 

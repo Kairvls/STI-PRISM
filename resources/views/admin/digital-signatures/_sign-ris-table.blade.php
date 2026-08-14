@@ -70,9 +70,9 @@
             >
 
                 @php
-                    $isRejected = ($ris->ris_status ?? '') === 'Rejected';
+                    $isPresidentRejected = in_array($ris->ris_status ?? '', ['Rejected by President', 'Rejected'], true);
                     $isReleased = !empty($ris->released_ris_id);
-                    $awaitingReturn = !$isReleased && !$isRejected && !empty($ris->ris_approved_by_signature);
+                    $awaitingReturn = !$isReleased && !$isPresidentRejected && trim((string) ($ris->ris_approved_by_signature ?? '')) !== '';
                 @endphp
 
 
@@ -178,16 +178,16 @@
                             class="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700"
                             title="Returned to Purchaser"
                         >
-                            Returned
+                            Co-signed
                         </span>
 
-                    @elseif($isRejected)
+                    @elseif($isPresidentRejected)
 
                         <span
                             class="inline-flex items-center rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700"
                             title="President rejected this RIS"
                         >
-                            Rejected
+                            Rejected by the President
                         </span>
 
                     @elseif($awaitingReturn)
@@ -267,20 +267,6 @@
                                     </svg>
                                 </button>
                             </form>
-
-                        @elseif($isRejected && !$isReleased)
-
-                            <button
-                                type="button"
-                                title="Return to Purchaser for revision with remarks"
-                                aria-label="Return for revision"
-                                onclick="openPresidentRejectModal('{{ $ris->ris_id }}')"
-                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-700 transition hover:bg-rose-100"
-                            >
-                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
-                                </svg>
-                            </button>
 
                         @endif
 

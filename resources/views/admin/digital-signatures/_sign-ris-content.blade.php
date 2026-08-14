@@ -52,6 +52,34 @@
 
 
         {{-- ================================================= --}}
+        {{-- REJECTED BY THE PRESIDENT --}}
+        {{-- ================================================= --}}
+
+        <div
+            class="rounded-[18px] border border-gray-200 bg-white px-5 py-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)]"
+            title="RIS forms rejected by the President"
+        >
+
+            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Rejected by the President
+            </p>
+
+            <div class="mt-3">
+
+                <span class="font-['Outfit'] text-3xl font-bold text-rose-600">
+                    {{ $presidentRejectedCount ?? 0 }}
+                </span>
+
+            </div>
+
+            <div class="mt-1 text-xs text-gray-400">
+                ₱{{ number_format((float) ($presidentRejectedAmount ?? 0), 2) }}
+            </div>
+
+        </div>
+
+
+        {{-- ================================================= --}}
         {{-- CO-SIGNED --}}
         {{-- ================================================= --}}
 
@@ -61,7 +89,7 @@
         >
 
             <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Returned
+                Co-signed
             </p>
 
             <div class="mt-3">
@@ -110,7 +138,7 @@
                         </h2>
 
                         <p class="mt-1 text-xs text-gray-500">
-                            Approved forms can be returned to Purchaser. Rejected forms need remarks before revision.
+                            Return President-approved RIS to the Purchaser. Rejections are logged and do not need admin action.
                         </p>
 
                     </div>
@@ -195,7 +223,18 @@
                                 {{ $filter === 'cosigned' ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
                             "
                         >
-                            Returned
+                            Co-signed
+                        </button>
+
+                        <button
+                            type="button"
+                            data-filter="president_rejected"
+                            title="Show only RIS records rejected by the President"
+                            class="sign-ris-filter-btn relative z-10 flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold transition-colors
+                                {{ $filter === 'president_rejected' ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
+                            "
+                        >
+                            Rejected by the President
                         </button>
 
                     </div>

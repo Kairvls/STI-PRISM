@@ -19,7 +19,7 @@
     {{-- RIS STATISTIC CARDS --}}
     {{-- ===================================================== --}}
 
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
 
 
         {{-- ================================================= --}}
@@ -47,30 +47,6 @@
 
 
         {{-- ================================================= --}}
-        {{-- SIGNED (FORWARDED TO PRESIDENT / PRESIDENT-APPROVED) --}}
-        {{-- ================================================= --}}
-
-        <div
-            class="rounded-[18px] border border-gray-200 bg-white px-5 py-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)]"
-            title="RIS forms signed/approved by the President"
-        >
-
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Signed
-            </p>
-
-            <div class="mt-3">
-
-                <span class="font-['Outfit'] text-3xl font-bold text-emerald-600">
-                    {{ $signedCount }}
-                </span>
-
-            </div>
-
-        </div>
-
-
-        {{-- ================================================= --}}
         {{-- CO-SIGNED --}}
         {{-- ================================================= --}}
 
@@ -85,7 +61,7 @@
 
             <div class="mt-3">
 
-                <span class="font-['Outfit'] text-3xl font-bold text-amber-600">
+                <span class="font-['Outfit'] text-3xl font-bold text-emerald-600">
                     {{ $cosignedCount }}
                 </span>
 

@@ -292,9 +292,9 @@
                                 <td>
                                     @if(in_array($ris->ris_status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true))
                                         <span class="status-badge status-badge-amber">Pending</span>
-                                    @elseif($ris->ris_status === 'Directly Approved' || ($ris->ris_status === 'Approved' && !empty($ris->ris_approved_by_signature) && !str_starts_with($ris->ris_approved_by_signature ?? '', 'data:image') && empty($ris->ris_issued_by_date)))
+                                    @elseif($ris->ris_status === 'Directly Approved')
                                         <span class="status-badge status-badge-slate">Admin Approved</span>
-                                    @elseif($ris->ris_status === 'Approved' && !empty($ris->ris_approved_by_date))
+                                    @elseif($ris->ris_status === 'Approved')
                                         <span class="status-badge status-badge-emerald">Forwarded to President</span>
                                     @elseif(in_array($ris->ris_status, ['Minor Revision', 'Rejected'], true))
                                         <span class="status-badge status-badge-rose">Amend</span>

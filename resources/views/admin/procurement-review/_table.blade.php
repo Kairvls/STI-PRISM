@@ -176,19 +176,7 @@
                             Pending
                         </span>
 
-
-                    {{-- DIRECTLY APPROVED --}}
-
-                    @elseif(
-                        $ris->ris_status === 'Directly Approved'
-                        || (
-                            $ris->ris_status === 'Approved'
-                            && !empty($ris->ris_approved_by_date)
-                            && !empty($ris->ris_approved_by_signature)
-                            && !str_starts_with($ris->ris_approved_by_signature, 'data:image')
-                            && empty($ris->ris_issued_by_date)
-                        )
-                    )
+                    @elseif($ris->ris_status === 'Directly Approved')
 
                         <span
                             class="inline-flex items-center rounded-lg border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-900"
@@ -197,11 +185,7 @@
                             Admin Approved
                         </span>
 
-
-                    {{-- FORWARDED TO PRESIDENT --}}
-                    {{-- (Approved AND has approved_by_date, but no signature or base64 sig) --}}
-
-                    @elseif($ris->ris_status === 'Approved' && !empty($ris->ris_approved_by_date))
+                    @elseif($ris->ris_status === 'Approved')
 
                         <span
                             class="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700"
@@ -209,10 +193,6 @@
                         >
                             Forwarded to President
                         </span>
-
-
-                    {{-- AMEND --}}
-                    {{-- New workflow uses Minor Revision; legacy uses Rejected --}}
 
                     @elseif(in_array($ris->ris_status, ['Minor Revision', 'Rejected'], true))
 
