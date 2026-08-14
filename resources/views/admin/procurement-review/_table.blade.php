@@ -192,9 +192,9 @@
 
                         <span
                             class="inline-flex items-center rounded-lg border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-900"
-                            title="This RIS has been directly approved by Admin and returned to Purchaser"
+                            title="This RIS has been approved by Admin and returned to Purchaser"
                         >
-                            Directly Approved
+                            Admin Approved
                         </span>
 
 
@@ -291,8 +291,8 @@
 
                             <button
                                 type="button"
-                                title="Sign Issued by and directly approve this RIS for the Purchaser"
-                                aria-label="Direct Approval"
+                                title="Sign Issued by and mark this RIS as Admin Approved for the Purchaser"
+                                aria-label="Admin Approve"
                                 onclick="openDirectApproveModal('{{ $ris->ris_id }}', 'direct')"
                                 class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-white transition hover:bg-slate-800"
                             >

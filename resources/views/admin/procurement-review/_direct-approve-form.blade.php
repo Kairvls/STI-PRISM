@@ -120,7 +120,7 @@
             @if ($isForward)
                 Confirming will sign <strong>Issued by</strong> and forward this RIS to the <strong>President</strong> for final approval.
             @else
-                Confirming will mark this RIS as <strong>Directly Approved</strong> and return it to the Purchaser.
+                Confirming will mark this RIS as <strong>Admin Approved</strong> and return it to the Purchaser.
             @endif
         </div>
 
@@ -243,9 +243,9 @@
         <button
             type="submit"
             class="rounded-lg {{ $isForward ? 'bg-emerald-700 hover:bg-emerald-800' : 'bg-slate-900 hover:bg-slate-800' }} px-4 py-2.5 text-sm font-medium text-white transition"
-            title="{{ $isForward ? 'Sign Issued by and forward to President' : 'Directly approve and return to Purchaser' }}"
+            title="{{ $isForward ? 'Sign Issued by and forward to President' : 'Mark as Admin Approved and return to Purchaser' }}"
         >
-            {{ $isForward ? 'Sign & Forward to President' : 'Confirm Direct Approval' }}
+            {{ $isForward ? 'Sign & Forward to President' : 'Confirm Admin Approval' }}
         </button>
     </div>
 </form>

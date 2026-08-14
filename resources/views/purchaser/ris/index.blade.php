@@ -1191,12 +1191,14 @@
                                         'Minor Revision' => 'bg-orange-50 text-orange-700',
                                         'Resubmitted' => 'bg-indigo-50 text-indigo-700',
                                         'Approved' => 'bg-green-50 text-green-700',
+                                        'Directly Approved' => 'bg-slate-100 text-slate-800',
                                         'Rejected' => 'bg-red-50 text-red-700',
                                         default => 'bg-gray-100 text-gray-600',
                                     };
+                                    $statusLabel = $ris->ris_status === 'Directly Approved' ? 'Admin Approved' : $ris->ris_status;
                                 @endphp
                                 <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium {{ $statusClass }}">
-                                    {{ $ris->ris_status }}
+                                    {{ $statusLabel }}
                                 </span>
                             </td>
 
@@ -1277,13 +1279,15 @@
                                     'Minor Revision' => 'border-orange-200 bg-orange-50 text-orange-700',
                                     'Resubmitted' => 'border-indigo-200 bg-indigo-50 text-indigo-700',
                                     'Approved' => 'border-green-200 bg-green-50 text-green-700',
+                                    'Directly Approved' => 'border-slate-300 bg-slate-100 text-slate-800',
                                     'Rejected' => 'border-red-200 bg-red-50 text-red-700',
                                     default => 'border-gray-200 bg-gray-100 text-gray-700',
                                 };
+                                $statusLabel = $ris->ris_status === 'Directly Approved' ? 'Admin Approved' : $ris->ris_status;
                             @endphp
 
                             <span class="rounded-full border px-3 py-1 text-xs font-medium {{ $statusClasses }}">
-                                {{ $ris->ris_status }}
+                                {{ $statusLabel }}
                             </span>
                         </div>
 

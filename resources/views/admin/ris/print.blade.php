@@ -146,7 +146,7 @@
 
     <div class="ris-original-form">
         @if ($isDirectlyApproved)
-            <div class="approval-watermark">DIRECTLY APPROVED</div>
+            <div class="approval-watermark">ADMIN APPROVED</div>
         @elseif (($ris->ris_status ?? '') === 'Approved' && $hasPresidentSignature)
             <div class="approval-watermark">APPROVED</div>
         @endif

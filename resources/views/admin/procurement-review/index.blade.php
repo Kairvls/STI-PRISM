@@ -264,7 +264,7 @@
             >
                 <div class="flex items-center justify-between border-b border-gray-200 px-6 py-4">
                     <div>
-                        <h3 id="directApproveModalTitle" class="text-lg font-semibold text-gray-900">Direct Approval</h3>
+                        <h3 id="directApproveModalTitle" class="text-lg font-semibold text-gray-900">Admin Approval</h3>
                         <p id="directApproveModalSubtitle" class="mt-1 text-sm text-gray-500">Sign Issued by on the RIS form, then confirm.</p>
                     </div>
                     <button
@@ -846,12 +846,12 @@
 
         var actionMode = (mode === 'forward') ? 'forward' : 'direct';
         if (title) {
-            title.textContent = actionMode === 'forward' ? 'Forward to President' : 'Direct Approval';
+            title.textContent = actionMode === 'forward' ? 'Forward to President' : 'Admin Approval';
         }
         if (subtitle) {
             subtitle.textContent = actionMode === 'forward'
                 ? 'Sign Issued by on the RIS form, then forward to the President.'
-                : 'Sign Issued by on the RIS form, then confirm direct approval.';
+                : 'Sign Issued by on the RIS form, then confirm Admin Approval.';
         }
 
         body.innerHTML = '<div class="flex flex-1 items-center justify-center gap-3 py-16 text-sm text-gray-500"><div class="h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-slate-800"></div>Loading RIS form...</div>';

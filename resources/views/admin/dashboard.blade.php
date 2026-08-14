@@ -65,6 +65,34 @@
                     <p class="stat-amount">₱{{ number_format($pendingRisAmount, 2) }} pending value</p>
                 </div>
 
+                <div class="stat-card" title="RIS waiting for Admin co-signature">
+                    <div class="stat-card-top">
+                        <div class="stat-icon stat-icon-violet">
+                            <i data-lucide="pen-tool"></i>
+                        </div>
+                        @if($forCosigningCount > 0)
+                        <span class="stat-change stat-change-warn">
+                            <i data-lucide="alert-circle" class="h-3 w-3"></i>
+                            Needs attention
+                        </span>
+                        @endif
+                    </div>
+                    <p class="stat-label">For Co-signing</p>
+                    <p class="stat-value">{{ $forCosigningCount }}</p>
+                    <p class="stat-amount">President-approved, awaiting your signature</p>
+                </div>
+
+                <div class="stat-card stat-card-success" title="RIS forms approved by Admin">
+                    <div class="stat-card-top">
+                        <div class="stat-icon stat-icon-emerald">
+                            <i data-lucide="check-circle"></i>
+                        </div>
+                    </div>
+                    <p class="stat-label">Admin Approved</p>
+                    <p class="stat-value">{{ $directApprovedRis }}</p>
+                    <p class="stat-amount">Returned to Purchaser</p>
+                </div>
+
                 <div class="stat-card" title="Total Requisition Issue Slips submitted">
                     <div class="stat-card-top">
                         <div class="stat-icon stat-icon-indigo">
@@ -74,46 +102,6 @@
                     <p class="stat-label">Total RIS</p>
                     <p class="stat-value">{{ $totalRis }}</p>
                     <p class="stat-amount">₱{{ number_format($totalRisAmount, 2) }} total value</p>
-                </div>
-
-                <div class="stat-card stat-card-success" title="RIS forms directly approved by Admin">
-                    <div class="stat-card-top">
-                        <div class="stat-icon stat-icon-emerald">
-                            <i data-lucide="check-circle"></i>
-                        </div>
-                    </div>
-                    <p class="stat-label">Directly Approved</p>
-                    <p class="stat-value">{{ $directApprovedRis }}</p>
-                </div>
-
-                <div class="stat-card" title="Total users registered in the system">
-                    <div class="stat-card-top">
-                        <div class="stat-icon stat-icon-blue">
-                            <i data-lucide="users"></i>
-                        </div>
-                    </div>
-                    <p class="stat-label">Number of Users</p>
-                    <p class="stat-value">{{ $totalUsers }}</p>
-                </div>
-
-                <div class="stat-card stat-card-info" title="RIS forwarded to President for approval">
-                    <div class="stat-card-top">
-                        <div class="stat-icon stat-icon-sky">
-                            <i data-lucide="send"></i>
-                        </div>
-                    </div>
-                    <p class="stat-label">Forwarded to President</p>
-                    <p class="stat-value">{{ $approvedRis }}</p>
-                </div>
-
-                <div class="stat-card" title="RIS waiting for Admin co-signature">
-                    <div class="stat-card-top">
-                        <div class="stat-icon stat-icon-violet">
-                            <i data-lucide="pen-tool"></i>
-                        </div>
-                    </div>
-                    <p class="stat-label">For Co-signing</p>
-                    <p class="stat-value">{{ $forCosigningCount }}</p>
                 </div>
 
             </div>
@@ -130,7 +118,7 @@
                     </div>
                     <div>
                         <h3 class="hero-alert-title">{{ $pendingRis }} RIS {{ $pendingRis === 1 ? 'is' : 'are' }} pending your review</h3>
-                        <p class="hero-alert-desc">These Requisition Issue Slips need your decision — forward to President, direct approve, or return for amendment.</p>
+                        <p class="hero-alert-desc">These Requisition Issue Slips need your decision — forward to President, admin approve, or return for amendment.</p>
                     </div>
                 </div>
                 <a href="{{ route('admin.procurement-review.ris', ['filter' => 'pending']) }}" class="hero-alert-btn">
@@ -240,12 +228,26 @@
             <div class="dashboard-chart-card">
                 <div class="dashboard-chart-header">
                     <div>
-                        <h3 class="dashboard-chart-title">RIS Submission Trend</h3>
-                        <p class="dashboard-chart-subtitle">Monthly submission volume over the last 6 months</p>
+                        <h3 class="dashboard-chart-title">Monthly Trend</h3>
+                        <p class="dashboard-chart-subtitle">Admin Approved, Forwarded, and Amend over the last 6 months</p>
+                    </div>
+                    <div class="dashboard-chart-legend">
+                        <div class="dashboard-chart-legend-item">
+                            <span class="dashboard-chart-legend-dot" style="background:#059669;"></span>
+                            <span>Admin Approved</span>
+                        </div>
+                        <div class="dashboard-chart-legend-item">
+                            <span class="dashboard-chart-legend-dot" style="background:#3b82f6;"></span>
+                            <span>Forwarded to President</span>
+                        </div>
+                        <div class="dashboard-chart-legend-item">
+                            <span class="dashboard-chart-legend-dot" style="background:#fb7185;"></span>
+                            <span>Amend</span>
+                        </div>
                     </div>
                 </div>
-                <div class="dashboard-chart-body">
-                    <canvas id="risTrendChart" height="200"></canvas>
+                <div class="dashboard-chart-body dashboard-chart-body-trend">
+                    <canvas id="risTrendChart"></canvas>
                 </div>
             </div>
 
@@ -271,12 +273,15 @@
                                 <th>Equipment</th>
                                 <th>Status</th>
                                 <th class="text-right">Amount</th>
-                                <th class="text-right">Date</th>
-                                <th class="text-center">Preview</th>
+                                <th class="dashboard-table-date">Date</th>
+                                <th class="dashboard-table-actions">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             @forelse($recentRisRecords as $ris)
+                            @php
+                                $risDate = $ris->ris_submitted_at ?? $ris->ris_requested_by_date ?? $ris->ris_created_at ?? null;
+                            @endphp
                             <tr>
                                 <td>
                                     <span class="table-ref-no">{{ $ris->ris_form_number ?? 'RIS-' . $ris->ris_id }}</span>
@@ -288,7 +293,7 @@
                                     @if(in_array($ris->ris_status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true))
                                         <span class="status-badge status-badge-amber">Pending</span>
                                     @elseif($ris->ris_status === 'Directly Approved' || ($ris->ris_status === 'Approved' && !empty($ris->ris_approved_by_signature) && !str_starts_with($ris->ris_approved_by_signature ?? '', 'data:image') && empty($ris->ris_issued_by_date)))
-                                        <span class="status-badge status-badge-slate">Directly Approved</span>
+                                        <span class="status-badge status-badge-slate">Admin Approved</span>
                                     @elseif($ris->ris_status === 'Approved' && !empty($ris->ris_approved_by_date))
                                         <span class="status-badge status-badge-emerald">Forwarded to President</span>
                                     @elseif(in_array($ris->ris_status, ['Minor Revision', 'Rejected'], true))
@@ -300,13 +305,12 @@
                                 <td class="text-right font-semibold text-gray-900">
                                     ₱{{ number_format((float)($ris->ris_calculated_total ?? 0), 2) }}
                                 </td>
-                                <td class="text-right text-sm text-gray-500">
-                                    {{ $ris->ris_requested_by_date ? \Carbon\Carbon::parse($ris->ris_requested_by_date)->format('M d, Y') : 'N/A' }}
+                                <td class="dashboard-table-date">
+                                    {{ $risDate ? \Carbon\Carbon::parse($risDate)->format('M d, Y') : 'N/A' }}
                                 </td>
-                                <td class="text-center">
-                                    <button type="button" onclick="window.openRisPreviewModal('{{ $ris->ris_id }}')" class="table-preview-btn" title="Preview RIS form">
+                                <td class="dashboard-table-actions">
+                                    <button type="button" onclick="window.openRisPreviewModal('{{ $ris->ris_id }}')" class="table-action-icon-btn" title="View RIS form" aria-label="View RIS form">
                                         <i data-lucide="eye" class="h-4 w-4"></i>
-                                        Preview
                                     </button>
                                 </td>
                             </tr>
@@ -545,7 +549,7 @@
                     <div class="sidebar-stat-item">
                         <div class="sidebar-stat-left">
                             <div class="sidebar-stat-dot sidebar-dot-emerald"></div>
-                            <span class="sidebar-stat-label">Directly Approved</span>
+                            <span class="sidebar-stat-label">Admin Approved</span>
                         </div>
                         <span class="sidebar-stat-value">{{ $directApprovedRis }}</span>
                     </div>
@@ -686,7 +690,7 @@
 
 .stat-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 16px;
     margin-bottom: 16px;
 }
@@ -1012,32 +1016,36 @@
    TABLE PREVIEW BUTTON
 ====================================== */
 
-.table-preview-btn {
+.table-preview-btn,
+.table-action-icon-btn {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    padding: 4px 10px;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    font-size: 10px;
-    font-weight: 600;
-    color: #475569;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    color: #4b5563;
     text-decoration: none;
     transition: all 0.2s ease;
     cursor: pointer;
 }
 
-.table-preview-btn:hover {
-    background: #eff6ff;
-    border-color: #0037c7;
-    color: #0037c7;
+.table-preview-btn:hover,
+.table-action-icon-btn:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+    color: #111827;
 }
 
 .table-preview-btn i,
-.table-preview-btn svg {
-    width: 14px;
-    height: 14px;
+.table-preview-btn svg,
+.table-action-icon-btn i,
+.table-action-icon-btn svg {
+    width: 16px;
+    height: 16px;
 }
 
 
@@ -1421,6 +1429,10 @@
 }
 
 .dashboard-chart-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
     padding: 10px 14px;
     border-bottom: 1px solid #f1f5f9;
 }
@@ -1437,8 +1449,38 @@
     margin-top: 1px;
 }
 
+.dashboard-chart-legend {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+.dashboard-chart-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    color: #64748b;
+}
+
+.dashboard-chart-legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    display: inline-block;
+}
+
 .dashboard-chart-body {
     padding: 10px 14px;
+}
+
+.dashboard-chart-body-trend {
+    height: 240px;
+    position: relative;
 }
 
 
@@ -1526,6 +1568,21 @@
 
 .dashboard-table tbody tr:hover {
     background: #fafafa;
+}
+
+.dashboard-table .dashboard-table-date {
+    text-align: left;
+    white-space: nowrap;
+    width: 1%;
+    min-width: 110px;
+    vertical-align: middle;
+}
+
+.dashboard-table .dashboard-table-actions {
+    text-align: center;
+    width: 1%;
+    white-space: nowrap;
+    vertical-align: middle;
 }
 
 .table-ref-no {
@@ -2037,42 +2094,113 @@
 document.addEventListener('DOMContentLoaded', function() {
 
     // =====================================================
-    // RIS MONTHLY TREND CHART (BAR)
+    // RIS MONTHLY TREND CHART (LINE — Approved vs Amend)
     // =====================================================
 
     const trendCtx = document.getElementById('risTrendChart');
+    const trendLabels = {!! json_encode($risTrendLabels ?? []) !!};
+    const trendApproved = {!! json_encode($risTrendApproved ?? []) !!};
+    const trendForwarded = {!! json_encode($risTrendForwarded ?? []) !!};
+    const trendAmend = {!! json_encode($risTrendAmend ?? []) !!};
 
-    if (trendCtx) {
+    if (trendCtx && trendLabels.length > 0) {
+        const approvedGradient = trendCtx.getContext('2d').createLinearGradient(0, 0, 0, 240);
+        approvedGradient.addColorStop(0, 'rgba(5, 150, 105, 0.28)');
+        approvedGradient.addColorStop(0.4, 'rgba(5, 150, 105, 0.08)');
+        approvedGradient.addColorStop(1, 'rgba(5, 150, 105, 0.01)');
+
+        const forwardedGradient = trendCtx.getContext('2d').createLinearGradient(0, 0, 0, 240);
+        forwardedGradient.addColorStop(0, 'rgba(59, 130, 246, 0.26)');
+        forwardedGradient.addColorStop(0.4, 'rgba(59, 130, 246, 0.08)');
+        forwardedGradient.addColorStop(1, 'rgba(59, 130, 246, 0.01)');
+
+        const amendGradient = trendCtx.getContext('2d').createLinearGradient(0, 0, 0, 240);
+        amendGradient.addColorStop(0, 'rgba(225, 29, 72, 0.18)');
+        amendGradient.addColorStop(0.4, 'rgba(225, 29, 72, 0.06)');
+        amendGradient.addColorStop(1, 'rgba(225, 29, 72, 0.01)');
+
         new Chart(trendCtx, {
-            type: 'bar',
+            type: 'line',
             data: {
-                labels: {!! json_encode($risTrendLabels) !!},
-                datasets: [{
-                    label: 'RIS Submitted',
-                    data: {!! json_encode($risTrendData) !!},
-                    backgroundColor: 'rgba(37, 99, 235, 0.15)',
-                    borderColor: 'rgba(37, 99, 235, 0.8)',
-                    borderWidth: 2,
-                    borderRadius: 6,
-                    borderSkipped: false,
-                }]
+                labels: trendLabels,
+                datasets: [
+                    {
+                        label: 'Admin Approved',
+                        data: trendApproved,
+                        borderColor: '#059669',
+                        backgroundColor: approvedGradient,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#059669',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2.5,
+                        pointRadius: 4,
+                        pointHoverRadius: 7,
+                        pointHoverBackgroundColor: '#059669',
+                        pointHoverBorderColor: '#fff',
+                        pointHoverBorderWidth: 3,
+                        borderWidth: 2.5,
+                    },
+                    {
+                        label: 'Forwarded to President',
+                        data: trendForwarded,
+                        borderColor: '#3b82f6',
+                        backgroundColor: forwardedGradient,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#3b82f6',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2.5,
+                        pointRadius: 4,
+                        pointHoverRadius: 7,
+                        pointHoverBackgroundColor: '#3b82f6',
+                        pointHoverBorderColor: '#fff',
+                        pointHoverBorderWidth: 3,
+                        borderWidth: 2.5,
+                    },
+                    {
+                        label: 'Amend',
+                        data: trendAmend,
+                        borderColor: '#fb7185',
+                        backgroundColor: amendGradient,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#fb7185',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2.5,
+                        pointRadius: 4,
+                        pointHoverRadius: 7,
+                        pointHoverBackgroundColor: '#fb7185',
+                        pointHoverBorderColor: '#fff',
+                        pointHoverBorderWidth: 3,
+                        borderWidth: 2.5,
+                    }
+                ]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                animation: {
+                    duration: 1200,
+                    easing: 'easeInOutQuart',
+                },
                 plugins: {
                     legend: {
                         display: false,
                     },
                     tooltip: {
-                        backgroundColor: '#0f172a',
-                        titleColor: '#fff',
-                        bodyColor: '#e2e8f0',
+                        backgroundColor: '#1f2937',
+                        titleColor: '#f3f4f6',
+                        titleFont: { size: 12, weight: '600' },
+                        bodyColor: '#e5e7eb',
+                        bodyFont: { size: 11 },
                         padding: 12,
                         cornerRadius: 8,
+                        boxPadding: 6,
+                        usePointStyle: true,
                         callbacks: {
                             label: function(context) {
-                                return context.parsed.y + ' RIS';
+                                return ' ' + context.dataset.label + ': ' + context.parsed.y;
                             }
                         }
                     }
@@ -2082,23 +2210,33 @@ document.addEventListener('DOMContentLoaded', function() {
                         beginAtZero: true,
                         ticks: {
                             stepSize: 1,
-                            color: '#94a3b8',
-                            font: { size: 11 }
+                            font: { size: 11 },
+                            color: '#9ca3af',
+                            padding: 8,
                         },
                         grid: {
-                            color: '#f1f5f9',
+                            color: 'rgba(0,0,0,0.04)',
                             drawBorder: false,
                         }
                     },
                     x: {
-                        ticks: {
-                            color: '#94a3b8',
-                            font: { size: 11 }
-                        },
                         grid: {
                             display: false,
+                        },
+                        ticks: {
+                            font: { size: 11, weight: '500' },
+                            color: '#6b7280',
+                            maxRotation: 0,
                         }
                     }
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'index',
+                },
+                hover: {
+                    mode: 'index',
+                    intersect: false,
                 }
             }
         });

@@ -28,11 +28,11 @@
 
         <div
             class="rounded-[18px] border border-gray-200 bg-white px-5 py-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)]"
-            title="RIS forms that have been directly approved by Admin (returned to Purchaser)"
+            title="RIS forms that have been approved by Admin (returned to Purchaser)"
         >
 
             <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Directly Approved
+                Admin Approved
             </p>
 
             <div class="mt-3">

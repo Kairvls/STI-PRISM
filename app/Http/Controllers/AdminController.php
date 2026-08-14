@@ -302,38 +302,66 @@ class AdminController extends Controller
 
         // =====================================================
         // RIS MONTHLY TREND (LAST 6 MONTHS)
+        // Admin Approved, Forwarded to President, Amend
         // =====================================================
+
+        $risTrendLabels = [];
+        $risTrendApproved = [];
+        $risTrendForwarded = [];
+        $risTrendAmend = [];
 
         try {
             $risMonthlyStartDate = now()->copy()->subMonths(5)->startOfMonth();
 
             $risMonthlyRows = DB::table('requisition_issue_slip_table')
                 ->selectRaw('
-                    YEAR(ris_requested_by_date) AS ris_year,
-                    MONTH(ris_requested_by_date) AS ris_month,
+                    YEAR(ris_created_at) AS ris_year,
+                    MONTH(ris_created_at) AS ris_month,
+                    ris_status,
                     COUNT(*) AS ris_count
                 ')
-                ->whereNotNull('ris_requested_by_date')
-                ->where('ris_requested_by_date', '>=', $risMonthlyStartDate)
-                ->groupByRaw('YEAR(ris_requested_by_date), MONTH(ris_requested_by_date)')
-                ->orderByRaw('YEAR(ris_requested_by_date), MONTH(ris_requested_by_date)')
-                ->get()
-                ->keyBy(function ($row) {
-                    return $row->ris_year . '-' . str_pad($row->ris_month, 2, '0', STR_PAD_LEFT);
-                });
+                ->whereNotNull('ris_created_at')
+                ->where('ris_created_at', '>=', $risMonthlyStartDate)
+                ->groupByRaw('YEAR(ris_created_at), MONTH(ris_created_at), ris_status')
+                ->get();
 
-            $risTrendLabels = [];
-            $risTrendData = [];
+            $monthNames = [
+                1 => 'January', 2 => 'February', 3 => 'March', 4 => 'April',
+                5 => 'May', 6 => 'June', 7 => 'July', 8 => 'August',
+                9 => 'September', 10 => 'October', 11 => 'November', 12 => 'December',
+            ];
 
             for ($i = 5; $i >= 0; $i--) {
                 $month = now()->copy()->subMonths($i)->startOfMonth();
-                $key = $month->format('Y-m');
-                $risTrendLabels[] = $month->format('M Y');
-                $risTrendData[] = (int) (optional($risMonthlyRows->get($key))->ris_count ?? 0);
+                $year = (int) $month->format('Y');
+                $monthNum = (int) $month->format('n');
+
+                $monthRows = $risMonthlyRows->filter(function ($row) use ($year, $monthNum) {
+                    return (int) $row->ris_year === $year && (int) $row->ris_month === $monthNum;
+                });
+
+                $adminApprovedCount = $monthRows
+                    ->where('ris_status', 'Directly Approved')
+                    ->sum('ris_count');
+
+                $forwardedCount = $monthRows
+                    ->where('ris_status', 'Approved')
+                    ->sum('ris_count');
+
+                $amendCount = $monthRows
+                    ->whereIn('ris_status', ['Minor Revision', 'Rejected'])
+                    ->sum('ris_count');
+
+                $risTrendLabels[] = ($monthNames[$monthNum] ?? $month->format('F')) . ' ' . $year;
+                $risTrendApproved[] = (int) $adminApprovedCount;
+                $risTrendForwarded[] = (int) $forwardedCount;
+                $risTrendAmend[] = (int) $amendCount;
             }
         } catch (\Throwable $e) {
             $risTrendLabels = [];
-            $risTrendData = [];
+            $risTrendApproved = [];
+            $risTrendForwarded = [];
+            $risTrendAmend = [];
         }
 
 
@@ -342,7 +370,7 @@ class AdminController extends Controller
         // =====================================================
 
         $risStatusChart = [
-            'labels' => ['Pending', 'Forwarded to President', 'Directly Approved', 'Amend', 'Co-signed'],
+            'labels' => ['Pending', 'Forwarded to President', 'Admin Approved', 'Amend', 'Co-signed'],
             'data' => [
                 $pendingRis,
                 $approvedRis,
@@ -381,8 +409,14 @@ class AdminController extends Controller
                     'ris_items_sum.ris_calculated_total',
                     'ris_items_names.ris_item_names'
                 )
-                ->whereNotNull('ris_requested_by_date')
-                ->orderByDesc('ris_requested_by_date')
+                ->where(function ($q) {
+                    $q->whereNotNull('requisition_issue_slip_table.ris_requested_by_date')
+                        ->orWhereNotNull('requisition_issue_slip_table.ris_form_number')
+                        ->orWhereNotNull('requisition_issue_slip_table.ris_submitted_at')
+                        ->orWhereNotNull('requisition_issue_slip_table.ris_created_at');
+                })
+                ->orderByDesc(DB::raw('COALESCE(requisition_issue_slip_table.ris_submitted_at, requisition_issue_slip_table.ris_requested_by_date, requisition_issue_slip_table.ris_created_at)'))
+                ->orderByDesc('requisition_issue_slip_table.ris_id')
                 ->limit(10)
                 ->get();
         } catch (\Throwable $e) { $recentRisRecords = collect(); }
@@ -421,7 +455,9 @@ class AdminController extends Controller
 
             // Charts
             'risTrendLabels',
-            'risTrendData',
+            'risTrendApproved',
+            'risTrendForwarded',
+            'risTrendAmend',
             'risStatusChart',
 
             // Recent records
@@ -2202,7 +2238,7 @@ class AdminController extends Controller
         }
 
         if ($ris->ris_status === 'Directly Approved') {
-            return 'Directly Approved';
+            return 'Admin Approved';
         }
 
         if (
@@ -2212,7 +2248,7 @@ class AdminController extends Controller
             && !str_starts_with((string) $ris->ris_approved_by_signature, 'data:image')
             && empty($ris->ris_issued_by_date)
         ) {
-            return 'Directly Approved';
+            return 'Admin Approved';
         }
 
         if (
@@ -2405,7 +2441,7 @@ class AdminController extends Controller
         ) {
             return back()->with(
                 'error',
-                'Only submitted pending RIS records can be directly approved.'
+                'Only submitted pending RIS records can be admin approved.'
             );
         }
 
@@ -2437,10 +2473,10 @@ class AdminController extends Controller
             DB::table('approval_logs_table')->insert([
                 'approval_log_reference_type' => 'RIS',
                 'approval_log_reference_id' => (int) $risId,
-                'approval_log_level' => 'Admin Direct Approval',
+                'approval_log_level' => 'Admin Approval',
                 'approval_log_approved_by' => Auth::id(),
                 'approval_log_approval_status' => 'Directly Approved',
-                'approval_log_approval_remarks' => 'RIS directly approved by ' . trim($validated['ris_issued_by']) . ' (Issued by) and returned to Purchaser.',
+                'approval_log_approval_remarks' => 'RIS admin approved by ' . trim($validated['ris_issued_by']) . ' (Issued by) and returned to Purchaser.',
                 'approval_log_approved_at' => now(),
             ]);
 
@@ -2460,7 +2496,7 @@ class AdminController extends Controller
             ])
             ->with(
                 'success',
-                'RIS directly approved successfully and returned to the Purchaser.'
+                'RIS marked as Admin Approved and returned to the Purchaser.'
             );
     });
 }

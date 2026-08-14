@@ -101,11 +101,11 @@
 
         <div
             class="rounded-[18px] border border-gray-200 bg-white px-5 py-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)]"
-            title="RIS forms that have been directly approved"
+            title="RIS forms that have been approved by Admin"
         >
 
             <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Directly Approved
+                Admin Approved
             </p>
 
             <div class="mt-3">
@@ -252,12 +252,12 @@
                         <button
                             type="button"
                             data-filter="direct_approved"
-                            title="Show only Directly Approved RIS records"
+                            title="Show only Admin Approved RIS records"
                             class="ris-filter-btn relative z-10 flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold transition-colors
                                 {{ $filter === 'direct_approved' ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
                             "
                         >
-                            Directly Approved
+                            Admin Approved
                         </button>
 
                     </div>
