@@ -1721,6 +1721,8 @@ Route::middleware(['auth', 'receiving'])
 
         Route::get('/dashboard', [ReceivingController::class, 'dashboard']);
 
+        Route::get('/quick-access/{section}', [ReceivingController::class, 'quickAccessContent']);
+
         Route::get('/reports', [ReceivingController::class, 'reports']);
 
         Route::get('/delivered-items', [ReceivingController::class, 'deliveredItems']);

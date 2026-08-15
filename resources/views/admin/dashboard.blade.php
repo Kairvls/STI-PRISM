@@ -65,7 +65,7 @@
                     <p class="stat-amount">₱{{ number_format($pendingRisAmount, 2) }} pending value</p>
                 </div>
 
-                <div class="stat-card" title="RIS waiting for Admin co-signature">
+                <div class="stat-card" title="RIS waiting for Admin Issued by signature">
                     <div class="stat-card-top">
                         <div class="stat-icon stat-icon-violet">
                             <i data-lucide="pen-tool"></i>
@@ -77,7 +77,7 @@
                         </span>
                         @endif
                     </div>
-                    <p class="stat-label">For Co-signing</p>
+                    <p class="stat-label">Awaiting Action</p>
                     <p class="stat-value">{{ $forCosigningCount }}</p>
                     <p class="stat-amount">President-approved, awaiting your signature</p>
                 </div>
@@ -155,7 +155,7 @@
                     </div>
                     <div>
                         <h3 class="hero-alert-title">{{ $forCosigningCount }} RIS {{ $forCosigningCount === 1 ? 'needs' : 'need' }} your action</h3>
-                        <p class="hero-alert-desc">President-returned RIS waiting to be sent back to Purchaser, or rejected forms that need revision remarks.</p>
+                        <p class="hero-alert-desc">President-approved RIS waiting for your Issued by signature so they can return to the Purchaser.</p>
                     </div>
                 </div>
                 <a href="{{ route('admin.digital-signatures.sign-ris', ['filter' => 'for_cosign']) }}" class="hero-alert-btn hero-alert-btn-violet">
@@ -229,7 +229,7 @@
                 <div class="dashboard-chart-header">
                     <div>
                         <h3 class="dashboard-chart-title">Budget Proposal</h3>
-                        <p class="dashboard-chart-subtitle">Procurement value for {{ $budgetProposalYear ?? now()->year }} based on submitted RIS forms</p>
+                        <p class="dashboard-chart-subtitle">RIS amounts for {{ $budgetProposalYear ?? now()->year }} from submitted forms</p>
                     </div>
                     <div class="budget-proposal-total">
                         <span class="budget-proposal-total-label">Proposed</span>
@@ -411,7 +411,7 @@
                     </div>
 
                     {{-- Calendar Grid --}}
-                    <div class="calendar-grid">
+                    <div id="adminCalendarGrid" class="calendar-grid">
                         <div class="cal-day-header">Sun</div>
                         <div class="cal-day-header">Mon</div>
                         <div class="cal-day-header">Tue</div>
@@ -462,7 +462,7 @@
                     </div>
 
                     {{-- Upcoming Events List --}}
-                    <div class="cal-upcoming">
+                    <div id="adminCalendarUpcoming" class="cal-upcoming">
                         <h4 class="cal-upcoming-title">Upcoming Events</h4>
                         @forelse($calendarEvents->take(3) as $event)
                             <div class="cal-upcoming-item">
@@ -658,7 +658,7 @@
                     <div class="sidebar-stat-item">
                         <div class="sidebar-stat-left">
                             <div class="sidebar-stat-dot sidebar-dot-violet"></div>
-                            <span class="sidebar-stat-label">For Co-signing</span>
+                            <span class="sidebar-stat-label">Awaiting Action</span>
                         </div>
                         <span class="sidebar-stat-value">{{ $forCosigningCount }}</span>
                     </div>
@@ -2634,16 +2634,94 @@ document.addEventListener('DOMContentLoaded', function() {
         var prevBtn = document.getElementById('calPrevBtn');
         var nextBtn = document.getElementById('calNextBtn');
         var monthLabel = document.getElementById('calMonthLabel');
+        var grid = document.getElementById('adminCalendarGrid');
+        var upcoming = document.getElementById('adminCalendarUpcoming');
+        var events = {!! json_encode(
+            collect($calendarEvents ?? [])->map(function ($event) {
+                return [
+                    'date' => !empty($event->maintenance_schedule_next_date)
+                        ? \Carbon\Carbon::parse($event->maintenance_schedule_next_date)->format('Y-m-d')
+                        : null,
+                    'name' => $event->equipment_name ?? 'Equipment',
+                ];
+            })->filter(fn ($e) => !empty($e['date']))->values()
+        ) !!};
+        var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        var view = new Date();
+        view.setDate(1);
 
-        if (prevBtn && nextBtn && monthLabel) {
-            // Disable navigation buttons for static display
-            prevBtn.style.opacity = '0.4';
-            prevBtn.style.cursor = 'not-allowed';
-            nextBtn.style.opacity = '0.4';
-            nextBtn.style.cursor = 'not-allowed';
-            prevBtn.title = 'Navigation disabled (static calendar)';
-            nextBtn.title = 'Navigation disabled (static calendar)';
+        function pad(n) { return n < 10 ? '0' + n : String(n); }
+        function ymd(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+
+        function eventsOn(dateKey) {
+            return events.filter(function (e) { return e.date === dateKey; });
         }
+
+        function render() {
+            if (!grid || !monthLabel) return;
+            var year = view.getFullYear();
+            var month = view.getMonth();
+            monthLabel.textContent = monthNames[month] + ' ' + year;
+
+            var first = new Date(year, month, 1);
+            var lastDate = new Date(year, month + 1, 0).getDate();
+            var startPad = first.getDay();
+            var todayKey = ymd(new Date());
+            var html = '';
+            ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(function (d) {
+                html += '<div class="cal-day-header">' + d + '</div>';
+            });
+            var totalSlots = Math.ceil((startPad + lastDate) / 7) * 7;
+            for (var i = 0; i < totalSlots; i++) {
+                var dayNum = i - startPad + 1;
+                if (dayNum < 1 || dayNum > lastDate) {
+                    html += '<div class="cal-day cal-day-empty"></div>';
+                    continue;
+                }
+                var dateKey = year + '-' + pad(month + 1) + '-' + pad(dayNum);
+                var dayEvents = eventsOn(dateKey);
+                var cls = 'cal-day';
+                if (dateKey === todayKey) cls += ' cal-day-today';
+                if (dayEvents.length) cls += ' cal-day-has-event';
+                html += '<div class="' + cls + '" title="' + (dayEvents.length ? dayEvents.length + ' event(s)' : '') + '">';
+                html += '<span class="cal-day-num">' + dayNum + '</span>';
+                if (dayEvents.length) html += '<span class="cal-day-dot"></span>';
+                html += '</div>';
+            }
+            grid.innerHTML = html;
+
+            if (upcoming) {
+                var monthPrefix = year + '-' + pad(month + 1);
+                var monthEvents = events.filter(function (e) { return e.date.indexOf(monthPrefix) === 0; })
+                    .sort(function (a, b) { return a.date.localeCompare(b.date); })
+                    .slice(0, 3);
+                var list = '<h4 class="cal-upcoming-title">Events this month</h4>';
+                if (!monthEvents.length) {
+                    list += '<div class="cal-upcoming-empty">No maintenance events this month</div>';
+                } else {
+                    monthEvents.forEach(function (e) {
+                        var parts = e.date.split('-');
+                        var label = monthNames[parseInt(parts[1], 10) - 1] + ' ' + parseInt(parts[2], 10) + ', ' + parts[0];
+                        list += '<div class="cal-upcoming-item"><div class="cal-upcoming-dot"></div><div class="cal-upcoming-content">';
+                        list += '<span class="cal-upcoming-name">' + e.name + '</span>';
+                        list += '<span class="cal-upcoming-date">' + label + '</span></div></div>';
+                    });
+                }
+                upcoming.innerHTML = list;
+            }
+        }
+
+        if (prevBtn && nextBtn) {
+            prevBtn.addEventListener('click', function () {
+                view.setMonth(view.getMonth() - 1);
+                render();
+            });
+            nextBtn.addEventListener('click', function () {
+                view.setMonth(view.getMonth() + 1);
+                render();
+            });
+        }
+        render();
     })();
 
 

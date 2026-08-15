@@ -36,6 +36,46 @@ class ReceivingController extends Controller
         $returnedRows = $this->returnedRows();
         $logs = $this->logRows(20);
         $suppliers = $this->supplierRows();
+        $logCount = 0;
+        if (Schema::hasTable('receiving_logs_table')) {
+            try {
+                $logCount = (int) DB::table('receiving_logs_table')->count();
+            } catch (\Throwable $e) {
+                $logCount = $logs->count();
+            }
+        }
+
+        $calendarEvents = collect();
+        $calendarEventsByDate = [];
+        try {
+            if (Schema::hasTable('maintenance_schedules_table')) {
+                $calendarEvents = DB::table('maintenance_schedules_table')
+                    ->leftJoin('equipment_table', 'maintenance_schedules_table.maintenance_schedule_equipment_id', '=', 'equipment_table.equipment_id')
+                    ->select(
+                        'maintenance_schedules_table.*',
+                        'equipment_table.equipment_name'
+                    )
+                    ->where(function ($q) {
+                        $q->where('maintenance_schedules_table.maintenance_schedule_status', 'Active')
+                            ->orWhere('maintenance_schedules_table.maintenance_schedule_status', 'Overdue');
+                    })
+                    ->orderBy('maintenance_schedules_table.maintenance_schedule_next_date')
+                    ->limit(20)
+                    ->get();
+
+                foreach ($calendarEvents as $evt) {
+                    $dateKey = $evt->maintenance_schedule_next_date
+                        ? \Carbon\Carbon::parse($evt->maintenance_schedule_next_date)->format('Y-m-d')
+                        : null;
+                    if ($dateKey) {
+                        $calendarEventsByDate[$dateKey][] = $evt;
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            $calendarEvents = collect();
+            $calendarEventsByDate = [];
+        }
 
         return view('receiving-officer.dashboard', $this->withQueryError([
             'pendingCount' => $pendingRows->count(),
@@ -45,14 +85,41 @@ class ReceivingController extends Controller
                 return !empty($row->received_at) && \Carbon\Carbon::parse($row->received_at)->isCurrentMonth();
             })->count(),
             'returnedCount' => $returnedRows->count(),
+            'historyCount' => $acceptedRows->count() + $returnedRows->count(),
             'supplierCount' => $suppliers->count(),
-            'logCount' => $logs->count(),
+            'logCount' => $logCount,
             'pendingRows' => $pendingRows->take(8),
             'acceptedRows' => $acceptedRows->take(6),
             'returnedRows' => $returnedRows->take(5),
             'recentLogs' => $logs->take(8),
             'topSuppliers' => $suppliers->sortByDesc('delivery_count')->take(5)->values(),
+            'calendarEvents' => $calendarEvents,
+            'calendarEventsByDate' => $calendarEventsByDate,
         ]));
+    }
+
+    public function quickAccessContent(string $section)
+    {
+        $views = [
+            'pending' => 'receiving-officer.quick-access._pending',
+            'delivered' => 'receiving-officer.quick-access._delivered',
+            'suppliers' => 'receiving-officer.quick-access._suppliers',
+            'history' => 'receiving-officer.quick-access._history',
+            'logs' => 'receiving-officer.quick-access._logs',
+        ];
+
+        abort_unless(isset($views[$section]), 404);
+
+        $data = match ($section) {
+            'pending' => ['rows' => $this->pendingRows()->take(40)],
+            'delivered' => ['rows' => $this->acceptedRows()->take(40)],
+            'suppliers' => ['rows' => $this->supplierRows()->sortByDesc('delivery_count')->take(40)->values()],
+            'history' => ['rows' => $this->acceptedRows()->merge($this->returnedRows())->sortByDesc(fn ($row) => $row->received_at ?? $row->authority_purchase_id)->take(40)->values()],
+            'logs' => ['rows' => $this->logRows(40)],
+            default => ['rows' => collect()],
+        };
+
+        return view($views[$section], $this->withQueryError($data));
     }
 
     public function reports(Request $request): View

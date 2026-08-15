@@ -9,8 +9,10 @@
 .ro-dash-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
 .ro-date { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; font-size: 13px; font-weight: 500; color: #475569; }
 .ro-grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 24px; align-items: start; }
-.ro-stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
-.ro-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 18px; padding: 14px 16px; box-shadow: 0 1px 2px rgba(15,23,42,.03); }
+.ro-stat-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; margin-bottom: 16px; }
+.ro-card-link { display: block; text-decoration: none; color: inherit; }
+.ro-card-link:hover .ro-card { border-color: #cbd5e1; box-shadow: 0 6px 16px rgba(15,23,42,.06); transform: translateY(-1px); }
+.ro-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 18px; padding: 14px 16px; box-shadow: 0 1px 2px rgba(15,23,42,.03); transition: .15s ease; height: 100%; }
 .ro-card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
 .ro-icon { width: 42px; height: 42px; border-radius: 14px; display: flex; align-items: center; justify-content: center; }
 .ro-icon i, .ro-icon svg { width: 18px; height: 18px; }
@@ -37,9 +39,9 @@
 .ro-panel-title { font-family: Outfit, sans-serif; font-size: 14px; font-weight: 700; color: #0f172a; }
 .ro-panel-sub { font-size: 12px; color: #64748b; margin-top: 2px; }
 .ro-link { font-size: 12px; font-weight: 600; color: #0037c7; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
-.ro-quick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 14px 16px; }
-.ro-quick a { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; padding: 12px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; text-decoration: none; }
-.ro-quick a:hover { background: #fff; border-color: #cbd5e1; transform: translateY(-1px); }
+.ro-quick { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; padding: 14px 16px; }
+.ro-quick button, .ro-quick a { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; padding: 12px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; text-decoration: none; cursor: pointer; width: 100%; font-family: inherit; }
+.ro-quick button:hover, .ro-quick a:hover { background: #fff; border-color: #cbd5e1; transform: translateY(-1px); }
 .ro-quick-label { font-size: 11px; font-weight: 600; color: #0f172a; }
 .ro-quick-desc { font-size: 10px; color: #94a3b8; }
 .ro-table { width: 100%; border-collapse: collapse; }
@@ -54,7 +56,32 @@
 .ro-act { display: flex; gap: 10px; padding: 10px 14px; border-bottom: 1px solid #f8fafc; }
 .ro-act:last-child { border-bottom: none; }
 .ro-empty { padding: 28px 16px; text-align: center; color: #94a3b8; font-size: 13px; }
-@media (max-width: 1200px) { .ro-grid { grid-template-columns: 1fr; } .ro-stat-grid { grid-template-columns: repeat(2, 1fr); } }
+.ro-qa-loading { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 48px 16px; color: #64748b; font-size: 13px; }
+.ro-qa-spinner { width: 20px; height: 20px; border: 2px solid #e2e8f0; border-top-color: #0037c7; border-radius: 50%; animation: ro-spin .7s linear infinite; }
+@keyframes ro-spin { to { transform: rotate(360deg); } }
+.sidebar-calendar-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 18px; overflow: hidden; box-shadow: 0 1px 2px rgba(15,23,42,.03); }
+.sidebar-calendar-header { padding: 14px 16px; border-bottom: 1px solid #f1f5f9; }
+.sidebar-calendar-title { font-family: Outfit, sans-serif; font-size: 14px; font-weight: 700; color: #0f172a; display: flex; align-items: center; }
+.sidebar-calendar-body { padding: 10px 12px 12px; }
+.calendar-month-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.cal-nav-btn { width: 28px; height: 28px; border-radius: 6px; border: 1px solid #e2e8f0; background: #f8fafc; display: flex; align-items: center; justify-content: center; color: #64748b; }
+.cal-month-label { font-size: 12px; font-weight: 700; color: #0f172a; }
+.calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 10px; }
+.cal-day-header { text-align: center; font-size: 8px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .4px; padding: 2px 0; }
+.cal-day { text-align: center; padding: 4px 1px; border-radius: 6px; font-size: 10px; font-weight: 500; color: #475569; min-height: 22px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+.cal-day-empty { opacity: .3; }
+.cal-day-today { background: #eef2ff; color: #0037c7; font-weight: 700; }
+.cal-day-has-event { color: #0f172a; font-weight: 600; }
+.cal-day-dot { width: 4px; height: 4px; border-radius: 50%; background: #f59e0b; margin-top: 1px; }
+.cal-upcoming { border-top: 1px solid #f1f5f9; padding-top: 8px; }
+.cal-upcoming-title { font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 6px; }
+.cal-upcoming-item { display: flex; align-items: flex-start; gap: 6px; padding: 4px 0; }
+.cal-upcoming-dot { width: 6px; height: 6px; border-radius: 50%; background: #f59e0b; margin-top: 4px; flex-shrink: 0; }
+.cal-upcoming-content { display: flex; flex-direction: column; min-width: 0; }
+.cal-upcoming-name { font-size: 11px; font-weight: 600; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cal-upcoming-date { font-size: 9px; color: #94a3b8; }
+.cal-upcoming-empty { font-size: 10px; color: #94a3b8; text-align: center; padding: 6px 0; }
+@media (max-width: 1200px) { .ro-grid { grid-template-columns: 1fr; } .ro-stat-grid, .ro-quick { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 768px) { .ro-stat-grid, .ro-quick { grid-template-columns: 1fr; } .ro-dash-header, .ro-alert { flex-direction: column; align-items: flex-start; } }
 </style>
 
@@ -75,37 +102,53 @@
     <div class="ro-grid">
         <div>
             <div class="ro-stat-grid">
-                <div class="ro-card">
-                    <div class="ro-card-top">
-                        <div class="ro-icon ro-icon-amber"><i data-lucide="package-search"></i></div>
-                        @if($pendingCount > 0)
-                            <span class="ro-pill ro-pill-warn">Needs attention</span>
-                        @else
-                            <span class="ro-pill ro-pill-ok">All clear</span>
-                        @endif
+                <a href="/receiving/reports" class="ro-card-link">
+                    <div class="ro-card">
+                        <div class="ro-card-top">
+                            <div class="ro-icon ro-icon-amber"><i data-lucide="clipboard-list"></i></div>
+                            @if($pendingCount > 0)
+                                <span class="ro-pill ro-pill-warn">Needs attention</span>
+                            @else
+                                <span class="ro-pill ro-pill-ok">All clear</span>
+                            @endif
+                        </div>
+                        <p class="ro-label">Pending Receiving Reports</p>
+                        <p class="ro-value">{{ $pendingCount }}</p>
+                        <p class="ro-hint">₱{{ number_format($pendingAmount, 2) }} awaiting inspection</p>
                     </div>
-                    <p class="ro-label">Pending inspection</p>
-                    <p class="ro-value">{{ $pendingCount }}</p>
-                    <p class="ro-hint">₱{{ number_format($pendingAmount, 2) }} awaiting check</p>
-                </div>
-                <div class="ro-card">
-                    <div class="ro-card-top"><div class="ro-icon ro-icon-emerald"><i data-lucide="package-check"></i></div></div>
-                    <p class="ro-label">Accepted this month</p>
-                    <p class="ro-value">{{ $acceptedMonth }}</p>
-                    <p class="ro-hint">{{ $acceptedCount }} accepted overall</p>
-                </div>
-                <div class="ro-card">
-                    <div class="ro-card-top"><div class="ro-icon ro-icon-rose"><i data-lucide="undo-2"></i></div></div>
-                    <p class="ro-label">Returned</p>
-                    <p class="ro-value">{{ $returnedCount }}</p>
-                    <p class="ro-hint">Sent back for correction</p>
-                </div>
-                <div class="ro-card">
-                    <div class="ro-card-top"><div class="ro-icon ro-icon-blue"><i data-lucide="truck"></i></div></div>
-                    <p class="ro-label">Suppliers</p>
-                    <p class="ro-value">{{ $supplierCount }}</p>
-                    <p class="ro-hint">{{ $logCount }} log entries</p>
-                </div>
+                </a>
+                <a href="/receiving/delivered-items" class="ro-card-link">
+                    <div class="ro-card">
+                        <div class="ro-card-top"><div class="ro-icon ro-icon-emerald"><i data-lucide="package-check"></i></div></div>
+                        <p class="ro-label">Delivered Items</p>
+                        <p class="ro-value">{{ $acceptedCount }}</p>
+                        <p class="ro-hint">{{ $acceptedMonth }} accepted this month</p>
+                    </div>
+                </a>
+                <a href="/receiving/supplier-records" class="ro-card-link">
+                    <div class="ro-card">
+                        <div class="ro-card-top"><div class="ro-icon ro-icon-blue"><i data-lucide="building-2"></i></div></div>
+                        <p class="ro-label">Supplier Records</p>
+                        <p class="ro-value">{{ $supplierCount }}</p>
+                        <p class="ro-hint">Physical and online vendors</p>
+                    </div>
+                </a>
+                <a href="/receiving/history" class="ro-card-link">
+                    <div class="ro-card">
+                        <div class="ro-card-top"><div class="ro-icon ro-icon-blue"><i data-lucide="history"></i></div></div>
+                        <p class="ro-label">Delivery History</p>
+                        <p class="ro-value">{{ $historyCount ?? ($acceptedCount + $returnedCount) }}</p>
+                        <p class="ro-hint">{{ $returnedCount }} returned</p>
+                    </div>
+                </a>
+                <a href="/receiving/logs" class="ro-card-link">
+                    <div class="ro-card">
+                        <div class="ro-card-top"><div class="ro-icon ro-icon-blue"><i data-lucide="scroll-text"></i></div></div>
+                        <p class="ro-label">Receiving Logs</p>
+                        <p class="ro-value">{{ $logCount }}</p>
+                        <p class="ro-hint">Inspection audit trail</p>
+                    </div>
+                </a>
             </div>
 
             @if($pendingCount > 0)
@@ -135,40 +178,35 @@
                 <div class="ro-panel-h">
                     <div>
                         <p class="ro-panel-title">Quick access</p>
-                        <p class="ro-panel-sub">Jump to the receiving tasks you use most</p>
+                        <p class="ro-panel-sub">Open a section overview in a modal</p>
                     </div>
                 </div>
                 <div class="ro-quick">
-                    <a href="/receiving/reports">
-                        <div class="ro-icon ro-icon-amber"><i data-lucide="clipboard-check"></i></div>
-                        <span class="ro-quick-label">Pending reports</span>
+                    <button type="button" onclick="openReceivingQuickAccess('pending')">
+                        <div class="ro-icon ro-icon-amber"><i data-lucide="clipboard-list"></i></div>
+                        <span class="ro-quick-label">Pending Receiving Reports</span>
                         <span class="ro-quick-desc">Inspect incoming deliveries</span>
-                    </a>
-                    <a href="/receiving/delivered-items">
-                        <div class="ro-icon ro-icon-emerald"><i data-lucide="boxes"></i></div>
-                        <span class="ro-quick-label">Delivered items</span>
+                    </button>
+                    <button type="button" onclick="openReceivingQuickAccess('delivered')">
+                        <div class="ro-icon ro-icon-emerald"><i data-lucide="package-check"></i></div>
+                        <span class="ro-quick-label">Delivered Items</span>
                         <span class="ro-quick-desc">Accepted into inventory</span>
-                    </a>
-                    <a href="/receiving/supplier-records">
-                        <div class="ro-icon ro-icon-blue"><i data-lucide="store"></i></div>
-                        <span class="ro-quick-label">Suppliers</span>
+                    </button>
+                    <button type="button" onclick="openReceivingQuickAccess('suppliers')">
+                        <div class="ro-icon ro-icon-blue"><i data-lucide="building-2"></i></div>
+                        <span class="ro-quick-label">Supplier Records</span>
                         <span class="ro-quick-desc">Vendor records</span>
-                    </a>
-                    <a href="/receiving/history">
+                    </button>
+                    <button type="button" onclick="openReceivingQuickAccess('history')">
                         <div class="ro-icon ro-icon-blue"><i data-lucide="history"></i></div>
-                        <span class="ro-quick-label">Delivery history</span>
+                        <span class="ro-quick-label">Delivery History</span>
                         <span class="ro-quick-desc">Accepted and returned</span>
-                    </a>
-                    <a href="/receiving/logs">
+                    </button>
+                    <button type="button" onclick="openReceivingQuickAccess('logs')">
                         <div class="ro-icon ro-icon-blue"><i data-lucide="scroll-text"></i></div>
-                        <span class="ro-quick-label">Receiving logs</span>
+                        <span class="ro-quick-label">Receiving Logs</span>
                         <span class="ro-quick-desc">Inspection audit trail</span>
-                    </a>
-                    <a href="/receiving/reports">
-                        <div class="ro-icon ro-icon-amber"><i data-lucide="scan-line"></i></div>
-                        <span class="ro-quick-label">Start inspection</span>
-                        <span class="ro-quick-desc">Open the receiving desk</span>
-                    </a>
+                    </button>
                 </div>
             </div>
 
@@ -276,6 +314,86 @@
         </div>
 
         <div class="ro-side">
+            @php
+                $calendarEvents = $calendarEvents ?? collect();
+                $calendarEventsByDate = $calendarEventsByDate ?? [];
+            @endphp
+            <div class="sidebar-calendar-card">
+                <div class="sidebar-calendar-header">
+                    <h3 class="sidebar-calendar-title">
+                        <i data-lucide="calendar" class="h-4 w-4" style="margin-right: 6px;"></i>
+                        Calendar of Events
+                    </h3>
+                </div>
+                <div class="sidebar-calendar-body">
+                    <div class="calendar-month-header">
+                        <button type="button" class="cal-nav-btn" title="Previous month" disabled>
+                            <i data-lucide="chevron-left" class="h-3.5 w-3.5"></i>
+                        </button>
+                        <span class="cal-month-label">{{ now()->format('F Y') }}</span>
+                        <button type="button" class="cal-nav-btn" title="Next month" disabled>
+                            <i data-lucide="chevron-right" class="h-3.5 w-3.5"></i>
+                        </button>
+                    </div>
+                    <div class="calendar-grid">
+                        <div class="cal-day-header">Sun</div>
+                        <div class="cal-day-header">Mon</div>
+                        <div class="cal-day-header">Tue</div>
+                        <div class="cal-day-header">Wed</div>
+                        <div class="cal-day-header">Thu</div>
+                        <div class="cal-day-header">Fri</div>
+                        <div class="cal-day-header">Sat</div>
+                        @php
+                            $now = now();
+                            $firstDay = $now->copy()->startOfMonth();
+                            $lastDay = $now->copy()->endOfMonth();
+                            $startPadding = $firstDay->dayOfWeek;
+                            $totalCells = $startPadding + $lastDay->day;
+                            $rows = ceil($totalCells / 7);
+                            $totalSlots = $rows * 7;
+                            $todayDate = $now->format('Y-m-d');
+                            $currentMonthKey = $now->format('Y-m');
+                        @endphp
+                        @for($i = 0; $i < $startPadding; $i++)
+                            <div class="cal-day cal-day-empty"></div>
+                        @endfor
+                        @for($day = 1; $day <= $lastDay->day; $day++)
+                            @php
+                                $dateKey = $currentMonthKey . '-' . str_pad($day, 2, '0', STR_PAD_LEFT);
+                                $hasEvents = isset($calendarEventsByDate[$dateKey]) && count($calendarEventsByDate[$dateKey]) > 0;
+                                $isToday = $dateKey === $todayDate;
+                                $eventCount = count($calendarEventsByDate[$dateKey] ?? []);
+                            @endphp
+                            <div class="cal-day {{ $isToday ? 'cal-day-today' : '' }} {{ $hasEvents ? 'cal-day-has-event' : '' }}" title="{{ $hasEvents ? $eventCount . ' event(s)' : '' }}">
+                                <span class="cal-day-num">{{ $day }}</span>
+                                @if($hasEvents)
+                                    <span class="cal-day-dot"></span>
+                                @endif
+                            </div>
+                        @endfor
+                        @for($i = $startPadding + $lastDay->day; $i < $totalSlots; $i++)
+                            <div class="cal-day cal-day-empty"></div>
+                        @endfor
+                    </div>
+                    <div class="cal-upcoming">
+                        <h4 class="cal-upcoming-title">Upcoming Events</h4>
+                        @forelse($calendarEvents->take(3) as $event)
+                            <div class="cal-upcoming-item">
+                                <div class="cal-upcoming-dot"></div>
+                                <div class="cal-upcoming-content">
+                                    <span class="cal-upcoming-name">{{ $event->equipment_name ?? 'Equipment' }}</span>
+                                    <span class="cal-upcoming-date">
+                                        {{ $event->maintenance_schedule_next_date ? \Carbon\Carbon::parse($event->maintenance_schedule_next_date)->format('M d, Y') : 'No date set' }}
+                                    </span>
+                                </div>
+                            </div>
+                        @empty
+                            <div class="cal-upcoming-empty">No upcoming maintenance events</div>
+                        @endforelse
+                    </div>
+                </div>
+            </div>
+
             <div class="ro-panel">
                 <div class="ro-panel-h">
                     <div>
@@ -343,5 +461,68 @@
         </div>
     </div>
 </div>
+
+<div id="receivingQuickAccessModal" class="ris-preview-modal-overlay" style="z-index: 12000;">
+    <div class="ris-preview-modal-container" style="max-width: 95vw; width: 1200px;">
+        <div class="ris-preview-modal-header">
+            <h3 class="ris-preview-modal-title" id="receivingQaTitle">Quick Access</h3>
+            <button type="button" class="ris-preview-modal-close" onclick="closeReceivingQuickAccess()" title="Close">
+                <i data-lucide="x" class="h-4 w-4"></i>
+            </button>
+        </div>
+        <div class="ris-preview-modal-body" id="receivingQaBody" style="background:#fff; min-height: 280px; max-height: calc(90vh - 110px); overflow: auto; padding: 16px;">
+            <div class="ro-qa-loading"><div class="ro-qa-spinner"></div><span>Loading...</span></div>
+        </div>
+        <div class="ris-preview-modal-footer">
+            <button type="button" class="ris-preview-modal-btn-close" onclick="closeReceivingQuickAccess()">Close</button>
+        </div>
+    </div>
+</div>
+
+<script>
+window.openReceivingQuickAccess = function (section) {
+    var modal = document.getElementById('receivingQuickAccessModal');
+    var body = document.getElementById('receivingQaBody');
+    var title = document.getElementById('receivingQaTitle');
+    if (!modal || !body) return;
+    var titles = {
+        pending: 'Pending Receiving Reports',
+        delivered: 'Delivered Items',
+        suppliers: 'Supplier Records',
+        history: 'Delivery History',
+        logs: 'Receiving Logs'
+    };
+    if (title) title.textContent = titles[section] || 'Quick Access';
+    body.innerHTML = '<div class="ro-qa-loading"><div class="ro-qa-spinner"></div><span>Loading...</span></div>';
+    modal.style.display = 'flex';
+    fetch('/receiving/quick-access/' + encodeURIComponent(section), {
+        headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'text/html' }
+    })
+    .then(function (response) {
+        if (!response.ok) throw new Error('Failed to load');
+        return response.text();
+    })
+    .then(function (html) {
+        body.innerHTML = html;
+        if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+    })
+    .catch(function () {
+        body.innerHTML = '<div class="ro-qa-loading" style="color:#e11d48;"><span>Failed to load this section.</span></div>';
+    });
+};
+window.closeReceivingQuickAccess = function () {
+    var modal = document.getElementById('receivingQuickAccessModal');
+    var body = document.getElementById('receivingQaBody');
+    if (modal) modal.style.display = 'none';
+    if (body) body.innerHTML = '<div class="ro-qa-loading"><div class="ro-qa-spinner"></div><span>Loading...</span></div>';
+};
+document.addEventListener('click', function (e) {
+    var modal = document.getElementById('receivingQuickAccessModal');
+    if (modal && e.target === modal) closeReceivingQuickAccess();
+});
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeReceivingQuickAccess();
+});
+</script>
 
 @endsection

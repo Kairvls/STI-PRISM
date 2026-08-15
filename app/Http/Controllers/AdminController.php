@@ -236,7 +236,7 @@ class AdminController extends Controller
                       ->orWhere('maintenance_schedules_table.maintenance_schedule_status', 'Overdue');
                 })
                 ->orderBy('maintenance_schedules_table.maintenance_schedule_next_date')
-                ->limit(20)
+                ->limit(200)
                 ->get();
         } catch (\Throwable $e) { $calendarEvents = collect(); }
 
@@ -405,13 +405,24 @@ class AdminController extends Controller
                     'users_table.user_full_name as actor_name',
                     DB::raw("'approval' as log_source")
                 )
-                ->whereIn('approval_logs_table.approval_log_approval_status', ['Approved', 'Co-signed', 'Rejected', 'Directly Approved'])
+                ->whereIn('approval_logs_table.approval_log_approval_status', [
+                    'Approved',
+                    'Co-signed',
+                    'Rejected',
+                    'Directly Approved',
+                    'Admin Approved',
+                    'Forwarded to President',
+                ])
                 ->orderByDesc('approval_logs_table.approval_log_approved_at')
                 ->limit(2)
                 ->get()
                 ->map(function ($log) {
                     $log->is_pending = false;
-                    $log->title = $log->status . ' — ' . ($log->ref_type ?? 'RIS');
+                    $statusLabel = match ((string) $log->status) {
+                        'Directly Approved' => 'Admin Approved',
+                        default => $log->status,
+                    };
+                    $log->title = $statusLabel . ' — ' . ($log->ref_type ?? 'RIS');
                     return $log;
                 });
         } catch (\Throwable $e) { $completedActivityLogs = collect(); }
@@ -2920,6 +2931,31 @@ class AdminController extends Controller
         return (string) ($ris->ris_status ?? 'N/A');
     }
 
+    private function parseFlexibleDate(?string $value): ?string
+    {
+        $value = trim((string) $value);
+        if ($value === '') {
+            return null;
+        }
+
+        foreach (['d/m/Y', 'j/n/Y', 'Y-m-d', 'd-m-Y', 'Y/m/d'] as $format) {
+            try {
+                $parsed = \Carbon\Carbon::createFromFormat($format, $value);
+                if ($parsed !== false) {
+                    return $parsed->format('Y-m-d');
+                }
+            } catch (\Throwable $e) {
+                // try next format
+            }
+        }
+
+        try {
+            return \Carbon\Carbon::parse($value)->format('Y-m-d');
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     private function downloadAdminRisTablePdf(string $title, $rows, string $filename)
     {
         $pdf = Pdf::loadView('admin.ris.table-export-pdf', [
@@ -2986,7 +3022,7 @@ class AdminController extends Controller
                     'approval_log_reference_id' => (int) $risId,
                     'approval_log_level' => 'Admin',
                     'approval_log_approved_by' => Auth::id(),
-                    'approval_log_approval_status' => 'Approved',
+                    'approval_log_approval_status' => 'Forwarded to President',
                     'approval_log_approval_remarks' => 'RIS forwarded to President by ' . $adminName . ' without Issued by signature.',
                     'approval_log_approved_at' => now(),
                 ]);
@@ -3043,13 +3079,11 @@ class AdminController extends Controller
             'ris_issued_by_date' => ['required', 'string', 'max:20'],
         ]);
 
-        try {
-            $issuedDate = \Carbon\Carbon::createFromFormat('d/m/Y', trim($validated['ris_issued_by_date']))
-                ->format('Y-m-d');
-        } catch (\Throwable $e) {
+        $issuedDate = $this->parseFlexibleDate($validated['ris_issued_by_date']);
+        if (!$issuedDate) {
             return back()->with(
                 'error',
-                'Issued by date must be in dd/mm/yyyy format.'
+                'Issued by date must be a valid date (dd/mm/yyyy).'
             );
         }
 
@@ -3111,7 +3145,7 @@ class AdminController extends Controller
                 'approval_log_reference_id' => (int) $risId,
                 'approval_log_level' => 'Admin Approval',
                 'approval_log_approved_by' => Auth::id(),
-                'approval_log_approval_status' => 'Directly Approved',
+                'approval_log_approval_status' => 'Admin Approved',
                 'approval_log_approval_remarks' => 'RIS admin approved by ' . trim($validated['ris_issued_by']) . ' (Issued by) and returned to Purchaser.',
                 'approval_log_approved_at' => now(),
             ]);
@@ -3157,13 +3191,11 @@ public function rejectRis(Request $request, $risId)
                 'remarks' => ['required', 'string', 'min:3'],
             ]);
 
-            try {
-                $issuedDate = \Carbon\Carbon::createFromFormat('d/m/Y', trim($validated['ris_issued_by_date']))
-                    ->format('Y-m-d');
-            } catch (\Throwable $e) {
+            $issuedDate = $this->parseFlexibleDate($validated['ris_issued_by_date']);
+            if (!$issuedDate) {
                 return back()->with(
                     'error',
-                    'Issued by date must be in dd/mm/yyyy format.'
+                    'Issued by date must be a valid date (dd/mm/yyyy).'
                 );
             }
 

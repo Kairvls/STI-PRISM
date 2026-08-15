@@ -389,11 +389,9 @@ class PresidentController extends Controller
                 'ris_approved_by_date' => ['required', 'string', 'max:20'],
             ]);
 
-            try {
-                $approvedDate = \Carbon\Carbon::createFromFormat('d/m/Y', trim($validated['ris_approved_by_date']))
-                    ->format('Y-m-d');
-            } catch (\Throwable $e) {
-                return back()->with('error', 'Approved by date must be in dd/mm/yyyy format.');
+            $approvedDate = $this->parseFlexibleDate($validated['ris_approved_by_date']);
+            if (!$approvedDate) {
+                return back()->with('error', 'Approved by date must be a valid date (dd/mm/yyyy).');
             }
 
             $updateValues['ris_approved_by_signature'] = trim($validated['ris_approved_by']);
@@ -1084,5 +1082,30 @@ class PresidentController extends Controller
                 }
             }
         });
+    }
+
+    private function parseFlexibleDate(?string $value): ?string
+    {
+        $value = trim((string) $value);
+        if ($value === '') {
+            return null;
+        }
+
+        foreach (['d/m/Y', 'j/n/Y', 'Y-m-d', 'd-m-Y', 'Y/m/d'] as $format) {
+            try {
+                $parsed = Carbon::createFromFormat($format, $value);
+                if ($parsed !== false) {
+                    return $parsed->format('Y-m-d');
+                }
+            } catch (\Throwable $e) {
+                // try next format
+            }
+        }
+
+        try {
+            return Carbon::parse($value)->format('Y-m-d');
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 }
