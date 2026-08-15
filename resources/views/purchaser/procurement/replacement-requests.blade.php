@@ -50,7 +50,7 @@
             'Submitted' => 'border-amber-200 bg-amber-50 text-amber-700',
             'Under Review' => 'border-amber-200 bg-amber-50 text-amber-700',
             'Resubmitted' => 'border-amber-200 bg-amber-50 text-amber-700',
-            'Minor Revision' => 'border-orange-200 bg-orange-50 text-orange-700',
+            'Minor Revision' => 'border-yellow-300 bg-yellow-50 text-amber-600',
             'Approved' => 'border-green-200 bg-green-50 text-green-700',
             'Rejected' => 'border-red-200 bg-red-50 text-red-700',
         ];

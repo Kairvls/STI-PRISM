@@ -514,7 +514,7 @@ class PurchaserController extends Controller
             $ris->has_atp = in_array($ris->ris_id, $risHasAtp);
             $ris->released_to_purchaser = in_array((int) $ris->ris_id, $releasedRisIds, true);
             $ris->can_create_atp = $ris->ris_status === 'Directly Approved'
-                || ($ris->ris_status === 'Approved' && $ris->released_to_purchaser);
+                || (in_array($ris->ris_status, ['Approved', 'Approved by the President'], true) && $ris->released_to_purchaser);
         }
 
         // Dashboard counts
@@ -530,11 +530,11 @@ class PurchaserController extends Controller
                 ->count(),
 
             'approved' => DB::table('requisition_issue_slip_table')
-                ->whereIn('ris_status', ['Approved', 'Directly Approved'])
+                ->whereIn('ris_status', ['Approved', 'Approved by the President', 'Directly Approved'])
                 ->count(),
 
             'rejected' => DB::table('requisition_issue_slip_table')
-                ->whereIn('ris_status', ['Rejected', 'Rejected by President'])
+                ->whereIn('ris_status', ['Rejected', 'Rejected by President', 'Rejected by the President'])
                 ->count(),
         ];
         // RIS MODULE: load approved replacement requests without an existing RIS

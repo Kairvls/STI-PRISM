@@ -236,7 +236,7 @@
         </div>
 
         <a
-            href="{{ url('/admin/reports') }}"
+            href="{{ url('/admin/reports/maintenance-history') }}"
             class="menu-item {{ request()->is('admin/reports*') ? 'active' : '' }}"
         >
 

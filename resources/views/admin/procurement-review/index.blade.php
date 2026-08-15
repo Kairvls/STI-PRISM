@@ -16,7 +16,7 @@
     <div>
 
         <h1 class="admin-page-title">
-            RIS Approval
+            Procurement Request
         </h1>
 
         <p class="admin-page-subtitle">
@@ -750,7 +750,7 @@
         }
         if (subtitle) {
             subtitle.textContent = actionMode === 'forward'
-                ? 'Sign Issued by on the RIS form, then forward to the President.'
+                ? 'Review the RIS form, then forward it to the President. Issued by is signed later on Sign RIS.'
                 : (actionMode === 'amend'
                     ? 'Sign Issued by on the RIS form, then enter amendment remarks.'
                     : 'Sign Issued by on the RIS form, then confirm Admin Approval.');

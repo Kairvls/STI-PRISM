@@ -18,7 +18,7 @@
         </h1>
 
         <p class="admin-page-subtitle">
-            View all finished / completed RIS records (Admin Approved, Co-signed, Amended). Active/pending RIS forms are not shown here.
+            View finished RIS records using the same statuses as Procurement Request: Admin Approved, Approved by the President, Amend, and Rejected by the President.
         </p>
 
     </div>

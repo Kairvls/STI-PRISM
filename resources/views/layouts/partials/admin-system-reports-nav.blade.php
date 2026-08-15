@@ -14,7 +14,6 @@
 </style>
 
 <nav class="admin-reports-nav print-hidden mb-6 flex flex-wrap gap-2">
-    <a href="{{ url('/admin/reports') }}" class="rounded-xl border px-3 py-2 text-sm font-semibold {{ $current === 'hub' ? 'border-[#0037c7] bg-[#0037c7] text-white' : 'border-gray-200 bg-white text-gray-700' }}">Overview</a>
     <a href="{{ url('/admin/reports/maintenance-history') }}" class="rounded-xl border px-3 py-2 text-sm font-semibold {{ $current === 'maintenance' ? 'border-[#0037c7] bg-[#0037c7] text-white' : 'border-gray-200 bg-white text-gray-700' }}">Maintenance</a>
     <a href="{{ url('/admin/reports/receiving') }}" class="rounded-xl border px-3 py-2 text-sm font-semibold {{ $current === 'receiving' ? 'border-[#0037c7] bg-[#0037c7] text-white' : 'border-gray-200 bg-white text-gray-700' }}">Receiving</a>
     <a href="{{ url('/admin/reports/approval-logs') }}" class="rounded-xl border px-3 py-2 text-sm font-semibold {{ $current === 'approvals' ? 'border-[#0037c7] bg-[#0037c7] text-white' : 'border-gray-200 bg-white text-gray-700' }}">Approvals</a>

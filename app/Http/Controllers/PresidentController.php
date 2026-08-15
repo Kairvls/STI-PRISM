@@ -23,24 +23,33 @@ class PresidentController extends Controller
 
         $pendingApprovalsCount =
             DB::table('requisition_issue_slip_table')
-                ->where('ris_status', 'Approved')
-                ->whereNotNull('ris_approved_by_date')
                 ->where(function ($q) {
-                    $q->whereNull('ris_approved_by_signature')
-                        ->orWhere('ris_approved_by_signature', '');
+                    $q->where('ris_status', 'Forwarded to President')
+                        ->orWhere(function ($legacy) {
+                            $legacy->where('ris_status', 'Approved')
+                                ->where(function ($empty) {
+                                    $empty->whereNull('ris_approved_by_signature')
+                                        ->orWhere('ris_approved_by_signature', '');
+                                });
+                        });
                 })
                 ->count();
 
         $approvedDecisionsCount =
             DB::table('requisition_issue_slip_table')
-                ->where('ris_status', 'Approved')
-                ->whereNotNull('ris_approved_by_signature')
-                ->where('ris_approved_by_signature', '!=', '')
+                ->where(function ($q) {
+                    $q->where('ris_status', 'Approved by the President')
+                        ->orWhere(function ($legacy) {
+                            $legacy->where('ris_status', 'Approved')
+                                ->whereNotNull('ris_approved_by_signature')
+                                ->where('ris_approved_by_signature', '!=', '');
+                        });
+                })
                 ->count();
 
         $rejectedDecisionsCount =
             DB::table('requisition_issue_slip_table')
-                ->whereIn('ris_status', ['Rejected', 'Rejected by President'])
+                ->whereIn('ris_status', ['Rejected', 'Rejected by President', 'Rejected by the President'])
                 ->count();
 
         // ================================
@@ -135,21 +144,31 @@ class PresidentController extends Controller
         $totalRisCount = (clone $forwardedBase)->count();
 
         $totalPendingRis = (clone $forwardedBase)
-            ->where('ris_status', 'Approved')
             ->where(function ($q) {
-                $q->whereNull('ris_approved_by_signature')
-                    ->orWhere('ris_approved_by_signature', '');
+                $q->where('ris_status', 'Forwarded to President')
+                    ->orWhere(function ($legacy) {
+                        $legacy->where('ris_status', 'Approved')
+                            ->where(function ($empty) {
+                                $empty->whereNull('ris_approved_by_signature')
+                                    ->orWhere('ris_approved_by_signature', '');
+                            });
+                    });
             })
             ->count();
 
         $totalApprovedRis = (clone $forwardedBase)
-            ->where('ris_status', 'Approved')
-            ->whereNotNull('ris_approved_by_signature')
-            ->where('ris_approved_by_signature', '!=', '')
+            ->where(function ($q) {
+                $q->where('ris_status', 'Approved by the President')
+                    ->orWhere(function ($legacy) {
+                        $legacy->where('ris_status', 'Approved')
+                            ->whereNotNull('ris_approved_by_signature')
+                            ->where('ris_approved_by_signature', '!=', '');
+                    });
+            })
             ->count();
 
         $totalRejectedRis = (clone $forwardedBase)
-            ->whereIn('ris_status', ['Rejected', 'Rejected by President'])
+            ->whereIn('ris_status', ['Rejected', 'Rejected by President', 'Rejected by the President'])
             ->count();
 
         // ================================
@@ -186,17 +205,27 @@ class PresidentController extends Controller
         }
 
         if ($status === 'Pending') {
-            $query->where('ris.ris_status', 'Approved')
-                ->where(function ($q) {
-                    $q->whereNull('ris.ris_approved_by_signature')
-                        ->orWhere('ris.ris_approved_by_signature', '');
-                });
+            $query->where(function ($q) {
+                $q->where('ris.ris_status', 'Forwarded to President')
+                    ->orWhere(function ($legacy) {
+                        $legacy->where('ris.ris_status', 'Approved')
+                            ->where(function ($empty) {
+                                $empty->whereNull('ris.ris_approved_by_signature')
+                                    ->orWhere('ris.ris_approved_by_signature', '');
+                            });
+                    });
+            });
         } elseif ($status === 'Approved') {
-            $query->where('ris.ris_status', 'Approved')
-                ->whereNotNull('ris.ris_approved_by_signature')
-                ->where('ris.ris_approved_by_signature', '!=', '');
+            $query->where(function ($q) {
+                $q->where('ris.ris_status', 'Approved by the President')
+                    ->orWhere(function ($legacy) {
+                        $legacy->where('ris.ris_status', 'Approved')
+                            ->whereNotNull('ris.ris_approved_by_signature')
+                            ->where('ris.ris_approved_by_signature', '!=', '');
+                    });
+            });
         } elseif ($status === 'Rejected') {
-            $query->whereIn('ris.ris_status', ['Rejected', 'Rejected by President']);
+            $query->whereIn('ris.ris_status', ['Rejected', 'Rejected by President', 'Rejected by the President']);
         }
 
         // ================================
@@ -342,7 +371,7 @@ class PresidentController extends Controller
             return back()->with('error', 'RIS not found.');
         }
 
-        if (!in_array($target->ris_status, ['Approved', 'Pending'], true) || empty($target->ris_approved_by_date)) {
+        if (!in_array($target->ris_status, ['Approved', 'Forwarded to President', 'Pending'], true) || empty($target->ris_approved_by_date)) {
             return back()->with('error', 'Only RIS records forwarded by Admin can be decided by President.');
         }
 
@@ -351,7 +380,7 @@ class PresidentController extends Controller
         }
 
         $updateValues = [
-            'ris_status' => $decision === 'Approved' ? 'Approved' : 'Rejected by President',
+            'ris_status' => $decision === 'Approved' ? 'Approved by the President' : 'Rejected by the President',
         ];
 
         if ($decision === 'Approved') {
@@ -371,9 +400,16 @@ class PresidentController extends Controller
             $updateValues['ris_approved_by_date'] = $approvedDate;
         }
 
-        DB::table('requisition_issue_slip_table')
-            ->where('ris_id', $targetId)
-            ->update($updateValues);
+        try {
+            DB::table('requisition_issue_slip_table')
+                ->where('ris_id', $targetId)
+                ->update($updateValues);
+        } catch (\Throwable $e) {
+            $updateValues['ris_status'] = $decision === 'Approved' ? 'Approved' : 'Rejected by President';
+            DB::table('requisition_issue_slip_table')
+                ->where('ris_id', $targetId)
+                ->update($updateValues);
+        }
 
         // approval logs (optional but useful)
         try {
@@ -976,7 +1012,7 @@ class PresidentController extends Controller
         abort_if(!$ris, 404);
 
         if (
-            $ris->ris_status !== 'Approved'
+            !in_array($ris->ris_status, ['Approved', 'Forwarded to President'], true)
             || empty($ris->ris_approved_by_date)
             || !empty($ris->ris_approved_by_signature)
         ) {

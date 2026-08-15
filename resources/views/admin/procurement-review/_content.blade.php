@@ -62,7 +62,7 @@
 
             <div class="mt-3">
 
-                <span class="font-['Outfit'] text-3xl font-bold text-rose-600">
+                <span class="font-['Outfit'] text-3xl font-bold text-amber-500">
                     {{ $amendRis }}
                 </span>
 
@@ -77,11 +77,11 @@
 
         <div
             class="rounded-[18px] border border-gray-200 bg-white px-5 py-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)]"
-            title="RIS forms forwarded to the President for final approval"
+            title="RIS forms approved by the President"
         >
 
             <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Forwarded to President
+                Approved by the President
             </p>
 
             <div class="mt-3">
@@ -110,7 +110,7 @@
 
             <div class="mt-3">
 
-                <span class="font-['Outfit'] text-3xl font-bold text-slate-900">
+                <span class="font-['Outfit'] text-3xl font-bold text-sky-500">
                     {{ $directApprovedRis }}
                 </span>
 
@@ -241,12 +241,23 @@
                         <button
                             type="button"
                             data-filter="approved"
-                            title="Show only RIS records forwarded to the President"
+                            title="Show RIS records approved by the President"
                             class="ris-filter-btn relative z-10 flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold transition-colors
-                                {{ $filter === 'approved' ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
+                                {{ in_array($filter, ['approved', 'president_approved'], true) ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
                             "
                         >
-                            Forwarded
+                            Approved by the President
+                        </button>
+
+                        <button
+                            type="button"
+                            data-filter="president_rejected"
+                            title="Show RIS records rejected by the President"
+                            class="ris-filter-btn relative z-10 flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold transition-colors
+                                {{ $filter === 'president_rejected' ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
+                            "
+                        >
+                            Rejected by the President
                         </button>
 
                         <button

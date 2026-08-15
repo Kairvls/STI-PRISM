@@ -1188,21 +1188,26 @@
                                         'Draft' => 'bg-gray-100 text-gray-700',
                                         'Submitted' => 'bg-blue-50 text-blue-700',
                                         'Under Review' => 'bg-amber-50 text-amber-700',
-                                        'Minor Revision' => 'bg-orange-50 text-orange-700',
+                                        'Minor Revision' => 'bg-yellow-50 text-amber-600',
                                         'Resubmitted' => 'bg-indigo-50 text-indigo-700',
                                         'Approved' => 'bg-green-50 text-green-700',
-                                        'Directly Approved' => 'bg-slate-100 text-slate-800',
+                                        'Forwarded to President' => 'bg-blue-50 text-blue-700',
+                                        'Approved by the President' => 'bg-green-50 text-green-700',
+                                        'Directly Approved' => 'bg-sky-50 text-sky-700',
                                         'Rejected' => 'bg-red-50 text-red-700',
                                         'Rejected by President' => 'bg-red-50 text-red-700',
+                                        'Rejected by the President' => 'bg-red-50 text-red-700',
                                         default => 'bg-gray-100 text-gray-600',
                                     };
             $statusLabel = $ris->ris_status === 'Directly Approved'
                 ? 'Admin Approved'
-                : ($ris->ris_status === 'Rejected by President'
+                : (in_array($ris->ris_status, ['Rejected by President', 'Rejected by the President'], true)
                     ? 'Rejected by the President'
-                    : (($ris->ris_status === 'Approved' && empty($ris->released_to_purchaser) && !empty($ris->ris_approved_by_signature))
+                    : ($ris->ris_status === 'Forwarded to President'
+                    ? 'Forwarded to President'
+                    : ((in_array($ris->ris_status, ['Approved', 'Approved by the President'], true) && empty($ris->released_to_purchaser) && !empty($ris->ris_approved_by_signature))
                     ? 'Awaiting Admin'
-                    : $ris->ris_status));
+                    : ($ris->ris_status === 'Approved by the President' ? 'Approved by the President' : $ris->ris_status))));
                                 @endphp
                                 <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium {{ $statusClass }}">
                                     {{ $statusLabel }}
@@ -1283,21 +1288,26 @@
                                     'Draft' => 'border-gray-200 bg-gray-100 text-gray-700',
                                     'Submitted' => 'border-blue-200 bg-blue-50 text-blue-700',
                                     'Under Review' => 'border-amber-200 bg-amber-50 text-amber-700',
-                                    'Minor Revision' => 'border-orange-200 bg-orange-50 text-orange-700',
+                                    'Minor Revision' => 'border-yellow-300 bg-yellow-50 text-amber-600',
                                     'Resubmitted' => 'border-indigo-200 bg-indigo-50 text-indigo-700',
                                     'Approved' => 'border-green-200 bg-green-50 text-green-700',
-                                    'Directly Approved' => 'border-slate-300 bg-slate-100 text-slate-800',
+                                    'Forwarded to President' => 'border-blue-200 bg-blue-50 text-blue-700',
+                                    'Approved by the President' => 'border-green-200 bg-green-50 text-green-700',
+                                    'Directly Approved' => 'border-sky-200 bg-sky-50 text-sky-700',
                                     'Rejected' => 'border-red-200 bg-red-50 text-red-700',
                                     'Rejected by President' => 'border-red-200 bg-red-50 text-red-700',
+                                    'Rejected by the President' => 'border-red-200 bg-red-50 text-red-700',
                                     default => 'border-gray-200 bg-gray-100 text-gray-700',
                                 };
                                 $statusLabel = $ris->ris_status === 'Directly Approved'
                                     ? 'Admin Approved'
-                                    : ($ris->ris_status === 'Rejected by President'
+                                    : (in_array($ris->ris_status, ['Rejected by President', 'Rejected by the President'], true)
                                         ? 'Rejected by the President'
-                                        : (($ris->ris_status === 'Approved' && empty($ris->released_to_purchaser) && !empty($ris->ris_approved_by_signature))
+                                        : ($ris->ris_status === 'Forwarded to President'
+                                        ? 'Forwarded to President'
+                                        : ((in_array($ris->ris_status, ['Approved', 'Approved by the President'], true) && empty($ris->released_to_purchaser) && !empty($ris->ris_approved_by_signature))
                                         ? 'Awaiting Admin'
-                                        : $ris->ris_status));
+                                        : ($ris->ris_status === 'Approved by the President' ? 'Approved by the President' : $ris->ris_status))));
                             @endphp
 
                             <span class="rounded-full border px-3 py-1 text-xs font-medium {{ $statusClasses }}">

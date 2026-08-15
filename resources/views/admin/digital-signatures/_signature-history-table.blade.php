@@ -163,50 +163,7 @@
                 {{-- ================================================= --}}
 
                 <td class="px-5 py-4">
-
-                    @php
-                        $approvedSignature = trim((string) ($history->ris_approved_by_signature ?? ''));
-                        $isReleased = !empty($history->released_ris_id);
-                    @endphp
-
-                    @if($history->ris_status === 'Directly Approved')
-
-                        <span
-                            class="inline-flex items-center rounded-lg border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-900"
-                            title="This RIS has been approved by Admin and returned to Purchaser"
-                        >
-                            Admin Approved
-                        </span>
-
-                    @elseif($history->ris_status === 'Approved' && $isReleased)
-
-                        <span
-                            class="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700"
-                            title="This RIS has been co-signed"
-                        >
-                            Co-signed
-                        </span>
-
-                    @elseif(in_array($history->ris_status, ['Minor Revision', 'Rejected', 'Rejected by President'], true))
-
-                        <span
-                            class="inline-flex items-center rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700"
-                            title="This RIS was returned for amendment"
-                        >
-                            Amended
-                        </span>
-
-                    @else
-
-                        <span
-                            class="inline-flex items-center rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-semibold text-gray-600"
-                            title="Current RIS status"
-                        >
-                            {{ $history->ris_status }}
-                        </span>
-
-                    @endif
-
+                    @include('admin.partials.ris-status-badge', ['ris' => $history])
                 </td>
 
 

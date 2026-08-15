@@ -82,9 +82,9 @@
                     <p class="stat-amount">President-approved, awaiting your signature</p>
                 </div>
 
-                <div class="stat-card stat-card-success" title="RIS forms approved by Admin">
+                <div class="stat-card" title="RIS forms approved by Admin">
                     <div class="stat-card-top">
-                        <div class="stat-icon stat-icon-emerald">
+                        <div class="stat-icon stat-icon-sky">
                             <i data-lucide="check-circle"></i>
                         </div>
                     </div>
@@ -223,26 +223,76 @@
             </div>
 
 
+            {{-- Budget Proposal --}}
+
+            <div class="dashboard-chart-card">
+                <div class="dashboard-chart-header">
+                    <div>
+                        <h3 class="dashboard-chart-title">Budget Proposal</h3>
+                        <p class="dashboard-chart-subtitle">Procurement value for {{ $budgetProposalYear ?? now()->year }} based on submitted RIS forms</p>
+                    </div>
+                    <div class="budget-proposal-total">
+                        <span class="budget-proposal-total-label">Proposed</span>
+                        <span class="budget-proposal-total-value">₱{{ number_format((float) ($budgetProposalTotal ?? 0), 2) }}</span>
+                    </div>
+                </div>
+                <div class="budget-proposal-grid">
+                    <div class="budget-proposal-item">
+                        <span class="budget-proposal-dot" style="background:#38bdf8;"></span>
+                        <div>
+                            <p class="budget-proposal-label">Admin Approved</p>
+                            <p class="budget-proposal-value">₱{{ number_format((float) ($budgetAdminApprovedAmount ?? 0), 2) }}</p>
+                        </div>
+                    </div>
+                    <div class="budget-proposal-item">
+                        <span class="budget-proposal-dot" style="background:#059669;"></span>
+                        <div>
+                            <p class="budget-proposal-label">Approved by the President</p>
+                            <p class="budget-proposal-value">₱{{ number_format((float) ($budgetPresidentApprovedAmount ?? 0), 2) }}</p>
+                        </div>
+                    </div>
+                    <div class="budget-proposal-item">
+                        <span class="budget-proposal-dot" style="background:#d97706;"></span>
+                        <div>
+                            <p class="budget-proposal-label">Pending</p>
+                            <p class="budget-proposal-value">₱{{ number_format((float) ($budgetPendingAmount ?? 0), 2) }}</p>
+                        </div>
+                    </div>
+                    <div class="budget-proposal-item">
+                        <span class="budget-proposal-dot" style="background:#e11d48;"></span>
+                        <div>
+                            <p class="budget-proposal-label">Rejected by the President</p>
+                            <p class="budget-proposal-value">₱{{ number_format((float) ($budgetPresidentRejectedAmount ?? 0), 2) }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
             {{-- RIS Monthly Trend Chart --}}
 
             <div class="dashboard-chart-card">
                 <div class="dashboard-chart-header">
                     <div>
                         <h3 class="dashboard-chart-title">Monthly Trend</h3>
-                        <p class="dashboard-chart-subtitle">Admin Approved, Forwarded, and Amend over the last 6 months</p>
+                        <p class="dashboard-chart-subtitle">Admin Approved, President Approved, Amend, and Rejected by the President over the last 6 months</p>
                     </div>
                     <div class="dashboard-chart-legend">
                         <div class="dashboard-chart-legend-item">
-                            <span class="dashboard-chart-legend-dot" style="background:#059669;"></span>
+                            <span class="dashboard-chart-legend-dot" style="background:#38bdf8;"></span>
                             <span>Admin Approved</span>
                         </div>
                         <div class="dashboard-chart-legend-item">
-                            <span class="dashboard-chart-legend-dot" style="background:#3b82f6;"></span>
-                            <span>Forwarded to President</span>
+                            <span class="dashboard-chart-legend-dot" style="background:#059669;"></span>
+                            <span>Approved by the President</span>
                         </div>
                         <div class="dashboard-chart-legend-item">
-                            <span class="dashboard-chart-legend-dot" style="background:#fb7185;"></span>
+                            <span class="dashboard-chart-legend-dot" style="background:#f59e0b;"></span>
                             <span>Amend</span>
+                        </div>
+                        <div class="dashboard-chart-legend-item">
+                            <span class="dashboard-chart-legend-dot" style="background:#e11d48;"></span>
+                            <span>Rejected by the President</span>
                         </div>
                     </div>
                 </div>
@@ -290,17 +340,7 @@
                                     <span class="table-equip">{{ $ris->ris_item_names ?: ($ris->ris_manual_title ?: ($ris->equipment_name ?? $ris->report_unlisted_equipment_name ?? ($ris->ris_request_type === 'manual' ? 'Manual Procurement' : 'N/A'))) }}</span>
                                 </td>
                                 <td>
-                                    @if(in_array($ris->ris_status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true))
-                                        <span class="status-badge status-badge-amber">Pending</span>
-                                    @elseif($ris->ris_status === 'Directly Approved')
-                                        <span class="status-badge status-badge-slate">Admin Approved</span>
-                                    @elseif($ris->ris_status === 'Approved')
-                                        <span class="status-badge status-badge-emerald">Forwarded to President</span>
-                                    @elseif(in_array($ris->ris_status, ['Minor Revision', 'Rejected'], true))
-                                        <span class="status-badge status-badge-rose">Amend</span>
-                                    @else
-                                        <span class="status-badge status-badge-gray">{{ $ris->ris_status }}</span>
-                                    @endif
+                                    @include('admin.partials.ris-status-badge', ['ris' => $ris])
                                 </td>
                                 <td class="text-right font-semibold text-gray-900">
                                     ₱{{ number_format((float)($ris->ris_calculated_total ?? 0), 2) }}
@@ -442,7 +482,69 @@
             </div>
 
 
-            {{-- 3. Activity List (Split into Pending + Completed with Toggle) --}}
+            {{-- 3. Supplier Comparison --}}
+
+            <div class="sidebar-supplier-card">
+                <div class="sidebar-supplier-header">
+                    <h3 class="sidebar-supplier-title">
+                        <i data-lucide="store" class="h-4 w-4" style="margin-right: 6px;"></i>
+                        Supplier Comparison
+                    </h3>
+                </div>
+                <div class="sidebar-supplier-body">
+                    @php
+                        $supplierComparison = $supplierComparison ?? collect();
+                        $supplierComparisonMax = (float) ($supplierComparisonMax ?? 0);
+                        $typeCompare = $supplierTypeComparison ?? ['physical_count' => 0, 'online_count' => 0, 'physical_amount' => 0, 'online_amount' => 0];
+                        $typeTotalAmount = (float) $typeCompare['physical_amount'] + (float) $typeCompare['online_amount'];
+                    @endphp
+
+                    <div class="supplier-type-row">
+                        <div class="supplier-type-item">
+                            <span class="supplier-type-label">Physical</span>
+                            <span class="supplier-type-value">{{ (int) $typeCompare['physical_count'] }} ATP</span>
+                            <span class="supplier-type-amount">₱{{ number_format((float) $typeCompare['physical_amount'], 2) }}</span>
+                        </div>
+                        <div class="supplier-type-item">
+                            <span class="supplier-type-label">Online</span>
+                            <span class="supplier-type-value">{{ (int) $typeCompare['online_count'] }} ATP</span>
+                            <span class="supplier-type-amount">₱{{ number_format((float) $typeCompare['online_amount'], 2) }}</span>
+                        </div>
+                    </div>
+
+                    @if($typeTotalAmount > 0)
+                        <div class="supplier-type-bar" title="Physical vs Online spend">
+                            <span class="supplier-type-bar-physical" style="width: {{ round(((float) $typeCompare['physical_amount'] / $typeTotalAmount) * 100) }}%;"></span>
+                            <span class="supplier-type-bar-online" style="width: {{ round(((float) $typeCompare['online_amount'] / $typeTotalAmount) * 100) }}%;"></span>
+                        </div>
+                    @endif
+
+                    <p class="supplier-compare-caption">Top suppliers by ATP amount</p>
+
+                    @forelse($supplierComparison as $supplier)
+                        @php
+                            $barPct = $supplierComparisonMax > 0
+                                ? max(8, round(((float) $supplier->total_amount / $supplierComparisonMax) * 100))
+                                : 8;
+                        @endphp
+                        <div class="supplier-compare-row">
+                            <div class="supplier-compare-meta">
+                                <span class="supplier-compare-name" title="{{ $supplier->supplier_name }}">{{ $supplier->supplier_name }}</span>
+                                <span class="supplier-compare-amount">₱{{ number_format((float) $supplier->total_amount, 2) }}</span>
+                            </div>
+                            <div class="supplier-compare-track">
+                                <span class="supplier-compare-fill" style="width: {{ $barPct }}%;"></span>
+                            </div>
+                            <span class="supplier-compare-count">{{ (int) $supplier->atp_count }} {{ (int) $supplier->atp_count === 1 ? 'ATP' : 'ATPs' }}</span>
+                        </div>
+                    @empty
+                        <p class="supplier-compare-empty">No supplier ATP records yet.</p>
+                    @endforelse
+                </div>
+            </div>
+
+
+            {{-- 4. Activity List (Split into Pending + Completed with Toggle) --}}
 
             <div class="sidebar-activity-card" id="activityListCard">
                 <div class="sidebar-activity-header">
@@ -548,7 +650,7 @@
 
                     <div class="sidebar-stat-item">
                         <div class="sidebar-stat-left">
-                            <div class="sidebar-stat-dot sidebar-dot-emerald"></div>
+                            <div class="sidebar-stat-dot sidebar-dot-slate"></div>
                             <span class="sidebar-stat-label">Admin Approved</span>
                         </div>
                         <span class="sidebar-stat-value">{{ $directApprovedRis }}</span>
@@ -562,7 +664,7 @@
                     </div>
                     <div class="sidebar-stat-item">
                         <div class="sidebar-stat-left">
-                            <div class="sidebar-stat-dot sidebar-dot-teal"></div>
+                            <div class="sidebar-stat-dot sidebar-dot-blue"></div>
                             <span class="sidebar-stat-label">Co-signed</span>
                         </div>
                         <span class="sidebar-stat-value">{{ $cosignedCount }}</span>
@@ -730,14 +832,14 @@
     color: #d97706;
 }
 
-.stat-icon-emerald {
-    background: #ecfdf5;
-    color: #059669;
+.stat-icon-slate {
+    background: #f1f5f9;
+    color: #0f172a;
 }
 
 .stat-icon-sky {
-    background: #f0f9ff;
-    color: #0284c7;
+    background: #e0f2fe;
+    color: #38bdf8;
 }
 
 .stat-icon-rose {
@@ -1463,6 +1565,75 @@
     position: relative;
 }
 
+.budget-proposal-total {
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.budget-proposal-total-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.budget-proposal-total-value {
+    display: block;
+    margin-top: 2px;
+    font-family: "Outfit", sans-serif;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: -0.02em;
+}
+
+.budget-proposal-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    padding: 12px 14px 14px;
+}
+
+.budget-proposal-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    border: 1px solid #f1f5f9;
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: #f8fafc;
+}
+
+.budget-proposal-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    margin-top: 6px;
+    flex-shrink: 0;
+}
+
+.budget-proposal-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+}
+
+.budget-proposal-value {
+    margin-top: 2px;
+    font-family: "Outfit", sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+@media (max-width: 640px) {
+    .budget-proposal-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 
 /* ======================================
    TABLE CARD
@@ -1677,6 +1848,155 @@
 
 .sidebar-calendar-body {
     padding: 10px 12px 12px;
+}
+
+.sidebar-supplier-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+}
+
+.sidebar-supplier-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.sidebar-supplier-title {
+    font-family: "Outfit", sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: #0f172a;
+    display: flex;
+    align-items: center;
+}
+
+.sidebar-supplier-body {
+    padding: 12px 14px 14px;
+}
+
+.supplier-type-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.supplier-type-item {
+    border: 1px solid #f1f5f9;
+    background: #f8fafc;
+    border-radius: 10px;
+    padding: 8px 10px;
+}
+
+.supplier-type-label {
+    display: block;
+    font-size: 10px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.supplier-type-value {
+    display: block;
+    margin-top: 2px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.supplier-type-amount {
+    display: block;
+    margin-top: 1px;
+    font-size: 11px;
+    color: #64748b;
+}
+
+.supplier-type-bar {
+    display: flex;
+    height: 6px;
+    border-radius: 999px;
+    overflow: hidden;
+    margin: 10px 0 12px;
+    background: #e2e8f0;
+}
+
+.supplier-type-bar-physical {
+    background: #0f172a;
+    display: block;
+}
+
+.supplier-type-bar-online {
+    background: #0037c7;
+    display: block;
+}
+
+.supplier-compare-caption {
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+    margin-bottom: 8px;
+}
+
+.supplier-compare-row {
+    margin-bottom: 10px;
+}
+
+.supplier-compare-row:last-child {
+    margin-bottom: 0;
+}
+
+.supplier-compare-meta {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.supplier-compare-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: #0f172a;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.supplier-compare-amount {
+    font-size: 11px;
+    font-weight: 700;
+    color: #0f172a;
+    flex-shrink: 0;
+}
+
+.supplier-compare-track {
+    height: 6px;
+    border-radius: 999px;
+    background: #e2e8f0;
+    overflow: hidden;
+}
+
+.supplier-compare-fill {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: #0037c7;
+}
+
+.supplier-compare-count {
+    display: block;
+    margin-top: 3px;
+    font-size: 10px;
+    color: #94a3b8;
+}
+
+.supplier-compare-empty {
+    font-size: 12px;
+    color: #94a3b8;
+    text-align: center;
+    padding: 12px 0 4px;
 }
 
 .calendar-month-header {
@@ -1895,6 +2215,7 @@
 
 .sidebar-dot-blue { background: #3b82f6; }
 .sidebar-dot-amber { background: #f59e0b; }
+.sidebar-dot-slate { background: #38bdf8; }
 .sidebar-dot-emerald { background: #10b981; }
 .sidebar-dot-violet { background: #0037c7; }
 .sidebar-dot-teal { background: #14b8a6; }
@@ -2082,22 +2403,28 @@ document.addEventListener('DOMContentLoaded', function() {
     const trendApproved = {!! json_encode($risTrendApproved ?? []) !!};
     const trendForwarded = {!! json_encode($risTrendForwarded ?? []) !!};
     const trendAmend = {!! json_encode($risTrendAmend ?? []) !!};
+    const trendRejected = {!! json_encode($risTrendRejected ?? []) !!};
 
     if (trendCtx && trendLabels.length > 0) {
         const approvedGradient = trendCtx.getContext('2d').createLinearGradient(0, 0, 0, 240);
-        approvedGradient.addColorStop(0, 'rgba(5, 150, 105, 0.28)');
-        approvedGradient.addColorStop(0.4, 'rgba(5, 150, 105, 0.08)');
-        approvedGradient.addColorStop(1, 'rgba(5, 150, 105, 0.01)');
+        approvedGradient.addColorStop(0, 'rgba(56, 189, 248, 0.28)');
+        approvedGradient.addColorStop(0.4, 'rgba(56, 189, 248, 0.08)');
+        approvedGradient.addColorStop(1, 'rgba(56, 189, 248, 0.01)');
 
         const forwardedGradient = trendCtx.getContext('2d').createLinearGradient(0, 0, 0, 240);
-        forwardedGradient.addColorStop(0, 'rgba(59, 130, 246, 0.26)');
-        forwardedGradient.addColorStop(0.4, 'rgba(59, 130, 246, 0.08)');
-        forwardedGradient.addColorStop(1, 'rgba(59, 130, 246, 0.01)');
+        forwardedGradient.addColorStop(0, 'rgba(5, 150, 105, 0.28)');
+        forwardedGradient.addColorStop(0.4, 'rgba(5, 150, 105, 0.08)');
+        forwardedGradient.addColorStop(1, 'rgba(5, 150, 105, 0.01)');
 
         const amendGradient = trendCtx.getContext('2d').createLinearGradient(0, 0, 0, 240);
-        amendGradient.addColorStop(0, 'rgba(225, 29, 72, 0.18)');
-        amendGradient.addColorStop(0.4, 'rgba(225, 29, 72, 0.06)');
-        amendGradient.addColorStop(1, 'rgba(225, 29, 72, 0.01)');
+        amendGradient.addColorStop(0, 'rgba(245, 158, 11, 0.26)');
+        amendGradient.addColorStop(0.4, 'rgba(245, 158, 11, 0.08)');
+        amendGradient.addColorStop(1, 'rgba(245, 158, 11, 0.01)');
+
+        const rejectedGradient = trendCtx.getContext('2d').createLinearGradient(0, 0, 0, 240);
+        rejectedGradient.addColorStop(0, 'rgba(225, 29, 72, 0.22)');
+        rejectedGradient.addColorStop(0.4, 'rgba(225, 29, 72, 0.07)');
+        rejectedGradient.addColorStop(1, 'rgba(225, 29, 72, 0.01)');
 
         new Chart(trendCtx, {
             type: 'line',
@@ -2107,8 +2434,25 @@ document.addEventListener('DOMContentLoaded', function() {
                     {
                         label: 'Admin Approved',
                         data: trendApproved,
-                        borderColor: '#059669',
+                        borderColor: '#38bdf8',
                         backgroundColor: approvedGradient,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#38bdf8',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2.5,
+                        pointRadius: 4,
+                        pointHoverRadius: 7,
+                        pointHoverBackgroundColor: '#38bdf8',
+                        pointHoverBorderColor: '#fff',
+                        pointHoverBorderWidth: 3,
+                        borderWidth: 2.5,
+                    },
+                    {
+                        label: 'Approved by the President',
+                        data: trendForwarded,
+                        borderColor: '#059669',
+                        backgroundColor: forwardedGradient,
                         fill: true,
                         tension: 0.4,
                         pointBackgroundColor: '#059669',
@@ -2122,35 +2466,35 @@ document.addEventListener('DOMContentLoaded', function() {
                         borderWidth: 2.5,
                     },
                     {
-                        label: 'Forwarded to President',
-                        data: trendForwarded,
-                        borderColor: '#3b82f6',
-                        backgroundColor: forwardedGradient,
+                        label: 'Amend',
+                        data: trendAmend,
+                        borderColor: '#f59e0b',
+                        backgroundColor: amendGradient,
                         fill: true,
                         tension: 0.4,
-                        pointBackgroundColor: '#3b82f6',
+                        pointBackgroundColor: '#f59e0b',
                         pointBorderColor: '#fff',
                         pointBorderWidth: 2.5,
                         pointRadius: 4,
                         pointHoverRadius: 7,
-                        pointHoverBackgroundColor: '#3b82f6',
+                        pointHoverBackgroundColor: '#f59e0b',
                         pointHoverBorderColor: '#fff',
                         pointHoverBorderWidth: 3,
                         borderWidth: 2.5,
                     },
                     {
-                        label: 'Amend',
-                        data: trendAmend,
-                        borderColor: '#fb7185',
-                        backgroundColor: amendGradient,
+                        label: 'Rejected by the President',
+                        data: trendRejected,
+                        borderColor: '#e11d48',
+                        backgroundColor: rejectedGradient,
                         fill: true,
                         tension: 0.4,
-                        pointBackgroundColor: '#fb7185',
+                        pointBackgroundColor: '#e11d48',
                         pointBorderColor: '#fff',
                         pointBorderWidth: 2.5,
                         pointRadius: 4,
                         pointHoverRadius: 7,
-                        pointHoverBackgroundColor: '#fb7185',
+                        pointHoverBackgroundColor: '#e11d48',
                         pointHoverBorderColor: '#fff',
                         pointHoverBorderWidth: 3,
                         borderWidth: 2.5,
@@ -2236,13 +2580,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 labels: {!! json_encode($risStatusChart['labels']) !!},
                 datasets: [{
                     data: {!! json_encode($risStatusChart['data']) !!},
-                    backgroundColor: [
-                        '#f59e0b',
-                        '#3b82f6',
-                        '#10b981',
-                        '#f43f5e',
-                        '#0037c7',
-                    ],
+                    backgroundColor: {!! json_encode($risStatusChart['colors'] ?? ['#d97706', '#059669', '#38bdf8', '#f59e0b', '#e11d48']) !!},
                     borderWidth: 0,
                     hoverOffset: 8,
                 }]
@@ -2418,7 +2756,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!modal || !body || !title) return;
 
         var titles = {
-            'procurement': 'Procurement Review — All RIS Records',
+            'procurement': 'Procurement Request — All RIS Records',
             'signris': 'Sign RIS — President-Approved Records',
             'history': 'Signature History — Completed Records',
             'users': 'User Management',

@@ -163,60 +163,7 @@
                 {{-- ================================================= --}}
 
                 <td class="px-5 py-4">
-
-
-                    {{-- PENDING (new workflow + legacy) --}}
-
-                    @if(in_array($ris->ris_status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true))
-
-                        <span
-                            class="inline-flex items-center rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700"
-                            title="This RIS is waiting for review"
-                        >
-                            Pending
-                        </span>
-
-                    @elseif($ris->ris_status === 'Directly Approved')
-
-                        <span
-                            class="inline-flex items-center rounded-lg border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-900"
-                            title="This RIS has been approved by Admin and returned to Purchaser"
-                        >
-                            Admin Approved
-                        </span>
-
-                    @elseif($ris->ris_status === 'Approved')
-
-                        <span
-                            class="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700"
-                            title="This RIS has been forwarded to the President"
-                        >
-                            Forwarded to President
-                        </span>
-
-                    @elseif(in_array($ris->ris_status, ['Minor Revision', 'Rejected'], true))
-
-                        <span
-                            class="inline-flex items-center rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700"
-                            title="This RIS was returned for amendment"
-                        >
-                            Amend
-                        </span>
-
-
-                    {{-- OTHER STATUS --}}
-
-                    @else
-
-                        <span
-                            class="inline-flex items-center rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-semibold text-gray-600"
-                            title="Current RIS status"
-                        >
-                            {{ $ris->ris_status }}
-                        </span>
-
-                    @endif
-
+                    @include('admin.partials.ris-status-badge', ['ris' => $ris])
                 </td>
 
 
@@ -259,7 +206,7 @@
 
                             <button
                                 type="button"
-                                title="Sign Issued by, then forward this RIS to the President"
+                                title="Forward this RIS to the President (no Issued by signature required)"
                                 aria-label="Forward to President"
                                 onclick="openDirectApproveModal('{{ $ris->ris_id }}', 'forward')"
                                 class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100"

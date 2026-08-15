@@ -119,13 +119,15 @@
 
     <div class="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
         <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
-            You can only fill <strong>Issued by</strong> and its <strong>Date</strong>. All other RIS details are locked.
-            @if ($isAmend)
-                Sign <strong>Issued by</strong> first, then enter amendment remarks to return this RIS to the Purchaser.
-            @elseif ($isForward)
-                Confirming will sign <strong>Issued by</strong> and forward this RIS to the <strong>President</strong> for final approval.
+            @if ($isForward)
+                All RIS details are locked. Confirming will forward this RIS to the <strong>President</strong> without an Issued by signature. You sign Issued by later on Sign RIS after the President approves.
             @else
-                Confirming will mark this RIS as <strong>Admin Approved</strong> and return it to the Purchaser.
+                You can only fill <strong>Issued by</strong> and its <strong>Date</strong>. All other RIS details are locked.
+                @if ($isAmend)
+                    Sign <strong>Issued by</strong> first, then enter amendment remarks to return this RIS to the Purchaser.
+                @else
+                    Confirming will mark this RIS as <strong>Admin Approved</strong> and return it to the Purchaser.
+                @endif
             @endif
         </div>
 
@@ -193,8 +195,13 @@
                         <div class="ris-date-line">dd/mm/yyyy</div>
                     </div>
 
-                    <div class="ris-signature-column">
+                    <div class="ris-signature-column {{ $isForward ? 'admin-da-locked' : '' }}">
                         <div class="ris-signature-label">Issued by:</div>
+                        @if ($isForward)
+                            <div class="ris-signature-line"> </div>
+                            <div class="ris-date-label">Date:</div>
+                            <div class="ris-date-line">dd/mm/yyyy</div>
+                        @else
                         <input
                             type="text"
                             name="ris_issued_by"
@@ -222,6 +229,7 @@
                             title="Issued by date (dd/mm/yyyy)"
                         >
                         <div class="ris-editable-hint">Editable</div>
+                        @endif
                     </div>
 
                     <div class="ris-signature-column admin-da-locked">
@@ -265,9 +273,9 @@
         <button
             type="submit"
             class="rounded-lg {{ $isAmend ? 'bg-rose-600 hover:bg-rose-700' : ($isForward ? 'bg-emerald-700 hover:bg-emerald-800' : 'bg-slate-900 hover:bg-slate-800') }} px-4 py-2.5 text-sm font-medium text-white transition"
-            title="{{ $isAmend ? 'Sign Issued by and return for amendment' : ($isForward ? 'Sign Issued by and forward to President' : 'Mark as Admin Approved and return to Purchaser') }}"
+            title="{{ $isAmend ? 'Sign Issued by and return for amendment' : ($isForward ? 'Forward this RIS to the President' : 'Mark as Admin Approved and return to Purchaser') }}"
         >
-            {{ $isAmend ? 'Sign & Confirm Amend' : ($isForward ? 'Sign & Forward to President' : 'Confirm Admin Approval') }}
+            {{ $isAmend ? 'Sign & Confirm Amend' : ($isForward ? 'Forward to President' : 'Confirm Admin Approval') }}
         </button>
     </div>
 </form>

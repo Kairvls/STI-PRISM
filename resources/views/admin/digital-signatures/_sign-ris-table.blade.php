@@ -70,7 +70,7 @@
             >
 
                 @php
-                    $isPresidentRejected = in_array($ris->ris_status ?? '', ['Rejected by President', 'Rejected'], true);
+                    $isPresidentRejected = in_array($ris->ris_status ?? '', ['Rejected by President', 'Rejected by the President'], true);
                     $isReleased = !empty($ris->released_ris_id);
                     $awaitingReturn = !$isReleased && !$isPresidentRejected && trim((string) ($ris->ris_approved_by_signature ?? '')) !== '';
                 @endphp
@@ -169,46 +169,7 @@
                 {{-- ================================================= --}}
 
                 <td class="px-5 py-4">
-
-                    {{-- CO-SIGNED --}}
-
-                    @if($isReleased)
-
-                        <span
-                            class="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700"
-                            title="Returned to Purchaser"
-                        >
-                            Co-signed
-                        </span>
-
-                    @elseif($isPresidentRejected)
-
-                        <span
-                            class="inline-flex items-center rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700"
-                            title="President rejected this RIS"
-                        >
-                            Rejected by the President
-                        </span>
-
-                    @elseif($awaitingReturn)
-
-                        <span
-                            class="inline-flex items-center rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700"
-                            title="President approved — return to Purchaser"
-                        >
-                            President Approved
-                        </span>
-
-                    @else
-
-                        <span
-                            class="inline-flex items-center rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-semibold text-gray-600"
-                        >
-                            {{ $ris->ris_status }}
-                        </span>
-
-                    @endif
-
+                    @include('admin.partials.ris-status-badge', ['ris' => $ris])
                 </td>
 
 
