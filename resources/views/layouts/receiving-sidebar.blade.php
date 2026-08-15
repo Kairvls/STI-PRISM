@@ -54,10 +54,6 @@
                         Receiving
                     </div>
 
-                    <div class="dropdown-item" data-target="account-section">
-                        Account
-                    </div>
-
                 </div>
 
             </div>
@@ -88,29 +84,29 @@
 
                 <i data-lucide="clipboard-list"></i>
 
-                <span>Reports</span>
+                <span>Pending</span>
 
             </a>
 
             <a
-                href="/receiving/inventory-update"
-                class="quick-card {{ request()->is('receiving/inventory-update') ? 'active' : '' }}"
+                href="/receiving/delivered-items"
+                class="quick-card {{ request()->is('receiving/delivered-items') ? 'active' : '' }}"
             >
 
-                <i data-lucide="package"></i>
+                <i data-lucide="truck"></i>
 
-                <span>Inventory</span>
+                <span>Delivered</span>
 
             </a>
 
             <a
-                href="/receiving/notifications"
-                class="quick-card {{ request()->is('receiving/notifications*') ? 'active' : '' }}"
+                href="/receiving/logs"
+                class="quick-card {{ request()->is('receiving/logs') ? 'active' : '' }}"
             >
 
-                <i data-lucide="bell"></i>
+                <i data-lucide="scroll-text"></i>
 
-                <span>Notifications</span>
+                <span>Logs</span>
 
             </a>
 
@@ -154,7 +150,7 @@
 
             <i data-lucide="clipboard-list"></i>
 
-            <span>Receiving Reports</span>
+            <span>Pending Receiving Reports</span>
 
         </a>
 
@@ -166,28 +162,6 @@
             <i data-lucide="truck"></i>
 
             <span>Delivered Items</span>
-
-        </a>
-
-        <a
-            href="/receiving/inventory-update"
-            class="menu-item {{ request()->is('receiving/inventory-update') ? 'active' : '' }}"
-        >
-
-            <i data-lucide="package"></i>
-
-            <span>Inventory Update</span>
-
-        </a>
-
-        <a
-            href="/receiving/official-receipts"
-            class="menu-item {{ request()->is('receiving/official-receipts') ? 'active' : '' }}"
-        >
-
-            <i data-lucide="receipt"></i>
-
-            <span>Official Receipts</span>
 
         </a>
 
@@ -209,28 +183,18 @@
 
             <i data-lucide="history"></i>
 
-            <span>Receiving History</span>
+            <span>Delivery History</span>
 
         </a>
 
-        {{-- ====================================== --}}
-        {{-- ACCOUNT --}}
-        {{-- ====================================== --}}
-
-        <div class="menu-title" id="account-section">
-
-            ACCOUNT
-
-        </div>
-
         <a
-            href="/receiving/notifications"
-            class="menu-item {{ request()->is('receiving/notifications*') ? 'active' : '' }}"
+            href="/receiving/logs"
+            class="menu-item {{ request()->is('receiving/logs') ? 'active' : '' }}"
         >
 
-            <i data-lucide="bell"></i>
+            <i data-lucide="scroll-text"></i>
 
-            <span>Notifications</span>
+            <span>Receiving Logs</span>
 
         </a>
 

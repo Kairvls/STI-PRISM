@@ -1721,7 +1721,7 @@ Route::middleware(['auth', 'receiving'])
 
         Route::get('/history', [ReceivingController::class, 'history']);
 
-        Route::get('/notifications', [ReceivingController::class, 'notifications']);
+        Route::get('/logs', [ReceivingController::class, 'receivingLogs']);
 
         
         

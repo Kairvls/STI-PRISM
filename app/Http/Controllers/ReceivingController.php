@@ -41,10 +41,8 @@ class ReceivingController extends Controller
         return view('receiving-officer.receiving-reports.receiving-history');
     }
 
-    public function notifications(): View
+    public function receivingLogs(): View
     {
-        return view('receiving-officer.notifications.index');
+        return view('receiving-officer.receiving-reports.receiving-logs');
     }
-
-    
 }
