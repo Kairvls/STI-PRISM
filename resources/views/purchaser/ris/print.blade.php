@@ -78,7 +78,11 @@
 {{-- Toolbar removed --}}
 
     <main class="ris-document">
-        @if ($ris->ris_status === 'Approved')
+        @php
+            $presidentSigned = trim((string) ($ris->ris_approved_by_signature ?? '')) !== '';
+            $adminIssued = trim((string) ($ris->ris_issued_by_signature ?? '')) !== '';
+        @endphp
+        @if ($presidentSigned && $adminIssued)
             <div class="approval-watermark">APPROVED</div>
         @endif
 
@@ -139,14 +143,12 @@
                         - OR President's base64 image signature (after President signs)
                     --}}
                     @if (!empty($ris->ris_approved_by_signature) && strpos($ris->ris_approved_by_signature, 'data:image') === 0)
-                        {{-- President base64 signature image --}}
-                        <div class="signature-name">President</div>
+                        <div class="signature-name">{{ $presidentName ?? 'President' }}</div>
                         <div class="signature-position">President</div>
                         <img src="{{ $ris->ris_approved_by_signature }}" alt="Approved by signature" class="signature-image" />
-                    @elseif (!empty($ris->ris_approved_by_signature))
-                        {{-- Admin plain-text name --}}
+                    @elseif (!empty($ris->ris_approved_by_signature) && ($ris->ris_status ?? '') !== 'Directly Approved')
                         <div class="signature-name">{{ $ris->ris_approved_by_signature }}</div>
-                        <div class="signature-position">Admin</div>
+                        <div class="signature-position">President</div>
                     @else
                         <div class="signature-name" style="color:#94a3b8;">—</div>
                     @endif
@@ -167,15 +169,6 @@
                         {{-- Co-signed by Admin --}}
                         <div class="signature-name">{{ $ris->ris_issued_by_signature }}</div>
                         <div class="signature-position">Admin</div>
-                    @elseif ($isPresidentSigned)
-                        {{-- Forwarded to President — President signed --}}
-                        <div class="signature-name">{{ $presidentName ?? 'President' }}</div>
-                        <div class="signature-position">President</div>
-                        <img src="{{ $ris->ris_approved_by_signature }}" alt="President signature" class="signature-image" />
-                    @elseif ($isDirectApproved)
-                        {{-- Direct Approved by Admin --}}
-                        <div class="signature-name">{{ $ris->ris_approved_by_signature }}</div>
-                        <div class="signature-position">Admin</div>
                     @else
                         <div class="signature-name" style="color:#94a3b8;">—</div>
                     @endif
@@ -186,8 +179,6 @@
                         @php
                             if ($isCoSigned) {
                                 echo $ris->ris_issued_by_date ?? '—';
-                            } elseif ($isPresidentSigned || $isDirectApproved) {
-                                echo $ris->ris_approved_by_date ?? '—';
                             } else {
                                 echo '—';
                             }

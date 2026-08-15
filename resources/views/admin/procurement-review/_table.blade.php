@@ -230,9 +230,9 @@
 
                             <button
                                 type="button"
-                                title="Sign Issued by, then return this RIS to the Purchaser for amendment"
+                                title="Return this RIS to the Purchaser for revision (no signature)"
                                 aria-label="Amend"
-                                onclick="openDirectApproveModal('{{ $ris->ris_id }}', 'amend')"
+                                onclick="openAmendModal('{{ $ris->ris_id }}')"
                                 class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-700 transition hover:bg-rose-100"
                             >
                                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -286,13 +286,23 @@
                         </div>
 
                         <h3 class="mt-3 text-sm font-semibold text-gray-700">
-                            No RIS records found
+                            @if (($filter ?? 'pending') === 'pending')
+                                No pending RIS forms
+                            @elseif (($filter ?? '') === 'forwarded')
+                                No forwarded RIS forms
+                            @else
+                                No RIS records found
+                            @endif
                         </h3>
 
                         <p class="mt-1 text-xs text-gray-400">
-
-                            No RIS records match the selected filter or search.
-
+                            @if (($filter ?? 'pending') === 'pending')
+                                There are no RIS forms waiting for admin review.
+                            @elseif (($filter ?? '') === 'forwarded')
+                                No RIS forms are currently with the President.
+                            @else
+                                No RIS records match the selected filter or search.
+                            @endif
                         </p>
 
                     </div>

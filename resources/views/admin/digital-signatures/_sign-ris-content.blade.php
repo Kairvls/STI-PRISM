@@ -11,8 +11,42 @@
     {{-- ===================================================== --}}
 
     @php
-        $filter = $filter ?? 'all';
+        $filter = $filter ?? 'for_cosign';
         $search = $search ?? '';
+        $signRisCards = [
+            [
+                'filter' => 'for_cosign',
+                'label' => 'Awaiting Action',
+                'count' => $forCosignCount ?? 0,
+                'amount' => $forCosignAmount ?? 0,
+                'color' => 'text-amber-600',
+                'title' => 'Show RIS records awaiting your Issued by signature',
+            ],
+            [
+                'filter' => 'cosigned',
+                'label' => 'Co-signed',
+                'count' => $cosignedCount ?? 0,
+                'amount' => $cosignedAmount ?? 0,
+                'color' => 'text-blue-600',
+                'title' => 'Show RIS records you signed after the President approved',
+            ],
+            [
+                'filter' => 'president_rejected',
+                'label' => 'Rejected by the President',
+                'count' => $presidentRejectedCount ?? 0,
+                'amount' => $presidentRejectedAmount ?? 0,
+                'color' => 'text-rose-600',
+                'title' => 'Show RIS records rejected by the President',
+            ],
+            [
+                'filter' => 'all',
+                'label' => 'All',
+                'count' => $allCount ?? ($signableRisRecords->total() ?? 0),
+                'amount' => $allAmount ?? 0,
+                'color' => 'text-slate-900',
+                'title' => 'Show all President-decision RIS records',
+            ],
+        ];
     @endphp
 
 
@@ -21,115 +55,31 @@
     {{-- ===================================================== --}}
 
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-
-
-        {{-- ================================================= --}}
-        {{-- FOR CO-SIGN --}}
-        {{-- ================================================= --}}
-
-        <div
-            class="rounded-[18px] border border-gray-200 bg-white px-5 py-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)]"
-            title="RIS forms awaiting your co-sign or return action"
-        >
-
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Awaiting Action
-            </p>
-
-            <div class="mt-3">
-
-                <span class="font-['Outfit'] text-3xl font-bold text-amber-600">
-                    {{ $forCosignCount }}
-                </span>
-
-            </div>
-
-            <div class="mt-1 text-xs text-gray-400">
-                ₱{{ number_format((float) ($forCosignAmount ?? 0), 2) }}
-            </div>
-
-        </div>
-
-
-        <div
-            class="rounded-[18px] border border-gray-200 bg-white px-5 py-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)]"
-            title="RIS forms approved by the President"
-        >
-
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Approved by the President
-            </p>
-
-            <div class="mt-3">
-
-                <span class="font-['Outfit'] text-3xl font-bold text-emerald-600">
-                    {{ $presidentApprovedCount ?? 0 }}
-                </span>
-
-            </div>
-
-            <div class="mt-1 text-xs text-gray-400">
-                ₱{{ number_format((float) ($presidentApprovedAmount ?? 0), 2) }}
-            </div>
-
-        </div>
-
-
-        {{-- ================================================= --}}
-        {{-- REJECTED BY THE PRESIDENT --}}
-        {{-- ================================================= --}}
-
-        <div
-            class="rounded-[18px] border border-gray-200 bg-white px-5 py-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)]"
-            title="RIS forms rejected by the President"
-        >
-
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Rejected by the President
-            </p>
-
-            <div class="mt-3">
-
-                <span class="font-['Outfit'] text-3xl font-bold text-rose-600">
-                    {{ $presidentRejectedCount ?? 0 }}
-                </span>
-
-            </div>
-
-            <div class="mt-1 text-xs text-gray-400">
-                ₱{{ number_format((float) ($presidentRejectedAmount ?? 0), 2) }}
-            </div>
-
-        </div>
-
-
-        {{-- ================================================= --}}
-        {{-- CO-SIGNED --}}
-        {{-- ================================================= --}}
-
-        <div
-            class="rounded-[18px] border border-gray-200 bg-white px-5 py-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)]"
-            title="RIS forms you signed after the President approved"
-        >
-
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Co-signed
-            </p>
-
-            <div class="mt-3">
-
-                <span class="font-['Outfit'] text-3xl font-bold text-blue-600">
-                    {{ $cosignedCount }}
-                </span>
-
-            </div>
-
-            <div class="mt-1 text-xs text-gray-400">
-                ₱{{ number_format((float) ($cosignedAmount ?? 0), 2) }}
-            </div>
-
-        </div>
-
+        @foreach ($signRisCards as $card)
+            <button
+                type="button"
+                data-filter="{{ $card['filter'] }}"
+                title="{{ $card['title'] }}"
+                aria-pressed="{{ $filter === $card['filter'] ? 'true' : 'false' }}"
+                class="sign-ris-filter-card rounded-[18px] border bg-white px-5 py-5 text-left shadow-[0_1px_2px_rgba(15,23,42,0.03)] transition
+                    {{ $filter === $card['filter']
+                        ? 'border-slate-900/20 ring-2 ring-slate-900/10'
+                        : 'border-gray-200 hover:border-gray-300' }}
+                "
+            >
+                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    {{ $card['label'] }}
+                </p>
+                <div class="mt-3">
+                    <span class="font-['Outfit'] text-3xl font-bold {{ $card['color'] }}">
+                        {{ $card['count'] }}
+                    </span>
+                </div>
+                <div class="mt-1 text-xs text-gray-400">
+                    ₱{{ number_format((float) $card['amount'], 2) }}
+                </div>
+            </button>
+        @endforeach
     </div>
 
 
@@ -209,7 +159,9 @@
 
                     <div
                         id="signRisFilterSlider"
-                        class="relative inline-flex max-w-full items-center overflow-x-auto rounded-xl bg-slate-200/70 p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                        role="tablist"
+                        aria-label="Sign RIS filters"
+                        class="relative inline-flex max-w-full items-center overflow-x-auto rounded-xl bg-slate-200/70 p-1"
                     >
                         <span
                             class="sign-ris-filter-thumb pointer-events-none absolute top-1 left-0 z-0 h-9 rounded-lg bg-white shadow-sm will-change-transform"
@@ -217,50 +169,20 @@
                             aria-hidden="true"
                         ></span>
 
-                        <button
-                            type="button"
-                            data-filter="all"
-                            title="Show all President-approved RIS records"
-                            class="sign-ris-filter-btn relative z-10 flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold transition-colors
-                                {{ $filter === 'all' ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
-                            "
-                        >
-                            All
-                        </button>
-
-                        <button
-                            type="button"
-                            data-filter="for_cosign"
-                            title="Show only RIS records awaiting your co-sign"
-                            class="sign-ris-filter-btn relative z-10 flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold transition-colors
-                                {{ $filter === 'for_cosign' ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
-                            "
-                        >
-                            Awaiting Action
-                        </button>
-
-                        <button
-                            type="button"
-                            data-filter="cosigned"
-                            title="Show only co-signed RIS records"
-                            class="sign-ris-filter-btn relative z-10 flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold transition-colors
-                                {{ $filter === 'cosigned' ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
-                            "
-                        >
-                            Co-signed
-                        </button>
-
-                        <button
-                            type="button"
-                            data-filter="president_rejected"
-                            title="Show only RIS records rejected by the President"
-                            class="sign-ris-filter-btn relative z-10 flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold transition-colors
-                                {{ $filter === 'president_rejected' ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
-                            "
-                        >
-                            Rejected by the President
-                        </button>
-
+                        @foreach ($signRisCards as $card)
+                            <button
+                                type="button"
+                                role="tab"
+                                data-filter="{{ $card['filter'] }}"
+                                title="{{ $card['title'] }}"
+                                aria-selected="{{ $filter === $card['filter'] ? 'true' : 'false' }}"
+                                class="sign-ris-filter-btn relative z-10 flex h-9 shrink-0 items-center whitespace-nowrap rounded-lg px-4 text-xs font-semibold transition-colors
+                                    {{ $filter === $card['filter'] ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
+                                "
+                            >
+                                {{ $card['label'] }}
+                            </button>
+                        @endforeach
                     </div>
 
 

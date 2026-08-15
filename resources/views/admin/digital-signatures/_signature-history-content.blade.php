@@ -12,6 +12,44 @@
 
     @php
         $search = $search ?? '';
+        $filter = $filter ?? 'all';
+        $historyCards = [
+            [
+                'filter' => 'all',
+                'label' => 'All',
+                'count' => $allCount ?? ($signatureHistory->total() ?? 0),
+                'color' => 'text-slate-900',
+                'title' => 'Show every identifiable RIS record',
+            ],
+            [
+                'filter' => 'direct_approved',
+                'label' => 'Admin Approved',
+                'count' => $directApprovedCount ?? 0,
+                'color' => 'text-sky-500',
+                'title' => 'Show RIS forms approved directly by Admin',
+            ],
+            [
+                'filter' => 'president_approved',
+                'label' => 'Approved by the President',
+                'count' => $presidentApprovedCount ?? 0,
+                'color' => 'text-emerald-600',
+                'title' => 'Show RIS forms approved by the President',
+            ],
+            [
+                'filter' => 'president_rejected',
+                'label' => 'Rejected by the President',
+                'count' => $presidentRejectedCount ?? 0,
+                'color' => 'text-rose-600',
+                'title' => 'Show RIS forms rejected by the President',
+            ],
+            [
+                'filter' => 'amend',
+                'label' => 'Amend',
+                'count' => $amendedCount ?? 0,
+                'color' => 'text-amber-500',
+                'title' => 'Show RIS forms returned to Purchaser for amendment',
+            ],
+        ];
     @endphp
 
 
@@ -19,100 +57,29 @@
     {{-- RIS STATISTIC CARDS --}}
     {{-- ===================================================== --}}
 
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-
-
-        {{-- ================================================= --}}
-        {{-- DIRECT APPROVED --}}
-        {{-- ================================================= --}}
-
-        <div
-            class="rounded-[18px] border border-gray-200 bg-white px-5 py-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)]"
-            title="RIS forms that have been approved by Admin (returned to Purchaser)"
-        >
-
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Admin Approved
-            </p>
-
-            <div class="mt-3">
-
-                <span class="font-['Outfit'] text-3xl font-bold text-sky-500">
-                    {{ $directApprovedCount }}
-                </span>
-
-            </div>
-
-        </div>
-
-
-        {{-- ================================================= --}}
-        {{-- CO-SIGNED --}}
-        {{-- ================================================= --}}
-
-        <div
-            class="rounded-[18px] border border-gray-200 bg-white px-5 py-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)]"
-            title="RIS forms approved by the President and returned to Purchaser"
-        >
-
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Approved by the President
-            </p>
-
-            <div class="mt-3">
-
-                <span class="font-['Outfit'] text-3xl font-bold text-emerald-600">
-                    {{ $cosignedCount }}
-                </span>
-
-            </div>
-
-        </div>
-
-
-        {{-- ================================================= --}}
-        {{-- AMENDED --}}
-        {{-- ================================================= --}}
-
-        <div
-            class="rounded-[18px] border border-gray-200 bg-white px-5 py-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)]"
-            title="RIS forms returned to Purchaser for amendment"
-        >
-
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Amend
-            </p>
-
-            <div class="mt-3">
-
-                <span class="font-['Outfit'] text-3xl font-bold text-amber-500">
-                    {{ $amendedCount }}
-                </span>
-
-            </div>
-
-        </div>
-
-
-        <div
-            class="rounded-[18px] border border-gray-200 bg-white px-5 py-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)]"
-            title="RIS forms rejected by the President"
-        >
-
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Rejected by the President
-            </p>
-
-            <div class="mt-3">
-
-                <span class="font-['Outfit'] text-3xl font-bold text-rose-600">
-                    {{ $presidentRejectedCount ?? 0 }}
-                </span>
-
-            </div>
-
-        </div>
-
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        @foreach ($historyCards as $card)
+            <button
+                type="button"
+                data-filter="{{ $card['filter'] }}"
+                title="{{ $card['title'] }}"
+                aria-pressed="{{ $filter === $card['filter'] ? 'true' : 'false' }}"
+                class="signature-history-filter-card rounded-[18px] border bg-white px-5 py-5 text-left shadow-[0_1px_2px_rgba(15,23,42,0.03)] transition
+                    {{ $filter === $card['filter']
+                        ? 'border-slate-900/20 ring-2 ring-slate-900/10'
+                        : 'border-gray-200 hover:border-gray-300' }}
+                "
+            >
+                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    {{ $card['label'] }}
+                </p>
+                <div class="mt-3">
+                    <span class="font-['Outfit'] text-3xl font-bold {{ $card['color'] }}">
+                        {{ $card['count'] }}
+                    </span>
+                </div>
+            </button>
+        @endforeach
     </div>
 
 
@@ -145,7 +112,7 @@
                         </h2>
 
                         <p class="mt-1 text-xs text-gray-500">
-                            View all finished / completed RIS forms, sorted by latest
+                            Complete RIS log, including incomplete and in-progress forms, sorted by latest
                         </p>
 
                     </div>
@@ -154,7 +121,7 @@
                     <div class="flex items-center gap-2">
 
                         <a
-                            href="{{ route('admin.digital-signatures.history.export-pdf', ['search' => $search]) }}"
+                            href="{{ route('admin.digital-signatures.history.export-pdf', ['search' => $search, 'filter' => $filter]) }}"
                             title="Export the current Signature History table to PDF"
                             class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 transition hover:border-gray-300 hover:bg-gray-50"
                         >
@@ -167,7 +134,7 @@
                         <div
                             id="signatureHistoryTotalCount"
                             class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700"
-                            title="Number of RIS records matching the current search"
+                            title="Number of RIS records matching the current filter and search"
                         >
 
                             {{ $signatureHistory->total() }} total
@@ -179,24 +146,36 @@
                 </div>
 
 
-                {{-- ================================================= --}}
-                {{-- LIVE SEARCH (default "all" view, no toggle) --}}
-                {{-- ================================================= --}}
+                {{-- FILTERS + LIVE SEARCH --}}
 
                 <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 
-                    <div class="relative inline-flex items-center rounded-xl bg-slate-200/70 p-1">
+                    <div
+                        id="signatureHistoryFilterSlider"
+                        role="tablist"
+                        aria-label="Signature history filters"
+                        class="relative inline-flex max-w-full items-center overflow-x-auto rounded-xl bg-slate-200/70 p-1"
+                    >
                         <span
-                            class="pointer-events-none absolute top-1 left-1 z-0 h-9 rounded-lg bg-white shadow-sm"
-                            style="width: calc(100% - 0.5rem);"
+                            class="signature-history-filter-thumb pointer-events-none absolute top-1 left-0 z-0 h-9 rounded-lg bg-white shadow-sm will-change-transform"
+                            style="transform: translate3d(0, 0, 0); transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), width 220ms cubic-bezier(0.22, 1, 0.36, 1);"
                             aria-hidden="true"
                         ></span>
-                        <span
-                            class="relative z-10 flex h-9 items-center rounded-lg px-4 text-xs font-semibold text-slate-950"
-                            title="Showing all finished RIS records"
-                        >
-                            All
-                        </span>
+
+                        @foreach ($historyCards as $card)
+                            <button
+                                type="button"
+                                role="tab"
+                                data-filter="{{ $card['filter'] }}"
+                                title="{{ $card['title'] }}"
+                                aria-selected="{{ $filter === $card['filter'] ? 'true' : 'false' }}"
+                                class="signature-history-filter-btn relative z-10 flex h-9 shrink-0 items-center whitespace-nowrap rounded-lg px-4 text-xs font-semibold transition-colors
+                                    {{ $filter === $card['filter'] ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
+                                "
+                            >
+                                {{ $card['label'] }}
+                            </button>
+                        @endforeach
                     </div>
 
 

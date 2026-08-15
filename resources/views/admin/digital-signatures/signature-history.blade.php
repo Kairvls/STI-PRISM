@@ -18,7 +18,7 @@
         </h1>
 
         <p class="admin-page-subtitle">
-            View finished RIS records using the same statuses as Procurement Request: Admin Approved, Approved by the President, Amend, and Rejected by the President.
+            View every RIS form in the log, including incomplete or still-in-progress records.
         </p>
 
     </div>
@@ -90,16 +90,16 @@
     // =====================================================
 
     let signatureHistorySearchTimer = null;
+    let signatureHistoryFilterFetchTimer = null;
     let currentSearch = '{{ $search ?? '' }}';
+    let currentFilter = '{{ $filter ?? 'all' }}';
 
 
-    // =====================================================
-    // FETCH SIGNATURE HISTORY DATA VIA AJAX
-    // =====================================================
-
-    function fetchSignatureHistoryData(search, page) {
+    function fetchSignatureHistoryData(search, page, filter) {
 
         const params = new URLSearchParams();
+
+        params.set('filter', filter || currentFilter || 'all');
 
         if (search) {
             params.set('search', search);
@@ -162,7 +162,7 @@
                 params.toString();
 
             window.history.replaceState(
-                { search: search, page: page },
+                { search: search, page: page, filter: currentFilter },
                 '',
                 url
             );
@@ -190,11 +190,56 @@
     // BIND SIGNATURE HISTORY EVENT LISTENERS
     // =====================================================
 
-    function bindSignatureHistoryEventListeners() {
+    function updateSignatureHistoryFilterSlider(activeFilter, animate) {
+        const track = document.getElementById('signatureHistoryFilterSlider');
+        if (!track) return;
 
-        // =====================================================
-        // SEARCH INPUT
-        // =====================================================
+        const thumb = track.querySelector('.signature-history-filter-thumb');
+        const buttons = track.querySelectorAll('.signature-history-filter-btn');
+        if (!thumb || !buttons.length) return;
+
+        let activeBtn = null;
+        for (let i = 0; i < buttons.length; i++) {
+            const btn = buttons[i];
+            const isActive = btn.getAttribute('data-filter') === activeFilter;
+            btn.style.color = isActive ? '#020617' : '#64748b';
+            btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            btn.setAttribute('tabindex', isActive ? '0' : '-1');
+            if (isActive) activeBtn = btn;
+        }
+        if (!activeBtn) activeBtn = buttons[0];
+
+        const x = activeBtn.offsetLeft;
+        const w = activeBtn.offsetWidth;
+
+        if (!animate) {
+            const previous = thumb.style.transition;
+            thumb.style.transition = 'none';
+            thumb.style.width = w + 'px';
+            thumb.style.transform = 'translate3d(' + x + 'px, 0, 0)';
+            void thumb.offsetWidth;
+            thumb.style.transition = previous || 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1), width 220ms cubic-bezier(0.22, 1, 0.36, 1)';
+        } else {
+            thumb.style.width = w + 'px';
+            thumb.style.transform = 'translate3d(' + x + 'px, 0, 0)';
+        }
+
+        if (typeof activeBtn.scrollIntoView === 'function') {
+            activeBtn.scrollIntoView({ behavior: animate ? 'smooth' : 'auto', inline: 'nearest', block: 'nearest' });
+        }
+    }
+
+    function applySignatureHistoryFilter(filter) {
+        if (!filter || filter === currentFilter) return;
+        currentFilter = filter;
+        updateSignatureHistoryFilterSlider(currentFilter, true);
+        clearTimeout(signatureHistoryFilterFetchTimer);
+        signatureHistoryFilterFetchTimer = setTimeout(function () {
+            fetchSignatureHistoryData(currentSearch, null, currentFilter);
+        }, 230);
+    }
+
+    function bindSignatureHistoryEventListeners() {
 
         const searchInput =
             document.getElementById('signatureHistoryLiveSearch');
@@ -206,6 +251,7 @@
                 function () {
 
                     clearTimeout(signatureHistorySearchTimer);
+                    clearTimeout(signatureHistoryFilterFetchTimer);
 
                     const value = this.value;
 
@@ -215,7 +261,8 @@
                                 currentSearch = value;
                                 fetchSignatureHistoryData(
                                     currentSearch,
-                                    null
+                                    null,
+                                    currentFilter
                                 );
                             },
                             400
@@ -226,9 +273,26 @@
 
         }
 
-        // =====================================================
-        // PAGINATION LINKS
-        // =====================================================
+        document.querySelectorAll('.signature-history-filter-btn, .signature-history-filter-card').forEach(function (el) {
+            el.addEventListener('click', function () {
+                applySignatureHistoryFilter(this.getAttribute('data-filter'));
+            });
+        });
+
+        const filterButtons = document.querySelectorAll('.signature-history-filter-btn');
+        filterButtons.forEach(function (btn, index) {
+            btn.addEventListener('keydown', function (event) {
+                if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+                event.preventDefault();
+                const next = event.key === 'ArrowRight'
+                    ? filterButtons[(index + 1) % filterButtons.length]
+                    : filterButtons[(index - 1 + filterButtons.length) % filterButtons.length];
+                next.focus();
+                applySignatureHistoryFilter(next.getAttribute('data-filter'));
+            });
+        });
+
+        updateSignatureHistoryFilterSlider(currentFilter, false);
 
         const paginationLinks =
             document.querySelectorAll(
@@ -252,7 +316,8 @@
 
                     fetchSignatureHistoryData(
                         currentSearch,
-                        page
+                        page,
+                        currentFilter
                     );
 
                 }
@@ -382,6 +447,8 @@
             ) {
                 window.scaleSignatureHistoryPreviewToFit();
             }
+
+            updateSignatureHistoryFilterSlider(currentFilter, false);
 
         }
     );

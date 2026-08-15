@@ -11,8 +11,34 @@
     {{-- ===================================================== --}}
 
     @php
-        $filter = $filter ?? 'all';
+        $filter = $filter ?? 'pending';
         $search = $search ?? '';
+        $procurementCards = [
+            [
+                'filter' => 'pending',
+                'label' => 'Pending',
+                'count' => $pendingRis ?? 0,
+                'amount' => $pendingRisAmount ?? 0,
+                'color' => 'text-amber-600',
+                'title' => 'Show RIS forms that still need admin review',
+            ],
+            [
+                'filter' => 'forwarded',
+                'label' => 'Forwarded to President',
+                'count' => $forwardedRis ?? 0,
+                'amount' => $forwardedRisAmount ?? 0,
+                'color' => 'text-indigo-600',
+                'title' => 'Show RIS forms currently waiting on the President',
+            ],
+            [
+                'filter' => 'all',
+                'label' => 'All',
+                'count' => $allRis ?? ($risRecords->total() ?? 0),
+                'amount' => $allRisAmount ?? 0,
+                'color' => 'text-slate-900',
+                'title' => 'Show all RIS records, including completed work',
+            ],
+        ];
     @endphp
 
 
@@ -20,104 +46,32 @@
     {{-- RIS STATISTIC CARDS --}}
     {{-- ===================================================== --}}
 
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-
-
-        {{-- ================================================= --}}
-        {{-- PENDING --}}
-        {{-- ================================================= --}}
-
-        <div
-            class="rounded-[18px] border border-gray-200 bg-white px-5 py-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)]"
-            title="RIS forms currently waiting for review"
-        >
-
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Pending
-            </p>
-
-            <div class="mt-3">
-
-                <span class="font-['Outfit'] text-3xl font-bold text-amber-600">
-                    {{ $pendingRis }}
-                </span>
-
-            </div>
-
-        </div>
-
-
-        {{-- ================================================= --}}
-        {{-- AMEND --}}
-        {{-- ================================================= --}}
-
-        <div
-            class="rounded-[18px] border border-gray-200 bg-white px-5 py-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)]"
-            title="RIS forms returned for amendment"
-        >
-
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Amend
-            </p>
-
-            <div class="mt-3">
-
-                <span class="font-['Outfit'] text-3xl font-bold text-amber-500">
-                    {{ $amendRis }}
-                </span>
-
-            </div>
-
-        </div>
-
-
-        {{-- ================================================= --}}
-        {{-- FORWARDED TO PRESIDENT --}}
-        {{-- ================================================= --}}
-
-        <div
-            class="rounded-[18px] border border-gray-200 bg-white px-5 py-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)]"
-            title="RIS forms approved by the President"
-        >
-
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Approved by the President
-            </p>
-
-            <div class="mt-3">
-
-                <span class="font-['Outfit'] text-3xl font-bold text-emerald-600">
-                    {{ $approvedRis }}
-                </span>
-
-            </div>
-
-        </div>
-
-
-        {{-- ================================================= --}}
-        {{-- DIRECT APPROVED --}}
-        {{-- ================================================= --}}
-
-        <div
-            class="rounded-[18px] border border-gray-200 bg-white px-5 py-5 shadow-[0_1px_2px_rgba(15,23,42,0.03)]"
-            title="RIS forms that have been approved by Admin"
-        >
-
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Admin Approved
-            </p>
-
-            <div class="mt-3">
-
-                <span class="font-['Outfit'] text-3xl font-bold text-sky-500">
-                    {{ $directApprovedRis }}
-                </span>
-
-            </div>
-
-        </div>
-
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        @foreach ($procurementCards as $card)
+            <button
+                type="button"
+                data-filter="{{ $card['filter'] }}"
+                title="{{ $card['title'] }}"
+                aria-pressed="{{ $filter === $card['filter'] ? 'true' : 'false' }}"
+                class="ris-filter-card rounded-[18px] border bg-white px-5 py-5 text-left shadow-[0_1px_2px_rgba(15,23,42,0.03)] transition
+                    {{ $filter === $card['filter']
+                        ? 'border-slate-900/20 ring-2 ring-slate-900/10'
+                        : 'border-gray-200 hover:border-gray-300' }}
+                "
+            >
+                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    {{ $card['label'] }}
+                </p>
+                <div class="mt-3">
+                    <span class="font-['Outfit'] text-3xl font-bold {{ $card['color'] }}">
+                        {{ $card['count'] }}
+                    </span>
+                </div>
+                <div class="mt-1 text-xs text-gray-400">
+                    ₱{{ number_format((float) ($card['amount'] ?? 0), 2) }}
+                </div>
+            </button>
+        @endforeach
     </div>
 
 
@@ -150,7 +104,7 @@
                         </h2>
 
                         <p class="mt-1 text-xs text-gray-500">
-                            Requisition Issue Slips forwarded for review
+                            RIS forms that still need attention. Completed, amended, and admin-approved forms leave this queue.
                         </p>
 
                     </div>
@@ -197,7 +151,9 @@
 
                     <div
                         id="risFilterSlider"
-                        class="relative inline-flex max-w-full items-center overflow-x-auto rounded-xl bg-slate-200/70 p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                        role="tablist"
+                        aria-label="Procurement request filters"
+                        class="relative inline-flex max-w-full items-center overflow-x-auto rounded-xl bg-slate-200/70 p-1"
                     >
                         <span
                             class="ris-filter-thumb pointer-events-none absolute top-1 left-0 z-0 h-9 rounded-lg bg-white shadow-sm will-change-transform"
@@ -205,72 +161,20 @@
                             aria-hidden="true"
                         ></span>
 
-                        <button
-                            type="button"
-                            data-filter="all"
-                            title="Show all RIS records"
-                            class="ris-filter-btn relative z-10 flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold transition-colors
-                                {{ $filter === 'all' ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
-                            "
-                        >
-                            All
-                        </button>
-
-                        <button
-                            type="button"
-                            data-filter="pending"
-                            title="Show only Pending RIS records"
-                            class="ris-filter-btn relative z-10 flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold transition-colors
-                                {{ $filter === 'pending' ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
-                            "
-                        >
-                            Pending
-                        </button>
-
-                        <button
-                            type="button"
-                            data-filter="rejected"
-                            title="Show RIS records returned for amendment"
-                            class="ris-filter-btn relative z-10 flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold transition-colors
-                                {{ $filter === 'rejected' ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
-                            "
-                        >
-                            Amend
-                        </button>
-
-                        <button
-                            type="button"
-                            data-filter="approved"
-                            title="Show RIS records approved by the President"
-                            class="ris-filter-btn relative z-10 flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold transition-colors
-                                {{ in_array($filter, ['approved', 'president_approved'], true) ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
-                            "
-                        >
-                            Approved by the President
-                        </button>
-
-                        <button
-                            type="button"
-                            data-filter="president_rejected"
-                            title="Show RIS records rejected by the President"
-                            class="ris-filter-btn relative z-10 flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold transition-colors
-                                {{ $filter === 'president_rejected' ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
-                            "
-                        >
-                            Rejected by the President
-                        </button>
-
-                        <button
-                            type="button"
-                            data-filter="direct_approved"
-                            title="Show only Admin Approved RIS records"
-                            class="ris-filter-btn relative z-10 flex h-9 shrink-0 items-center rounded-lg px-4 text-xs font-semibold transition-colors
-                                {{ $filter === 'direct_approved' ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
-                            "
-                        >
-                            Admin Approved
-                        </button>
-
+                        @foreach ($procurementCards as $card)
+                            <button
+                                type="button"
+                                role="tab"
+                                data-filter="{{ $card['filter'] }}"
+                                title="{{ $card['title'] }}"
+                                aria-selected="{{ $filter === $card['filter'] ? 'true' : 'false' }}"
+                                class="ris-filter-btn relative z-10 flex h-9 shrink-0 items-center whitespace-nowrap rounded-lg px-4 text-xs font-semibold transition-colors
+                                    {{ $filter === $card['filter'] ? 'text-slate-950' : 'text-slate-500 hover:text-slate-900' }}
+                                "
+                            >
+                                {{ $card['label'] }}
+                            </button>
+                        @endforeach
                     </div>
 
 

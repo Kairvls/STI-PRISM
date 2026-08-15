@@ -13,9 +13,25 @@
         </td>
         <td class="px-2 py-4">
             @php
-                $awaitingPresident = ($ris->ris_status === 'Approved' || $ris->ris_status === 'Pending')
-                    && empty($ris->ris_approved_by_signature);
-                $statusLabel = $awaitingPresident ? 'Pending' : $ris->ris_status;
+                $presidentSig = trim((string) ($ris->ris_approved_by_signature ?? ''));
+                $rawStatus = (string) ($ris->ris_status ?? '');
+                $awaitingPresident = $presidentSig === ''
+                    && (
+                        $rawStatus === 'Forwarded to President'
+                        || $rawStatus === 'Approved'
+                        || ($rawStatus === 'Pending' && !empty($ris->ris_approved_by_date))
+                    );
+
+                if ($awaitingPresident) {
+                    $statusLabel = 'Pending';
+                } elseif (in_array($rawStatus, ['Approved by the President'], true) || ($rawStatus === 'Approved' && $presidentSig !== '')) {
+                    $statusLabel = 'Approved';
+                } elseif (in_array($rawStatus, ['Rejected by the President', 'Rejected by President', 'Rejected'], true)) {
+                    $statusLabel = 'Rejected';
+                } else {
+                    $statusLabel = $rawStatus !== '' ? $rawStatus : 'Pending';
+                }
+
                 $statusBadge = match ($statusLabel) {
                     'Approved' => 'bg-emerald-50 text-emerald-700 border-emerald-200',
                     'Rejected' => 'bg-rose-50 text-rose-700 border-rose-200',

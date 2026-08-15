@@ -251,7 +251,7 @@
 
                         <p class="mt-1 text-xs text-gray-400">
 
-                            No finished RIS records match the current search.
+                            No RIS records match the current search.
 
                         </p>
 

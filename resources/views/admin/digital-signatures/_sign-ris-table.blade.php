@@ -72,7 +72,12 @@
                 @php
                     $isPresidentRejected = in_array($ris->ris_status ?? '', ['Rejected by President', 'Rejected by the President'], true);
                     $isReleased = !empty($ris->released_ris_id);
-                    $awaitingReturn = !$isReleased && !$isPresidentRejected && trim((string) ($ris->ris_approved_by_signature ?? '')) !== '';
+                    $alreadyIssued = trim((string) ($ris->ris_issued_by_signature ?? '')) !== ''
+                        || !empty($ris->ris_issued_by_date);
+                    $awaitingSign = !$isReleased
+                        && !$isPresidentRejected
+                        && !$alreadyIssued
+                        && trim((string) ($ris->ris_approved_by_signature ?? '')) !== '';
                 @endphp
 
 
@@ -208,26 +213,19 @@
                             </svg>
                         </button>
 
-                        @if($awaitingReturn)
+                        @if($awaitingSign)
 
-                            <form
-                                method="POST"
-                                action="{{ route('admin.digital-signatures.ris.return-purchaser', $ris->ris_id) }}"
-                                class="inline-flex"
+                            <button
+                                type="button"
+                                onclick="openCoSignModal('{{ $ris->ris_id }}')"
+                                title="Sign Issued by on this President-approved RIS"
+                                aria-label="Sign Issued by"
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-white transition hover:bg-slate-800"
                             >
-                                @csrf
-                                <button
-                                    type="submit"
-                                    title="Return this RIS to the Purchaser"
-                                    aria-label="Return to Purchaser"
-                                    onclick="return confirm('Return this President-approved RIS to the Purchaser?')"
-                                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-white transition hover:bg-slate-800"
-                                >
-                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                                    </svg>
-                                </button>
-                            </form>
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M4 20h4.586a1 1 0 00.707-.293l9.414-9.414a2 2 0 000-2.828l-3.172-3.172a2 2 0 00-2.828 0L4.293 14.707A1 1 0 004 15.414V20z"></path>
+                                </svg>
+                            </button>
 
                         @endif
 

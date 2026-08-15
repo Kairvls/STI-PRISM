@@ -117,9 +117,18 @@
         <div class="mt-4 space-y-1">
             @forelse ($recentRis as $ris)
                 @php
-                    $statusLower = strtolower($ris->ris_status ?? '');
-                    $icon = $statusLower === 'approved' ? 'circle-check-big' : ($statusLower === 'rejected' ? 'x-circle' : 'clock-3');
-                    $color = $statusLower === 'approved' ? 'text-emerald-600 bg-emerald-50 ring-emerald-100' : ($statusLower === 'rejected' ? 'text-rose-600 bg-rose-50 ring-rose-100' : 'text-amber-600 bg-amber-50 ring-amber-100');
+                    $rawStatus = (string) ($ris->ris_status ?? '');
+                    $statusLower = strtolower($rawStatus);
+                    $isApproved = in_array($rawStatus, ['Approved', 'Approved by the President'], true)
+                        || str_contains($statusLower, 'approved by the president');
+                    $isRejected = in_array($rawStatus, ['Rejected', 'Rejected by President', 'Rejected by the President'], true)
+                        || str_contains($statusLower, 'rejected');
+                    $isPending = in_array($rawStatus, ['Forwarded to President', 'Pending'], true)
+                        || ($rawStatus === 'Approved' && empty(trim((string) ($ris->ris_approved_by_signature ?? ''))));
+                    $displayStatus = $isPending ? 'Pending' : ($isApproved ? 'Approved' : ($isRejected ? 'Rejected' : ($rawStatus !== '' ? $rawStatus : 'Pending')));
+                    $icon = $isApproved ? 'circle-check-big' : ($isRejected ? 'x-circle' : 'clock-3');
+                    $color = $isApproved ? 'text-emerald-600 bg-emerald-50 ring-emerald-100' : ($isRejected ? 'text-rose-600 bg-rose-50 ring-rose-100' : 'text-amber-600 bg-amber-50 ring-amber-100');
+                    $badge = $isApproved ? 'bg-emerald-50 text-emerald-700' : ($isRejected ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700');
                     $date = $ris->ris_created_at ? date('M d, Y', strtotime($ris->ris_created_at)) : '—';
                     $label = $ris->ris_form_number ?? ('RIS #' . $ris->ris_id);
                 @endphp
@@ -131,8 +140,8 @@
                         <p class="text-xs font-semibold text-gray-900 truncate">{{ $label }}</p>
                         <p class="text-[11px] text-gray-500">{{ $date }}</p>
                     </div>
-                    <span class="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold {{ $statusLower === 'approved' ? 'bg-emerald-50 text-emerald-700' : ($statusLower === 'rejected' ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700') }}">
-                        {{ $ris->ris_status ?? 'Pending' }}
+                    <span class="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold {{ $badge }}">
+                        {{ $displayStatus }}
                     </span>
                 </a>
             @empty

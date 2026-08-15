@@ -24,26 +24,14 @@ class PresidentController extends Controller
         $pendingApprovalsCount =
             DB::table('requisition_issue_slip_table')
                 ->where(function ($q) {
-                    $q->where('ris_status', 'Forwarded to President')
-                        ->orWhere(function ($legacy) {
-                            $legacy->where('ris_status', 'Approved')
-                                ->where(function ($empty) {
-                                    $empty->whereNull('ris_approved_by_signature')
-                                        ->orWhere('ris_approved_by_signature', '');
-                                });
-                        });
+                    $this->scopeAwaitingPresident($q);
                 })
                 ->count();
 
         $approvedDecisionsCount =
             DB::table('requisition_issue_slip_table')
                 ->where(function ($q) {
-                    $q->where('ris_status', 'Approved by the President')
-                        ->orWhere(function ($legacy) {
-                            $legacy->where('ris_status', 'Approved')
-                                ->whereNotNull('ris_approved_by_signature')
-                                ->where('ris_approved_by_signature', '!=', '');
-                        });
+                    $this->scopePresidentApproved($q);
                 })
                 ->count();
 
@@ -138,32 +126,19 @@ class PresidentController extends Controller
         // ================================
         $forwardedBase = DB::table('requisition_issue_slip_table')
             ->whereNotNull('ris_requested_by_date')
-            ->whereNotNull('ris_approved_by_date')
             ->where('ris_status', '!=', 'Directly Approved');
 
         $totalRisCount = (clone $forwardedBase)->count();
 
         $totalPendingRis = (clone $forwardedBase)
             ->where(function ($q) {
-                $q->where('ris_status', 'Forwarded to President')
-                    ->orWhere(function ($legacy) {
-                        $legacy->where('ris_status', 'Approved')
-                            ->where(function ($empty) {
-                                $empty->whereNull('ris_approved_by_signature')
-                                    ->orWhere('ris_approved_by_signature', '');
-                            });
-                    });
+                $this->scopeAwaitingPresident($q);
             })
             ->count();
 
         $totalApprovedRis = (clone $forwardedBase)
             ->where(function ($q) {
-                $q->where('ris_status', 'Approved by the President')
-                    ->orWhere(function ($legacy) {
-                        $legacy->where('ris_status', 'Approved')
-                            ->whereNotNull('ris_approved_by_signature')
-                            ->where('ris_approved_by_signature', '!=', '');
-                    });
+                $this->scopePresidentApproved($q);
             })
             ->count();
 
@@ -187,7 +162,6 @@ class PresidentController extends Controller
                 DB::raw('COALESCE(SUM(items.ris_total_amount), 0) as total_amount')
             )
             ->whereNotNull('ris.ris_requested_by_date')
-            ->whereNotNull('ris.ris_approved_by_date')
             ->where('ris.ris_status', '!=', 'Directly Approved')
             ->groupBy(
                 'ris.ris_id',
@@ -206,23 +180,11 @@ class PresidentController extends Controller
 
         if ($status === 'Pending') {
             $query->where(function ($q) {
-                $q->where('ris.ris_status', 'Forwarded to President')
-                    ->orWhere(function ($legacy) {
-                        $legacy->where('ris.ris_status', 'Approved')
-                            ->where(function ($empty) {
-                                $empty->whereNull('ris.ris_approved_by_signature')
-                                    ->orWhere('ris.ris_approved_by_signature', '');
-                            });
-                    });
+                $this->scopeAwaitingPresident($q, 'ris.');
             });
         } elseif ($status === 'Approved') {
             $query->where(function ($q) {
-                $q->where('ris.ris_status', 'Approved by the President')
-                    ->orWhere(function ($legacy) {
-                        $legacy->where('ris.ris_status', 'Approved')
-                            ->whereNotNull('ris.ris_approved_by_signature')
-                            ->where('ris.ris_approved_by_signature', '!=', '');
-                    });
+                $this->scopePresidentApproved($q, 'ris.');
             });
         } elseif ($status === 'Rejected') {
             $query->whereIn('ris.ris_status', ['Rejected', 'Rejected by President', 'Rejected by the President']);
@@ -297,7 +259,13 @@ class PresidentController extends Controller
                 'log.approval_log_approved_at as decided_at',
                 DB::raw('COALESCE(SUM(items.ris_total_amount), 0) as total_amount')
             )
-            ->whereIn('ris.ris_status', ['Approved', 'Rejected', 'Rejected by President'])
+            ->whereIn('ris.ris_status', [
+                'Approved',
+                'Approved by the President',
+                'Rejected',
+                'Rejected by President',
+                'Rejected by the President',
+            ])
             ->groupBy(
                 'ris.ris_id',
                 'ris.ris_form_number',
@@ -371,12 +339,8 @@ class PresidentController extends Controller
             return back()->with('error', 'RIS not found.');
         }
 
-        if (!in_array($target->ris_status, ['Approved', 'Forwarded to President', 'Pending'], true) || empty($target->ris_approved_by_date)) {
+        if (!$this->risIsAwaitingPresident($target)) {
             return back()->with('error', 'Only RIS records forwarded by Admin can be decided by President.');
-        }
-
-        if ($target->ris_status === 'Directly Approved') {
-            return back()->with('error', 'Admin Approved RIS records are not sent to the President.');
         }
 
         $updateValues = [
@@ -1009,11 +973,7 @@ class PresidentController extends Controller
 
         abort_if(!$ris, 404);
 
-        if (
-            !in_array($ris->ris_status, ['Approved', 'Forwarded to President'], true)
-            || empty($ris->ris_approved_by_date)
-            || !empty($ris->ris_approved_by_signature)
-        ) {
+        if (!$this->risIsAwaitingPresident($ris)) {
             abort(403, 'Only RIS records forwarded by Admin can be signed by the President.');
         }
 
@@ -1081,6 +1041,66 @@ class PresidentController extends Controller
                     break;
                 }
             }
+        });
+    }
+
+    private function risIsAwaitingPresident(object $ris): bool
+    {
+        if (($ris->ris_status ?? '') === 'Directly Approved') {
+            return false;
+        }
+
+        $sig = trim((string) ($ris->ris_approved_by_signature ?? ''));
+        if ($sig !== '') {
+            return false;
+        }
+
+        return in_array((string) ($ris->ris_status ?? ''), [
+            'Forwarded to President',
+            'Approved',
+        ], true)
+            || (
+                ($ris->ris_status ?? '') === 'Pending'
+                && !empty($ris->ris_approved_by_date)
+            );
+    }
+
+    private function scopeAwaitingPresident($query, string $prefix = '')
+    {
+        $status = $prefix . 'ris_status';
+        $sig = $prefix . 'ris_approved_by_signature';
+        $approvedDate = $prefix . 'ris_approved_by_date';
+
+        return $query->where(function ($q) use ($status, $sig, $approvedDate) {
+            $q->where($status, 'Forwarded to President')
+                ->orWhere(function ($legacy) use ($status, $sig) {
+                    $legacy->where($status, 'Approved')
+                        ->where(function ($empty) use ($sig) {
+                            $empty->whereNull($sig)->orWhere($sig, '');
+                        });
+                })
+                ->orWhere(function ($queuedPending) use ($status, $sig, $approvedDate) {
+                    $queuedPending->where($status, 'Pending')
+                        ->whereNotNull($approvedDate)
+                        ->where(function ($empty) use ($sig) {
+                            $empty->whereNull($sig)->orWhere($sig, '');
+                        });
+                });
+        });
+    }
+
+    private function scopePresidentApproved($query, string $prefix = '')
+    {
+        $status = $prefix . 'ris_status';
+        $sig = $prefix . 'ris_approved_by_signature';
+
+        return $query->where(function ($q) use ($status, $sig) {
+            $q->where($status, 'Approved by the President')
+                ->orWhere(function ($legacy) use ($status, $sig) {
+                    $legacy->where($status, 'Approved')
+                        ->whereNotNull($sig)
+                        ->where($sig, '!=', '');
+                });
         });
     }
 

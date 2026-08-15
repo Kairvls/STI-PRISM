@@ -132,22 +132,24 @@
     $rawApproved = (string) ($ris->ris_approved_by_signature ?? '');
     $rawIssued = (string) ($ris->ris_issued_by_signature ?? '');
     $hasPresidentImage = $rawApproved !== '' && str_starts_with($rawApproved, 'data:image');
-    $legacyAdminInApproved = $rawApproved !== '' && !$hasPresidentImage && $rawIssued === '';
-    $presidentText = ($rawApproved !== '' && !$hasPresidentImage && $rawIssued !== '') ? $rawApproved : '';
-    $hasPresidentSign = $hasPresidentImage || $presidentText !== '';
+    $hasPresidentText = $rawApproved !== '' && !$hasPresidentImage && !$isDirectlyApproved;
+    $legacyAdminInApproved = $isDirectlyApproved && $rawApproved !== '' && $rawIssued === '';
+    $hasPresidentSign = $hasPresidentImage || $hasPresidentText;
 
     $issuedDisplay = $rawIssued !== '' ? $rawIssued : ($legacyAdminInApproved ? $rawApproved : '');
     $issuedDate = $ris->ris_issued_by_date
-        ?: (($legacyAdminInApproved && empty($rawIssued)) ? $ris->ris_approved_by_date : null);
+        ?: (($legacyAdminInApproved && $rawIssued === '') ? $ris->ris_approved_by_date : null);
 
     $approvedDate = $hasPresidentSign ? $ris->ris_approved_by_date : null;
-    $approvedName = $hasPresidentImage ? ($presidentName ?? 'President') : $presidentText;
+    $approvedName = $hasPresidentImage
+        ? ($presidentName ?? 'President')
+        : ($hasPresidentText ? $rawApproved : '');
 @endphp
 
     <div class="ris-original-form">
         @if ($isDirectlyApproved)
             <div class="approval-watermark">ADMIN APPROVED</div>
-        @elseif (($ris->ris_status ?? '') === 'Approved' && $hasPresidentSign)
+        @elseif ($hasPresidentSign && $issuedDisplay !== '')
             <div class="approval-watermark">APPROVED</div>
         @endif
 

@@ -75,7 +75,11 @@
 </head>
 <body>
     <main class="ris-document">
-        @if ($ris->ris_status === 'Approved')
+        @php
+            $presidentSigned = trim((string) ($ris->ris_approved_by_signature ?? '')) !== '';
+            $adminIssued = trim((string) ($ris->ris_issued_by_signature ?? '')) !== '';
+        @endphp
+        @if ($presidentSigned && $adminIssued)
             <div class="approval-watermark">APPROVED</div>
         @endif
 
@@ -130,10 +134,16 @@
                 <p>Approved by:</p>
                 <div class="signature-line"></div>
                 <div class="signature-name-wrapper">
-                    <div class="signature-name">{{ $ris->ris_approved_by_name ?? '' }}</div>
-                    <div class="signature-position">{{ $ris->ris_approved_by_position ?? '' }}</div>
-                    @if (!empty($ris->ris_approved_by_signature) && strpos($ris->ris_approved_by_signature, 'data:image/png;base64,') === 0)
+                    @if (!empty($ris->ris_approved_by_signature) && strpos($ris->ris_approved_by_signature, 'data:image') === 0)
+                        <div class="signature-name">{{ $presidentName ?? ($ris->ris_approved_by_name ?? 'President') }}</div>
+                        <div class="signature-position">President</div>
                         <img src="{{ $ris->ris_approved_by_signature }}" alt="Approved by signature" class="signature-image" />
+                    @elseif (!empty(trim((string) ($ris->ris_approved_by_signature ?? ''))))
+                        <div class="signature-name">{{ $ris->ris_approved_by_signature }}</div>
+                        <div class="signature-position">President</div>
+                    @else
+                        <div class="signature-name">{{ $ris->ris_approved_by_name ?? '' }}</div>
+                        <div class="signature-position">{{ $ris->ris_approved_by_position ?? '' }}</div>
                     @endif
                 </div>
                 <div class="date-row"><span>Date:</span><div class="signature-line">{{ $ris->ris_approved_by_date }}</div></div>

@@ -2026,6 +2026,15 @@
     color: #0f172a;
 }
 
+.cal-nav-btn:disabled,
+.cal-nav-btn:disabled:hover {
+    opacity: 0.4;
+    cursor: not-allowed;
+    background: #f8fafc;
+    border-color: #e2e8f0;
+    color: #94a3b8;
+}
+
 .cal-month-label {
     font-size: 12px;
     font-weight: 700;
@@ -2649,9 +2658,23 @@ document.addEventListener('DOMContentLoaded', function() {
         var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
         var view = new Date();
         view.setDate(1);
+        var now = new Date();
+        var minMonthIndex = now.getFullYear() * 12 + now.getMonth() - 1;
 
         function pad(n) { return n < 10 ? '0' + n : String(n); }
         function ymd(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+        function monthIndex(d) { return d.getFullYear() * 12 + d.getMonth(); }
+
+        function canGoPrev() {
+            return monthIndex(view) > minMonthIndex;
+        }
+
+        function updateNavButtons() {
+            if (!prevBtn) return;
+            var allowed = canGoPrev();
+            prevBtn.disabled = !allowed;
+            prevBtn.title = allowed ? 'Previous month' : 'Cannot go back more than one month';
+        }
 
         function eventsOn(dateKey) {
             return events.filter(function (e) { return e.date === dateKey; });
@@ -2709,10 +2732,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 upcoming.innerHTML = list;
             }
+
+            updateNavButtons();
         }
 
         if (prevBtn && nextBtn) {
             prevBtn.addEventListener('click', function () {
+                if (!canGoPrev()) return;
                 view.setMonth(view.getMonth() - 1);
                 render();
             });
