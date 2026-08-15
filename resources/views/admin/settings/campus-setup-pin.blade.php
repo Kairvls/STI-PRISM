@@ -4,12 +4,10 @@
 
 @section('content')
 
-<div class="mx-auto max-w-3xl space-y-6">
+<div class="admin-page mx-auto max-w-3xl space-y-6">
     <div>
-        <h1 class="admin-page-title">Campus Setup PIN</h1>
-        <p class="mt-2 text-sm text-slate-600">
-            Set the shared PIN used to unlock the campus setup wizard. This replaces the account password flow for campus setup.
-        </p>
+        <h1 class="admin-page-title">System Settings</h1>
+        <p class="admin-page-subtitle">Campus setup unlock PIN. Other product settings stay in their own modules.</p>
     </div>
 
     @if (session('success'))
@@ -55,7 +53,7 @@
                         required
                         minlength="4"
                         maxlength="20"
-                        class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-[#005EA6] focus:ring-[#005EA6]"
+                        class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-[#0037c7] focus:ring-[#0037c7]"
                         placeholder="Enter current PIN"
                         autocomplete="current-password"
                     >
@@ -73,7 +71,7 @@
                     required
                     minlength="4"
                     maxlength="20"
-                    class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-[#005EA6] focus:ring-[#005EA6]"
+                    class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-[#0037c7] focus:ring-[#0037c7]"
                     placeholder="Enter a new shared PIN"
                     autocomplete="new-password"
                     value="{{ old('campus_setup_pin') }}"
@@ -91,7 +89,7 @@
                     required
                     minlength="4"
                     maxlength="20"
-                    class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-[#005EA6] focus:ring-[#005EA6]"
+                    class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-[#0037c7] focus:ring-[#0037c7]"
                     placeholder="Re-enter the new PIN"
                     autocomplete="new-password"
                 >
@@ -100,7 +98,7 @@
             <div class="flex items-center gap-3">
                 <button
                     type="submit"
-                    class="rounded-xl bg-[#005EA6] px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-[#004b86]"
+                    class="admin-btn-primary"
                 >
                     Save PIN
                 </button>

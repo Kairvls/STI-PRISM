@@ -211,6 +211,11 @@ Route::middleware(['auth', 'admin'])
         // ==========================================
 
         Route::get(
+            '/reports',
+            [AdminController::class, 'systemReports']
+        )->name('reports.index');
+
+        Route::get(
             '/reports/approval-logs',
             [AdminController::class, 'approvalLogs']
         )->name('reports.approval-logs');
@@ -224,6 +229,11 @@ Route::middleware(['auth', 'admin'])
             '/reports/maintenance-history',
             [AdminController::class, 'maintenanceHistory']
         )->name('reports.maintenance-history');
+
+        Route::get(
+            '/reports/receiving',
+            [AdminController::class, 'receivingSummary']
+        )->name('reports.receiving');
 
         Route::get(
             '/reports/procurement-history',
@@ -337,19 +347,21 @@ Route::get(
             [AdminController::class, 'quickAccessUsersContent']
         )->name('quick-access.users-content');
 
-    });
+        Route::get(
+            '/quick-access/reports-content',
+            [AdminController::class, 'quickAccessReportsContent']
+        )->name('quick-access.reports-content');
 
-    Route::get('/admin/users', function () {
-
-        return view('admin.users.index');
-
-    });
-
-    Route::get('/admin/users/create', function () {
-
-        return view('admin.users.create');
+        Route::get(
+            '/quick-access/settings-content',
+            [AdminController::class, 'quickAccessSettingsContent']
+        )->name('quick-access.settings-content');
 
     });
+
+    Route::get('/admin/users', [AdminController::class, 'users']);
+
+    Route::get('/admin/users/create', [AdminController::class, 'createUser']);
 
     Route::post('/admin/users/store',
         [AdminController::class, 'storeUser']);
@@ -1723,8 +1735,14 @@ Route::middleware(['auth', 'receiving'])
 
         Route::get('/logs', [ReceivingController::class, 'receivingLogs']);
 
-        
-        
+        Route::get('/ris/{ris}/print', [ReceivingController::class, 'printRis']);
+
+        Route::get('/reports/{report}/print', [ReceivingController::class, 'printReport']);
+
+        Route::post('/reports/{atp}/accept', [ReceivingController::class, 'accept']);
+
+        Route::post('/reports/{atp}/return', [ReceivingController::class, 'returnReport']);
+
     });
 
 Route::get(

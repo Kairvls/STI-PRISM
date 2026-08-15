@@ -13,7 +13,9 @@
         --admin-section-gap: 24px;
     }
 
-    /* Scope to admin main content area — beat global Poppins * rule */
+        /* Scope to admin main content — beat global Poppins * rule */
+    main,
+    main *,
     #main-content,
     #main-content *,
     .admin-page,

@@ -283,9 +283,9 @@
 
                             <button
                                 type="button"
-                                title="Return this RIS to the Purchaser for amendment with revision notes"
+                                title="Sign Issued by, then return this RIS to the Purchaser for amendment"
                                 aria-label="Amend"
-                                onclick="openAmendModal('{{ $ris->ris_id }}')"
+                                onclick="openDirectApproveModal('{{ $ris->ris_id }}', 'amend')"
                                 class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-700 transition hover:bg-rose-100"
                             >
                                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

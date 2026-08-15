@@ -1,13 +1,16 @@
-{{-- Admin sign Issued by: Direct Approve or Forward to President --}}
+{{-- Admin sign Issued by: Direct Approve, Forward to President, or Amend --}}
 @php
     $adminName = Auth::user()->user_full_name ?? 'Admin';
     $todayDisplay = now()->format('d/m/Y');
     $items = $risItems ?? collect();
-    $mode = in_array(($mode ?? 'direct'), ['direct', 'forward'], true) ? $mode : 'direct';
+    $mode = in_array(($mode ?? 'direct'), ['direct', 'forward', 'amend'], true) ? $mode : 'direct';
     $isForward = $mode === 'forward';
-    $formAction = $isForward
-        ? route('admin.procurement-review.ris.approve', $ris->ris_id)
-        : route('admin.procurement-review.ris.direct-approve', $ris->ris_id);
+    $isAmend = $mode === 'amend';
+    $formAction = $isAmend
+        ? route('admin.procurement-review.ris.reject', $ris->ris_id)
+        : ($isForward
+            ? route('admin.procurement-review.ris.approve', $ris->ris_id)
+            : route('admin.procurement-review.ris.direct-approve', $ris->ris_id));
 @endphp
 
 <style>
@@ -117,7 +120,9 @@
     <div class="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
         <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
             You can only fill <strong>Issued by</strong> and its <strong>Date</strong>. All other RIS details are locked.
-            @if ($isForward)
+            @if ($isAmend)
+                Sign <strong>Issued by</strong> first, then enter amendment remarks to return this RIS to the Purchaser.
+            @elseif ($isForward)
                 Confirming will sign <strong>Issued by</strong> and forward this RIS to the <strong>President</strong> for final approval.
             @else
                 Confirming will mark this RIS as <strong>Admin Approved</strong> and return it to the Purchaser.
@@ -230,6 +235,23 @@
                 </div>
             </div>
         </div>
+
+        @if ($isAmend)
+            <div class="mt-4 rounded-lg border border-rose-200 bg-white px-4 py-4">
+                <label for="amend_remarks" class="block text-sm font-medium text-gray-700">
+                    Amendment Remarks <span class="text-red-500">*</span>
+                </label>
+                <textarea
+                    id="amend_remarks"
+                    name="remarks"
+                    rows="4"
+                    required
+                    placeholder="Describe in detail what needs to be revised, e.g. incorrect quantities, missing supporting documents, wrong unit cost, etc."
+                    class="mt-1.5 block w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 focus:border-gray-400 focus:ring-2 focus:ring-gray-100"
+                >{{ old('remarks') }}</textarea>
+                <p class="mt-1.5 text-xs text-gray-400">These remarks will be visible to the Purchaser when they view this RIS.</p>
+            </div>
+        @endif
     </div>
 
     <div class="flex items-center justify-end gap-2 border-t border-gray-200 bg-white px-6 py-4">
@@ -242,10 +264,10 @@
         </button>
         <button
             type="submit"
-            class="rounded-lg {{ $isForward ? 'bg-emerald-700 hover:bg-emerald-800' : 'bg-slate-900 hover:bg-slate-800' }} px-4 py-2.5 text-sm font-medium text-white transition"
-            title="{{ $isForward ? 'Sign Issued by and forward to President' : 'Mark as Admin Approved and return to Purchaser' }}"
+            class="rounded-lg {{ $isAmend ? 'bg-rose-600 hover:bg-rose-700' : ($isForward ? 'bg-emerald-700 hover:bg-emerald-800' : 'bg-slate-900 hover:bg-slate-800') }} px-4 py-2.5 text-sm font-medium text-white transition"
+            title="{{ $isAmend ? 'Sign Issued by and return for amendment' : ($isForward ? 'Sign Issued by and forward to President' : 'Mark as Admin Approved and return to Purchaser') }}"
         >
-            {{ $isForward ? 'Sign & Forward to President' : 'Confirm Admin Approval' }}
+            {{ $isAmend ? 'Sign & Confirm Amend' : ($isForward ? 'Sign & Forward to President' : 'Confirm Admin Approval') }}
         </button>
     </div>
 </form>

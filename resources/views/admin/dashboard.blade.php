@@ -205,20 +205,20 @@
                         <span class="quick-access-label">User Management</span>
                         <span class="quick-access-desc">Manage system users and roles</span>
                     </button>
-                    <div class="quick-access-card quick-access-card-disabled" title="Temporarily unavailable" aria-disabled="true">
+                    <button type="button" onclick="openQuickAccessModal('reports')" class="quick-access-card" style="cursor:pointer;border:none;width:100%;font-family:inherit;">
                         <div class="quick-access-icon quick-access-icon-amber">
                             <i data-lucide="file-text"></i>
                         </div>
                         <span class="quick-access-label">System Reports</span>
-                        <span class="quick-access-desc">Coming soon — temporarily unavailable</span>
-                    </div>
-                    <div class="quick-access-card quick-access-card-disabled" title="Temporarily unavailable" aria-disabled="true">
+                        <span class="quick-access-desc">Read-only maintenance, receiving, approvals, and access</span>
+                    </button>
+                    <button type="button" onclick="openQuickAccessModal('settings')" class="quick-access-card" style="cursor:pointer;border:none;width:100%;font-family:inherit;">
                         <div class="quick-access-icon quick-access-icon-rose">
                             <i data-lucide="settings"></i>
                         </div>
                         <span class="quick-access-label">System Settings</span>
-                        <span class="quick-access-desc">Coming soon — temporarily unavailable</span>
-                    </div>
+                        <span class="quick-access-desc">Campus setup PIN and admin controls</span>
+                    </button>
                 </div>
             </div>
 
@@ -602,30 +602,10 @@
 </div>
 
 
-{{-- RIS Preview must come AFTER Quick Access in the DOM and use a higher z-index --}}
-<div id="risPreviewModal" class="ris-preview-modal-overlay ris-preview-on-top" style="display: none;">
-    <div class="ris-preview-modal-container">
-        <div class="ris-preview-modal-header">
-            <h3 class="ris-preview-modal-title">RIS Preview</h3>
-            <button type="button" onclick="closeRisPreviewModal()" class="ris-preview-modal-close" title="Close preview">
-                <i data-lucide="x" class="h-4 w-4"></i>
-            </button>
-        </div>
-        <div class="ris-preview-modal-body" id="risPreviewModalBody">
-            <div class="ris-preview-loading">
-                <div class="ris-preview-spinner"></div>
-                <span>Loading preview...</span>
-            </div>
-        </div>
-        <div class="ris-preview-modal-footer">
-            <button type="button" onclick="closeRisPreviewModal()" class="ris-preview-modal-btn-close">Close</button>
-            <a href="#" id="risPreviewPrintLink" target="_blank" class="ris-preview-modal-btn-print">
-                <i data-lucide="printer" class="h-4 w-4"></i>
-                Open in Print View
-            </a>
-        </div>
-    </div>
-</div>
+{{-- RIS Preview must come AFTER Quick Access in the DOM --}}
+@include('admin.partials.ris-preview-modal', ['zIndex' => '11000'])
+
+@include('admin.procurement-review._direct-approve-modal')
 
 
 {{-- ===================================================== --}}
@@ -2359,34 +2339,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
     window.openRisPreviewModal = function(risId) {
         const modal = document.getElementById('risPreviewModal');
-        const body = document.getElementById('risPreviewModalBody');
-        const printLink = document.getElementById('risPreviewPrintLink');
+        const iframe = document.getElementById('risPreviewIframe');
 
-        if (!modal || !body) return;
+        if (!modal || !iframe) return;
 
-        // Keep preview above Quick Access / other overlays
         if (modal.parentElement !== document.body) {
             document.body.appendChild(modal);
         }
 
-        const printUrl = '/admin/procurement-review/ris/' + risId + '/print?ts=' + Date.now();
-
-        if (printLink) {
-            printLink.href = printUrl;
-        }
-
-        modal.style.display = 'flex';
+        iframe.src = '/admin/procurement-review/ris/' + risId + '/print?ts=' + Date.now();
+        modal.classList.remove('hidden');
+        modal.style.display = 'block';
         modal.style.zIndex = '11000';
-        body.innerHTML = '';
-
-        const iframe = document.createElement('iframe');
-        iframe.src = printUrl;
-        iframe.setAttribute('frameborder', '0');
-        iframe.title = 'RIS Form Preview';
-        body.appendChild(iframe);
     };
 
-    // Quick Access tables for Sign RIS / History use these names
     window.openSignRisPreviewModal = function(risId) {
         window.openRisPreviewModal(risId);
     };
@@ -2394,30 +2360,27 @@ document.addEventListener('DOMContentLoaded', function() {
         window.openRisPreviewModal(risId);
     };
 
+    window.printRisPreview = function() {
+        const iframe = document.getElementById('risPreviewIframe');
+        if (!iframe || !iframe.contentWindow) return;
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+    };
+
     window.closeRisPreviewModal = function() {
         const modal = document.getElementById('risPreviewModal');
-        const body = document.getElementById('risPreviewModalBody');
-        if (body) {
-            body.innerHTML = '';
-        }
+        const iframe = document.getElementById('risPreviewIframe');
+        if (iframe) iframe.src = 'about:blank';
         if (modal) {
-            modal.style.display = 'none';
+            modal.classList.add('hidden');
+            modal.style.display = '';
         }
     };
 
-    // Close modal on overlay click
-    document.addEventListener('click', function(e) {
-        const modal = document.getElementById('risPreviewModal');
-        if (modal && e.target === modal) {
-            closeRisPreviewModal();
-        }
-    });
-
-    // Close modal on Escape key — RIS preview first, then Quick Access
     document.addEventListener('keydown', function(e) {
         if (e.key !== 'Escape') return;
         const risModal = document.getElementById('risPreviewModal');
-        if (risModal && risModal.style.display === 'flex') {
+        if (risModal && !risModal.classList.contains('hidden')) {
             closeRisPreviewModal();
             return;
         }
@@ -2431,6 +2394,21 @@ document.addEventListener('DOMContentLoaded', function() {
     // QUICK ACCESS MODAL
     // =====================================================
 
+    window.switchQaReportTab = function(tab) {
+        if (!tab) return;
+        var root = tab.closest('.space-y-4') || document.getElementById('qaModalBody');
+        if (!root) return;
+        root.querySelectorAll('.qa-report-tab').forEach(function(t) {
+            t.classList.remove('border-[#0037c7]', 'bg-[#0037c7]', 'text-white');
+            t.classList.add('border-gray-200', 'bg-white', 'text-gray-700');
+        });
+        tab.classList.add('border-[#0037c7]', 'bg-[#0037c7]', 'text-white');
+        tab.classList.remove('border-gray-200', 'bg-white', 'text-gray-700');
+        root.querySelectorAll('.qa-report-pane').forEach(function(p) { p.classList.add('hidden'); });
+        var pane = document.getElementById(tab.getAttribute('data-pane'));
+        if (pane) pane.classList.remove('hidden');
+    };
+
     var qaModalOpen = false;
 
     window.openQuickAccessModal = function(section) {
@@ -2443,7 +2421,9 @@ document.addEventListener('DOMContentLoaded', function() {
             'procurement': 'Procurement Review — All RIS Records',
             'signris': 'Sign RIS — President-Approved Records',
             'history': 'Signature History — Completed Records',
-            'users': 'User Management'
+            'users': 'User Management',
+            'reports': 'System Reports',
+            'settings': 'System Settings'
         };
         title.textContent = titles[section] || 'Quick Access';
 
@@ -2455,7 +2435,9 @@ document.addEventListener('DOMContentLoaded', function() {
             'procurement': '/admin/quick-access/procurement-content',
             'signris': '/admin/quick-access/signris-content',
             'history': '/admin/quick-access/history-content',
-            'users': '/admin/quick-access/users-content'
+            'users': '/admin/quick-access/users-content',
+            'reports': '/admin/quick-access/reports-content',
+            'settings': '/admin/quick-access/settings-content'
         };
 
         if (!ajaxUrls[section]) {

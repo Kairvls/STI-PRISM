@@ -182,11 +182,6 @@
             DIGITAL SIGNATURES
 
         </div>
-        {{-- <a href="{{ route('admin.procurement-review.index') }}"> 
-                        <i data-lucide="pen-tool"></i>
-
-            <span>Sign RIS</span>
-        </a> --}}
         <a
             href="/admin/digital-signatures/sign-ris"
             class="menu-item {{ request()->is('admin/digital-signatures/sign-ris') ? 'active' : '' }}"
@@ -241,7 +236,7 @@
         </div>
 
         <a
-            href="/admin/reports/procurement-history"
+            href="{{ url('/admin/reports') }}"
             class="menu-item {{ request()->is('admin/reports*') ? 'active' : '' }}"
         >
 

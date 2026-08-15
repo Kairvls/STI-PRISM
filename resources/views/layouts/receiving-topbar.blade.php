@@ -842,3 +842,5 @@
         }
     });
 </script>
+
+@include('layouts.partials.receiving-ris-preview')

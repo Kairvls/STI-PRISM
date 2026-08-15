@@ -70,6 +70,8 @@
         </span>
     </div>
 
+    @include('layouts.partials.receiving-query-error')
+
     <div class="ro-grid">
         <div>
             <div class="ro-stat-grid">
@@ -123,7 +125,7 @@
                         <div class="ro-alert-icon" style="background:#10b981;"><i data-lucide="check-circle-2"></i></div>
                         <div>
                             <p class="ro-alert-title">No deliveries waiting</p>
-                            <p class="ro-alert-desc">Approved Authority to Purchase records appear here when items are ready to receive.</p>
+                            <p class="ro-alert-desc">Waiting for Purchaser ATP to be approved. Those records appear here for inspection.</p>
                         </div>
                     </div>
                 </div>
@@ -187,11 +189,12 @@
                                 <th>Supplier</th>
                                 <th>Value</th>
                                 <th>Status</th>
-                                <th></th>
+                                <th>Preview</th>
                             </tr>
                         </thead>
                         <tbody>
                             @forelse($pendingRows as $row)
+                                @php $previewRisId = $row->ris_id ?? $row->authority_purchase_ris_id ?? null; @endphp
                                 <tr>
                                     <td><span class="ro-ref">{{ $row->ris_form_number ?: ($row->authority_purchase_form_number ?: 'ATP-'.$row->authority_purchase_id) }}</span></td>
                                     <td>{{ \Illuminate\Support\Str::limit($row->item_names ?: '—', 40) }}</td>
@@ -204,10 +207,17 @@
                                             <span class="ro-badge ro-badge-amber">Pending</span>
                                         @endif
                                     </td>
-                                    <td><a class="ro-link" href="/receiving/reports?atp={{ $row->authority_purchase_id }}">Inspect</a></td>
+                                    <td>
+                                        <div class="flex items-center gap-2">
+                                            <button type="button" class="ro-preview-btn" @if($previewRisId) onclick="openReceivingRisPreview('{{ $previewRisId }}')" @else disabled @endif title="Preview RIS">
+                                                <i data-lucide="eye" class="h-4 w-4"></i>
+                                            </button>
+                                            <a class="ro-link" href="/receiving/reports?atp={{ $row->authority_purchase_id }}">Inspect</a>
+                                        </div>
+                                    </td>
                                 </tr>
                             @empty
-                                <tr><td colspan="6" class="ro-empty">No pending deliveries. Approved purchases will show here.</td></tr>
+                                <tr><td colspan="6" class="ro-empty">Waiting for Purchaser ATP to be approved. Nothing is ready to inspect yet.</td></tr>
                             @endforelse
                         </tbody>
                     </table>
@@ -231,19 +241,33 @@
                                 <th>Supplier</th>
                                 <th>OR</th>
                                 <th>Date</th>
+                                <th>Officer</th>
+                                <th>Preview</th>
                             </tr>
                         </thead>
                         <tbody>
                             @forelse($acceptedRows as $row)
+                                @php $previewRisId = $row->ris_id ?? $row->authority_purchase_ris_id ?? null; @endphp
                                 <tr>
                                     <td><span class="ro-ref">{{ $row->ris_form_number ?: $row->authority_purchase_form_number }}</span></td>
                                     <td>{{ \Illuminate\Support\Str::limit($row->item_names ?: '—', 40) }}</td>
                                     <td>{{ $row->supplier_name }}</td>
                                     <td>{{ $row->official_receipt ?: '—' }}</td>
                                     <td>{{ $row->received_at ? \Carbon\Carbon::parse($row->received_at)->format('M d, Y') : '—' }}</td>
+                                    <td>{{ $row->officer_name ?: '—' }}</td>
+                                    <td>
+                                        <div class="flex items-center gap-2">
+                                            <button type="button" class="ro-preview-btn" @if($previewRisId) onclick="openReceivingRisPreview('{{ $previewRisId }}')" @else disabled @endif title="Preview RIS">
+                                                <i data-lucide="eye" class="h-4 w-4"></i>
+                                            </button>
+                                            @if(!empty($row->receiving_report_id))
+                                                <a class="ro-link" href="/receiving/reports/{{ $row->receiving_report_id }}/print">Print</a>
+                                            @endif
+                                        </div>
+                                    </td>
                                 </tr>
                             @empty
-                                <tr><td colspan="5" class="ro-empty">No accepted deliveries yet.</td></tr>
+                                <tr><td colspan="7" class="ro-empty">Waiting for the first accepted delivery.</td></tr>
                             @endforelse
                         </tbody>
                     </table>

@@ -9,6 +9,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class AdminController extends Controller
@@ -1443,32 +1444,72 @@ class AdminController extends Controller
 
     public function users(): View
     {
-        return view('admin.users.index');
+        $query = DB::table('users_table')
+            ->leftJoin('roles_table', 'users_table.user_role_id', '=', 'roles_table.role_id')
+            ->select(
+                'users_table.user_id',
+                'users_table.user_employee_id',
+                'users_table.user_username',
+                'users_table.user_full_name',
+                'users_table.user_email_address',
+                'users_table.user_contact_number',
+                'users_table.user_role_id',
+                'roles_table.role_name'
+            )
+            ->orderBy('users_table.user_full_name');
+
+        if (Schema::hasColumn('users_table', 'last_active_at')) {
+            $query->addSelect('users_table.last_active_at');
+        }
+
+        $users = $query->get();
+        $roles = Schema::hasTable('roles_table')
+            ? DB::table('roles_table')->orderBy('role_id')->get()
+            : collect();
+
+        $activeCount = 0;
+        if (Schema::hasColumn('users_table', 'last_active_at')) {
+            $activeCount = $users->filter(function ($user) {
+                return !empty($user->last_active_at)
+                    && \Carbon\Carbon::parse($user->last_active_at)->gte(now()->subDays(30));
+            })->count();
+        } elseif (Schema::hasTable('sessions')) {
+            $activeIds = DB::table('sessions')->whereNotNull('user_id')->pluck('user_id')->unique();
+            $activeCount = $users->whereIn('user_id', $activeIds)->count();
+        }
+
+        return view('admin.users.index', [
+            'users' => $users,
+            'roles' => $roles,
+            'totalUsers' => $users->count(),
+            'activeUsers' => $activeCount,
+            'roleCount' => $users->pluck('role_name')->filter()->unique()->count(),
+        ]);
     }
 
-    public function createUser(): View
+    public function createUser()
     {
-        return view('admin.users.create');
+        return redirect('/admin/users');
     }
 
-    public function editUser(): View
+    public function editUser()
     {
-        return view('admin.users.edit');
+        return redirect('/admin/users');
     }
 
-    public function viewUser(): View
+    public function viewUser()
     {
-        return view('admin.users.view');
+        return redirect('/admin/users');
     }
 
-    public function resetPassword(): View
+    public function resetPassword()
     {
-        return view('admin.users.reset-password');
+        return redirect('/admin/users');
     }
 
-    public function userActivityLogs(): View
+    public function userActivityLogs()
     {
-        return view('admin.users.activity-logs');
+        return redirect('/admin/reports/user-login-logs');
     }
 
     /*
@@ -1513,29 +1554,326 @@ class AdminController extends Controller
     |--------------------------------------------------------------------------
     */
 
-    public function approvalLogs(): View
+    public function systemReports(): View
     {
-        return view('admin.reports.approval-logs');
+        return view('admin.reports.index');
     }
 
-    public function auditLogs(): View
+    public function approvalLogs(Request $request): View
     {
-        return view('admin.reports.audit-logs');
+        $filters = $this->systemReportFilters($request);
+        $rows = collect();
+
+        if (Schema::hasTable('approval_logs_table')) {
+            $query = DB::table('approval_logs_table')
+                ->leftJoin('users_table', 'users_table.user_id', '=', 'approval_logs_table.approval_log_approved_by');
+
+            $select = [
+                'approval_logs_table.approval_log_id',
+                'approval_logs_table.approval_log_reference_type',
+                'approval_logs_table.approval_log_reference_id',
+                'approval_logs_table.approval_log_approval_status',
+                'approval_logs_table.approval_log_approval_remarks',
+                'approval_logs_table.approval_log_approved_at',
+                'users_table.user_full_name as officer_name',
+            ];
+            if (Schema::hasColumn('approval_logs_table', 'approval_log_level')) {
+                $select[] = 'approval_logs_table.approval_log_level';
+            }
+            $query->select($select);
+            $this->applyDateFilter($query, 'approval_logs_table.approval_log_approved_at', $filters);
+
+            if ($filters['q'] !== '') {
+                $needle = '%'.$filters['q'].'%';
+                $query->where(function ($q) use ($needle) {
+                    $q->where('users_table.user_full_name', 'like', $needle)
+                        ->orWhere('approval_logs_table.approval_log_approval_status', 'like', $needle)
+                        ->orWhere('approval_logs_table.approval_log_approval_remarks', 'like', $needle)
+                        ->orWhere('approval_logs_table.approval_log_reference_type', 'like', $needle);
+                });
+            }
+
+            $rows = $query->orderByDesc('approval_logs_table.approval_log_approved_at')->limit(300)->get();
+        }
+
+        return view('admin.reports.approval-logs', [
+            'rows' => $rows,
+            'filters' => $filters,
+        ]);
     }
 
-    public function maintenanceHistory(): View
+    public function auditLogs()
     {
-        return view('admin.reports.maintenance-history');
+        return redirect('/admin/reports/approval-logs');
     }
 
-    public function procurementHistory(): View
+    public function maintenanceHistory(Request $request): View
     {
-        return view('admin.reports.procurement-history');
+        $filters = $this->systemReportFilters($request);
+        $rows = collect();
+        $byStatus = collect();
+        $repeatEquipment = collect();
+        $avgCloseHours = null;
+
+        if (Schema::hasTable('reports_table')) {
+            $base = DB::table('reports_table')
+                ->leftJoin('rooms_table', 'rooms_table.room_id', '=', 'reports_table.report_room_id')
+                ->leftJoin('floors_table', 'rooms_table.room_floor_id', '=', 'floors_table.floor_id')
+                ->leftJoin('buildings_table', 'floors_table.floor_building_id', '=', 'buildings_table.building_id')
+                ->leftJoin('equipment_table', 'equipment_table.equipment_id', '=', 'reports_table.report_equipment_id')
+                ->leftJoin('users_table as technicians', 'technicians.user_id', '=', 'reports_table.report_assigned_personnel_id')
+                ->leftJoin('reporters_table', 'reporters_table.reporter_employee_id', '=', 'reports_table.report_reporter_employee_id');
+
+            $this->applyDateFilter($base, 'reports_table.report_submitted_at', $filters);
+
+            if ($filters['q'] !== '') {
+                $needle = '%'.$filters['q'].'%';
+                $base->where(function ($q) use ($needle) {
+                    $q->where('equipment_table.equipment_name', 'like', $needle)
+                        ->orWhere('reports_table.report_unlisted_equipment_name', 'like', $needle)
+                        ->orWhere('reports_table.report_suggested_issue', 'like', $needle)
+                        ->orWhere('reports_table.report_current_status', 'like', $needle)
+                        ->orWhere('rooms_table.room_name', 'like', $needle)
+                        ->orWhere('buildings_table.building_name', 'like', $needle)
+                        ->orWhere('technicians.user_full_name', 'like', $needle);
+                });
+            }
+
+            $byStatus = (clone $base)
+                ->select('reports_table.report_current_status', DB::raw('COUNT(*) as total'))
+                ->groupBy('reports_table.report_current_status')
+                ->pluck('total', 'report_current_status');
+
+            $closed = (clone $base)->whereIn('reports_table.report_current_status', ['Resolved', 'Rejected', 'For Replacement']);
+            $avgCloseHours = (clone $closed)->avg(DB::raw('TIMESTAMPDIFF(HOUR, reports_table.report_submitted_at, reports_table.report_updated_at)'));
+
+            $repeatEquipment = (clone $base)
+                ->select(
+                    DB::raw("COALESCE(equipment_table.equipment_name, reports_table.report_unlisted_equipment_name, 'Unlisted') as equipment_label"),
+                    DB::raw('COUNT(*) as report_count')
+                )
+                ->groupBy('equipment_label')
+                ->having('report_count', '>=', 2)
+                ->orderByDesc('report_count')
+                ->limit(8)
+                ->get();
+
+            $rows = (clone $base)
+                ->select(
+                    'reports_table.report_id',
+                    'reports_table.report_current_status',
+                    'reports_table.report_urgency_level',
+                    'reports_table.report_submitted_at',
+                    'reports_table.report_updated_at',
+                    'reports_table.report_suggested_issue',
+                    'reports_table.report_unlisted_equipment_name',
+                    'equipment_table.equipment_name',
+                    'rooms_table.room_name',
+                    'buildings_table.building_name',
+                    'technicians.user_full_name as technician_name'
+                )
+                ->orderByDesc('reports_table.report_submitted_at')
+                ->limit(300)
+                ->get();
+        }
+
+        return view('admin.reports.maintenance-history', [
+            'rows' => $rows,
+            'filters' => $filters,
+            'filed' => (int) $byStatus->sum(),
+            'resolved' => (int) ($byStatus['Resolved'] ?? 0),
+            'rejected' => (int) ($byStatus['Rejected'] ?? 0),
+            'replacement' => (int) ($byStatus['For Replacement'] ?? 0),
+            'pending' => (int) ($byStatus['Pending'] ?? 0),
+            'processing' => (int) ($byStatus['Processing'] ?? 0),
+            'avgCloseHours' => $avgCloseHours,
+            'repeatEquipment' => $repeatEquipment,
+        ]);
     }
 
-    public function userLoginLogs(): View
+    public function procurementHistory()
     {
-        return view('admin.reports.user-login-logs');
+        return redirect('/admin/reports');
+    }
+
+    public function receivingSummary(Request $request): View
+    {
+        $filters = $this->systemReportFilters($request);
+        $rows = collect();
+        $accepted = 0;
+        $returned = 0;
+        $withOr = 0;
+        $inventoryLines = 0;
+
+        if (Schema::hasTable('receiving_reports_table')) {
+            $query = DB::table('receiving_reports_table');
+            $dateCol = Schema::hasColumn('receiving_reports_table', 'receiving_report_date')
+                ? 'receiving_reports_table.receiving_report_date'
+                : 'receiving_reports_table.receiving_report_created_at';
+            $this->applyDateFilter($query, $dateCol, $filters);
+
+            if (Schema::hasTable('physical_suppliers_table')) {
+                $query->leftJoin('physical_suppliers_table', 'physical_suppliers_table.supplier_id', '=', 'receiving_reports_table.receiving_report_supplier_id');
+            }
+            if (Schema::hasTable('online_suppliers_table')) {
+                $query->leftJoin('online_suppliers_table', 'online_suppliers_table.supplier_id', '=', 'receiving_reports_table.receiving_report_supplier_id');
+            }
+
+            $select = [
+                'receiving_reports_table.receiving_report_id',
+                'receiving_reports_table.receiving_report_status',
+                'receiving_reports_table.receiving_report_invoice_no',
+                'receiving_reports_table.receiving_report_date',
+                'receiving_reports_table.receiving_report_created_at',
+                'receiving_reports_table.receiving_report_received_by_signature',
+            ];
+            $supplierParts = [];
+            if (Schema::hasTable('physical_suppliers_table')) {
+                $supplierParts[] = 'physical_suppliers_table.company_name';
+            }
+            if (Schema::hasTable('online_suppliers_table')) {
+                $supplierParts[] = 'online_suppliers_table.shop_name';
+            }
+            $select[] = DB::raw(($supplierParts ? 'COALESCE('.implode(', ', $supplierParts).', ' : '')."'—'".($supplierParts ? ')' : '').' as supplier_name');
+
+            $query->select($select);
+
+            if ($filters['q'] !== '') {
+                $needle = '%'.$filters['q'].'%';
+                $query->where(function ($q) use ($needle) {
+                    $q->where('receiving_reports_table.receiving_report_invoice_no', 'like', $needle)
+                        ->orWhere('receiving_reports_table.receiving_report_status', 'like', $needle)
+                        ->orWhere('receiving_reports_table.receiving_report_received_by_signature', 'like', $needle);
+                });
+            }
+
+            $rows = $query->orderByDesc('receiving_reports_table.receiving_report_id')->limit(300)->get();
+            $accepted = $rows->filter(fn ($row) => in_array($row->receiving_report_status, ['Completed', 'Accepted'], true))->count();
+            $returned = $rows->where('receiving_report_status', 'Returned')->count();
+            $withOr = $rows->filter(fn ($row) => !empty($row->receiving_report_invoice_no))->count();
+        }
+
+        if (Schema::hasTable('receiving_report_items_table') && Schema::hasTable('receiving_reports_table')) {
+            $itemQuery = DB::table('receiving_report_items_table')
+                ->join('receiving_reports_table', 'receiving_reports_table.receiving_report_id', '=', 'receiving_report_items_table.receiving_report_id')
+                ->whereIn('receiving_reports_table.receiving_report_status', ['Completed', 'Accepted']);
+            $dateCol = Schema::hasColumn('receiving_reports_table', 'receiving_report_date')
+                ? 'receiving_reports_table.receiving_report_date'
+                : 'receiving_reports_table.receiving_report_created_at';
+            $this->applyDateFilter($itemQuery, $dateCol, $filters);
+            $inventoryLines = $itemQuery->count();
+        }
+
+        return view('admin.reports.receiving-summary', [
+            'rows' => $rows,
+            'filters' => $filters,
+            'accepted' => $accepted,
+            'returned' => $returned,
+            'withOr' => $withOr,
+            'inventoryLines' => $inventoryLines,
+        ]);
+    }
+
+    public function userLoginLogs(Request $request): View
+    {
+        $filters = $this->systemReportFilters($request);
+        $users = collect();
+        $sessions = collect();
+
+        if (Schema::hasTable('users_table')) {
+            $query = DB::table('users_table')
+                ->leftJoin('roles_table', 'roles_table.role_id', '=', 'users_table.user_role_id');
+
+            if (Schema::hasTable('sessions')) {
+                $query->leftJoin('sessions', 'sessions.user_id', '=', 'users_table.user_id');
+            }
+
+            $select = [
+                'users_table.user_id',
+                'users_table.user_full_name',
+                'users_table.user_username',
+                'users_table.user_employee_id',
+                'roles_table.role_name',
+            ];
+            if (Schema::hasTable('sessions')) {
+                $select[] = DB::raw('MAX(sessions.last_activity) as last_activity');
+                $select[] = DB::raw('MAX(sessions.ip_address) as last_ip');
+            } else {
+                $select[] = DB::raw('NULL as last_activity');
+                $select[] = DB::raw('NULL as last_ip');
+            }
+
+            $query->select($select)->groupBy(
+                'users_table.user_id',
+                'users_table.user_full_name',
+                'users_table.user_username',
+                'users_table.user_employee_id',
+                'roles_table.role_name'
+            );
+
+            if ($filters['q'] !== '') {
+                $needle = '%'.$filters['q'].'%';
+                $query->where(function ($q) use ($needle) {
+                    $q->where('users_table.user_full_name', 'like', $needle)
+                        ->orWhere('users_table.user_username', 'like', $needle)
+                        ->orWhere('roles_table.role_name', 'like', $needle);
+                });
+            }
+
+            $users = $query->orderBy('users_table.user_full_name')->get();
+        }
+
+        if (Schema::hasTable('sessions')) {
+            $sessionQuery = DB::table('sessions')
+                ->leftJoin('users_table', 'users_table.user_id', '=', 'sessions.user_id')
+                ->leftJoin('roles_table', 'roles_table.role_id', '=', 'users_table.user_role_id')
+                ->select(
+                    'sessions.id',
+                    'sessions.ip_address',
+                    'sessions.user_agent',
+                    'sessions.last_activity',
+                    'users_table.user_full_name',
+                    'users_table.user_username',
+                    'roles_table.role_name'
+                )
+                ->whereNotNull('sessions.user_id')
+                ->orderByDesc('sessions.last_activity')
+                ->limit(100);
+
+            if ($filters['from'] !== '') {
+                $sessionQuery->where('sessions.last_activity', '>=', \Carbon\Carbon::parse($filters['from'])->startOfDay()->timestamp);
+            }
+            if ($filters['to'] !== '') {
+                $sessionQuery->where('sessions.last_activity', '<=', \Carbon\Carbon::parse($filters['to'])->endOfDay()->timestamp);
+            }
+
+            $sessions = $sessionQuery->get();
+        }
+
+        return view('admin.reports.user-login-logs', [
+            'users' => $users,
+            'sessions' => $sessions,
+            'filters' => $filters,
+        ]);
+    }
+
+    private function systemReportFilters(Request $request): array
+    {
+        return [
+            'q' => trim((string) $request->query('q', '')),
+            'from' => (string) $request->query('from', ''),
+            'to' => (string) $request->query('to', ''),
+        ];
+    }
+
+    private function applyDateFilter($query, string $column, array $filters): void
+    {
+        if ($filters['from'] !== '') {
+            $query->whereDate($column, '>=', $filters['from']);
+        }
+        if ($filters['to'] !== '') {
+            $query->whereDate($column, '<=', $filters['to']);
+        }
     }
 
     /*
@@ -1553,19 +1891,19 @@ class AdminController extends Controller
         ]);
     }
 
-    public function maintenanceSettings(): View
+    public function maintenanceSettings()
     {
-        return view('admin.settings.maintenance-settings');
+        return redirect('/admin/settings/campus-setup-pin');
     }
 
-    public function notificationSettings(): View
+    public function notificationSettings()
     {
-        return view('admin.settings.notification-settings');
+        return redirect('/admin/settings/campus-setup-pin');
     }
 
-    public function systemSettings(): View
+    public function systemSettings()
     {
-        return view('admin.settings.system-settings');
+        return redirect('/admin/settings/campus-setup-pin');
     }
 
     public function updateCampusSetupPin(Request $request)
@@ -2364,7 +2702,7 @@ class AdminController extends Controller
     public function directApproveForm(Request $request, $risId)
     {
         $mode = strtolower($request->query('mode', 'direct'));
-        if (!in_array($mode, ['direct', 'forward'], true)) {
+        if (!in_array($mode, ['direct', 'forward', 'amend'], true)) {
             $mode = 'direct';
         }
 
@@ -2514,6 +2852,22 @@ public function rejectRis(Request $request, $risId)
 
             abort_if(!$ris, 404);
 
+            $validated = $request->validate([
+                'ris_issued_by' => ['required', 'string', 'max:255'],
+                'ris_issued_by_date' => ['required', 'string', 'max:20'],
+                'remarks' => ['required', 'string', 'min:3'],
+            ]);
+
+            try {
+                $issuedDate = \Carbon\Carbon::createFromFormat('d/m/Y', trim($validated['ris_issued_by_date']))
+                    ->format('Y-m-d');
+            } catch (\Throwable $e) {
+                return back()->with(
+                    'error',
+                    'Issued by date must be in dd/mm/yyyy format.'
+                );
+            }
+
             // New workflow: Submitted / Under Review / Resubmitted.
             // Legacy status: Pending.
             if (
@@ -2523,11 +2877,8 @@ public function rejectRis(Request $request, $risId)
                 return back()->with('error', 'Only submitted pending RIS records can be rejected.');
             }
 
-            // Validate amendment remarks
-            $remarks = $request->input('remarks', '');
-            if (empty(trim($remarks))) {
-                return back()->with('error', 'Please provide amendment remarks to inform the Purchaser what needs to be revised.');
-            }
+            $adminName = trim($validated['ris_issued_by']);
+            $remarks = trim($validated['remarks']);
 
             // =====================================================
             // NEW WORKFLOW (Minor Revision)
@@ -2542,6 +2893,8 @@ public function rejectRis(Request $request, $risId)
                     ->where('ris_id', $risId)
                     ->update([
                         'ris_status' => 'Minor Revision',
+                        'ris_issued_by_signature' => $adminName,
+                        'ris_issued_by_date' => $issuedDate,
                         'ris_rejection_reason' => $remarks,
                         'ris_updated_at' => now(),
                     ]);
@@ -2574,6 +2927,8 @@ public function rejectRis(Request $request, $risId)
                         'ris_requested_by_date' => null,
                         'ris_submitted_by' => null,
                         'ris_submitted_at' => null,
+                        'ris_issued_by_signature' => $adminName,
+                        'ris_issued_by_date' => $issuedDate,
                         'ris_rejection_reason' => $remarks,
                     ]);
             }
@@ -2586,7 +2941,7 @@ public function rejectRis(Request $request, $risId)
                     'approval_log_level' => 'Admin',
                     'approval_log_approved_by' => Auth::id(),
                     'approval_log_approval_status' => 'Rejected',
-                    'approval_log_approval_remarks' => $remarks,
+                    'approval_log_approval_remarks' => 'RIS signed (Issued by) by ' . $adminName . ' and returned for amendment: ' . $remarks,
                     'approval_log_approved_at' => now(),
                 ]);
             } catch (\Throwable $e) {
@@ -2636,20 +2991,43 @@ public function rejectRis(Request $request, $risId)
      */
     public function quickAccessUsersContent(Request $request)
     {
+        $select = [
+            'users_table.user_id',
+            'users_table.user_employee_id',
+            'users_table.user_username',
+            'users_table.user_full_name',
+            'roles_table.role_name',
+        ];
+        if (Schema::hasColumn('users_table', 'last_active_at')) {
+            $select[] = 'users_table.last_active_at';
+        } else {
+            $select[] = DB::raw('NULL as last_active_at');
+        }
+
         $users = DB::table('users_table')
             ->leftJoin('roles_table', 'users_table.user_role_id', '=', 'roles_table.role_id')
-            ->select(
-                'users_table.user_id',
-                'users_table.user_employee_id',
-                'users_table.user_username',
-                'users_table.user_full_name',
-                'users_table.last_active_at',
-                'roles_table.role_name'
-            )
+            ->select($select)
             ->orderBy('users_table.user_full_name')
             ->paginate(15);
 
         return view('admin.users._quick-access', compact('users'));
+    }
+
+    public function quickAccessReportsContent(Request $request)
+    {
+        return view('admin.reports._quick-access', [
+            'maintenance' => $this->maintenanceHistory($request)->getData(),
+            'receiving' => $this->receivingSummary($request)->getData(),
+            'approvals' => $this->approvalLogs($request)->getData(),
+            'access' => $this->userLoginLogs($request)->getData(),
+        ]);
+    }
+
+    public function quickAccessSettingsContent()
+    {
+        return view('admin.settings._quick-access', [
+            'setting' => CampusSetupSetting::query()->first(),
+        ]);
     }
 }
 

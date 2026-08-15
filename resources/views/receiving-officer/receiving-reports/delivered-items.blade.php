@@ -5,66 +5,52 @@
 <div class="admin-page space-y-6">
     <div>
         <h1 class="admin-page-title">Delivered Items</h1>
-        <p class="admin-page-subtitle">Items already physically received and accepted into inventory.</p>
+        <p class="admin-page-subtitle">Accepted deliveries that were added to inventory.</p>
     </div>
 
-    <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div class="rounded-2xl border border-gray-200 bg-white px-5 py-5 shadow-sm">
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Items this month</p>
-            <p class="mt-3 font-['Outfit'] text-3xl font-bold text-slate-900">12</p>
-        </div>
-        <div class="rounded-2xl border border-gray-200 bg-white px-5 py-5 shadow-sm">
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Total value</p>
-            <p class="mt-3 font-['Outfit'] text-3xl font-bold text-slate-900">₱86,150</p>
-        </div>
-        <div class="rounded-2xl border border-gray-200 bg-white px-5 py-5 shadow-sm">
-            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Suppliers</p>
-            <p class="mt-3 font-['Outfit'] text-3xl font-bold text-slate-900">4</p>
-        </div>
-    </div>
+    @include('layouts.partials.receiving-query-error')
 
-    <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+    <div class="overflow-hidden rounded-[18px] border border-gray-200 bg-white">
+        <div class="border-b border-gray-100 px-5 py-4">
+            @include('layouts.partials.receiving-filters')
+        </div>
         <div class="overflow-x-auto">
             <table class="w-full min-w-[1000px] text-left">
                 <thead class="border-b border-gray-200 bg-gray-50">
                     <tr>
-                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Item</th>
-                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Brand / Model</th>
+                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">RIS / ATP</th>
+                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Items</th>
                         <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Qty</th>
-                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Serial No.</th>
                         <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Supplier</th>
-                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Condition</th>
                         <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Received</th>
+                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Officer</th>
+                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Preview</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
-                    <tr>
-                        <td class="px-5 py-4 text-sm font-semibold text-gray-900">Wireless Keyboard</td>
-                        <td class="px-5 py-4 text-sm text-gray-700">Logitech MK270</td>
-                        <td class="px-5 py-4 text-sm text-gray-700">6</td>
-                        <td class="px-5 py-4 text-sm text-gray-700">LG-MK270-001</td>
-                        <td class="px-5 py-4 text-sm text-gray-700">OfficeLink Trading</td>
-                        <td class="px-5 py-4"><span class="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">Good</span></td>
-                        <td class="px-5 py-4 text-sm text-gray-500">Aug 10, 2026</td>
-                    </tr>
-                    <tr>
-                        <td class="px-5 py-4 text-sm font-semibold text-gray-900">UPS 650VA</td>
-                        <td class="px-5 py-4 text-sm text-gray-700">APC BV650</td>
-                        <td class="px-5 py-4 text-sm text-gray-700">3</td>
-                        <td class="px-5 py-4 text-sm text-gray-700">APC-650-8821</td>
-                        <td class="px-5 py-4 text-sm text-gray-700">PC Express</td>
-                        <td class="px-5 py-4"><span class="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">Good</span></td>
-                        <td class="px-5 py-4 text-sm text-gray-500">Aug 08, 2026</td>
-                    </tr>
-                    <tr>
-                        <td class="px-5 py-4 text-sm font-semibold text-gray-900">Network Switch 24-port</td>
-                        <td class="px-5 py-4 text-sm text-gray-700">TP-Link TL-SG1024D</td>
-                        <td class="px-5 py-4 text-sm text-gray-700">1</td>
-                        <td class="px-5 py-4 text-sm text-gray-700">TPL-1024-4410</td>
-                        <td class="px-5 py-4 text-sm text-gray-700">TechSource PH</td>
-                        <td class="px-5 py-4"><span class="rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">Good</span></td>
-                        <td class="px-5 py-4 text-sm text-gray-500">Aug 05, 2026</td>
-                    </tr>
+                    @forelse($rows as $row)
+                        @php $previewRisId = $row->ris_id ?? $row->authority_purchase_ris_id ?? null; @endphp
+                        <tr>
+                            <td class="px-5 py-4 text-sm font-semibold text-gray-900">{{ $row->ris_form_number ?: $row->authority_purchase_form_number }}</td>
+                            <td class="px-5 py-4 text-sm text-gray-700">{{ $row->item_names ?: '—' }}</td>
+                            <td class="px-5 py-4 text-sm text-gray-700">{{ (int) ($row->total_qty ?? 0) }}</td>
+                            <td class="px-5 py-4 text-sm text-gray-700">{{ $row->supplier_name }}</td>
+                            <td class="px-5 py-4 text-sm text-gray-500">{{ $row->received_at ? \Carbon\Carbon::parse($row->received_at)->format('M d, Y g:i A') : '—' }}</td>
+                            <td class="px-5 py-4 text-sm text-gray-700">{{ $row->officer_name ?: 'Receiving Officer' }}</td>
+                            <td class="px-5 py-4">
+                                <div class="flex items-center gap-2">
+                                    <button type="button" class="ro-preview-btn" @if($previewRisId) onclick="openReceivingRisPreview('{{ $previewRisId }}')" @else disabled @endif title="Preview RIS">
+                                        <i data-lucide="eye" class="h-4 w-4"></i>
+                                    </button>
+                                    @if(!empty($row->receiving_report_id))
+                                        <a href="/receiving/reports/{{ $row->receiving_report_id }}/print" class="text-sm font-semibold text-[#0037c7]" title="Print receiving record">Print</a>
+                                    @endif
+                                </div>
+                            </td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="7" class="px-5 py-16 text-center text-sm text-gray-400">Waiting for an accepted delivery. Inspect an approved ATP first, then accept it into inventory.</td></tr>
+                    @endforelse
                 </tbody>
             </table>
         </div>

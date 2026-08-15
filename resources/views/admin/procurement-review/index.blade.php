@@ -6,7 +6,7 @@
 
 @section('content')
 
-<div class="space-y-6">
+<div class="admin-page space-y-6">
 
 
     {{-- ===================================================== --}}
@@ -65,69 +65,10 @@
 
 
     {{-- ===================================================== --}}
-    {{-- RIS PREVIEW MODAL --}}
+    {{-- RIS PREVIEW MODAL (purchaser print-preview chrome) --}}
     {{-- ===================================================== --}}
 
-    <div
-        id="risPreviewModal"
-        class="fixed inset-0 z-50 hidden"
-    >
-
-        <div
-            class="flex h-screen items-center justify-center bg-black/60 p-2 backdrop-blur-sm"
-            onclick="window.closeRisPreviewModal()"
-        >
-
-            <div
-                class="relative flex items-center justify-center"
-                onclick="event.stopPropagation()"
-            >
-
-                <div id="risViewContainer" class="relative">
-
-                    <iframe
-                        id="risPreviewIframe"
-                        class="bg-white shadow-2xl"
-                        style="width: 11in; height: 8.5in; border: 1px solid #e5e7eb; transform-origin: center center;"
-                        src="about:blank"
-                        title="RIS Form Preview"
-                    ></iframe>
-
-                </div>
-
-                <div class="fixed top-4 right-4 z-10 flex items-center gap-2">
-
-                    <button
-                        type="button"
-                        class="inline-flex h-9 items-center justify-center rounded-lg bg-white border border-gray-200 px-3 text-xs font-semibold text-gray-700 shadow-sm transition-all duration-200 hover:bg-gray-50 active:scale-95"
-                        onclick="window.printRisPreview()"
-                        title="Print this RIS form"
-                    >
-                        <svg class="h-4 w-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
-                        </svg>
-                        Print
-                    </button>
-
-                    <button
-                        type="button"
-                        class="flex h-9 w-9 items-center justify-center rounded-full bg-white border border-gray-200 text-slate-400 shadow-sm transition-all duration-200 hover:bg-slate-100 hover:text-slate-900 active:scale-90"
-                        onclick="window.closeRisPreviewModal()"
-                        title="Close RIS preview"
-                        aria-label="Close"
-                    >
-                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
-
-                </div>
-
-            </div>
-
-        </div>
-
-    </div>
+    @include('admin.partials.ris-preview-modal', ['zIndex' => '50'])
 
 
     {{-- ===================================================== --}}
@@ -246,47 +187,8 @@
     </div>
 
 
-    {{-- ===================================================== --}}
-    {{-- DIRECT APPROVAL MODAL (purchaser-style physical RIS form) --}}
-    {{-- ===================================================== --}}
-
-    <div
-        id="directApproveModal"
-        class="fixed inset-0 z-50 hidden"
-    >
-        <div
-            class="flex h-screen items-center justify-center bg-black/60 p-2 backdrop-blur-sm md:p-4"
-            onclick="if (event.target === this) closeDirectApproveModal()"
-        >
-            <div
-                class="relative flex max-h-[95vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl"
-                onclick="event.stopPropagation()"
-            >
-                <div class="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-                    <div>
-                        <h3 id="directApproveModalTitle" class="text-lg font-semibold text-gray-900">Admin Approval</h3>
-                        <p id="directApproveModalSubtitle" class="mt-1 text-sm text-gray-500">Sign Issued by on the RIS form, then confirm.</p>
-                    </div>
-                    <button
-                        type="button"
-                        onclick="closeDirectApproveModal()"
-                        class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50"
-                        title="Close"
-                    >
-                        Close
-                    </button>
-                </div>
-
-                <div id="directApproveModalBody" class="flex min-h-0 flex-1 flex-col overflow-hidden bg-white">
-                    <div class="flex flex-1 items-center justify-center gap-3 py-16 text-sm text-gray-500">
-                        <div class="h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-slate-800"></div>
-                        Loading RIS form...
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
+    {{-- Direct approve / forward / amend modal lives on this page --}}
+    @include('admin.procurement-review._direct-approve-modal')
 
 </div>
 
@@ -632,12 +534,6 @@
         modal.classList.remove('hidden');
         modal.style.display = 'block';
 
-        // =====================================================
-        // SCALE RIS TO FIT VIEWPORT
-        // =====================================================
-
-        setTimeout(window.scaleRisPreviewToFit, 100);
-
     };
 
 
@@ -844,14 +740,20 @@
         var subtitle = document.getElementById('directApproveModalSubtitle');
         if (!modal || !body) return;
 
-        var actionMode = (mode === 'forward') ? 'forward' : 'direct';
+        var actionMode = 'direct';
+        if (mode === 'forward') actionMode = 'forward';
+        if (mode === 'amend') actionMode = 'amend';
         if (title) {
-            title.textContent = actionMode === 'forward' ? 'Forward to President' : 'Admin Approval';
+            title.textContent = actionMode === 'forward'
+                ? 'Forward to President'
+                : (actionMode === 'amend' ? 'Return for Amendment' : 'Admin Approval');
         }
         if (subtitle) {
             subtitle.textContent = actionMode === 'forward'
                 ? 'Sign Issued by on the RIS form, then forward to the President.'
-                : 'Sign Issued by on the RIS form, then confirm Admin Approval.';
+                : (actionMode === 'amend'
+                    ? 'Sign Issued by on the RIS form, then enter amendment remarks.'
+                    : 'Sign Issued by on the RIS form, then confirm Admin Approval.');
         }
 
         body.innerHTML = '<div class="flex flex-1 items-center justify-center gap-3 py-16 text-sm text-gray-500"><div class="h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-slate-800"></div>Loading RIS form...</div>';
