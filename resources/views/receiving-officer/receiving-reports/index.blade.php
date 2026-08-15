@@ -19,11 +19,10 @@
     ];
 @endphp
 
-<div class="px-1 pb-8">
-    <div class="mb-7">
-        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">Receiving</p>
-        <h1 class="mt-2 text-3xl font-semibold tracking-tight text-gray-950">Pending Receiving Reports</h1>
-        <p class="mt-2 max-w-2xl text-sm leading-6 text-gray-500">Review delivery documents, physically validate items, then accept or return the report.</p>
+<div class="admin-page space-y-6">
+    <div>
+        <h1 class="admin-page-title">Pending Receiving Reports</h1>
+        <p class="admin-page-subtitle">Review delivery documents, physically validate items, then accept or return the report.</p>
     </div>
 
     <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">

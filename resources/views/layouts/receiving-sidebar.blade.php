@@ -1,3 +1,23 @@
+{{-- Shared design tokens (Inter/Outfit + STI blue) — matches Admin / Maintenance --}}
+@include('layouts.partials.admin-design')
+
+<style>
+    /* Receiving pages render in layouts.app <main>; Poppins is set on * */
+    main,
+    main * {
+        font-family: "Inter", sans-serif !important;
+    }
+
+    main h1,
+    main .admin-page-title,
+    main .dashboard-title,
+    main .stat-value,
+    main .admin-stat-card-value,
+    main [class*="Outfit"] {
+        font-family: "Outfit", sans-serif !important;
+    }
+</style>
+
 <div id="sidebar">
 
     {{-- ====================================== --}}

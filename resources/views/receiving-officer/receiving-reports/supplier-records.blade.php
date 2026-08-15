@@ -2,11 +2,10 @@
 
 @section('content')
 
-<div class="px-1 pb-8">
-    <div class="mb-7">
-        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">Receiving</p>
-        <h1 class="mt-2 text-3xl font-semibold tracking-tight text-gray-950">Supplier Records</h1>
-        <p class="mt-2 max-w-2xl text-sm leading-6 text-gray-500">Supplier information tied to deliveries, receipts, and purchase orders.</p>
+<div class="admin-page space-y-6">
+    <div>
+        <h1 class="admin-page-title">Supplier Records</h1>
+        <p class="admin-page-subtitle">Supplier information tied to deliveries, receipts, and purchase orders.</p>
     </div>
 
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">

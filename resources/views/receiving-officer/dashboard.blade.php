@@ -2,11 +2,10 @@
 
 @section('content')
 
-<div class="px-1 pb-8">
-    <div class="mb-7">
-        <p class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">Receiving Officer</p>
-        <h1 class="mt-2 text-3xl font-semibold tracking-tight text-gray-950">Dashboard</h1>
-        <p class="mt-2 max-w-2xl text-sm leading-6 text-gray-500">Review pending deliveries, validate items, and keep receiving records complete.</p>
+<div class="admin-page space-y-6">
+    <div>
+        <h1 class="admin-page-title">Dashboard</h1>
+        <p class="admin-page-subtitle">Review pending deliveries, validate items, and keep receiving records complete.</p>
     </div>
 
     <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">

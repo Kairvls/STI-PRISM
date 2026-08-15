@@ -13,15 +13,20 @@
         --admin-section-gap: 24px;
     }
 
-    /* Scope to admin main content area */
+    /* Scope to admin main content area — beat global Poppins * rule */
     #main-content,
+    #main-content *,
     .admin-page,
-    .admin-dashboard {
+    .admin-page *,
+    .admin-dashboard,
+    .admin-dashboard * {
         font-family: "Inter", sans-serif;
     }
 
     .admin-page-title,
-    .admin-dashboard .dashboard-title {
+    .admin-dashboard .dashboard-title,
+    .admin-stat-card-value,
+    .page-header h1 {
         font-family: "Outfit", sans-serif;
     }
 
