@@ -1184,30 +1184,45 @@
 
                             <td class="px-5 py-4">
                                 @php
-                                    $statusClass = match($ris->ris_status) {
-                                        'Draft' => 'bg-gray-100 text-gray-700',
-                                        'Submitted' => 'bg-blue-50 text-blue-700',
-                                        'Under Review' => 'bg-amber-50 text-amber-700',
-                                        'Minor Revision' => 'bg-yellow-50 text-amber-600',
-                                        'Resubmitted' => 'bg-indigo-50 text-indigo-700',
-                                        'Approved' => 'bg-green-50 text-green-700',
-                                        'Forwarded to President' => 'bg-blue-50 text-blue-700',
-                                        'Approved by the President' => 'bg-green-50 text-green-700',
-                                        'Directly Approved' => 'bg-sky-50 text-sky-700',
-                                        'Rejected' => 'bg-red-50 text-red-700',
-                                        'Rejected by President' => 'bg-red-50 text-red-700',
-                                        'Rejected by the President' => 'bg-red-50 text-red-700',
-                                        default => 'bg-gray-100 text-gray-600',
-                                    };
-            $statusLabel = $ris->ris_status === 'Directly Approved'
-                ? 'Admin Approved'
-                : (in_array($ris->ris_status, ['Rejected by President', 'Rejected by the President'], true)
-                    ? 'Rejected by the President'
-                    : ($ris->ris_status === 'Forwarded to President'
-                    ? 'Forwarded to President'
-                    : ((in_array($ris->ris_status, ['Approved', 'Approved by the President'], true) && empty($ris->released_to_purchaser) && !empty($ris->ris_approved_by_signature))
-                    ? 'Awaiting Admin'
-                    : ($ris->ris_status === 'Approved by the President' ? 'Approved by the President' : $ris->ris_status))));
+                                    $issuedBy = trim((string) ($ris->ris_issued_by_signature ?? ''));
+                                    $presidentSig = trim((string) ($ris->ris_approved_by_signature ?? ''));
+                                    $awaitingAdmin = in_array($ris->ris_status, ['Approved', 'Approved by the President'], true)
+                                        && $presidentSig !== ''
+                                        && $issuedBy === '';
+
+                                    $statusClass = $awaitingAdmin
+                                        ? 'bg-amber-50 text-amber-700'
+                                        : match($ris->ris_status) {
+                                            'Draft' => 'bg-gray-100 text-gray-700',
+                                            'Submitted' => 'bg-blue-50 text-blue-700',
+                                            'Under Review' => 'bg-amber-50 text-amber-700',
+                                            'Minor Revision' => 'bg-yellow-50 text-amber-600',
+                                            'Resubmitted' => 'bg-indigo-50 text-indigo-700',
+                                            'Approved' => 'bg-green-50 text-green-700',
+                                            'Forwarded to President' => 'bg-blue-50 text-blue-700',
+                                            'Approved by the President' => 'bg-green-50 text-green-700',
+                                            'Directly Approved' => 'bg-sky-50 text-sky-700',
+                                            'Rejected' => 'bg-red-50 text-red-700',
+                                            'Rejected by President' => 'bg-red-50 text-red-700',
+                                            'Rejected by the President' => 'bg-red-50 text-red-700',
+                                            default => 'bg-gray-100 text-gray-600',
+                                        };
+
+                                    if ($ris->ris_status === 'Directly Approved') {
+                                        $statusLabel = 'Admin Approved';
+                                    } elseif (in_array($ris->ris_status, ['Rejected by President', 'Rejected by the President'], true)) {
+                                        $statusLabel = 'Rejected by the President';
+                                    } elseif ($ris->ris_status === 'Forwarded to President' || ($ris->ris_status === 'Approved' && $presidentSig === '')) {
+                                        $statusLabel = 'Forwarded to President';
+                                    } elseif ($awaitingAdmin) {
+                                        $statusLabel = 'Awaiting Admin';
+                                    } elseif (in_array($ris->ris_status, ['Approved', 'Approved by the President'], true) && $presidentSig !== '' && $issuedBy !== '') {
+                                        $statusLabel = 'Approved by the President';
+                                    } elseif ($ris->ris_status === 'Approved by the President') {
+                                        $statusLabel = 'Approved by the President';
+                                    } else {
+                                        $statusLabel = $ris->ris_status;
+                                    }
                                 @endphp
                                 <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium {{ $statusClass }}">
                                     {{ $statusLabel }}
@@ -1284,30 +1299,45 @@
                             </h3>
 
                             @php
-                                $statusClasses = match($ris->ris_status) {
-                                    'Draft' => 'border-gray-200 bg-gray-100 text-gray-700',
-                                    'Submitted' => 'border-blue-200 bg-blue-50 text-blue-700',
-                                    'Under Review' => 'border-amber-200 bg-amber-50 text-amber-700',
-                                    'Minor Revision' => 'border-yellow-300 bg-yellow-50 text-amber-600',
-                                    'Resubmitted' => 'border-indigo-200 bg-indigo-50 text-indigo-700',
-                                    'Approved' => 'border-green-200 bg-green-50 text-green-700',
-                                    'Forwarded to President' => 'border-blue-200 bg-blue-50 text-blue-700',
-                                    'Approved by the President' => 'border-green-200 bg-green-50 text-green-700',
-                                    'Directly Approved' => 'border-sky-200 bg-sky-50 text-sky-700',
-                                    'Rejected' => 'border-red-200 bg-red-50 text-red-700',
-                                    'Rejected by President' => 'border-red-200 bg-red-50 text-red-700',
-                                    'Rejected by the President' => 'border-red-200 bg-red-50 text-red-700',
-                                    default => 'border-gray-200 bg-gray-100 text-gray-700',
-                                };
-                                $statusLabel = $ris->ris_status === 'Directly Approved'
-                                    ? 'Admin Approved'
-                                    : (in_array($ris->ris_status, ['Rejected by President', 'Rejected by the President'], true)
-                                        ? 'Rejected by the President'
-                                        : ($ris->ris_status === 'Forwarded to President'
-                                        ? 'Forwarded to President'
-                                        : ((in_array($ris->ris_status, ['Approved', 'Approved by the President'], true) && empty($ris->released_to_purchaser) && !empty($ris->ris_approved_by_signature))
-                                        ? 'Awaiting Admin'
-                                        : ($ris->ris_status === 'Approved by the President' ? 'Approved by the President' : $ris->ris_status))));
+                                $issuedBy = trim((string) ($ris->ris_issued_by_signature ?? ''));
+                                $presidentSig = trim((string) ($ris->ris_approved_by_signature ?? ''));
+                                $awaitingAdmin = in_array($ris->ris_status, ['Approved', 'Approved by the President'], true)
+                                    && $presidentSig !== ''
+                                    && $issuedBy === '';
+
+                                $statusClasses = $awaitingAdmin
+                                    ? 'border-amber-200 bg-amber-50 text-amber-700'
+                                    : match($ris->ris_status) {
+                                        'Draft' => 'border-gray-200 bg-gray-100 text-gray-700',
+                                        'Submitted' => 'border-blue-200 bg-blue-50 text-blue-700',
+                                        'Under Review' => 'border-amber-200 bg-amber-50 text-amber-700',
+                                        'Minor Revision' => 'border-yellow-300 bg-yellow-50 text-amber-600',
+                                        'Resubmitted' => 'border-indigo-200 bg-indigo-50 text-indigo-700',
+                                        'Approved' => 'border-green-200 bg-green-50 text-green-700',
+                                        'Forwarded to President' => 'border-blue-200 bg-blue-50 text-blue-700',
+                                        'Approved by the President' => 'border-green-200 bg-green-50 text-green-700',
+                                        'Directly Approved' => 'border-sky-200 bg-sky-50 text-sky-700',
+                                        'Rejected' => 'border-red-200 bg-red-50 text-red-700',
+                                        'Rejected by President' => 'border-red-200 bg-red-50 text-red-700',
+                                        'Rejected by the President' => 'border-red-200 bg-red-50 text-red-700',
+                                        default => 'border-gray-200 bg-gray-100 text-gray-700',
+                                    };
+
+                                if ($ris->ris_status === 'Directly Approved') {
+                                    $statusLabel = 'Admin Approved';
+                                } elseif (in_array($ris->ris_status, ['Rejected by President', 'Rejected by the President'], true)) {
+                                    $statusLabel = 'Rejected by the President';
+                                } elseif ($ris->ris_status === 'Forwarded to President' || ($ris->ris_status === 'Approved' && $presidentSig === '')) {
+                                    $statusLabel = 'Forwarded to President';
+                                } elseif ($awaitingAdmin) {
+                                    $statusLabel = 'Awaiting Admin';
+                                } elseif (in_array($ris->ris_status, ['Approved', 'Approved by the President'], true) && $presidentSig !== '' && $issuedBy !== '') {
+                                    $statusLabel = 'Approved by the President';
+                                } elseif ($ris->ris_status === 'Approved by the President') {
+                                    $statusLabel = 'Approved by the President';
+                                } else {
+                                    $statusLabel = $ris->ris_status;
+                                }
                             @endphp
 
                             <span class="rounded-full border px-3 py-1 text-xs font-medium {{ $statusClasses }}">

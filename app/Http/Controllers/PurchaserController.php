@@ -39,7 +39,14 @@ class PurchaserController extends Controller
 
         // Count RIS ready for ATP
         $risReadyForAtp = DB::table('requisition_issue_slip_table')
-            ->where('ris_status', 'Approved')
+            ->where(function ($q) {
+                $q->whereIn('ris_status', ['Approved', 'Directly Approved'])
+                    ->orWhere(function ($president) {
+                        $president->where('ris_status', 'Approved by the President')
+                            ->whereNotNull('ris_issued_by_signature')
+                            ->whereRaw('TRIM(ris_issued_by_signature) != ""');
+                    });
+            })
             ->whereNotExists(function ($query) {
                 $query->select(DB::raw(1))
                     ->from('authority_to_purchase_table')
@@ -513,8 +520,10 @@ class PurchaserController extends Controller
             $ris->risRevisions = $risRevisions->get($ris->ris_id, collect());
             $ris->has_atp = in_array($ris->ris_id, $risHasAtp);
             $ris->released_to_purchaser = in_array((int) $ris->ris_id, $releasedRisIds, true);
+            $issuedBy = trim((string) ($ris->ris_issued_by_signature ?? ''));
             $ris->can_create_atp = $ris->ris_status === 'Directly Approved'
-                || (in_array($ris->ris_status, ['Approved', 'Approved by the President'], true) && $ris->released_to_purchaser);
+                || (in_array($ris->ris_status, ['Approved', 'Approved by the President'], true) && $ris->released_to_purchaser)
+                || ($ris->ris_status === 'Approved by the President' && $issuedBy !== '');
         }
 
         // Dashboard counts

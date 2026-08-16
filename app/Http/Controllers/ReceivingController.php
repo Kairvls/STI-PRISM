@@ -161,14 +161,33 @@ class ReceivingController extends Controller
 
         $request->validate([
             'official_receipt' => ['required', 'string', 'min:3', 'max:80'],
+            'goods_match' => ['required', 'accepted'],
         ]);
+
+        $atpItems = $this->atpItems((int) $atp->authority_purchase_id);
+        $receivedQty = $request->input('received_qty', []);
+        if (!is_array($receivedQty)) {
+            $receivedQty = [];
+        }
+
+        foreach ($atpItems as $item) {
+            $itemId = (int) ($item->atp_item_id ?? 0);
+            $expected = (int) ($item->atp_quantity ?? 0);
+            $received = (int) ($receivedQty[$itemId] ?? $receivedQty[(string) $itemId] ?? -1);
+            if ($received !== $expected) {
+                return back()->withInput()->with(
+                    'error',
+                    'Delivered quantity does not match the purchaser ATP. Return the delivery for correction if the goods do not match.'
+                );
+            }
+        }
 
         $officerId = Auth::id();
         $officerName = Auth::user()->user_full_name ?? 'Receiving Officer';
         $receipt = trim((string) $request->input('official_receipt', ''));
         $procurementRequestId = $this->procurementRequestIdForAtp($atp);
 
-        $reportId = DB::transaction(function () use ($atp, $existing, $checked, $officerId, $officerName, $receipt, $procurementRequestId) {
+        $reportId = DB::transaction(function () use ($atp, $existing, $checked, $officerId, $officerName, $receipt, $procurementRequestId, $atpItems) {
             $now = now();
             $payload = $this->onlyExisting('receiving_reports_table', [
                 'receiving_report_atp_id' => $atp->authority_purchase_id,
@@ -201,7 +220,7 @@ class ReceivingController extends Controller
                 $reportId = (int) DB::table('receiving_reports_table')->insertGetId($payload);
             }
 
-            foreach ($this->atpItems((int) $atp->authority_purchase_id) as $item) {
+            foreach ($atpItems as $item) {
                 $equipmentId = $this->insertEquipment($atp, $item, $now);
                 if (Schema::hasTable('receiving_report_items_table')) {
                     DB::table('receiving_report_items_table')->insert($this->onlyExisting('receiving_report_items_table', [
@@ -235,7 +254,7 @@ class ReceivingController extends Controller
             return $reportId;
         });
 
-        return redirect('/receiving/reports/'.$reportId.'/print')->with('success', 'Delivery accepted. Inventory has been updated.');
+        return redirect('/receiving/reports/'.$reportId.'/print')->with('success', 'Goods verified and accepted. Inventory updated. Purchaser can proceed to liquidation.');
     }
 
     public function returnReport(Request $request, int $atpId): RedirectResponse

@@ -274,10 +274,9 @@ class AuthorityToPurchaseController extends Controller
                 'equipment_table.equipment_id'
             )
 
-            ->where(
-                'requisition_issue_slip_table.ris_status',
-                'Approved'
-            )
+            ->where(function ($q) {
+                $this->applyAtpEligibleRisScope($q);
+            })
 
             // Prevent creating another ATP for the same RIS
             ->whereNotExists(function ($query) {
@@ -410,7 +409,9 @@ class AuthorityToPurchaseController extends Controller
             ->leftJoin('procurement_requests_table', 'requisition_issue_slip_table.ris_procurement_request_id', '=', 'procurement_requests_table.procurement_request_id')
             ->leftJoin('reports_table', 'procurement_requests_table.procurement_request_report_id', '=', 'reports_table.report_id')
             ->leftJoin('equipment_table', 'reports_table.report_equipment_id', '=', 'equipment_table.equipment_id')
-            ->where('requisition_issue_slip_table.ris_status', 'Approved')
+            ->where(function ($q) {
+                $this->applyAtpEligibleRisScope($q);
+            })
             ->whereNotExists(function ($query) {
                 $query->select(DB::raw(1))
                     ->from('authority_to_purchase_table')
@@ -465,10 +466,9 @@ class AuthorityToPurchaseController extends Controller
 
         $ris = DB::table('requisition_issue_slip_table')
             ->where('ris_id', $validated['authority_purchase_ris_id'])
-            ->where('ris_status', 'Approved')
             ->first();
 
-        if (!$ris) {
+        if (!$ris || !$this->risIsEligibleForAtp($ris)) {
             return back()->withInput()->with('error', 'Only approved RIS records may be used to create ATP.');
         }
 
@@ -769,5 +769,38 @@ class AuthorityToPurchaseController extends Controller
             ]);
 
         return back()->with('success', 'ATP restored from archive.');
+    }
+
+    /**
+     * RIS statuses that may start an ATP after the current Admin/President workflow.
+     * Legacy `Approved` stays eligible so existing Purchaser records are unchanged.
+     */
+    private function applyAtpEligibleRisScope($query)
+    {
+        return $query->where(function ($q) {
+            $q->whereIn('requisition_issue_slip_table.ris_status', [
+                'Approved',
+                'Directly Approved',
+            ])->orWhere(function ($president) {
+                $president->where('requisition_issue_slip_table.ris_status', 'Approved by the President')
+                    ->whereNotNull('requisition_issue_slip_table.ris_issued_by_signature')
+                    ->whereRaw('TRIM(requisition_issue_slip_table.ris_issued_by_signature) != ""');
+            });
+        });
+    }
+
+    private function risIsEligibleForAtp(object $ris): bool
+    {
+        $status = (string) ($ris->ris_status ?? '');
+
+        if (in_array($status, ['Approved', 'Directly Approved'], true)) {
+            return true;
+        }
+
+        if ($status === 'Approved by the President') {
+            return trim((string) ($ris->ris_issued_by_signature ?? '')) !== '';
+        }
+
+        return false;
     }
 }
