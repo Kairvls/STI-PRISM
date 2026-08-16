@@ -1684,37 +1684,31 @@ Route::middleware(['auth', 'accounting'])
     ->prefix('accounting')
     ->group(function () {
 
-        Route::get(
-            '/dashboard',
-            [AccountingController::class, 'dashboard']
-        );
+        Route::get('/dashboard', [AccountingController::class, 'dashboard']);
 
-        Route::get(
-            '/request-check',
-            [AccountingController::class, 'requestCheck']
-        );
+        Route::get('/authority-to-purchase', [AccountingController::class, 'authorityToPurchase']);
+        Route::get('/authority-to-purchase/{id}', [AccountingController::class, 'showAtp']);
+        Route::post('/authority-to-purchase/{id}/approve', [AccountingController::class, 'approveAtp']);
+        Route::post('/authority-to-purchase/{id}/revise', [AccountingController::class, 'reviseAtp']);
 
-        Route::get(
-            '/authority-to-purchase',
-            [AccountingController::class, 'authorityToPurchase']
-        );
+        Route::get('/request-check', [AccountingController::class, 'requestCheck']);
+        Route::get('/request-check/{id}', [AccountingController::class, 'showRequestCheck']);
+        Route::post('/request-check/{id}/approve', [AccountingController::class, 'approveRequestCheck']);
+        Route::post('/request-check/{id}/revise', [AccountingController::class, 'reviseRequestCheck']);
+        Route::post('/request-check/{id}/release-funds', [AccountingController::class, 'releaseFunds']);
+        Route::get('/request-check/{id}/attachments/{attachmentId}', [AccountingController::class, 'downloadRfcAttachment']);
 
-        Route::get(
-            '/financial-records',
-            [AccountingController::class, 'financialRecords']
-        );
+        Route::get('/liquidation-reports', [AccountingController::class, 'liquidationReports']);
+        Route::get('/liquidation-reports/{id}', [AccountingController::class, 'showLiquidation']);
+        Route::post('/liquidation-reports/{id}/approve', [AccountingController::class, 'approveLiquidation']);
+        Route::post('/liquidation-reports/{id}/revise', [AccountingController::class, 'reviseLiquidation']);
+        Route::get('/liquidation-reports/{id}/attachments/{attachmentId}', [AccountingController::class, 'downloadLiqAttachment']);
 
-        Route::get(
-            '/liquidation-reports',
-            [AccountingController::class, 'liquidationReports']
-        );
+        Route::get('/history', [AccountingController::class, 'history']);
+        Route::get('/financial-records', [AccountingController::class, 'financialRecords']);
+        Route::get('/reports', [AccountingController::class, 'reports']);
+        Route::get('/notifications', [AccountingController::class, 'notifications']);
 
-        Route::get(
-            '/notifications',
-            [AccountingController::class, 'notifications']
-        );
-
-        
 
     });
 

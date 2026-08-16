@@ -9,5 +9,6 @@
 @section('topbar')
 
     @include('layouts.accounting-topbar')
+    @include('accounting.partials.ui')
 
 @endsection
