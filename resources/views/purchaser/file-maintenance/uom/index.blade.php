@@ -23,7 +23,6 @@
             this.openModal = 'delete';
         }
     }"
-    x-cloak
 >
 
     @if(session('success'))
@@ -124,7 +123,7 @@
         @endif
     </div>
 
-    <div x-show="openModal === 'create' || openModal === 'edit'" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div x-cloak x-show="openModal === 'create' || openModal === 'edit'" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
         <div @click.outside="openModal = null" class="w-full max-w-md rounded-xl bg-white shadow-2xl">
             <form method="POST" :action="openModal === 'create' ? @js(route('purchaser.uom.store')) : (`{{ url('/purchaser/uom') }}/${form.id}`)">
                 @csrf
@@ -150,7 +149,7 @@
         </div>
     </div>
 
-    <div x-show="openModal === 'delete'" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div x-cloak x-show="openModal === 'delete'" x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
         <div @click.outside="openModal = null" class="w-full max-w-md rounded-xl bg-white shadow-2xl">
             <form method="POST" :action="`{{ url('/purchaser/uom') }}/${deleteTarget.id}`">
                 @csrf

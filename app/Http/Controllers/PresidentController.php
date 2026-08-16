@@ -22,16 +22,7 @@ class PresidentController extends Controller
         // ================================
         $totalRisCount = DB::table('requisition_issue_slip_table')->count();
 
-<<<<<<< Updated upstream
-        $pendingApprovalsCount =
-            DB::table('requisition_issue_slip_table')
-                ->where(function ($q) {
-                    $this->scopeAwaitingPresident($q);
-                })
-                ->count();
-=======
         $pendingApprovalsCount = $this->countAwaitingPresidentDecision();
->>>>>>> Stashed changes
 
         $approvedDecisionsCount =
             DB::table('requisition_issue_slip_table')
@@ -141,18 +132,10 @@ class PresidentController extends Controller
             })
             ->count();
 
-<<<<<<< Updated upstream
-        $totalApprovedRis = (clone $forwardedBase)
-            ->where(function ($q) {
-                $this->scopePresidentApproved($q);
-            })
-            ->count();
-=======
         $totalPendingRis = $this->scopeAwaitingPresidentDecision(
             DB::table('requisition_issue_slip_table')
                 ->whereNotNull('ris_requested_by_date')
         )->count();
->>>>>>> Stashed changes
 
         $totalRejectedRis = (clone $forwardedBase)
             ->whereIn('ris_status', ['Rejected', 'Rejected by President', 'Rejected by the President'])
@@ -185,23 +168,6 @@ class PresidentController extends Controller
                 'ris.ris_created_at'
             );
 
-<<<<<<< Updated upstream
-        $status = $request->query('status', 'Pending');
-        if (!in_array($status, ['', 'Pending', 'Approved', 'Rejected'], true)) {
-            $status = 'Pending';
-        }
-
-        if ($status === 'Pending') {
-            $query->where(function ($q) {
-                $this->scopeAwaitingPresident($q, 'ris.');
-            });
-        } elseif ($status === 'Approved') {
-            $query->where(function ($q) {
-                $this->scopePresidentApproved($q, 'ris.');
-            });
-        } elseif ($status === 'Rejected') {
-            $query->whereIn('ris.ris_status', ['Rejected', 'Rejected by President', 'Rejected by the President']);
-=======
         // ================================
         // Status filter
         // ================================
@@ -212,7 +178,6 @@ class PresidentController extends Controller
             } elseif (in_array($status, ['Approved', 'Rejected'], true)) {
                 $query->where('ris.ris_status', $status);
             }
->>>>>>> Stashed changes
         }
 
         // ================================
@@ -364,13 +329,8 @@ class PresidentController extends Controller
             return back()->with('error', 'RIS not found.');
         }
 
-<<<<<<< Updated upstream
-        if (!$this->risIsAwaitingPresident($target)) {
-            return back()->with('error', 'Only RIS records forwarded by Admin can be decided by President.');
-=======
         if ($target->ris_status !== 'Approved' || empty($target->ris_approved_by_date)) {
             return back()->with('error', 'Only RIS records approved by Admin can be decided by President.');
->>>>>>> Stashed changes
         }
 
         $updateValues = [
@@ -532,13 +492,8 @@ class PresidentController extends Controller
             ->withQueryString();
 
         $totalApproved = DB::table('requisition_issue_slip_table')->where('ris_status', 'Approved')->count();
-<<<<<<< Updated upstream
-        $totalRejected = DB::table('requisition_issue_slip_table')->whereIn('ris_status', ['Rejected', 'Rejected by President'])->count();
-        $totalPending = DB::table('requisition_issue_slip_table')->where('ris_status', 'Pending')->count();
-=======
         $totalRejected = DB::table('requisition_issue_slip_table')->where('ris_status', 'Rejected')->count();
         $totalPending = $this->countAwaitingPresidentDecision();
->>>>>>> Stashed changes
         $totalDecisions = $totalApproved + $totalRejected + $totalPending;
 
         if ($request->ajax()) {
@@ -587,23 +542,14 @@ class PresidentController extends Controller
         // ================================
 
         $risApproved = (clone $risQuery)->where('ris_status', 'Approved')->count();
-<<<<<<< Updated upstream
-        $risRejected = (clone $risQuery)->whereIn('ris_status', ['Rejected', 'Rejected by President'])->count();
-        $risPending = (clone $risQuery)->where('ris_status', 'Pending')->count();
-=======
         $risRejected = (clone $risQuery)->where('ris_status', 'Rejected')->count();
         $risPending = $this->scopeAwaitingPresidentDecision(clone $risQuery)->count();
->>>>>>> Stashed changes
         $totalRis = $risApproved + $risRejected + $risPending;
 
         // Total amount (filtered)
         $totalAmountQuery = DB::table('requisition_issue_slip_items_table as items')
             ->join('requisition_issue_slip_table as ris', 'items.ris_id', '=', 'ris.ris_id')
-<<<<<<< Updated upstream
-            ->whereIn('ris.ris_status', ['Approved', 'Rejected', 'Rejected by President', 'Pending']);
-=======
             ->whereIn('ris.ris_status', ['Approved', 'Rejected']);
->>>>>>> Stashed changes
 
         if ($filterMonth && $filterYear) {
             $totalAmountQuery->whereYear('ris.ris_created_at', $filterYear)
@@ -1003,35 +949,6 @@ class PresidentController extends Controller
             abort(404, 'RIS not found');
         }
 
-<<<<<<< Updated upstream
-        $risItems = DB::table('requisition_issue_slip_items_table')
-            ->where('ris_id', $ris->ris_id)
-            ->orderBy('ris_item_id')
-            ->get()
-            ->pad(8, null);
-
-        return view('admin.ris.print', [
-            'ris' => $ris,
-            'risItems' => $risItems,
-            'presidentName' => Auth::user()->user_full_name ?? 'President',
-        ]);
-    }
-
-    public function approveForm($risId)
-    {
-        $ris = DB::table('requisition_issue_slip_table')
-            ->where('ris_id', $risId)
-            ->first();
-
-        abort_if(!$ris, 404);
-
-        if (!$this->risIsAwaitingPresident($ris)) {
-            abort(403, 'Only RIS records forwarded by Admin can be signed by the President.');
-        }
-
-        $risItems = DB::table('requisition_issue_slip_items_table')
-            ->where('ris_id', $risId)
-=======
         $itemsQuery = DB::table('requisition_issue_slip_items_table')
             ->where('requisition_issue_slip_items_table.ris_id', $ris->ris_id);
 
@@ -1084,7 +1001,6 @@ class PresidentController extends Controller
 
         $risItems = $itemsQuery
             ->select($select)
->>>>>>> Stashed changes
             ->orderBy('ris_item_id')
             ->get();
 
@@ -1150,91 +1066,6 @@ class PresidentController extends Controller
         });
     }
 
-<<<<<<< Updated upstream
-    private function risIsAwaitingPresident(object $ris): bool
-    {
-        if (($ris->ris_status ?? '') === 'Directly Approved') {
-            return false;
-        }
-
-        $sig = trim((string) ($ris->ris_approved_by_signature ?? ''));
-        if ($sig !== '') {
-            return false;
-        }
-
-        return in_array((string) ($ris->ris_status ?? ''), [
-            'Forwarded to President',
-            'Approved',
-        ], true)
-            || (
-                ($ris->ris_status ?? '') === 'Pending'
-                && !empty($ris->ris_approved_by_date)
-            );
-    }
-
-    private function scopeAwaitingPresident($query, string $prefix = '')
-    {
-        $status = $prefix . 'ris_status';
-        $sig = $prefix . 'ris_approved_by_signature';
-        $approvedDate = $prefix . 'ris_approved_by_date';
-
-        return $query->where(function ($q) use ($status, $sig, $approvedDate) {
-            $q->where($status, 'Forwarded to President')
-                ->orWhere(function ($legacy) use ($status, $sig) {
-                    $legacy->where($status, 'Approved')
-                        ->where(function ($empty) use ($sig) {
-                            $empty->whereNull($sig)->orWhere($sig, '');
-                        });
-                })
-                ->orWhere(function ($queuedPending) use ($status, $sig, $approvedDate) {
-                    $queuedPending->where($status, 'Pending')
-                        ->whereNotNull($approvedDate)
-                        ->where(function ($empty) use ($sig) {
-                            $empty->whereNull($sig)->orWhere($sig, '');
-                        });
-                });
-        });
-    }
-
-    private function scopePresidentApproved($query, string $prefix = '')
-    {
-        $status = $prefix . 'ris_status';
-        $sig = $prefix . 'ris_approved_by_signature';
-
-        return $query->where(function ($q) use ($status, $sig) {
-            $q->where($status, 'Approved by the President')
-                ->orWhere(function ($legacy) use ($status, $sig) {
-                    $legacy->where($status, 'Approved')
-                        ->whereNotNull($sig)
-                        ->where($sig, '!=', '');
-                });
-        });
-    }
-
-    private function parseFlexibleDate(?string $value): ?string
-    {
-        $value = trim((string) $value);
-        if ($value === '') {
-            return null;
-        }
-
-        foreach (['d/m/Y', 'j/n/Y', 'Y-m-d', 'd-m-Y', 'Y/m/d'] as $format) {
-            try {
-                $parsed = Carbon::createFromFormat($format, $value);
-                if ($parsed !== false) {
-                    return $parsed->format('Y-m-d');
-                }
-            } catch (\Throwable $e) {
-                // try next format
-            }
-        }
-
-        try {
-            return Carbon::parse($value)->format('Y-m-d');
-        } catch (\Throwable $e) {
-            return null;
-        }
-=======
     private function scopeAwaitingPresidentDecision($query, string $alias = '')
     {
         $prefix = $alias !== '' ? $alias . '.' : '';
@@ -1253,6 +1084,5 @@ class PresidentController extends Controller
         return $this->scopeAwaitingPresidentDecision(
             DB::table('requisition_issue_slip_table')
         )->count();
->>>>>>> Stashed changes
     }
 }

@@ -19,40 +19,6 @@
             'unit_cost' => $oldRisItems[$i]['unit_cost'] ?? '',
         ];
     }
-    // #region agent log
-    $__dbgJsOpen = \Illuminate\Support\Js::from(request('ris_id') ? 'ris-' . request('ris_id') : null)->toHtml();
-    $__dbgJsonItems = json_encode($createItemsInit);
-    $__dbgJsonDirective = json_encode($createItemsInit, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT);
-    $__dbgJsSel = \Illuminate\Support\Js::from((string) old('ris_procurement_request_id', request('replacement_request', '')))->toHtml();
-    file_put_contents(base_path('debug-73bc7d.log'), json_encode([
-        'sessionId' => '73bc7d',
-        'runId' => 'post-fix',
-        'hypothesisId' => 'A',
-        'location' => 'purchaser/ris/index.blade.php:createItems',
-        'message' => 'x-data helper quote encoding',
-        'data' => [
-            'jsOpenHasRawQuote' => str_contains($__dbgJsOpen, '"'),
-            'jsOpenSample' => substr($__dbgJsOpen, 0, 80),
-            'jsonHasRawQuote' => str_contains((string) $__dbgJsonItems, '"'),
-            'jsonSample' => substr((string) $__dbgJsonItems, 0, 80),
-            'jsonHexHasRawQuote' => str_contains((string) $__dbgJsonDirective, '"'),
-            'jsonHexSample' => substr((string) $__dbgJsonDirective, 0, 80),
-            'jsSelHasRawQuote' => str_contains($__dbgJsSel, '"'),
-            'jsSelSample' => substr($__dbgJsSel, 0, 80),
-            'createRisModal' => ($errors->any() || request()->filled('replacement_request')) ? 'true' : 'false',
-            'replacementCount' => count($availableReplacementRequests ?? []),
-            'replacementHasGt' => collect($availableReplacementRequests ?? [])->contains(function ($request) {
-                return str_contains((string) ($request->report_problem_description ?? ''), '>')
-                    || str_contains((string) ($request->report_replacement_notes ?? ''), '>')
-                    || str_contains((string) ($request->equipment_name ?? ''), '>');
-            }),
-            'replacementHasQuote' => collect($availableReplacementRequests ?? [])->contains(function ($request) {
-                return str_contains((string) ($request->report_problem_description ?? ''), '"')
-                    || str_contains((string) ($request->report_replacement_notes ?? ''), '"');
-            }),
-        ],
-        'timestamp' => (int) (microtime(true) * 1000),
-    ])."\n", FILE_APPEND);
     $risPageBoot = [
         'openModal' => request('ris_id') ? 'ris-' . request('ris_id') : null,
         'createRisModal' => ($errors->any() || request()->filled('replacement_request')),
@@ -70,7 +36,6 @@
             ];
         })->values(),
     ];
-    // #endregion
 @endphp
 
 <script type="application/json" id="ris-page-boot">@json($risPageBoot)</script>
@@ -2291,15 +2256,6 @@
 
 
 <script>
-    // #region agent log
-    (function () {
-        const bodyText = (document.body && document.body.innerText) ? document.body.innerText.slice(0, 400) : '';
-        const leaked = bodyText.includes('replacementPurpose') || bodyText.includes('refreshRisRecords');
-        const xDataEl = document.querySelector('[x-data]');
-        const xDataLen = xDataEl ? (xDataEl.getAttribute('x-data') || '').length : 0;
-        fetch('http://127.0.0.1:7507/ingest/f066ae43-61c9-47d9-8059-9aeed89263ba',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'73bc7d'},body:JSON.stringify({sessionId:'73bc7d',runId:'post-fix',hypothesisId:'E',location:'purchaser/ris/index.blade.php:script',message:'DOM leak check',data:{leaked,xDataLen,xDataPrefix:(xDataEl ? (xDataEl.getAttribute('x-data')||'').slice(0,120) : null),bodyPrefix:bodyText.slice(0,180)},timestamp:Date.now()})}).catch(()=>{});
-    })();
-    // #endregion
     // =====================================================
     // CREATE RIS: CALCULATE AMOUNT AUTOMATICALLY
     // Amount = Quantity Issued x Unit Cost
@@ -2343,10 +2299,6 @@
         // FIND THE RIS DOCUMENT
         // ========================================================
         const printElement = document.getElementById(elementId);
-
-        // #region agent log
-        fetch('http://127.0.0.1:7507/ingest/f066ae43-61c9-47d9-8059-9aeed89263ba',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ae20eb'},body:JSON.stringify({sessionId:'ae20eb',runId:'pre-fix',hypothesisId:'A',location:'ris/index.blade.php:printRis',message:'printRis lookup',data:{elementId:elementId,found:!!printElement,htmlLength:printElement?(printElement.innerHTML||'').length:0,tag:printElement?printElement.tagName:null,className:printElement?printElement.className:null,matchingIds:Array.from(document.querySelectorAll('[id^="print-ris"], [id^="print-empty"]')).map(function(el){return el.id;})},timestamp:Date.now()})}).catch(function(){});
-        // #endregion
 
         if (!printElement) {
             console.error('RIS print element not found:', elementId);

@@ -343,9 +343,6 @@ Route::middleware(['auth', 'admin'])
             [AdminController::class, 'rejectRis']
         )->name('procurement-review.ris.reject');
 
-<<<<<<< Updated upstream
-Route::get(
-=======
         Route::post(
             '/procurement-review/ris/{ris}/review',
             [AdminController::class, 'startRisReview']
@@ -357,7 +354,6 @@ Route::get(
         )->name('procurement-review.ris.final-reject');
 
         Route::get(
->>>>>>> Stashed changes
             '/procurement-review/ris/{ris}/print',
             [AdminController::class, 'printRis']
         )->name('procurement-review.ris.print');
@@ -1881,17 +1877,13 @@ Route::middleware(['auth', 'receiving'])
 
         Route::get('/dashboard', [ReceivingController::class, 'dashboard']);
 
-<<<<<<< Updated upstream
         Route::get('/quick-access/{section}', [ReceivingController::class, 'quickAccessContent']);
 
-        Route::get('/reports', [ReceivingController::class, 'reports']);
-=======
         Route::get('/reports', [ReceivingController::class, 'reports'])->name('receiving.rr.index');
         Route::post('/reports/{id}/start-review', [ReceivingController::class, 'startRrReview'])->name('receiving.rr.start-review');
         Route::post('/reports/{id}/second-count', [ReceivingController::class, 'secondCount'])->name('receiving.rr.second-count');
         Route::post('/reports/{id}/return', [ReceivingController::class, 'returnRr'])->name('receiving.rr.return');
         Route::post('/reports/{id}/revise', [ReceivingController::class, 'reviseRr'])->name('receiving.rr.revise');
->>>>>>> Stashed changes
 
         Route::get('/delivered-items', [ReceivingController::class, 'deliveredItems']);
 

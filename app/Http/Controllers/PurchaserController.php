@@ -1248,10 +1248,7 @@ class PurchaserController extends Controller
         return view('purchaser.ris.print', [
             'ris' => $ris,
             'risItems' => $risItems,
-<<<<<<< Updated upstream
             'presidentName' => $presidentName,
-=======
->>>>>>> Stashed changes
         ]);
     }
 // =====================================================

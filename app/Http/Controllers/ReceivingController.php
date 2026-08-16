@@ -2,18 +2,12 @@
 
 namespace App\Http\Controllers;
 
-<<<<<<< Updated upstream
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
-=======
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
->>>>>>> Stashed changes
 use Illuminate\View\View;
 use Barryvdh\DomPDF\Facade\Pdf;
 
@@ -84,7 +78,6 @@ class ReceivingController extends Controller
         ]));
     }
 
-<<<<<<< Updated upstream
     public function quickAccessContent(string $section)
     {
         $views = [
@@ -111,7 +104,8 @@ class ReceivingController extends Controller
         };
 
         return view($views[$section], $this->withQueryError($data));
-=======
+    }
+
     public function reports(Request $request)
     {
         $filter = $request->query('status', 'queue');
@@ -246,33 +240,6 @@ class ReceivingController extends Controller
 
             return back()->with('success', 'Receiving Report returned to Purchaser for revision.');
         });
->>>>>>> Stashed changes
-    }
-
-    public function reports(Request $request): View
-    {
-        $this->ensurePendingReceivingReports();
-
-        $rows = $this->pendingRows();
-        $pendingCount = $rows->filter(fn ($row) => ($row->receiving_report_status ?? null) !== 'Returned')->count();
-        $returnedCount = $rows->where('receiving_report_status', 'Returned')->count();
-        $allCount = $rows->count();
-
-        $selectedId = (int) $request->query('atp', 0);
-        $selected = $rows->firstWhere('authority_purchase_id', $selectedId) ?? $rows->first();
-        $items = $selected ? $this->reportLineItems($selected) : collect();
-
-        return view('receiving-officer.receiving-reports.index', $this->withQueryError([
-            'pending' => $rows,
-            'selected' => $selected,
-            'items' => $items,
-            'checklist' => self::CHECKLIST,
-            'filter' => 'pending',
-            'pendingCount' => $pendingCount,
-            'readyCount' => $pendingCount,
-            'returnedCount' => $returnedCount,
-            'allCount' => $allCount,
-        ]));
     }
 
     public function accept(Request $request, int $atpId): RedirectResponse
@@ -474,7 +441,6 @@ class ReceivingController extends Controller
         ]));
     }
 
-<<<<<<< Updated upstream
     public function supplierRecords(Request $request): View
     {
         return view('receiving-officer.receiving-reports.supplier-records', $this->withQueryError([
@@ -1246,7 +1212,8 @@ class ReceivingController extends Controller
 
             return true;
         })->values();
-=======
+    }
+
     private function lockQueueRr($id)
     {
         $rr = DB::table('receiving_reports_table')
@@ -1267,6 +1234,5 @@ class ReceivingController extends Controller
         }
 
         return $rr;
->>>>>>> Stashed changes
     }
 }
