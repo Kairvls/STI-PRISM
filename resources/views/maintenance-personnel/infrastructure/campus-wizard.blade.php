@@ -2,7 +2,7 @@
     x-show="wizardOpen"
     x-cloak
     x-transition.opacity
-    class="fixed inset-0 z-[1000] flex items-center justify-center bg-slate-950/70 p-3 backdrop-blur-sm sm:p-6"
+    class="fixed inset-0 z-[1000] flex items-center justify-center bg-[#0b1220]/70 p-3 sm:p-6"
     role="dialog"
     aria-modal="true"
 >
@@ -190,7 +190,7 @@
                 x-show="unlockPromptOpen"
                 x-cloak
                 x-transition.opacity
-                class="fixed inset-0 z-[1100] flex items-center justify-center bg-slate-950/60 p-4"
+                class="fixed inset-0 z-[1100] flex items-center justify-center bg-[#0b1220]/70 p-4"
                 role="dialog"
                 aria-modal="true"
             >
@@ -718,7 +718,7 @@
                                                                 :name="`floors[${fi}][rooms][${ri}][equipment][${ei}][name]`"
                                                                 placeholder="e.g. Dell Monitor"
                                                                 class="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-xs"
-                                                                title="Equipment name"
+                                                                data-tooltip="Equipment name"
                                                                 :class="getStep3Error('eq-name', fi, ri, ei) ? 'border-red-300 ring-1 ring-red-100' : ''"
                                                             />
                                                             <span
@@ -735,7 +735,7 @@
                                                                 x-model="eq.category_id"
                                                                 :name="`floors[${fi}][rooms][${ri}][equipment][${ei}][category_id]`"
                                                                 class="mt-1 w-full rounded-lg cursor-pointer border border-slate-200 px-2.5 py-2 text-xs"
-                                                                title="Category"
+                                                                data-tooltip="Category"
                                                             >
                                                                 <option value="">
                                                                     Select category
@@ -758,7 +758,7 @@
                                                                 x-model="eq.quantity"
                                                                 :name="`floors[${fi}][rooms][${ri}][equipment][${ei}][quantity]`"
                                                                 class="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-xs"
-                                                                title="Quantity"
+                                                                data-tooltip="Quantity"
                                                             />
                                                         </label>
 
@@ -768,7 +768,7 @@
                                                                 x-model="eq.condition"
                                                                 :name="`floors[${fi}][rooms][${ri}][equipment][${ei}][condition]`"
                                                                 class="mt-1 w-full rounded-lg cursor-pointer border border-slate-200 px-2.5 py-2 text-xs"
-                                                                title="Condition"
+                                                                data-tooltip="Condition"
                                                             >
                                                                 <option>Good</option>
                                                                 <option>Damaged</option>
@@ -784,7 +784,7 @@
                                                                 x-model="eq.zone"
                                                                 :name="`floors[${fi}][rooms][${ri}][equipment][${ei}][zone]`"
                                                                 class="mt-1 w-full rounded-lg cursor-pointer border border-slate-200 px-2.5 py-2 text-xs"
-                                                                title="Placement zone"
+                                                                data-tooltip="Placement zone"
                                                             >
                                                                 <option>
                                                                     Front Wall

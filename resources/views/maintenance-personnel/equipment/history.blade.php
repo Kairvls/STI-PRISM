@@ -5,13 +5,6 @@
 @section('content')
 <style>[x-cloak]{display:none!important}</style>
 <div class="space-y-6">
-    <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-            <h1 class="text-4xl font-black text-slate-900">Equipment History</h1>
-            <p class="mt-1 text-slate-500">Review past reports for each piece of equipment, including disposed units.</p>
-        </div>
-    </div>
-
     <form method="GET" class="flex flex-wrap items-center gap-2">
         <input type="text" name="search" value="{{ request('search') }}" placeholder="Search equipment, room, or category" class="h-10 w-full max-w-md rounded-xl border-0 bg-slate-50 px-3.5 text-sm ring-1 ring-slate-200/80 outline-none focus:bg-white focus:ring-2 focus:ring-slate-900/10" />
         <button class="h-10 rounded-xl bg-neutral-100 px-4 text-sm font-medium text-slate-700 ring-1 ring-slate-200/80">Search</button>
@@ -48,7 +41,7 @@
                         </td>
                         <td class="px-5 py-4 text-right">
                             <button type="button" @click="open = true" class="rounded-lg px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">View</button>
-                            <div x-show="open" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-[2px]">
+                            <div x-show="open" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-[#0b1220]/70 p-4">
                                 <div class="max-h-[88vh] w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
                                     <div class="flex items-start justify-between px-6 pt-6">
                                         <div>

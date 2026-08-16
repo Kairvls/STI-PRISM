@@ -3,11 +3,7 @@
 @section ("title", "Upload Proof Image")
 
 @section ("content")
-    <div class="mx-auto max-w-5xl">
-        <div class="mb-8">
-            <h1 class="text-3xl font-extrabold">Upload Proof Images</h1>
-        </div>
-
+    <div>
         <div class="rounded-3xl bg-[#1E293B] p-8">
             <form action="#" method="POST" enctype="multipart/form-data">
                 @csrf

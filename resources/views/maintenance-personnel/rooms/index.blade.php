@@ -15,12 +15,7 @@
 @endphp
 
 <div class="space-y-6">
-    <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-            <h1 class="text-4xl font-black text-slate-900">Rooms</h1>
-            <p class="mt-1 text-slate-500">Add rooms here, then open a room to see its equipment.</p>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
+    <div class="flex flex-wrap items-center justify-end gap-2">
             <form method="POST" action="{{ route('maintenance.rooms.merge') }}">
                 @csrf
                 <button type="submit" class="inline-flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-slate-700 ring-1 ring-slate-200/80 transition hover:bg-slate-50">
@@ -35,7 +30,6 @@
                 <i data-lucide="plus" class="h-4 w-4"></i>
                 Add room
             </button>
-        </div>
     </div>
 
     @if (($duplicateRoomGroups ?? 0) > 0)
@@ -136,7 +130,7 @@
 @if ($errors->any())
 <div
     id="roomValidationModal"
-    class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-[3px]"
+    class="fixed inset-0 z-[60] flex items-center justify-center bg-[#0b1220]/70 p-4"
 >
     <div class="w-full max-w-md overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/20">
         <div class="px-6 pt-6">
@@ -156,7 +150,7 @@
 
 <div
     id="addRoomModal"
-    class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/30 p-4 backdrop-blur-[2px]"
+    class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
 >
     <form
         action="{{ route('maintenance.rooms.store') }}"
@@ -223,7 +217,7 @@
 
 <div
     id="editRoomModal"
-    class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/30 p-4 backdrop-blur-[2px]"
+    class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
 >
     <form
         id="editRoomForm"
@@ -286,7 +280,7 @@
 
 <div
     id="roomPeekModal"
-    class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/30 p-4 backdrop-blur-[2px]"
+    class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
 >
     <div class="flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
         <div class="flex items-start justify-between px-6 pt-6">

@@ -4,12 +4,6 @@
 
 @section ("content")
     <div class="space-y-6">
-        <div>
-            <h1 class="text-4xl font-black text-slate-900">QR Code Tools</h1>
-
-            <p class="text-slate-500">Generate and manage equipment QR codes.</p>
-        </div>
-
         {{-- ===================================================== --}}
         {{-- QR TOOLS DASHBOARD --}}
         {{-- ===================================================== --}}
@@ -362,7 +356,10 @@
         {{-- EQUIPMENT QR CODE LIST --}}
         {{-- ========================================================= --}}
 
-        <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <section
+            class="overflow-hidden rounded-2xl border border-slate-200 bg-white"
+            x-data="qrBatchPrint()"
+        >
 
             {{-- ===================================================== --}}
             {{-- HEADER --}}
@@ -391,7 +388,7 @@
                         </h2>
 
                         <p class="mt-0.5 text-xs text-slate-400">
-                            Manage and generate equipment identification codes
+                            Select multiple rows to print different QR labels on one A4 sheet
                         </p>
 
                     </div>
@@ -399,19 +396,34 @@
                 </div>
 
 
-                {{-- TOTAL COUNT --}}
-                <div
-                    class="inline-flex w-fit items-center gap-2
-                        rounded-lg border border-slate-200
-                        bg-slate-50 px-3 py-2
-                        text-xs font-medium text-slate-500"
-                >
-                    <i
-                        data-lucide="package"
-                        class="h-3.5 w-3.5"
-                    ></i>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button
+                        type="button"
+                        x-show="selected.length > 0"
+                        x-cloak
+                        @click="printSelected()"
+                        class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3 py-2 text-xs font-medium text-white transition hover:bg-slate-800"
+                    >
+                        <i data-lucide="printer" class="h-3.5 w-3.5"></i>
+                        Print
+                        <span x-text="selected.length"></span>
+                        selected
+                    </button>
 
-                    {{ $equipment->total() }} total
+                    {{-- TOTAL COUNT --}}
+                    <div
+                        class="inline-flex w-fit items-center gap-2
+                            rounded-lg border border-slate-200
+                            bg-slate-50 px-3 py-2
+                            text-xs font-medium text-slate-500"
+                    >
+                        <i
+                            data-lucide="package"
+                            class="h-3.5 w-3.5"
+                        ></i>
+
+                        {{ $equipment->total() }} total
+                    </div>
                 </div>
 
             </div>
@@ -703,6 +715,16 @@
                                 tracking-[0.08em] text-black"
                         >
 
+                            <th class="w-12 px-5 py-3">
+                                <input
+                                    type="checkbox"
+                                    class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
+                                    :checked="allSelectableSelected()"
+                                    @change="toggleSelectAll($event.target.checked)"
+                                    aria-label="Select all generated QR codes on this page"
+                                >
+                            </th>
+
                             <th class="px-5 py-3">
                                 Equipment
                             </th>
@@ -748,6 +770,25 @@
                                 class="group transition-colors
                                     hover:bg-slate-50/70"
                             >
+
+                                {{-- ===================================== --}}
+                                {{-- SELECT --}}
+                                {{-- ===================================== --}}
+
+                                <td class="px-5 py-4">
+                                    @if ($hasQrCode)
+                                        <input
+                                            type="checkbox"
+                                            class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
+                                            value="{{ $item->equipment_qr_code }}"
+                                            :checked="isSelected(@js($item->equipment_qr_code))"
+                                            @change="toggleCode(@js($item->equipment_qr_code), $event.target.checked)"
+                                            aria-label="Select {{ $item->equipment_name }} for printing"
+                                        >
+                                    @else
+                                        <span class="block h-4 w-4"></span>
+                                    @endif
+                                </td>
 
                                 {{-- ===================================== --}}
                                 {{-- EQUIPMENT --}}
@@ -886,7 +927,7 @@
                                                         truncate font-mono
                                                         text-[11px]
                                                         text-slate-400"
-                                                    title="{{ $item->equipment_qr_code }}"
+                                                    data-tooltip="{{ $item->equipment_qr_code }}"
                                                 >
                                                     {{ $item->equipment_qr_code }}
                                                 </p>
@@ -973,6 +1014,8 @@
                                                 text-slate-400 transition
                                                 hover:bg-slate-200/70
                                                 hover:text-slate-700"
+                                            data-tooltip="Actions"
+                                            aria-label="QR actions"
                                         >
                                             <i
                                                 data-lucide="ellipsis"
@@ -1093,75 +1136,10 @@
 
                                             <button
                                                 type="button"
-
                                                 @click="
                                                     open = false;
-
-                                                    const qrId =
-                                                        @js($item->equipment_qr_code);
-
-
-                                                    navigator.clipboard
-                                                        .writeText(qrId)
-
-                                                        .then(() => {
-
-                                                            Swal.fire({
-                                                                toast: true,
-
-                                                                position: 'bottom-end',
-
-                                                                icon: 'success',
-
-                                                                title: 'QR ID copied',
-
-                                                                html: `
-                                                                    <span class='font-mono text-xs text-slate-500'>
-                                                                        ${qrId}
-                                                                    </span>
-                                                                `,
-
-                                                                width: 310,
-
-                                                                showConfirmButton: false,
-
-                                                                timer: 2200,
-
-                                                                timerProgressBar: true,
-
-                                                                customClass: {
-                                                                    popup: 'rounded-xl border border-slate-200 shadow-lg',
-                                                                    title: 'text-sm font-semibold text-slate-900',
-                                                                    htmlContainer: 'mt-1'
-                                                                }
-                                                            });
-
-                                                        })
-
-                                                        .catch(() => {
-
-                                                            Swal.fire({
-                                                                icon: 'error',
-
-                                                                title: 'Copy Failed',
-
-                                                                text: 'The QR ID could not be copied.',
-
-                                                                confirmButtonText: 'Close',
-
-                                                                customClass: {
-                                                                    popup: 'rounded-2xl',
-
-                                                                    confirmButton:
-                                                                        'rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-medium text-white'
-                                                                },
-
-                                                                buttonsStyling: false
-                                                            });
-
-                                                        });
+                                                    copyQrId(@js($item->equipment_qr_code));
                                                 "
-
                                                 class="flex w-full items-center
                                                     gap-2.5 rounded-lg
                                                     px-3 py-2
@@ -1332,7 +1310,7 @@
                             <tr>
 
                                 <td
-                                    colspan="5"
+                                    colspan="6"
                                     class="px-6 py-16 text-center"
                                 >
 
@@ -1467,6 +1445,43 @@
 
         @endif
 
+            {{-- ===================================================== --}}
+            {{-- BATCH PRINT BAR --}}
+            {{-- ===================================================== --}}
+
+            <div
+                x-show="selected.length > 0"
+                x-cloak
+                x-transition
+                class="flex flex-col gap-3 border-t border-slate-200 bg-slate-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
+            >
+                <p class="text-sm text-slate-600">
+                    <span class="font-semibold text-slate-900" x-text="selected.length"></span>
+                    QR label<span x-show="selected.length !== 1">s</span> selected
+                    <span class="text-slate-400">·</span>
+                    <span class="text-slate-500">Prints up to 14 per A4 page</span>
+                </p>
+
+                <div class="flex items-center gap-2">
+                    <button
+                        type="button"
+                        @click="clearSelection()"
+                        class="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-500 transition hover:bg-white hover:text-slate-900"
+                    >
+                        Clear
+                    </button>
+
+                    <button
+                        type="button"
+                        @click="printSelected()"
+                        class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3.5 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
+                    >
+                        <i data-lucide="printer" class="h-4 w-4"></i>
+                        Print selected
+                    </button>
+                </div>
+            </div>
+
         </section>
     </div>
 
@@ -1482,357 +1497,147 @@
         x-cloak
         x-transition.opacity
         style="display: none;"
-        class="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]"
+        class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-[2px]"
     >
 
         <div
             @click.outside="close()"
             x-transition
-            class="flex w-full max-w-3xl flex-col rounded-3xl border border-slate-200 bg-white shadow-[0_30px_80px_rgba(15,23,42,.18)] h-[85vh] xl:h-auto"
+            class="flex w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-[0_24px_64px_rgba(15,23,42,.16)]"
         >
 
-            {{-- ================================================= --}}
             {{-- HEADER --}}
-            {{-- ================================================= --}}
-
-            <div
-                class="flex items-start justify-between border-b border-slate-100 px-8 py-6"
-            >
-
-                <div>
-
-                    <p
-                        class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400"
-                    >
-                        Equipment QR Label
-                    </p>
-
-                    <h2
-                        class="mt-2 text-2xl font-bold tracking-tight text-slate-900"
-                    >
+            <div class="flex items-start justify-between gap-4 px-6 pt-6 pb-2">
+                <div class="min-w-0">
+                    <h2 class="text-lg font-semibold tracking-tight text-slate-900">
                         Preview QR Label
                     </h2>
-
-                    <p class="mt-2 text-sm text-slate-500">
-                        Review the label before printing or downloading.
-                    </p>
-
+                    <p class="mt-1 truncate text-sm text-slate-500" x-text="equipment"></p>
                 </div>
 
                 <button
+                    type="button"
                     @click="close()"
-                    class="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                    aria-label="Close modal"
+                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
                 >
-                    <i data-lucide="x" class="h-5 w-5"></i>
+                    <i data-lucide="x" class="h-4 w-4"></i>
                 </button>
-
             </div>
 
-            {{-- ================================================= --}}
             {{-- CONTENT --}}
-            {{-- ================================================= --}}
-
-            <div
-                class="flex-1 overflow-y-auto"
-            >
-
-                <div
-                    class="grid grid-cols-1 gap-8 p-8 lg:grid-cols-[320px_1fr]"
-                >
-
-                    {{-- ================================================= --}}
-                    {{-- QR CARD --}}
-                    {{-- ================================================= --}}
-
-                    <div
-                        class="rounded-2xl border border-slate-200 bg-slate-50 p-6"
-                    >
-
-                        <div
-                            class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+            <div class="px-6 py-6">
+                <div class="flex flex-col items-center">
+                    <div class="rounded-xl border border-slate-200 bg-white p-4">
+                        <img
+                            :src="qrImage"
+                            alt="Equipment QR code"
+                            class="h-52 w-52 object-contain"
                         >
-
-                            <img
-                                :src="qrImage"
-                                class="mx-auto h-64 w-64 object-contain"
-                            >
-
-                        </div>
-
-                        <div class="mt-6 text-center">
-
-                            <h3
-                                class="text-lg font-semibold text-slate-900"
-                                x-text="equipment"
-                            ></h3>
-
-                            <p class="mt-1 text-sm text-slate-500">
-                                Equipment QR Label
-                            </p>
-
-                        </div>
-
                     </div>
-
-                    {{-- ================================================= --}}
-                    {{-- DETAILS --}}
-                    {{-- ================================================= --}}
-
-                    <div>
-
-                        <h3
-                            class="mb-5 text-sm font-semibold uppercase tracking-wide text-slate-500"
-                        >
-                            Equipment Information
-                        </h3>
-
-                        <div
-                            class="grid grid-cols-1 gap-4 sm:grid-cols-2"
-                        >
-
-                            <div
-                                class="rounded-xl border border-slate-200 p-4"
-                            >
-                                <p class="text-xs text-slate-400">
-                                    Asset Tag
-                                </p>
-
-                                <p
-                                    class="mt-2 text-sm font-semibold text-slate-900"
-                                    x-text="assetTag || 'Not Assigned'"
-                                ></p>
-                            </div>
-
-                            <div
-                                class="rounded-xl border border-slate-200 p-4"
-                            >
-                                <p class="text-xs text-slate-400">
-                                    Serial Number
-                                </p>
-
-                                <p
-                                    class="mt-2 text-sm font-semibold text-slate-900"
-                                    x-text="serial || 'Not Available'"
-                                ></p>
-                            </div>
-
-                            <div
-                                class="rounded-xl border border-slate-200 p-4"
-                            >
-                                <p class="text-xs text-slate-400">
-                                    Room
-                                </p>
-
-                                <p
-                                    class="mt-2 text-sm font-semibold text-slate-900"
-                                    x-text="room"
-                                ></p>
-                            </div>
-
-                            <div
-                                class="rounded-xl border border-slate-200 p-4"
-                            >
-                                <p class="text-xs text-slate-400">
-                                    Category
-                                </p>
-
-                                <p
-                                    class="mt-2 text-sm font-semibold text-slate-900"
-                                    x-text="category"
-                                ></p>
-                            </div>
-
-                        </div>
-
-                        <div
-                            class="mt-6 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-5 py-4"
-                        >
-
-                            <p class="text-sm text-slate-500">
-
-                                This label will be used for equipment identification,
-                                maintenance tracking, and inventory verification.
-
-                            </p>
-
-                        </div>
-
-                    </div>
-
+                    <p
+                        class="mt-4 max-w-full break-all text-center font-mono text-sm font-semibold tracking-wide text-slate-900"
+                        x-text="qrCode"
+                    ></p>
                 </div>
 
+                <dl class="mt-8 divide-y divide-slate-100 border-t border-slate-100">
+                    <div class="flex items-baseline justify-between gap-6 py-3">
+                        <dt class="text-sm text-slate-500">Asset Tag</dt>
+                        <dd
+                            class="truncate text-sm font-medium text-slate-900"
+                            x-text="assetTag || 'Not Assigned'"
+                        ></dd>
+                    </div>
+                    <div class="flex items-baseline justify-between gap-6 py-3">
+                        <dt class="text-sm text-slate-500">Serial Number</dt>
+                        <dd
+                            class="truncate text-sm font-medium text-slate-900"
+                            x-text="serial || 'Not Available'"
+                        ></dd>
+                    </div>
+                    <div class="flex items-baseline justify-between gap-6 py-3">
+                        <dt class="text-sm text-slate-500">Room</dt>
+                        <dd
+                            class="truncate text-sm font-medium text-slate-900"
+                            x-text="room"
+                        ></dd>
+                    </div>
+                    <div class="flex items-baseline justify-between gap-6 py-3">
+                        <dt class="text-sm text-slate-500">Category</dt>
+                        <dd
+                            class="truncate text-sm font-medium text-slate-900"
+                            x-text="category"
+                        ></dd>
+                    </div>
+                </dl>
             </div>
 
-            {{-- ================================================= --}}
             {{-- FOOTER --}}
-            {{-- ================================================= --}}
-
-            <div
-                class="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-8 py-5 rounded-b-3xl"
-            >
-
+            <div class="flex items-center justify-end gap-2 border-t border-slate-100 px-6 py-4">
                 <button
+                    type="button"
                     @click="close()"
-                    class="rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+                    class="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
                 >
                     Cancel
                 </button>
 
-                <div class="flex items-center gap-3">
-
-                    {{-- ============================================= --}}
-                    {{-- DOWNLOAD DROPDOWN --}}
-                    {{-- ============================================= --}}
-
-                    <div
-                        
-                        class="relative"
-                    >
-
-                        {{-- DOWNLOAD BUTTON --}}
-                        <button
-                            type="button"
-
-                            @click="downloadOpen = !downloadOpen"
-
-                            class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-                        >
-
-                            <i
-                                data-lucide="download"
-                                class="h-4 w-4"
-                            ></i>
-
-                            Download
-
-                            <i
-                                data-lucide="chevron-down"
-                                class="h-4 w-4"
-                            ></i>
-
-                        </button>
-
-
-                        {{-- ============================================= --}}
-                        {{-- DROPDOWN MENU --}}
-                        {{-- ============================================= --}}
-
-                        <div
-
-                            x-show="downloadOpen"
-
-                            x-cloak
-
-                            x-transition
-
-                            @click.outside="downloadOpen = false"
-
-                            class="absolute bottom-full right-0 z-50 mb-2 w-56 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
-
-                        >
-
-                            {{-- ============================================= --}}
-                            {{-- PDF LABEL --}}
-                            {{-- ============================================= --}}
-
-                            <button
-                                type="button"
-
-                                @click="downloadQrFile('pdf')"
-
-                                class="flex w-full items-center gap-3
-                                    px-4 py-3 text-left text-sm
-                                    text-slate-700 transition
-                                    hover:bg-slate-50"
-                            >
-                                <i
-                                    data-lucide="file-text"
-                                    class="h-4 w-4"
-                                ></i>
-
-                                PDF Label
-                            </button>
-
-
-                            {{-- ============================================= --}}
-                            {{-- PNG IMAGE --}}
-                            {{-- ============================================= --}}
-
-                            <button
-                                type="button"
-
-                                @click="downloadQrFile('png')"
-
-                                class="flex w-full items-center gap-3
-                                    border-t border-slate-100
-                                    px-4 py-3 text-left text-sm
-                                    text-slate-700 transition
-                                    hover:bg-slate-50"
-                            >
-                                <i
-                                    data-lucide="image"
-                                    class="h-4 w-4"
-                                ></i>
-
-                                PNG Image
-                            </button>
-
-
-                            {{-- ============================================= --}}
-                            {{-- SVG VECTOR --}}
-                            {{-- ============================================= --}}
-
-                            <button
-                                type="button"
-
-                                @click="downloadQrFile('svg')"
-
-                                class="flex w-full items-center gap-3
-                                    border-t border-slate-100
-                                    px-4 py-3 text-left text-sm
-                                    text-slate-700 transition
-                                    hover:bg-slate-50"
-                            >
-                                <i
-                                    data-lucide="shapes"
-                                    class="h-4 w-4"
-                                ></i>
-
-                                SVG Vector
-                            </button>
-
-                        </div>
-
-                    </div>
-
-                    {{-- ===================================== --}}
-                    {{-- PRINT QR --}}
-                    {{-- OPENS PRINT PAGE IN NEW TAB --}}
-                    {{-- ===================================== --}}
-
+                <div class="relative">
                     <button
                         type="button"
-
-                        @click="printQr()"
-
-                        class="inline-flex items-center gap-2
-                            rounded-xl bg-slate-900
-                            px-5 py-2.5
-                            text-sm font-medium text-white
-                            transition hover:bg-slate-800"
+                        @click="downloadOpen = !downloadOpen"
+                        class="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                     >
-
-                        <i
-                            data-lucide="printer"
-                            class="h-4 w-4"
-                        ></i>
-
-                        Print QR
-
+                        <i data-lucide="download" class="h-4 w-4"></i>
+                        Download
+                        <i data-lucide="chevron-down" class="h-3.5 w-3.5 text-slate-400"></i>
                     </button>
 
+                    <div
+                        x-show="downloadOpen"
+                        x-cloak
+                        x-transition
+                        @click.outside="downloadOpen = false"
+                        class="absolute bottom-full right-0 z-50 mb-2 w-48 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-lg"
+                    >
+                        <button
+                            type="button"
+                            @click="downloadQrFile('pdf')"
+                            class="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+                        >
+                            <i data-lucide="file-text" class="h-4 w-4 text-slate-400"></i>
+                            PDF Label
+                        </button>
+
+                        <button
+                            type="button"
+                            @click="downloadQrFile('png')"
+                            class="flex w-full items-center gap-2.5 border-t border-slate-100 px-3.5 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+                        >
+                            <i data-lucide="image" class="h-4 w-4 text-slate-400"></i>
+                            PNG Image
+                        </button>
+
+                        <button
+                            type="button"
+                            @click="downloadQrFile('svg')"
+                            class="flex w-full items-center gap-2.5 border-t border-slate-100 px-3.5 py-2.5 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+                        >
+                            <i data-lucide="shapes" class="h-4 w-4 text-slate-400"></i>
+                            SVG Vector
+                        </button>
+                    </div>
                 </div>
 
+                <button
+                    type="button"
+                    @click="printQr()"
+                    class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3.5 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
+                >
+                    <i data-lucide="printer" class="h-4 w-4"></i>
+                    Print QR
+                </button>
             </div>
 
         </div>
@@ -1886,10 +1691,138 @@
     </style>
 
     <script>
-        // =====================================
-        // GLOBAL QR PRINT FUNCTION
-        // USED BY ACTION MENU AND PREVIEW MODAL
-        // =====================================
+        window.qrPageSelectableCodes = @json(
+            $equipment
+                ->filter(fn ($item) => !empty($item->equipment_qr_code))
+                ->pluck('equipment_qr_code')
+                ->values()
+        );
+
+        function qrBatchPrint() {
+            return {
+                selected: [],
+                pageCodes: window.qrPageSelectableCodes || [],
+
+                isSelected(code) {
+                    return this.selected.includes(code);
+                },
+
+                toggleCode(code, checked) {
+                    if (checked) {
+                        if (!this.selected.includes(code)) {
+                            this.selected.push(code);
+                        }
+                        return;
+                    }
+
+                    this.selected = this.selected.filter((item) => item !== code);
+                },
+
+                allSelectableSelected() {
+                    return this.pageCodes.length > 0
+                        && this.pageCodes.every((code) => this.selected.includes(code));
+                },
+
+                someSelectableSelected() {
+                    return this.pageCodes.some((code) => this.selected.includes(code));
+                },
+
+                toggleSelectAll(checked) {
+                    if (checked) {
+                        this.selected = Array.from(
+                            new Set([...this.selected, ...this.pageCodes])
+                        );
+                        return;
+                    }
+
+                    this.selected = this.selected.filter(
+                        (code) => !this.pageCodes.includes(code)
+                    );
+                },
+
+                clearSelection() {
+                    this.selected = [];
+                },
+
+                printSelected() {
+                    if (!this.selected.length) {
+                        return;
+                    }
+
+                    const printUrl =
+                        '/maintenance/equipment/qr/print?codes=' +
+                        this.selected.map(encodeURIComponent).join(',');
+
+                    Swal.fire({
+                        title: 'Preparing Print',
+                        html: `
+                            <div class="mt-2 text-sm text-slate-500">
+                                Preparing ${this.selected.length} QR label${this.selected.length === 1 ? '' : 's'} for printing...
+                            </div>
+                            <div class="mt-5 h-1 w-full overflow-hidden rounded-full bg-slate-100">
+                                <div class="qr-print-loading-line h-full rounded-full bg-slate-900"></div>
+                            </div>
+                        `,
+                        width: 380,
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        showConfirmButton: false,
+                        customClass: {
+                            popup: 'rounded-2xl border border-slate-200 shadow-xl',
+                        },
+                    });
+
+                    setTimeout(() => {
+                        window.open(printUrl, '_blank');
+                        Swal.close();
+                    }, 700);
+                },
+            };
+        }
+
+        function copyQrId(qrId) {
+            if (!qrId) {
+                return;
+            }
+
+            navigator.clipboard
+                .writeText(qrId)
+                .then(function () {
+                    if (typeof window.showMpToast === 'function') {
+                        window.showMpToast(qrId, {
+                            title: 'QR ID copied',
+                            type: 'success',
+                            timer: 2800,
+                        });
+                        return;
+                    }
+
+                    Swal.fire({
+                        toast: true,
+                        position: 'bottom-end',
+                        icon: 'success',
+                        title: 'QR ID copied',
+                        text: qrId,
+                        showConfirmButton: false,
+                        timer: 2200,
+                        timerProgressBar: true,
+                    });
+                })
+                .catch(function () {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Copy Failed',
+                        text: 'The QR ID could not be copied.',
+                        confirmButtonText: 'Close',
+                        customClass: {
+                            popup: 'rounded-2xl',
+                            confirmButton:
+                                'rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-medium text-white',
+                        },
+                        buttonsStyling: false,
+                    });
+                });
+        }
 
         // =====================================
         // GLOBAL QR PRINT FUNCTION

@@ -3,14 +3,7 @@
 @section ("title", "Assign Report")
 
 @section ("content")
-    <div class="mx-auto max-w-5xl">
-        <!-- PAGE HEADER -->
-        <div class="mb-8">
-            <h1 class="text-3xl font-extrabold text-white">Assign Report</h1>
-
-            <p class="mt-2 text-gray-400">Assign maintenance personnel to handle this report.</p>
-        </div>
-
+    <div>
         <!-- SUCCESS MESSAGE -->
         @if (session("success"))
             <div

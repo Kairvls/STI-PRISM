@@ -5,17 +5,7 @@
 @section ("content")
     <div class="space-y-6">
         <!-- PAGE HEADER -->
-        <div
-            class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
-        >
-            <div>
-                <h1 class="text-4xl font-black text-slate-900">
-                    Inventory & Status
-                </h1>
-
-                <p class="mt-1 text-slate-500">Monitor equipment inventory, condition, and operational status.</p>
-            </div>
-
+        <div class="flex justify-end">
             <button
                 type="button"
                 onclick="openAddEquipmentModal()"
@@ -922,7 +912,7 @@
                                     hover:bg-slate-50
                                     hover:text-slate-900"
 
-                                title="Clear filters"
+                                data-tooltip="Clear filters"
                             >
 
                                 <i
@@ -981,6 +971,24 @@
 
                     <tbody>
                         @forelse ($equipment as $item)
+                            @php
+                                $conditionClass = match ($item->equipment_condition_status ?? "") {
+                                    "Good" => "bg-emerald-50 text-emerald-700",
+                                    "Fair" => "bg-sky-50 text-sky-700",
+                                    "Damaged" => "bg-amber-50 text-amber-700",
+                                    "Critical" => "bg-rose-50 text-rose-700",
+                                    default => "bg-slate-100 text-slate-600",
+                                };
+
+                                $inventoryClass = match ($item->equipment_inventory_status ?? "") {
+                                    "Active" => "bg-emerald-50 text-emerald-700",
+                                    "Borrowed" => "bg-sky-50 text-sky-700",
+                                    "Under Maintenance" => "bg-amber-50 text-amber-700",
+                                    "For Replacement" => "bg-orange-50 text-orange-700",
+                                    "Disposed" => "bg-rose-50 text-rose-700",
+                                    default => "bg-slate-100 text-slate-600",
+                                };
+                            @endphp
                             <tr class="border-b border-slate-100 transition duration-200 hover:bg-slate-50">
                                 <td class="px-6 py-4">
                                     <div class="flex flex-col">
@@ -1023,21 +1031,13 @@
                                 </td>
 
                                 <td class="px-4 py-4 text-center">
-                                    <span
-                                        class="inline-flex items-center gap-1.5 rounded-md bg-green-50 px-2.5 py-1 text-xs font-semibold text-green-700"
-                                    >
-                                        <span class="h-2 w-2 rounded-full bg-green-500"></span>
-
+                                    <span class="inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-medium {{ $conditionClass }}">
                                         {{ $item->equipment_condition_status }}
                                     </span>
                                 </td>
 
                                 <td class="px-4 py-4 text-center">
-                                    <span
-                                        class="inline-flex items-center gap-1.5 rounded-md bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700"
-                                    >
-                                        <span class="h-2 w-2 rounded-full bg-blue-500"></span>
-
+                                    <span class="inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-medium {{ $inventoryClass }}">
                                         {{ $item->equipment_inventory_status }}
                                     </span>
                                 </td>
@@ -1079,6 +1079,8 @@
 
                                             )"
                                             class="flex h-9 items-center justify-center gap-x-1.5 rounded-lg  bg-slate-100 px-3 text-xs  text-slate-800 transition shadow-sm hover:bg-slate-200 hover:text-gray-600"
+                                            data-tooltip="View equipment"
+                                            aria-label="View equipment"
                                         >
                                             <i data-lucide="eye" class="h-4 w-4"></i>
                                         </button>
@@ -1113,6 +1115,8 @@
 
                                             )"
                                             class="flex h-9 w-9 items-center justify-center rounded-lg bg-[#FFF200] text-black transition hover:bg-[#E6E600]"
+                                            data-tooltip="Edit equipment"
+                                            aria-label="Edit equipment"
                                         >
                                             <i data-lucide="edit-3" class="h-4 w-4"></i>
                                         </button>
@@ -1318,7 +1322,7 @@
 
         <div
         id="viewEquipmentModal"
-        class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/30 p-4 backdrop-blur-[2px]"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
     >
         <div class="flex w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
             <div class="flex items-start justify-between gap-4 px-6 pt-6">
@@ -1366,7 +1370,7 @@
     </div>
 <div
         id="addEquipmentModal"
-        class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/30 p-4 backdrop-blur-[2px]"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
     >
         <form action="/maintenance/equipment/store" method="POST" class="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
             @csrf
@@ -1396,6 +1400,7 @@
                                     <option value="{{ $category->equipment_category_id }}">{{ $category->equipment_category_name }}</option>
                                 @endforeach
                             </select>
+                            <p class="mt-1.5 text-xs text-slate-400">Filled from the equipment name. You can still choose another category.</p>
                         </div>
                         <div>
                             <label for="add_equipment_room" class="{{ $eqLabel }}">Room <span class="text-rose-500">*</span></label>
@@ -1463,7 +1468,7 @@
 
     <div
         id="editEquipmentModal"
-        class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/30 p-4 backdrop-blur-[2px]"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
     >
         <form id="editEquipmentForm" method="POST" class="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
             @csrf
@@ -1620,6 +1625,7 @@
 
             modal.classList.remove("hidden");
             modal.classList.add("flex");
+            document.getElementById("add_equipment_name")?.dispatchEvent(new Event("equipment-category-reset"));
         }
 
         function closeAddEquipmentModal() {
@@ -1691,5 +1697,7 @@
                 .classList.remove("flex");
         }
     </script>
+
+    @include('layouts.partials.equipment-category-detect')
 
 @endsection

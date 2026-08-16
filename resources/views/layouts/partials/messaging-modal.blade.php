@@ -3,27 +3,39 @@
 {{-- Shared across all authenticated modules --}}
 {{-- ===================================================== --}}
 <div
-    id="messageToastContainer"
-    class="fixed bottom-5 right-5 z-[10000] flex w-[340px]
-           max-w-[calc(100vw-2rem)] flex-col gap-2"
+    id="messagingHoverTooltip"
+    class="messaging-hover-tooltip pointer-events-none fixed z-[10080] hidden max-w-[240px] rounded-lg bg-gray-900 px-2.5 py-1.5 text-center text-[11px] font-medium leading-snug text-white shadow-[0_8px_24px_rgba(15,23,42,0.28)]"
+    role="tooltip"
 ></div>
+
 
 <div id="messagingModal" class="hidden" aria-hidden="true">
     {{-- Backdrop --}}
-    <div id="messagingModalBackdrop" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm opacity-0 transition-opacity duration-75">
+    <div id="messagingModalBackdrop" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 opacity-0 transition-opacity duration-75">
         {{-- Modal Container --}}
-        <div id="messagingModalContainer" class="relative mx-4 w-full max-w-[1100px] h-[78vh] max-h-[660px] bg-white rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.25)] overflow-hidden scale-[0.98] opacity-0 transition-all duration-75 flex">
+        <div id="messagingModalContainer" class="relative mx-0 sm:mx-4 w-full max-w-[1100px] h-[100dvh] sm:h-[min(86dvh,860px)] max-h-[100dvh] sm:max-h-[calc(100dvh-1.5rem)] bg-white rounded-none sm:rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.25)] overflow-hidden scale-[0.98] opacity-0 transition-all duration-150 flex">
 
             {{-- ===================================== --}}
             {{-- LEFT PANEL --}}
             {{-- ===================================== --}}
-            <aside class="w-full md:w-[340px] lg:w-[360px] shrink-0 border-r border-gray-200 flex flex-col bg-white">
+            <aside id="modalConversationsPane" class="w-full md:w-[min(360px,38%)] shrink-0 border-r border-gray-200 flex flex-col bg-white min-h-0 min-w-0">
 
                 {{-- Header --}}
-                <div class="p-4 border-b border-gray-100">
-                    <div>
-                        <h2 class="text-base font-bold text-gray-900">Messages</h2>
-                        <p class="text-[11px] text-gray-500 mt-0.5">Your conversations</p>
+                <div class="border-b border-gray-100 p-4 max-md:pr-14">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <h2 class="text-base font-bold text-gray-900">Messages</h2>
+                            <p class="text-[11px] text-gray-500 mt-0.5">Your conversations</p>
+                        </div>
+                        <button
+                            type="button"
+                            id="messagingFullscreenButton"
+                            class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
+                            data-tooltip="Full screen"
+                            aria-label="Full screen"
+                        >
+                            <i data-lucide="maximize-2" class="h-4 w-4"></i>
+                        </button>
                     </div>
 
                     {{-- Tabs --}}
@@ -126,8 +138,17 @@
                     {{-- ====================================== --}}
                     <div
                         id="modalChatHeaderNormal"
-                        class="flex w-full min-w-0 items-center gap-3 py-4 pl-4 pr-14"
+                        class="flex w-full min-w-0 items-center gap-2 sm:gap-3 py-3 sm:py-4 pl-2 sm:pl-4 pr-3 sm:pr-4"
                     >
+                        <button
+                            type="button"
+                            id="modalChatBackButton"
+                            class="mr-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-700 transition hover:bg-gray-100 md:hidden"
+                            data-tooltip="Back to conversations"
+                            aria-label="Back to conversations"
+                        >
+                            <i data-lucide="chevron-left" class="h-5 w-5"></i>
+                        </button>
                         <div id="modalChatAvatar" class="h-9 w-9 shrink-0 rounded-full bg-gradient-to-br from-emerald-100 to-emerald-200 flex items-center justify-center text-xs font-semibold text-emerald-700"></div>
 
                         <div class="min-w-0 flex-1">
@@ -146,7 +167,7 @@
                                 type="button"
                                 id="modalAudioCallButton"
                                 class="flex h-9 w-9 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
-                                title="Audio call"
+                                data-tooltip="Audio call"
                                 aria-label="Audio call"
                             >
                                 <i data-lucide="phone" class="h-5 w-5"></i>
@@ -156,7 +177,7 @@
                                 type="button"
                                 id="modalVideoCallButton"
                                 class="flex h-9 w-9 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
-                                title="Video call"
+                                data-tooltip="Video call"
                                 aria-label="Video call"
                             >
                                 <i data-lucide="video" class="h-5 w-5"></i>
@@ -166,10 +187,33 @@
                                 type="button"
                                 id="modalConversationInfoButton"
                                 class="flex h-9 w-9 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-900"
-                                title="Conversation info"
+                                data-tooltip="Conversation info"
                                 aria-label="Conversation info"
                             >
                                 <i data-lucide="info" class="h-5 w-5"></i>
+                            </button>
+
+                            <button
+                                type="button"
+                                id="messagingSmartCloseButtonThread"
+                                class="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-700 transition hover:bg-gray-200 hover:text-gray-900"
+                                data-tooltip="Close"
+                                aria-label="Close"
+                            >
+                                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <path d="M18 6 6 18"></path>
+                                    <path d="m6 6 12 12"></path>
+                                </svg>
+                            </button>
+
+                            <button
+                                type="button"
+                                id="messagingFullscreenButtonThread"
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 md:hidden"
+                                data-tooltip="Full screen"
+                                aria-label="Full screen"
+                            >
+                                <i data-lucide="maximize-2" class="h-4 w-4"></i>
                             </button>
                         </div>
                     </div>
@@ -205,7 +249,7 @@
                             type="button"
                             id="modalConversationSearchPrevious"
                             class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-30"
-                            title="Previous result"
+                            data-tooltip="Previous result"
                             aria-label="Previous result"
                             disabled
                         >
@@ -216,7 +260,7 @@
                             type="button"
                             id="modalConversationSearchNext"
                             class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-30"
-                            title="Next result"
+                            data-tooltip="Next result"
                             aria-label="Next result"
                             disabled
                         >
@@ -226,6 +270,22 @@
                         
                     </div>
                 </div>
+
+                <button
+                    type="button"
+                    id="modalPinnedBanner"
+                    class="hidden w-full shrink-0 border-b border-gray-100 bg-white px-4 py-2 text-left transition hover:bg-gray-50"
+                    data-tooltip="View pinned messages"
+                >
+                    <div class="flex min-w-0 items-center gap-3">
+                        <i data-lucide="pin" class="h-4 w-4 shrink-0 text-gray-500"></i>
+                        <div class="min-w-0 flex-1">
+                            <p id="modalPinnedBannerSender" class="truncate text-xs font-semibold text-gray-900"></p>
+                            <p id="modalPinnedBannerText" class="truncate text-xs text-gray-500"></p>
+                        </div>
+                        <i data-lucide="chevron-down" class="h-4 w-4 shrink-0 text-gray-400"></i>
+                    </div>
+                </button>
 
                 {{-- Conversation Container --}}
                 <div
@@ -372,7 +432,7 @@
                             hover:bg-gray-50
                             hover:text-gray-900
                         "
-                        title="Jump to latest message"
+                        data-tooltip="Jump to latest message"
                         aria-label="Jump to latest message"
                     >
                         <i data-lucide="arrow-down" class="h-5 w-5"></i>
@@ -439,7 +499,7 @@
                                         justify-center rounded-full
                                         text-gray-400 transition
                                         hover:bg-gray-200 hover:text-gray-700"
-                                    title="Cancel reply"
+                                    data-tooltip="Cancel reply"
                                 >
                                     <i data-lucide="x" class="h-4 w-4"></i>
                                 </button>
@@ -482,7 +542,7 @@
                                     hover:bg-gray-100
                                     hover:text-gray-900
                                 "
-                                title="Attach files"
+                                data-tooltip="Attach files"
                             >
                                 <i
                                     data-lucide="paperclip"
@@ -587,7 +647,7 @@
                                     hover:opacity-80
                                     active:scale-95
                                 "
-                                title="Send a like"
+                                data-tooltip="Send a like"
                                 aria-label="Send a like"
                             >
                                 <svg
@@ -619,7 +679,8 @@
                 id="modalConversationInfoSidebar"
                 class="
                     hidden
-                    w-[330px]
+                    w-full
+                    md:w-[min(330px,34%)]
                     shrink-0
                     flex-col
                     overflow-hidden
@@ -732,7 +793,7 @@
                                         hover:text-gray-900
                                         group-hover:opacity-100
                                     "
-                                    title="Change group picture"
+                                    data-tooltip="Change group picture"
                                     aria-label="Change group picture"
                                 >
                                     <i
@@ -807,7 +868,7 @@
                                         hover:text-gray-900
                                         group-hover:opacity-100
                                     "
-                                    title="Edit group name"
+                                    data-tooltip="Edit group name"
                                     aria-label="Edit group name"
                                 >
                                     <i
@@ -1254,7 +1315,7 @@
                                 hover:bg-gray-100
                                 hover:text-gray-900
                             "
-                            title="Back"
+                            data-tooltip="Back"
                             aria-label="Back"
                         >
                             <i data-lucide="arrow-left" class="h-4 w-4"></i>
@@ -1324,7 +1385,7 @@
                                     hover:bg-gray-400
                                     hover:text-gray-900
                                 "
-                                title="Clear search"
+                                data-tooltip="Clear search"
                             >
                                 <i data-lucide="x" class="h-4 w-4"></i>
                             </button>
@@ -1433,7 +1494,7 @@
                                 hover:bg-gray-100
                                 hover:text-gray-900
                             "
-                            title="Back"
+                            data-tooltip="Back"
                         >
                             <i data-lucide="arrow-left" class="h-4 w-4"></i>
                         </button>
@@ -1557,13 +1618,23 @@
             {{-- ===================================== --}}
             {{-- CLOSE BUTTON --}}
             {{-- ===================================== --}}
-            <button
-                type="button"
-                id="messagingSmartCloseButton"
-                class="absolute top-4 right-4 z-20 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-gray-500 shadow-sm border border-gray-200 transition hover:bg-gray-100 hover:text-gray-900"
+            <div
+                id="messagingModalWindowControls"
+                class="absolute top-3 right-3 z-30 flex items-center gap-1"
             >
-                <i data-lucide="x" class="h-4 w-4"></i>
-            </button>
+                <button
+                    type="button"
+                    id="messagingSmartCloseButton"
+                    class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-800 shadow-sm border border-gray-300 transition hover:bg-gray-200 hover:text-gray-900"
+                    data-tooltip="Close"
+                    aria-label="Close"
+                >
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M18 6 6 18"></path>
+                        <path d="m6 6 12 12"></path>
+                    </svg>
+                </button>
+            </div>
 
         </div>
     </div>
@@ -1588,7 +1659,7 @@
         class="relative flex min-h-full items-center justify-center p-4"
     >
         <div
-            class="relative flex max-h-[620px] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
+            class="relative flex max-h-[min(620px,90dvh)] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
         >
 
             {{-- HEADER --}}
@@ -2401,7 +2472,7 @@
             hover:bg-white/20
         "
         aria-label="Close picture"
-        title="Close"
+        data-tooltip="Close"
     >
         <i data-lucide="x" class="h-6 w-6"></i>
     </button>
@@ -2479,9 +2550,9 @@
 
         {{-- Active call controls --}}
         <div id="privateCallActiveControls" class="absolute bottom-5 left-1/2 z-30 flex -translate-x-1/2 items-center gap-3 rounded-full bg-black/40 px-4 py-3 backdrop-blur">
-            <button type="button" id="privateCallMuteButton" class="flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25" title="Mute"><i data-lucide="mic" class="h-5 w-5"></i></button>
-            <button type="button" id="privateCallCameraButton" class="hidden h-12 w-12 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25" title="Camera"><i data-lucide="video" class="h-5 w-5"></i></button>
-            <button type="button" id="privateCallEndButton" class="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700" title="End call"><i data-lucide="phone-off" class="h-5 w-5"></i></button>
+            <button type="button" id="privateCallMuteButton" class="flex h-12 w-12 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25" data-tooltip="Mute"><i data-lucide="mic" class="h-5 w-5"></i></button>
+            <button type="button" id="privateCallCameraButton" class="hidden h-12 w-12 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25" data-tooltip="Camera"><i data-lucide="video" class="h-5 w-5"></i></button>
+            <button type="button" id="privateCallEndButton" class="flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white hover:bg-red-700" data-tooltip="End call"><i data-lucide="phone-off" class="h-5 w-5"></i></button>
         </div>
 
         {{-- Call ended controls (Messenger-style) --}}
@@ -2507,6 +2578,12 @@
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
         const currentUserId = {{ auth()->id() }};
         let currentConversationId = null;
+        let lastPinNoticeEl = null;
+        let lastUnpinNoticeEl = null;
+        let pinNoticeExpiresAt = 0;
+        let unpinNoticeExpiresAt = 0;
+        const PIN_NOTICE_WINDOW_MS = 10000;
+        let pendingLeaveConversationId = null;
         let conversationOpenToken = 0;
         let messagesAbortController = null;
         let messagesPage = 1;
@@ -2969,10 +3046,7 @@
 
         function showIncomingMessageToast(msg) {
 
-            const container =
-                document.getElementById('messageToastContainer');
-
-            if (!container || !msg) {
+            if (!msg) {
                 return;
             }
 
@@ -2994,6 +3068,10 @@
                 Number(currentConversationId) ===
                 Number(msg.conversation_id)
             ) {
+                return;
+            }
+
+            if (isConversationMuted(msg.conversation_id)) {
                 return;
             }
 
@@ -3034,6 +3112,44 @@
             if (preview.length > 90) {
                 preview =
                     preview.substring(0, 90) + '...';
+            }
+
+            // Maintenance layout: use shared PRISM toast card
+            if (
+                document.body.classList.contains('mp-layout') &&
+                typeof window.showMpToast === 'function'
+            ) {
+                const result = window.showMpToast(preview, {
+                    title: senderName,
+                    type: 'info',
+                    timer: 8000,
+                });
+
+                // Allow click-to-open by attaching once toast exists
+                const host = document.getElementById('mp-toast-host');
+                const card = host && host.lastElementChild;
+                if (card) {
+                    card.style.cursor = 'pointer';
+                    card.addEventListener('click', async (event) => {
+                        if (event.target.closest('.mp-toast-close')) {
+                            return;
+                        }
+                        if (result && typeof result.close === 'function') {
+                            result.close();
+                        }
+                        openMessagingModal();
+                        await openModalConversation(msg.conversation_id);
+                        await updateTopbarMessageBadge();
+                    });
+                }
+                return;
+            }
+
+            const container =
+                document.getElementById('messageToastContainer');
+
+            if (!container) {
+                return;
             }
 
 
@@ -3264,8 +3380,75 @@
                 return;
             }
 
-            lucide.createIcons({
-                root: root || document.getElementById('messagingModal') || document
+            const protectConvertedIcons = (scope) => {
+                if (!scope?.querySelectorAll) {
+                    return;
+                }
+
+                scope.querySelectorAll('svg[data-lucide]').forEach(svg => {
+                    if (!svg.hasAttribute('data-lucide-ready')) {
+                        svg.setAttribute(
+                            'data-lucide-ready',
+                            svg.getAttribute('data-lucide') || ''
+                        );
+                    }
+                    svg.removeAttribute('data-lucide');
+                });
+            };
+
+            const paint = (scope) => {
+                if (!scope) {
+                    return;
+                }
+
+                protectConvertedIcons(scope);
+
+                const hasPending =
+                    (scope.tagName === 'I' && scope.hasAttribute('data-lucide')) ||
+                    Boolean(scope.querySelectorAll && scope.querySelector('i[data-lucide]'));
+
+                if (!hasPending) {
+                    return;
+                }
+
+                try {
+                    lucide.createIcons({
+                        root: scope.tagName === 'I'
+                            ? (scope.parentElement || scope)
+                            : scope
+                    });
+                } catch (error) {
+                    try {
+                        lucide.createIcons();
+                    } catch (ignored) {}
+                }
+            };
+
+            if (root) {
+                paint(root);
+                return;
+            }
+
+            [
+                document.getElementById('messagingModal'),
+                document.getElementById('pinnedMessagesModal'),
+                document.getElementById('imagePreviewOverlay'),
+                document.getElementById('messageForwardOverlay'),
+                document.getElementById('messageUnsendOverlay'),
+                document.getElementById('messageReactionsOverlay'),
+                document.getElementById('messageActionConfirmOverlay'),
+                document.getElementById('groupMuteModal'),
+                document.getElementById('modalGroupPictureViewer'),
+                document.getElementById('renameGroupModal'),
+                document.getElementById('createGroupChatModal'),
+                document.getElementById('leaveGroupConfirmModal'),
+                document.getElementById('addGroupPeopleModal'),
+                document.getElementById('privateIncomingCallModal'),
+                document.getElementById('privateActiveCallModal'),
+            ].filter(Boolean).forEach(paint);
+
+            document.querySelectorAll('i[data-lucide]').forEach(icon => {
+                paint(icon.parentElement || icon);
             });
         }
 
@@ -5598,7 +5781,7 @@
                                         bg-gray-100
                                     "
                                     data-conversation-asset-index="${index}"
-                                    title="${escapeHtml(
+                                    data-tooltip="${escapeHtml(
                                         attachment.name ||
                                         'Image'
                                     )}"
@@ -5871,12 +6054,11 @@
             sidebar.classList.remove('hidden');
             sidebar.classList.add('flex');
 
-            // =====================================================
-            // HIDE MAIN MODAL X WHILE CONVERSATION INFO IS OPEN
-            // User closes this sidebar with the info icon instead.
-            // =====================================================
             document
                 .getElementById('messagingSmartCloseButton')
+                ?.classList.add('hidden');
+            document
+                .getElementById('messagingSmartCloseButtonThread')
                 ?.classList.add('hidden');
 
             const chatHeaderNormal =
@@ -5908,11 +6090,11 @@
             sidebar?.classList.add('hidden');
             sidebar?.classList.remove('flex');
 
-            // =====================================================
-            // SHOW MAIN MODAL X AGAIN AFTER INFO SIDEBAR CLOSES
-            // =====================================================
             document
                 .getElementById('messagingSmartCloseButton')
+                ?.classList.remove('hidden');
+            document
+                .getElementById('messagingSmartCloseButtonThread')
                 ?.classList.remove('hidden');
 
             const chatHeaderNormal =
@@ -6175,7 +6357,7 @@ if (!isGroup) {
                                     hover:text-gray-900
                                 "
                                 data-user-id="${userId}"
-                                title="Member options"
+                                data-tooltip="Member options"
                                 aria-label="Member options"
                             >
                                 <i
@@ -6399,6 +6581,13 @@ if (!isGroup) {
 
             refreshGroupMuteButton();
             closeGroupMuteModal();
+            if (data.is_muted) {
+                mutedConversationIds.add(Number(currentConversationId));
+            } else {
+                mutedConversationIds.delete(Number(currentConversationId));
+            }
+            updateTopbarMessageBadge();
+            scheduleLoadModalConversations();
         }
 
 
@@ -6460,6 +6649,13 @@ if (!isGroup) {
 
             refreshGroupMuteButton();
             openGroupMuteModal();
+            if (data.is_muted) {
+                mutedConversationIds.add(Number(currentConversationId));
+            } else {
+                mutedConversationIds.delete(Number(currentConversationId));
+            }
+            updateTopbarMessageBadge();
+            scheduleLoadModalConversations();
         }
 
 
@@ -6774,9 +6970,11 @@ if (!isGroup) {
         }
 
 
-        function openLeaveGroupConfirmModal() {
+        function openLeaveGroupConfirmModal(conversationId = null) {
 
             closeGroupMemberMenu();
+            pendingLeaveConversationId =
+                Number(conversationId || currentConversationId || 0) || null;
 
             const modal =
                 document.getElementById(
@@ -6799,21 +6997,22 @@ if (!isGroup) {
 
             modal?.classList.add('hidden');
             modal?.classList.remove('flex');
+            pendingLeaveConversationId = null;
         }
 
 
         async function confirmLeaveCurrentGroup() {
 
-            if (
-                !currentConversationId ||
-                currentConversationType !== 'group'
-            ) {
+            const conversationId =
+                pendingLeaveConversationId || currentConversationId;
+
+            if (!conversationId) {
                 return;
             }
 
             const response =
                 await fetch(
-                    `/messages/conversations/${currentConversationId}/leave`,
+                    `/messages/conversations/${conversationId}/leave`,
                     {
                         method: 'POST',
                         headers: {
@@ -6839,37 +7038,39 @@ if (!isGroup) {
             closeLeaveGroupConfirmModal();
             closeConversationInfoSidebar();
 
-            currentConversationId = null;
-            currentConversationData = null;
-            currentConversationType = 'direct';
-            currentConversationUser = null;
-            currentConversationUserName = '';
+            if (Number(currentConversationId) === Number(conversationId)) {
+                currentConversationId = null;
+                currentConversationData = null;
+                currentConversationType = 'direct';
+                currentConversationUser = null;
+                currentConversationUserName = '';
 
-            const messagesContainer =
-                document.getElementById(
-                    'modalMessagesContainer'
-                );
+                const messagesContainer =
+                    document.getElementById(
+                        'modalMessagesContainer'
+                    );
 
-            const chatHeader =
-                document.getElementById(
-                    'modalChatHeader'
-                );
+                const chatHeader =
+                    document.getElementById(
+                        'modalChatHeader'
+                    );
 
-            const composer =
-                document.getElementById(
-                    'modalComposer'
-                );
+                const composer =
+                    document.getElementById(
+                        'modalComposer'
+                    );
 
-            const chatEmpty =
-                document.getElementById(
-                    'modalChatEmptyState'
-                );
+                const chatEmpty =
+                    document.getElementById(
+                        'modalChatEmptyState'
+                    );
 
-            messagesContainer?.classList.add('hidden');
-            chatHeader?.classList.add('hidden');
-            composer?.classList.add('hidden');
-            chatEmpty?.classList.remove('hidden');
-            updateScrollToLatestButton();
+                messagesContainer?.classList.add('hidden');
+                chatHeader?.classList.add('hidden');
+                composer?.classList.add('hidden');
+                chatEmpty?.classList.remove('hidden');
+                updateScrollToLatestButton();
+            }
 
             await loadModalConversations();
         }
@@ -9156,8 +9357,10 @@ if (!isGroup) {
             container.classList.remove('scale-[0.98]', 'scale-[0.95]', 'opacity-0');
             container.classList.add('scale-100', 'opacity-100');
 
-            lucideCreateIcons(modal);
-            switchModalTab('conversations');
+            restoreMessagingFullscreenPreference();
+            showMessagingConversationList();
+            switchModalTab('conversations', { refresh: true });
+            requestAnimationFrame(() => lucideCreateIcons(modal));
         };
 
         window.closeMessagingModal = function() {
@@ -9311,47 +9514,98 @@ if (!isGroup) {
             lucideCreateIcons();
         }
 
-        const messagingSmartCloseButton =
-            document.getElementById(
-                'messagingSmartCloseButton'
+        function handleMessagingSmartClose() {
+            const searchBar = document.getElementById(
+                'modalConversationSearchBar'
             );
+            const searchIsOpen =
+                searchBar &&
+                !searchBar.classList.contains('hidden');
 
-        messagingSmartCloseButton?.addEventListener(
-            'click',
-            function () {
-
-                const searchBar =
-                    document.getElementById(
-                        'modalConversationSearchBar'
-                    );
-
-                // =============================================
-                // CHECK IF SEARCH IS CURRENTLY OPEN
-                // =============================================
-                const searchIsOpen =
-                    searchBar &&
-                    !searchBar.classList.contains('hidden');
-
-
-                // =============================================
-                // SEARCH IS OPEN
-                // Close search only.
-                // =============================================
-                if (searchIsOpen) {
-
-                    closeConversationMessageSearch();
-
-                    return;
-                }
-
-
-                // =============================================
-                // SEARCH IS NOT OPEN
-                // Close the entire Messages modal.
-                // =============================================
-                window.closeMessagingModal();
+            if (searchIsOpen) {
+                closeConversationMessageSearch();
+                return;
             }
-        );
+
+            window.closeMessagingModal();
+        }
+
+        [
+            document.getElementById('messagingSmartCloseButton'),
+            document.getElementById('messagingSmartCloseButtonThread')
+        ].forEach(button => {
+            button?.addEventListener('click', handleMessagingSmartClose);
+        });
+
+        [
+            document.getElementById('messagingFullscreenButton'),
+            document.getElementById('messagingFullscreenButtonThread')
+        ].forEach(button => {
+            button?.addEventListener('click', toggleMessagingFullscreen);
+        });
+
+        document
+            .getElementById('modalChatBackButton')
+            ?.addEventListener('click', () => {
+                resetModalChat();
+            });
+
+        function isMessagingMobile() {
+            return window.matchMedia('(max-width: 767px)').matches;
+        }
+
+        function showMessagingConversationList() {
+            document
+                .getElementById('messagingModalContainer')
+                ?.classList.remove('messaging-thread-open');
+        }
+
+        function showMessagingThreadPane() {
+            document
+                .getElementById('messagingModalContainer')
+                ?.classList.add('messaging-thread-open');
+        }
+
+        function isMessagingFullscreen() {
+            return document
+                .getElementById('messagingModalContainer')
+                ?.classList.contains('is-fullscreen');
+        }
+
+        function restoreMessagingFullscreenPreference() {
+            const saved = sessionStorage.getItem('prismMessagingFullscreen') === '1';
+            setMessagingFullscreen(saved);
+        }
+
+        function setMessagingFullscreen(on) {
+            const container = document.getElementById('messagingModalContainer');
+            if (!container) return;
+
+            container.classList.toggle('is-fullscreen', Boolean(on));
+
+            try {
+                sessionStorage.setItem('prismMessagingFullscreen', on ? '1' : '0');
+            } catch (error) {
+                // Ignore private-mode storage errors.
+            }
+
+            [
+                document.getElementById('messagingFullscreenButton'),
+                document.getElementById('messagingFullscreenButtonThread')
+            ].forEach(button => {
+                if (!button) return;
+                button.setAttribute('data-tooltip', on ? 'Exit full screen' : 'Full screen');
+                button.setAttribute('aria-label', on ? 'Exit full screen' : 'Full screen');
+                button.innerHTML = on
+                    ? '<i data-lucide="minimize-2" class="h-4 w-4"></i>'
+                    : '<i data-lucide="maximize-2" class="h-4 w-4"></i>';
+                lucideCreateIcons(button);
+            });
+        }
+
+        function toggleMessagingFullscreen() {
+            setMessagingFullscreen(!isMessagingFullscreen());
+        }
 
 
         async function loadAllMessagesForConversationSearch() {
@@ -9768,16 +10022,19 @@ if (!isGroup) {
 
             remoteTypingTimeouts.clear();
             if (chatHeader) chatHeader.classList.add('hidden');
+            document.getElementById('modalPinnedBanner')?.classList.add('hidden');
             if (composer) composer.classList.add('hidden');
             if (chatArea) {
                 chatArea.classList.remove('hidden');
-                chatArea.classList.add('md:flex');
+                chatArea.classList.add('flex', 'md:flex');
             }
 
+            showMessagingConversationList();
             updateScrollToLatestButton();
         }
 
-        window.switchModalTab = function(tab) {
+        window.switchModalTab = function(tab, options = {}) {
+            const refresh = options.refresh !== false;
             const conversationsSection = document.getElementById('modalConversationsSection');
             const usersSection = document.getElementById('modalUsersSection');
             const conversationsTab = document.getElementById('modalTabConversations');
@@ -9793,7 +10050,9 @@ if (!isGroup) {
                 if (conversationsCache) {
                     renderModalConversations(conversationsCache);
                 }
-                loadModalConversations();
+                if (refresh || !conversationsCache) {
+                    loadModalConversations();
+                }
             } else {
                 conversationsSection?.classList.add('hidden');
                 usersSection?.classList.remove('hidden');
@@ -9801,7 +10060,11 @@ if (!isGroup) {
                 usersTab?.classList.remove('text-gray-500');
                 conversationsTab?.classList.remove('bg-white', 'text-gray-900', 'shadow-sm');
                 conversationsTab?.classList.add('text-gray-500');
-                loadModalUsers();
+                loadModalUsers('', true);
+            }
+
+            if (isMessagingMobile()) {
+                showMessagingConversationList();
             }
         };
 
@@ -9811,6 +10074,71 @@ if (!isGroup) {
 
         let conversationsCache = null;
         let conversationsReloadTimer = null;
+        let conversationsLoadPromise = null;
+        let conversationsLoadedAt = 0;
+        let conversationsRenderKey = '';
+        let mutedConversationIds = new Set();
+        let usersCache = null;
+        let usersCacheSearch = '';
+        let usersLoadedAt = 0;
+
+        function conversationsListIsStale() {
+            return !conversationsCache || (Date.now() - conversationsLoadedAt) > 20000;
+        }
+
+        function getConversationListItems(source = conversationsCache) {
+            if (!source) {
+                return [];
+            }
+
+            if (Array.isArray(source)) {
+                return source;
+            }
+
+            return Array.isArray(source.data) ? source.data : [];
+        }
+
+        function currentUserIsMutedInConversation(conv) {
+            const participants = Array.isArray(conv?.participants)
+                ? conv.participants
+                : [];
+
+            const mine = participants.find(participant =>
+                Number(participant.user_id ?? participant.user?.user_id) ===
+                Number(currentUserId)
+            );
+
+            return Boolean(Number(mine?.is_muted || 0));
+        }
+
+        function syncMutedConversationIds(source = conversationsCache) {
+            mutedConversationIds = new Set(
+                getConversationListItems(source)
+                    .filter(currentUserIsMutedInConversation)
+                    .map(conv => Number(conv.conversation_id))
+            );
+        }
+
+        function isConversationMuted(conversationId) {
+            return mutedConversationIds.has(Number(conversationId));
+        }
+
+        function isDirectChatWithUserMuted(userId) {
+            return getConversationListItems().some(conv => {
+                if (conv.conversation_type === 'group') {
+                    return false;
+                }
+
+                if (!currentUserIsMutedInConversation(conv)) {
+                    return false;
+                }
+
+                return (conv.participants || []).some(participant =>
+                    Number(participant.user_id ?? participant.user?.user_id) ===
+                    Number(userId)
+                );
+            });
+        }
 
         function scheduleLoadModalConversations() {
             if (conversationsReloadTimer) {
@@ -9828,12 +10156,17 @@ if (!isGroup) {
             const search =
                 document.getElementById('modalConversationSearch')?.value || '';
 
+            if (conversationsLoadPromise) {
+                return conversationsLoadPromise;
+            }
+
             const params = new URLSearchParams();
 
             if (search) {
                 params.set('search', search);
             }
 
+            conversationsLoadPromise = (async () => {
             try {
 
                 const response = await fetch(
@@ -9857,6 +10190,7 @@ if (!isGroup) {
                 const result = await response.json();
 
                 conversationsCache = result.data;
+                conversationsLoadedAt = Date.now();
 
                 renderModalConversations(
                     result.data
@@ -9868,6 +10202,13 @@ if (!isGroup) {
                     'Conversation loading error:',
                     error
                 );
+            }
+            })();
+
+            try {
+                await conversationsLoadPromise;
+            } finally {
+                conversationsLoadPromise = null;
             }
         }
 
@@ -10012,16 +10353,13 @@ if (!isGroup) {
             // GET CONVERSATION ARRAY
             // =========================================
 
-            const items =
-                conversations?.data || [];
+            const items = getConversationListItems(conversations);
 
-
-            // =========================================
-            // NO CONVERSATIONS
-            // =========================================
+            syncMutedConversationIds(conversations);
 
             if (items.length === 0) {
 
+                conversationsRenderKey = '';
                 container.innerHTML = '';
 
                 emptyState?.classList.remove(
@@ -10034,6 +10372,44 @@ if (!isGroup) {
             emptyState?.classList.add(
                 'hidden'
             );
+
+            const pinPreviews = readConversationPinPreviews();
+
+            const renderKey = items.map(conv => [
+                conv.conversation_id,
+                conv.last_message_at,
+                conv.unread_count,
+                currentUserIsMutedInConversation(conv) ? 1 : 0,
+                conv.last_message?.message_content || '',
+                conv.conversation_name || '',
+                pinPreviews[String(conv.conversation_id)]?.kind || '',
+                pinPreviews[String(conv.conversation_id)]?.at || ''
+            ].join(':')).join('|');
+
+            if (renderKey === conversationsRenderKey && container.childElementCount > 0) {
+                return;
+            }
+
+            conversationsRenderKey = renderKey;
+
+            items.sort((a, b) => {
+                const activityAt = conv => {
+                    const pinAt = new Date(
+                        pinPreviews[String(conv.conversation_id)]?.at || 0
+                    ).getTime();
+                    const messageAt = new Date(
+                        conv.last_message_at ||
+                        conv.last_message?.created_at ||
+                        0
+                    ).getTime();
+                    return Math.max(
+                        Number.isNaN(pinAt) ? 0 : pinAt,
+                        Number.isNaN(messageAt) ? 0 : messageAt
+                    );
+                };
+
+                return activityAt(b) - activityAt(a);
+            });
 
 
             // =========================================
@@ -10160,9 +10536,11 @@ if (!isGroup) {
                     // =====================================
 
                     const unreadCount =
-                        Number(
-                            conv.unread_count || 0
-                        );
+                        currentUserIsMutedInConversation(conv)
+                            ? 0
+                            : Number(
+                                conv.unread_count || 0
+                            );
 
 
                     // =====================================
@@ -10171,6 +10549,15 @@ if (!isGroup) {
 
                     let preview =
                         'No messages';
+                    let previewTimeSource =
+                        lastMessage.created_at ||
+                        conv.last_message_at ||
+                        '';
+
+                    const pinPreview = getConversationPinPreview(
+                        conv.conversation_id,
+                        lastMessage.created_at || conv.last_message_at
+                    );
 
                     const rawMessage =
                         lastMessage.message_content || '';
@@ -10178,7 +10565,13 @@ if (!isGroup) {
                     const messageType =
                         lastMessage.message_type || '';
 
-                    if (
+                    if (pinPreview) {
+                        preview = pinPreview.kind === 'unpinned'
+                            ? 'You unpinned a message.'
+                            : 'You pinned a message.';
+                        previewTimeSource = pinPreview.at;
+                    }
+                    else if (
                         messageType === 'call' &&
                         lastMessage.call
                     ) {
@@ -10318,11 +10711,18 @@ if (!isGroup) {
 
                     const time =
                         formatConversationRelativeTime(
-                            lastMessage.created_at
+                            previewTimeSource
                         );
 
                     let previewHtml = escapeHtml(preview);
-                    if (isLikeStickerContent(rawMessage) && !lastMessage.is_unsent) {
+                    if (pinPreview) {
+                        previewHtml = `
+                            <span class="inline-flex min-w-0 items-center gap-1">
+                                                ${getPinActionIconHtml(pinPreview.kind === 'unpinned', 'h-3.5 w-3.5')}
+                                <span class="truncate">${escapeHtml(preview)}</span>
+                            </span>
+                        `;
+                    } else if (!pinPreview && isLikeStickerContent(rawMessage) && !lastMessage.is_unsent) {
                         const likePrefix = lastMessageIsMine
                             ? 'You:'
                             : (isGroup ? `${lastMessageSenderName}:` : '');
@@ -10395,7 +10795,7 @@ if (!isGroup) {
                                         alt="${escapeHtml(
                                             name
                                         )}"
-                                        title="Seen by ${escapeHtml(
+                                        data-tooltip="Seen by ${escapeHtml(
                                             name
                                         )}"
                                         class="
@@ -10416,7 +10816,7 @@ if (!isGroup) {
 
                                 conversationSeenHtml = `
                                     <div
-                                        title="Seen by ${escapeHtml(
+                                        data-tooltip="Seen by ${escapeHtml(
                                             name
                                         )}"
                                         class="
@@ -10654,7 +11054,7 @@ if (!isGroup) {
                                         bg-gray-200
                                         text-gray-600
                                     "
-                                    title="Group chat"
+                                    data-tooltip="Group chat"
                                 >
                                     <i
                                         data-lucide="users"
@@ -10679,7 +11079,7 @@ if (!isGroup) {
                                                 : 'bg-gray-400'
                                         }
                                     "
-                                    title="${
+                                    data-tooltip="${
                                         isOnline
                                             ? 'Active now'
                                             : 'Offline'
@@ -10789,8 +11189,12 @@ if (!isGroup) {
                                                 class="
                                                     conversation-preview
                                                     text-xs
-                                                    truncate
+                                                    flex
                                                     min-w-0
+                                                    flex-1
+                                                    items-center
+                                                    gap-1
+                                                    overflow-hidden
                                                     ${
                                                         unreadCount > 0
                                                             ? 'font-semibold text-gray-900'
@@ -10809,7 +11213,7 @@ if (!isGroup) {
 
 
                                             ${
-                                                lastMessage.created_at
+                                                previewTimeSource
                                                     ? `
                                                         <span
                                                             class="
@@ -10822,7 +11226,7 @@ if (!isGroup) {
                                                             "
                                                             data-created-at="${
                                                                 escapeHtml(
-                                                                    lastMessage.created_at
+                                                                    previewTimeSource
                                                                 )
                                                             }"
                                                         >
@@ -10846,7 +11250,7 @@ if (!isGroup) {
                                                             rounded-full
                                                             bg-gray-900
                                                         "
-                                                        title="${
+                                                        data-tooltip="${
                                                             unreadCount
                                                         } unread ${
                                                             unreadCount === 1
@@ -10884,14 +11288,8 @@ if (!isGroup) {
 
                                 <button
                                     type="button"
-                                    onclick="
-                                        event.stopPropagation();
-                                        confirmDeleteConversation(
-                                            ${conv.conversation_id}
-                                        )
-                                    "
                                     class="
-                                        conversation-delete-btn
+                                        conversation-options-button
                                         opacity-0
                                         group-hover:opacity-100
                                         h-7
@@ -10899,15 +11297,19 @@ if (!isGroup) {
                                         flex
                                         items-center
                                         justify-center
-                                        rounded-lg
+                                        rounded-full
                                         text-gray-400
-                                        hover:text-red-600
-                                        hover:bg-red-50
+                                        hover:text-gray-900
+                                        hover:bg-gray-200
                                         transition
                                     "
+                                    data-conversation-id="${conv.conversation_id}"
+                                    data-conversation-type="${isGroup ? 'group' : 'direct'}"
+                                    data-tooltip="More"
+                                    aria-label="More conversation options"
                                 >
                                     <i
-                                        data-lucide="trash-2"
+                                        data-lucide="more-vertical"
                                         class="h-4 w-4"
                                     ></i>
                                 </button>
@@ -10919,7 +11321,7 @@ if (!isGroup) {
 
                 }).join('');
 
-            lucideCreateIcons();
+            lucideCreateIcons(container);
         }
 
         // =====================================================
@@ -10967,8 +11369,8 @@ if (!isGroup) {
                 // Example: 1 disappears after opening chat.
                 // =============================================
 
-                await loadModalConversations();
-                await updateTopbarMessageBadge();
+                scheduleLoadModalConversations();
+                updateTopbarMessageBadge();
 
             } catch (error) {
 
@@ -11000,10 +11402,15 @@ if (!isGroup) {
             //closeConversationInfoSidebar();
 
             resetConversationAssets();
+            document.getElementById('modalPinnedBanner')?.classList.add('hidden');
 
 
             currentConversationId =
                 conversationId;
+            lastPinNoticeEl = null;
+            lastUnpinNoticeEl = null;
+            pinNoticeExpiresAt = 0;
+            unpinNoticeExpiresAt = 0;
 
             messagesPage = 1;
 
@@ -11091,9 +11498,12 @@ if (!isGroup) {
                 );
 
                 chatArea.classList.add(
+                    'flex',
                     'md:flex'
                 );
             }
+
+            showMessagingThreadPane();
 
 
             if (messagesAbortController) {
@@ -11512,9 +11922,6 @@ if (!isGroup) {
             }
 
             threadSettled = true;
-            if (stickThreadToBottom) {
-                snapThreadToBottom();
-            }
 
             markConversationAsRead(
                 conversationId
@@ -11748,13 +12155,40 @@ if (!isGroup) {
             if (!value) return '';
             const date = new Date(value);
             if (Number.isNaN(date.getTime())) return '';
-            return date.toLocaleString('en-US', {
-                weekday: 'long',
-                month: 'short',
-                day: 'numeric',
+
+            const time = date.toLocaleTimeString('en-US', {
                 hour: 'numeric',
                 minute: '2-digit'
             });
+
+            const now = new Date();
+            const startOfToday = new Date(
+                now.getFullYear(),
+                now.getMonth(),
+                now.getDate()
+            );
+            const startOfMessageDay = new Date(
+                date.getFullYear(),
+                date.getMonth(),
+                date.getDate()
+            );
+            const dayDiff = Math.round(
+                (startOfToday - startOfMessageDay) / 86400000
+            );
+
+            if (dayDiff === 0) {
+                return time;
+            }
+
+            if (dayDiff === 1) {
+                return `Yesterday ${time}`;
+            }
+
+            return `${date.toLocaleDateString('en-US', {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric'
+            })} ${time}`;
         }
 
         function getMessageAvatarHtml(msg, senderName) {
@@ -11772,6 +12206,32 @@ if (!isGroup) {
             }
 
             return `<div class="h-8 w-8 shrink-0 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-semibold text-gray-600">${escapeHtml(initials)}</div>`;
+        }
+
+        function getPinActionIconHtml(isPinned, sizeClass = 'h-4 w-4') {
+            const box = `${sizeClass} message-pin-icon shrink-0`;
+            if (isPinned) {
+                return `
+                    <span class="inline-flex shrink-0 text-gray-500">
+                        <svg class="${box}" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <line x1="2" y1="2" x2="22" y2="22"></line>
+                            <path d="M9 9v1.8a2 2 0 0 1-1.1 1.8l-1.8.9A2 2 0 0 0 5 15.2V16a1 1 0 0 0 1 1h8"></path>
+                            <path d="M15 9.3V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8"></path>
+                            <path d="M12 17v5"></path>
+                        </svg>
+                    </span>
+                `;
+            }
+
+            return `
+                <span class="inline-flex shrink-0 text-gray-500">
+                    <svg class="${box}" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M12 17v5"></path>
+                        <path d="M8 2h8"></path>
+                        <path d="M10 2v6.5S10 12 7 14v2h10v-2c-3-2-3-5.5-3-5.5V2"></path>
+                    </svg>
+                </span>
+            `;
         }
 
         function getMessageMoreMenuHtml(
@@ -11800,11 +12260,7 @@ if (!isGroup) {
                             type="button"
                             class="message-action-item message-pin-btn flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
                         >
-                            <i
-                                data-lucide="${isPinned ? 'pin-off' : 'pin'}"
-                                class="h-4 w-4"
-                            ></i>
-
+                            ${getPinActionIconHtml(isPinned)}
                             <span>
                                 ${isPinned ? 'Unpin' : 'Pin'}
                             </span>
@@ -11812,10 +12268,10 @@ if (!isGroup) {
 
             return `
                 <div class="message-more relative">
-                    <button type="button" class="message-more-btn flex h-7 w-7 items-center justify-center rounded-full text-gray-400 opacity-0 transition group-hover:opacity-100 hover:bg-gray-100 hover:text-gray-700" title="More">
+                    <button type="button" class="message-more-btn flex h-7 w-7 items-center justify-center rounded-full text-gray-400 opacity-0 transition group-hover:opacity-100 hover:bg-gray-100 hover:text-gray-700" data-tooltip="More">
                         <i data-lucide="more-vertical" class="h-4 w-4"></i>
                     </button>
-                    <div class="message-more-menu absolute bottom-full ${isOwn ? 'left-0' : 'right-0'} z-50 mb-2 hidden min-w-[150px] overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-xl">
+                    <div class="message-more-menu absolute left-1/2 z-50 hidden min-w-[150px] -translate-x-1/2 rounded-xl border border-gray-200 bg-white py-1 shadow-xl">
                         ${destructiveItem}
                         ${forwardItem}
                         ${editItem}
@@ -11840,10 +12296,10 @@ if (!isGroup) {
                 if (!/^https?:\/\//i.test(src) && !src.startsWith('/')) {
                     src = `/storage/${src.replace(/^storage\//, '')}`;
                 }
-                return `<img src="${escapeHtml(src)}" alt="${escapeHtml(name)}" title="Seen by ${escapeHtml(name)}" class="message-seen-avatar h-4 w-4 shrink-0 rounded-full object-cover" onerror="this.outerHTML='<div title=&quot;Seen by ${escapeHtml(name)}&quot; class=&quot;message-seen-avatar h-4 w-4 shrink-0 rounded-full bg-gray-300 flex items-center justify-center text-[7px] font-semibold text-gray-600&quot;>${escapeHtml(initials)}</div>'">`;
+                return `<img src="${escapeHtml(src)}" alt="${escapeHtml(name)}" data-tooltip="Seen by ${escapeHtml(name)}" class="message-seen-avatar h-4 w-4 shrink-0 rounded-full object-cover" onerror="this.outerHTML='<div data-tooltip=&quot;Seen by ${escapeHtml(name)}&quot; class=&quot;message-seen-avatar h-4 w-4 shrink-0 rounded-full bg-gray-300 flex items-center justify-center text-[7px] font-semibold text-gray-600&quot;>${escapeHtml(initials)}</div>'">`;
             }
 
-            return `<div title="Seen by ${escapeHtml(name)}" class="message-seen-avatar h-4 w-4 shrink-0 rounded-full bg-gray-300 flex items-center justify-center text-[7px] font-semibold text-gray-600">${escapeHtml(initials)}</div>`;
+            return `<div data-tooltip="Seen by ${escapeHtml(name)}" class="message-seen-avatar h-4 w-4 shrink-0 rounded-full bg-gray-300 flex items-center justify-center text-[7px] font-semibold text-gray-600">${escapeHtml(initials)}</div>`;
         }
 
         // =====================================================
@@ -12850,6 +13306,38 @@ if (!isGroup) {
             msg.is_pinned === 1 ||
             msg.is_pinned === '1';
             const avatar = isOwn ? '' : getMessageAvatarHtml(msg, senderName);
+            const replyButton = `
+                    <button
+                        type="button"
+                        class="
+                            message-reply-btn
+                            flex
+                            h-7
+                            w-7
+                            items-center
+                            justify-center
+                            rounded-full
+                            text-gray-400
+                            hover:bg-gray-100
+                            hover:text-gray-700
+                        "
+                        data-tooltip="Reply"
+                    >
+                        <i
+                            data-lucide="reply"
+                            class="h-4 w-4"
+                        ></i>
+                    </button>
+            `;
+            const moreMenu = getMessageMoreMenuHtml(
+                isOwn,
+                isUnsent,
+                isPinned,
+                hasText
+            );
+            const hoverActions = isOwn
+                ? `${moreMenu}${replyButton}${getReactionPickerHtml()}`
+                : `${getReactionPickerHtml()}${replyButton}${moreMenu}`;
             const actions = isUnsent ? `
                 <div
                     class="
@@ -12883,36 +13371,7 @@ if (!isGroup) {
                         group-hover:opacity-100
                     "
                 >
-                    ${getReactionPickerHtml()}
-
-                    <button
-                        type="button"
-                        class="
-                            message-reply-btn
-                            flex
-                            h-7
-                            w-7
-                            items-center
-                            justify-center
-                            rounded-full
-                            text-gray-400
-                            hover:bg-gray-100
-                            hover:text-gray-700
-                        "
-                        title="Reply"
-                    >
-                        <i
-                            data-lucide="reply"
-                            class="h-4 w-4"
-                        ></i>
-                    </button>
-
-                    ${getMessageMoreMenuHtml(
-                        isOwn,
-                        isUnsent,
-                        isPinned,
-                        hasText
-                    )}
+                    ${hoverActions}
                 </div>
             `;
 
@@ -13094,7 +13553,7 @@ if (!isGroup) {
                                             py-2
                                             text-gray-500
                                         "
-                                        title="${escapeHtml(fullTime)}"
+                                        data-tooltip="${escapeHtml(fullTime)}"
                                     >
                                         <p class="text-sm italic">
                                             ${isOwn
@@ -13124,7 +13583,7 @@ if (!isGroup) {
                                                     p-0
                                                     ${isOwn ? 'self-end' : 'self-start'}
                                                 "
-                                                title="${escapeHtml(fullTime)}"
+                                                data-tooltip="${escapeHtml(fullTime)}"
                                             >
                                                 ${messengerLikeIconHtml('h-14 w-14')}
                                             </div>
@@ -13149,7 +13608,7 @@ if (!isGroup) {
                                                     px-3.5
                                                     py-2
                                                 "
-                                                title="${escapeHtml(fullTime)}"
+                                                data-tooltip="${escapeHtml(fullTime)}"
                                             >
                                                 <span
                                                     class="
@@ -13187,7 +13646,7 @@ if (!isGroup) {
                                                     ${hasText ? 'mt-1' : ''}
                                                     ${isOwn ? 'self-end' : 'self-start'}
                                                 "
-                                                title="${escapeHtml(fullTime)}"
+                                                data-tooltip="${escapeHtml(fullTime)}"
                                             >
                                                 ${getAttachmentsMessageHtml(
                                                     attachments,
@@ -13219,12 +13678,10 @@ if (!isGroup) {
                                     <div
                                         class="
                                             message-reactions
-                                            absolute
-                                            -bottom-3
-                                            right-1
-                                            z-20
-                                            flex
-                                            items-center
+                                            ${Array.isArray(msg.reactions) && msg.reactions.length
+                                                ? ''
+                                                : 'hidden'
+                                            }
                                         "
                                     >
                                         ${getMessageReactionsHtml(
@@ -13386,7 +13843,7 @@ if (!isGroup) {
                         border-gray-200
                         bg-white
                         shadow-sm
-                    " title="${escapeHtml(fullTime)}">
+                    " data-tooltip="${escapeHtml(fullTime)}">
 
                         <div class="flex items-start gap-3 px-4 py-3">
                             <span class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-700">
@@ -13427,7 +13884,54 @@ if (!isGroup) {
 
         function closeAllMessageMenus(except = null) {
             document.querySelectorAll('.message-more-menu').forEach(menu => {
-                if (menu !== except) menu.classList.add('hidden');
+                if (menu !== except) {
+                    menu.classList.add('hidden');
+                    menu.classList.remove(
+                        'top-full',
+                        'bottom-full',
+                        'mt-2',
+                        'mb-2',
+                        'message-more-menu-up',
+                        'message-more-menu-down'
+                    );
+                    menu.style.visibility = '';
+                }
+            });
+        }
+
+        function positionMessageMoreMenu(button, menu) {
+            const thread = document.getElementById('modalMessagesContainer');
+            const area = thread?.getBoundingClientRect() || {
+                top: 0,
+                bottom: window.innerHeight
+            };
+            const trigger = button.getBoundingClientRect();
+
+            menu.classList.remove(
+                'hidden',
+                'top-full',
+                'bottom-full',
+                'mt-2',
+                'mb-2',
+                'message-more-menu-up',
+                'message-more-menu-down'
+            );
+            menu.style.visibility = 'hidden';
+
+            requestAnimationFrame(() => {
+                const menuHeight = menu.getBoundingClientRect().height || 0;
+                const gap = 10;
+                const roomAbove = trigger.top - area.top;
+                const openDown = roomAbove < menuHeight + gap;
+
+                if (openDown) {
+                    menu.classList.add('top-full', 'mt-2', 'message-more-menu-down');
+                } else {
+                    menu.classList.add('bottom-full', 'mb-2', 'message-more-menu-up');
+                }
+
+                menu.style.visibility = '';
+                lucideCreateIcons(menu);
             });
         }
 
@@ -13447,6 +13951,7 @@ if (!isGroup) {
                         </div>
                     </div>`;
                 document.body.appendChild(overlay);
+                lucideCreateIcons(overlay);
                 const finish = value => { overlay.remove(); resolve(value); };
                 overlay.querySelector('[data-cancel]').onclick = () => finish(false);
                 overlay.querySelector('[data-confirm]').onclick = () => finish(true);
@@ -13508,7 +14013,7 @@ if (!isGroup) {
             header.className = 'mb-2 flex items-center justify-between px-1';
             header.innerHTML = `
                 <span class="text-sm font-semibold text-gray-900">Edit message</span>
-                <button type="button" id="modalCancelEdit" class="flex h-7 w-7 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100" title="Cancel edit">
+                <button type="button" id="modalCancelEdit" class="flex h-7 w-7 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100" data-tooltip="Cancel edit">
                     <i data-lucide="x" class="h-4 w-4"></i>
                 </button>`;
             form.parentNode.insertBefore(header, form);
@@ -13634,7 +14139,7 @@ if (!isGroup) {
                     </div>`;
 
                 document.body.appendChild(overlay);
-                lucideCreateIcons();
+                lucideCreateIcons(overlay);
 
                 const finish = value => {
                     overlay.remove();
@@ -13715,7 +14220,7 @@ if (!isGroup) {
 
             loadPinnedMessages();
 
-            lucideCreateIcons();
+            lucideCreateIcons(modal);
         }
 
 
@@ -13729,6 +14234,67 @@ if (!isGroup) {
             }
 
             modal.classList.add('hidden');
+        }
+
+        function getPinnedBannerSnippet(msg) {
+            if (!msg || msg.is_unsent) {
+                return 'Unsent message';
+            }
+
+            const content = String(msg.message_content || '').trim();
+
+            if (isLikeStickerContent(content)) {
+                return 'Like';
+            }
+
+            if (content === '[attachment:image]') {
+                return 'Photo';
+            }
+
+            if (content === '[attachment:file]') {
+                return 'File';
+            }
+
+            if (content === '[attachment:multiple]') {
+                return 'Attachments';
+            }
+
+            if (content && !content.startsWith('[attachment:')) {
+                return content.length > 72 ? `${content.slice(0, 72)}...` : content;
+            }
+
+            const attachments = Array.isArray(msg.attachments) ? msg.attachments : [];
+            if (attachments.length) {
+                const type = String(attachments[0].attachment_type || attachments[0].type || '');
+                return type.startsWith('image') ? 'Photo' : 'File';
+            }
+
+            return 'Pinned message';
+        }
+
+        function updatePinnedHeaderBar(messages) {
+            const banner = document.getElementById('modalPinnedBanner');
+            const senderEl = document.getElementById('modalPinnedBannerSender');
+            const textEl = document.getElementById('modalPinnedBannerText');
+
+            if (!banner || !senderEl || !textEl) {
+                return;
+            }
+
+            const pins = Array.isArray(messages) ? messages : [];
+            if (!pins.length) {
+                banner.classList.add('hidden');
+                return;
+            }
+
+            const latest = pins[0];
+            const isMine = Number(latest.sender_id) === Number(currentUserId);
+            const senderName = latest.sender?.user_full_name || latest.sender?.name || 'Someone';
+
+            senderEl.textContent = isMine ? 'You' : senderName;
+            textEl.textContent = getPinnedBannerSnippet(latest);
+            banner.classList.remove('hidden');
+            lucideCreateIcons(banner);
         }
 
         async function restorePinSystemNotice() {
@@ -13745,27 +14311,17 @@ if (!isGroup) {
                 return;
             }
 
-
-            // =================================================
-            // REMOVE OLD NOTICE FIRST
-            // Prevent duplicate:
-            // "You pinned a message. See all"
-            // =================================================
+            if (Date.now() < pinNoticeExpiresAt && lastPinNoticeEl && container.contains(lastPinNoticeEl)) {
+                return;
+            }
 
             container
-                .querySelectorAll(
-                    '.pin-system-notice'
-                )
+                .querySelectorAll('.pin-system-notice')
                 .forEach(notice => {
                     notice.remove();
                 });
 
-
             try {
-
-                // =================================================
-                // USE YOUR EXISTING PINNED MESSAGES ENDPOINT
-                // =================================================
 
                 const response = await fetch(
                     `/messages/conversations/${currentConversationId}/pinned`,
@@ -13776,65 +14332,70 @@ if (!isGroup) {
                     }
                 );
 
-
                 if (!response.ok) {
                     return;
                 }
 
-
                 const result =
                     await response.json();
-
 
                 const messages =
                     Array.isArray(result.data)
                         ? result.data
                         : [];
 
+                updatePinnedHeaderBar(messages);
 
-                // =================================================
-                // NO PINNED MESSAGES
-                // Do not show the notice.
-                // =================================================
+                const persisted = readPersistedPinNotices(
+                    currentConversationId
+                );
+
+                if (persisted.length) {
+                    renderPersistedPinNotices(container, persisted);
+                    return;
+                }
 
                 if (!messages.length) {
+                    if (Date.now() >= pinNoticeExpiresAt) {
+                        lastPinNoticeEl = null;
+                        pinNoticeExpiresAt = 0;
+                    }
                     return;
                 }
 
-                const latestPin = messages[0];
-                const pinnedMessageId = String(latestPin.message_id || '');
-                const pinnedAt = latestPin.pinned_at || latestPin.created_at || '';
+                const pinEvents = Array.isArray(result.pins) && result.pins.length
+                    ? result.pins
+                    : messages;
 
-                const pinnedRow = pinnedMessageId
-                    ? container.querySelector(
-                        `.message-row[data-message-id="${CSS.escape(pinnedMessageId)}"]`
-                    )
-                    : null;
+                const clusters = groupPinNoticesByWindow(pinEvents);
+                let lastInserted = null;
 
-                let afterRow = pinnedRow;
-
-                if (!afterRow && pinnedAt) {
-                    const pinTime = new Date(pinnedAt).getTime();
-                    const rows = Array.from(
-                        container.querySelectorAll('.message-row[data-message-created-at]')
+                clusters.forEach(cluster => {
+                    const afterRow = getPinNoticeInsertAnchor(
+                        container,
+                        cluster.lastAt
                     );
 
-                    for (const row of rows) {
-                        const rowTime = new Date(row.dataset.messageCreatedAt || '').getTime();
-                        if (!Number.isNaN(rowTime) && rowTime <= pinTime) {
-                            afterRow = row;
-                        }
+                    if (!afterRow) {
+                        return;
                     }
-                }
 
-                if (!afterRow) {
-                    return;
-                }
+                    const notice = buildPinSystemNotice(true);
+                    insertPinNoticeAfterRow(notice, afterRow);
+                    lastInserted = {
+                        notice,
+                        lastAt: cluster.lastAt,
+                    };
+                });
 
-                insertPinNoticeAfterRow(
-                    buildPinSystemNotice(true),
-                    afterRow
-                );
+                if (
+                    lastInserted &&
+                    Date.now() - lastInserted.lastAt <= PIN_NOTICE_WINDOW_MS
+                ) {
+                    lastInserted.notice.dataset.pinGroup = 'active';
+                    lastPinNoticeEl = lastInserted.notice;
+                    pinNoticeExpiresAt = lastInserted.lastAt + PIN_NOTICE_WINDOW_MS;
+                }
 
 
             } catch (error) {
@@ -14275,7 +14836,7 @@ if (!isGroup) {
 
 
                 // Rebuild Lucide icons used by file cards.
-                lucideCreateIcons();
+                lucideCreateIcons(document.getElementById('pinnedMessagesModal'));
 
             } catch (error) {
 
@@ -14374,19 +14935,13 @@ if (!isGroup) {
 
                 const pinIcon =
                     row.querySelector(
-                        '.message-pin-btn i'
+                        '.message-pin-btn .message-pin-icon, .message-pin-btn i, .message-pin-btn svg'
                     );
 
                 if (pinIcon) {
-
-                    pinIcon.setAttribute(
-                        'data-lucide',
+                    pinIcon.outerHTML = getPinActionIconHtml(
                         data.is_pinned
-                            ? 'pin-off'
-                            : 'pin'
                     );
-
-                    lucideCreateIcons();
                 }
 
 
@@ -14408,6 +14963,23 @@ if (!isGroup) {
                     row,
                     data.is_pinned
                 );
+                applyConversationPinPreview(
+                    currentConversationId,
+                    data.is_pinned
+                );
+
+                updatePinnedMessagesCount();
+                fetch(
+                    `/messages/conversations/${currentConversationId}/pinned`,
+                    { headers: { 'Accept': 'application/json' } }
+                )
+                    .then(response => response.ok ? response.json() : null)
+                    .then(result => {
+                        updatePinnedHeaderBar(
+                            Array.isArray(result?.data) ? result.data : []
+                        );
+                    })
+                    .catch(() => {});
 
             } catch (error) {
 
@@ -14424,21 +14996,241 @@ if (!isGroup) {
         // continue below it instead of leaving it stuck at the end.
         // =====================================================
 
-        function buildPinSystemNotice(isPinned) {
+        function conversationPinPreviewStorageKey() {
+            return `sti-prism-conversation-pin-preview:${currentUserId}`;
+        }
+
+        function readConversationPinPreviews() {
+            try {
+                const raw = localStorage.getItem(
+                    conversationPinPreviewStorageKey()
+                );
+                const data = JSON.parse(raw || '{}');
+                return data && typeof data === 'object' ? data : {};
+            } catch (error) {
+                return {};
+            }
+        }
+
+        function setConversationPinPreview(conversationId, kind) {
+            if (!conversationId || !kind) {
+                return;
+            }
+
+            const all = readConversationPinPreviews();
+            all[String(conversationId)] = {
+                kind,
+                at: new Date().toISOString(),
+            };
+            localStorage.setItem(
+                conversationPinPreviewStorageKey(),
+                JSON.stringify(all)
+            );
+        }
+
+        function getConversationPinPreview(conversationId, lastMessageAt) {
+            const entry = readConversationPinPreviews()[
+                String(conversationId)
+            ];
+
+            if (!entry?.kind || !entry?.at) {
+                return null;
+            }
+
+            const pinAt = new Date(entry.at).getTime();
+            const messageAt = lastMessageAt
+                ? new Date(lastMessageAt).getTime()
+                : 0;
+
+            if (Number.isNaN(pinAt)) {
+                return null;
+            }
+
+            if (messageAt && messageAt > pinAt + 2000) {
+                return null;
+            }
+
+            return entry;
+        }
+
+        function applyConversationPinPreview(conversationId, isPinned) {
+            setConversationPinPreview(
+                conversationId,
+                isPinned ? 'pinned' : 'unpinned'
+            );
+            conversationsRenderKey = '';
+            if (conversationsCache) {
+                renderModalConversations(conversationsCache);
+            }
+        }
+
+        function pinNoticeStorageKey(conversationId) {
+            return `sti-prism-pin-notices:${currentUserId}:${conversationId}`;
+        }
+
+        function readPersistedPinNotices(conversationId) {
+            try {
+                const raw = localStorage.getItem(
+                    pinNoticeStorageKey(conversationId)
+                );
+                const list = JSON.parse(raw || '[]');
+                return Array.isArray(list) ? list : [];
+            } catch (error) {
+                return [];
+            }
+        }
+
+        function getMessageRowBeforeNode(node) {
+            let current = node;
+            while (current) {
+                if (current.classList?.contains('message-row')) {
+                    return current;
+                }
+                current = current.previousElementSibling;
+            }
+            return null;
+        }
+
+        function snapshotPinSystemNotices(container) {
+            if (!currentConversationId || !container) {
+                return;
+            }
+
+            const events = Array.from(
+                container.querySelectorAll('.pin-system-notice')
+            ).map(notice => {
+                const messageRow = getMessageRowBeforeNode(notice);
+                return {
+                    kind: notice.dataset.pinKind === 'unpinned'
+                        ? 'unpinned'
+                        : 'pinned',
+                    at: Number(notice.dataset.pinCreatedAt || Date.now()),
+                    afterMessageId: String(
+                        notice.dataset.afterMessageId ||
+                        messageRow?.dataset?.messageId ||
+                        ''
+                    ),
+                };
+            });
+
+            localStorage.setItem(
+                pinNoticeStorageKey(currentConversationId),
+                JSON.stringify(events)
+            );
+        }
+
+        function renderPersistedPinNotices(container, events) {
+            events.forEach(event => {
+                const isPinned = event.kind !== 'unpinned';
+                const notice = buildPinSystemNotice(
+                    isPinned,
+                    isPinned
+                );
+                notice.dataset.pinCreatedAt = String(
+                    event.at || Date.now()
+                );
+                if (event.afterMessageId) {
+                    notice.dataset.afterMessageId = String(
+                        event.afterMessageId
+                    );
+                }
+
+                insertPinNoticeAfterRow(
+                    notice,
+                    getPersistedNoticeAnchor(container, event)
+                );
+            });
+        }
+
+        function buildPinSystemNotice(isPinned, showSeeAll = true) {
             const notice = document.createElement('div');
             notice.className = 'pin-system-notice flex justify-center py-3';
+            notice.dataset.pinKind = isPinned ? 'pinned' : 'unpinned';
+            notice.dataset.pinCreatedAt = String(Date.now());
             notice.innerHTML = `
                 <div class="flex items-center gap-1.5 text-xs text-gray-400">
                     <span>${isPinned ? 'You pinned a message.' : 'You unpinned a message.'}</span>
-                    <button
-                        type="button"
-                        class="pinned-see-all font-semibold text-gray-900 hover:underline"
-                    >
-                        See all
-                    </button>
+                    ${showSeeAll ? `
+                        <button
+                            type="button"
+                            class="pinned-see-all font-semibold text-blue-600 hover:underline"
+                        >
+                            See all
+                        </button>
+                    ` : ''}
                 </div>
             `;
             return notice;
+        }
+
+        function getLastThreadMessageRow(container, asOfTime = null) {
+            const rows = Array.from(
+                container.querySelectorAll('.message-row[data-message-id]')
+            );
+
+            if (!rows.length) {
+                return null;
+            }
+
+            if (asOfTime == null || Number.isNaN(asOfTime)) {
+                return rows[rows.length - 1];
+            }
+
+            let afterRow = null;
+            for (const row of rows) {
+                const rowTime = new Date(row.dataset.messageCreatedAt || '').getTime();
+                if (!Number.isNaN(rowTime) && rowTime <= asOfTime) {
+                    afterRow = row;
+                }
+            }
+
+            return afterRow || rows[rows.length - 1];
+        }
+
+        function getPinNoticeInsertAnchor(container, asOfTime = null) {
+            const lastMessage = getLastThreadMessageRow(container, asOfTime);
+            if (!lastMessage) {
+                return Array.from(
+                    container.querySelectorAll('.pin-system-notice')
+                ).pop() || null;
+            }
+
+            let anchor = lastMessage;
+            let sibling = lastMessage.nextElementSibling;
+            while (
+                sibling &&
+                sibling.classList.contains('pin-system-notice')
+            ) {
+                anchor = sibling;
+                sibling = sibling.nextElementSibling;
+            }
+
+            return anchor;
+        }
+
+        function getPersistedNoticeAnchor(container, event) {
+            const messageId = String(event?.afterMessageId || '');
+            const messageRow = messageId
+                ? container.querySelector(
+                    `.message-row[data-message-id="${CSS.escape(messageId)}"]`
+                )
+                : getLastThreadMessageRow(container, event?.at);
+
+            if (!messageRow) {
+                return getPinNoticeInsertAnchor(container, event?.at);
+            }
+
+            let anchor = messageRow;
+            let sibling = messageRow.nextElementSibling;
+            while (
+                sibling &&
+                sibling.classList.contains('pin-system-notice')
+            ) {
+                anchor = sibling;
+                sibling = sibling.nextElementSibling;
+            }
+
+            return anchor;
         }
 
         function insertPinNoticeAfterRow(notice, row) {
@@ -14449,10 +15241,112 @@ if (!isGroup) {
             row.after(notice);
         }
 
+        function groupPinNoticesByWindow(pinsNewestFirst = []) {
+            const pins = [...pinsNewestFirst]
+                .reverse()
+                .filter(pin => pin?.pinned_at);
+
+            const clusters = [];
+
+            pins.forEach(pin => {
+                const at = new Date(pin.pinned_at).getTime();
+                if (Number.isNaN(at)) {
+                    return;
+                }
+
+                const last = clusters[clusters.length - 1];
+                if (last && at - last.lastAt <= PIN_NOTICE_WINDOW_MS) {
+                    last.pins.push(pin);
+                    last.lastPin = pin;
+                    last.lastAt = at;
+                    return;
+                }
+
+                clusters.push({
+                    pins: [pin],
+                    lastPin: pin,
+                    lastAt: at,
+                });
+            });
+
+            return clusters;
+        }
+
         // =====================================================
-        // MESSENGER STYLE PIN SYSTEM NOTICE
-        // In-thread system line under the pinned message.
+        // PIN / UNPIN NOTICE 10-SECOND WINDOW
+        //
+        // Each kind has its own line and timer:
+        // - "You pinned a message. See all"
+        // - "You unpinned a message. See all"
+        //
+        // Another action of the SAME kind within 10 seconds
+        // reuses that line and restarts the countdown.
+        // A new line is created only after 10 seconds.
+        // Pin and unpin notices can both stay in the thread.
         // =====================================================
+
+        function getNoticeKind(isPinned) {
+            return isPinned ? 'pinned' : 'unpinned';
+        }
+
+        function getActiveNoticeEl(kind) {
+            return kind === 'unpinned' ? lastUnpinNoticeEl : lastPinNoticeEl;
+        }
+
+        function getNoticeExpiry(kind, notice) {
+            const stored = kind === 'unpinned' ? unpinNoticeExpiresAt : pinNoticeExpiresAt;
+            const fromNotice = Number(notice?.dataset?.pinExpiresAt || 0);
+            return Math.max(stored, fromNotice);
+        }
+
+        function getActivePinNotice(container, kind = 'pinned') {
+            const current = getActiveNoticeEl(kind);
+            if (current && container.contains(current) && current.dataset.pinKind === kind) {
+                return current;
+            }
+
+            return container.querySelector(
+                `.pin-system-notice[data-pin-kind="${kind}"][data-pin-group="active"]`
+            );
+        }
+
+        function isWithinPinNoticeWindow(kind, notice) {
+            return getNoticeExpiry(kind, notice) > Date.now();
+        }
+
+        function shouldReusePinNotice(container, kind = 'pinned') {
+            const activeNotice = getActivePinNotice(container, kind);
+            return Boolean(activeNotice && isWithinPinNoticeWindow(kind, activeNotice));
+        }
+
+        function extendPinNoticeWindow(notice, kind = 'pinned') {
+            const expiresAt = Date.now() + PIN_NOTICE_WINDOW_MS;
+
+            if (kind === 'unpinned') {
+                unpinNoticeExpiresAt = expiresAt;
+                lastUnpinNoticeEl = notice || lastUnpinNoticeEl;
+            } else {
+                pinNoticeExpiresAt = expiresAt;
+                lastPinNoticeEl = notice || lastPinNoticeEl;
+            }
+
+            if (notice) {
+                notice.dataset.pinKind = kind;
+                notice.dataset.pinGroup = 'active';
+                notice.dataset.pinExpiresAt = String(expiresAt);
+            }
+        }
+
+        function closeActivePinNotices(container, kind = 'pinned') {
+            container
+                .querySelectorAll(
+                    `.pin-system-notice[data-pin-kind="${kind}"][data-pin-group="active"]`
+                )
+                .forEach(notice => {
+                    notice.dataset.pinGroup = 'closed';
+                    delete notice.dataset.pinExpiresAt;
+                });
+        }
 
         function showPinSystemNotice(
             row,
@@ -14526,14 +15420,70 @@ if (!isGroup) {
 
             // =========================================
             // ADD SYSTEM NOTICE UNDER THAT MESSAGE
+            // Pins within 10 seconds share one notice.
+            // Each pin inside that window resets the timer.
             // =========================================
 
-            insertPinNoticeAfterRow(
-                buildPinSystemNotice(isPinned),
-                row
-            );
+            let noticeToShow = null;
+            const kind = getNoticeKind(isPinned);
+
+            if (shouldReusePinNotice(container, kind)) {
+                const activeNotice = getActivePinNotice(container, kind);
+                extendPinNoticeWindow(activeNotice, kind);
+                noticeToShow = activeNotice;
+            } else {
+                closeActivePinNotices(container, kind);
+
+                const lastMessage = getLastThreadMessageRow(container);
+                const notice = buildPinSystemNotice(isPinned);
+                if (lastMessage?.dataset?.messageId) {
+                    notice.dataset.afterMessageId = String(
+                        lastMessage.dataset.messageId
+                    );
+                }
+                insertPinNoticeAfterRow(
+                    notice,
+                    getPinNoticeInsertAnchor(container)
+                );
+                extendPinNoticeWindow(notice, kind);
+                noticeToShow = notice;
+            }
 
             lucideCreateIcons(row || container);
+            snapshotPinSystemNotices(container);
+            scrollPinNoticeIntoView(noticeToShow);
+        }
+
+        function scrollPinNoticeIntoView(notice) {
+            const container = document.getElementById('modalMessagesContainer');
+            if (!container || !notice || !container.contains(notice)) {
+                return;
+            }
+
+            stickThreadToBottom = true;
+
+            requestAnimationFrame(() => {
+                const noticeRect = notice.getBoundingClientRect();
+                const containerRect = container.getBoundingClientRect();
+                const offset =
+                    noticeRect.top -
+                    containerRect.top -
+                    (container.clientHeight / 2) +
+                    (noticeRect.height / 2);
+
+                container.scrollTo({
+                    top: container.scrollTop + offset,
+                    behavior: 'smooth'
+                });
+
+                notice.classList.remove('pin-system-notice-flash');
+                void notice.offsetWidth;
+                notice.classList.add('pin-system-notice-flash');
+
+                setTimeout(() => {
+                    notice.classList.remove('pin-system-notice-flash');
+                }, 1600);
+            });
         }
 
         // =====================================================
@@ -14590,7 +15540,7 @@ if (!isGroup) {
                 </div>`;
 
             document.body.appendChild(overlay);
-            lucideCreateIcons();
+            lucideCreateIcons(overlay);
 
             const list = overlay.querySelector('[data-forward-list]');
             const search = overlay.querySelector('[data-forward-search]');
@@ -15076,8 +16026,9 @@ if (!isGroup) {
 
             if (!append) {
                 stickThreadToBottom = true;
+                await restorePinSystemNotice();
+                await waitForThreadImages(container);
                 await settleOpenedThread(container);
-                restorePinSystemNotice();
             }
 
             isLoadingMessages = false;
@@ -15200,58 +16151,16 @@ if (!isGroup) {
             // GENERATE NEW REACTION HTML
             // =================================================
 
-            const wrapper =
-                document.createElement('div');
-
-            wrapper.innerHTML =
+            reactionContainer.innerHTML =
                 getMessageReactionsHtml(reactions);
 
-
-            const generatedReactions =
-                wrapper.querySelector(
-                    '.message-reactions'
-                );
-
-
-            // =================================================
-            // UPDATE CONTENT ONLY
-            //
-            // Do NOT do:
-            //
-            // reactionContainer.replaceWith(...)
-            //
-            // because that removes:
-            //
-            // absolute
-            // -bottom-3
-            // right-1
-            // =================================================
-
-            if (generatedReactions) {
-
-                reactionContainer.innerHTML =
-                    generatedReactions.innerHTML;
-
-
-                // =============================================
-                // SHOW / HIDE REACTIONS
-                // =============================================
-
-                if (
-                    Array.isArray(reactions) &&
-                    reactions.length > 0
-                ) {
-
-                    reactionContainer.classList.remove(
-                        'hidden'
-                    );
-
-                } else {
-
-                    reactionContainer.classList.add(
-                        'hidden'
-                    );
-                }
+            if (
+                Array.isArray(reactions) &&
+                reactions.length > 0
+            ) {
+                reactionContainer.classList.remove('hidden');
+            } else {
+                reactionContainer.classList.add('hidden');
             }
         }
 
@@ -15348,7 +16257,8 @@ if (!isGroup) {
             if (preview) {
 
                 // Save current preview before replacing it
-                if (!preview.dataset.originalPreview) {
+                if (!preview.dataset.originalPreviewHtml) {
+                    preview.dataset.originalPreviewHtml = preview.innerHTML;
                     preview.dataset.originalPreview =
                         preview.textContent.trim();
                 }
@@ -15422,11 +16332,13 @@ if (!isGroup) {
 
             if (preview) {
 
-                const originalPreview =
-                    preview.dataset.originalPreview || '';
-
-                preview.textContent =
-                    originalPreview;
+                if (preview.dataset.originalPreviewHtml) {
+                    preview.innerHTML = preview.dataset.originalPreviewHtml;
+                    delete preview.dataset.originalPreviewHtml;
+                } else {
+                    preview.textContent =
+                        preview.dataset.originalPreview || '';
+                }
             }
 
 
@@ -15466,7 +16378,7 @@ if (!isGroup) {
             const reactions = {
                 like: '👍',
                 heart: '❤️',
-                check: '✓',
+                check: '✅',
             };
 
             return reactions[reaction] || '';
@@ -15486,11 +16398,7 @@ if (!isGroup) {
         function getMessageReactionsHtml(reactions = []) {
 
             if (!Array.isArray(reactions) || reactions.length === 0) {
-                return `
-                    <div
-                        class="message-reactions hidden flex flex-wrap gap-1"
-                    ></div>
-                `;
+                return '';
             }
 
 
@@ -15571,34 +16479,27 @@ if (!isGroup) {
                                 relative
                                 inline-flex
                                 items-center
-                                gap-1
-                                rounded-full
-                                border
-                                px-2
-                                py-0.5
-                                text-[11px]
-                                transition
-                                hover:bg-gray-100
-                                ${
-                                    reactedByMe
-                                        ? 'border-gray-400 bg-gray-100 text-gray-900'
-                                        : 'border-gray-200 bg-white text-gray-600'
-                                }
+                                gap-px
+                                bg-transparent
+                                border-0
+                                p-0
+                                leading-none
+                                ${reactedByMe ? 'is-own-reaction' : ''}
                             "
                             data-reaction="${escapeHtml(type)}"
                             data-reactions="${encodeURIComponent(
                                 JSON.stringify(items)
                             )}"
-                            title="${escapeHtml(tooltip)}"
+                            data-tooltip="${escapeHtml(tooltip)}"
                         >
 
-                            <span>
+                            <span class="message-reaction-emoji">
                                 ${emoji}
                             </span>
 
                             ${
                                 items.length > 1
-                                    ? `<span>${items.length}</span>`
+                                    ? `<span class="message-reaction-count">${items.length}</span>`
                                     : ''
                             }
 
@@ -15608,13 +16509,7 @@ if (!isGroup) {
                 .join('');
 
 
-            return `
-                <div
-                    class="message-reactions flex w-fit flex-wrap gap-1"
-                >
-                    ${html}
-                </div>
-            `;
+            return html;
         }
 
         // =====================================================
@@ -16069,7 +16964,7 @@ if (!isGroup) {
             );
 
 
-            lucideCreateIcons();
+            lucideCreateIcons(overlay);
 
 
             // =============================================
@@ -16248,7 +17143,7 @@ if (!isGroup) {
                             hover:bg-gray-100
                             hover:text-gray-700
                         "
-                        title="React"
+                        data-tooltip="React"
                     >
                         <i
                             data-lucide="smile"
@@ -16300,7 +17195,7 @@ if (!isGroup) {
                                 hover:bg-gray-100
                             "
                             data-reaction="like"
-                            title="Like"
+                            data-tooltip="Like"
                         >
                             👍
                         </button>
@@ -16320,7 +17215,7 @@ if (!isGroup) {
                                 hover:bg-gray-100
                             "
                             data-reaction="heart"
-                            title="Heart"
+                            data-tooltip="Heart"
                         >
                             ❤️
                         </button>
@@ -16340,9 +17235,9 @@ if (!isGroup) {
                                 hover:bg-gray-100
                             "
                             data-reaction="check"
-                            title="Check"
+                            data-tooltip="Check"
                         >
-                            ✓
+                            ✅
                         </button>
 
                     </div>
@@ -16536,7 +17431,7 @@ if (!isGroup) {
                         hover:bg-gray-300
                     "
                     data-reply-message-id="${replyTo.message_id}"
-                    title="View original message"
+                    data-tooltip="View original message"
                 >
                     <p class="truncate text-sm leading-snug">
                         ${escapeHtml(message)}
@@ -17819,15 +18714,14 @@ if (!isGroup) {
             );
 
             const end = maxScroll();
-            if (end <= 8) {
+            const current = container.scrollTop;
+            if (end <= 8 || (end - current) <= 24) {
                 container.scrollTop = end;
                 ignoreProgrammaticScroll = false;
                 return;
             }
 
-            container.scrollTop = Math.max(0, end - 160);
-
-            const start = container.scrollTop;
+            const start = current;
             const startedAt = performance.now();
 
             const step = (now) => {
@@ -18018,11 +18912,13 @@ if (!isGroup) {
 
             button.dataset.composerMode = canSend ? 'send' : 'like';
             button.type = canSend ? 'submit' : 'button';
-            button.title = canSend ? 'Send' : 'Send a like';
+            button.setAttribute('data-tooltip', canSend ? 'Send' : 'Send a like');
             button.setAttribute('aria-label', canSend ? 'Send' : 'Send a like');
-            button.classList.toggle('bg-gray-900', canSend);
+            button.classList.toggle('bg-[#0084FF]', canSend);
             button.classList.toggle('text-white', canSend);
-            button.classList.toggle('hover:bg-gray-800', canSend);
+            button.classList.toggle('hover:bg-[#0078E8]', canSend);
+            button.classList.toggle('bg-gray-900', false);
+            button.classList.toggle('hover:bg-gray-800', false);
             button.classList.toggle('bg-transparent', !canSend);
             button.classList.toggle('text-[#0084FF]', !canSend);
             button.classList.toggle('hover:bg-transparent', !canSend);
@@ -18917,7 +19813,7 @@ if (!isGroup) {
                         transition
                         hover:bg-gray-900
                     "
-                    title="Remove"
+                    data-tooltip="Remove"
                 >
                     <i data-lucide="x" class="h-3 w-3"></i>
                 </button>
@@ -19021,7 +19917,7 @@ if (!isGroup) {
                                 gap-3
                                 text-left
                             "
-                            title="${escapeHtml(fileName)}"
+                            data-tooltip="${escapeHtml(fileName)}"
                         >
                             <div
                                 class="
@@ -19083,7 +19979,7 @@ if (!isGroup) {
                                 hover:bg-white/10
                                 hover:text-white
                             "
-                            title="Download"
+                            data-tooltip="Download"
                         >
                             <i data-lucide="download" class="h-4 w-4"></i>
                         </a>
@@ -19130,10 +20026,10 @@ if (!isGroup) {
                     <div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-200 rounded-xl flex items-center justify-center">
                         <div class="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                             <div class="flex items-center gap-1">
-                                <button type="button" onclick="event.stopPropagation(); openImagePreview('${url}', '${name.replace(/'/g, "\\'")}')" class="h-8 w-8 rounded-full bg-white/90 text-gray-900 flex items-center justify-center hover:bg-white transition shadow-lg" title="Preview">
+                                <button type="button" onclick="event.stopPropagation(); openImagePreview('${url}', '${name.replace(/'/g, "\\'")}')" class="h-8 w-8 rounded-full bg-white/90 text-gray-900 flex items-center justify-center hover:bg-white transition shadow-lg" data-tooltip="Preview">
                                     <i data-lucide="maximize-2" class="h-4 w-4"></i>
                                 </button>
-                                <a href="${url}" target="_blank" download="${name}" class="h-8 w-8 rounded-full bg-white/90 text-gray-900 flex items-center justify-center hover:bg-white transition shadow-lg" title="Download">
+                                <a href="${url}" target="_blank" download="${name}" class="h-8 w-8 rounded-full bg-white/90 text-gray-900 flex items-center justify-center hover:bg-white transition shadow-lg" data-tooltip="Download">
                                     <i data-lucide="download" class="h-4 w-4"></i>
                                 </a>
                             </div>
@@ -19160,13 +20056,55 @@ if (!isGroup) {
             url,
             name
         ) {
-            // =====================================================
-            // LOAD THE WHOLE OPENED CONVERSATION FIRST
-            //
-            // This makes Previous / Next navigate through images
-            // from OTHER messages too, not only the clicked message.
-            // =====================================================
+            const messageId =
+                button?.dataset?.previewMessageId || null;
 
+            let messageImages = [];
+            try {
+                const encodedGallery =
+                    button?.dataset?.previewImages || '';
+                if (encodedGallery) {
+                    const parsed = JSON.parse(
+                        decodeURIComponent(encodedGallery)
+                    );
+                    if (Array.isArray(parsed)) {
+                        messageImages = parsed.filter(image =>
+                            String(image?.url || '')
+                        );
+                    }
+                }
+            } catch (error) {
+                messageImages = [];
+            }
+
+            const isGroupedAlbum = messageImages.length > 1;
+
+            // Grouped album: carousel only the images in this message.
+            if (isGroupedAlbum) {
+                const gallery = messageImages.map(image => ({
+                    url: String(image.url || ''),
+                    name: image.name || 'Image',
+                    messageId
+                }));
+
+                let clickedIndex = gallery.findIndex(
+                    image => String(image.url || '') === String(url || '')
+                );
+                if (clickedIndex < 0) {
+                    clickedIndex = 0;
+                }
+
+                openImagePreview(
+                    gallery[clickedIndex]?.url || url,
+                    gallery[clickedIndex]?.name || name,
+                    gallery,
+                    clickedIndex,
+                    messageId
+                );
+                return;
+            }
+
+            // Single image: carousel every image in the opened conversation.
             if (
                 currentConversationId &&
                 typeof loadAllMessagesForConversationSearch ===
@@ -19185,13 +20123,6 @@ if (!isGroup) {
             const gallery = [];
             const seen = new Set();
 
-            // =====================================================
-            // COLLECT EVERY IMAGE FROM EVERY MESSAGE
-            //
-            // Each image stores messageId so Forward always forwards
-            // the message that owns the image currently being viewed.
-            // =====================================================
-
             document
                 .querySelectorAll(
                     '#modalMessagesContainer [data-preview-images]'
@@ -19205,20 +20136,19 @@ if (!isGroup) {
                             return;
                         }
 
-                        const messageImages =
-                            JSON.parse(
-                                decodeURIComponent(encodedGallery)
-                            );
+                        const images = JSON.parse(
+                            decodeURIComponent(encodedGallery)
+                        );
 
-                        const messageId =
+                        const previewMessageId =
                             previewButton.dataset.previewMessageId ||
                             null;
 
-                        if (!Array.isArray(messageImages)) {
+                        if (!Array.isArray(images)) {
                             return;
                         }
 
-                        messageImages.forEach(image => {
+                        images.forEach(image => {
                             const imageUrl =
                                 String(image?.url || '');
 
@@ -19226,10 +20156,8 @@ if (!isGroup) {
                                 return;
                             }
 
-                            // Same image can appear in data attributes
-                            // several times inside one multi-image grid.
                             const key =
-                                `${messageId || ''}::${imageUrl}`;
+                                `${previewMessageId || ''}::${imageUrl}`;
 
                             if (seen.has(key)) {
                                 return;
@@ -19243,7 +20171,7 @@ if (!isGroup) {
                                     image?.name ||
                                     'Image',
                                 messageId:
-                                    messageId || null
+                                    previewMessageId || null
                             });
                         });
                     } catch (error) {
@@ -19254,18 +20182,11 @@ if (!isGroup) {
                     }
                 });
 
-            // =====================================================
-            // FALLBACK
-            // If DOM collection somehow fails, still open clicked image.
-            // =====================================================
-
             if (!gallery.length) {
                 gallery.push({
                     url: url || '',
                     name: name || 'Image',
-                    messageId:
-                        button?.dataset?.previewMessageId ||
-                        null
+                    messageId
                 });
             }
 
@@ -19275,10 +20196,7 @@ if (!isGroup) {
                         String(image.url || '') ===
                             String(url || '') &&
                         String(image.messageId || '') ===
-                            String(
-                                button?.dataset?.previewMessageId ||
-                                ''
-                            )
+                            String(messageId || '')
                 );
 
             if (clickedIndex < 0) {
@@ -19299,9 +20217,7 @@ if (!isGroup) {
                 name,
                 gallery,
                 clickedIndex,
-                gallery[clickedIndex]?.messageId ||
-                    button?.dataset?.previewMessageId ||
-                    null
+                gallery[clickedIndex]?.messageId || messageId
             );
         }
 
@@ -19392,7 +20308,7 @@ if (!isGroup) {
                                     transition
                                     hover:bg-white/20
                                 "
-                                title="Download"
+                                data-tooltip="Download"
                                 aria-label="Download"
                             >
                                 <i
@@ -19415,7 +20331,7 @@ if (!isGroup) {
                                     disabled:cursor-not-allowed
                                     disabled:opacity-40
                                 "
-                                title="Forward"
+                                data-tooltip="Forward"
                                 aria-label="Forward"
                             >
                                 <i
@@ -19436,7 +20352,7 @@ if (!isGroup) {
                                     transition
                                     hover:bg-white/20
                                 "
-                                title="Close"
+                                data-tooltip="Close"
                                 aria-label="Close"
                             >
                                 <i
@@ -19468,7 +20384,7 @@ if (!isGroup) {
                                 transition
                                 hover:bg-white/20
                             "
-                            title="Previous image"
+                            data-tooltip="Previous image"
                             aria-label="Previous image"
                         >
                             <i
@@ -19543,7 +20459,7 @@ if (!isGroup) {
                                 transition
                                 hover:bg-white/20
                             "
-                            title="Next image"
+                            data-tooltip="Next image"
                             aria-label="Next image"
                         >
                             <i
@@ -19580,6 +20496,7 @@ if (!isGroup) {
                 `;
 
                 document.body.appendChild(overlay);
+                lucideCreateIcons(overlay);
 
                 const backdrop =
                     document.getElementById(
@@ -20117,7 +21034,7 @@ if (!isGroup) {
                                         transition
                                         hover:bg-gray-900
                                     "
-                                    title="Remove"
+                                    data-tooltip="Remove"
                                 >
                                     <i
                                         data-lucide="x"
@@ -20214,7 +21131,7 @@ if (!isGroup) {
                                     shadow
                                     hover:bg-gray-900
                                 "
-                                title="Remove"
+                                data-tooltip="Remove"
                             >
                                 <i
                                     data-lucide="x"
@@ -20255,7 +21172,7 @@ if (!isGroup) {
                         hover:bg-gray-300
                         hover:text-gray-900
                     "
-                    title="Upload another file"
+                    data-tooltip="Upload another file"
                 >
                     <i
                         data-lucide="plus"
@@ -20358,9 +21275,21 @@ if (!isGroup) {
             }
         }
 
-        async function loadModalUsers(search = '') {
+        async function loadModalUsers(search = '', force = false) {
+            const normalizedSearch = String(search || '');
+
+            if (
+                !force &&
+                !normalizedSearch &&
+                usersCache &&
+                (Date.now() - usersLoadedAt) < 30000
+            ) {
+                renderModalUsers(usersCache);
+                return;
+            }
+
             const params = new URLSearchParams();
-            if (search) params.set('search', search);
+            if (normalizedSearch) params.set('search', normalizedSearch);
 
             const response = await fetch(`/messages/users?${params.toString()}`, {
                 headers: {
@@ -20369,6 +21298,11 @@ if (!isGroup) {
             });
             if (!response.ok) return;
             const data = await response.json();
+            if (!normalizedSearch) {
+                usersCache = data.data;
+                usersCacheSearch = '';
+                usersLoadedAt = Date.now();
+            }
             renderModalUsers(data.data);
         }
 
@@ -20452,11 +21386,6 @@ if (!isGroup) {
                         "
                         data-user-id="${user.user_id}"
                         data-user-name="${safeName}"
-                        style="
-                            animation: userCardIn 0.3s
-                            cubic-bezier(0.4, 0, 0.2, 1) both;
-                            animation-delay: ${index * 25}ms;
-                        "
                     >
 
                         <!-- ===================================== -->
@@ -20612,6 +21541,8 @@ if (!isGroup) {
                                 "
                                 data-user-id="${user.user_id}"
                                 data-user-name="${safeName}"
+                                data-conversation-id="${Number(user.direct_conversation_id || 0)}"
+                                data-is-hidden="${user.is_hidden ? '1' : '0'}"
                                 aria-label="More options for ${safeName}"
                             >
                                 <i data-lucide="more-vertical" class="h-4 w-4"></i>
@@ -20624,7 +21555,7 @@ if (!isGroup) {
             }).join('');
 
 
-            lucideCreateIcons();
+            lucideCreateIcons(container);
         }
         async function startConversationWithUser(userId) {
 
@@ -20659,11 +21590,14 @@ if (!isGroup) {
 
                 console.log('Conversation:', conversation);
 
-                switchModalTab('conversations');
-
+                switchModalTab('conversations', { refresh: false });
+                conversationsRenderKey = '';
+                usersCache = null;
+                usersLoadedAt = 0;
+                closeUserOptionsMenu();
                 await loadModalConversations();
-
-                openModalConversation(conversation.conversation_id);
+                await openModalConversation(conversation.conversation_id);
+                showMessagingThreadPane();
 
             } catch (error) {
 
@@ -21183,6 +22117,8 @@ if (!isGroup) {
 
         let selectedOptionsUserId = null;
         let selectedOptionsUserName = '';
+        let selectedOptionsUserConversationId = null;
+        let selectedOptionsUserHidden = false;
         let activeUserOptionsButton = null;
         let activeUserOptionsMenu = null;
 
@@ -21198,31 +22134,30 @@ if (!isGroup) {
                 hidden
                 fixed
                 z-[10050]
-                w-64
+                w-44
                 overflow-hidden
-                rounded-xl
+                rounded-lg
                 border
                 border-gray-200
                 bg-white
-                p-1.5
-                shadow-[0_12px_35px_rgba(0,0,0,0.16)]
+                p-1
+                shadow-[0_8px_20px_rgba(0,0,0,0.12)]
             `;
 
             menu.innerHTML = `
                 <button
                     type="button"
-                    class="user-create-group-button flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-gray-700 transition hover:bg-gray-100 hover:text-gray-900"
+                    class="user-create-group-button flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-medium text-gray-700 transition hover:bg-gray-100 hover:text-gray-900"
                 >
-                    <i data-lucide="users" class="h-4 w-4 shrink-0"></i>
-                    <span class="user-create-group-text min-w-0"></span>
+                    <i data-lucide="users" class="h-3.5 w-3.5 shrink-0"></i>
+                    <span class="user-create-group-text whitespace-nowrap">Create group chat</span>
                 </button>
-
                 <button
                     type="button"
-                    class="user-mute-button flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-gray-700 transition hover:bg-gray-100 hover:text-gray-900"
+                    class="user-unhide-button hidden w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-medium text-gray-700 transition hover:bg-gray-100 hover:text-gray-900"
                 >
-                    <i data-lucide="bell-off" class="h-4 w-4 shrink-0"></i>
-                    <span>Mute</span>
+                    <i data-lucide="eye" class="h-3.5 w-3.5 shrink-0"></i>
+                    <span>Unhide</span>
                 </button>
             `;
 
@@ -21245,23 +22180,37 @@ if (!isGroup) {
             activeUserOptionsButton = null;
             selectedOptionsUserId = null;
             selectedOptionsUserName = '';
+            selectedOptionsUserConversationId = null;
+            selectedOptionsUserHidden = false;
         }
 
         function openUserOptionsMenu(button) {
             if (!button) return;
 
+            closeConversationOptionsMenu();
             const menu = getUserOptionsMenu();
 
             selectedOptionsUserId = Number(button.dataset.userId || 0);
             selectedOptionsUserName = button.dataset.userName || 'User';
+            selectedOptionsUserConversationId = Number(button.dataset.conversationId || 0) || null;
+            selectedOptionsUserHidden = button.dataset.isHidden === '1';
             activeUserOptionsButton = button;
             activeUserOptionsMenu = menu;
             
 
             const groupText = menu.querySelector('.user-create-group-text');
             if (groupText) {
-                groupText.textContent = `Create group chat with ${selectedOptionsUserName}`;
+                groupText.textContent = 'Create group chat';
             }
+
+            const unhideButton = menu.querySelector('.user-unhide-button');
+            const showUnhide = Boolean(
+                selectedOptionsUserConversationId &&
+                selectedOptionsUserHidden
+            );
+            unhideButton?.classList.toggle('hidden', !showUnhide);
+            unhideButton?.classList.toggle('flex', showUnhide);
+            lucideCreateIcons(menu);
 
             // =====================================================
             // FIRST OPEN POSITION FIX
@@ -21286,13 +22235,14 @@ if (!isGroup) {
                     return;
                 }
 
-                const buttonRect = button.getBoundingClientRect();
+                const icon = button.querySelector('svg, i') || button;
+                const anchorRect = icon.getBoundingClientRect();
                 const menuRect = menu.getBoundingClientRect();
-                const gap = 6;
+                const gap = 2;
                 const screenPadding = 10;
 
-                // Align the menu's right edge with the three dot button.
-                let left = buttonRect.right - menuRect.width;
+                // Tuck the menu under the 3-dot icon, not the padded hit area.
+                let left = anchorRect.right - menuRect.width + 8;
                 left = Math.max(
                     screenPadding,
                     Math.min(
@@ -21301,18 +22251,17 @@ if (!isGroup) {
                     )
                 );
 
-                // Normally open below. If there is not enough room, open above.
-                const roomBelow = window.innerHeight - buttonRect.bottom;
-                const roomAbove = buttonRect.top;
+                const roomBelow = window.innerHeight - anchorRect.bottom;
+                const roomAbove = anchorRect.top;
                 let top;
 
                 if (
                     roomBelow >= menuRect.height + gap ||
                     roomBelow >= roomAbove
                 ) {
-                    top = buttonRect.bottom + gap;
+                    top = anchorRect.bottom + gap;
                 } else {
-                    top = buttonRect.top - menuRect.height - gap;
+                    top = anchorRect.top - menuRect.height - gap;
                 }
 
                 top = Math.max(
@@ -21331,7 +22280,283 @@ if (!isGroup) {
             });
         }
 
+        let selectedOptionsConversationId = null;
+        let selectedOptionsConversationType = 'direct';
+        let activeConversationOptionsButton = null;
+        let activeConversationOptionsMenu = null;
+
+        function getConversationOptionsMenu() {
+            let menu = document.getElementById('floatingConversationOptionsMenu');
+            if (menu) {
+                return menu;
+            }
+
+            menu = document.createElement('div');
+            menu.id = 'floatingConversationOptionsMenu';
+            menu.className = `
+                hidden fixed z-[10050] w-44 overflow-hidden rounded-lg
+                border border-gray-200 bg-white p-1
+                shadow-[0_8px_20px_rgba(0,0,0,0.12)]
+            `;
+            menu.innerHTML = `
+                <button type="button" class="conversation-mute-button flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-medium text-gray-700 transition hover:bg-gray-100 hover:text-gray-900">
+                    <i data-lucide="bell-off" class="conversation-mute-icon h-3.5 w-3.5 shrink-0"></i>
+                    <span class="conversation-mute-text">Mute</span>
+                </button>
+                <button type="button" class="conversation-hide-button flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-medium text-gray-700 transition hover:bg-gray-100 hover:text-gray-900">
+                    <i data-lucide="eye-off" class="h-3.5 w-3.5 shrink-0"></i>
+                    <span>Hide</span>
+                </button>
+                <button type="button" class="conversation-leave-button hidden w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs font-medium text-red-600 transition hover:bg-red-50">
+                    <i data-lucide="log-out" class="h-3.5 w-3.5 shrink-0"></i>
+                    <span>Leave</span>
+                </button>
+            `;
+            document.body.appendChild(menu);
+            lucideCreateIcons(menu);
+            return menu;
+        }
+
+        function closeConversationOptionsMenu() {
+            if (activeConversationOptionsMenu) {
+                activeConversationOptionsMenu.classList.add('hidden');
+            }
+            activeConversationOptionsMenu = null;
+            activeConversationOptionsButton = null;
+            selectedOptionsConversationId = null;
+            selectedOptionsConversationType = 'direct';
+        }
+
+        function openConversationOptionsMenu(button) {
+            if (!button) {
+                return;
+            }
+
+            closeUserOptionsMenu();
+            const menu = getConversationOptionsMenu();
+            selectedOptionsConversationId = Number(button.dataset.conversationId || 0);
+            selectedOptionsConversationType = button.dataset.conversationType || 'direct';
+            activeConversationOptionsButton = button;
+            activeConversationOptionsMenu = menu;
+
+            const isGroup = selectedOptionsConversationType === 'group';
+            const conv = findCachedConversation(selectedOptionsConversationId);
+            const muted = currentUserIsMutedInConversation(conv);
+            const muteText = menu.querySelector('.conversation-mute-text');
+            const muteIcon = menu.querySelector('.conversation-mute-icon');
+            if (muteText) {
+                muteText.textContent = muted ? 'Unmute' : 'Mute';
+            }
+            if (muteIcon) {
+                const nextIcon = document.createElement('i');
+                nextIcon.setAttribute('data-lucide', muted ? 'bell' : 'bell-off');
+                nextIcon.className = 'conversation-mute-icon h-3.5 w-3.5 shrink-0';
+                muteIcon.replaceWith(nextIcon);
+            }
+
+            menu.querySelector('.conversation-hide-button')?.classList.toggle('hidden', isGroup);
+            menu.querySelector('.conversation-leave-button')?.classList.toggle('hidden', !isGroup);
+            menu.querySelector('.conversation-leave-button')?.classList.toggle('flex', isGroup);
+
+            menu.classList.remove('hidden');
+            menu.style.visibility = 'hidden';
+            menu.style.left = '0px';
+            menu.style.top = '0px';
+
+            requestAnimationFrame(() => {
+                if (
+                    activeConversationOptionsMenu !== menu ||
+                    activeConversationOptionsButton !== button ||
+                    menu.classList.contains('hidden')
+                ) {
+                    menu.style.visibility = '';
+                    return;
+                }
+
+                const icon = button.querySelector('svg, i') || button;
+                const anchorRect = icon.getBoundingClientRect();
+                const menuRect = menu.getBoundingClientRect();
+                const gap = 2;
+                const screenPadding = 10;
+                let left = anchorRect.right - menuRect.width + 8;
+                left = Math.max(
+                    screenPadding,
+                    Math.min(left, window.innerWidth - menuRect.width - screenPadding)
+                );
+
+                const roomBelow = window.innerHeight - anchorRect.bottom;
+                let top = roomBelow >= menuRect.height + gap
+                    ? anchorRect.bottom + gap
+                    : anchorRect.top - menuRect.height - gap;
+                top = Math.max(
+                    screenPadding,
+                    Math.min(top, window.innerHeight - menuRect.height - screenPadding)
+                );
+
+                menu.style.left = `${Math.round(left)}px`;
+                menu.style.top = `${Math.round(top)}px`;
+                menu.style.visibility = 'visible';
+                lucideCreateIcons(menu);
+            });
+        }
+
+        async function toggleMuteConversationById(conversationId) {
+            const conv = findCachedConversation(conversationId);
+            const muted = currentUserIsMutedInConversation(conv);
+            const action = muted ? 'unmute' : 'mute';
+            const response = await fetch(
+                `/messages/conversations/${conversationId}/${action}`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken
+                    }
+                }
+            );
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(data.message || `Unable to ${action} conversation.`);
+            }
+            if (action === 'mute') {
+                mutedConversationIds.add(Number(conversationId));
+            } else {
+                mutedConversationIds.delete(Number(conversationId));
+            }
+            await loadModalConversations();
+            await updateTopbarMessageBadge();
+        }
+
+        async function hideConversationFromList(conversationId) {
+            const response = await fetch(
+                `/messages/conversations/${conversationId}/hide`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken
+                    }
+                }
+            );
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(data.message || 'Unable to hide conversation.');
+            }
+
+            if (Number(currentConversationId) === Number(conversationId)) {
+                resetModalChat();
+            }
+
+            conversationsRenderKey = '';
+            usersCache = null;
+            usersLoadedAt = 0;
+            await loadModalConversations();
+        }
+
+        async function unhideConversationFromList(conversationId) {
+            const response = await fetch(
+                `/messages/conversations/${conversationId}/unhide`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken
+                    }
+                }
+            );
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                throw new Error(data.message || 'Unable to unhide conversation.');
+            }
+
+            conversationsRenderKey = '';
+            usersCache = null;
+            usersLoadedAt = 0;
+            closeUserOptionsMenu();
+            switchModalTab('conversations', { refresh: false });
+            await loadModalConversations();
+            await openModalConversation(conversationId);
+            showMessagingThreadPane();
+        }
+
+        function bindMessagingHoverTooltips() {
+            const tip = document.getElementById('messagingHoverTooltip');
+            if (!tip) {
+                return;
+            }
+
+            let active = null;
+            let hideTimer = null;
+
+            const hide = () => {
+                active = null;
+                tip.classList.add('hidden');
+                tip.classList.remove('is-visible');
+            };
+
+            const place = (el) => {
+                const text = String(el.getAttribute('data-tooltip') || '').trim();
+                if (!text) {
+                    hide();
+                    return;
+                }
+
+                tip.textContent = text;
+                tip.classList.remove('hidden');
+                tip.style.left = '0px';
+                tip.style.top = '0px';
+
+                const rect = el.getBoundingClientRect();
+                const tipRect = tip.getBoundingClientRect();
+                const gap = 8;
+                const pad = 8;
+                let left = rect.left + (rect.width / 2) - (tipRect.width / 2);
+                left = Math.max(pad, Math.min(left, window.innerWidth - tipRect.width - pad));
+
+                let top = rect.top - tipRect.height - gap;
+                if (top < pad) {
+                    top = rect.bottom + gap;
+                }
+
+                tip.style.left = `${Math.round(left)}px`;
+                tip.style.top = `${Math.round(top)}px`;
+                tip.classList.add('is-visible');
+            };
+
+            document.addEventListener('pointerover', (event) => {
+                const el = event.target.closest?.('[data-tooltip]');
+                if (!el || el === active) {
+                    return;
+                }
+
+                clearTimeout(hideTimer);
+                active = el;
+                place(el);
+            });
+
+            document.addEventListener('pointerout', (event) => {
+                const el = event.target.closest?.('[data-tooltip]');
+                if (!el || el !== active) {
+                    return;
+                }
+
+                const next = event.relatedTarget;
+                if (next && el.contains(next)) {
+                    return;
+                }
+
+                hideTimer = setTimeout(hide, 40);
+            });
+
+            document.addEventListener('scroll', () => {
+                if (active) {
+                    hide();
+                }
+            }, true);
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
+            bindMessagingHoverTooltips();
             updateTopbarMessageBadge();
             if (window.requestIdleCallback) {
                 requestIdleCallback(() => loadModalConversations(), { timeout: 3000 });
@@ -21443,6 +22668,13 @@ if (!isGroup) {
                 );
 
             document
+                .getElementById('modalPinnedBanner')
+                ?.addEventListener(
+                    'click',
+                    openPinnedMessagesModal
+                );
+
+            document
                 .getElementById('closePinnedMessagesModal')
                 ?.addEventListener(
                     'click',
@@ -21459,8 +22691,24 @@ if (!isGroup) {
             const conversationsList = document.getElementById('modalConversationsList');
             if (conversationsList) {
                 conversationsList.addEventListener('click', (e) => {
+                    const optionsButton = e.target.closest('.conversation-options-button');
+                    if (optionsButton) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const sameButtonIsOpen =
+                            activeConversationOptionsButton === optionsButton &&
+                            activeConversationOptionsMenu &&
+                            !activeConversationOptionsMenu.classList.contains('hidden');
+                        if (sameButtonIsOpen) {
+                            closeConversationOptionsMenu();
+                        } else {
+                            openConversationOptionsMenu(optionsButton);
+                        }
+                        return;
+                    }
+
                     const item = e.target.closest('.conversation-item');
-                    if (item && !e.target.closest('.conversation-delete-btn')) {
+                    if (item) {
                         const id = item.dataset.id;
                         if (id) openModalConversation(id);
                     }
@@ -21643,7 +22891,15 @@ if (!isGroup) {
                         );
                     }
 
+                    const conversationIdNumber = Number(conversationId);
+                    if (action === 'mute') {
+                        mutedConversationIds.add(conversationIdNumber);
+                    } else {
+                        mutedConversationIds.delete(conversationIdNumber);
+                    }
+
                     await loadModalConversations();
+                    await updateTopbarMessageBadge();
 
                     // Refresh Users tab so the dropdown state
                     // is correct the next time it is opened.
@@ -21709,31 +22965,63 @@ if (!isGroup) {
                     }
 
 
-                    // =============================================
-                    // MUTE / UNMUTE USER CONVERSATION
-                    // =============================================
-
-                    const muteButton =
-                        e.target.closest(
-                            '.user-mute-button'
-                        );
-
-                    if (muteButton) {
-
+                    const userUnhideButton =
+                        e.target.closest('.user-unhide-button');
+                    if (userUnhideButton) {
                         e.preventDefault();
                         e.stopPropagation();
-
-                        const userId =
-                            selectedOptionsUserId;
-
+                        const conversationId = selectedOptionsUserConversationId;
                         closeUserOptionsMenu();
+                        if (!conversationId) return;
+                        try {
+                            await unhideConversationFromList(conversationId);
+                        } catch (error) {
+                            alert(error.message || 'Unable to unhide conversation.');
+                        }
+                        return;
+                    }
 
-                        if (!userId) return;
+                    const conversationMuteButton =
+                        e.target.closest('.conversation-mute-button');
+                    if (conversationMuteButton) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const conversationId = selectedOptionsConversationId;
+                        closeConversationOptionsMenu();
+                        if (!conversationId) return;
+                        try {
+                            await toggleMuteConversationById(conversationId);
+                        } catch (error) {
+                            alert(error.message || 'Unable to update mute setting.');
+                        }
+                        return;
+                    }
 
-                        await toggleMuteUserConversation(
-                            userId
-                        );
+                    const conversationHideButton =
+                        e.target.closest('.conversation-hide-button');
+                    if (conversationHideButton) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const conversationId = selectedOptionsConversationId;
+                        closeConversationOptionsMenu();
+                        if (!conversationId) return;
+                        try {
+                            await hideConversationFromList(conversationId);
+                        } catch (error) {
+                            alert(error.message || 'Unable to hide conversation.');
+                        }
+                        return;
+                    }
 
+                    const conversationLeaveButton =
+                        e.target.closest('.conversation-leave-button');
+                    if (conversationLeaveButton) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const conversationId = selectedOptionsConversationId;
+                        closeConversationOptionsMenu();
+                        if (!conversationId) return;
+                        openLeaveGroupConfirmModal(conversationId);
                         return;
                     }
 
@@ -21752,6 +23040,13 @@ if (!isGroup) {
                     ) {
                         closeUserOptionsMenu();
                     }
+
+                    if (
+                        !e.target.closest('.conversation-options-button') &&
+                        !e.target.closest('#floatingConversationOptionsMenu')
+                    ) {
+                        closeConversationOptionsMenu();
+                    }
                 }
             );
 
@@ -21761,7 +23056,12 @@ if (!isGroup) {
                 .getElementById('modalUsersContainer')
                 ?.addEventListener('scroll', closeUserOptionsMenu, { passive: true });
 
+            document
+                .getElementById('modalConversationsContainer')
+                ?.addEventListener('scroll', closeConversationOptionsMenu, { passive: true });
+
             window.addEventListener('resize', closeUserOptionsMenu);
+            window.addEventListener('resize', closeConversationOptionsMenu);
 
             // =====================================================
             // ESCAPE CLOSES DROPDOWN
@@ -21769,6 +23069,7 @@ if (!isGroup) {
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') {
                     closeUserOptionsMenu();
+                    closeConversationOptionsMenu();
                 }
             });
 
@@ -22082,7 +23383,11 @@ if (!isGroup) {
                             if (menu) {
                                 const opening = menu.classList.contains('hidden');
                                 closeAllMessageMenus(menu);
-                                menu.classList.toggle('hidden', !opening);
+                                if (opening) {
+                                    positionMessageMoreMenu(moreButton, menu);
+                                } else {
+                                    menu.classList.add('hidden');
+                                }
                             }
                             return;
                         }
@@ -22183,8 +23488,16 @@ if (!isGroup) {
                 }, { passive: true });
 
                 messagesContainer.addEventListener('load', event => {
+                    if (!(event.target instanceof HTMLImageElement)) {
+                        return;
+                    }
+
+                    const lastRow = Array.from(
+                        messagesContainer.querySelectorAll('.message-row')
+                    ).pop();
+
                     if (
-                        event.target instanceof HTMLImageElement &&
+                        lastRow?.contains(event.target) &&
                         stickThreadToBottom &&
                         !threadScrollAnimation
                     ) {
@@ -22205,6 +23518,7 @@ if (!isGroup) {
 
             listenToUserMessagesRealtime();
             listenToPrivateCallsRealtime();
+            lucideCreateIcons();
         });
 
         document.addEventListener('click', (event) => {
@@ -22221,6 +23535,19 @@ if (!isGroup) {
             if (e.key === 'Escape') {
                 const modal = document.getElementById('messagingModal');
                 if (modal && !modal.classList.contains('hidden')) {
+                    if (isMessagingFullscreen()) {
+                        setMessagingFullscreen(false);
+                        return;
+                    }
+                    if (
+                        isMessagingMobile() &&
+                        document
+                            .getElementById('messagingModalContainer')
+                            ?.classList.contains('messaging-thread-open')
+                    ) {
+                        resetModalChat();
+                        return;
+                    }
                     closeMessagingModal();
                 }
             }
@@ -22320,6 +23647,36 @@ if (!isGroup) {
 </script>
 
 <style>
+
+    .message-more {
+        overflow: visible;
+    }
+
+    .message-more-menu {
+        overflow: visible;
+    }
+
+    .message-more-menu::after {
+        content: '';
+        position: absolute;
+        left: 50%;
+        width: 0;
+        height: 0;
+        margin-left: -6px;
+        border: 6px solid transparent;
+    }
+
+    .message-more-menu-up::after {
+        top: 100%;
+        border-top-color: #fff;
+        filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.08));
+    }
+
+    .message-more-menu-down::after {
+        bottom: 100%;
+        border-bottom-color: #fff;
+        filter: drop-shadow(0 -1px 1px rgba(0, 0, 0, 0.08));
+    }
 
     /* ======================================
     SEARCH INSIDE CONVERSATION
@@ -22513,6 +23870,17 @@ if (!isGroup) {
         animation: slideInRight 0.3s ease-out both;
     }
 
+    .messaging-hover-tooltip {
+        opacity: 0;
+        transform: translateY(4px) scale(0.98);
+        transition: opacity 0.12s ease, transform 0.12s ease;
+    }
+
+    .messaging-hover-tooltip.is-visible {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+
     /* ======================================
        MESSAGING MODAL CONTAINER
     ====================================== */
@@ -22521,12 +23889,83 @@ if (!isGroup) {
         display: block;
         -webkit-overflow-scrolling: touch;
         overscroll-behavior: contain;
-        overflow-anchor: auto;
+        overflow-anchor: none;
         scrollbar-gutter: stable;
     }
 
     #modalMessagesContainer > * + * {
         margin-top: 0.625rem;
+    }
+
+    .pin-system-notice-flash {
+        animation: pinNoticeFlash 1.4s ease;
+    }
+
+    @keyframes pinNoticeFlash {
+        0% {
+            background-color: rgb(219 234 254);
+        }
+        100% {
+            background-color: transparent;
+        }
+    }
+
+    .message-bubble-line,
+    .message-content-wrapper,
+    .message-bubble {
+        overflow: visible;
+    }
+
+    .message-content-wrapper {
+        position: relative;
+    }
+
+    .message-content-wrapper > .message-reactions {
+        position: absolute;
+        right: 6px;
+        bottom: 2px;
+        z-index: 30;
+        display: flex;
+        align-items: flex-end;
+        gap: 1px;
+        line-height: 0;
+        transform: translate(50%, 50%);
+        pointer-events: auto;
+    }
+
+    .message-content-wrapper:has(.message-reaction-chip) {
+        padding-bottom: 0;
+    }
+
+    .message-row:has(.message-reaction-chip) .message-status-wrapper {
+        margin-top: 0.7rem;
+    }
+
+    .message-reaction-chip {
+        background: transparent !important;
+        border: 0 !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        min-width: 0;
+        cursor: pointer;
+    }
+
+    .message-reaction-chip:hover {
+        background: transparent !important;
+        transform: scale(1.12);
+    }
+
+    .message-reaction-emoji {
+        font-size: 16px;
+        line-height: 1;
+        filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.28));
+    }
+
+    .message-reaction-count {
+        font-size: 10px;
+        line-height: 1;
+        color: #6b7280;
+        font-weight: 600;
     }
 
     #modalConversationsContainer,
@@ -22538,6 +23977,87 @@ if (!isGroup) {
 
     #messagingModalContainer {
         will-change: auto;
+        min-width: 0;
+    }
+
+    #messagingModalContainer.is-fullscreen {
+        width: 100% !important;
+        max-width: none !important;
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
+    }
+
+    #messagingModalBackdrop:has(#messagingModalContainer.is-fullscreen) {
+        align-items: stretch;
+        justify-content: stretch;
+        padding: 0;
+    }
+
+    #messagingModalWindowControls {
+        top: max(0.65rem, env(safe-area-inset-top));
+        right: max(0.65rem, env(safe-area-inset-right));
+    }
+
+    #messagingModalContainer:has(#modalChatHeader:not(.hidden)) #messagingModalWindowControls {
+        display: none;
+    }
+
+    #modalComposer {
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    @media (max-width: 767px) {
+        #messagingModalBackdrop {
+            align-items: stretch;
+            justify-content: stretch;
+            padding: 0;
+        }
+
+        #messagingModalContainer:not(.is-fullscreen) {
+            width: 100%;
+            max-width: none;
+            height: 100dvh;
+            max-height: 100dvh;
+            margin: 0;
+            border-radius: 0;
+        }
+
+        #messagingModalContainer:not(.messaging-thread-open) #modalChatArea {
+            display: none !important;
+        }
+
+        #messagingModalContainer.messaging-thread-open #modalConversationsPane {
+            display: none !important;
+        }
+
+        #messagingModalContainer.messaging-thread-open #modalChatArea {
+            display: flex !important;
+            width: 100%;
+            min-width: 0;
+        }
+
+        #modalConversationInfoSidebar:not(.hidden) {
+            position: absolute;
+            inset: 0;
+            z-index: 40;
+            width: 100% !important;
+            max-width: none !important;
+            border-left: 0;
+        }
+
+        #modalComposer .px-4 {
+            padding-left: 0.75rem;
+            padding-right: 0.75rem;
+        }
+    }
+
+    @media (max-width: 379px) {
+        #modalAudioCallButton,
+        #modalVideoCallButton {
+            display: none;
+        }
     }
 
     /* ======================================

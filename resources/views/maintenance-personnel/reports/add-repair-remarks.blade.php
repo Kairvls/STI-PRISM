@@ -3,11 +3,7 @@
 @section ("title", "Repair Remarks")
 
 @section ("content")
-    <div class="mx-auto max-w-5xl">
-        <div class="mb-8">
-            <h1 class="text-3xl font-extrabold">Repair Remarks</h1>
-        </div>
-
+    <div>
         <div class="rounded-3xl bg-[#1E293B] p-8">
             <form action="#" method="POST">
                 @csrf

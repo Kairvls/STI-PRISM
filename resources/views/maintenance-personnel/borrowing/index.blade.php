@@ -7,16 +7,8 @@
 @section ("content")
 
     <div
-        class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
+        class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-end"
     >
-        <div>
-            <h1 class="text-4xl font-black text-slate-900">
-                Borrowing Records
-            </h1>
-
-            <p class="mt-1 text-slate-500">Track borrowed equipment, due dates, and overdue returns.</p>
-        </div>
-
         <button
             type="button"
             onclick="openBorrowModal()"
@@ -608,17 +600,10 @@
 
 
                                 $statusClass = match ($borrowingStatus) {
-                                    "Borrowed" =>
-                                        "bg-blue-50 text-blue-700 ring-blue-200",
-
-                                    "Returned" =>
-                                        "bg-emerald-50 text-emerald-700 ring-emerald-200",
-
-                                    "Overdue" =>
-                                        "bg-red-50 text-red-700 ring-red-200",
-
-                                    default =>
-                                        "bg-slate-100 text-slate-600 ring-slate-200",
+                                    "Borrowed" => "bg-sky-50 text-sky-700",
+                                    "Returned" => "bg-emerald-50 text-emerald-700",
+                                    "Overdue" => "bg-rose-50 text-rose-700",
+                                    default => "bg-slate-100 text-slate-600",
                                 };
 
 
@@ -672,7 +657,7 @@
                                                     text-sm font-semibold
                                                     text-slate-800"
 
-                                                title="{{ $record->equipment_name }}"
+                                                data-tooltip="{{ $record->equipment_name }}"
                                             >
                                                 {{ $record->equipment_name }}
                                             </p>
@@ -761,24 +746,9 @@
                                 {{-- ===================================== --}}
 
                                 <td class="px-5 py-4">
-
-                                    <span
-                                        class="inline-flex items-center gap-1.5
-                                            rounded-full px-2.5 py-1
-                                            text-[11px] font-medium
-                                            ring-1 ring-inset
-                                            {{ $statusClass }}"
-                                    >
-
-                                        <span
-                                            class="h-1.5 w-1.5 rounded-full
-                                                {{ $statusDotClass }}"
-                                        ></span>
-
+                                    <span class="inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-medium {{ $statusClass }}">
                                         {{ $borrowingStatus }}
-
                                     </span>
-
                                 </td>
 
 
@@ -911,7 +881,7 @@
                                                 hover:bg-slate-200
                                                 hover:text-slate-900"
 
-                                            title="View borrowing details"
+                                            data-tooltip="View borrowing details"
 
                                             aria-label="View borrowing details"
                                         >
@@ -944,7 +914,7 @@
                                                     hover:bg-slate-800
                                                     active:scale-95"
 
-                                                title="Return equipment"
+                                                data-tooltip="Return equipment"
 
                                                 aria-label="Return equipment"
                                             >
@@ -1098,7 +1068,7 @@
 
     <div
     id="borrowModal"
-    class="fixed inset-0 z-50 hidden items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]"
+    class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
 >
     <!-- ===================================== -->
     <!-- BORROW EQUIPMENT MODAL -->
@@ -1519,7 +1489,7 @@
 
     <div
     id="viewModal"
-    class="fixed inset-0 z-50 hidden items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]"
+    class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
 >
     <!-- ===================================== -->
     <!-- BORROWING DETAILS MODAL -->
@@ -1595,7 +1565,7 @@
 
     <div
     id="returnModal"
-    class="fixed inset-0 z-50 hidden items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]"
+    class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
 >
     <!-- ===================================== -->
     <!-- RETURN EQUIPMENT MODAL -->

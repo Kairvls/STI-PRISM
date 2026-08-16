@@ -55,7 +55,7 @@
     {{-- MODERN MINIMALIST DESIGN --}}
     {{-- ===================================================== --}}
 
-    <div class="mx-auto max-w-7xl">
+    <div>
 
         {{-- ================================================= --}}
         {{-- PAGE HEADER --}}
@@ -792,7 +792,7 @@
 
 <div
     id="updateStatusModal"
-    class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+    class="fixed inset-0 z-[100] hidden items-center justify-center bg-[#0b1220]/70 p-4"
     aria-hidden="true"
     onclick="closeUpdateStatusModal()"
 >

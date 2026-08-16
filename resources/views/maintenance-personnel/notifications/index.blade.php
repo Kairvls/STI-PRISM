@@ -7,42 +7,10 @@
 <div class="space-y-6">
 
     {{-- ===================================================== --}}
-    {{-- PAGE HEADER --}}
+    {{-- HEADER ACTIONS --}}
     {{-- ===================================================== --}}
 
-    <div
-        class="flex flex-col gap-4
-            lg:flex-row lg:items-end lg:justify-between">
-
-        <div>
-
-            <p
-                class="text-xs font-medium uppercase
-                    tracking-[0.16em] text-slate-400">
-                Activity Center
-            </p>
-
-            <h1
-                class="mt-1 text-3xl font-semibold
-                    tracking-tight text-slate-950">
-                Alerts
-            </h1>
-
-            <p
-                class="mt-1 max-w-2xl
-                    text-sm leading-6 text-slate-500">
-                Review report activity, maintenance reminders,
-                and equipment events across the system.
-            </p>
-
-        </div>
-
-
-        {{-- ===================================================== --}}
-        {{-- HEADER ACTIONS --}}
-        {{-- ===================================================== --}}
-
-        <div class="flex flex-wrap items-center gap-2">
+    <div class="flex flex-wrap items-center justify-end gap-2">
 
             {{-- ================================================= --}}
             {{-- UNREAD COUNT --}}
@@ -106,8 +74,6 @@
             @endif
 
         </div>
-
-    </div>
 
         {{-- ===================================================== --}}
     {{-- ALERT SUMMARY CARDS --}}

@@ -17,10 +17,14 @@ class ConversationParticipant extends Model
         'conversation_id',
         'user_id',
         'last_read_at',
+        'is_muted',
+        'is_hidden',
     ];
 
     protected $casts = [
         'last_read_at' => 'datetime',
+        'is_muted' => 'boolean',
+        'is_hidden' => 'boolean',
     ];
 
     public function conversation(): BelongsTo

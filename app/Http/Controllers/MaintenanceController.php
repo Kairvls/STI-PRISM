@@ -7,6 +7,7 @@ use App\Support\ReporterImport;
 use App\Support\RoomCategories;
 use App\Support\RoomName;
 use App\Support\SuggestedIssues;
+use App\Support\EquipmentQrCodes;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -6461,6 +6462,8 @@ class MaintenanceController extends Controller
 
                 ]);
 
+            EquipmentQrCodes::assignIfEligible((int) $equipmentId);
+
 
             // =================================================
             // RECENT ACTIVITY
@@ -8925,6 +8928,8 @@ class MaintenanceController extends Controller
             ->select(
                 'maintenance_schedules_table.*',
                 'equipment_table.equipment_name',
+                'equipment_table.equipment_qr_code',
+                'equipment_table.equipment_room_id',
                 'rooms_table.room_name'
             );
 
@@ -9005,6 +9010,20 @@ class MaintenanceController extends Controller
 
 
         // =====================================================
+        // ROOM FILTER
+        // =====================================================
+
+        if ($request->filled('room')) {
+
+            $tableSchedulesQuery->where(
+                'equipment_table.equipment_room_id',
+                $request->room
+            );
+
+        }
+
+
+        // =====================================================
         // STATUS FILTER
         // =====================================================
 
@@ -9036,6 +9055,7 @@ class MaintenanceController extends Controller
 
         // =====================================================
         // GET ACTIVE EQUIPMENT FOR CREATE SCHEDULE MODAL
+        // ONLY EQUIPMENT WITH A GENERATED QR CODE
         // =====================================================
 
         $equipment = DB::table('equipment_table')
@@ -9052,6 +9072,10 @@ class MaintenanceController extends Controller
                 'Active'
             )
 
+            ->whereNotNull('equipment_table.equipment_qr_code')
+
+            ->where('equipment_table.equipment_qr_code', '!=', '')
+
             ->select(
                 'equipment_table.*',
                 'rooms_table.room_name'
@@ -9062,6 +9086,11 @@ class MaintenanceController extends Controller
             )
 
             ->get();
+
+
+        $rooms = DB::table('rooms_table')
+            ->orderBy('room_name')
+            ->get(['room_id', 'room_name']);
 
 
         // =====================================================
@@ -9377,6 +9406,7 @@ class MaintenanceController extends Controller
             compact(
                 'schedules',
                 'equipment',
+                'rooms',
 
                 // =================================================
                 // SCHEDULE DASHBOARD VARIABLES
@@ -9523,6 +9553,17 @@ class MaintenanceController extends Controller
             )
 
             ->first();
+
+        if (
+            !$equipment
+            || !filled($equipment->equipment_qr_code)
+        ) {
+            return back()
+                ->withErrors([
+                    'equipment_id' => 'Only equipment with a generated QR code can be scheduled for maintenance.',
+                ])
+                ->withInput();
+        }
 
 
         // =====================================================

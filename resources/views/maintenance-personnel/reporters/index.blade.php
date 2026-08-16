@@ -2,16 +2,7 @@
 
 @section ("content")
 
-    <div
-        class="flex flex-col gap-4 lg:flex-row mb-4 lg:items-center lg:justify-between"
-    >
-        <div>
-            <h1 class="text-4xl font-black tracking-tight text-slate-950">
-                Reporter
-            </h1>
-            <p class="mt-1 text-slate-500">Manage directory records and system contact profiles</p>
-        </div>
-
+    <div class="mb-4 flex flex-wrap items-center justify-end gap-2">
         @if (!$historyReporter)
             <div class="flex flex-wrap items-center gap-2">
                 <button
@@ -481,7 +472,7 @@
                                 hover:bg-slate-50
                                 hover:text-slate-900"
 
-                            title="Back to reporters"
+                            data-tooltip="Back to reporters"
                             aria-label="Back to reporters"
                         >
                             <i
@@ -678,7 +669,7 @@
                                     hover:bg-slate-50
                                     hover:text-slate-900"
 
-                                title="Clear history filters"
+                                data-tooltip="Clear history filters"
                                 aria-label="Clear history filters"
                             >
                                 <i
@@ -886,7 +877,7 @@
                                             <p
                                                 class="mt-1 truncate
                                                     text-xs text-slate-400"
-                                                title="{{ $report->report_problem_description }}"
+                                                data-tooltip="{{ $report->report_problem_description }}"
                                             >
                                                 {{
                                                     $report->report_problem_description
@@ -917,7 +908,7 @@
                                             <span
                                                 class="max-w-[180px] truncate
                                                     text-xs text-slate-600"
-                                                title="{{ $historyEquipmentName }}"
+                                                data-tooltip="{{ $historyEquipmentName }}"
                                             >
                                                 {{ $historyEquipmentName }}
                                             </span>
@@ -1464,7 +1455,7 @@
                                 hover:bg-slate-50
                                 hover:text-slate-900"
 
-                            title="Clear search"
+                            data-tooltip="Clear search"
                             aria-label="Clear search"
                         >
 
@@ -1782,7 +1773,7 @@
                                                 hover:text-slate-900
                                                 active:scale-95"
 
-                                            title="View reporter details"
+                                            data-tooltip="View reporter details"
 
                                             aria-label="View reporter details"
                                         >
@@ -1816,7 +1807,7 @@
                                                 hover:text-slate-900
                                                 active:scale-95"
 
-                                            title="View reporter history"
+                                            data-tooltip="View reporter history"
                                             aria-label="View reporter history"
                                         >
                                             <i
@@ -1854,7 +1845,7 @@
                                                     hover:bg-[#E6E600]
                                                     active:scale-95"
 
-                                                title="Edit reporter"
+                                                data-tooltip="Edit reporter"
 
                                                 aria-label="Edit reporter"
                                             >
@@ -1893,7 +1884,7 @@
                                                     hover:bg-amber-100
                                                     active:scale-95"
 
-                                                title="Deactivate reporter"
+                                                data-tooltip="Deactivate reporter"
                                                 aria-label="Deactivate reporter"
                                             >
                                                 <i
@@ -1921,7 +1912,7 @@
                                                     hover:bg-emerald-100
                                                     active:scale-95"
 
-                                                title="Reactivate reporter"
+                                                data-tooltip="Reactivate reporter"
                                                 aria-label="Reactivate reporter"
                                             >
                                                 <i
@@ -2127,7 +2118,7 @@
         @endphp
         <div
             id="importResultModal"
-            class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-[2px]"
+            class="fixed inset-0 z-[60] flex items-center justify-center bg-[#0b1220]/70 p-4"
         >
             <div class="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
                 <div class="px-6 pb-4 pt-6">
@@ -2196,7 +2187,7 @@
 
     <div
         id="importModal"
-        class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/30 p-4 backdrop-blur-[2px]"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
     >
         <div class="flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
             <div class="flex items-start justify-between border-b border-slate-100 px-6 py-5">
@@ -2268,7 +2259,7 @@
 
     <div
         id="createModal"
-        class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/30 p-4 backdrop-blur-[2px]"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
     >
         <form
             action="/maintenance/reporters/store"
@@ -2339,7 +2330,7 @@
 
     <div
         id="viewModal"
-        class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/30 p-4 backdrop-blur-[2px]"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
     >
         <div class="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
             <div class="flex items-start justify-between px-6 pb-4 pt-6">
@@ -2360,7 +2351,7 @@
 
     <div
         id="editModal"
-        class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/30 p-4 backdrop-blur-[2px]"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
     >
         <form
             action="/maintenance/reporters/update"
@@ -2436,7 +2427,7 @@
         id="reporterStatusModal"
         class="fixed inset-0 z-50 hidden
             items-center justify-center
-            bg-black/30 p-4 backdrop-blur-[2px]"
+            bg-[#0b1220]/70 p-4"
     >
 
         <div
@@ -2463,7 +2454,7 @@
                     hover:text-slate-900"
 
                 aria-label="Close modal"
-                title="Close"
+                data-tooltip="Close"
             >
                 <i
                     data-lucide="x"
@@ -2616,7 +2607,7 @@
 
     <div
         id="deleteModal"
-        class="fixed inset-0 z-50 hidden items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
     >
         <!-- ===================================== -->
         <!-- DELETE REPORTER MODAL -->

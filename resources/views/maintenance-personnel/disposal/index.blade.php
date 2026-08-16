@@ -3,18 +3,8 @@
 @section ("content")
 
     <div
-        class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
+        class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-end"
     >
-        <div>
-            <h1 class="text-4xl font-black text-slate-900">
-                Disposal Records
-            </h1>
-
-            <p class="mt-1 text-slate-500">
-                Equipment here is waiting for replacement until you mark it disposed.
-            </p>
-        </div>
-
         <button
             type="button"
             onclick="openDisposeModal()"
@@ -727,20 +717,11 @@
 
 
                                 $conditionClass = match ($conditionStatus) {
-                                    "Good" =>
-                                        "bg-emerald-50 text-emerald-700 ring-emerald-200",
-
-                                    "Fair" =>
-                                        "bg-blue-50 text-blue-700 ring-blue-200",
-
-                                    "Damaged" =>
-                                        "bg-amber-50 text-amber-700 ring-amber-200",
-
-                                    "Critical" =>
-                                        "bg-red-50 text-red-700 ring-red-200",
-
-                                    default =>
-                                        "bg-slate-100 text-slate-600 ring-slate-200",
+                                    "Good" => "bg-emerald-50 text-emerald-700",
+                                    "Fair" => "bg-sky-50 text-sky-700",
+                                    "Damaged" => "bg-amber-50 text-amber-700",
+                                    "Critical" => "bg-rose-50 text-rose-700",
+                                    default => "bg-slate-100 text-slate-600",
                                 };
 
 
@@ -797,7 +778,7 @@
                                                     text-sm font-semibold
                                                     text-slate-800"
 
-                                                title="{{ $record->equipment_name }}"
+                                                data-tooltip="{{ $record->equipment_name }}"
                                             >
                                                 {{ $record->equipment_name }}
                                             </p>
@@ -847,24 +828,9 @@
                                 {{-- ===================================== --}}
 
                                 <td class="px-5 py-4">
-
-                                    <span
-                                        class="inline-flex items-center gap-1.5
-                                            rounded-full px-2.5 py-1
-                                            text-[11px] font-medium
-                                            ring-1 ring-inset
-                                            {{ $conditionClass }}"
-                                    >
-
-                                        <span
-                                            class="h-1.5 w-1.5 rounded-full
-                                                {{ $conditionDotClass }}"
-                                        ></span>
-
+                                    <span class="inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-medium {{ $conditionClass }}">
                                         {{ $conditionStatus }}
-
                                     </span>
-
                                 </td>
 
 
@@ -879,7 +845,7 @@
                                         class="max-w-[230px] truncate
                                             text-xs leading-5 text-slate-600"
 
-                                        title="{{ $record->disposal_reason }}"
+                                        data-tooltip="{{ $record->disposal_reason }}"
                                     >
                                         {{
                                             $record->disposal_reason
@@ -911,7 +877,7 @@
                                                 text-xs font-medium
                                                 text-slate-600"
 
-                                            title="{{ $record->disposal_area_location }}"
+                                            data-tooltip="{{ $record->disposal_area_location }}"
                                         >
                                             {{
                                                 $record->disposal_area_location
@@ -991,7 +957,7 @@
                                             <button
                                                 type="submit"
                                                 class="flex h-9 items-center rounded-xl bg-white px-2.5 text-[11px] font-medium text-slate-600 ring-1 ring-slate-200 transition hover:bg-slate-50"
-                                                title="Return to Inventory"
+                                                data-tooltip="Return to Inventory"
                                             >
                                                 Restore
                                             </button>
@@ -1004,7 +970,7 @@
                                                 <button
                                                     type="submit"
                                                     class="flex h-9 items-center rounded-xl bg-slate-900 px-2.5 text-[11px] font-medium text-white transition hover:bg-slate-800"
-                                                    title="Mark actually disposed"
+                                                    data-tooltip="Mark actually disposed"
                                                 >
                                                     Dispose
                                                 </button>
@@ -1034,7 +1000,7 @@
                                                 hover:bg-slate-200
                                                 hover:text-slate-900"
 
-                                            title="View disposal details"
+                                            data-tooltip="View disposal details"
 
                                             aria-label="View disposal details"
                                         >
@@ -1064,7 +1030,7 @@
                                                 hover:bg-red-700
                                                 active:scale-95"
 
-                                            title="Delete disposal record"
+                                            data-tooltip="Delete disposal record"
 
                                             aria-label="Delete disposal record"
                                         >
@@ -1298,7 +1264,7 @@
 
     <div
     id="disposeModal"
-    class="fixed inset-0 z-50 hidden items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]"
+    class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
 >
     <!-- ===================================== -->
     <!-- DISPOSE EQUIPMENT MODAL -->
@@ -1479,7 +1445,7 @@
 
     <div
     id="viewModal"
-    class="fixed inset-0 z-50 hidden items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]"
+    class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
 >
     <!-- ===================================== -->
     <!-- DISPOSAL DETAILS MODAL -->
@@ -1555,7 +1521,7 @@
 
     <div
     id="deleteModal"
-    class="fixed inset-0 z-50 hidden items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]"
+    class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
 >
     <!-- ===================================== -->
     <!-- DELETE DISPOSAL RECORD MODAL -->

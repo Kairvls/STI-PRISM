@@ -11,6 +11,7 @@ use App\Models\WorkstationSlot;
 use App\Models\RoomActivityLog;
 use App\Models\CampusSetupSetting;
 use App\Support\RoomName;
+use App\Support\EquipmentQrCodes;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -649,7 +650,8 @@ class InfrastructureController extends Controller
                             $values['created_at'] = now();
                         }
 
-                        DB::table('equipment_table')->insert($values);
+                        $equipmentId = DB::table('equipment_table')->insertGetId($values);
+                        EquipmentQrCodes::assignIfEligible((int) $equipmentId);
                     }
                 }
             }
@@ -1256,6 +1258,10 @@ class InfrastructureController extends Controller
             }
 
         });
+
+        if ($equipment) {
+            EquipmentQrCodes::assignIfEligible((int) $equipment->equipment_id);
+        }
 
         if (!$equipment) {
 

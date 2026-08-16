@@ -868,6 +868,11 @@ Route::get(
 );
 
 Route::get(
+    '/maintenance/equipment/qr/print',
+    [QRController::class, 'printLabels']
+);
+
+Route::get(
     '/maintenance/equipment/qr/{code}/print',
     [QRController::class, 'printLabel']
 );
@@ -2034,6 +2039,16 @@ Route::middleware(['auth'])
             '/conversations/{conversation}/unmute',
             [MessageController::class, 'unmuteConversation']
         )->name('conversations.unmute');
+
+        Route::post(
+            '/conversations/{conversation}/hide',
+            [MessageController::class, 'hideConversation']
+        )->name('conversations.hide');
+
+        Route::post(
+            '/conversations/{conversation}/unhide',
+            [MessageController::class, 'unhideConversation']
+        )->name('conversations.unhide');
 
 
         Route::delete(

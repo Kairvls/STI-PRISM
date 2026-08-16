@@ -1,221 +1,173 @@
 <div
     id="scheduleModal"
-    class="fixed inset-0 z-[1300] hidden items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]"
+    class="fixed inset-0 z-[1300] hidden items-start justify-center bg-[#0b1220]/70 p-4"
 >
-    <!-- ===================================== -->
-    <!-- SCHEDULE MAINTENANCE MODAL -->
-    <!-- ===================================== -->
-    <div
-        class="flex max-h-[70vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
-    >
-        <!-- ===================================== -->
-        <!-- MODAL HEADER -->
-        <!-- ===================================== -->
-        <div
-            class="flex shrink-0 items-start justify-between gap-6 px-6 pb-5 pt-6 border-b border-dashed border-slate-500"
-        >
+    <div class="flex max-h-[86vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
+        <div class="flex items-start justify-between gap-4 px-6 pt-6">
             <div class="min-w-0">
-                <p
-                    class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400"
-                >
-                    Preventive Maintenance
-                </p>
-
-                <h2
-                    class="mt-1.5 text-lg font-semibold tracking-tight text-slate-950"
-                >
-                    Schedule maintenance
-                </h2>
-
-                <p class="mt-1 text-sm text-slate-500">
-                    Create a maintenance schedule for equipment.
-                </p>
+                <h2 class="text-xl font-semibold tracking-tight text-slate-900">Schedule maintenance</h2>
+                <p class="mt-1 text-sm text-slate-500">Create a schedule for equipment.</p>
             </div>
-
-            <!-- CLOSE BUTTON -->
             <button
                 type="button"
                 onclick="closeScheduleModal()"
-                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
                 aria-label="Close modal"
             >
                 <i data-lucide="x" class="h-4 w-4"></i>
             </button>
         </div>
 
-        <!-- ===================================== -->
-        <!-- SCHEDULE FORM -->
-        <!-- ===================================== -->
-        <form
-            action="/maintenance/schedules/store"
-            method="POST"
-            class="flex min-h-0 flex-1 flex-col"
-        >
+        <form action="/maintenance/schedules/store" method="POST" class="flex min-h-0 flex-1 flex-col" onsubmit="return Boolean(document.getElementById('scheduleNextDate')?.value)">
             @csrf
-
-            <!-- ===================================== -->
-            <!-- SCROLLABLE FORM CONTENT -->
-            <!-- ===================================== -->
-            <div
-                class="min-h-0 flex-1 overflow-y-auto border-y border-slate-100 px-6 py-5"
-            >
-                <div class="space-y-5">
-
-                    <!-- ===================================== -->
-                    <!-- EQUIPMENT -->
-                    <!-- ===================================== -->
-                    <div>
-                        <label
-                            for="scheduleEquipment"
-                            class="mb-2 block text-sm font-medium text-slate-700"
-                        >
-                            Equipment
-                        </label>
-
-                        <select
-                            id="scheduleEquipment"
-                            name="equipment_id"
-                            required
-                            class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                        >
-                            <option value="">
-                                Select equipment
+            <div class="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-6">
+                <div>
+                    <label for="scheduleEquipment" class="mb-1.5 block text-sm text-slate-600">Equipment</label>
+                    <select
+                        id="scheduleEquipment"
+                        name="equipment_id"
+                        required
+                        class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                    >
+                        <option value="">Select equipment</option>
+                        @foreach ($equipment as $item)
+                            <option value="{{ $item->equipment_id }}">
+                                {{ $item->equipment_name }}{{ isset($item->room_name) && $item->room_name ? ' · '.$item->room_name : '' }}{{ filled($item->equipment_qr_code) ? ' · '.$item->equipment_qr_code : '' }}
                             </option>
+                        @endforeach
+                    </select>
+                    <p class="mt-1.5 text-xs text-slate-400">Only equipment with a generated QR code can be scheduled.</p>
+                </div>
 
-                            @foreach ($equipment as $item)
-                                <option value="{{ $item->equipment_id }}">
-                                    {{ $item->equipment_name }}{{ isset($item->room_name) && $item->room_name ? ' · '.$item->room_name : '' }}
-                                </option>
-                            @endforeach
-                        </select>
+                <div>
+                    <label for="scheduleTitle" class="mb-1.5 block text-sm text-slate-600">Title</label>
+                    <input
+                        id="scheduleTitle"
+                        type="text"
+                        name="title"
+                        placeholder="Quarterly inspection"
+                        required
+                        class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
+                    />
+                </div>
+
+                <div>
+                    <label for="scheduleDescription" class="mb-1.5 block text-sm text-slate-600">
+                        Description <span class="text-slate-400">(optional)</span>
+                    </label>
+                    <textarea
+                        id="scheduleDescription"
+                        name="description"
+                        rows="3"
+                        placeholder="Notes or instructions"
+                        class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
+                    ></textarea>
+                </div>
+
+                <div>
+                    <label for="scheduleFrequency" class="mb-1.5 block text-sm text-slate-600">Frequency</label>
+                    <select
+                        id="scheduleFrequency"
+                        name="frequency"
+                        class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                    >
+                        <option value="Monthly">Monthly</option>
+                        <option value="Quarterly">Quarterly</option>
+                        <option value="Semi Annual">Semi annual</option>
+                        <option value="Annual">Annual</option>
+                    </select>
+                </div>
+
+                <div x-data="scheduleNextDatePicker()" class="space-y-2.5">
+                    <label class="block text-sm text-slate-600">Next date</label>
+                    <input id="scheduleNextDate" type="hidden" name="next_date" x-model="value" />
+
+                    <div class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 px-3.5 py-3">
+                        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#0025cc] text-white">
+                            <i data-lucide="calendar" class="h-4 w-4"></i>
+                        </span>
+                        <div class="min-w-0">
+                            <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Scheduled for</p>
+                            <p class="truncate text-sm font-semibold text-slate-900" x-text="display"></p>
+                        </div>
                     </div>
 
-                    <!-- ===================================== -->
-                    <!-- MAINTENANCE TITLE -->
-                    <!-- ===================================== -->
-                    <div>
-                        <label
-                            for="scheduleTitle"
-                            class="mb-2 block text-sm font-medium text-slate-700"
-                        >
-                            Maintenance title
-                        </label>
-
-                        <input
-                            id="scheduleTitle"
-                            type="text"
-                            name="title"
-                            placeholder="e.g. Quarterly air conditioner inspection"
-                            required
-                            class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                        />
-                    </div>
-
-                    <!-- ===================================== -->
-                    <!-- DESCRIPTION -->
-                    <!-- ===================================== -->
-                    <div>
-                        <div
-                            class="mb-2 flex items-center justify-between gap-4"
-                        >
-                            <label
-                                for="scheduleDescription"
-                                class="text-sm font-medium text-slate-700"
+                    <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm">
+                        <div class="mb-3 flex items-center justify-between">
+                            <button
+                                type="button"
+                                @click="prevMonth()"
+                                class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                                aria-label="Previous month"
                             >
-                                Description
-                            </label>
-
-                            <span class="text-xs text-slate-400">
-                                Optional
-                            </span>
+                                <i data-lucide="chevron-left" class="h-4 w-4"></i>
+                            </button>
+                            <p class="text-sm font-semibold text-slate-900" x-text="monthLabel"></p>
+                            <button
+                                type="button"
+                                @click="nextMonth()"
+                                class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                                aria-label="Next month"
+                            >
+                                <i data-lucide="chevron-right" class="h-4 w-4"></i>
+                            </button>
                         </div>
 
-                        <textarea
-                            id="scheduleDescription"
-                            name="description"
-                            rows="3"
-                            placeholder="Add instructions or details about this maintenance schedule"
-                            class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                        ></textarea>
-                    </div>
-
-                    <!-- ===================================== -->
-                    <!-- SCHEDULE SETTINGS -->
-                    <!-- ===================================== -->
-                    <div class="grid gap-5 sm:grid-cols-2">
-
-                        <!-- FREQUENCY -->
-                        <div>
-                            <label
-                                for="scheduleFrequency"
-                                class="mb-2 block text-sm font-medium text-slate-700"
-                            >
-                                Frequency
-                            </label>
-
-                            <select
-                                id="scheduleFrequency"
-                                name="frequency"
-                                class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                            >
-                                <option value="Monthly">
-                                    Monthly
-                                </option>
-
-                                <option value="Quarterly">
-                                    Quarterly
-                                </option>
-
-                                <option value="Semi Annual">
-                                    Semi annual
-                                </option>
-
-                                <option value="Annual">
-                                    Annual
-                                </option>
-                            </select>
+                        <div class="mb-1.5 grid grid-cols-7">
+                            <template x-for="day in weekdays" :key="day">
+                                <div class="py-1 text-center text-[10px] font-semibold uppercase tracking-wide text-slate-400" x-text="day"></div>
+                            </template>
                         </div>
 
-                        <!-- NEXT MAINTENANCE DATE -->
-                        <div>
-                            <label
-                                for="scheduleNextDate"
-                                class="mb-2 block text-sm font-medium text-slate-700"
-                            >
-                                Next maintenance date
-                            </label>
+                        <div class="grid grid-cols-7 gap-y-1">
+                            <template x-for="day in days" :key="day.iso + (day.outside ? '-out' : '')">
+                                <button
+                                    type="button"
+                                    @click="pick(day)"
+                                    class="mx-auto flex h-9 w-9 items-center justify-center rounded-full text-sm transition"
+                                    :class="day.selected
+                                        ? 'bg-[#0025cc] font-semibold text-white shadow-sm shadow-[#0025cc]/25'
+                                        : day.isToday
+                                            ? 'font-semibold text-[#0025cc] ring-1 ring-[#0025cc]/30'
+                                            : day.outside
+                                                ? 'text-slate-300 hover:bg-slate-50 hover:text-slate-500'
+                                                : 'text-slate-700 hover:bg-slate-100'"
+                                    x-text="day.d"
+                                ></button>
+                            </template>
+                        </div>
 
-                            <input
-                                id="scheduleNextDate"
-                                type="date"
-                                name="next_date"
-                                required
-                                class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                            />
+                        <div class="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
+                            <button
+                                type="button"
+                                @click="clearDate()"
+                                class="rounded-lg px-2 py-1 text-xs font-medium text-slate-400 transition hover:bg-slate-50 hover:text-slate-700"
+                            >
+                                Clear
+                            </button>
+                            <button
+                                type="button"
+                                @click="goToday()"
+                                class="rounded-lg px-2.5 py-1 text-xs font-semibold text-[#0025cc] transition hover:bg-[#0025cc]/5"
+                            >
+                                Today
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="border-t border-dashed border-slate-500"></div>
-
-            <!-- ===================================== -->
-            <!-- MODAL FOOTER -->
-            <!-- ===================================== -->
-            <div
-                class="flex shrink-0 items-center justify-end gap-2 px-6 py-4"
-            >
+            <div class="flex shrink-0 items-center justify-end gap-2 px-6 pb-6">
                 <button
                     type="button"
                     onclick="closeScheduleModal()"
-                    class="rounded-lg px-3.5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+                    class="rounded-xl px-3.5 py-2.5 text-sm font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
                 >
                     Cancel
                 </button>
-
                 <button
                     type="submit"
-                    class="rounded-lg bg-[rgba(0,55,199,0.85)] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[rgba(0,44,155,0.85)] focus:outline-none focus:ring-4 focus:ring-slate-200 active:bg-black"
+                    class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#001fa8]"
                 >
                     Create schedule
                 </button>
@@ -226,69 +178,33 @@
 
 <div
     id="viewModal"
-    class="fixed inset-0 z-[1300] hidden items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]"
+    class="fixed inset-0 z-[1300] hidden items-start justify-center bg-[#0b1220]/70 p-4"
 >
-    <!-- ===================================== -->
-    <!-- SCHEDULE DETAILS MODAL -->
-    <!-- ===================================== -->
-    <div
-        class="flex max-h-[70vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
-    >
-        <!-- ===================================== -->
-        <!-- MODAL HEADER -->
-        <!-- ===================================== -->
-        <div
-            class="flex shrink-0 items-start justify-between gap-6 px-6 pb-5 pt-6 border-b border-dashed border-slate-500"
-        >
-            <div>
-                <p
-                    class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400"
-                >
-                    Maintenance Schedule
-                </p>
-
-                <h2
-                    class="mt-1.5 text-lg font-semibold tracking-tight text-slate-950"
-                >
-                    Schedule details
-                </h2>
+    <div class="flex max-h-[86vh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
+        <div class="flex items-start justify-between gap-4 px-6 pt-6">
+            <div class="min-w-0">
+                <h2 class="text-xl font-semibold tracking-tight text-slate-900">Schedule details</h2>
+                <p class="mt-1 text-sm text-slate-500">View this maintenance schedule.</p>
             </div>
-
-            <!-- CLOSE BUTTON -->
             <button
                 type="button"
                 onclick="closeViewModal()"
-                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
                 aria-label="Close modal"
             >
                 <i data-lucide="x" class="h-4 w-4"></i>
             </button>
         </div>
 
-        <!-- ===================================== -->
-        <!-- SCHEDULE DETAILS CONTENT -->
-        <!-- ===================================== -->
-        <div
-            class="min-h-0 flex-1 overflow-y-auto border-y border-slate-100 px-6 py-2"
-        >
-            <div
-                id="scheduleDetails"
-                class="divide-y divide-slate-100"
-            ></div>
+        <div class="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+            <div id="scheduleDetails" class="space-y-3"></div>
         </div>
 
-        <div class="border-t border-dashed border-slate-500"></div>
-
-        <!-- ===================================== -->
-        <!-- MODAL FOOTER -->
-        <!-- ===================================== -->
-        <div
-            class="flex shrink-0 items-center justify-end px-6 py-4"
-        >
+        <div class="flex shrink-0 items-center justify-end px-6 pb-6">
             <button
                 type="button"
                 onclick="closeViewModal()"
-                class="rounded-lg px-3.5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+                class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#001fa8]"
             >
                 Close
             </button>
@@ -298,53 +214,27 @@
 
 <div
     id="completeModal"
-    class="fixed inset-0 z-[1300] hidden items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]"
+    class="fixed inset-0 z-[1300] hidden items-start justify-center bg-[#0b1220]/70 p-4"
 >
-    <!-- ===================================== -->
-    <!-- COMPLETE MAINTENANCE MODAL -->
-    <!-- ===================================== -->
-    <div
-        class="flex max-h-[70vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
-    >
-        <!-- ===================================== -->
-        <!-- MODAL HEADER -->
-        <!-- ===================================== -->
-        <div
-            class="flex shrink-0 items-start justify-between gap-6 px-6 pb-5 pt-6 border-b border-dashed border-slate-500"
-        >
-            <div class="min-w-0">
-                <p
-                    class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400"
-                >
-                    Maintenance Schedule
-                </p>
-
-                <h2
-                    class="mt-1.5 text-lg font-semibold tracking-tight text-slate-950"
-                >
-                    Complete maintenance
-                </h2>
-
-                <p
-                    id="completeEquipmentName"
-                    class="mt-1 truncate text-sm text-slate-500"
-                ></p>
+    <div class="flex max-h-[86vh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
+        <div class="flex items-start justify-between gap-4 px-6 pt-6">
+            <div class="min-w-0 flex-1">
+                <h2 class="text-xl font-semibold tracking-tight text-slate-900">Complete maintenance</h2>
+                <div class="mt-1 flex items-center justify-between gap-3">
+                    <p id="completeEquipmentName" class="min-w-0 truncate text-sm text-slate-500"></p>
+                    <p id="completeQrCode" class="shrink-0 font-mono text-sm text-slate-500"></p>
+                </div>
             </div>
-
-            <!-- CLOSE BUTTON -->
             <button
                 type="button"
                 onclick="closeCompleteModal()"
-                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
                 aria-label="Close modal"
             >
                 <i data-lucide="x" class="h-4 w-4"></i>
             </button>
         </div>
 
-        <!-- ===================================== -->
-        <!-- COMPLETE MAINTENANCE FORM -->
-        <!-- ===================================== -->
         <form
             action="/maintenance/schedules/complete"
             method="POST"
@@ -352,169 +242,121 @@
             class="flex min-h-0 flex-1 flex-col"
         >
             @csrf
+            <input type="hidden" id="completeScheduleId" name="schedule_id" />
 
-            <input
-                type="hidden"
-                id="completeScheduleId"
-                name="schedule_id"
-            />
+            <div class="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-6">
+                <div>
+                    <label for="completeFindings" class="mb-1.5 block text-sm text-slate-600">Findings</label>
+                    <textarea
+                        id="completeFindings"
+                        name="findings"
+                        rows="3"
+                        placeholder="Inspection findings"
+                        required
+                        class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
+                    ></textarea>
+                </div>
 
-            <!-- ===================================== -->
-            <!-- SCROLLABLE FORM CONTENT -->
-            <!-- ===================================== -->
-            <div
-                class="min-h-0 flex-1 overflow-y-auto border-y border-slate-100 px-6 py-5"
-            >
-                <div class="space-y-5">
+                <div>
+                    <label for="completeRepairAction" class="mb-1.5 block text-sm text-slate-600">Repair action</label>
+                    <textarea
+                        id="completeRepairAction"
+                        name="repair_action"
+                        rows="3"
+                        placeholder="Work performed"
+                        required
+                        class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
+                    ></textarea>
+                </div>
 
-                    <!-- ===================================== -->
-                    <!-- FINDINGS -->
-                    <!-- ===================================== -->
-                    <div>
-                        <label
-                            for="completeFindings"
-                            class="mb-2 block text-sm font-medium text-slate-700"
-                        >
-                            Findings
-                        </label>
+                <div>
+                    <label for="completeMaintenanceStatus" class="mb-1.5 block text-sm text-slate-600">Status</label>
+                    <select
+                        id="completeMaintenanceStatus"
+                        name="maintenance_status"
+                        required
+                        class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                    >
+                        <option value="Resolved">Resolved</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Escalated">Escalated</option>
+                    </select>
+                </div>
 
-                        <textarea
-                            id="completeFindings"
-                            name="findings"
-                            rows="3"
-                            placeholder="Describe the inspection findings or identified issues"
-                            required
-                            class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                        ></textarea>
-                    </div>
+                <div x-data="completeProofUploader()" class="space-y-1.5">
+                    <label class="block text-sm text-slate-600">
+                        Proof image <span class="text-slate-400">(optional)</span>
+                    </label>
 
-                    <!-- ===================================== -->
-                    <!-- REPAIR ACTION -->
-                    <!-- ===================================== -->
-                    <div>
-                        <label
-                            for="completeRepairAction"
-                            class="mb-2 block text-sm font-medium text-slate-700"
-                        >
-                            Repair action
-                        </label>
+                    <div
+                        class="relative overflow-hidden rounded-2xl border border-dashed transition"
+                        :class="dragging
+                            ? 'border-[#0025cc] bg-[#0025cc]/5'
+                            : preview
+                                ? 'border-slate-200 bg-white'
+                                : 'border-slate-300 bg-slate-50 hover:border-[#0025cc]/40 hover:bg-[#0025cc]/[0.03]'"
+                        @dragover.prevent="dragging = true"
+                        @dragleave.prevent="dragging = false"
+                        @drop.prevent="onDrop($event)"
+                    >
+                        <input
+                            id="completeProofImage"
+                            type="file"
+                            name="proof_image"
+                            accept="image/*"
+                            class="sr-only"
+                            @change="onFile($event.target.files[0] || null)"
+                        />
 
-                        <textarea
-                            id="completeRepairAction"
-                            name="repair_action"
-                            rows="3"
-                            placeholder="Describe the maintenance or repair work performed"
-                            required
-                            class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                        ></textarea>
-                    </div>
-
-                    <!-- ===================================== -->
-                    <!-- MAINTENANCE STATUS -->
-                    <!-- ===================================== -->
-                    <div>
-                        <label
-                            for="completeMaintenanceStatus"
-                            class="mb-2 block text-sm font-medium text-slate-700"
-                        >
-                            Maintenance status
-                        </label>
-
-                        <select
-                            id="completeMaintenanceStatus"
-                            name="maintenance_status"
-                            required
-                            class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                        >
-                            <option value="Resolved">
-                                Resolved
-                            </option>
-
-                            <option value="Pending">
-                                Pending
-                            </option>
-
-                            <option value="Escalated">
-                                Escalated
-                            </option>
-                        </select>
-                    </div>
-
-                    <!-- ===================================== -->
-                    <!-- PROOF IMAGE -->
-                    <!-- ===================================== -->
-                    <div>
-                        <div
-                            class="mb-2 flex items-center justify-between gap-4"
-                        >
-                            <label
-                                for="completeProofImage"
-                                class="text-sm font-medium text-slate-700"
-                            >
-                                Proof image
+                        <template x-if="!preview">
+                            <label for="completeProofImage" class="flex cursor-pointer flex-col items-center px-4 py-6 text-center">
+                                <span class="flex h-11 w-11 items-center justify-center rounded-xl bg-[#0025cc] text-white">
+                                    <i data-lucide="image-plus" class="h-5 w-5"></i>
+                                </span>
+                                <p class="mt-3 text-sm font-medium text-slate-800">
+                                    Drop an image here, or <span class="text-[#0025cc]">browse</span>
+                                </p>
+                                <p class="mt-1 text-xs text-slate-400">PNG, JPG, or WEBP</p>
                             </label>
+                        </template>
 
-                            <span class="text-xs text-slate-400">
-                                Optional
-                            </span>
-                        </div>
-
-                        <label
-                            for="completeProofImage"
-                            class="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-slate-300 px-4 py-4 transition hover:border-slate-400 hover:bg-slate-50"
-                        >
-                            <div
-                                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500"
-                            >
-                                <i
-                                    data-lucide="image-plus"
-                                    class="h-4 w-4"
-                                ></i>
+                        <template x-if="preview">
+                            <div class="flex items-center gap-3 p-3">
+                                <img :src="preview" alt="Proof preview" class="h-14 w-14 shrink-0 rounded-xl object-cover ring-1 ring-slate-200" />
+                                <div class="min-w-0 flex-1">
+                                    <p class="truncate text-sm font-medium text-slate-900" x-text="fileName"></p>
+                                    <p class="mt-0.5 text-xs text-slate-400" x-text="fileMeta"></p>
+                                    <label for="completeProofImage" class="mt-1 inline-block cursor-pointer text-xs font-semibold text-[#0025cc] hover:underline">
+                                        Replace
+                                    </label>
+                                </div>
+                                <button
+                                    type="button"
+                                    @click="clearFile()"
+                                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                                    aria-label="Remove image"
+                                >
+                                    <i data-lucide="x" class="h-4 w-4"></i>
+                                </button>
                             </div>
-
-                            <div class="min-w-0 flex-1">
-                                <p class="text-sm font-medium text-slate-700">
-                                    Upload proof image
-                                </p>
-
-                                <p class="mt-0.5 text-xs text-slate-400">
-                                    Select an image from your device
-                                </p>
-                            </div>
-
-                            <input
-                                id="completeProofImage"
-                                type="file"
-                                name="proof_image"
-                                accept="image/*"
-                                class="hidden"
-                            />
-                        </label>
+                        </template>
                     </div>
                 </div>
             </div>
 
-            <div class="border-t border-dashed border-slate-500"></div>
-
-            <!-- ===================================== -->
-            <!-- MODAL FOOTER -->
-            <!-- ===================================== -->
-            <div
-                class="flex shrink-0 items-center justify-end gap-2 px-6 py-4"
-            >
+            <div class="flex shrink-0 items-center justify-end gap-2 px-6 pb-6">
                 <button
                     type="button"
                     onclick="closeCompleteModal()"
-                    class="rounded-lg px-3.5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+                    class="rounded-xl px-3.5 py-2.5 text-sm font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
                 >
                     Cancel
                 </button>
-
                 <button
                     type="submit"
-                    class="rounded-lg bg-[rgba(0,55,199,0.85)] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[rgba(0,44,155,0.85)] focus:outline-none focus:ring-4 focus:ring-slate-200 active:bg-black"
+                    class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#001fa8]"
                 >
-                    Complete maintenance
+                    Complete
                 </button>
             </div>
         </form>
@@ -523,129 +365,68 @@
 
 <div
     id="rescheduleModal"
-    class="fixed inset-0 z-[1300] hidden items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]"
+    class="fixed inset-0 z-[1300] hidden items-start justify-center bg-[#0b1220]/70 p-4"
 >
-    <!-- ===================================== -->
-    <!-- RESCHEDULE MAINTENANCE MODAL -->
-    <!-- ===================================== -->
-    <div
-        class="w-full max-w-md overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
-    >
-        <!-- ===================================== -->
-        <!-- MODAL HEADER -->
-        <!-- ===================================== -->
-        <div class="flex items-start justify-between gap-6 px-6 pb-5 pt-6">
-            <div class="min-w-0">
-                <p
-                    class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400"
-                >
-                    Maintenance Schedule
-                </p>
-
-                <h2
-                    class="mt-1.5 text-lg font-semibold tracking-tight text-slate-950"
-                >
-                    Reschedule maintenance
-                </h2>
-
-                <p
-                    id="rescheduleEquipmentName"
-                    class="mt-1 truncate text-sm text-slate-500"
-                ></p>
+    <div class="flex w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
+        <div class="flex items-start justify-between gap-4 px-6 pt-6">
+            <div class="min-w-0 flex-1">
+                <h2 class="text-xl font-semibold tracking-tight text-slate-900">Reschedule</h2>
+                <div class="mt-1 flex items-center justify-between gap-3">
+                    <p id="rescheduleEquipmentName" class="min-w-0 truncate text-sm text-slate-500"></p>
+                    <p id="rescheduleQrCode" class="shrink-0 font-mono text-sm text-slate-500"></p>
+                </div>
             </div>
-
-            <!-- CLOSE BUTTON -->
             <button
                 type="button"
                 onclick="closeRescheduleModal()"
-                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
                 aria-label="Close modal"
             >
                 <i data-lucide="x" class="h-4 w-4"></i>
             </button>
         </div>
 
-        <!-- ===================================== -->
-        <!-- RESCHEDULE FORM -->
-        <!-- ===================================== -->
-        <form
-            action="/maintenance/schedules/reschedule"
-            method="POST"
-        >
+        <form action="/maintenance/schedules/reschedule" method="POST">
             @csrf
+            <input type="hidden" id="rescheduleScheduleId" name="schedule_id" />
 
-            <input
-                type="hidden"
-                id="rescheduleScheduleId"
-                name="schedule_id"
-            />
-
-            <!-- ===================================== -->
-            <!-- FORM CONTENT -->
-            <!-- ===================================== -->
-            <div class="border-y border-slate-100 px-6 py-5">
-                <div class="space-y-5">
-
-                    <!-- ===================================== -->
-                    <!-- NEW MAINTENANCE DATE -->
-                    <!-- ===================================== -->
-                    <div>
-                        <label
-                            for="rescheduleNewDate"
-                            class="mb-2 block text-sm font-medium text-slate-700"
-                        >
-                            New maintenance date
-                        </label>
-
-                        <input
-                            id="rescheduleNewDate"
-                            type="date"
-                            name="new_date"
-                            required
-                            class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                        />
-                    </div>
-
-                    <!-- ===================================== -->
-                    <!-- REASON -->
-                    <!-- ===================================== -->
-                    <div>
-                        <label
-                            for="rescheduleReason"
-                            class="mb-2 block text-sm font-medium text-slate-700"
-                        >
-                            Reason
-                        </label>
-
-                        <textarea
-                            id="rescheduleReason"
-                            name="reason"
-                            rows="4"
-                            placeholder="Explain why this maintenance schedule is being moved"
-                            required
-                            class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                        ></textarea>
-                    </div>
+            <div class="space-y-4 px-6 py-6">
+                <div>
+                    <label for="rescheduleNewDate" class="mb-1.5 block text-sm text-slate-600">New date</label>
+                    <input
+                        id="rescheduleNewDate"
+                        type="date"
+                        name="new_date"
+                        required
+                        class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                    />
+                </div>
+                <div>
+                    <label for="rescheduleReason" class="mb-1.5 block text-sm text-slate-600">Reason</label>
+                    <textarea
+                        id="rescheduleReason"
+                        name="reason"
+                        rows="3"
+                        placeholder="Why this date is changing"
+                        required
+                        class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
+                    ></textarea>
                 </div>
             </div>
 
-            <!-- ===================================== -->
-            <!-- MODAL FOOTER -->
-            <!-- ===================================== -->
-            <div class="flex items-center justify-end gap-2 px-6 py-4">
+            <div class="flex items-center justify-end gap-2 px-6 pb-6">
                 <button
                     type="button"
                     onclick="closeRescheduleModal()"
-                    class="rounded-lg px-3.5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+                    class="rounded-xl px-3.5 py-2.5 text-sm font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
                 >
                     Cancel
                 </button>
-
                 <button
                     type="submit"
-                    class="rounded-lg bg-slate-950 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-slate-200 active:bg-black"
+                    class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#001fa8]"
                 >
-                    Reschedule
+                    Save date
                 </button>
             </div>
         </form>
@@ -654,102 +435,76 @@
 
 <div
     id="deleteModal"
-    class="fixed inset-0 z-[1300] hidden items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]"
+    class="fixed inset-0 z-[1300] hidden items-center justify-center bg-[#0b1220]/70 p-4"
 >
-    <!-- ===================================== -->
-    <!-- DELETE SCHEDULE MODAL -->
-    <!-- ===================================== -->
-    <div
-        class="w-full max-w-md overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
-    >
-        <!-- ===================================== -->
-        <!-- MODAL HEADER -->
-        <!-- ===================================== -->
-        <div class="flex items-start justify-between gap-6 px-6 pb-5 pt-6">
+    <div class="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl">
+        <div class="flex items-start justify-between gap-4 px-6 pt-6">
             <div class="min-w-0">
-                <!-- DELETE ICON -->
-                <div
-                    class="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-rose-50 text-rose-600"
-                >
-                    <i data-lucide="trash-2" class="h-4 w-4"></i>
-                </div>
-
-                <h2
-                    class="text-lg font-semibold tracking-tight text-slate-950"
-                >
-                    Delete schedule?
-                </h2>
-
-                <p class="mt-2 text-sm leading-6 text-slate-500">
-                    This maintenance schedule will be permanently deleted. This
-                    action cannot be undone.
-                </p>
+                <h2 class="text-xl font-semibold tracking-tight text-slate-900">Delete schedule</h2>
+                <p id="deleteScheduleTitle" class="mt-1 text-sm leading-6 text-slate-500"></p>
             </div>
-
-            <!-- CLOSE BUTTON -->
             <button
                 type="button"
                 onclick="closeDeleteModal()"
-                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
                 aria-label="Close modal"
             >
                 <i data-lucide="x" class="h-4 w-4"></i>
             </button>
         </div>
 
-        <!-- ===================================== -->
-        <!-- SCHEDULE BEING DELETED -->
-        <!-- ===================================== -->
-        <div class="border-y border-slate-100 px-6 py-4">
-            <div
-                class="flex items-center justify-between gap-6 rounded-xl border border-slate-200 px-4 py-3.5"
-            >
-                <span class="shrink-0 text-sm text-slate-500">
-                    Schedule
-                </span>
-
-                <span
-                    id="deleteScheduleTitle"
-                    class="min-w-0 truncate text-right text-sm font-medium text-slate-950"
-                ></span>
-            </div>
-        </div>
-
-        <!-- ===================================== -->
-        <!-- DELETE FORM -->
-        <!-- ===================================== -->
-        <form
-            action="/maintenance/schedules/delete"
-            method="POST"
-        >
+        <form action="/maintenance/schedules/delete" method="POST">
             @csrf
             @method('DELETE')
+            <input type="hidden" id="deleteScheduleId" name="schedule_id" />
 
-            <input
-                type="hidden"
-                id="deleteScheduleId"
-                name="schedule_id"
-            />
-
-            <!-- ===================================== -->
-            <!-- MODAL FOOTER -->
-            <!-- ===================================== -->
-            <div class="flex items-center justify-end gap-2 px-6 py-4">
+            <div class="flex items-center justify-end gap-2 px-6 py-6">
                 <button
                     type="button"
                     onclick="closeDeleteModal()"
-                    class="rounded-lg px-3.5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+                    class="rounded-xl px-3.5 py-2.5 text-sm font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
                 >
                     Cancel
                 </button>
-
                 <button
                     type="submit"
-                    class="rounded-lg bg-rose-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-rose-700 focus:outline-none focus:ring-4 focus:ring-rose-100 active:bg-rose-800"
+                    class="rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-rose-700"
                 >
-                    Delete schedule
+                    Delete
                 </button>
             </div>
         </form>
+    </div>
+</div>
+
+<div
+    id="scheduleQrModal"
+    class="fixed inset-0 z-[1400] hidden items-center justify-center bg-[#0b1220]/70 p-4"
+    onclick="if (event.target === this) closeScheduleQrModal()"
+>
+    <div class="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-xl">
+        <div class="flex items-start justify-between gap-4 px-6 pt-6">
+            <div class="min-w-0">
+                <h2 class="text-xl font-semibold tracking-tight text-slate-900">QR code</h2>
+                <p id="scheduleQrEquipmentName" class="mt-1 truncate text-sm text-slate-500"></p>
+            </div>
+            <button
+                type="button"
+                onclick="closeScheduleQrModal()"
+                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                aria-label="Close modal"
+            >
+                <i data-lucide="x" class="h-4 w-4"></i>
+            </button>
+        </div>
+        <div class="flex flex-col items-center px-6 py-6">
+            <img
+                id="scheduleQrPreviewImage"
+                alt="Equipment QR code"
+                class="h-56 w-56 rounded-2xl border border-slate-200 bg-white object-contain p-3"
+            />
+            <p class="mt-4 text-[11px] font-medium uppercase tracking-wide text-slate-400">QR code</p>
+            <p id="scheduleQrPreviewCode" class="mt-1 break-all text-center font-mono text-sm font-semibold text-slate-900"></p>
+        </div>
     </div>
 </div>

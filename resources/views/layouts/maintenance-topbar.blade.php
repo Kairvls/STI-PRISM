@@ -1,56 +1,60 @@
 <div class="topbar">
-    <!-- LEFT -->
-
     <div class="topbar-left">
-        {{-- ================================================= --}}
-        {{-- MOBILE SIDEBAR BUTTON --}}
-        {{-- ================================================= --}}
-
         <button onclick="toggleSidebar()" class="mobile-sidebar-btn">
             <i data-lucide="menu"></i>
         </button>
 
-        {{-- ================================================= --}}
-        {{-- SEARCH BAR --}}
-        {{-- ================================================= --}}
+        @php
+            $moduleHeading = match (true) {
+                request()->is('maintenance/dashboard') => ['Dashboard', 'Overview of maintenance activity and workload.'],
+                request()->is('maintenance/reports/urgent') => ['Urgent Reports', 'Reports that need immediate attention.'],
+                request()->is('maintenance/reports/pending') => ['Pending Reports', 'Reports waiting for review and action.'],
+                request()->is('maintenance/reports/today') => ["Today's Reports", 'Reports submitted today.'],
+                request()->is('maintenance/reports*') => ['Reports', 'View and manage maintenance reports.'],
+                request()->is('maintenance/notifications*') => ['Alerts', 'Recent activity requiring your attention.'],
+                request()->is('maintenance/reporters*') => ['Reporters', 'People who submit maintenance reports.'],
+                request()->is('maintenance/infrastructure*') => ['Buildings Layout', 'Campus buildings and floor layouts.'],
+                request()->is('maintenance/rooms*') => ['Rooms', 'Rooms and assigned equipment.'],
+                request()->is('maintenance/equipment/qr-tools*') => ['QR Tools', 'Generate and manage equipment QR codes.'],
+                request()->is('maintenance/equipment/inventory*') => ['Inventory', 'All registered equipment records.'],
+                request()->is('maintenance/equipment/categories*') => ['Categories', 'Equipment types and groupings.'],
+                request()->is('maintenance/equipment/suggested-issues*') => ['Suggested Issues', 'Common issues used when filing reports.'],
+                request()->is('maintenance/equipment/transfer*') => ['Transfer', 'Move equipment between rooms.'],
+                request()->is('maintenance/equipment/history*') => ['Equipment History', 'Past activity for equipment records.'],
+                request()->is('maintenance/borrowing*') => ['Borrowing', 'Borrowed equipment and return status.'],
+                request()->is('maintenance/schedules*') => ['Schedules', 'Planned maintenance work.'],
+                request()->is('maintenance/disposal*') => ['Disposal', 'Items marked for disposal.'],
+                default => [View::yieldContent('title', 'PRISM'), 'Maintenance Personnel'],
+            };
+        @endphp
 
-        <div class="dashboard-toolbar-search">
-            <i data-lucide="search" class="dashboard-toolbar-search-icon"></i>
-
-            <input
-                type="search"
-                id="dashboard-search"
-                placeholder="Search reports, equipment, rooms..."
-                autocomplete="off"
-            />
-
-            <kbd class="dashboard-search-shortcut"> Ctrl K </kbd>
+        <div class="min-w-0">
+            <h1 class="truncate text-[22px] font-semibold leading-tight tracking-tight text-slate-900">
+                {{ $moduleHeading[0] }}
+            </h1>
+            <p class="mt-0.5 truncate text-sm text-slate-500">
+                {{ $moduleHeading[1] }}
+            </p>
         </div>
     </div>
 
-    <!-- RIGHT -->
-
     <div class="flex items-center gap-2">
-        <!-- ===================================== -->
-        <!-- NOTIFICATIONS -->
-        <!-- ===================================== -->
-
-        {{-- ================================================= --}}
-        {{-- MAILBOX BUTTON --}}
-        {{-- BESIDE NOTIFICATION BUTTON --}}
-        {{-- ================================================= --}}
-
-        {{-- ================================================= --}}
-        {{-- MESSAGE BUTTON WITH UNREAD COUNT --}}
-        {{-- REPLACES THE OLD MESSAGE BUTTON --}}
-        {{-- ================================================= --}}
+        <div class="dashboard-toolbar-search hidden md:flex">
+            <i data-lucide="search" class="dashboard-toolbar-search-icon"></i>
+            <input
+                type="search"
+                id="dashboard-search"
+                placeholder="Search..."
+                autocomplete="off"
+            />
+        </div>
 
         <a
             href="javascript:void(0)"
             onclick="openMessagingModal()"
             class="dashboard-icon-action"
             aria-label="PRISM messages"
-            title="Messages"
+            data-tooltip="Messages"
         >
             <i data-lucide="messages-square" class="h-[18px] w-[18px]"></i>
 
@@ -80,6 +84,7 @@
                 onclick="toggleNotifications()"
                 class="relative flex h-10 w-10 items-center justify-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-950"
                 aria-label="Notifications"
+                data-tooltip="Notifications"
             >
                 <i data-lucide="bell" class="h-5 w-5"></i>
 
@@ -527,30 +532,17 @@
 
 
         .topbar{
-
             height:82px;
-
-            background:white;
-
-            border-bottom:1px solid #E2E8F0;
-
-            box-shadow:
-                0 2px 10px rgba(15,23,42,.03);
-
+            background:#ffffff;
+            border-bottom:none;
+            box-shadow:none;
             display:flex;
-
             align-items:center;
-
             justify-content:space-between;
-
-            padding:0 28px;
-
+            padding:0 32px;
             position:sticky;
-
             top:0;
-
             z-index:10;
-
         }
 
         .topbar-left{
@@ -565,22 +557,15 @@
     ====================================== */
 
     .dashboard-toolbar-search {
-        width: 320px;
-        height: 46px;
-
+        width: 220px;
+        height: 42px;
         display: flex;
         align-items: center;
-
-        gap: 12px;
-
-        padding: 0 12px 0 16px;
-
+        gap: 10px;
+        padding: 0 14px;
         background: #ffffff;
-
-        border: 1px solid #e2e8f0;
-
-        border-radius: 14px;
-
+        border: 1px solid #e5e7eb;
+        border-radius: 999px;
         color: #64748b;
     }
 

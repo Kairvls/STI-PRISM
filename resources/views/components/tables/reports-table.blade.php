@@ -28,9 +28,8 @@
         animation: scanner 2s linear infinite;
     }
 </style>
-<div id="reports-container"></div>
 <div
-    class="{{ request()->is('maintenance/reports') ? '' : 'mt-6 ' }}overflow-visible rounded-2xl border border-gray-200 bg-white shadow-sm"
+    class="overflow-visible rounded-2xl border border-gray-200 bg-white shadow-sm"
 >
 
     <!-- FILTER BAR -->
@@ -468,36 +467,18 @@
                     @php
                         $urgencyPill =
                             $report->report_urgency_level == "Urgent"
-                                ? "bg-red-50 text-red-700 border border-red-200"
-                                : "bg-neutral-50 text-slate-500 border border-slate-200";
+                                ? "bg-rose-50 text-rose-700"
+                                : "bg-slate-100 text-slate-600";
 
                         $statusMap = [
-                            "Pending" => [
-                                "pill" => "bg-amber-50 text-amber-700 border border-amber-200",
-                                "dot" => "bg-amber-400",
-                            ],
-                            "Processing" => [
-                                "pill" => "bg-blue-50 text-blue-700 border border-blue-200",
-                                "dot" => "bg-blue-400",
-                            ],
-                            "Resolved" => [
-                                "pill" => "bg-emerald-50 text-emerald-700 border border-emerald-200",
-                                "dot" => "bg-emerald-400",
-                            ],
-                            "Rejected" => [
-                                "pill" => "bg-red-50 text-red-700 border border-red-200",
-                                "dot" => "bg-red-400",
-                            ],
-                            "For Replacement" => [
-                                "pill" => "bg-orange-50 text-orange-700 border border-orange-200",
-                                "dot" => "bg-orange-400",
-                            ],
+                            "Pending" => "bg-orange-50 text-orange-700",
+                            "Processing" => "bg-sky-50 text-sky-700",
+                            "Resolved" => "bg-emerald-50 text-emerald-700",
+                            "Rejected" => "bg-rose-50 text-rose-700",
+                            "For Replacement" => "bg-orange-50 text-orange-700",
                         ];
                         $currentStatus = $report->report_current_status;
-                        $sCfg = $statusMap[$currentStatus] ?? [
-                            "pill" => "bg-gray-100 text-gray-600 border border-gray-200",
-                            "dot" => "bg-gray-400",
-                        ];
+                        $statusPill = $statusMap[$currentStatus] ?? "bg-slate-100 text-slate-600";
                         $canUpdate = in_array($currentStatus, ["Pending", "Processing"]);
                         $rowBg = $loop->even ? "bg-gray-50/40" : "";
                     @endphp
@@ -546,7 +527,7 @@
                                         <button
                                             type="button"
                                             onclick="openReportHistory({{ $report->report_id }})"
-                                            title="{{ (int) $report->report_related_count }} reports on this equipment while it is still open"
+                                            data-tooltip="{{ (int) $report->report_related_count }} reports on this equipment while it is still open"
                                             class="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold leading-none text-white transition hover:bg-rose-700"
                                         >
                                             {{ (int) $report->report_related_count }}
@@ -560,19 +541,12 @@
                         </td>
 
                         <td class="px-5 py-4">
-                            <span
-                                class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold {{ $urgencyPill }}"
-                            >
+                            <span class="inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-medium {{ $urgencyPill }}">
                                 {{ $report->report_urgency_level }}
                             </span>
                         </td>
                         <td class="px-5 py-4">
-                            <span
-                                class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold {{ $sCfg['pill'] }}"
-                            >
-                                <span
-                                    class="w-1.5 h-1.5 rounded-full {{ $sCfg['dot'] }}"
-                                ></span>
+                            <span class="inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-medium {{ $statusPill }}">
                                 {{ $currentStatus }}
                             </span>
                         </td>
@@ -589,7 +563,7 @@
                             >
                                 <button
                                     type="button"
-                                    title="View Report"
+                                    data-tooltip="View Report"
                                     onclick="openReportModal('view-modal-{{ $report->report_id }}'); switchReportViewTab({{ $report->report_id }}, 'details')"
                                     class="flex h-9 items-center justify-center gap-x-1.5 rounded-lg  bg-slate-100 px-3 text-xs  text-slate-800 transition shadow-sm hover:bg-slate-200 hover:text-gray-600"
                                 >
@@ -602,7 +576,7 @@
                                 @if ($report->report_equipment_id)
                                     <button
                                         type="button"
-                                        title="Previous reports for this equipment"
+                                        data-tooltip="Previous reports for this equipment"
                                         onclick="openReportHistory({{ $report->report_id }})"
                                         class="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-700 transition hover:bg-slate-200"
                                     >
@@ -612,7 +586,7 @@
                                 @if ($canUpdate)
                                     <button
                                         type="button"
-                                        title="Update Report"
+                                        data-tooltip="Update Report"
                                         onclick="openReportModal('update-modal-{{ $report->report_id }}')"
                                         class="flex h-9 w-9 items-center justify-center rounded-lg bg-[#FFF200] text-black transition hover:bg-[#E6E600]"
                                     >
@@ -634,7 +608,7 @@
                                         @csrf
 
                                         <button
-                                            title="Archive Report"
+                                            data-tooltip="Archive Report"
                                             class="inline-flex h-9 items-center gap-2 rounded-lg bg-[rgba(0,55,199,0.85)] px-3 text-xs  text-white shadow-sm transition-all hover:bg-[rgba(0,44,155,0.85)] active:scale-95"
                                         >
                                             <i
@@ -652,7 +626,7 @@
                                     >
                                         @csrf
 
-                                        <button title="Restore Report" class="flex items-center gap-1.5 h-9 rounded-lg bg-emerald-100 px-3 text-xs text-emerald-700 transition hover:bg-emerald-200">
+                                        <button data-tooltip="Restore Report" class="flex items-center gap-1.5 h-9 rounded-lg bg-emerald-100 px-3 text-xs text-emerald-700 transition hover:bg-emerald-200">
                                         <i data-lucide="archive-restore" class="h-3.5 w-3.5"></i>
                                         
                                         </button>
@@ -812,193 +786,169 @@
 @foreach ($reports as $report)
     @php
         $statusMap = [
-            "Pending" => "bg-amber-50 text-amber-700 border border-amber-200",
-            "Processing" => "bg-blue-50 text-blue-700 border border-blue-200",
-            "Resolved" => "bg-emerald-50 text-emerald-700 border border-emerald-200",
-            "Rejected" => "bg-red-50 text-red-700 border border-red-200",
-            "For Replacement" =>
-                "bg-orange-50 text-orange-700 border border-orange-200",
+            "Pending" => "bg-amber-50 text-amber-700",
+            "Processing" => "bg-sky-50 text-sky-700",
+            "Resolved" => "bg-emerald-50 text-emerald-700",
+            "Rejected" => "bg-rose-50 text-rose-700",
+            "For Replacement" => "bg-orange-50 text-orange-700",
         ];
+        $statusPill = $statusMap[$report->report_current_status] ?? "bg-slate-100 text-slate-600";
         $urgencyPill =
             $report->report_urgency_level == "Urgent"
-                ? "bg-red-50 text-red-700 border border-red-200"
-                : "bg-neutral-50 text-slate-500 border border-slate-200";
-    @endphp
-
-    @php
+                ? "bg-rose-50 text-rose-700"
+                : "bg-slate-100 text-slate-500";
         $historyCount = collect($report->equipment_report_history ?? [])->count();
-        $reporterInitials = collect(explode(' ', trim($report->reporter_full_name ?? 'R')))
+        $equipmentLabel = $report->equipment_name ?? ($report->report_unlisted_equipment_name ?? "Unlisted");
+        $reporterInitials = collect(explode(" ", trim($report->reporter_full_name ?? "R")))
             ->filter()
             ->map(fn ($part) => mb_strtoupper(mb_substr($part, 0, 1)))
             ->take(2)
-            ->implode('');
+            ->implode("");
+        $assignedName = $report->assigned_personnel_name ?? $report->assigned_purchaser_name ?? "Unassigned";
     @endphp
 
     <div
         id="view-modal-{{ $report->report_id }}"
         class="fixed inset-0 z-50 hidden overflow-hidden"
+        onclick="closeReportModal('view-modal-{{ $report->report_id }}')"
     >
-        <div class="flex min-h-screen items-center justify-center bg-[#0b1220]/70 p-3 sm:p-6">
+        <div class="flex h-full justify-end bg-[#0b1220]/70">
             <div
-                class="flex max-h-[70vh] w-full max-w-5xl overflow-hidden rounded-[28px] bg-[#f6f7f9] shadow-[0_40px_120px_rgba(0,0,0,0.35)]"
+                class="flex h-full w-full max-w-lg flex-col bg-white shadow-2xl sm:rounded-l-2xl"
                 onclick="event.stopPropagation()"
             >
-                {{-- Identity rail --}}
-                <aside class="relative hidden w-[300px] shrink-0 flex-col justify-between bg-[#1e293b] px-8 py-8 text-white md:flex">
-                    <div>
-                        <p class="inline-flex items-center rounded-md bg-[#FFF200] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-900">
-                            Ticket {{ $report->report_id }}
+                <div class="flex items-start justify-between gap-4 px-6 pt-6">
+                    <div class="min-w-0">
+                        <h2 class="text-lg font-semibold text-slate-800">Ticket details</h2>
+                        <p class="mt-1 text-sm text-slate-500">
+                            Review {{ $equipmentLabel }} in {{ $report->room_name ?? "an unassigned room" }}.
                         </p>
-                        <h2 class="mt-5 text-[28px] font-semibold leading-8 tracking-tight text-white">
-                            {{ $report->equipment_name ?? 'Unlisted' }}
-                        </h2>
-                        <p class="mt-2 text-sm font-medium text-slate-200">
-                            {{ $report->room_name ?? 'No room' }}
-                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        onclick="closeReportModal('view-modal-{{ $report->report_id }}')"
+                        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                        aria-label="Close"
+                    >
+                        <i data-lucide="x" class="h-4 w-4"></i>
+                    </button>
+                </div>
 
-                        <div class="mt-10 space-y-5">
-                            <div>
-                                <p class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-300">Status</p>
-                                <p class="mt-1.5 inline-flex rounded-md bg-white/15 px-2.5 py-1 text-sm font-semibold text-white">
-                                    {{ $report->report_current_status }}
-                                </p>
-                            </div>
-                            <div>
-                                <p class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-300">Priority</p>
-                                <p class="mt-1.5 inline-flex rounded-md px-2.5 py-1 text-sm font-semibold {{ $report->report_urgency_level === 'Urgent' ? 'bg-rose-400/15 text-rose-200 ring-1 ring-rose-300/25' : 'bg-white/15 text-white' }}">
-                                    {{ $report->report_urgency_level }}
-                                </p>
-                            </div>
-                            <div>
-                                <p class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-300">Filed</p>
-                                <p class="mt-1.5 text-sm font-semibold text-white">
-                                    {{ \Carbon\Carbon::parse($report->report_submitted_at)->format('M d, Y') }}
-                                </p>
-                            </div>
+                <div class="flex items-start gap-4 px-6 pt-6">
+                    <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-700">
+                        {{ $reporterInitials ?: "R" }}
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <p class="truncate text-base font-semibold text-slate-900">
+                                {{ $report->reporter_full_name ?? "Unknown reporter" }}
+                            </p>
+                            <span class="inline-flex rounded-md px-2 py-0.5 text-xs font-medium {{ $statusPill }}">
+                                {{ $report->report_current_status }}
+                            </span>
+                            <span class="inline-flex rounded-md px-2 py-0.5 text-xs font-medium {{ $urgencyPill }}">
+                                {{ $report->report_urgency_level }}
+                            </span>
+                        </div>
+                        <div class="mt-2 space-y-1.5 text-sm text-slate-500">
+                            <p class="flex items-center gap-2">
+                                <i data-lucide="wrench" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i>
+                                <span class="truncate">{{ $equipmentLabel }}</span>
+                            </p>
+                            <p class="flex items-center gap-2">
+                                <i data-lucide="map-pin" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i>
+                                <span class="truncate">{{ $report->room_name ?? "No assigned room" }}</span>
+                            </p>
+                            <p class="flex items-center gap-2">
+                                <i data-lucide="hash" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i>
+                                <span>{{ $report->reporter_employee_id ?? "—" }} · Ticket #{{ $report->report_id }}</span>
+                            </p>
                         </div>
                     </div>
+                </div>
 
-                    @if ($historyCount > 0)
-                        <div
-                            id="report-rail-history-count-{{ $report->report_id }}"
-                            class="hidden rounded-2xl bg-white/10 px-4 py-3"
-                        >
-                            <p class="text-2xl font-semibold tracking-tight text-white">{{ $historyCount }}</p>
-                            <p class="mt-0.5 text-xs text-white/50">reports on this equipment</p>
-                        </div>
-                    @endif
-                </aside>
+                <div class="mt-6 flex gap-6 border-b border-slate-200 px-6">
+                    <button
+                        type="button"
+                        id="report-tab-details-{{ $report->report_id }}"
+                        onclick="switchReportViewTab({{ $report->report_id }}, 'details')"
+                        class="border-b-2 border-[#0037C7] px-1 pb-3 text-sm font-medium text-slate-900"
+                    >
+                        Overview
+                    </button>
+                    <button
+                        type="button"
+                        id="report-tab-history-{{ $report->report_id }}"
+                        onclick="switchReportViewTab({{ $report->report_id }}, 'history')"
+                        class="border-b-2 border-transparent px-1 pb-3 text-sm font-medium text-slate-400 hover:text-slate-600"
+                    >
+                        Timeline{{ $historyCount ? " · ".$historyCount : "" }}
+                    </button>
+                </div>
 
-                {{-- Canvas --}}
-                <div class="flex min-w-0 flex-1 flex-col">
-                    <div class="flex items-center justify-between gap-3 px-5 pt-5 sm:px-7">
-                        <div class="inline-flex rounded-full bg-white p-1 shadow-sm ring-1 ring-black/5">
-                            <button
-                                type="button"
-                                id="report-tab-details-{{ $report->report_id }}"
-                                onclick="switchReportViewTab({{ $report->report_id }}, 'details')"
-                                class="rounded-full px-4 py-1.5 text-sm font-medium bg-slate-900 text-white"
-                            >
-                                Brief
-                            </button>
-                            <button
-                                type="button"
-                                id="report-tab-history-{{ $report->report_id }}"
-                                onclick="switchReportViewTab({{ $report->report_id }}, 'history')"
-                                class="rounded-full px-4 py-1.5 text-sm font-medium text-slate-500"
-                            >
-                                Timeline{{ $historyCount ? ' · '.$historyCount : '' }}
-                            </button>
-                        </div>
-
-                        <button
-                            type="button"
-                            onclick="closeReportModal('view-modal-{{ $report->report_id }}')"
-                            class="flex h-9 w-9 items-center justify-center rounded-full bg-white text-slate-400 shadow-sm ring-1 ring-black/5 transition hover:text-slate-900"
-                            aria-label="Close"
-                        >
-                            <i data-lucide="x" class="h-4 w-4"></i>
-                        </button>
-                    </div>
-
-                    <div class="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-7">
-                        <div id="report-panel-details-{{ $report->report_id }}">
-                            <div class="overflow-hidden rounded-[22px] bg-white shadow-sm ring-1 ring-black/5">
-                                <div class="flex items-center gap-4 border-b border-slate-100 px-5 py-4">
-                                    <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900 text-sm font-semibold text-white">
-                                        {{ $reporterInitials ?: 'R' }}
-                                    </div>
-                                    <div class="min-w-0">
-                                        <p class="truncate text-sm font-semibold text-slate-900">
-                                            {{ $report->reporter_full_name ?? 'Unknown reporter' }}
-                                        </p>
-                                        <p class="text-xs text-slate-400">
-                                            {{ $report->reporter_employee_id ?? '-' }}
-                                            · {{ \Carbon\Carbon::parse($report->report_submitted_at)->format('M d · h:i A') }}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div class="grid grid-cols-2 divide-x divide-slate-100">
-                                    <div class="px-5 py-4">
-                                        <p class="text-[10px] uppercase tracking-[0.16em] text-slate-400">Issue</p>
-                                        <p class="mt-1.5 text-sm font-medium leading-6 text-slate-900">
-                                            {{ $report->report_suggested_issue ?? 'None given' }}
-                                        </p>
-                                    </div>
-                                    <div class="px-5 py-4">
-                                        <p class="text-[10px] uppercase tracking-[0.16em] text-slate-400">Assigned</p>
-                                        <p class="mt-1.5 text-sm font-medium text-slate-900">
-                                            {{ $report->assigned_personnel_name ?? $report->assigned_purchaser_name ?? 'Unassigned' }}
-                                        </p>
-                                    </div>
-                                </div>
+                <div class="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+                    <div id="report-panel-details-{{ $report->report_id }}">
+                        <p class="mb-3 text-sm font-medium text-slate-600">Report information</p>
+                        <div class="overflow-hidden rounded-xl border border-slate-200">
+                            <div class="flex items-center justify-between gap-4 border-b border-slate-100 px-4 py-3">
+                                <span class="text-sm text-slate-500">Issue</span>
+                                <span class="text-right text-sm font-medium text-slate-800">{{ $report->report_suggested_issue ?? "None given" }}</span>
                             </div>
-
-                            <div class="mt-4 rounded-[22px] bg-white px-5 py-5 shadow-sm ring-1 ring-black/5">
-                                <p class="text-[10px] uppercase tracking-[0.16em] text-slate-400">What happened</p>
-                                <p class="mt-3 whitespace-pre-wrap text-[15px] leading-7 text-slate-600">
-                                    {{ $report->report_problem_description ?? 'No description provided.' }}
+                            <div class="flex items-center justify-between gap-4 border-b border-slate-100 px-4 py-3">
+                                <span class="text-sm text-slate-500">Assigned</span>
+                                <span class="text-right text-sm font-medium text-slate-800">{{ $assignedName }}</span>
+                            </div>
+                            <div class="flex items-center justify-between gap-4 border-b border-slate-100 px-4 py-3">
+                                <span class="text-sm text-slate-500">Filed</span>
+                                <span class="text-right text-sm font-medium text-slate-800">
+                                    {{ \Carbon\Carbon::parse($report->report_submitted_at)->format("M d, Y h:i A") }}
+                                </span>
+                            </div>
+                            <div class="px-4 py-3">
+                                <p class="text-sm text-slate-500">What happened</p>
+                                <p class="mt-1.5 whitespace-pre-wrap text-sm leading-6 text-slate-800">
+                                    {{ $report->report_problem_description ?? "No description provided." }}
                                 </p>
                             </div>
-
-                            @if ($report->report_uploaded_image)
-                                <button
-                                    type="button"
-                                    onclick="window.open('{{ asset('storage/'.$report->report_uploaded_image) }}', '_blank')"
-                                    class="mt-4 block w-full overflow-hidden rounded-[22px] bg-white shadow-sm ring-1 ring-black/5"
-                                >
-                                    <img
-                                        src="{{ asset('storage/'.$report->report_uploaded_image) }}"
-                                        alt="Report photo"
-                                        class="max-h-56 w-full object-cover"
-                                    />
-                                </button>
-                            @endif
-
-                            @if ($report->report_current_status === "Resolved")
-                                <div class="mt-4 rounded-[22px] bg-emerald-50 px-5 py-4">
-                                    <p class="text-[10px] uppercase tracking-[0.16em] text-emerald-700">Resolution</p>
-                                    <p class="mt-2 text-sm leading-6 text-emerald-950/80">{{ $report->report_resolution_notes ?: 'No notes.' }}</p>
-                                </div>
-                            @endif
-                            @if ($report->report_current_status === "Rejected")
-                                <div class="mt-4 rounded-[22px] bg-rose-50 px-5 py-4">
-                                    <p class="text-[10px] uppercase tracking-[0.16em] text-rose-700">Rejected</p>
-                                    <p class="mt-2 text-sm leading-6 text-rose-950/80">{{ $report->report_rejection_notes ?: 'No notes.' }}</p>
-                                </div>
-                            @endif
-                            @if ($report->report_current_status === "For Replacement")
-                                <div class="mt-4 rounded-[22px] bg-amber-50 px-5 py-4">
-                                    <p class="text-[10px] uppercase tracking-[0.16em] text-amber-800">Replacement</p>
-                                    <p class="mt-2 text-sm leading-6 text-amber-950/80">{{ $report->report_replacement_notes ?: 'No notes.' }}</p>
-                                </div>
-                            @endif
                         </div>
 
-                        <div id="report-panel-history-{{ $report->report_id }}" class="hidden">
-                            @include('components.tables.partials.equipment-report-history', ['report' => $report])
-                        </div>
+                        @if ($report->report_uploaded_image)
+                            <button
+                                type="button"
+                                onclick="window.open('{{ asset('storage/'.$report->report_uploaded_image) }}', '_blank')"
+                                class="mt-4 block w-full overflow-hidden rounded-xl border border-slate-200"
+                            >
+                                <img
+                                    src="{{ asset("storage/".$report->report_uploaded_image) }}"
+                                    alt="Report photo"
+                                    class="max-h-48 w-full object-cover"
+                                />
+                            </button>
+                        @endif
+
+                        @if ($report->report_current_status === "Resolved")
+                            <div class="mt-4 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+                                <p class="text-sm font-medium text-emerald-800">Resolution</p>
+                                <p class="mt-1 text-sm leading-6 text-emerald-900/80">{{ $report->report_resolution_notes ?: "No notes." }}</p>
+                            </div>
+                        @endif
+                        @if ($report->report_current_status === "Rejected")
+                            <div class="mt-4 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3">
+                                <p class="text-sm font-medium text-rose-800">Rejected</p>
+                                <p class="mt-1 text-sm leading-6 text-rose-900/80">{{ $report->report_rejection_notes ?: "No notes." }}</p>
+                            </div>
+                        @endif
+                        @if ($report->report_current_status === "For Replacement")
+                            <div class="mt-4 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
+                                <p class="text-sm font-medium text-amber-800">Replacement</p>
+                                <p class="mt-1 text-sm leading-6 text-amber-900/80">{{ $report->report_replacement_notes ?: "No notes." }}</p>
+                            </div>
+                        @endif
+                    </div>
+
+                    <div id="report-panel-history-{{ $report->report_id }}" class="hidden">
+                        <p class="mb-3 text-sm font-medium text-slate-600">Equipment timeline</p>
+                        @include("components.tables.partials.equipment-report-history", ["report" => $report])
                     </div>
                 </div>
             </div>
@@ -1008,264 +958,98 @@
 
 <!-- UPDATE MODALS -->
 @foreach ($reports as $report)
-    <div
-    id="update-modal-{{ $report->report_id }}"
-    class="fixed inset-0 z-50 hidden overflow-hidden"
->
-    <!-- ===================================== -->
-    <!-- MODAL BACKDROP -->
-    <!-- ===================================== -->
-    <div
-        class="flex min-h-screen items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]"
-    >
-        <!-- ===================================== -->
-        <!-- UPDATE STATUS MODAL -->
-        <!-- ===================================== -->
-        <div
-            class="flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
-            onclick="event.stopPropagation()"
-        >
-            <!-- ===================================== -->
-            <!-- MODAL HEADER -->
-            <!-- ===================================== -->
+    @php
+        $equipmentLabel = $report->equipment_name ?? ($report->report_unlisted_equipment_name ?? "Equipment Report");
+    @endphp
+    <div id="update-modal-{{ $report->report_id }}" class="fixed inset-0 z-50 hidden overflow-hidden">
+        <div class="flex min-h-screen items-center justify-center bg-[#0b1220]/70 p-3 sm:p-6">
             <div
-                class="flex shrink-0 items-start justify-between gap-6 px-6 pb-5 pt-6 border-b border-dashed border-slate-500"
+                class="flex max-h-[86vh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
+                onclick="event.stopPropagation()"
             >
-                <div class="min-w-0">
-                    <div class="flex flex-wrap items-center gap-2">
-                        <p
-                            class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400"
-                        >
-                            Maintenance Workflow
-                        </p>
-
-                        <span class="text-xs text-slate-300">
-                            /
-                        </span>
-
-                        <span class="text-xs font-medium text-slate-500">
-                            Ticket #{{ $report->report_id }}
-                        </span>
+                <div class="flex items-start justify-between gap-4 px-6 pt-6">
+                    <div class="min-w-0">
+                        <p class="text-xs text-slate-400">#{{ $report->report_id }} · {{ $report->report_current_status }}</p>
+                        <h2 class="mt-1 truncate text-xl font-semibold tracking-tight text-slate-900">
+                            {{ $equipmentLabel }}
+                        </h2>
                     </div>
-
-                    <h2
-                        class="mt-2 truncate text-lg font-bold tracking-tight text-slate-950"
+                    <button
+                        type="button"
+                        onclick="closeReportModal('update-modal-{{ $report->report_id }}')"
+                        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                        aria-label="Close modal"
                     >
-                        {{
-                            $report->equipment_name ??
-                                ($report->report_unlisted_equipment_name ??
-                                    "Equipment Report")
-                        }}
-                    </h2>
-
-                    <p class="mt-1 text-sm text-slate-500">
-                        Update maintenance progress and documentation.
-                    </p>
+                        <i data-lucide="x" class="h-4 w-4"></i>
+                    </button>
                 </div>
 
-                <!-- CLOSE BUTTON -->
-                <button
-                    type="button"
-                    onclick="closeReportModal('update-modal-{{ $report->report_id }}')"
-                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
-                    aria-label="Close modal"
+                <form
+                    action="/maintenance/reports/update-status/{{ $report->report_id }}"
+                    method="POST"
+                    enctype="multipart/form-data"
+                    class="flex min-h-0 flex-1 flex-col"
                 >
-                    <i data-lucide="x" class="h-4 w-4"></i>
-                </button>
-            </div>
+                    @csrf
 
-            <!-- ===================================== -->
-            <!-- UPDATE STATUS FORM -->
-            <!-- ===================================== -->
-            <form
-                action="/maintenance/reports/update-status/{{ $report->report_id }}"
-                method="POST"
-                enctype="multipart/form-data"
-                class="flex min-h-0 flex-1 flex-col"
-            >
-                @csrf
-
-                <!-- ===================================== -->
-                <!-- SCROLLABLE CONTENT -->
-                <!-- ===================================== -->
-                <div
-                    class="min-h-0 flex-1 overflow-y-auto border-y border-slate-100 px-6 py-5"
-                >
-                    <div class="space-y-5">
-                        <!-- ===================================== -->
-                        <!-- CURRENT STATUS -->
-                        <!-- ===================================== -->
-                        <div
-                            class="flex items-center justify-between gap-6 rounded-xl border border-slate-200 px-4 py-3.5"
-                        >
-                            <span class="text-sm text-slate-500">
-                                Current status
-                            </span>
-
-                            @php
-                                $statusColors = [
-                                    "Pending" =>
-                                        "bg-amber-50 text-amber-700",
-                                    "Processing" =>
-                                        "bg-sky-50 text-sky-700",
-                                    "Resolved" =>
-                                        "bg-emerald-50 text-emerald-700",
-                                    "Rejected" =>
-                                        "bg-rose-50 text-rose-700",
-                                    "For Replacement" =>
-                                        "bg-orange-50 text-orange-700",
-                                ];
-
-                                $currentStyle =
-                                    $statusColors[
-                                        $report->report_current_status
-                                    ] ??
-                                    "bg-slate-100 text-slate-600";
-                            @endphp
-
-                            <span
-                                class="rounded-full px-2.5 py-1 text-xs font-medium {{ $currentStyle }}"
-                            >
-                                {{ $report->report_current_status }}
-                            </span>
-                        </div>
-
-                        <!-- ===================================== -->
-                        <!-- PIPELINE ACTION -->
-                        <!-- ===================================== -->
+                    <div class="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-6">
                         <div>
-                            <label
-                                for="status-{{ $report->report_id }}"
-                                class="mb-2 block text-sm font-medium text-slate-700"
-                            >
-                                Update status
+                            <label for="status-{{ $report->report_id }}" class="mb-1.5 block text-sm text-slate-600">
+                                Status
                             </label>
-
                             <select
                                 id="status-{{ $report->report_id }}"
                                 name="status"
                                 required
-                                class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
                             >
                                 @if ($report->report_current_status == "Pending")
-                                    <option value="" selected disabled>
-                                        Select status update
-                                    </option>
-
-                                    <option value="Processing">
-                                        Processing
-                                    </option>
-
-                                    <option value="Rejected">
-                                        Reject
-                                    </option>
+                                    <option value="" selected disabled>Select status</option>
+                                    <option value="Processing">Processing</option>
+                                    <option value="Rejected">Rejected</option>
                                 @elseif ($report->report_current_status == "Processing")
-                                    <option value="" selected disabled>
-                                        Select status update
-                                    </option>
-
-                                    <option value="Resolved">
-                                        Resolved
-                                    </option>
-
-                                    <option value="For Replacement">
-                                        For Replacement
-                                    </option>
+                                    <option value="" selected disabled>Select status</option>
+                                    <option value="Resolved">Resolved</option>
+                                    <option value="For Replacement">For Replacement</option>
                                 @else
-                                    <option
-                                        value="{{ $report->report_current_status }}"
-                                        selected
-                                        disabled
-                                    >
-                                        This report is archived as
+                                    <option value="{{ $report->report_current_status }}" selected disabled>
                                         {{ $report->report_current_status }}
                                     </option>
                                 @endif
                             </select>
                         </div>
 
-                        <!-- ===================================== -->
-                        <!-- NOTES SECTION -->
-                        <!-- ===================================== -->
-                        <div
-                            id="notes-section-{{ $report->report_id }}"
-                            class="hidden"
-                        >
-                            <div
-                                class="mb-2 flex items-center justify-between gap-4"
-                            >
-                                <label
-                                    for="remarks-{{ $report->report_id }}"
-                                    class="text-sm font-medium text-slate-700"
-                                >
-                                    Documentation and remarks
-                                </label>
-
-                                <span class="text-xs text-slate-400">
-                                    Optional
-                                </span>
-                            </div>
-
+                        <div id="notes-section-{{ $report->report_id }}" class="hidden">
+                            <label for="remarks-{{ $report->report_id }}" class="mb-1.5 block text-sm text-slate-600">
+                                Remarks <span class="text-slate-400">(optional)</span>
+                            </label>
                             <textarea
                                 id="remarks-{{ $report->report_id }}"
                                 name="remarks"
                                 rows="4"
-                                placeholder="Add findings, actions taken, or justification"
-                                class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                placeholder="Findings, actions taken, or justification"
+                                class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
                             ></textarea>
                         </div>
 
-                        <!-- ===================================== -->
-                        <!-- PROOF IMAGE SECTION -->
-                        <!-- ===================================== -->
-                        <div
-                            id="image-section-{{ $report->report_id }}"
-                            class="hidden"
-                        >
-                            <div
-                                class="mb-2 flex items-center justify-between gap-4"
-                            >
-                                <label
-                                    class="text-sm font-medium text-slate-700"
-                                >
-                                    Proof image
-                                </label>
-
-                                <span class="text-xs text-slate-400">
-                                    Optional
-                                </span>
-                            </div>
-
-                            <!-- IMAGE UPLOAD -->
+                        <div id="image-section-{{ $report->report_id }}" class="hidden">
+                            <label class="mb-1.5 block text-sm text-slate-600">
+                                Proof image <span class="text-slate-400">(optional)</span>
+                            </label>
                             <label
                                 for="proof_image_{{ $report->report_id }}"
-                                class="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-slate-300 px-4 py-4 transition hover:border-slate-400 hover:bg-slate-50"
+                                class="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 px-3 py-3 transition hover:bg-slate-50"
                             >
                                 <div
                                     id="upload-icon-{{ $report->report_id }}"
-                                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500"
+                                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-slate-100 text-slate-500"
                                 >
-                                    <i
-                                        data-lucide="image-plus"
-                                        class="h-4 w-4"
-                                    ></i>
+                                    <i data-lucide="image-plus" class="h-4 w-4"></i>
                                 </div>
-
-                                <div
-                                    id="upload-text-container-{{ $report->report_id }}"
-                                    class="min-w-0 flex-1"
-                                >
-                                    <p
-                                        class="text-sm font-medium text-slate-700"
-                                    >
-                                        Upload proof image
-                                    </p>
-
-                                    <p class="mt-0.5 text-xs text-slate-400">
-                                        PNG, JPG, JPEG or WEBP up to 10MB
-                                    </p>
+                                <div id="upload-text-container-{{ $report->report_id }}" class="min-w-0 flex-1">
+                                    <p class="text-sm text-slate-800">Upload image</p>
+                                    <p class="text-xs text-slate-400">PNG, JPG, JPEG or WEBP · 10MB max</p>
                                 </div>
-
                                 <input
                                     type="file"
                                     id="proof_image_{{ $report->report_id }}"
@@ -1275,120 +1059,63 @@
                                     class="hidden"
                                 />
                             </label>
-
-                            <!-- ===================================== -->
-                            <!-- IMAGE PREVIEW -->
-                            <!-- ===================================== -->
                             <div
                                 id="preview-container-{{ $report->report_id }}"
-                                class="relative mt-3 hidden overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
+                                class="relative mt-3 hidden overflow-hidden rounded-lg border border-slate-200"
                             >
                                 <img
                                     id="preview-img-{{ $report->report_id }}"
-                                    class="max-h-64 w-full object-contain"
+                                    class="max-h-48 w-full object-contain"
                                     alt="Proof preview"
                                 />
-
-                                <!-- IMAGE ACTIONS -->
-                                <div
-                                    class="absolute right-2 top-2 flex items-center gap-1.5"
-                                >
+                                <div class="absolute right-2 top-2 flex gap-1">
                                     <button
                                         type="button"
                                         onclick="openLightbox('preview-img-{{ $report->report_id }}')"
-                                        title="View image"
-                                        class="flex h-8 w-8 items-center justify-center rounded-lg bg-black/70 text-white transition hover:bg-black"
+                                        data-tooltip="View image"
+                                        class="flex h-8 w-8 items-center justify-center rounded-md bg-white text-slate-600 shadow-sm"
                                     >
-                                        <i
-                                            data-lucide="zoom-in"
-                                            class="h-4 w-4"
-                                        ></i>
+                                        <i data-lucide="zoom-in" class="h-4 w-4"></i>
                                     </button>
-
                                     <button
                                         type="button"
                                         onclick="removeUploadedImage('{{ $report->report_id }}')"
-                                        title="Remove image"
-                                        class="flex h-8 w-8 items-center justify-center rounded-lg bg-black/70 text-white transition hover:bg-rose-600"
+                                        data-tooltip="Remove image"
+                                        class="flex h-8 w-8 items-center justify-center rounded-md bg-white text-slate-600 shadow-sm hover:text-rose-600"
                                     >
-                                        <i
-                                            data-lucide="trash-2"
-                                            class="h-4 w-4"
-                                        ></i>
+                                        <i data-lucide="trash-2" class="h-4 w-4"></i>
                                     </button>
                                 </div>
                             </div>
-
-                            <p class="mt-2 text-xs leading-5 text-slate-400">
-                                Upload repair photos, damage evidence, or
-                                replacement documentation.
-                            </p>
                         </div>
 
-                        <!-- ===================================== -->
-                        <!-- REPLACEMENT WARNING -->
-                        <!-- ===================================== -->
-                        <div
+                        <p
                             id="replacement-warning-{{ $report->report_id }}"
-                            class="hidden rounded-xl border border-amber-200 bg-amber-50/50 p-4"
+                            class="hidden text-sm text-amber-700"
                         >
-                            <div class="flex items-start gap-3">
-                                <div
-                                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-600"
-                                >
-                                    <i
-                                        data-lucide="triangle-alert"
-                                        class="h-4 w-4"
-                                    ></i>
-                                </div>
-
-                                <div>
-                                    <p
-                                        class="text-sm font-medium text-amber-900"
-                                    >
-                                        Procurement workflow
-                                    </p>
-
-                                    <p
-                                        class="mt-1 text-sm leading-5 text-amber-700"
-                                    >
-                                        This action creates a procurement
-                                        request and notifies the Purchaser
-                                        Department.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
+                            This will create a procurement request for the Purchaser Department.
+                        </p>
                     </div>
-                </div>
 
-                <div class="border-t border-dashed border-slate-500"></div>
-
-                <!-- ===================================== -->
-                <!-- MODAL FOOTER -->
-                <!-- ===================================== -->
-                <div
-                    class="flex shrink-0 items-center justify-end gap-2 px-6 py-4"
-                >
-                    <button
-                        type="button"
-                        onclick="closeReportModal('update-modal-{{ $report->report_id }}')"
-                        class="rounded-lg px-3.5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
-                    >
-                        Cancel
-                    </button>
-
-                    <button
-                        type="submit"
-                        class="rounded-lg bg-[rgba(0,55,199,0.85)] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[rgba(0,44,155,0.85)] focus:outline-none focus:ring-4 focus:ring-slate-200 active:bg-[rgba(0,33,111,0.85)]"
-                    >
-                        Update status
-                    </button>
-                </div>
-            </form>
+                    <div class="flex shrink-0 justify-end gap-2 px-6 pb-6">
+                        <button
+                            type="button"
+                            onclick="closeReportModal('update-modal-{{ $report->report_id }}')"
+                            class="rounded-lg px-4 py-2 text-sm font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            class="rounded-lg bg-[#0037C7] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#002C9B]"
+                        >
+                            Update
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
-</div>
 @endforeach
 
 <!-- GLOBAL LIGHTBOX MODAL CONTAINER -->
@@ -1501,13 +1228,13 @@
             historyCountBox.classList.toggle("hidden", !showHistory);
         }
 
-        detailsTab.className = showHistory
-            ? "rounded-full px-4 py-1.5 text-sm font-medium text-slate-500"
-            : "rounded-full px-4 py-1.5 text-sm font-medium bg-slate-900 text-white";
+        const activeTab =
+            "border-b-2 border-[#0037C7] px-1 pb-3 text-sm font-medium text-slate-900";
+        const idleTab =
+            "border-b-2 border-transparent px-1 pb-3 text-sm font-medium text-slate-400 hover:text-slate-600";
 
-        historyTab.className = showHistory
-            ? "rounded-full px-4 py-1.5 text-sm font-medium bg-slate-900 text-white"
-            : "rounded-full px-4 py-1.5 text-sm font-medium text-slate-500";
+        detailsTab.className = showHistory ? idleTab : activeTab;
+        historyTab.className = showHistory ? activeTab : idleTab;
     }
 
     function openReportHistory(reportId) {

@@ -17,15 +17,7 @@
         }"
         x-init="window.layoutEditorEnabled = false"
     >
-        <div class="mb-6 flex items-center justify-between">
-            <div>
-                <h1 class="text-3xl font-bold text-slate-800">
-                    Infrastructure Monitoring
-                </h1>
-
-                <p class="text-slate-500">Interactive Campus Layout & Room Monitoring</p>
-            </div>
-
+        <div class="mb-6 flex justify-end">
             <div class="flex gap-3">
                 <button
                     @click="$dispatch('open-wizard')"

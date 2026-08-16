@@ -14,17 +14,7 @@
 
     
 
-    <div
-        class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
-    >
-        <div>
-            <h1 class="text-4xl font-black text-slate-900">
-                Equipment Categories
-            </h1>
-
-            <p class="mt-1 text-slate-500">Organize and manage categories used across equipment inventory.</p>
-        </div>
-
+    <div class="flex justify-end">
         <button
             type="button"
             @click="openCreateModal()"
@@ -672,7 +662,7 @@
                                             @json($category->equipment_category_name)
                                         )'
 
-                                        title="Edit category"
+                                        data-tooltip="Edit category"
 
                                         class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950"
                                     >
@@ -699,7 +689,7 @@
                                             @json((int) $category->equipment_count)
                                         )'
 
-                                        title="Delete category"
+                                        data-tooltip="Delete category"
 
                                         class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
                                     >
@@ -854,7 +844,7 @@
         x-cloak
         @keydown.escape.window="closeCreateModal()"
 
-        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-[#0b1220]/70 p-4"
     >
 
         <div
@@ -1049,7 +1039,7 @@
         x-cloak
         @keydown.escape.window="closeEditModal()"
 
-        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-[#0b1220]/70 p-4"
     >
 
         <div
@@ -1549,58 +1539,7 @@
 
 
 
-{{-- ===================================================== --}}
-{{-- SUCCESS MESSAGE --}}
-{{-- ===================================================== --}}
-
-@if(session('success'))
-
-<script>
-
-    document.addEventListener(
-        'DOMContentLoaded',
-        () => {
-
-            Swal.fire({
-
-                icon:
-                    'success',
-
-                title:
-                    'Success',
-
-                text:
-                    @json(session('success')),
-
-                timer:
-                    2200,
-
-                timerProgressBar:
-                    true,
-
-                showConfirmButton:
-                    false,
-
-                background:
-                    '#ffffff',
-
-                color:
-                    '#0f172a',
-
-            });
-
-        }
-    );
-
-</script>
-
-@endif
-
-
-
-{{-- ===================================================== --}}
-{{-- ERROR MESSAGE --}}
-{{-- ===================================================== --}}
+{{-- Session flash toasts are handled globally by maintenance-layout (showMpToast) --}}
 
 @if(session('error'))
 
@@ -1609,6 +1548,11 @@
     document.addEventListener(
         'DOMContentLoaded',
         () => {
+
+            // Keep confirm dialog only for hard errors that need acknowledgment
+            if (typeof window.showMpToast === 'function') {
+                return;
+            }
 
             Swal.fire({
 

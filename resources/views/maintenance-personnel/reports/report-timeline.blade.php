@@ -3,13 +3,7 @@
 @section ("title", "Report Timeline")
 
 @section ("content")
-    <div class="mx-auto max-w-6xl">
-        <div class="mb-8">
-            <h1 class="text-3xl font-extrabold">Report Timeline</h1>
-
-            <p class="mt-2 text-gray-400">Full audit logs and activity history.</p>
-        </div>
-
+    <div>
         <div class="rounded-3xl bg-[#1E293B] p-8">
             <div class="space-y-8">
                 <!-- TIMELINE ITEM -->

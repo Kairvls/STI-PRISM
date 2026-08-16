@@ -22,7 +22,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Schema;
 
 
 
@@ -43,12 +43,20 @@ class MessageController extends Controller
                     'user_id',
                     $userId
                 );
+
+                if (Schema::hasColumn('conversation_participants', 'is_hidden')) {
+                    $query->where(function ($hiddenQuery) {
+                        $hiddenQuery
+                            ->where('is_hidden', false)
+                            ->orWhereNull('is_hidden');
+                    });
+                }
             }
         )
         ->with([
             'lastMessage:message_id,conversation_id,sender_id,reply_to_message_id,message_content,message_type,call_id,is_read,read_at,delivered_at,created_at,is_unsent',
             'lastMessage.call:call_id,caller_id,receiver_id,call_type,status,duration,answered_at',
-            'participants.user',
+            'participants.user:user_id,user_full_name,user_profile_picture,last_active_at',
         ])
 
         // =========================================
@@ -126,7 +134,8 @@ class MessageController extends Controller
         // =========================================
 
         $conversation->load([
-            'participants.user'
+            'participants.user:user_id,user_full_name,user_profile_picture,last_active_at,user_role_id',
+            'participants.user.role:role_id,role_name',
         ]);
 
         return response()->json([
@@ -333,6 +342,10 @@ class MessageController extends Controller
             'last_message_id' => $message->message_id,
             'last_message_at' => now(),
         ]);
+
+        $this->revealConversationForParticipants(
+            (int) $conversation->conversation_id
+        );
 
         $message->load([
             'sender',
@@ -885,15 +898,16 @@ class MessageController extends Controller
             // =============================================
 
             ->with([
-                'sender',
-                'replyTo.sender',
-                'reactions.user',
+                'sender:user_id,user_full_name,user_profile_picture',
+                'replyTo:message_id,sender_id,message_content,message_type,is_unsent',
+                'replyTo.sender:user_id,user_full_name',
+                'reactions.user:user_id,user_full_name,user_profile_picture',
                 'attachments',
                 'call',
             ])
 
             ->orderByDesc('created_at')
-            ->paginate(40);
+            ->paginate(24);
 
 
         // =====================================================
@@ -2109,9 +2123,37 @@ class MessageController extends Controller
         // FORMAT USERS
         // =====================================================
 
+        $directChats = collect();
+
+        if (Schema::hasColumn('conversation_participants', 'is_hidden')) {
+            $directChats = DB::table('conversation_participants as mine')
+                ->join(
+                    'conversations as c',
+                    'c.conversation_id',
+                    '=',
+                    'mine.conversation_id'
+                )
+                ->join('conversation_participants as other', function ($join) {
+                    $join->on('other.conversation_id', '=', 'mine.conversation_id')
+                        ->whereColumn('other.user_id', '!=', 'mine.user_id');
+                })
+                ->where('mine.user_id', $userId)
+                ->where('c.conversation_type', 'direct')
+                ->select([
+                    'other.user_id',
+                    'c.conversation_id',
+                    'mine.is_hidden',
+                ])
+                ->get()
+                ->keyBy('user_id');
+        }
+
         $users = $query
+            ->orderBy('user_full_name')
+            ->limit($search === '' ? 50 : 80)
             ->get()
-            ->map(function ($user) {
+            ->map(function ($user) use ($directChats) {
+                $direct = $directChats->get($user->user_id);
 
                 return [
 
@@ -2149,6 +2191,14 @@ class MessageController extends Controller
                             )
                             ->join('')
                         ),
+
+                    'direct_conversation_id' =>
+                        $direct?->conversation_id
+                            ? (int) $direct->conversation_id
+                            : null,
+
+                    'is_hidden' =>
+                        (bool) ($direct?->is_hidden ?? false),
                 ];
             });
 
@@ -2262,6 +2312,11 @@ class MessageController extends Controller
                 }
             );
         }
+
+        $this->revealConversationForUser(
+            (int) $conversation->conversation_id,
+            (int) $userId
+        );
 
         $conversation->load([
             'lastMessage.sender',
@@ -2552,6 +2607,108 @@ class MessageController extends Controller
             'is_muted' =>
                 false,
         ]);
+    }
+
+
+    public function hideConversation(
+        Conversation $conversation
+    ): JsonResponse
+    {
+        $userId = Auth::id();
+
+        $this->authorizeConversation(
+            $conversation,
+            $userId
+        );
+
+        if ($conversation->conversation_type === 'group') {
+            return response()->json([
+                'message' => 'Leave the group instead of hiding it.',
+            ], 422);
+        }
+
+        if (! Schema::hasColumn('conversation_participants', 'is_hidden')) {
+            return response()->json([
+                'message' => 'Hiding conversations is not available yet.',
+            ], 503);
+        }
+
+        ConversationParticipant::where(
+                'conversation_id',
+                $conversation->conversation_id
+            )
+            ->where(
+                'user_id',
+                $userId
+            )
+            ->update([
+                'is_hidden' => true,
+                'updated_at' => now(),
+            ]);
+
+        return response()->json([
+            'message' => 'Conversation hidden.',
+        ]);
+    }
+
+    public function unhideConversation(
+        Conversation $conversation
+    ): JsonResponse
+    {
+        $userId = Auth::id();
+
+        $this->authorizeConversation(
+            $conversation,
+            $userId
+        );
+
+        $this->revealConversationForUser(
+            (int) $conversation->conversation_id,
+            (int) $userId
+        );
+
+        return response()->json([
+            'message' => 'Conversation unhidden.',
+        ]);
+    }
+
+    protected function revealConversationForUser(
+        int $conversationId,
+        int $userId
+    ): void {
+        if (! Schema::hasColumn('conversation_participants', 'is_hidden')) {
+            return;
+        }
+
+        ConversationParticipant::where(
+                'conversation_id',
+                $conversationId
+            )
+            ->where(
+                'user_id',
+                $userId
+            )
+            ->update([
+                'is_hidden' => false,
+                'updated_at' => now(),
+            ]);
+    }
+
+    protected function revealConversationForParticipants(
+        int $conversationId
+    ): void {
+        if (! Schema::hasColumn('conversation_participants', 'is_hidden')) {
+            return;
+        }
+
+        ConversationParticipant::where(
+                'conversation_id',
+                $conversationId
+            )
+            ->update([
+                'is_hidden' => false,
+                'updated_at' => now(),
+            ]);
     }
 
     // =====================================================
@@ -2918,7 +3075,13 @@ class MessageController extends Controller
         $conversationIds = ConversationParticipant::where(
             'user_id',
             $userId
-        )->pluck('conversation_id');
+        )
+        ->where(function ($query) {
+            $query
+                ->where('is_muted', false)
+                ->orWhereNull('is_muted');
+        })
+        ->pluck('conversation_id');
 
         $unreadCount = Message::whereIn(
                 'conversation_id',
@@ -3082,18 +3245,26 @@ class MessageController extends Controller
                     return null;
                 }
 
-                $message->setAttribute(
-                    'pinned_at',
+                $payload = $message->toArray();
+                $payload['pinned_at'] = \Carbon\Carbon::parse(
                     $pin->created_at
-                );
+                )->toIso8601String();
 
-                return $message;
+                return $payload;
             })
             ->filter()
             ->values();
 
         return response()->json([
             'data' => $orderedMessages,
+            'pins' => $pinnedRows->map(function ($pin) {
+                return [
+                    'message_id' => (int) $pin->message_id,
+                    'pinned_at' => \Carbon\Carbon::parse(
+                        $pin->created_at
+                    )->toIso8601String(),
+                ];
+            })->values(),
         ]);
     }
 
@@ -3138,6 +3309,10 @@ class MessageController extends Controller
             'last_message_at' => now(),
 
         ]);
+
+        $this->revealConversationForParticipants(
+            (int) $call->conversation_id
+        );
 
         $message->load([
             'sender',

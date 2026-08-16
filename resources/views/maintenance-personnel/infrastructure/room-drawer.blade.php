@@ -277,7 +277,7 @@
 
                                 x-transition
 
-                                class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40"
+                                class="fixed inset-0 z-[9999] flex items-center justify-center bg-[#0b1220]/70"
 
                             >
 
@@ -375,7 +375,7 @@
 
                                 x-transition
 
-                                class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40"
+                                class="fixed inset-0 z-[9999] flex items-center justify-center bg-[#0b1220]/70"
 
                             >
 

@@ -36,6 +36,8 @@ class Equipment extends Model
 
         'equipment_is_borrowable',
 
+        'equipment_qr_code',
+
     ];
 
     protected $casts = [
@@ -62,6 +64,14 @@ class Equipment extends Model
             'equipment_category_id',
             'equipment_category_id'
         );
+    }
+
+    protected static function booted()
+    {
+        static::created(function (self $equipment) {
+            \App\Support\EquipmentQrCodes::assignIfEligible((int) $equipment->equipment_id);
+            $equipment->refresh();
+        });
     }
 
     // ==============================

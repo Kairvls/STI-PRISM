@@ -5,11 +5,7 @@
 @section('content')
 <style>[x-cloak]{display:none!important}</style>
 <div class="space-y-6" x-data="{ createOpen: false, editOpen: false, editId: '', editName: '', editCategory: '', editComponent: '' }">
-    <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-            <h1 class="text-4xl font-black text-slate-900">Suggested Issues</h1>
-            <p class="mt-1 text-slate-500">Issues follow the survey categories. For Computer Equipment, tag Mouse, Keyboard, Monitor, System Unit, or UPS / AVR so the report form only shows matching chips.</p>
-        </div>
+    <div class="flex justify-end">
         <button type="button" @click="createOpen = true" class="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800">
             <i data-lucide="plus" class="h-4 w-4"></i>
             Add issue
@@ -71,7 +67,7 @@
 
     <div>{{ $issues->links() }}</div>
 
-    <div x-show="createOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-[2px]">
+    <div x-show="createOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-[#0b1220]/70 p-4">
         <form method="POST" action="/maintenance/equipment/suggested-issues" class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
             @csrf
             <h2 class="text-lg font-semibold text-slate-900">Add suggested issue</h2>
@@ -106,7 +102,7 @@
         </form>
     </div>
 
-    <div x-show="editOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/30 p-4 backdrop-blur-[2px]">
+    <div x-show="editOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-[#0b1220]/70 p-4">
         <form method="POST" :action="'/maintenance/equipment/suggested-issues/' + editId" class="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
             @csrf
             @method('PUT')

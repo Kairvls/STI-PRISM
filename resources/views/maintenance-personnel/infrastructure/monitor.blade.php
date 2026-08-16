@@ -100,7 +100,7 @@
         "
         @pointermove.window="trackRoomRotation($event); trackEquipmentRotation($event); trackEquipmentAction($event)"
         @pointerup.window="endRoomRotation($event); endEquipmentRotation($event); endEquipmentAction($event)"
-        class="mx-auto flex min-h-0 max-w-[1700px] flex-1 flex-col overflow-hidden"
+        class="flex min-h-0 w-full flex-1 flex-col overflow-hidden"
     >
         @if (session("success"))
             <div
@@ -122,33 +122,7 @@
             </div>
         @endif
 
-        <div
-            class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
-        >
-            <!--<div>
-                <div
-                    class="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[.22em] text-[#005EA6]"
-                >
-                    <span
-                        class="h-2 w-2 rounded-full bg-[#FFF200] ring-4 ring-yellow-100"
-                    ></span>
-                    Campus spatial intelligence
-                </div>
-                <h1
-                    class="text-3xl font-extrabold tracking-tight text-slate-950 sm:text-4xl"
-                >
-                    Infrastructure Monitoring
-                </h1>
-                <p class="mt-2 max-w-2xl text-sm text-slate-500">Explore STI Ormoc room health, assets, reports, and maintenance in one spatial workspace.</p>
-            </div>-->
-            <div>
-                <h1 class="text-4xl font-black tracking-tight text-slate-950">
-                    Infrastructure Monitoring
-                </h1>
-                <p class="mt-1 text-slate-500">Explore STI Ormoc room health, assets, reports, and maintenance in one spatial workspace.</p>
-            </div>
-
-            
+        <div class="flex justify-end">
                 <button
                     @click="
                         step = (String(form.building_name || '').trim() || (form.floors || []).length > 0)
@@ -482,7 +456,7 @@
                                     <button
                                         type="button"
                                         @click="toggleBlueprintEdit()"
-                                        :title="editMode ? 'Exit Edit Mode' : 'Edit Layout'"
+                                        :data-tooltip="editMode ? 'Exit Edit Mode' : 'Edit Layout'"
                                         :class="editMode
                                             ? 'bg-[#FFF200] text-slate-900'
                                             : 'hover:bg-slate-100 text-slate-700'"
@@ -511,7 +485,7 @@
                                         type="button"
                                         @click="saveLayout()"
                                         :disabled="saving"
-                                        :title="saving ? 'Saving...' : 'Save Layout'"
+                                        :data-tooltip="saving ? 'Saving...' : 'Save Layout'"
                                         :class="saving
                                             ? 'bg-emerald-700 text-white opacity-80'
                                             : saveSuccess
@@ -560,7 +534,7 @@
                                 <button
                                     type="button"
                                     @click="zoomBlueprint(0.1)"
-                                    title="Zoom In"
+                                    data-tooltip="Zoom In"
                                     class="flex h-10 w-full items-center justify-center transition hover:bg-slate-100"
                                 >
 
@@ -602,7 +576,7 @@
                                 <button
                                     type="button"
                                     @click="zoomBlueprint(-0.1)"
-                                    title="Zoom Out"
+                                    data-tooltip="Zoom Out"
                                     class="flex h-10 w-full items-center justify-center transition hover:bg-slate-100"
                                 >
 
@@ -622,7 +596,7 @@
                                 <button
                                     type="button"
                                     @click="toggleRoomPaintMode()"
-                                    :title="roomPaintMode ? 'Close Room Paint' : 'Paint Rooms'"
+                                    :data-tooltip="roomPaintMode ? 'Close Room Paint' : 'Paint Rooms'"
                                     :class="roomPaintMode ? 'bg-[#005EA6] text-white hover:bg-[#004b86]' : 'hover:bg-slate-100 text-slate-700'"
                                     class="flex w-full items-center justify-center py-3 transition"
                                 >
@@ -638,7 +612,7 @@
                                 <button
                                     type="button"
                                     @click="resetBlueprintView()"
-                                    title="Reset View"
+                                    data-tooltip="Reset View"
                                     class="flex w-full items-center justify-center py-3 hover:bg-slate-100"
                                 >
 
@@ -658,7 +632,7 @@
                                 <button
                                     type="button"
                                     @click="toggleFullscreen()"
-                                    :title="isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'"
+                                    :data-tooltip="isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'"
                                     class="flex w-full items-center justify-center py-3 hover:bg-slate-100"
                                 >
 
@@ -712,7 +686,7 @@
                                                         class="h-6 rounded-md border border-slate-200 shadow-sm transition hover:scale-105"
                                                         :class="roomPaintColor === color ? 'ring-2 ring-[#005EA6] ring-offset-2' : ''"
                                                         :style="`background:${color}`"
-                                                        :title="color"
+                                                        :data-tooltip="color"
                                                     ></button>
                                                 </template>
                                             </div>
@@ -907,7 +881,7 @@
                                             x-transition.opacity
                                             role="button"
                                             tabindex="0"
-                                            title="View room layout"
+                                            data-tooltip="View room layout"
                                             @click.stop="openRoomLayout({{ $room->room_id }})"
                                             @keydown.enter.stop.prevent="openRoomLayout({{ $room->room_id }})"
                                             class="absolute right-2 top-2 z-40 flex h-7 w-7 items-center justify-center rounded-lg bg-white/85 text-slate-700 opacity-0 shadow-sm ring-1 ring-slate-200 transition hover:bg-white group-hover:opacity-100"
@@ -966,7 +940,7 @@
                                             @pointerdown.stop.prevent="beginRoomRotation($event)"
                                             role="button"
                                             tabindex="0"
-                                            title="Rotate selected room"
+                                            data-tooltip="Rotate selected room"
                                             :class="isRotating ? 'cursor-grabbing rotate-handle-cursor' : 'cursor-grab rotate-handle-cursor'"
                                             class="absolute left-1/2 bottom-[-52px] z-40 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-lg transition hover:bg-slate-100"
                                             :style="{ transform: 'translateX(-50%) rotate(' + (-selectedRoomControl.rotation) + 'deg)' }"
@@ -1028,7 +1002,7 @@
                                                     @pointerdown.stop.prevent="beginEquipmentRotation($event)"
                                                     role="button"
                                                     tabindex="0"
-                                                    title="Rotate selected equipment"
+                                                    data-tooltip="Rotate selected equipment"
                                                     :class="equipmentIsRotating ? 'cursor-grabbing rotate-equipment-handle-cursor' : 'cursor-grab rotate-equipment-handle-cursor'"
                                                     class="absolute left-1/2 bottom-[-52px] z-40 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-lg transition hover:bg-slate-100"
                                                     :style="{ transform: 'translateX(-50%) rotate(' + (-selectedEquipmentControl.rotation) + 'deg)' }"
@@ -1058,7 +1032,7 @@
             x-show="roomManager.open"
             x-transition.opacity
             x-cloak
-            class="fixed inset-0 z-[1200] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm"
+            class="fixed inset-0 z-[1200] flex items-center justify-center bg-[#0b1220]/70 p-4"
             @click.self="closeRoomManager()"
         >
             <div
@@ -1178,7 +1152,7 @@
             x-show="roomLayout.open"
             x-transition.opacity
             x-cloak
-            class="fixed inset-0 z-[1250] flex items-center justify-center bg-slate-950/60 p-4"
+            class="fixed inset-0 z-[1250] flex items-center justify-center bg-[#0b1220]/70 p-4"
         >
             <div
                 class="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-[30px] bg-white shadow-2xl"
@@ -1511,7 +1485,7 @@
             x-show="closeLayoutModal.open"
             x-transition.opacity
             x-cloak
-            class="fixed inset-0 z-[1300] flex items-center justify-center bg-slate-950/60 p-4"
+            class="fixed inset-0 z-[1300] flex items-center justify-center bg-[#0b1220]/70 p-4"
         >
 
             <div
@@ -1636,7 +1610,7 @@
             x-show="blueprintLayoutModal.open"
             x-transition.opacity
             x-cloak
-            class="fixed inset-0 z-[1301] flex items-center justify-center bg-slate-950/60 p-4"
+            class="fixed inset-0 z-[1301] flex items-center justify-center bg-[#0b1220]/70 p-4"
         >
 
             <div
@@ -1807,9 +1781,34 @@
             x-show="toast"
             x-transition
             x-cloak
-            class="fixed bottom-6 right-6 z-[1100] rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white shadow-2xl"
-            x-text="toast"
-        ></div>
+            class="mp-toast mp-toast-inline fixed bottom-5 right-5 z-[1100] is-visible"
+        >
+            <div class="mp-toast-top">
+                <div class="mp-toast-brand">
+                    <span class="mp-toast-brand-icon" aria-hidden="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 6 9 17l-5-5"/>
+                        </svg>
+                    </span>
+                    <span class="mp-toast-brand-name">PRISM</span>
+                </div>
+                <div class="mp-toast-actions">
+                    <button
+                        type="button"
+                        class="mp-toast-close"
+                        aria-label="Dismiss"
+                        @click="toast = ''"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M18 6 6 18"/>
+                            <path d="m6 6 12 12"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <p class="mp-toast-title" x-text="toast"></p>
+            <p class="mp-toast-message">Campus infrastructure</p>
+        </div>
     </div>
 
     <style>

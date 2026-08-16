@@ -2701,9 +2701,11 @@
 
 
         .calendar-day.today {
-            background: #0f172a;
+            background: #e8ecff;
 
-            color: white;
+            color: #0025cc;
+
+            font-weight: 700;
         }
 
 
@@ -3040,9 +3042,9 @@
 
 
         .calendar-day.today {
-            background: #0f172a;
+            background: #e8ecff;
 
-            color: white;
+            color: #0025cc;
 
             font-weight: 700;
         }
@@ -3070,7 +3072,7 @@
 
 
         .calendar-day.today.has-events::after {
-            background: white;
+            background: #dc2626;
         }
 
 
@@ -4994,26 +4996,6 @@
                 </span>
             </div>-->
 
-            <div>
-
-                <p class="text-sm font-medium text-gray-500">
-                    Reports & Maintenance Overview
-                </p>
-
-                <h1 class="mt-1 text-2xl font-semibold tracking-tight text-gray-900">
-                    Maintenance Personnel Dashboard
-                </h1>
-
-                <p class="-mt-1 max-w-2xl text-sm leading-6 text-gray-500">
-                    Review and manage incoming equipment maintenance requests and reports.
-                </p>
-
-            </div>
-
-            {{-- ===================================================== --}}
-            {{-- MAILBOX --}}
-            {{-- ===================================================== --}}
-
             {{-- ===================================================== --}}
             {{-- QUICK ACTIONS --}}
             {{-- ===================================================== --}}
@@ -5329,7 +5311,7 @@
                                 type="button"
                                 id="buildingReset"
                                 class="building-3d-control"
-                                title="Reset View"
+                                data-tooltip="Reset View"
                                 tabindex="-1"
                             >
                                 <i data-lucide="rotate-ccw"></i>
@@ -5905,7 +5887,7 @@
                                             <span
                                                 class="maintenance-mini-chart-bar"
                                                 style="height: {{ $barHeight }}%;"
-                                                title="{{ $miniChartLabels[$index] }}: {{ $count }} urgent reports"
+                                                data-tooltip="{{ $miniChartLabels[$index] }}: {{ $count }} urgent reports"
                                             ></span>
 
                                             <small>
@@ -6844,7 +6826,7 @@
         {{-- Daily login reminder: urgent reports today + overdue schedules --}}
         <div
             id="dailyPriorityReminderModal"
-            class="fixed inset-0 z-[70] hidden items-center justify-center bg-black/40 p-4 backdrop-blur-[2px]"
+            class="fixed inset-0 z-[70] hidden items-center justify-center bg-[#0b1220]/70 p-4"
             role="dialog"
             aria-modal="true"
             aria-labelledby="dailyPriorityReminderTitle"
@@ -6956,7 +6938,7 @@
     <!-- ========================================================= -->
     <div
     id="addEquipmentModal"
-    class="fixed inset-0 z-50 hidden items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]"
+    class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
 >
     <!-- ===================================== -->
     <!-- ADD EQUIPMENT MODAL -->
@@ -7060,9 +7042,8 @@
                                         </option>
                                     @endforeach
                                 </select>
+                                <p class="mt-1.5 text-xs text-slate-400">Filled from the equipment name. You can still choose another category.</p>
                             </div>
-
-                            <!-- ROOM -->
                             <div>
                                 <label
                                     for="add_equipment_room"
@@ -7370,7 +7351,7 @@
 
 <div
     id="scheduleModal"
-    class="fixed inset-0 z-[1300] hidden items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]"
+    class="fixed inset-0 z-[1300] hidden items-center justify-center bg-[#0b1220]/70 p-4"
 >
     <!-- ===================================== -->
     <!-- SCHEDULE MAINTENANCE MODAL -->
@@ -7600,7 +7581,7 @@
 
     <div
     id="borrowModal"
-    class="fixed inset-0 z-50 hidden items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]"
+    class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
 >
     <!-- ===================================== -->
     <!-- BORROW EQUIPMENT MODAL -->
@@ -8021,7 +8002,7 @@
 
 <div
     id="equipmentScannerModal"
-    class="fixed inset-0 z-[9999] hidden items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm"
+    class="fixed inset-0 z-[9999] hidden items-center justify-center bg-[#0b1220]/70 p-4"
 >
     <div class="equipment-scanner-modal-card">
 
@@ -8284,7 +8265,7 @@
 
 <div
     id="urgentReportModal"
-    class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]"
+    class="fixed inset-0 z-[100] hidden items-center justify-center bg-[#0b1220]/70 p-4"
     aria-hidden="true"
 >
     {{-- ================================================= --}}
@@ -8603,7 +8584,7 @@
 
 <div
     id="activityPreviewModal"
-    class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+    class="fixed inset-0 z-[100] hidden items-center justify-center bg-[#0b1220]/70 p-4"
     aria-hidden="true"
     onclick="closeActivityPreviewModal()"
 >
@@ -10188,6 +10169,7 @@ function openAddEquipmentModal() {
     modal.classList.add('flex');
 
     document.body.style.overflow = 'hidden';
+    document.getElementById('add_equipment_name')?.dispatchEvent(new Event('equipment-category-reset'));
 
     if (typeof lucide !== 'undefined') {
         lucide.createIcons();
@@ -19350,5 +19332,7 @@ document.addEventListener(
             });
         });
     </script>
+
+    @include('layouts.partials.equipment-category-detect')
 
 @endsection

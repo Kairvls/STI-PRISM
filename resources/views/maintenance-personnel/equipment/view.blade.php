@@ -5,14 +5,9 @@
 @section ("content")
     <div class="space-y-6">
         <div class="flex items-center justify-between">
-            <div>
-                <h1 class="text-4xl font-black text-slate-900">
-                    {{ $equipment->equipment_name }}
-                </h1>
-
-                <p class="text-slate-500">Equipment Information</p>
-            </div>
-
+            <h1 class="text-4xl font-black text-slate-900">
+                {{ $equipment->equipment_name }}
+            </h1>
             <a
                 href="/maintenance/equipment/inventory"
                 class="rounded-xl border border-slate-300 px-4 py-2"

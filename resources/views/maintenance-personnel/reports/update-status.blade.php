@@ -3,14 +3,7 @@
 @section ("title", "Update Status")
 
 @section ("content")
-    <div class="mx-auto max-w-5xl">
-        <!-- HEADER -->
-        <div class="mb-8">
-            <h1 class="text-3xl font-extrabold text-white">Update Status</h1>
-
-            <p class="mt-2 text-gray-400">Change the current maintenance status for this report.</p>
-        </div>
-
+    <div>
         <!-- REPORT CARD -->
         <div class="mb-8 rounded-3xl bg-[#1E293B] p-8">
             <div class="grid grid-cols-1 gap-6 md:grid-cols-2">

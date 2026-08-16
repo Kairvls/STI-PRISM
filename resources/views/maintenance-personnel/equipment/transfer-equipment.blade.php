@@ -4,15 +4,6 @@
 
 @section ("content")
     <div class="space-y-6">
-        <!-- PAGE HEADER -->
-        <div>
-            <h1 class="text-4xl font-black text-slate-900">
-                Transfer & History
-            </h1>
-
-            <p class="mt-1 text-slate-500">Track equipment movements and maintenance history.</p>
-        </div>
-
         {{-- ===================================================== --}}
         {{-- TRANSFER DASHBOARD --}}
         {{-- ===================================================== --}}
@@ -783,20 +774,11 @@
 
 
                                 $statusClass = match ($inventoryStatus) {
-                                    "Active" =>
-                                        "bg-emerald-50 text-emerald-700 ring-emerald-200",
-
-                                    "Borrowed" =>
-                                        "bg-blue-50 text-blue-700 ring-blue-200",
-
-                                    "Under Maintenance" =>
-                                        "bg-amber-50 text-amber-700 ring-amber-200",
-
-                                    "Disposed" =>
-                                        "bg-red-50 text-red-700 ring-red-200",
-
-                                    default =>
-                                        "bg-slate-100 text-slate-600 ring-slate-200",
+                                    "Active" => "bg-emerald-50 text-emerald-700",
+                                    "Borrowed" => "bg-sky-50 text-sky-700",
+                                    "Under Maintenance" => "bg-amber-50 text-amber-700",
+                                    "Disposed" => "bg-rose-50 text-rose-700",
+                                    default => "bg-slate-100 text-slate-600",
                                 };
 
 
@@ -855,7 +837,7 @@
                                                     text-sm font-semibold
                                                     text-slate-800"
 
-                                                title="{{ $item->equipment_name }}"
+                                                data-tooltip="{{ $item->equipment_name }}"
                                             >
                                                 {{ $item->equipment_name }}
                                             </p>
@@ -920,7 +902,7 @@
                                                     text-xs font-medium
                                                     text-slate-600"
 
-                                                title="{{ $item->room_name }}"
+                                                data-tooltip="{{ $item->room_name }}"
                                             >
                                                 {{ $item->room_name }}
                                             </span>
@@ -944,25 +926,9 @@
                                 {{-- ===================================== --}}
 
                                 <td class="px-5 py-4">
-
-                                    <span
-                                        class="inline-flex items-center gap-1.5
-                                            rounded-full px-2.5 py-1
-                                            text-[11px] font-medium
-                                            ring-1 ring-inset
-                                            {{ $statusClass }}"
-                                    >
-
-                                        <span
-                                            class="h-1.5 w-1.5 rounded-full
-                                                {{ $statusDotClass }}"
-                                        ></span>
-
-
+                                    <span class="inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-medium {{ $statusClass }}">
                                         {{ $inventoryStatus }}
-
                                     </span>
-
                                 </td>
 
 
@@ -992,6 +958,7 @@
                                                 hover:bg-slate-200/70
                                                 hover:text-slate-700"
 
+                                            data-tooltip="Actions"
                                             aria-label="Equipment actions"
                                         >
                                             <i
@@ -1301,7 +1268,7 @@
 
     <div
     id="transferModal"
-    class="fixed inset-0 z-50 hidden items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]"
+    class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
 >
     <!-- ===================================== -->
     <!-- TRANSFER EQUIPMENT MODAL -->
@@ -1479,7 +1446,7 @@
 
     <div
     id="historyModal"
-    class="fixed inset-0 z-50 hidden items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]"
+    class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
 >
     <!-- ===================================== -->
     <!-- MAINTENANCE HISTORY MODAL -->
@@ -1580,7 +1547,7 @@
 
     <div
     id="maintenanceModal"
-    class="fixed inset-0 z-50 hidden items-center justify-center bg-black/30 p-4 backdrop-blur-[2px]"
+    class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
 >
     <!-- ===================================== -->
     <!-- ADD MAINTENANCE RECORD MODAL -->
@@ -1822,7 +1789,7 @@
 <div
     id="transferHistoryModal"
     class="fixed inset-0 z-50 hidden items-center justify-center
-        bg-black/30 p-4 backdrop-blur-[2px]"
+        bg-[#0b1220]/70 p-4"
 >
     <div
         class="flex max-h-[85vh] w-full max-w-4xl flex-col

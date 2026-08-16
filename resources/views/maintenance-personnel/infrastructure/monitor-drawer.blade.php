@@ -105,6 +105,8 @@
 
                 },
 
+                categoryManual:false,
+
                 async storeEquipment(){
 
                     this.saving=true;
@@ -475,7 +477,7 @@
                         }}</b
                         ><span
                             class="mt-1.5 block truncate text-[10px] text-slate-400"
-                            title="Good Condition"
+                            data-tooltip="Good Condition"
                         >
                             {{
                                 $room->equipment
@@ -1484,7 +1486,7 @@
 
                             <button
                                 type="button"
-                                @click="addEquipmentModal = true"
+                                @click="categoryManual = false; addEquipmentModal = true"
                                 class="group h-full w-full rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-3 text-left transition hover:border-[#005EA6] hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-70 sm:p-4"
                             >
                                 <div class="flex flex-col items-start gap-3">
@@ -1678,9 +1680,8 @@
                         class="
                             fixed inset-0 z-[9999]
                             flex items-center justify-center
-                            bg-slate-950/40
+                            bg-[#0b1220]/70
                             p-4
-                            backdrop-blur-sm
                             sm:p-6
                         "
                     >
@@ -1833,6 +1834,15 @@
 
                                         <input
                                             x-model="addForm.name"
+                                            @input="
+                                                if (!String(addForm.name || '').trim()) {
+                                                    categoryManual = false;
+                                                    addForm.category = '';
+                                                } else if (!categoryManual && typeof detectEquipmentCategoryId === 'function') {
+                                                    const id = detectEquipmentCategoryId(addForm.name);
+                                                    addForm.category = id || '';
+                                                }
+                                            "
                                             type="text"
                                             placeholder="e.g. Server Rack A1"
                                             class="
@@ -1883,6 +1893,15 @@
 
                                         <select
                                             x-model="addForm.category"
+                                            @change="
+                                                if (
+                                                    typeof detectEquipmentCategoryId === 'function'
+                                                    && String(addForm.category) === String(detectEquipmentCategoryId(addForm.name) || '')
+                                                ) {
+                                                    return;
+                                                }
+                                                categoryManual = true;
+                                            "
                                             class="
                                                 h-11
                                                 w-full
@@ -1920,6 +1939,7 @@
                                             @endforeach
 
                                         </select>
+                                        <p class="mt-1.5 text-xs text-slate-400">Filled from the equipment name. You can still choose another category.</p>
 
                                     </div>
 
@@ -2351,9 +2371,8 @@
                         class="
                             fixed inset-0 z-[9999]
                             flex items-center justify-center
-                            bg-slate-950/40
+                            bg-[#0b1220]/70
                             p-4
-                            backdrop-blur-sm
                             sm:p-6
                         "
                     >
@@ -2900,9 +2919,8 @@
                         class="
                             fixed inset-0 z-[9999]
                             flex items-center justify-center
-                            bg-slate-950/40
+                            bg-[#0b1220]/70
                             p-4
-                            backdrop-blur-sm
                             sm:p-6
                         "
                     >
@@ -3310,9 +3328,8 @@
                         class="
                             fixed inset-0 z-[9999]
                             flex items-center justify-center
-                            bg-slate-950/40
+                            bg-[#0b1220]/70
                             p-4
-                            backdrop-blur-sm
                             sm:p-6
                         "
                     >
@@ -7030,3 +7047,5 @@
         );
     });
 </script>
+
+@include('layouts.partials.equipment-category-detect')

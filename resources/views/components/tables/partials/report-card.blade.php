@@ -27,7 +27,7 @@ if ($currentStatus === "Pending") {
         [
             "label" => "Start processing",
             "value" => "Processing",
-            "class" => "bg-neutral-100 text-slate-800 ring-1 ring-slate-200/80 hover:bg-neutral-200",
+            "class" => "bg-neutral-50 text-slate-500 hover:bg-neutral-100",
         ],
         [
             "label" => "Reject",
@@ -40,7 +40,7 @@ if ($currentStatus === "Pending") {
         [
             "label" => "Resolve",
             "value" => "Resolved",
-            "class" => "bg-neutral-100 text-slate-800 ring-1 ring-slate-200/80 hover:bg-neutral-200",
+            "class" => "bg-neutral-50 text-slate-500 hover:bg-neutral-100",
         ],
         [
             "label" => "For replacement",
@@ -57,7 +57,7 @@ if ($currentStatus === "Pending") {
         <button
             type="button"
             onclick="openReportHistory({{ $report->report_id }})"
-            title="{{ $relatedCount }} reports on this equipment"
+            data-tooltip="{{ $relatedCount }} reports on this equipment"
             class="absolute -right-1.5 -top-1.5 z-10 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white transition hover:bg-rose-700"
         >
             {{ $relatedCount }}
@@ -111,7 +111,7 @@ if ($currentStatus === "Pending") {
                 {{ $currentStatus }}
             </span>
             <span class="text-sm text-slate-400">
-                {{ \Carbon\Carbon::parse($report->report_submitted_at)->format("M d, Y") }}
+                {{ \Carbon\Carbon::parse($report->report_submitted_at)->format("M d, Y h:i A") }}
             </span>
         </div>
 
@@ -151,7 +151,7 @@ if ($currentStatus === "Pending") {
                 <button
                     type="button"
                     onclick="openReportModal('view-modal-{{ $report->report_id }}'); switchReportViewTab({{ $report->report_id }}, 'details')"
-                    title="View report"
+                    data-tooltip="View report"
                     class="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
                 >
                     <i data-lucide="eye" class="h-3.5 w-3.5"></i>
@@ -162,7 +162,7 @@ if ($currentStatus === "Pending") {
                     <button
                         type="button"
                         onclick="openReportHistory({{ $report->report_id }})"
-                        title="Previous reports for this equipment"
+                        data-tooltip="Previous reports for this equipment"
                         class="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
                     >
                         <i data-lucide="history" class="h-3.5 w-3.5"></i>

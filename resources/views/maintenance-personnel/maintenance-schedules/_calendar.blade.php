@@ -66,364 +66,223 @@
                     $schedule->maintenance_schedule_description
                     ?? "",
 
+                "qr_code" =>
+                    $schedule->equipment_qr_code
+                    ?? "",
+
+                "qr_image" =>
+                    !empty($schedule->equipment_qr_code)
+                        ? url("/maintenance/equipment/qr-image/".$schedule->equipment_qr_code)
+                        : "",
+
             ]
         )
 
         ->values();
+
+    $scheduleQrById = $calendarSchedulesData->mapWithKeys(function ($schedule) {
+        $code = trim((string) ($schedule->equipment_qr_code ?? ""));
+
+        return [
+            (int) $schedule->maintenance_schedule_id => [
+                "qr_code" => $code,
+                "qr_image" => $code !== ""
+                    ? url("/maintenance/equipment/qr-image/".$code)
+                    : "",
+            ],
+        ];
+    });
+
+    $upcomingAll = $calendarSchedules
+        ->filter(function ($item) use ($today) {
+            if (($item["status"] ?? "") === "Completed") {
+                return false;
+            }
+
+            if (empty($item["date"])) {
+                return false;
+            }
+
+            return Carbon::parse($item["date"])->gte($today);
+        })
+        ->sortBy("date")
+        ->values();
+
+    $upcomingCount = $upcomingAll->count();
+    $upcomingItems = $upcomingAll->take(2)->values();
+
+    $overdueAll = $calendarSchedules
+        ->filter(function ($item) use ($today) {
+            if (($item["status"] ?? "") === "Completed") {
+                return false;
+            }
+
+            if (empty($item["date"])) {
+                return false;
+            }
+
+            return Carbon::parse($item["date"])->lt($today);
+        })
+        ->sortByDesc("date")
+        ->values();
+
+    $overdueCount = $overdueAll->count();
+    $overdueItems = $overdueAll->take(2)->values();
+
+    $completedPctBar = (int) min(100, max(0, round($completedMaintenancePercentage ?? 0)));
+    $firstName = explode(" ", trim(Auth::user()->user_full_name ?? "there"))[0];
 @endphp
 
-<div class="space-y-6">
+<div
+    class="space-y-6"
+    x-data="{
+        wide: localStorage.getItem('prism-schedule-wide') === '1',
+        calendarFull: false,
+        miniMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+        selectedDay: new Date().toISOString().slice(0, 10),
+        events: {{ Js::from($calendarSchedules) }},
+        toggleWide() {
+            this.wide = !this.wide;
+            localStorage.setItem('prism-schedule-wide', this.wide ? '1' : '0');
+        },
+        openBigCalendar() {
+            this.calendarFull = true;
+            this.$nextTick(() => {
+                if (typeof renderCalendar === 'function') {
+                    renderCalendar();
+                }
+                if (window.lucide) {
+                    lucide.createIcons();
+                }
+            });
+        },
+        closeBigCalendar() {
+            this.calendarFull = false;
+            this.$nextTick(() => {
+                if (window.lucide) {
+                    lucide.createIcons();
+                }
+            });
+        },
+        monthLabel() {
+            return this.miniMonth.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+        },
+        dayCells() {
+            const year = this.miniMonth.getFullYear();
+            const month = this.miniMonth.getMonth();
+            const firstDow = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const cells = [];
+            for (let i = 0; i < firstDow; i++) {
+                cells.push(null);
+            }
+            for (let day = 1; day <= daysInMonth; day++) {
+                const value = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+                cells.push({ day, value });
+            }
+            return cells;
+        },
+        hasEvent(value) {
+            return this.events.some((item) => item.date === value);
+        },
+        selectedEvents() {
+            return this.events.filter((item) => item.date === this.selectedDay);
+        }
+    }"
+>
     @if (session("success"))
-        <div
-            class="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-semibold text-emerald-700"
-        >
-            {{
-                session(
-                    "success",
-                )
-            }}
+        <div class="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-semibold text-emerald-700">
+            {{ session("success") }}
         </div>
     @endif
 
-    <div
-        class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
-    >
-        <div>
-            <h1 class="text-4xl font-black tracking-tight text-slate-950">
-                Maintenance Calendar
-            </h1>
-            <p class="mt-1 text-slate-500">Schedule, track, complete, and reschedule preventive maintenance using live PRISM data.</p>
-        </div>
-
-        <button
-            type="button"
-            onclick="openScheduleModal()"
-            class="inline-flex items-center justify-center gap-2 rounded-2xl bg-[rgba(0,55,199,0.85)] px-5 py-3 text-sm font-semibold font-sans-serif text-white shadow-lg shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-[rgba(0,44,155,0.85)]"
-        >
-            <i data-lucide="plus" class="h-4 w-4"></i>
-            Schedule Maintenance
-        </button>
-    </div>
-
-    <div
-        class="overflow-hidden rounded-lg border-y border-slate-300 bg-gray-100 shadow-sm"
-    >
-        <div
-            class="grid grid-cols-1 divide-y divide-slate-200
-                md:grid-cols-2 md:divide-y-0
-                xl:grid-cols-[380px_1fr_1fr_1fr]"
-        >
-
-            {{-- ===================================================== --}}
-            {{-- TOTAL SCHEDULES --}}
-            {{-- ===================================================== --}}
-
-            <div class="flex items-center justify-between px-8 py-6">
-
-                <div class="flex flex-col">
-
-                    <p class="text-sm font-medium text-slate-500">
-                        Total Schedules
-                    </p>
-
-                    <h2 class="mt-2 text-5xl font-medium text-slate-900">
-                        {{ number_format($totalSchedules) }}
-                    </h2>
-
-                    <p class="mt-3 text-sm">
-
-                        @if ($scheduleMonthlyPercentage === null)
-
-                            <span class="font-semibold text-emerald-500">
-                                New activity
-                            </span>
-
-                        @else
-
-                            <span
-                                class="font-semibold
-                                {{
-                                    $scheduleMonthlyPercentage > 0
-                                        ? 'text-emerald-500'
-                                        : (
-                                            $scheduleMonthlyPercentage < 0
-                                                ? 'text-red-500'
-                                                : 'text-slate-500'
-                                        )
-                                }}"
-                            >
-                                {{
-                                    $scheduleMonthlyPercentage > 0
-                                        ? '+'
-                                        : ''
-                                }}{{ number_format($scheduleMonthlyPercentage, 2) }}%
-                            </span>
-
-                        @endif
-
-                        <span class="text-slate-500">
-                            From last month
-                        </span>
-
-                    </p>
-
-                </div>
-
-
-                {{-- ===================================================== --}}
-                {{-- REAL 12 MONTH TREND GRAPH --}}
-                {{-- ===================================================== --}}
-
-                @php
-
-                    $scheduleCounts =
-                        $scheduleMonthlyTrend->pluck('count');
-
-                    $maxScheduleCount =
-                        max(
-                            1,
-                            $scheduleCounts->max()
-                        );
-
-                    $schedulePointCount =
-                        max(
-                            1,
-                            $scheduleMonthlyTrend->count() - 1
-                        );
-
-                    $schedulePoints =
-                        $scheduleMonthlyTrend
-                            ->values()
-                            ->map(function ($item, $index) use (
-                                $maxScheduleCount,
-                                $schedulePointCount
-                            ) {
-
-                                $x =
-                                    ($index / $schedulePointCount)
-                                    * 300;
-
-                                $y =
-                                    90
-                                    - (
-                                        ($item['count'] / $maxScheduleCount)
-                                        * 75
-                                    );
-
-                                return
-                                    round($x, 2)
-                                    . ','
-                                    . round($y, 2);
-
-                            })
-                            ->implode(' ');
-
-                    $scheduleAreaPoints =
-                        '0,100 '
-                        . $schedulePoints
-                        . ' 300,100';
-
-                @endphp
-
-
-                <div class="ml-6 h-20 w-40 shrink-0">
-
-                    <svg
-                        viewBox="0 0 300 100"
-                        class="h-full w-full"
-                        fill="none"
-                    >
-
-                        <polygon
-                            points="{{ $scheduleAreaPoints }}"
-                            fill="#3b82f6"
-                            fill-opacity=".08"
-                        />
-
-                        <polyline
-                            points="{{ $schedulePoints }}"
-                            fill="none"
-                            stroke="#3b82f6"
-                            stroke-width="2.5"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                        />
-
-                    </svg>
-
-                </div>
-
-            </div>
-
-
-            {{-- ===================================================== --}}
-            {{-- UPCOMING MAINTENANCE --}}
-            {{-- ===================================================== --}}
-
-            <div class="relative flex flex-col justify-between px-8 py-7">
-
-                <span
-                    class="absolute left-0 top-8 hidden h-[68%]
-                        border-l border-slate-200 xl:block"
-                ></span>
-
-                <p class="text-md font-medium text-slate-600">
-                    Upcoming Maintenance
-                </p>
-
-                <h2 class="text-5xl font-medium text-slate-900">
-                    {{ number_format($upcomingMaintenance) }}
-                </h2>
-
-                <p class="text-base">
-
-                    <span class="font-semibold text-slate-900">
-                        {{ number_format($upcomingMaintenancePercentage, 2) }}%
-                    </span>
-
-                    <span class="text-slate-500">
-                        of outstanding schedules
-                    </span>
-
-                </p>
-
-            </div>
-
-
-            {{-- ===================================================== --}}
-            {{-- COMPLETED MAINTENANCE --}}
-            {{-- ===================================================== --}}
-
-            <div class="relative flex flex-col justify-between px-8 py-7">
-
-                <span
-                    class="absolute left-0 top-8 hidden h-[68%]
-                        border-l border-slate-200 xl:block"
-                ></span>
-
-                <p class="text-md font-medium text-slate-600">
-                    Completed Maintenance
-                </p>
-
-                <h2 class="text-5xl font-medium text-slate-900">
-                    {{ number_format($completedMaintenance) }}
-                </h2>
-
-                <p class="text-base">
-
-                    <span class="font-semibold text-slate-900">
-                        {{ number_format($completedMaintenancePercentage, 2) }}%
-                    </span>
-
-                    <span class="text-slate-500">
-                        of all schedules
-                    </span>
-
-                </p>
-
-            </div>
-
-
-            {{-- ===================================================== --}}
-            {{-- OVERDUE MAINTENANCE --}}
-            {{-- ===================================================== --}}
-
-            <div class="relative flex flex-col justify-between px-8 py-7">
-
-                <span
-                    class="absolute left-0 top-8 hidden h-[68%]
-                        border-l border-slate-200 xl:block"
-                ></span>
-
-                <p class="text-md font-medium text-slate-600">
-                    Overdue Maintenance
-                </p>
-
-                <h2 class="text-5xl font-medium text-slate-900">
-                    {{ number_format($overdueMaintenance) }}
-                </h2>
-
-                <p class="text-base">
-
-                    <span
-                        class="font-semibold
-                        {{
-                            $overdueMaintenancePercentage > 0
-                                ? 'text-red-500'
-                                : 'text-slate-500'
-                        }}"
-                    >
-                        {{ number_format($overdueMaintenancePercentage, 2) }}%
-                    </span>
-
-                    <span class="text-slate-500">
-                        of outstanding schedules
-                    </span>
-
-                </p>
-
-            </div>
-
-        </div>
-    </div>
-
-    {{-- ========================================================= --}}
-    {{-- SCHEDULE LIST --}}
-    {{-- ========================================================= --}}
-
-    <section
-        class="overflow-hidden rounded-2xl border border-slate-200 bg-white"
-    >
-        {{-- ===================================================== --}}
-        {{-- HEADER --}}
-        {{-- ===================================================== --}}
-
-        <div
-            class="flex flex-col gap-4 border-b border-slate-200 px-5 py-4
-                sm:flex-row sm:items-center sm:justify-between"
-        >
-            <div class="flex items-center gap-3">
-
-                {{-- HEADER ICON --}}
-                <div
-                    class="flex h-9 w-9 shrink-0 items-center justify-center
-                        rounded-lg bg-slate-100 text-slate-600"
-                >
-                    <i data-lucide="list-checks" class="h-4 w-4"></i>
-                </div>
-
-                {{-- HEADER TEXT --}}
-                <div>
-                    <h2 class="text-sm font-semibold text-slate-900">
-                        Schedule List
-                    </h2>
-
-                    <p class="mt-0.5 text-xs text-slate-400">
-                        {{ $schedules->total() }}
-                        saved maintenance
-                        {{
-                            $schedules->total() === 1
-                                ? "schedule"
-                                : "schedules"
-                        }}
-                    </p>
-                </div>
-
-            </div>
-
-
-            {{-- TOTAL COUNT --}}
-            <div
-                class="inline-flex w-fit items-center gap-2 rounded-lg
-                    border border-slate-200 bg-slate-50
-                    px-3 py-2 text-xs font-medium text-slate-500"
+    <div class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_280px]" x-show="!calendarFull">
+        <div class="relative overflow-hidden rounded-2xl border border-stone-200/80 bg-[#f5f6f8] px-7 py-8 text-slate-900">
+            <img
+                src="{{ asset('image/maintenance_home_card_image.png') }}"
+                alt=""
+                class="pointer-events-none absolute inset-y-0 right-0 h-full w-[58%] object-cover object-right"
             >
-                <i data-lucide="calendar-range" class="h-3.5 w-3.5"></i>
-
-                {{ $schedules->total() }} total
+            <div
+                class="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#f5f6f8] from-[0%] via-[#f5f6f8] via-[38%] to-transparent to-[82%]"
+            ></div>
+            <div class="relative z-10 pr-28 sm:pr-40">
+            <p class="text-2xl font-semibold tracking-tight">
+                {{ number_format($overdueMaintenance ?? 0) }} Overdue {{ \Illuminate\Support\Str::plural('Schedule', (int) ($overdueMaintenance ?? 0)) }}
+            </p>
+            <p class="mt-1 max-w-md text-sm text-slate-500">
+                Review upcoming work and keep preventive maintenance on schedule.
+            </p>
+            <div class="mt-6 flex flex-wrap gap-2.5">
+                <button
+                    type="button"
+                    onclick="openScheduleModal()"
+                    class="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800"
+                >
+                    Schedule maintenance
+                </button>
+                <button
+                    type="button"
+                    @click="openBigCalendar()"
+                    class="rounded-xl bg-white/70 px-4 py-2.5 text-sm font-medium text-slate-800 ring-1 ring-stone-300/80 transition hover:bg-white"
+                >
+                    Open calendar
+                </button>
             </div>
-
+            </div>
         </div>
+
+        <div class="rounded-2xl border border-slate-200 bg-white p-6">
+            <p class="text-[32px] font-semibold leading-none tracking-tight text-slate-900">
+                {{ number_format($completedMaintenance) }}
+            </p>
+            <p class="mt-2 text-sm font-medium text-slate-500">Schedules completed</p>
+            <div class="mt-5 flex items-center justify-between text-xs text-slate-400">
+                <span>{{ number_format($upcomingMaintenance) }} pending</span>
+                <span>{{ $completedPctBar }}%</span>
+            </div>
+            <div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
+                <div class="h-full rounded-full bg-slate-900" style="width: {{ $completedPctBar }}%"></div>
+            </div>
+        </div>
+    </div>
+
+    <div
+        class="grid items-stretch gap-6"
+        :class="wide ? 'grid-cols-1' : 'xl:grid-cols-[minmax(0,1fr)_300px]'"
+        x-show="!calendarFull"
+    >
+    <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <div class="flex flex-col gap-4 px-6 pb-2 pt-6 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+                <h2 class="text-lg font-semibold tracking-tight text-slate-900">All Schedules</h2>
+                <p class="mt-0.5 text-sm text-slate-400">
+                    {{ $schedules->total() }}
+                    {{ $schedules->total() === 1 ? "schedule" : "schedules" }}
+                    available
+                </p>
+            </div>
+            <div class="flex items-center gap-2">
+            <button
+                type="button"
+                @click="toggleWide()"
+                class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-700 transition hover:bg-slate-200"
+                :data-tooltip="wide ? 'Exit full width' : 'Full width'"
+                :aria-label="wide ? 'Exit full width' : 'Full width'"
+            >
+                <i data-lucide="maximize-2" class="h-4 w-4" x-show="!wide"></i>
+                <i data-lucide="minimize-2" class="h-4 w-4" x-show="wide" x-cloak></i>
+            </button>
+            <button
+                type="button"
+                onclick="openScheduleModal()"
+                class="inline-flex h-9 items-center justify-center rounded-xl bg-slate-100 px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-200"
+            >
+                Add schedule
+            </button>
+            </div>
+        </div>
+
 
         {{-- ===================================================== --}}
         {{-- SEARCH AND FILTER BAR --}}
@@ -620,17 +479,61 @@
 
 
                 {{-- ================================================= --}}
+                {{-- ROOM FILTER --}}
+                {{-- ================================================= --}}
+
+                <div class="relative">
+
+                    <select
+                        name="room"
+
+                        class="h-10 min-w-[180px]
+                            appearance-none rounded-lg
+                            border border-slate-200
+                            bg-white pl-3 pr-9
+                            text-sm text-slate-600
+                            outline-none transition
+                            focus:border-slate-400
+                            focus:ring-2 focus:ring-slate-100"
+                    >
+
+                        <option value="">
+                            All Rooms
+                        </option>
+
+                        @foreach ($rooms ?? [] as $room)
+                            <option
+                                value="{{ $room->room_id }}"
+                                @selected((string) request('room') === (string) $room->room_id)
+                            >
+                                {{ $room->room_name }}
+                            </option>
+                        @endforeach
+
+                    </select>
+
+                    <i
+                        data-lucide="chevron-down"
+                        class="pointer-events-none absolute
+                            right-3 top-1/2 h-4 w-4
+                            -translate-y-1/2 text-slate-400"
+                    ></i>
+
+                </div>
+
+
+                {{-- ================================================= --}}
                 {{-- APPLY --}}
                 {{-- ================================================= --}}
 
                 <button
                     type="submit"
-
+                    data-tooltip="Apply"
                     class="inline-flex h-10 items-center
                         justify-center gap-2 rounded-lg
-                        bg-slate-950 px-4
+                        bg-[#0025cc] px-4
                         text-sm font-semibold text-white
-                        transition hover:bg-slate-800"
+                        transition hover:bg-[#001fa8]"
                 >
 
                     <i
@@ -638,7 +541,7 @@
                         class="h-4 w-4"
                     ></i>
 
-                    Apply
+                    
 
                 </button>
 
@@ -651,6 +554,7 @@
                     request()->filled('search')
                     || request()->filled('frequency')
                     || request()->filled('status')
+                    || request()->filled('room')
                 )
 
                     <a
@@ -689,28 +593,34 @@
 
         <div class="overflow-x-auto">
 
-            <table class="w-full min-w-[1050px] text-left">
+            <table
+                class="schedule-list-table w-full text-left"
+                :class="wide ? 'is-wide min-w-[1320px]' : 'min-w-0'"
+            >
 
                 {{-- ================================================= --}}
                 {{-- TABLE HEADER --}}
                 {{-- ================================================= --}}
 
-                <thead
-                    class="border-b border-slate-200 bg-slate-50/70"
-                >
-                    <tr
-                        class="text-[12px] font-semibold uppercase
-                            tracking-[0.08em] text-black"
-                    >
+                <thead class="border-b border-slate-100">
+                    <tr class="text-[11px] font-medium uppercase tracking-[0.12em] text-slate-400">
                         <th class="px-5 py-3">
                             Equipment
                         </th>
 
-                        <th class="px-5 py-3">
-                            Maintenance
+                        <th class="schedule-col-extra px-5 py-3">
+                            Location
                         </th>
 
                         <th class="px-5 py-3">
+                            QR Code
+                        </th>
+
+                        <th class="schedule-col-extra px-5 py-3">
+                            Maintenance
+                        </th>
+
+                        <th class="schedule-col-extra px-5 py-3">
                             Frequency
                         </th>
 
@@ -718,7 +628,7 @@
                             Next Date
                         </th>
 
-                        <th class="px-5 py-3">
+                        <th class="schedule-col-extra px-5 py-3">
                             Last Date
                         </th>
 
@@ -737,7 +647,7 @@
                 {{-- TABLE BODY --}}
                 {{-- ================================================= --}}
 
-                <tbody class="divide-y divide-slate-100">
+                <tbody class="divide-y divide-dashed divide-slate-200">
 
                     @forelse ($schedules as $schedule)
 
@@ -745,14 +655,9 @@
                             $rowStatus = $effectiveStatus($schedule);
 
                             $statusClass = match ($rowStatus) {
-                                "Completed" =>
-                                    "bg-emerald-50 text-emerald-700 ring-emerald-200",
-
-                                "Overdue" =>
-                                    "bg-red-50 text-red-700 ring-red-200",
-
-                                default =>
-                                    "bg-blue-50 text-blue-700 ring-blue-200",
+                                "Completed" => "bg-emerald-50 text-emerald-700",
+                                "Overdue" => "bg-rose-50 text-rose-700",
+                                default => "bg-sky-50 text-sky-700",
                             };
 
                             $statusDotClass = match ($rowStatus) {
@@ -806,24 +711,6 @@
                                             }}
                                         </p>
 
-
-                                        <div
-                                            class="mt-1 flex items-center gap-1
-                                                text-[11px] text-slate-400"
-                                        >
-                                            <i
-                                                data-lucide="map-pin"
-                                                class="h-3 w-3"
-                                            ></i>
-
-                                            <span class="max-w-[190px] truncate">
-                                                {{
-                                                    $schedule->room_name
-                                                        ?? "No room assigned"
-                                                }}
-                                            </span>
-                                        </div>
-
                                     </div>
 
                                 </div>
@@ -832,15 +719,63 @@
 
 
                             {{-- ===================================== --}}
-                            {{-- MAINTENANCE TITLE --}}
+                            {{-- LOCATION --}}
+                            {{-- ===================================== --}}
+
+                            <td class="schedule-col-extra px-5 py-4">
+                                <div class="flex items-center gap-1.5 text-sm text-slate-600">
+                                    <i data-lucide="map-pin" class="h-3.5 w-3.5 shrink-0 text-slate-400"></i>
+                                    <span class="max-w-[180px] truncate">
+                                        {{ $schedule->room_name ?? "No room assigned" }}
+                                    </span>
+                                </div>
+                            </td>
+
+
+                            {{-- ===================================== --}}
+                            {{-- QR CODE --}}
                             {{-- ===================================== --}}
 
                             <td class="px-5 py-4">
+                                @php
+                                    $rowQrCode = trim((string) ($schedule->equipment_qr_code ?? ""));
+                                @endphp
+
+                                @if ($rowQrCode !== "")
+                                    @php
+                                        $rowQrImage = url('/maintenance/equipment/qr-image/'.$rowQrCode);
+                                    @endphp
+                                    <button
+                                        type="button"
+                                        onclick="openScheduleQrModal(@js($rowQrImage), @js($rowQrCode), @js($schedule->equipment_name ?? 'Equipment'))"
+                                        class="flex items-center gap-2.5 rounded-lg text-left transition hover:bg-slate-50"
+                                    >
+                                        <img
+                                            src="{{ $rowQrImage }}"
+                                            alt="QR code for {{ $schedule->equipment_name ?? 'equipment' }}"
+                                            class="h-12 w-12 rounded-lg border border-slate-200 bg-white object-contain p-1"
+                                        />
+                                        <span class="max-w-[110px] truncate font-mono text-[11px] text-slate-500" title="{{ $rowQrCode }}">
+                                            {{ $rowQrCode }}
+                                        </span>
+                                    </button>
+                                @else
+                                    <div class="flex items-center gap-2 text-slate-400">
+                                        <span class="flex h-12 w-12 items-center justify-center rounded-lg border border-dashed border-slate-200 bg-slate-50">
+                                            <i data-lucide="qr-code" class="h-4 w-4"></i>
+                                        </span>
+                                        <span class="text-[11px]">No QR</span>
+                                    </div>
+                                @endif
+                            </td>
+
+
+                            <td class="schedule-col-extra px-5 py-4">
 
                                 <p
                                     class="max-w-[230px] truncate
                                         text-sm font-medium text-slate-700"
-                                    title="{{ $schedule->maintenance_schedule_title }}"
+                                    data-tooltip="{{ $schedule->maintenance_schedule_title }}"
                                 >
                                     {{
                                         $schedule->maintenance_schedule_title
@@ -850,11 +785,7 @@
                             </td>
 
 
-                            {{-- ===================================== --}}
-                            {{-- FREQUENCY --}}
-                            {{-- ===================================== --}}
-
-                            <td class="px-5 py-4">
+                            <td class="schedule-col-extra px-5 py-4">
 
                                 <span
                                     class="inline-flex rounded-md
@@ -901,11 +832,7 @@
                             </td>
 
 
-                            {{-- ===================================== --}}
-                            {{-- LAST DATE --}}
-                            {{-- ===================================== --}}
-
-                            <td class="px-5 py-4">
+                            <td class="schedule-col-extra px-5 py-4">
 
                                 <span
                                     class="whitespace-nowrap
@@ -928,23 +855,9 @@
                             {{-- ===================================== --}}
 
                             <td class="px-5 py-4">
-
-                                <span
-                                    class="inline-flex items-center gap-1.5
-                                        rounded-full px-2.5 py-1
-                                        text-[11px] font-medium
-                                        ring-1 ring-inset
-                                        {{ $statusClass }}"
-                                >
-                                    <span
-                                        class="h-1.5 w-1.5 rounded-full
-                                            {{ $statusDotClass }}"
-                                    ></span>
-
+                                <span class="inline-flex items-center rounded-md px-2.5 py-1 text-[11px] font-medium {{ $statusClass }}">
                                     {{ $rowStatus }}
-
                                 </span>
-
                             </td>
 
 
@@ -956,14 +869,64 @@
 
                                 <div
                                     class="relative inline-block"
-                                    x-data="{ open: false }"
+                                    x-data="{
+                                        open: false,
+                                        dropUp: false,
+                                        menuStyle: {},
+                                        toggle() {
+                                            this.open = !this.open;
+                                            if (this.open) {
+                                                this.$nextTick(() => this.place());
+                                            }
+                                        },
+                                        place() {
+                                            const button = this.$refs.button;
+                                            const menu = this.$refs.menu;
+                                            if (!button || !menu) {
+                                                return;
+                                            }
+
+                                            const rect = button.getBoundingClientRect();
+                                            const height = menu.offsetHeight;
+                                            const width = menu.offsetWidth;
+                                            const gap = 8;
+                                            const spaceBelow = window.innerHeight - rect.bottom - gap;
+                                            const spaceAbove = rect.top - gap;
+
+                                            this.dropUp = spaceBelow < height && spaceAbove > spaceBelow;
+
+                                            let top = this.dropUp
+                                                ? rect.top - height - gap
+                                                : rect.bottom + gap;
+                                            let left = rect.right - width;
+
+                                            top = Math.min(
+                                                Math.max(8, top),
+                                                window.innerHeight - height - 8,
+                                            );
+                                            left = Math.min(
+                                                Math.max(8, left),
+                                                window.innerWidth - width - 8,
+                                            );
+
+                                            this.menuStyle = {
+                                                top: `${top}px`,
+                                                left: `${left}px`,
+                                            };
+                                        },
+                                    }"
+                                    @keydown.escape.window="open = false"
+                                    @scroll.window="open && place()"
+                                    @resize.window="open && place()"
+                                    @click.outside="open = false"
                                 >
 
                                     {{-- MENU BUTTON --}}
                                     <button
                                         type="button"
-                                        @click="open = !open"
-                                        @click.outside="open = false"
+                                        x-ref="button"
+                                        @click="toggle()"
+                                        data-tooltip="Actions"
                                         class="flex h-8 w-8 items-center
                                             justify-center rounded-lg
                                             text-slate-400 transition
@@ -980,9 +943,11 @@
                                     {{-- DROPDOWN --}}
                                     <div
                                         x-cloak
+                                        x-ref="menu"
                                         x-show="open"
-                                        x-transition.origin.top.right
-                                        class="absolute right-0 top-10 z-50
+                                        x-transition
+                                        :style="menuStyle"
+                                        class="fixed z-[80]
                                             w-44 overflow-hidden rounded-xl
                                             border border-slate-200 bg-white
                                             p-1.5 text-left
@@ -1118,7 +1083,7 @@
                         <tr>
 
                             <td
-                                colspan="7"
+                                :colspan="wide ? 9 : 5"
                                 class="px-6 py-16 text-center"
                             >
 
@@ -1142,6 +1107,7 @@
                                                 request()->filled('search')
                                                 || request()->filled('frequency')
                                                 || request()->filled('status')
+                                                || request()->filled('room')
                                                     ? 'search-x'
                                                     : 'calendar-plus'
                                             }}"
@@ -1160,6 +1126,7 @@
                                             request()->filled('search')
                                             || request()->filled('frequency')
                                             || request()->filled('status')
+                                            || request()->filled('room')
 
                                                 ? 'No matching schedules'
 
@@ -1316,287 +1283,293 @@
 
     </section>
 
+    <aside class="flex h-full flex-col gap-5" x-show="!wide && !calendarFull" x-cloak>
+        <div class="rounded-2xl border border-slate-200 bg-white p-5">
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <h3 class="text-sm font-semibold text-slate-900">Maintenance Calendar</h3>
+                    <p class="mt-0.5 text-xs text-slate-400">Reports and scheduled maintenance</p>
+                </div>
+                <button
+                    type="button"
+                    @click="openBigCalendar()"
+                    class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600 transition hover:bg-slate-200"
+                    data-tooltip="Full screen"
+                >
+                    <i data-lucide="maximize-2" class="h-4 w-4"></i>
+                </button>
+            </div>
+
+            <p class="mt-5 text-sm font-semibold text-slate-800" x-text="monthLabel()"></p>
+            <div class="mt-3 grid grid-cols-7 text-center">
+                <template x-for="label in ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']">
+                    <span class="py-1 text-[10px] font-medium uppercase text-slate-400" x-text="label"></span>
+                </template>
+                <template x-for="(cell, index) in dayCells()" :key="index">
+                    <div class="py-0.5">
+                        <button
+                            type="button"
+                            x-show="cell"
+                            class="relative mx-auto flex h-7 min-w-7 items-center justify-center rounded-[10px] px-2 text-xs"
+                            :class="cell && selectedDay === cell.value ? 'bg-[#e8ecff] font-semibold text-[#0025cc]' : 'text-slate-600 hover:bg-slate-100'"
+                            @click="if (cell) selectedDay = cell.value"
+                        >
+                            <span x-text="cell ? cell.day : ''"></span>
+                            <span
+                                class="absolute bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-rose-500"
+                                x-show="cell && hasEvent(cell.value) && selectedDay !== cell.value"
+                            ></span>
+                        </button>
+                    </div>
+                </template>
+            </div>
+
+            <div class="mt-4 border-t border-slate-100 pt-3">
+                <template x-if="selectedEvents().length === 0">
+                    <p class="text-xs leading-5 text-slate-400">No reports or maintenance schedules for this date.</p>
+                </template>
+                <div class="space-y-1" x-show="selectedEvents().length > 0">
+                    <template x-for="item in selectedEvents().slice(0, 2)" :key="item.id">
+                        <div>
+                            <p class="truncate text-xs font-medium text-slate-800" x-text="item.title"></p>
+                            <p class="truncate text-[11px] text-slate-400" x-text="item.equipment"></p>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-auto space-y-5">
+        <div class="rounded-2xl border border-slate-200 bg-white p-5">
+            <div class="flex items-baseline justify-between gap-2">
+                <h3 class="text-sm font-semibold text-slate-900">Overdue</h3>
+                @if ($overdueCount > 0)
+                    <p class="text-[11px] text-slate-400">{{ min(2, $overdueCount) }} of {{ $overdueCount }}</p>
+                @endif
+            </div>
+            <div class="mt-4 space-y-0">
+                @forelse ($overdueItems as $item)
+                    <div class="relative flex gap-3 pb-4 last:pb-0">
+                        @if (!$loop->last)
+                            <span class="absolute left-[5px] top-3 h-full w-px bg-slate-200"></span>
+                        @endif
+                        <span class="relative z-10 mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-slate-300 ring-1 ring-slate-200"></span>
+                        <div class="min-w-0">
+                            <p class="text-[11px] font-medium text-slate-400">
+                                {{ Carbon::parse($item["date"])->format("M d") }}
+                            </p>
+                            <p class="mt-0.5 truncate text-sm font-medium text-slate-800">{{ $item["title"] }}</p>
+                            <p class="truncate text-xs text-slate-400">{{ $item["equipment"] }}</p>
+                        </div>
+                    </div>
+                @empty
+                    <p class="text-sm text-slate-400">No overdue schedules.</p>
+                @endforelse
+            </div>
+            @if ($overdueCount > 2)
+                <p class="mt-3 text-[11px] font-medium text-rose-500">
+                    +{{ $overdueCount - 2 }} more overdue
+                </p>
+            @endif
+        </div>
+
+        <div class="rounded-2xl border border-slate-200 bg-white p-5">
+            <div class="flex items-baseline justify-between gap-2">
+                <h3 class="text-sm font-semibold text-slate-900">Upcoming</h3>
+                @if ($upcomingCount > 0)
+                    <p class="text-[11px] text-slate-400">{{ min(2, $upcomingCount) }} of {{ $upcomingCount }}</p>
+                @endif
+            </div>
+            <div class="mt-4 space-y-0">
+                @forelse ($upcomingItems as $item)
+                    <div class="relative flex gap-3 pb-4 last:pb-0">
+                        @if (!$loop->last)
+                            <span class="absolute left-[5px] top-3 h-full w-px bg-slate-200"></span>
+                        @endif
+                        <span class="relative z-10 mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-slate-300 ring-1 ring-slate-200"></span>
+                        <div class="min-w-0">
+                            <p class="text-[11px] font-medium text-slate-400">
+                                {{ Carbon::parse($item["date"])->format("M d") }}
+                            </p>
+                            <p class="mt-0.5 truncate text-sm font-medium text-slate-800">{{ $item["title"] }}</p>
+                            <p class="truncate text-xs text-slate-400">{{ $item["equipment"] }}</p>
+                        </div>
+                    </div>
+                @empty
+                    <p class="text-sm text-slate-400">No upcoming schedules.</p>
+                @endforelse
+            </div>
+            @if ($upcomingCount > 2)
+                <p class="mt-3 text-[11px] font-medium text-sky-600">
+                    +{{ $upcomingCount - 2 }} more upcoming
+                </p>
+            @endif
+        </div>
+        </div>
+    </aside>
+    </div>
+
     {{-- ========================================================= --}}
     {{-- MINIMALIST MAINTENANCE CALENDAR --}}
     {{-- ========================================================= --}}
 
     <section
-        class="flex min-h-[1000px] flex-col overflow-hidden
-            rounded-2xl border border-slate-200 bg-white"
+        id="maintenance-calendar"
+        x-show="calendarFull"
+        x-cloak
+        class="flex min-h-[calc(100vh-7rem)] overflow-hidden rounded-[32px] border border-slate-200/70 bg-slate-100 shadow-[0_30px_80px_rgba(15,23,42,0.08)]"
     >
+        <aside class="calendar-sidebar relative z-0 flex w-[220px] shrink-0 flex-col sm:w-[250px]">
+            <div class="calendar-sidebar-wave pointer-events-none absolute inset-x-0 top-0 z-0" aria-hidden="true">
+                <svg viewBox="0 0 250 250" preserveAspectRatio="none" class="h-full w-full">
+                    <path
+                        fill="#fff200"
+                        d="M0 0 H250 C250 55 210 110 155 160 C110 200 55 210 0 185 Z"
+                    ></path>
+                </svg>
+            </div>
 
-        {{-- ===================================================== --}}
-        {{-- CALENDAR TOP TOOLBAR --}}
-        {{-- ===================================================== --}}
+            <img
+                src="{{ asset('image/calendar_schedule.png') }}"
+                alt=""
+                class="calendar-sidebar-art"
+                aria-hidden="true"
+            >
 
-        <header
-            class="flex shrink-0 flex-col gap-3 border-b border-slate-200
-                px-4 py-3
-                xl:flex-row xl:items-center xl:justify-between"
-        >
-
-            {{-- LEFT SIDE --}}
-            <div class="flex items-center gap-2">
-
-                <div
-                    class="flex h-9 w-9 items-center justify-center
-                        rounded-lg bg-slate-950 text-white"
-                >
-                    <i
-                        data-lucide="calendar-days"
-                        class="h-4 w-4"
-                    ></i>
-                </div>
-
-
-                <div>
-
-                    <h2
-                        class="text-sm font-bold text-slate-900"
-                    >
-                        Preventive Maintenance Planner
+            <div class="relative z-10 flex min-h-0 flex-1 flex-col px-5 pb-7 pt-10">
+                <div class="calendar-sidebar-nav flex min-h-0 flex-1 flex-col items-center overflow-hidden">
+                    <h2 class="calendar-sidebar-title">
+                        Calendar
                     </h2>
 
-                    <p
-                        class="mt-0.5 text-[11px] text-slate-400"
-                    >
-                        Manage preventive maintenance schedules
+                    <div class="calendar-sidebar-carousel flex w-full flex-1 flex-col items-center">
+                        <div class="flex items-center justify-center gap-3">
+                            <button
+                                type="button"
+                                onclick="calendarSidebarYear(-1)"
+                                class="flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-900 shadow-sm transition hover:bg-slate-50"
+                                aria-label="Previous year"
+                            >
+                                <i data-lucide="chevron-left" class="h-4 w-4"></i>
+                            </button>
+                            <p id="calendarSidebarYear" class="calendar-sidebar-year"></p>
+                            <button
+                                type="button"
+                                onclick="calendarSidebarYear(1)"
+                                class="flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-900 shadow-sm transition hover:bg-slate-50"
+                                aria-label="Next year"
+                            >
+                                <i data-lucide="chevron-right" class="h-4 w-4"></i>
+                            </button>
+                        </div>
+
+                        <div id="calendarMonthList" class="mt-7 flex w-full flex-1 flex-col items-center gap-3 overflow-y-auto pb-2"></div>
+                    </div>
+                </div>
+
+                <div class="mt-6 space-y-2 border-t border-slate-200/80 pt-5 text-center">
+                    <p class="calendar-sidebar-meta text-[12px] leading-5 text-slate-500">
+                        This month you have
+                        <span class="font-semibold text-slate-700">{{ number_format($upcomingCount) }}</span>
+                        upcoming
                     </p>
-
-                </div>
-
-            </div>
-
-
-            {{-- RIGHT SIDE --}}
-            <div
-                class="flex flex-col gap-2
-                    sm:flex-row sm:items-center"
-            >
-
-                {{-- SEARCH --}}
-                <div class="relative">
-
-                    <i
-                        data-lucide="search"
-                        class="pointer-events-none absolute
-                            left-3 top-1/2 h-4 w-4
-                            -translate-y-1/2 text-slate-400"
-                    ></i>
-
-                    <input
-                        id="calendarSearchInput"
-                        type="search"
-                        placeholder="Search..."
-                        oninput="renderCalendar()"
-                        class="h-9 w-full rounded-lg
-                            border border-slate-200
-                            bg-white pl-9 pr-3
-                            text-xs font-medium text-slate-700
-                            outline-none transition
-                            placeholder:text-slate-400
-                            focus:border-slate-400
-                            sm:w-52"
-                    >
-
-                </div>
-
-
-                {{-- STATUS FILTER --}}
-                <select
-                    id="calendarStatusFilter"
-                    onchange="renderCalendar()"
-                    class="h-9 rounded-lg
-                        border border-slate-200
-                        bg-white px-3
-                        text-xs font-semibold text-slate-600
-                        outline-none transition
-                        focus:border-slate-400"
-                >
-                    <option value="all">
-                        All statuses
-                    </option>
-
-                    <option value="active">
-                        Active
-                    </option>
-
-                    <option value="completed">
+                    <p class="calendar-sidebar-meta text-[12px] leading-5 text-slate-500">
                         Completed
-                    </option>
-
-                    <option value="overdue">
-                        Overdue
-                    </option>
-
-                </select>
-
+                        <span class="font-semibold text-slate-700">{{ number_format($completedMaintenance) }}</span>
+                        schedules
+                    </p>
+                </div>
             </div>
+        </aside>
 
-        </header>
-
-
-
-        {{-- ===================================================== --}}
-        {{-- CALENDAR NAVIGATION --}}
-        {{-- ===================================================== --}}
-
-        <div
-            class="flex shrink-0 flex-col gap-3
-                border-b border-slate-200
-                px-4 py-3
-                lg:flex-row lg:items-center
-                lg:justify-between"
-        >
-
-            {{-- DATE NAVIGATION --}}
-            <div class="flex items-center gap-2">
-
-                <button
-                    type="button"
-                    onclick="calendarPrevious()"
-                    class="flex h-8 w-8 items-center justify-center
-                        rounded-lg border border-slate-200
-                        bg-white text-slate-500 transition
-                        hover:bg-slate-50 hover:text-slate-900"
-                >
-                    <i
-                        data-lucide="chevron-left"
-                        class="h-4 w-4"
-                    ></i>
-                </button>
-
-
-                <h3
-                    id="calendarCurrentTitle"
-                    class="min-w-[120px]
-                        text-sm font-bold justify-center items-center flex text-slate-900"
-                ></h3>
-
-
-                <button
-                    type="button"
-                    onclick="calendarNext()"
-                    class="flex h-8 w-8 items-center justify-center
-                        rounded-lg border border-slate-200
-                        bg-white text-slate-500 transition
-                        hover:bg-slate-50 hover:text-slate-900"
-                >
-                    <i
-                        data-lucide="chevron-right"
-                        class="h-4 w-4"
-                    ></i>
-                </button>
-
-            </div>
-
-
-            {{-- VIEW CONTROLS --}}
-            <div class="flex items-center gap-2">
-
-                <div
-                    class="flex rounded-lg bg-slate-100 p-1"
-                >
-
-                    <button
-                        type="button"
-                        data-calendar-view="week"
-                        class="calendar-view-button
-                            rounded-md px-3 py-1.5
-                            text-xs font-semibold
-                            text-slate-500 transition"
-                    >
-                        Week
-                    </button>
-
-
-                    <button
-                        type="button"
-                        data-calendar-view="month"
-                        class="calendar-view-button
-                            rounded-md bg-white
-                            px-3 py-1.5
-                            text-xs font-bold
-                            text-slate-900
-                            shadow-sm transition"
-                    >
-                        Month
-                    </button>
-
-
-                    <button
-                        type="button"
-                        data-calendar-view="year"
-                        class="calendar-view-button
-                            rounded-md px-3 py-1.5
-                            text-xs font-semibold
-                            text-slate-500 transition"
-                    >
-                        Year
-                    </button>
-
+        <div class="calendar-main relative z-10 flex min-w-0 flex-1 flex-col rounded-l-[40px] bg-white pl-6 pr-5 pb-6 pt-6 shadow-[-18px_0_40px_rgba(15,23,42,0.04)] sm:pl-8 sm:pr-7 sm:pb-7">
+            <div class="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                    <h3 id="calendarFocusDate" class="calendar-focus-date"></h3>
+                    <p id="calendarCurrentTitle" class="calendar-focus-sub"></p>
                 </div>
 
+                <div class="flex flex-wrap items-center gap-2">
+                    <div class="relative">
+                        <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"></i>
+                        <input
+                            id="calendarSearchInput"
+                            type="search"
+                            placeholder="Search..."
+                            oninput="renderCalendar()"
+                            class="h-9 w-40 rounded-full border border-slate-200 bg-slate-50 pl-8 pr-3 text-xs text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-[#6b7cff]/50 focus:bg-white sm:w-48"
+                        >
+                    </div>
 
-                <button
-                    type="button"
-                    onclick="calendarGoToday()"
-                    class="h-8 rounded-lg
-                        border border-slate-200
-                        bg-white px-3
-                        text-xs font-semibold text-slate-600
-                        transition
-                        hover:bg-slate-50"
-                >
-                    Today
-                </button>
+                    <select
+                        id="calendarStatusFilter"
+                        onchange="renderCalendar()"
+                        class="h-9 rounded-full border border-slate-200 bg-slate-50 px-3 text-xs font-medium text-slate-600 outline-none transition focus:border-[#6b7cff]/50 focus:bg-white"
+                    >
+                        <option value="all">All statuses</option>
+                        <option value="active">Active</option>
+                        <option value="completed">Completed</option>
+                        <option value="overdue">Overdue</option>
+                    </select>
 
+                    <div class="flex rounded-full bg-slate-100 p-1">
+                        <button type="button" data-calendar-view="week" class="calendar-view-button rounded-full px-3 py-1.5 text-[11px] font-semibold text-slate-500 transition">Week</button>
+                        <button type="button" data-calendar-view="month" class="calendar-view-button rounded-full bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-900 shadow-sm transition">Month</button>
+                        <button type="button" data-calendar-view="year" class="calendar-view-button rounded-full px-3 py-1.5 text-[11px] font-semibold text-slate-500 transition">Year</button>
+                    </div>
+
+                    <button
+                        type="button"
+                        onclick="calendarGoToday()"
+                        class="h-9 rounded-full bg-[#0025cc] px-3.5 text-[11px] font-semibold text-white transition hover:bg-[#5a6af0]"
+                    >
+                        Today
+                    </button>
+
+                    <button
+                        type="button"
+                        @click="closeBigCalendar()"
+                        class="inline-flex h-9 items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-500 transition hover:bg-slate-50 hover:text-slate-800"
+                    >
+                        <i data-lucide="minimize-2" class="h-3.5 w-3.5"></i>
+                        Exit
+                    </button>
+                </div>
             </div>
 
-        </div>
+            <div class="mb-3 flex flex-wrap items-center gap-4">
+                <span class="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-400">
+                    <span class="h-2.5 w-2.5 rounded-full bg-[#0025cc]"></span>
+                    Active
+                </span>
+                <span class="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-400">
+                    <span class="h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
+                    Completed
+                </span>
+                <span class="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-400">
+                    <span class="h-2.5 w-2.5 rounded-full bg-rose-500"></span>
+                    Overdue
+                </span>
+            </div>
 
-
-
-        {{-- ===================================================== --}}
-        {{-- CALENDAR --}}
-        {{-- ===================================================== --}}
-
-        <div
-            class="flex min-h-0 flex-1 flex-col
-                bg-slate-50 p-2"
-        >
-
-            {{-- WEEKDAY HEADER --}}
             <div
                 id="calendarWeekdayHeader"
-                class="grid shrink-0 grid-cols-7"
+                class="grid shrink-0 grid-cols-7 overflow-hidden border border-b-0 border-slate-200 bg-[#f5f6f8]"
             >
-                <div class="calendar-weekday">SUN</div>
-
-                <div class="calendar-weekday">MON</div>
-
-                <div class="calendar-weekday">TUE</div>
-
-                <div class="calendar-weekday">WED</div>
-
-                <div class="calendar-weekday">THU</div>
-
-                <div class="calendar-weekday">FRI</div>
-
-                <div class="calendar-weekday calendar-weekend">
-                    SAT
-                </div>
+                <div class="calendar-weekday">Sun</div>
+                <div class="calendar-weekday">Mon</div>
+                <div class="calendar-weekday">Tue</div>
+                <div class="calendar-weekday">Wed</div>
+                <div class="calendar-weekday">Thu</div>
+                <div class="calendar-weekday">Fri</div>
+                <div class="calendar-weekday">Sat</div>
             </div>
 
-
-            {{-- MONTH GRID --}}
             <div
                 id="calendarGrid"
-                class="grid min-h-0 flex-1 grid-cols-7"
+                class="grid min-h-0 flex-1 grid-cols-7 overflow-hidden border border-slate-200 bg-white"
             ></div>
-
         </div>
-
     </section>
 
     
@@ -1695,7 +1668,7 @@
         <button
             type="button"
             onclick="viewSelectedSchedule()"
-            class="rounded-lg px-3.5 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+            class="rounded-lg bg-[#f5f6f8] px-3.5 py-2 text-sm font-medium text-slate-800 transition hover:bg-slate-100"
         >
             View details
         </button>
@@ -1703,7 +1676,7 @@
         <button
             type="button"
             onclick="completeSelectedSchedule()"
-            class="rounded-lg bg-slate-950 px-3.5 py-2 text-sm font-medium text-white transition hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-slate-200 active:bg-black"
+            class="rounded-lg bg-[#0025cc] px-3.5 py-2 text-sm font-medium text-white transition hover:bg-[#001fa8] focus:outline-none focus:ring-4 focus:ring-[#0025cc]/20"
         >
             Complete
         </button>
@@ -1712,162 +1685,293 @@
 
 @include ("maintenance-personnel.maintenance-schedules._modals")
 
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
 <style>
+    #maintenance-calendar,
+    #maintenance-calendar * {
+        font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+    }
+
+    .calendar-sidebar-title {
+        margin: 0;
+        width: 100%;
+        text-align: center;
+        font-size: 28px;
+        font-weight: 700;
+        letter-spacing: -0.04em;
+        line-height: 1.1;
+        color: #0f172a;
+    }
+
+    .calendar-sidebar {
+        --calendar-wave-height: 62%;
+    }
+
+    .calendar-sidebar-art {
+        position: absolute;
+        right: -22px;
+        bottom: -14px;
+        z-index: 1;
+        width: 176px;
+        max-width: 78%;
+        height: auto;
+        pointer-events: none;
+        user-select: none;
+        opacity: 0.92;
+    }
+
+    @media (min-width: 640px) {
+        .calendar-sidebar-art {
+            width: 198px;
+            right: -26px;
+            bottom: -16px;
+        }
+    }
+
+    .calendar-sidebar-wave {
+        height: var(--calendar-wave-height);
+        /* Bleed under the main panel’s left curve so no gap shows */
+        width: calc(100% + 48px);
+        right: auto;
+    }
+
+    .calendar-sidebar-nav {
+        width: 100%;
+    }
+
+    .calendar-sidebar-carousel {
+        margin-top: 2.5rem;
+    }
+
+    /* Keep gray under the curve below the wave */
+    .calendar-sidebar::after {
+        content: "";
+        position: absolute;
+        top: var(--calendar-wave-height);
+        right: -48px;
+        bottom: 0;
+        width: 48px;
+        background: #f1f5f9;
+        z-index: 0;
+        pointer-events: none;
+    }
+
+    .calendar-sidebar-year {
+        min-width: 3.5rem;
+        text-align: center;
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        color: #0f172a;
+        transition: color 0.15s ease;
+    }
+    .calendar-sidebar-year.is-on-wave {
+        color: #0f172a;
+    }
+    .calendar-sidebar-year:not(.is-on-wave) {
+        color: #334155;
+    }
+
+    .calendar-sidebar-meta {
+        font-size: 12px;
+        font-weight: 500;
+        letter-spacing: -0.01em;
+        line-height: 1.45;
+        color: #64748b;
+    }
+
+    .calendar-focus-date {
+        margin: 0;
+        font-size: 26px;
+        font-weight: 700;
+        letter-spacing: -0.045em;
+        line-height: 1.1;
+        color: #0f172a;
+    }
+
+    .calendar-focus-sub {
+        margin: 4px 0 0;
+        font-size: 13px;
+        font-weight: 500;
+        letter-spacing: -0.01em;
+        color: #94a3b8;
+    }
+
+    .schedule-list-table:not(.is-wide) .schedule-col-extra {
+        display: none;
+    }
+    .calendar-month-item {
+        border: 0;
+        background: transparent;
+        padding: 0;
+        text-align: center;
+        font-size: 15px;
+        font-weight: 500;
+        letter-spacing: -0.025em;
+        color: #94a3b8;
+        transition: color 0.15s ease, transform 0.15s ease, font-size 0.15s ease;
+        cursor: pointer;
+    }
+    .calendar-month-item:hover {
+        color: #64748b;
+    }
+    .calendar-month-item.is-active {
+        font-size: 24px;
+        font-weight: 700;
+        letter-spacing: -0.045em;
+        color: #0f172a;
+    }
+    /* Yellow wave — use dark text for contrast */
+    .calendar-month-item.is-on-wave {
+        color: #1e293b;
+    }
+    .calendar-month-item.is-on-wave:hover {
+        color: #0f172a;
+    }
+    .calendar-month-item.is-on-wave.is-active {
+        color: #0f172a;
+    }
     .calendar-weekday {
         display: flex;
-
-        height: 38px;
-
+        height: 40px;
         align-items: center;
-
         justify-content: center;
-
         font-size: 11px;
-
         font-weight: 600;
-
-        color: rgb(71 85 105);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #94a3b8;
+        border-right: 1px solid #e2e8f0;
+        background: #f5f6f8;
     }
     .calendar-weekday:last-child {
         border-right: 0;
     }
     .calendar-day {
         position: relative;
-
         min-width: 0;
-
         min-height: 0;
-
         overflow: hidden;
-
-        margin: 1px;
-
-        border: 1px solid rgb(226 232 240);
-
-        border-radius: 5px;
-
-        background: white;
-
+        border: 0;
+        border-right: 1px solid #e2e8f0;
+        border-bottom: 1px solid #e2e8f0;
+        border-radius: 0;
+        background: #fff;
         padding: 8px;
-
         text-align: left;
-
-        transition:
-            border-color 0.15s ease,
-            background-color 0.15s ease;
+        box-shadow: none;
+        transition: background-color 0.15s ease;
+    }
+    .calendar-day:nth-child(7n) {
+        border-right: 0;
     }
     .calendar-day:hover {
-        border-color: rgb(148 163 184);
-
-        background: rgb(248 250 252);
+        background: #fafafa;
+        box-shadow: none;
     }
     .calendar-day-outside {
-        background: rgb(248 250 252);
+        background: #fff;
+    }
+    .calendar-day-outside:hover {
+        background: #fafafa;
     }
     .calendar-day-number {
-        display: flex;
-
-        height: 24px;
-
-        width: 24px;
-
+        position: relative;
+        z-index: 1;
+        display: inline-flex;
+        height: 28px;
+        width: 28px;
         align-items: center;
-
         justify-content: center;
-
-        border-radius: 6px;
-
+        margin: 0;
+        border-radius: 999px;
+        padding: 0;
         font-size: 12px;
-
         font-weight: 600;
-
-        color: rgb(30 41 59);
+        color: #334155;
     }
     .calendar-day-outside .calendar-day-number {
-        color: rgb(148 163 184);
+        color: #cbd5e1;
     }
     .calendar-today {
-        border-color: rgb(15 23 42);
+        background: #fff;
     }
     .calendar-today .calendar-day-number {
-        background: rgb(15 23 42);
-        color: white;
+        background: #e8ecff;
+        color: #0025cc;
+        box-shadow: none;
     }
-    /*.calendar-day-weekend {
-        background-color: rgb(250 250 250);
-
-        background-image: repeating-linear-gradient(
-            135deg,
-            transparent,
-            transparent 5px,
-            rgb(226 232 240 / 0.45) 5px,
-            rgb(226 232 240 / 0.45) 6px
-        );
-    }*/
+    .calendar-day.has-events .calendar-day-number::after {
+        display: none;
+    }
+    .calendar-today.has-events .calendar-day-number::after,
+    .calendar-day.has-overdue .calendar-day-number::after,
+    .calendar-day.has-completed .calendar-day-number::after {
+        display: none;
+    }
+    .calendar-day.has-overdue:not(.calendar-today) .calendar-day-number {
+        background: transparent;
+        color: #334155;
+    }
+    .calendar-day.has-completed:not(.has-overdue):not(.calendar-today) .calendar-day-number {
+        background: transparent;
+        color: #334155;
+    }
     .calendar-events {
         display: flex;
-
         flex-direction: column;
-
         gap: 4px;
-
-        margin-top: 20px;
+        margin-top: 8px;
+        text-align: left;
     }
     .calendar-event {
         position: relative;
-
         width: 100%;
-
         overflow: hidden;
-
-        border-radius: 5px;
-
-        padding: 4px 6px 4px 9px;
-
+        border-radius: 8px;
+        padding: 5px 8px 5px 10px;
         text-align: left;
-
-        transition: background-color 0.15s ease;
+        transition:
+            transform 0.15s ease,
+            filter 0.15s ease,
+            box-shadow 0.15s ease;
     }
     .calendar-event:hover {
         transform: translateY(-1px);
-        filter: brightness(0.97);
+        filter: brightness(0.98);
+        box-shadow: 0 6px 14px rgb(15 23 42 / 0.08);
     }
     .calendar-event::before {
         position: absolute;
-
         top: 0;
-
         bottom: 0;
-
         left: 0;
-
         width: 3px;
-
         content: "";
     }
     .calendar-event-active {
-        background: rgb(239 246 255);
-
-        color: rgb(29 78 216);
+        background: rgb(0 37 204 / 0.08);
+        color: #0025cc;
     }
     .calendar-event-active::before {
-        background: rgb(59 130 246);
+        background: #0025cc;
     }
     .calendar-event-completed {
-        background: rgb(240 253 244);
-
-        color: rgb(21 128 61);
+        background: rgb(236 253 245);
+        color: #047857;
     }
     .calendar-event-completed::before {
-        background: rgb(34 197 94);
+        background: #10b981;
     }
     .calendar-event-overdue {
-        background: rgb(254 242 242);
-
-        color: rgb(185 28 28);
+        background: rgb(255 241 242);
+        color: #e11d48;
     }
     .calendar-event-overdue::before {
-        background: rgb(239 68 68);
+        background: #f43f5e;
     }
     .calendar-event-title,
     .calendar-event-equipment {
@@ -1876,70 +1980,60 @@
         white-space: nowrap;
     }
     .calendar-event-title {
-        overflow: hidden;
-
-        text-overflow: ellipsis;
-
-        white-space: nowrap;
-
         font-size: 10px;
-
         font-weight: 600;
+        letter-spacing: -0.01em;
     }
     .calendar-event-equipment {
         display: none;
     }
     .calendar-year-card {
-        min-height: 210px;
-
-        border: 1px solid rgb(226 232 240);
-
-        border-radius: 8px;
-
+        min-height: 220px;
+        border: 1px solid rgb(226 232 240 / 0.9);
+        border-radius: 24px;
         background: white;
-
-        padding: 14px;
+        padding: 16px;
+        box-shadow: 0 1px 0 rgb(15 23 42 / 0.02);
     }
     .calendar-year-day {
         display: flex;
-
         min-height: 28px;
-
         align-items: center;
-
         justify-content: center;
-
-        border-radius: 5px;
-
+        border-radius: 999px;
         font-size: 10px;
-
         font-weight: 600;
-
         color: rgb(100 116 139);
+        transition: background-color 0.15s ease, color 0.15s ease;
     }
     .calendar-year-day.has-events {
-        background: rgb(239 246 255);
-
-        color: rgb(29 78 216);
+        background: rgb(107 124 255 / 0.14);
+        color: #4f63f0;
     }
     @media (max-width: 768px) {
-
         .calendar-day {
-            min-height: 90px;
-
-            padding: 5px;
+            min-height: 84px;
+            padding: 6px 4px;
         }
-
-
         .calendar-events {
-            margin-top: 8px;
+            margin-top: 6px;
         }
-
+        #maintenance-calendar {
+            flex-direction: column;
+        }
+        #maintenance-calendar > aside {
+            width: 100%;
+        }
+        #maintenance-calendar > .calendar-main {
+            border-radius: 28px 28px 0 0;
+            margin-left: 0;
+        }
     }
 </style>
 
 <script>
     const calendarSchedules = @js ($calendarSchedules);
+    const scheduleQrById = @js ($scheduleQrById);
     let calendarCurrentDate = new Date();
     let calendarSelectedSchedule = null;
     let calendarCurrentView = "month";
@@ -1947,6 +2041,22 @@
         bindCalendarViewButtons();
         renderCalendar();
         if (window.lucide) lucide.createIcons();
+
+        const monthList = document.getElementById("calendarMonthList");
+        if (monthList) {
+            monthList.addEventListener(
+                "scroll",
+                () => {
+                    syncCalendarSidebarWave();
+                    syncCalendarSidebarContrast();
+                },
+                { passive: true },
+            );
+        }
+        window.addEventListener("resize", () => {
+            syncCalendarSidebarWave();
+            syncCalendarSidebarContrast();
+        });
     });
     function bindCalendarViewButtons() {
         document.querySelectorAll(".calendar-view-button").forEach((button) => {
@@ -1957,28 +2067,167 @@
                     .forEach((item) => {
                         item.classList.remove(
                             "bg-white",
+                            "text-slate-900",
                             "text-slate-950",
+                            "font-semibold",
                             "font-black",
                             "shadow-sm",
                         );
-                        item.classList.add("text-slate-500", "font-bold");
+                        item.classList.add("text-slate-500");
                     });
                 button.classList.add(
                     "bg-white",
-                    "text-slate-950",
-                    "font-black",
+                    "text-slate-900",
+                    "font-semibold",
                     "shadow-sm",
                 );
-                button.classList.remove("text-slate-500", "font-bold");
+                button.classList.remove("text-slate-500");
                 closeEventPopover();
                 renderCalendar();
             });
         });
     }
     function renderCalendar() {
-        if (calendarCurrentView === "week") return renderWeekCalendar();
-        if (calendarCurrentView === "year") return renderYearCalendar();
-        return renderMonthCalendar();
+        if (calendarCurrentView === "week") renderWeekCalendar();
+        else if (calendarCurrentView === "year") renderYearCalendar();
+        else renderMonthCalendar();
+        syncCalendarSidebar();
+    }
+    function syncCalendarSidebar() {
+        const yearEl = document.getElementById("calendarSidebarYear");
+        const listEl = document.getElementById("calendarMonthList");
+        const focusEl = document.getElementById("calendarFocusDate");
+        if (yearEl) {
+            yearEl.textContent = String(calendarCurrentDate.getFullYear());
+        }
+        if (focusEl) {
+            focusEl.textContent = calendarCurrentDate.toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+                weekday: "short",
+            });
+        }
+        if (!listEl) {
+            return;
+        }
+        const months = [
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December",
+        ];
+        const active = calendarCurrentDate.getMonth();
+        listEl.innerHTML = months
+            .map((name, index) => {
+                const activeClass = index === active ? " is-active" : "";
+                return `<button type="button" class="calendar-month-item${activeClass}" onclick="calendarJumpToMonth(${index})">${name}</button>`;
+            })
+            .join("");
+
+        requestAnimationFrame(() => {
+            syncCalendarSidebarWave();
+            syncCalendarSidebarContrast();
+            requestAnimationFrame(() => {
+                syncCalendarSidebarWave();
+                syncCalendarSidebarContrast();
+            });
+        });
+    }
+
+    function syncCalendarSidebarWave() {
+        const sidebar = document.querySelector("#maintenance-calendar .calendar-sidebar");
+        if (!sidebar) return;
+        // Match the reference corner-wave proportions (~60% down the left edge)
+        sidebar.style.setProperty("--calendar-wave-height", "62%");
+    }
+
+    function isElementOnWave(el) {
+        if (!el) return false;
+
+        const path = document.querySelector(
+            "#maintenance-calendar .calendar-sidebar-wave path",
+        );
+        const svg = path?.ownerSVGElement;
+        if (!path || !svg || typeof path.isPointInFill !== "function") {
+            return false;
+        }
+
+        const ctm = path.getScreenCTM();
+        if (!ctm) return false;
+        const inverse = ctm.inverse();
+        const rect = el.getBoundingClientRect();
+
+        // Sample across the label; majority on yellow wave → dark text
+        const samples = [
+            [0.5, 0.5],
+            [0.5, 0.2],
+            [0.5, 0.8],
+            [0.25, 0.5],
+            [0.75, 0.5],
+        ];
+
+        let hits = 0;
+        samples.forEach(([rx, ry]) => {
+            const pt = svg.createSVGPoint();
+            pt.x = rect.left + rect.width * rx;
+            pt.y = rect.top + rect.height * ry;
+            const local = pt.matrixTransform(inverse);
+            if (path.isPointInFill(local)) hits += 1;
+        });
+
+        return hits >= 3;
+    }
+
+    function syncCalendarSidebarContrast() {
+        const yearEl = document.getElementById("calendarSidebarYear");
+        const listEl = document.getElementById("calendarMonthList");
+
+        if (yearEl) {
+            yearEl.classList.toggle("is-on-wave", isElementOnWave(yearEl));
+        }
+
+        if (!listEl) return;
+        listEl.querySelectorAll(".calendar-month-item").forEach((item) => {
+            item.classList.toggle("is-on-wave", isElementOnWave(item));
+        });
+    }
+
+    function calendarSidebarYear(delta) {
+        calendarCurrentDate = new Date(
+            calendarCurrentDate.getFullYear() + delta,
+            calendarCurrentDate.getMonth(),
+            1,
+        );
+        closeEventPopover();
+        renderCalendar();
+    }
+    function calendarJumpToMonth(monthIndex) {
+        calendarCurrentView = "month";
+        calendarCurrentDate = new Date(
+            calendarCurrentDate.getFullYear(),
+            monthIndex,
+            1,
+        );
+        document.querySelectorAll(".calendar-view-button").forEach((item) => {
+            item.classList.remove(
+                "bg-white",
+                "text-slate-900",
+                "text-slate-950",
+                "font-semibold",
+                "font-black",
+                "shadow-sm",
+            );
+            item.classList.add("text-slate-500");
+            if (item.dataset.calendarView === "month") {
+                item.classList.add(
+                    "bg-white",
+                    "text-slate-900",
+                    "font-semibold",
+                    "shadow-sm",
+                );
+                item.classList.remove("text-slate-500");
+            }
+        });
+        closeEventPopover();
+        renderCalendar();
     }
     function renderMonthCalendar() {
 
@@ -2009,7 +2258,7 @@
 
         // MONTH GRID
         grid.className =
-            "grid min-h-0 flex-1 grid-cols-7";
+            "grid min-h-0 flex-1 grid-cols-7 overflow-hidden rounded-b-2xl border border-slate-200 bg-white";
 
 
         // ALWAYS USE SIX CALENDAR ROWS
@@ -2117,7 +2366,7 @@
             header = document.getElementById("calendarWeekdayHeader");
         if (!grid || !title) return;
         header.classList.remove("hidden");
-        grid.className = "grid min-h-[1000px] grid-cols-7 bg-slate-200";
+        grid.className = "grid min-h-[720px] grid-cols-7 overflow-hidden rounded-b-2xl border border-slate-200 bg-white";
         grid.style.gridTemplateRows = "1fr";
         grid.innerHTML = "";
         const start = startOfWeek(calendarCurrentDate),
@@ -2138,7 +2387,7 @@
         if (!grid || !title) return;
         header.classList.add("hidden");
         grid.className =
-            "grid min-h-[1000px] grid-cols-1 gap-4 bg-slate-100 p-4 md:grid-cols-2 xl:grid-cols-3";
+            "grid min-h-[720px] grid-cols-1 gap-4 p-1 md:grid-cols-2 xl:grid-cols-3";
         grid.style.gridTemplateRows = "";
         grid.innerHTML = "";
         const year = calendarCurrentDate.getFullYear();
@@ -2255,6 +2504,18 @@
             getSchedulesForDate(
                 date,
             );
+
+        if (schedules.length > 0) {
+            day.classList.add("has-events");
+        }
+
+        if (date.getMonth() === currentMonth) {
+            if (schedules.some((item) => String(item.status).toLowerCase() === "overdue")) {
+                day.classList.add("has-overdue");
+            } else if (schedules.some((item) => String(item.status).toLowerCase() === "completed")) {
+                day.classList.add("has-completed");
+            }
+        }
 
 
         schedules
@@ -2462,6 +2723,130 @@
     function openScheduleModal() {
         showModal("scheduleModal");
     }
+    function scheduleNextDatePicker() {
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const months = [
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December",
+        ];
+        const toIso = (date) => {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, "0");
+            const d = String(date.getDate()).padStart(2, "0");
+            return `${y}-${m}-${d}`;
+        };
+        const fromIso = (iso) => {
+            const [y, m, d] = String(iso).split("-").map(Number);
+            return new Date(y, m - 1, d);
+        };
+
+        return {
+            value: toIso(today),
+            viewYear: today.getFullYear(),
+            viewMonth: today.getMonth(),
+            todayIso: toIso(today),
+            weekdays: ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"],
+            get display() {
+                if (!this.value) {
+                    return "Select a date";
+                }
+                return fromIso(this.value).toLocaleDateString("en-US", {
+                    weekday: "short",
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                });
+            },
+            get monthLabel() {
+                return `${months[this.viewMonth]} ${this.viewYear}`;
+            },
+            get days() {
+                const first = new Date(this.viewYear, this.viewMonth, 1);
+                const start = first.getDay();
+                const daysInMonth = new Date(this.viewYear, this.viewMonth + 1, 0).getDate();
+                const prevDays = new Date(this.viewYear, this.viewMonth, 0).getDate();
+                const cells = [];
+
+                for (let i = 0; i < 42; i += 1) {
+                    let year = this.viewYear;
+                    let month = this.viewMonth;
+                    let date;
+                    let outside = false;
+
+                    if (i < start) {
+                        date = prevDays - start + i + 1;
+                        month -= 1;
+                        if (month < 0) {
+                            month = 11;
+                            year -= 1;
+                        }
+                        outside = true;
+                    } else if (i >= start + daysInMonth) {
+                        date = i - start - daysInMonth + 1;
+                        month += 1;
+                        if (month > 11) {
+                            month = 0;
+                            year += 1;
+                        }
+                        outside = true;
+                    } else {
+                        date = i - start + 1;
+                    }
+
+                    const iso = toIso(new Date(year, month, date));
+                    cells.push({
+                        d: date,
+                        iso,
+                        outside,
+                        isToday: iso === this.todayIso,
+                        selected: iso === this.value,
+                    });
+                }
+
+                return cells;
+            },
+            prevMonth() {
+                if (this.viewMonth === 0) {
+                    this.viewMonth = 11;
+                    this.viewYear -= 1;
+                    return;
+                }
+                this.viewMonth -= 1;
+            },
+            nextMonth() {
+                if (this.viewMonth === 11) {
+                    this.viewMonth = 0;
+                    this.viewYear += 1;
+                    return;
+                }
+                this.viewMonth += 1;
+            },
+            pick(day) {
+                this.value = day.iso;
+                if (!day.outside) {
+                    return;
+                }
+                const selected = fromIso(day.iso);
+                this.viewYear = selected.getFullYear();
+                this.viewMonth = selected.getMonth();
+            },
+            goToday() {
+                this.value = this.todayIso;
+                this.viewYear = today.getFullYear();
+                this.viewMonth = today.getMonth();
+            },
+            clearDate() {
+                this.value = "";
+            },
+        };
+    }
+    window.scheduleNextDatePicker = scheduleNextDatePicker;
+    document.addEventListener("alpine:init", () => {
+        if (window.Alpine?.data) {
+            window.Alpine.data("scheduleNextDatePicker", scheduleNextDatePicker);
+        }
+    });
     function closeScheduleModal() {
         hideModal("scheduleModal");
     }
@@ -2481,6 +2866,18 @@
     // FIND SCHEDULE THEN OPEN VIEW MODAL
     // =========================================================
 
+    function getScheduleQr(id) {
+        return (
+            scheduleQrById[id] ||
+            scheduleQrById[String(id)] || { qr_code: "", qr_image: "" }
+        );
+    }
+    function fillScheduleQr(prefix, id) {
+        const code = document.getElementById(`${prefix}QrCode`);
+        if (code) {
+            code.textContent = getScheduleQr(id).qr_code || "";
+        }
+    }
     function viewScheduleById(scheduleId) {
         // FIND THE SCHEDULE FROM THE CALENDAR DATA
         const schedule = calendarSchedules.find(
@@ -2509,101 +2906,64 @@
         const description = escapeCalendarHTML(
             schedule.description || "No description provided",
         );
+        const qr = getScheduleQr(schedule.id);
+        const qrCode = escapeCalendarHTML(schedule.qr_code || qr.qr_code || "");
+        const qrImage = schedule.qr_image || qr.qr_image || "";
+        const qrBlock = qrImage
+            ? `
+                <button type="button" onclick="openScheduleQrModal(${JSON.stringify(qrImage)}, ${JSON.stringify(schedule.qr_code || qr.qr_code || '')}, ${JSON.stringify(schedule.equipment || 'Equipment')})" class="w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 text-left transition hover:border-[#0025cc]/30 hover:bg-[#0025cc]/[0.03]">
+                    <p class="text-slate-400">Equipment QR code</p>
+                    <div class="mt-2 flex items-center gap-3">
+                        <img src="${escapeCalendarHTML(qrImage)}" alt="Equipment QR code" class="h-20 w-20 rounded-lg border border-slate-200 bg-white object-contain p-1">
+                        <div class="min-w-0">
+                            <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">QR code</p>
+                            <p class="truncate font-mono text-sm font-semibold text-slate-900">${qrCode}</p>
+                        </div>
+                    </div>
+                </button>
+            `
+            : `
+                <div class="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-400">
+                    No QR code generated for this equipment.
+                </div>
+            `;
 
         // =====================================
         // SCHEDULE DETAILS CONTENT
         // =====================================
         document.getElementById("scheduleDetails").innerHTML = `
-
-            <!-- ===================================== -->
-            <!-- EQUIPMENT -->
-            <!-- ===================================== -->
-            <div class="flex items-start justify-between gap-8 py-3.5">
-                <span class="shrink-0 text-sm text-slate-500">
-                    Equipment
-                </span>
-
-                <span class="max-w-[65%] text-right text-sm font-medium text-slate-950">
-                    ${equipment}
-                </span>
-            </div>
-
-            <!-- ===================================== -->
-            <!-- ROOM -->
-            <!-- ===================================== -->
-            <div class="flex items-start justify-between gap-8 py-3.5">
-                <span class="shrink-0 text-sm text-slate-500">
-                    Room
-                </span>
-
-                <span class="max-w-[65%] text-right text-sm font-medium text-slate-900">
-                    ${room}
-                </span>
-            </div>
-
-            <!-- ===================================== -->
-            <!-- TITLE -->
-            <!-- ===================================== -->
-            <div class="flex items-start justify-between gap-8 py-3.5">
-                <span class="shrink-0 text-sm text-slate-500">
-                    Title
-                </span>
-
-                <span class="max-w-[65%] text-right text-sm font-medium text-slate-900">
-                    ${title}
-                </span>
-            </div>
-
-            <!-- ===================================== -->
-            <!-- FREQUENCY -->
-            <!-- ===================================== -->
-            <div class="flex items-center justify-between gap-8 py-3.5">
-                <span class="text-sm text-slate-500">
-                    Frequency
-                </span>
-
-                <span class="text-sm font-medium text-slate-900">
-                    ${frequency}
-                </span>
-            </div>
-
-            <!-- ===================================== -->
-            <!-- NEXT MAINTENANCE DATE -->
-            <!-- ===================================== -->
-            <div class="flex items-center justify-between gap-8 py-3.5">
-                <span class="text-sm text-slate-500">
-                    Next maintenance
-                </span>
-
-                <span class="text-sm font-medium text-slate-900">
-                    ${nextDate}
-                </span>
-            </div>
-
-            <!-- ===================================== -->
-            <!-- STATUS -->
-            <!-- ===================================== -->
-            <div class="flex items-center justify-between gap-8 py-3.5">
-                <span class="text-sm text-slate-500">
-                    Status
-                </span>
-
-                <span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
-                    ${status}
-                </span>
-            </div>
-
-            <!-- ===================================== -->
-            <!-- DESCRIPTION -->
-            <!-- ===================================== -->
-            <div class="py-4">
-                <span class="text-sm text-slate-500">
-                    Description
-                </span>
-
-                <p class="mt-2 whitespace-pre-wrap border border-dashed border-slate-500 rounded-lg break-words text-sm leading-6 text-slate-700">
-                    ${description}
-                </p>
+            <div class="space-y-3 text-sm">
+                ${qrBlock}
+                <div>
+                    <p class="text-slate-400">Equipment</p>
+                    <p class="mt-0.5 font-medium text-slate-900">${equipment}</p>
+                </div>
+                <div>
+                    <p class="text-slate-400">Room</p>
+                    <p class="mt-0.5 font-medium text-slate-900">${room}</p>
+                </div>
+                <div>
+                    <p class="text-slate-400">Title</p>
+                    <p class="mt-0.5 font-medium text-slate-900">${title}</p>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <p class="text-slate-400">Frequency</p>
+                        <p class="mt-0.5 font-medium text-slate-900">${frequency}</p>
+                    </div>
+                    <div>
+                        <p class="text-slate-400">Next date</p>
+                        <p class="mt-0.5 font-medium text-slate-900">${nextDate}</p>
+                    </div>
+                </div>
+                <div>
+                    <p class="text-slate-400">Status</p>
+                    <p class="mt-0.5 font-medium text-slate-900">${status}</p>
+                </div>
+                <div>
+                    <p class="text-slate-400">Description</p>
+                    <p class="mt-0.5 whitespace-pre-wrap break-words leading-6 text-slate-700">${description}</p>
+                </div>
             </div>
         `;
 
@@ -2615,11 +2975,98 @@
     function openCompleteModal(id, name) {
         document.getElementById("completeScheduleId").value = id;
         document.getElementById("completeEquipmentName").innerText = name;
+        fillScheduleQr("complete", id);
+        const proofInput = document.getElementById("completeProofImage");
+        if (proofInput) {
+            proofInput.value = "";
+            proofInput.dispatchEvent(new Event("change"));
+        }
         showModal("completeModal");
     }
+    function completeProofUploader() {
+        const formatSize = (bytes) => {
+            if (!bytes) {
+                return "";
+            }
+            if (bytes < 1024) {
+                return `${bytes} B`;
+            }
+            if (bytes < 1024 * 1024) {
+                return `${Math.round(bytes / 1024)} KB`;
+            }
+            return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+        };
+
+        return {
+            preview: "",
+            fileName: "",
+            fileMeta: "",
+            dragging: false,
+            init() {
+                this.$nextTick(() => {
+                    if (window.lucide) {
+                        lucide.createIcons();
+                    }
+                });
+            },
+            onFile(file) {
+                this.dragging = false;
+                if (this.preview) {
+                    URL.revokeObjectURL(this.preview);
+                }
+                if (!file || !file.type.startsWith("image/")) {
+                    this.preview = "";
+                    this.fileName = "";
+                    this.fileMeta = "";
+                    this.$nextTick(() => {
+                        if (window.lucide) {
+                            lucide.createIcons();
+                        }
+                    });
+                    return;
+                }
+                this.fileName = file.name;
+                this.fileMeta = formatSize(file.size);
+                this.preview = URL.createObjectURL(file);
+                this.$nextTick(() => {
+                    if (window.lucide) {
+                        lucide.createIcons();
+                    }
+                });
+            },
+            onDrop(event) {
+                this.dragging = false;
+                const file = event.dataTransfer?.files?.[0];
+                if (!file) {
+                    return;
+                }
+                const input = document.getElementById("completeProofImage");
+                if (input) {
+                    const transfer = new DataTransfer();
+                    transfer.items.add(file);
+                    input.files = transfer.files;
+                }
+                this.onFile(file);
+            },
+            clearFile() {
+                const input = document.getElementById("completeProofImage");
+                if (input) {
+                    input.value = "";
+                }
+                this.onFile(null);
+                this.$nextTick(() => {
+                    if (window.lucide) {
+                        lucide.createIcons();
+                    }
+                });
+            },
+        };
+    }
+    window.completeProofUploader = completeProofUploader;
     function openRescheduleModal(id, name) {
         document.getElementById("rescheduleScheduleId").value = id;
         document.getElementById("rescheduleEquipmentName").innerText = name;
+        fillScheduleQr("reschedule", id);
         showModal("rescheduleModal");
     }
     function openDeleteModal(id, title) {
@@ -2652,6 +3099,15 @@
         modal?.classList.add("hidden");
         modal?.classList.remove("flex");
     }
+    function openScheduleQrModal(image, code, name) {
+        document.getElementById("scheduleQrPreviewImage").src = image || "";
+        document.getElementById("scheduleQrPreviewCode").textContent = code || "";
+        document.getElementById("scheduleQrEquipmentName").textContent = name || "";
+        showModal("scheduleQrModal");
+    }
+    function closeScheduleQrModal() {
+        hideModal("scheduleQrModal");
+    }
     function getCalendarEventClass(status) {
         switch (status.toLowerCase()) {
             case "completed":
@@ -2669,7 +3125,7 @@
             case "overdue":
                 return "bg-red-100 text-red-700";
             default:
-                return "bg-blue-100 text-blue-700";
+                return "bg-[#6b7cff]/15 text-[#4f63f0]";
         }
     }
     function parseCalendarDate(dateString) {

@@ -11,13 +11,8 @@ class SuggestedIssues
     {
         return [
             'Furniture and Fixtures',
-            'Ventilation Equipment',
-            'Air Conditioning Equipment',
-            'Display Equipment',
+            'Audio Visual Equipment',
             'Computer Equipment',
-            'Network Equipment',
-            'Lighting Equipment',
-            'Printing Equipment',
         ];
     }
 
@@ -28,6 +23,7 @@ class SuggestedIssues
             'Whiteboard',
             'Table',
             'Curtains',
+            'Door Knob',
             'Electric Fan',
             'Ceiling Fan',
             'Wall Fan',
@@ -35,16 +31,50 @@ class SuggestedIssues
             'Window Type',
             'Floor Standing',
             'Flat Screen TV',
+            'Projector',
+            'Printer',
+            'Fluorescent',
+            'LED Bulb',
+            'CFL Bulb',
             'Monitor',
             'Mouse',
             'Keyboard',
             'System Unit',
+            'Headset',
+            'AVP',
             'UPS / AVR',
             'Ethernet Cable',
-            'Fluorescent',
-            'LED Bulb',
-            'CFL Bulb',
-            'Printer',
+        ];
+    }
+
+    public static function componentNeedles(): array
+    {
+        return [
+            'Headset' => ['headset', 'headphone'],
+            'AVP' => ['avp'],
+            'Mouse' => ['mouse'],
+            'Keyboard' => ['keyboard'],
+            'Monitor' => ['monitor'],
+            'UPS / AVR' => ['ups', 'avr'],
+            'System Unit' => ['system unit', 'desktop', 'cpu', 'system'],
+            'Chair' => ['office chair', 'monoblock', 'stool', 'arm desk', 'stall chair', 'chair'],
+            'Whiteboard' => ['white board', 'whiteboard'],
+            'Table' => ['office table', 'classroom table', 'classrom table', 'laboratory table', 'long table', 'table'],
+            'Curtains' => ['curtain'],
+            'Door Knob' => ['door knob', 'doorknob'],
+            'Ceiling Fan' => ['ceiling fan'],
+            'Wall Fan' => ['wall fan'],
+            'Electric Fan' => ['electric fan', 'fan'],
+            'Floor Standing' => ['floor standing'],
+            'Window Type' => ['window air', 'window type'],
+            'Split Type' => ['split type', 'split-type', 'aircon', 'air conditioner'],
+            'Projector' => ['projector'],
+            'Flat Screen TV' => ['flat screen', 'television', 'tv'],
+            'Ethernet Cable' => ['ethernet', 'internet cable', 'lan cable', 'network cable'],
+            'CFL Bulb' => ['compact fluorescent', 'cfl'],
+            'Fluorescent' => ['fluorescent', 'flourescent'],
+            'LED Bulb' => ['led light', 'led bulb', 'bulb'],
+            'Printer' => ['printer'],
         ];
     }
 
@@ -56,31 +86,7 @@ class SuggestedIssues
             return null;
         }
 
-        $map = [
-            'Mouse' => ['mouse'],
-            'Keyboard' => ['keyboard'],
-            'Monitor' => ['monitor'],
-            'UPS / AVR' => ['ups', 'avr'],
-            'System Unit' => ['system unit', 'desktop', 'cpu', 'system'],
-            'Chair' => ['office chair', 'monoblock', 'stool', 'arm desk', 'stall chair', 'chair'],
-            'Whiteboard' => ['white board', 'whiteboard'],
-            'Table' => ['office table', 'classroom table', 'classrom table', 'laboratory table', 'long table', 'table'],
-            'Curtains' => ['curtain'],
-            'Ceiling Fan' => ['ceiling fan'],
-            'Wall Fan' => ['wall fan'],
-            'Electric Fan' => ['electric fan', 'fan'],
-            'Floor Standing' => ['floor standing'],
-            'Window Type' => ['window air', 'window type'],
-            'Split Type' => ['split type', 'split-type'],
-            'Flat Screen TV' => ['flat screen', 'television', 'tv'],
-            'Ethernet Cable' => ['ethernet', 'internet cable', 'lan cable', 'network cable'],
-            'CFL Bulb' => ['compact fluorescent', 'cfl'],
-            'Fluorescent' => ['fluorescent', 'flourescent'],
-            'LED Bulb' => ['led light', 'led bulb'],
-            'Printer' => ['printer'],
-        ];
-
-        foreach ($map as $component => $needles) {
+        foreach (self::componentNeedles() as $component => $needles) {
             foreach ($needles as $needle) {
                 if (str_contains($name, $needle)) {
                     return $component;
@@ -93,6 +99,64 @@ class SuggestedIssues
         }
 
         return null;
+    }
+
+    public static function detectCategory(?string $equipmentName): ?string
+    {
+        $component = self::detectComponent($equipmentName);
+
+        if (!$component) {
+            return null;
+        }
+
+        foreach (self::defaultIssues() as $category => $components) {
+            if (array_key_exists($component, $components)) {
+                return $category;
+            }
+        }
+
+        return null;
+    }
+
+    public static function categoryDetectPayload($categories): array
+    {
+        $ids = [];
+
+        foreach ($categories as $category) {
+            $ids[$category->equipment_category_name] = (int) $category->equipment_category_id;
+        }
+
+        $componentToCategory = [];
+
+        foreach (self::defaultIssues() as $category => $components) {
+            foreach (array_keys($components) as $component) {
+                $componentToCategory[$component] = $category;
+            }
+        }
+
+        $rules = [];
+
+        foreach (self::componentNeedles() as $component => $needles) {
+            if (!isset($componentToCategory[$component])) {
+                continue;
+            }
+
+            $rules[] = [
+                'needles' => $needles,
+                'category' => $componentToCategory[$component],
+            ];
+        }
+
+        $rules[] = [
+            'needles' => ['computer'],
+            'except' => ['computer laboratory'],
+            'category' => 'Computer Equipment',
+        ];
+
+        return [
+            'ids' => $ids,
+            'rules' => $rules,
+        ];
     }
 
     public static function namesForEquipment(object $equipment)
@@ -128,37 +192,31 @@ class SuggestedIssues
                 'Whiteboard' => ['Stained / hard to erase', 'Unstable stand', 'Broken tray', 'Surface damaged'],
                 'Table' => ['Unstable / wobbly', 'Damaged surface', 'Broken leg', 'Missing parts'],
                 'Curtains' => ['Torn', 'Will not open or close', 'Missing hooks or rail'],
+                'Door Knob' => ['Loose', 'Stuck', 'Broken latch', 'Missing parts'],
             ],
-            'Ventilation Equipment' => [
+            'Audio Visual Equipment' => [
                 'Electric Fan' => ['Not spinning', 'No power', 'Noisy', 'Oscillation not working'],
                 'Ceiling Fan' => ['Not spinning', 'No power', 'Noisy', 'Wobbly blades'],
                 'Wall Fan' => ['Not spinning', 'No power', 'Noisy', 'Loose mount'],
-            ],
-            'Air Conditioning Equipment' => [
                 'Split Type' => ['Not cooling', 'Water leakage', 'Not turning on', 'Strange noise', 'Remote not working'],
                 'Window Type' => ['Not cooling', 'Water leakage', 'Not turning on', 'Strange noise', 'Remote not working'],
                 'Floor Standing' => ['Not cooling', 'Water leakage', 'Not turning on', 'Strange noise', 'Remote not working'],
-            ],
-            'Display Equipment' => [
                 'Flat Screen TV' => ['No power', 'No display', 'No sound', 'HDMI not detected', 'Remote not working'],
+                'Projector' => ['No power', 'No display', 'Lamp issue', 'Overheating', 'Remote not working'],
+                'Fluorescent' => ['Burnt out', 'Flickering', 'Not turning on'],
+                'LED Bulb' => ['Burnt out', 'Flickering', 'Not turning on'],
+                'CFL Bulb' => ['Burnt out', 'Flickering', 'Not turning on'],
+                'Printer' => ['Paper jam', 'Ink or toner issue', 'Printer offline', 'Not printing', 'Poor print quality'],
             ],
             'Computer Equipment' => [
                 'Monitor' => ['Broken monitor', 'No display', 'Flickering screen', 'Blurry display'],
                 'Keyboard' => ['Keyboard not working', 'Missing keys', 'Sticky keys'],
                 'Mouse' => ['Mouse defective', 'Mouse not detected', 'Scroll wheel broken'],
                 'System Unit' => ['No power', 'Slow performance', 'Cannot login', 'Network connection lost', 'Not booting', 'Overheating'],
+                'Headset' => ['No sound', 'Microphone not working', 'Broken headband'],
+                'AVP' => ['No power', 'No display', 'No sound', 'Input not detected'],
                 'UPS / AVR' => ['No backup power', 'Not turning on', 'Beeping continuously'],
-            ],
-            'Network Equipment' => [
                 'Ethernet Cable' => ['Damaged cable', 'Loose connection', 'No internet'],
-            ],
-            'Lighting Equipment' => [
-                'Fluorescent' => ['Burnt out', 'Flickering', 'Not turning on'],
-                'LED Bulb' => ['Burnt out', 'Flickering', 'Not turning on'],
-                'CFL Bulb' => ['Burnt out', 'Flickering', 'Not turning on'],
-            ],
-            'Printing Equipment' => [
-                'Printer' => ['Paper jam', 'Ink or toner issue', 'Printer offline', 'Not printing', 'Poor print quality'],
             ],
         ];
     }

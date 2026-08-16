@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use App\Support\EquipmentQrCodes;
 use SimpleSoftwareIO\QrCode\Facades\QrCode;
 use Barryvdh\DomPDF\Facade\Pdf;
 
@@ -364,8 +365,14 @@ class QRController extends Controller
         }
 
         $isRegenerate = filled($equipment->equipment_qr_code);
+        $categoryName = DB::table('equipment_categories_table')
+            ->where('equipment_category_id', $equipment->equipment_category_id)
+            ->value('equipment_category_name');
+        $typeCode = EquipmentQrCodes::codeForCategoryName($categoryName);
 
-        if ($isRegenerate) {
+        if ($typeCode) {
+            $qrCode = EquipmentQrCodes::nextCode($typeCode);
+        } elseif ($isRegenerate) {
             do {
                 $qrCode = 'QR-'.str_pad((string) $equipment->equipment_id, 6, '0', STR_PAD_LEFT).'-'.strtoupper(Str::random(6));
             } while (
@@ -636,94 +643,98 @@ class QRController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | PRINT QR LABEL
-    |--------------------------------------------------------------------------
-    */
-
-    /*
-    |--------------------------------------------------------------------------
-    | PRINT QR LABEL
+    | PRINT QR LABEL (SINGLE)
     |--------------------------------------------------------------------------
     */
 
     public function printLabel($code)
     {
-        // =====================================
-        // FIND EQUIPMENT AND ITS BUILDING
-        // =====================================
+        $equipment = $this->findEquipmentForQrPrint($code);
 
-        $equipment = DB::table('equipment_table')
+        abort_if(!$equipment, 404);
 
-            // =====================================
-            // CONNECT EQUIPMENT TO ROOM
-            // =====================================
+        return view(
+            'maintenance-personnel.equipment.qr-label-print',
+            [
+                'equipments' => collect([$equipment]),
+            ]
+        );
+    }
 
+    /*
+    |--------------------------------------------------------------------------
+    | PRINT QR LABELS (BATCH / MULTI ON A4)
+    |--------------------------------------------------------------------------
+    */
+
+    public function printLabels(Request $request)
+    {
+        $codes = collect(explode(',', (string) $request->query('codes', '')))
+            ->map(fn ($code) => trim($code))
+            ->filter()
+            ->unique()
+            ->values();
+
+        abort_if($codes->isEmpty(), 404);
+
+        $equipments = $this->findEquipmentsForQrPrint($codes->all());
+
+        abort_if($equipments->isEmpty(), 404);
+
+        $ordered = $codes
+            ->map(function ($code) use ($equipments) {
+                return $equipments->firstWhere('equipment_qr_code', $code);
+            })
+            ->filter()
+            ->values();
+
+        return view(
+            'maintenance-personnel.equipment.qr-label-print',
+            [
+                'equipments' => $ordered,
+            ]
+        );
+    }
+
+    private function findEquipmentForQrPrint(string $code)
+    {
+        return $this->qrPrintEquipmentQuery()
+            ->where('equipment_table.equipment_qr_code', $code)
+            ->first();
+    }
+
+    private function findEquipmentsForQrPrint(array $codes)
+    {
+        return $this->qrPrintEquipmentQuery()
+            ->whereIn('equipment_table.equipment_qr_code', $codes)
+            ->get();
+    }
+
+    private function qrPrintEquipmentQuery()
+    {
+        return DB::table('equipment_table')
             ->leftJoin(
                 'rooms_table',
                 'equipment_table.equipment_room_id',
                 '=',
                 'rooms_table.room_id'
             )
-
-            // =====================================
-            // CONNECT ROOM TO FLOOR
-            // =====================================
-
             ->leftJoin(
                 'floors_table',
                 'rooms_table.room_floor_id',
                 '=',
                 'floors_table.floor_id'
             )
-
-            // =====================================
-            // CONNECT FLOOR TO BUILDING
-            // =====================================
-
             ->leftJoin(
                 'buildings_table',
                 'floors_table.floor_building_id',
                 '=',
                 'buildings_table.building_id'
             )
-
-            // =====================================
-            // FIND EQUIPMENT USING QR CODE
-            // =====================================
-
-            ->where(
-                'equipment_table.equipment_qr_code',
-                $code
-            )
-
-            // =====================================
-            // SELECT EQUIPMENT AND BUILDING DATA
-            // =====================================
-
             ->select(
                 'equipment_table.*',
                 'buildings_table.building_name'
-            )
-
-            ->first();
-
-
-        // =====================================
-        // STOP IF EQUIPMENT DOES NOT EXIST
-        // =====================================
-
-        abort_if(!$equipment, 404);
-
-
-        // =====================================
-        // RETURN DEDICATED PRINT PAGE
-        // =====================================
-
-        return view(
-            'maintenance-personnel.equipment.qr-label-print',
-
-            compact('equipment')
-        );
+            );
     }
     /*
     |--------------------------------------------------------------------------

@@ -7,23 +7,6 @@
     <div class="space-y-6">
 
         {{-- ===================================== --}}
-        {{-- PAGE HEADER --}}
-        {{-- ===================================== --}}
-
-        <div>
-
-            <h1 class="text-4xl font-black text-slate-900">
-                Today's Maintenance
-            </h1>
-
-            <p class="mt-1 text-slate-500">
-                Maintenance tasks scheduled for today.
-            </p>
-
-        </div>
-
-
-        {{-- ===================================== --}}
         {{-- SCHEDULE LIST --}}
         {{-- ===================================== --}}
 

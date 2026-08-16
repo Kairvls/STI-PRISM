@@ -3,11 +3,6 @@
 @section('content')
 
 <div class="text-black">
-
-    <h1 class="text-3xl font-bold mb-8">
-        Infrastructure Dashboard
-    </h1>
-
     <div class="grid grid-cols-3 gap-6 mb-10">
 
         <div class="bg-white rounded-2xl p-6 shadow">

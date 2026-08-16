@@ -4,33 +4,13 @@
 
 @section("content")
 
-    <div class="mx-auto max-w-7xl">
+    <div>
 
         {{-- ===================================================== --}}
         {{-- PAGE HEADER --}}
         {{-- ===================================================== --}}
 
-        <div
-            class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"
-        >
-            <div>
-                <p
-                    class="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-gray-400"
-                >
-                    Maintenance
-                </p>
-
-                <h1
-                    class="text-3xl font-bold tracking-tight text-gray-900"
-                >
-                    Activity History
-                </h1>
-
-                <p class="mt-2 text-sm text-gray-500">
-                    Review your recorded maintenance actions across PRISM.
-                </p>
-            </div>
-
+        <div class="mb-6 flex justify-end">
             <div class="text-sm text-gray-400">
                 {{ $activities->total() }}
                 {{ Str::plural('activity', $activities->total()) }}

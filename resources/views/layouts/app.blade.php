@@ -140,7 +140,7 @@
 
 </head>
 
-<body class="text-black h-screen overflow-hidden">
+<body class="text-black h-screen overflow-hidden @yield('body-class')">
 
     <div class="flex h-screen overflow-hidden">
 
@@ -154,7 +154,7 @@
             @yield('topbar')
 
             <!-- PAGE CONTENT -->
-            <main class="flex-1 overflow-y-auto overflow-x-hidden p-8 bg-gray-100">
+            <main class="flex-1 overflow-y-auto overflow-x-hidden @yield('main-pad', 'p-8') @yield('main-bg', 'bg-gray-100')">
 
                 @yield('content')
 
@@ -988,6 +988,12 @@
     <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
 
     @include('layouts.partials.messaging-modal')
+
+    <script>
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+    </script>
 
 </body>
 
