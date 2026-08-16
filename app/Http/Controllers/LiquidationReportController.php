@@ -1,0 +1,531 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Services\LiquidationReportExporter;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
+
+class LiquidationReportController extends Controller
+{
+    private const ACTIVE_STATUSES = [
+        'Draft', 'Submitted', 'Under Review', 'Minor Revision', 'Resubmitted', 'Pending Admin Approval',
+    ];
+
+    public function index(Request $request)
+    {
+        $archiveView = $request->query('view') === 'archive';
+        $query = $this->liqBaseQuery();
+
+        if ($archiveView) {
+            $query->where('liquidation_reports_table.liquidation_report_is_archived', 1);
+        } else {
+            $query->where(function ($q) {
+                $q->whereNull('liquidation_reports_table.liquidation_report_is_archived')
+                    ->orWhere('liquidation_reports_table.liquidation_report_is_archived', 0);
+            });
+        }
+
+        if ($request->filled('search')) {
+            $search = '%' . $request->search . '%';
+            $query->where(function ($sub) use ($search) {
+                $sub->where('liquidation_reports_table.liquidation_report_form_number', 'LIKE', $search)
+                    ->orWhere('liquidation_reports_table.liquidation_report_employee_name', 'LIKE', $search)
+                    ->orWhere('liquidation_reports_table.liquidation_report_purpose', 'LIKE', $search)
+                    ->orWhere('receiving_reports_table.receiving_report_form_number', 'LIKE', $search);
+            });
+        }
+
+        if ($request->filled('status')) {
+            if ($request->status === 'Submitted') {
+                $query->whereIn('liquidation_reports_table.liquidation_report_status', ['Submitted', 'Under Review', 'Resubmitted', 'Pending Admin Approval']);
+            } else {
+                $query->where('liquidation_reports_table.liquidation_report_status', $request->status);
+            }
+        }
+
+        if ($request->filled('date')) {
+            $query->whereDate('liquidation_reports_table.liquidation_report_date_submitted', $request->date);
+        }
+
+        $reports = $query->orderByDesc('liquidation_reports_table.liquidation_report_created_at')->paginate(10)->withQueryString();
+
+        $activeScope = function ($q) {
+            $q->whereNull('liquidation_report_is_archived')->orWhere('liquidation_report_is_archived', 0);
+        };
+
+        $summary = [
+            'total' => DB::table('liquidation_reports_table')->where($activeScope)->count(),
+            'draft' => DB::table('liquidation_reports_table')->where('liquidation_report_status', 'Draft')->where($activeScope)->count(),
+            'submitted' => DB::table('liquidation_reports_table')->whereIn('liquidation_report_status', ['Submitted', 'Under Review', 'Resubmitted', 'Pending Admin Approval'])->where($activeScope)->count(),
+            'approved' => DB::table('liquidation_reports_table')->where('liquidation_report_status', 'Approved')->where($activeScope)->count(),
+            'rejected' => DB::table('liquidation_reports_table')->where('liquidation_report_status', 'Rejected')->where($activeScope)->count(),
+            'archived' => DB::table('liquidation_reports_table')->where('liquidation_report_is_archived', 1)->count(),
+        ];
+
+        $eligibleRrs = $this->eligibleRrQuery()->get();
+        $rrPrefill = $this->buildRrPrefill($eligibleRrs);
+        $items = $this->itemsFor($reports->getCollection()->pluck('liquidation_report_id'));
+        $attachments = $this->attachmentsFor($reports->getCollection()->pluck('liquidation_report_id'));
+
+        return view('purchaser.liquidation-reports.index', compact(
+            'reports', 'archiveView', 'summary', 'eligibleRrs', 'rrPrefill', 'items', 'attachments'
+        ) + ['selectedRrId' => $request->query('selected_rr')]);
+    }
+
+    public function store(Request $request)
+    {
+        $isDraft = $request->input('save_action', 'draft') === 'draft';
+        $validated = $this->validateLiq($request, $isDraft);
+
+        if ($this->hasBlocking($validated['liquidation_report_receiving_report_id'] ?? null)) {
+            return back()->withInput()->with('error', 'A Liquidation Report already exists for the selected Receiving Report.');
+        }
+
+        return DB::transaction(function () use ($request, $validated, $isDraft) {
+            $payload = $this->payloadFromValidated($validated, $isDraft, null);
+            $id = DB::table('liquidation_reports_table')->insertGetId($payload);
+            DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->update([
+                'liquidation_report_form_number' => 'LIQ-' . now()->format('Y') . '-' . str_pad((string) $id, 5, '0', STR_PAD_LEFT),
+            ]);
+            $this->replaceItems($id, $validated['items'] ?? []);
+            $this->recalcTotals($id);
+            $this->storeAttachments($request, $id);
+
+            return redirect()->route('purchaser.liq.index')->with(
+                'success',
+                $isDraft ? 'Liquidation Report draft saved.' : 'Liquidation Report submitted to Accounting.'
+            );
+        });
+    }
+
+    public function update(Request $request, $id)
+    {
+        $liq = $this->find($id);
+        if (!$liq || !$this->isEditable($liq)) {
+            return back()->with('error', 'Only draft or revision Liquidation Reports can be edited.');
+        }
+
+        $isDraft = $request->input('save_action', 'draft') === 'draft';
+        $validated = $this->validateLiq($request, $isDraft);
+        $rrId = $validated['liquidation_report_receiving_report_id'] ?? $liq->liquidation_report_receiving_report_id;
+
+        if ($this->hasBlocking($rrId, $id)) {
+            return back()->withInput()->with('error', 'A Liquidation Report already exists for the selected Receiving Report.');
+        }
+
+        return DB::transaction(function () use ($request, $validated, $liq, $isDraft, $id) {
+            $payload = $this->payloadFromValidated($validated, $isDraft, $liq);
+            unset($payload['liquidation_report_created_at']);
+            DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->update($payload);
+            $this->replaceItems($id, $validated['items'] ?? []);
+            $this->recalcTotals($id);
+            $this->deleteRequestedAttachments($request, $id);
+            $this->storeAttachments($request, $id);
+
+            return redirect()->route('purchaser.liq.index')->with(
+                'success',
+                $isDraft ? 'Liquidation Report updated.' : 'Liquidation Report submitted to Accounting.'
+            );
+        });
+    }
+
+    public function submit($id)
+    {
+        $liq = $this->find($id);
+        if (!$liq || !$this->isEditable($liq)) {
+            return back()->with('error', 'This Liquidation Report cannot be submitted.');
+        }
+
+        $wasRevision = $liq->liquidation_report_status === 'Minor Revision';
+        DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->update([
+            'liquidation_report_status' => $wasRevision ? 'Resubmitted' : 'Submitted',
+            'liquidation_report_review_stage' => 'accounting',
+            'liquidation_report_submitted_by' => auth()->id(),
+            'liquidation_report_submitted_at' => now(),
+            'liquidation_report_date_submitted' => now()->toDateString(),
+            'liquidation_report_submitted_by_date' => now()->toDateString(),
+            'liquidation_report_days_lapse' => $this->daysLapsed($liq->liquidation_report_submission_deadline, now()->toDateString()),
+            'liquidation_report_updated_at' => now(),
+        ]);
+
+        return back()->with('success', 'Liquidation Report submitted to Accounting.');
+    }
+
+    public function archive($id)
+    {
+        $liq = $this->find($id);
+        if (!$liq || !in_array($liq->liquidation_report_status, ['Approved', 'Rejected'], true)) {
+            return back()->with('error', 'Only approved or rejected Liquidation Reports can be archived.');
+        }
+        DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->update([
+            'liquidation_report_is_archived' => 1,
+            'liquidation_report_updated_at' => now(),
+        ]);
+        return back()->with('success', 'Liquidation Report archived.');
+    }
+
+    public function restore($id)
+    {
+        $liq = $this->find($id);
+        if (!$liq) {
+            return back()->with('error', 'Liquidation Report not found.');
+        }
+        DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->update([
+            'liquidation_report_is_archived' => 0,
+            'liquidation_report_updated_at' => now(),
+        ]);
+        return back()->with('success', 'Liquidation Report restored.');
+    }
+
+    public function downloadAttachment($id, $attachmentId)
+    {
+        $attachment = DB::table('liquidation_report_attachments_table')
+            ->where('liquidation_attachment_id', $attachmentId)
+            ->where('liquidation_report_id', $id)
+            ->first();
+        abort_if(!$attachment, 404);
+        $path = storage_path('app/public/' . $attachment->liquidation_attachment_path);
+        abort_if(!is_file($path), 404);
+        return response()->file($path, [
+            'Content-Disposition' => 'inline; filename="' . $attachment->liquidation_attachment_original_name . '"',
+        ]);
+    }
+
+    public function exportExcel($id, LiquidationReportExporter $exporter)
+    {
+        return $exporter->downloadExcel($this->loadForExport($id));
+    }
+
+    public function exportWord($id, LiquidationReportExporter $exporter)
+    {
+        return $exporter->downloadWord($this->loadForExport($id));
+    }
+
+    public static function reviewBaseQuery()
+    {
+        return DB::table('liquidation_reports_table')
+            ->leftJoin(
+                'receiving_reports_table',
+                'liquidation_reports_table.liquidation_report_receiving_report_id',
+                '=',
+                'receiving_reports_table.receiving_report_id'
+            )
+            ->select(
+                'liquidation_reports_table.*',
+                'receiving_reports_table.receiving_report_form_number'
+            );
+    }
+
+    private function loadForExport($id): array
+    {
+        $liq = $this->liqBaseQuery()->where('liquidation_reports_table.liquidation_report_id', $id)->first();
+        abort_if(!$liq, 404);
+        $items = DB::table('liquidation_report_items_table')
+            ->where('liquidation_report_id', $id)
+            ->orderBy('liquidation_item_id')
+            ->get();
+        return compact('liq', 'items');
+    }
+
+    private function validateLiq(Request $request, bool $isDraft): array
+    {
+        return $request->validate([
+            'save_action' => ['required', 'in:draft,submit'],
+            'liquidation_report_receiving_report_id' => [$isDraft ? 'nullable' : 'required', 'integer', 'exists:receiving_reports_table,receiving_report_id'],
+            'liquidation_report_employee_name' => [$isDraft ? 'nullable' : 'required', 'string', 'max:255'],
+            'liquidation_report_cheque_number' => ['nullable', 'string', 'max:100'],
+            'liquidation_report_purpose' => [$isDraft ? 'nullable' : 'required', 'string', 'max:5000'],
+            'liquidation_report_amount_advance' => [$isDraft ? 'nullable' : 'required', 'numeric', 'min:0'],
+            'liquidation_report_date_released' => ['nullable', 'date'],
+            'liquidation_report_charge_to_account' => ['nullable', 'string', 'max:255'],
+            'liquidation_report_activity_end_date' => ['nullable', 'date'],
+            'liquidation_report_submission_deadline' => ['nullable', 'date'],
+            'liquidation_report_date_submitted' => ['nullable', 'date'],
+            'liquidation_report_other_income' => ['nullable', 'numeric'],
+            'liquidation_report_cash_returned_or_no' => ['nullable', 'string', 'max:100'],
+            'liquidation_report_submitted_by_signature' => [$isDraft ? 'nullable' : 'required', 'string', 'max:255'],
+            'items' => ['nullable', 'array', 'max:20'],
+            'items.*.particulars' => ['nullable', 'string', 'max:2000'],
+            'items.*.amount' => ['nullable', 'numeric'],
+            'items.*.actual_amount' => ['nullable', 'numeric'],
+            'items.*.actual_total' => ['nullable', 'numeric'],
+            'items.*.ref_no' => ['nullable', 'string', 'max:100'],
+            'attachments' => ['nullable', 'array', 'max:10'],
+            'attachments.*' => ['file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+            'delete_attachments' => ['nullable', 'array'],
+        ]);
+    }
+
+    private function payloadFromValidated(array $validated, bool $isDraft, $existing): array
+    {
+        $now = now();
+        $wasRevision = $existing && $existing->liquidation_report_status === 'Minor Revision';
+        $status = $isDraft
+            ? ($wasRevision ? 'Minor Revision' : 'Draft')
+            : ($wasRevision ? 'Resubmitted' : 'Submitted');
+        $submittedDate = $validated['liquidation_report_date_submitted'] ?? ($isDraft ? null : $now->toDateString());
+
+        $row = [
+            'liquidation_report_receiving_report_id' => $validated['liquidation_report_receiving_report_id'] ?? ($existing->liquidation_report_receiving_report_id ?? null),
+            'liquidation_report_employee_name' => $validated['liquidation_report_employee_name'] ?? null,
+            'liquidation_report_cheque_number' => $validated['liquidation_report_cheque_number'] ?? null,
+            'liquidation_report_purpose' => $validated['liquidation_report_purpose'] ?? null,
+            'liquidation_report_amount_advance' => $validated['liquidation_report_amount_advance'] ?? null,
+            'liquidation_report_date_released' => $validated['liquidation_report_date_released'] ?? null,
+            'liquidation_report_charge_to_account' => $validated['liquidation_report_charge_to_account'] ?? null,
+            'liquidation_report_activity_end_date' => $validated['liquidation_report_activity_end_date'] ?? null,
+            'liquidation_report_submission_deadline' => $validated['liquidation_report_submission_deadline'] ?? null,
+            'liquidation_report_date_submitted' => $submittedDate,
+            'liquidation_report_days_lapse' => $this->daysLapsed($validated['liquidation_report_submission_deadline'] ?? null, $submittedDate),
+            'liquidation_report_other_income' => $validated['liquidation_report_other_income'] ?? null,
+            'liquidation_report_cash_returned_or_no' => $validated['liquidation_report_cash_returned_or_no'] ?? null,
+            'liquidation_report_submitted_by_signature' => $validated['liquidation_report_submitted_by_signature'] ?? (auth()->user()->user_full_name ?? null),
+            'liquidation_report_submitted_by_date' => $submittedDate,
+            'liquidation_report_status' => $status,
+            'liquidation_report_review_stage' => $isDraft ? ($existing->liquidation_report_review_stage ?? null) : 'accounting',
+            'liquidation_report_submitted_by' => $isDraft ? ($existing->liquidation_report_submitted_by ?? null) : auth()->id(),
+            'liquidation_report_submitted_at' => $isDraft ? ($existing->liquidation_report_submitted_at ?? null) : $now,
+            'liquidation_report_is_archived' => 0,
+            'liquidation_report_updated_at' => $now,
+        ];
+
+        if (!$existing) {
+            $row['liquidation_report_created_at'] = $now;
+        }
+
+        return $row;
+    }
+
+    private function replaceItems($id, array $items): void
+    {
+        DB::table('liquidation_report_items_table')->where('liquidation_report_id', $id)->delete();
+        foreach ($items as $row) {
+            $particulars = $row['particulars'] ?? null;
+            $amount = $row['amount'] ?? null;
+            $actual = $row['actual_amount'] ?? null;
+            $total = $row['actual_total'] ?? $actual;
+            if (blank($particulars) && $amount === null && $actual === null) {
+                continue;
+            }
+            $variance = ((float) ($total ?? 0)) - ((float) ($amount ?? 0));
+            DB::table('liquidation_report_items_table')->insert([
+                'liquidation_report_id' => $id,
+                'liquidation_item_particulars' => $particulars,
+                'liquidation_item_particulars_amount' => $amount,
+                'liquidation_item_actual_breakdown_amount' => $actual,
+                'liquidation_item_actual_total_amount' => $total,
+                'liquidation_item_variance' => $variance,
+                'liquidation_item_ref_no' => $row['ref_no'] ?? null,
+            ]);
+        }
+    }
+
+    private function recalcTotals($id): void
+    {
+        $advance = (float) DB::table('liquidation_report_items_table')->where('liquidation_report_id', $id)->sum('liquidation_item_particulars_amount');
+        $actual = (float) DB::table('liquidation_report_items_table')->where('liquidation_report_id', $id)->sum('liquidation_item_actual_total_amount');
+        $headerAdvance = DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->value('liquidation_report_amount_advance');
+        $amtAdvanced = $headerAdvance !== null ? (float) $headerAdvance : $advance;
+
+        DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->update([
+            'liquidation_report_summary_amt_advanced' => $amtAdvanced,
+            'liquidation_report_summary_actual_expense' => $actual,
+            'liquidation_report_summary_balance' => $amtAdvanced - $actual,
+        ]);
+    }
+
+    private function daysLapsed($deadline, $submitted): ?int
+    {
+        if (!$deadline || !$submitted) {
+            return null;
+        }
+        $submittedAt = \Carbon\Carbon::parse($submitted);
+        $deadlineAt = \Carbon\Carbon::parse($deadline);
+        return $submittedAt->greaterThan($deadlineAt) ? $submittedAt->diffInDays($deadlineAt) : 0;
+    }
+
+    private function storeAttachments(Request $request, $id): void
+    {
+        if (!$request->hasFile('attachments')) {
+            return;
+        }
+        foreach ($request->file('attachments') as $file) {
+            if (!$file) {
+                continue;
+            }
+            $path = $file->store('liquidation/' . $id, 'public');
+            DB::table('liquidation_report_attachments_table')->insert([
+                'liquidation_report_id' => $id,
+                'liquidation_attachment_original_name' => $file->getClientOriginalName(),
+                'liquidation_attachment_path' => $path,
+                'liquidation_attachment_mime_type' => $file->getClientMimeType(),
+                'liquidation_attachment_size' => $file->getSize(),
+                'liquidation_attachment_uploaded_by' => auth()->id(),
+                'liquidation_attachment_created_at' => now(),
+            ]);
+        }
+    }
+
+    private function deleteRequestedAttachments(Request $request, $id): void
+    {
+        $ids = collect($request->input('delete_attachments', []))->filter();
+        if ($ids->isEmpty()) {
+            return;
+        }
+        $rows = DB::table('liquidation_report_attachments_table')->where('liquidation_report_id', $id)->whereIn('liquidation_attachment_id', $ids)->get();
+        foreach ($rows as $row) {
+            Storage::disk('public')->delete($row->liquidation_attachment_path);
+        }
+        DB::table('liquidation_report_attachments_table')->where('liquidation_report_id', $id)->whereIn('liquidation_attachment_id', $ids)->delete();
+    }
+
+    private function liqBaseQuery()
+    {
+        return DB::table('liquidation_reports_table')
+            ->leftJoin(
+                'receiving_reports_table',
+                'liquidation_reports_table.liquidation_report_receiving_report_id',
+                '=',
+                'receiving_reports_table.receiving_report_id'
+            )
+            ->select(
+                'liquidation_reports_table.*',
+                'receiving_reports_table.receiving_report_form_number'
+            );
+    }
+
+    private function eligibleRrQuery()
+    {
+        return DB::table('receiving_reports_table')
+            ->leftJoin(
+                'request_check_table',
+                'receiving_reports_table.receiving_report_request_check_id',
+                '=',
+                'request_check_table.request_check_id'
+            )
+            ->leftJoin(
+                'authority_to_purchase_table',
+                'request_check_table.request_check_authority_purchase_id',
+                '=',
+                'authority_to_purchase_table.authority_purchase_id'
+            )
+            ->where('receiving_reports_table.receiving_report_status', 'Completed')
+            ->where(function ($q) {
+                $q->whereNull('receiving_reports_table.receiving_report_is_archived')
+                    ->orWhere('receiving_reports_table.receiving_report_is_archived', 0);
+            })
+            ->whereNotExists(function ($q) {
+                $q->select(DB::raw(1))
+                    ->from('liquidation_reports_table')
+                    ->whereColumn(
+                        'liquidation_reports_table.liquidation_report_receiving_report_id',
+                        'receiving_reports_table.receiving_report_id'
+                    )
+                    ->where(function ($inner) {
+                        $inner->whereNull('liquidation_report_is_archived')->orWhere('liquidation_report_is_archived', 0);
+                    })
+                    ->whereIn('liquidation_report_status', self::ACTIVE_STATUSES);
+            })
+            ->select(
+                'receiving_reports_table.receiving_report_id',
+                'receiving_reports_table.receiving_report_form_number',
+                'request_check_table.request_check_id',
+                'request_check_table.request_check_form_number',
+                'request_check_table.request_check_particulars_purpose',
+                'request_check_table.request_check_amount_figures',
+                'authority_to_purchase_table.authority_purchase_id'
+            )
+            ->orderByDesc('receiving_reports_table.receiving_report_id');
+    }
+
+    private function buildRrPrefill($eligibleRrs): array
+    {
+        $prefill = [];
+        $rrIds = collect($eligibleRrs)->pluck('receiving_report_id');
+        $atpIds = collect($eligibleRrs)->pluck('authority_purchase_id')->filter();
+
+        $rrItems = DB::table('receiving_report_items_table')
+            ->whereIn('receiving_report_id', $rrIds)
+            ->orderBy('receiving_report_item_id')
+            ->get()
+            ->groupBy('receiving_report_id');
+
+        $atpItems = DB::table('authority_to_purchase_items_table')
+            ->whereIn('authority_purchase_id', $atpIds)
+            ->orderBy('atp_item_id')
+            ->get()
+            ->groupBy('authority_purchase_id');
+
+        foreach ($eligibleRrs as $rr) {
+            $rows = [];
+            $source = $rrItems[$rr->receiving_report_id] ?? collect();
+            $atp = $atpItems[$rr->authority_purchase_id] ?? collect();
+            foreach ($source->values() as $i => $item) {
+                $atpRow = $atp[$i] ?? null;
+                $amount = $atpRow->atp_amount ?? null;
+                $article = $item->receiving_report_item_article;
+                $rows[] = [
+                    'particulars' => $article,
+                    'amount' => $amount,
+                    'actual_amount' => $amount,
+                    'actual_total' => $amount,
+                    'ref_no' => '',
+                ];
+            }
+            $prefill[(string) $rr->receiving_report_id] = [
+                'purpose' => $rr->request_check_particulars_purpose ?? '',
+                'amount' => $rr->request_check_amount_figures ?? '',
+                'items' => $rows,
+            ];
+        }
+
+        return $prefill;
+    }
+
+    private function hasBlocking($rrId, $ignoreId = null): bool
+    {
+        if (!$rrId) {
+            return false;
+        }
+        $query = DB::table('liquidation_reports_table')
+            ->where('liquidation_report_receiving_report_id', $rrId)
+            ->whereIn('liquidation_report_status', self::ACTIVE_STATUSES)
+            ->where(function ($q) {
+                $q->whereNull('liquidation_report_is_archived')->orWhere('liquidation_report_is_archived', 0);
+            });
+        if ($ignoreId) {
+            $query->where('liquidation_report_id', '!=', $ignoreId);
+        }
+        return $query->exists();
+    }
+
+    private function itemsFor($ids)
+    {
+        if ($ids->isEmpty()) {
+            return collect();
+        }
+        return DB::table('liquidation_report_items_table')->whereIn('liquidation_report_id', $ids)->orderBy('liquidation_item_id')->get()->groupBy('liquidation_report_id');
+    }
+
+    private function attachmentsFor($ids)
+    {
+        if ($ids->isEmpty() || !Schema::hasTable('liquidation_report_attachments_table')) {
+            return collect();
+        }
+        return DB::table('liquidation_report_attachments_table')->whereIn('liquidation_report_id', $ids)->get()->groupBy('liquidation_report_id');
+    }
+
+    private function find($id)
+    {
+        return DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->first();
+    }
+
+    private function isEditable($liq): bool
+    {
+        return in_array($liq->liquidation_report_status, ['Draft', 'Minor Revision'], true)
+            && empty($liq->liquidation_report_is_archived);
+    }
+}
