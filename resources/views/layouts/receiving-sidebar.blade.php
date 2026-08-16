@@ -192,7 +192,7 @@
 
             <i data-lucide="building-2"></i>
 
-            <span>Supplier Records</span>
+            <span>Supplier lookup</span>
 
         </a>
 

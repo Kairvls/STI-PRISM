@@ -11,3 +11,7 @@
     @include('layouts.receiving-topbar')
 
 @endsection
+
+@push('scripts')
+    @include('layouts.partials.receiving-table-filters-script')
+@endpush

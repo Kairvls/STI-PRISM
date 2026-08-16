@@ -294,88 +294,9 @@
 
 </table>
 
-
-{{-- ===================================================== --}}
-{{-- CUSTOM PAGINATION --}}
-{{-- ===================================================== --}}
-
-@if($signableRisRecords->hasPages())
-
-    <div class="flex items-center justify-end border-t border-gray-100 px-5 py-4">
-
-        <div class="flex items-center gap-1">
-
-
-            {{-- ================================================= --}}
-            {{-- PREVIOUS PAGE --}}
-            {{-- ================================================= --}}
-
-            @if($signableRisRecords->onFirstPage())
-
-                <span
-                    class="flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-300"
-                    title="No previous page"
-                >
-                    <
-                </span>
-
-            @else
-
-                <a
-                    href="{{ $signableRisRecords->previousPageUrl() }}"
-                    data-page="{{ $signableRisRecords->currentPage() - 1 }}"
-                    title="Previous page"
-                    class="sign-ris-pagination-link flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-sm font-semibold text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
-                >
-                    <
-                </a>
-
-            @endif
-
-
-            {{-- ================================================= --}}
-            {{-- CURRENT PAGE --}}
-            {{-- ================================================= --}}
-
-            <span
-                class="flex h-9 min-w-9 items-center justify-center rounded-lg bg-slate-900 px-3 text-sm font-semibold text-white"
-                title="Current page {{ $signableRisRecords->currentPage() }}"
-            >
-
-                {{ $signableRisRecords->currentPage() }}
-
-            </span>
-
-
-            {{-- ================================================= --}}
-            {{-- NEXT PAGE --}}
-            {{-- ================================================= --}}
-
-            @if($signableRisRecords->hasMorePages())
-
-                <a
-                    href="{{ $signableRisRecords->nextPageUrl() }}"
-                    data-page="{{ $signableRisRecords->currentPage() + 1 }}"
-                    title="Next page"
-                    class="sign-ris-pagination-link flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-sm font-semibold text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
-                >
-                    >
-                </a>
-
-            @else
-
-                <span
-                    class="flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-300"
-                    title="No next page"
-                >
-                    >
-                </span>
-
-            @endif
-
-        </div>
-
-    </div>
-
-@endif
+@include('layouts.partials.table-showing-pager', [
+    'pager' => $signableRisRecords,
+    'linkClass' => 'sign-ris-pagination-link',
+    'noun' => 'records',
+])
 

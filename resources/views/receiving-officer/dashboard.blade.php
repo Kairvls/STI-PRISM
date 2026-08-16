@@ -64,7 +64,9 @@
 .sidebar-calendar-title { font-family: Outfit, sans-serif; font-size: 14px; font-weight: 700; color: #0f172a; display: flex; align-items: center; }
 .sidebar-calendar-body { padding: 10px 12px 12px; }
 .calendar-month-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-.cal-nav-btn { width: 28px; height: 28px; border-radius: 6px; border: 1px solid #e2e8f0; background: #f8fafc; display: flex; align-items: center; justify-content: center; color: #64748b; }
+.cal-nav-btn { width: 28px; height: 28px; border-radius: 6px; border: 1px solid #e2e8f0; background: #f8fafc; display: flex; align-items: center; justify-content: center; color: #64748b; cursor: pointer; }
+.cal-nav-btn:hover { background: #fff; border-color: #cbd5e1; color: #0f172a; }
+.cal-nav-btn:disabled, .cal-nav-btn:disabled:hover { opacity: .4; cursor: not-allowed; background: #f8fafc; border-color: #e2e8f0; color: #94a3b8; }
 .cal-month-label { font-size: 12px; font-weight: 700; color: #0f172a; }
 .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 10px; }
 .cal-day-header { text-align: center; font-size: 8px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .4px; padding: 2px 0; }
@@ -128,9 +130,9 @@
                 <a href="/receiving/supplier-records" class="ro-card-link">
                     <div class="ro-card">
                         <div class="ro-card-top"><div class="ro-icon ro-icon-blue"><i data-lucide="building-2"></i></div></div>
-                        <p class="ro-label">Supplier Records</p>
+                        <p class="ro-label">Supplier lookup</p>
                         <p class="ro-value">{{ $supplierCount }}</p>
-                        <p class="ro-hint">Physical and online vendors</p>
+                        <p class="ro-hint">Read-only · Purchaser maintains the register</p>
                     </div>
                 </a>
                 <a href="/receiving/history" class="ro-card-link">
@@ -194,8 +196,8 @@
                     </button>
                     <button type="button" onclick="openReceivingQuickAccess('suppliers')">
                         <div class="ro-icon ro-icon-blue"><i data-lucide="building-2"></i></div>
-                        <span class="ro-quick-label">Supplier Records</span>
-                        <span class="ro-quick-desc">Vendor records</span>
+                        <span class="ro-quick-label">Supplier lookup</span>
+                        <span class="ro-quick-desc">Read-only vendor list</span>
                     </button>
                     <button type="button" onclick="openReceivingQuickAccess('history')">
                         <div class="ro-icon ro-icon-blue"><i data-lucide="history"></i></div>
@@ -210,13 +212,29 @@
                 </div>
             </div>
 
-            <div class="ro-panel">
-                <div class="ro-panel-h">
+            <div class="ro-panel" data-ro-table data-ro-default-filter="pending">
+                <div class="ro-panel-h" style="flex-wrap:wrap; gap:12px;">
                     <div>
                         <p class="ro-panel-title">Pending deliveries</p>
                         <p class="ro-panel-sub">Approved ATP waiting for physical validation</p>
                     </div>
-                    <a class="ro-link" href="/receiving/reports">View all <i data-lucide="arrow-right" class="h-4 w-4"></i></a>
+                    <div class="flex items-center gap-2">
+                        <span class="receiving-total-count rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">{{ $pendingRows->count() }} total</span>
+                        <a class="ro-link" href="/receiving/reports">View all <i data-lucide="arrow-right" class="h-4 w-4"></i></a>
+                    </div>
+                </div>
+                <div class="px-4 pb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    @include('layouts.partials.receiving-filter-slider', [
+                        'sliderId' => 'dashPendingFilterSlider',
+                        'current' => 'pending',
+                        'ariaLabel' => 'Dashboard pending filters',
+                        'options' => [
+                            ['filter' => 'pending', 'label' => 'Pending'],
+                            ['filter' => 'returned', 'label' => 'For correction'],
+                            ['filter' => 'all', 'label' => 'All'],
+                        ],
+                    ])
+                    @include('layouts.partials.receiving-filters', ['searchId' => 'dashPendingSearch', 'placeholder' => 'Search RIS, ATP, supplier...'])
                 </div>
                 <div class="overflow-x-auto">
                     <table class="ro-table">
@@ -232,8 +250,12 @@
                         </thead>
                         <tbody>
                             @forelse($pendingRows as $row)
-                                @php $previewRisId = $row->ris_id ?? $row->authority_purchase_ris_id ?? null; @endphp
-                                <tr>
+                                @php
+                                    $previewRisId = $row->ris_id ?? $row->authority_purchase_ris_id ?? null;
+                                    $rowStatus = ($row->receiving_report_status ?? null) === 'Returned' ? 'returned' : 'pending';
+                                    $rowSearch = trim(implode(' ', [$row->ris_form_number ?? '', $row->authority_purchase_form_number ?? '', $row->item_names ?? '', $row->supplier_name ?? '']));
+                                @endphp
+                                <tr data-ro-status="{{ $rowStatus }}" data-ro-search="{{ $rowSearch }}">
                                     <td><span class="ro-ref">{{ $row->ris_form_number ?: ($row->authority_purchase_form_number ?: 'ATP-'.$row->authority_purchase_id) }}</span></td>
                                     <td>{{ \Illuminate\Support\Str::limit($row->item_names ?: '—', 40) }}</td>
                                     <td>{{ $row->supplier_name }}</td>
@@ -247,28 +269,35 @@
                                     </td>
                                     <td>
                                         <div class="flex items-center gap-2">
-                                            <button type="button" class="ro-preview-btn" @if($previewRisId) onclick="openReceivingRisPreview('{{ $previewRisId }}')" @else disabled @endif title="Preview RIS">
-                                                <i data-lucide="eye" class="h-4 w-4"></i>
-                                            </button>
+                                            @include('layouts.partials.receiving-ris-eye', ['risId' => $previewRisId])
                                             <a class="ro-link" href="/receiving/reports?atp={{ $row->authority_purchase_id }}">Inspect</a>
                                         </div>
                                     </td>
                                 </tr>
                             @empty
-                                <tr><td colspan="6" class="ro-empty">Waiting for Purchaser ATP to be approved. Nothing is ready to inspect yet.</td></tr>
                             @endforelse
+                                <tr class="receiving-empty-row" @if($pendingRows->count()) style="display:none" @endif>
+                                    <td colspan="6" class="ro-empty">Waiting for Purchaser ATP to be approved. Nothing is ready to inspect yet.</td>
+                                </tr>
                         </tbody>
                     </table>
                 </div>
+                @include('layouts.partials.receiving-table-pager')
             </div>
 
-            <div class="ro-panel">
-                <div class="ro-panel-h">
+            <div class="ro-panel" data-ro-table data-ro-default-filter="all">
+                <div class="ro-panel-h" style="flex-wrap:wrap; gap:12px;">
                     <div>
                         <p class="ro-panel-title">Recently accepted</p>
                         <p class="ro-panel-sub">Items already received into inventory</p>
                     </div>
-                    <a class="ro-link" href="/receiving/delivered-items">View all <i data-lucide="arrow-right" class="h-4 w-4"></i></a>
+                    <div class="flex items-center gap-2">
+                        <span class="receiving-total-count rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">{{ $acceptedRows->count() }} total</span>
+                        <a class="ro-link" href="/receiving/delivered-items">View all <i data-lucide="arrow-right" class="h-4 w-4"></i></a>
+                    </div>
+                </div>
+                <div class="px-4 pb-3 flex justify-end">
+                    @include('layouts.partials.receiving-filters', ['searchId' => 'dashAcceptedSearch', 'placeholder' => 'Search RIS, ATP, supplier...'])
                 </div>
                 <div class="overflow-x-auto">
                     <table class="ro-table">
@@ -285,8 +314,11 @@
                         </thead>
                         <tbody>
                             @forelse($acceptedRows as $row)
-                                @php $previewRisId = $row->ris_id ?? $row->authority_purchase_ris_id ?? null; @endphp
-                                <tr>
+                                @php
+                                    $previewRisId = $row->ris_id ?? $row->authority_purchase_ris_id ?? null;
+                                    $rowSearch = trim(implode(' ', [$row->ris_form_number ?? '', $row->authority_purchase_form_number ?? '', $row->item_names ?? '', $row->supplier_name ?? '', $row->official_receipt ?? '', $row->officer_name ?? '']));
+                                @endphp
+                                <tr data-ro-status="all" data-ro-search="{{ $rowSearch }}">
                                     <td><span class="ro-ref">{{ $row->ris_form_number ?: $row->authority_purchase_form_number }}</span></td>
                                     <td>{{ \Illuminate\Support\Str::limit($row->item_names ?: '—', 40) }}</td>
                                     <td>{{ $row->supplier_name }}</td>
@@ -295,9 +327,7 @@
                                     <td>{{ $row->officer_name ?: '—' }}</td>
                                     <td>
                                         <div class="flex items-center gap-2">
-                                            <button type="button" class="ro-preview-btn" @if($previewRisId) onclick="openReceivingRisPreview('{{ $previewRisId }}')" @else disabled @endif title="Preview RIS">
-                                                <i data-lucide="eye" class="h-4 w-4"></i>
-                                            </button>
+                                            @include('layouts.partials.receiving-ris-eye', ['risId' => $previewRisId])
                                             @if(!empty($row->receiving_report_id))
                                                 <a class="ro-link" href="/receiving/reports/{{ $row->receiving_report_id }}/print">Print</a>
                                             @endif
@@ -305,11 +335,14 @@
                                     </td>
                                 </tr>
                             @empty
-                                <tr><td colspan="7" class="ro-empty">Waiting for the first accepted delivery.</td></tr>
                             @endforelse
+                                <tr class="receiving-empty-row" @if($acceptedRows->count()) style="display:none" @endif>
+                                    <td colspan="7" class="ro-empty">Waiting for the first accepted delivery.</td>
+                                </tr>
                         </tbody>
                     </table>
                 </div>
+                @include('layouts.partials.receiving-table-pager')
             </div>
         </div>
 
@@ -324,18 +357,19 @@
                         <i data-lucide="calendar" class="h-4 w-4" style="margin-right: 6px;"></i>
                         Calendar of Events
                     </h3>
+                    <p class="mt-1 text-[11px] font-normal text-slate-500">Inspections, accepted deliveries, and returns</p>
                 </div>
                 <div class="sidebar-calendar-body">
                     <div class="calendar-month-header">
-                        <button type="button" class="cal-nav-btn" title="Previous month" disabled>
+                        <button type="button" id="receivingCalPrevBtn" class="cal-nav-btn" title="Previous month">
                             <i data-lucide="chevron-left" class="h-3.5 w-3.5"></i>
                         </button>
-                        <span class="cal-month-label">{{ now()->format('F Y') }}</span>
-                        <button type="button" class="cal-nav-btn" title="Next month" disabled>
+                        <span id="receivingCalMonthLabel" class="cal-month-label">{{ now()->format('F Y') }}</span>
+                        <button type="button" id="receivingCalNextBtn" class="cal-nav-btn" title="Next month">
                             <i data-lucide="chevron-right" class="h-3.5 w-3.5"></i>
                         </button>
                     </div>
-                    <div class="calendar-grid">
+                    <div id="receivingCalendarGrid" class="calendar-grid">
                         <div class="cal-day-header">Sun</div>
                         <div class="cal-day-header">Mon</div>
                         <div class="cal-day-header">Tue</div>
@@ -375,20 +409,20 @@
                             <div class="cal-day cal-day-empty"></div>
                         @endfor
                     </div>
-                    <div class="cal-upcoming">
+                    <div id="receivingCalendarUpcoming" class="cal-upcoming">
                         <h4 class="cal-upcoming-title">Upcoming Events</h4>
                         @forelse($calendarEvents->take(3) as $event)
                             <div class="cal-upcoming-item">
                                 <div class="cal-upcoming-dot"></div>
                                 <div class="cal-upcoming-content">
-                                    <span class="cal-upcoming-name">{{ $event->equipment_name ?? 'Equipment' }}</span>
+                                    <span class="cal-upcoming-name">{{ $event->event_name ?? 'Receiving' }}</span>
                                     <span class="cal-upcoming-date">
-                                        {{ $event->maintenance_schedule_next_date ? \Carbon\Carbon::parse($event->maintenance_schedule_next_date)->format('M d, Y') : 'No date set' }}
+                                        {{ !empty($event->event_date) ? \Carbon\Carbon::parse($event->event_date)->format('M d, Y') : 'No date set' }}
                                     </span>
                                 </div>
                             </div>
                         @empty
-                            <div class="cal-upcoming-empty">No upcoming maintenance events</div>
+                            <div class="cal-upcoming-empty">No receiving dates this month</div>
                         @endforelse
                     </div>
                 </div>
@@ -488,7 +522,7 @@ window.openReceivingQuickAccess = function (section) {
     var titles = {
         pending: 'Pending Receiving Reports',
         delivered: 'Delivered Items',
-        suppliers: 'Supplier Records',
+        suppliers: 'Supplier lookup',
         history: 'Delivery History',
         logs: 'Receiving Logs'
     };
@@ -505,6 +539,7 @@ window.openReceivingQuickAccess = function (section) {
     .then(function (html) {
         body.innerHTML = html;
         if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+        if (typeof window.initReceivingTableFilters === 'function') window.initReceivingTableFilters();
     })
     .catch(function () {
         body.innerHTML = '<div class="ro-qa-loading" style="color:#e11d48;"><span>Failed to load this section.</span></div>';
@@ -523,6 +558,106 @@ document.addEventListener('click', function (e) {
 document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') closeReceivingQuickAccess();
 });
+
+(function() {
+    var prevBtn = document.getElementById('receivingCalPrevBtn');
+    var nextBtn = document.getElementById('receivingCalNextBtn');
+    var monthLabel = document.getElementById('receivingCalMonthLabel');
+    var grid = document.getElementById('receivingCalendarGrid');
+    var upcoming = document.getElementById('receivingCalendarUpcoming');
+    var events = {!! json_encode(
+        collect($calendarEvents ?? [])->map(function ($event) {
+            return [
+                'date' => $event->event_date ?? null,
+                'name' => $event->event_name ?? 'Receiving',
+            ];
+        })->filter(fn ($e) => !empty($e['date']))->values()
+    ) !!};
+    var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    var view = new Date();
+    view.setDate(1);
+    var now = new Date();
+    var minMonthIndex = now.getFullYear() * 12 + now.getMonth() - 1;
+
+    function pad(n) { return n < 10 ? '0' + n : String(n); }
+    function ymd(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+    function monthIndex(d) { return d.getFullYear() * 12 + d.getMonth(); }
+    function canGoPrev() { return monthIndex(view) > minMonthIndex; }
+    function updateNavButtons() {
+        if (!prevBtn) return;
+        var allowed = canGoPrev();
+        prevBtn.disabled = !allowed;
+        prevBtn.title = allowed ? 'Previous month' : 'Cannot go back more than one month';
+    }
+    function eventsOn(dateKey) {
+        return events.filter(function (e) { return e.date === dateKey; });
+    }
+    function render() {
+        if (!grid || !monthLabel) return;
+        var year = view.getFullYear();
+        var month = view.getMonth();
+        monthLabel.textContent = monthNames[month] + ' ' + year;
+        var first = new Date(year, month, 1);
+        var lastDate = new Date(year, month + 1, 0).getDate();
+        var startPad = first.getDay();
+        var todayKey = ymd(new Date());
+        var html = '';
+        ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].forEach(function (d) {
+            html += '<div class="cal-day-header">' + d + '</div>';
+        });
+        var totalSlots = Math.ceil((startPad + lastDate) / 7) * 7;
+        for (var i = 0; i < totalSlots; i++) {
+            var dayNum = i - startPad + 1;
+            if (dayNum < 1 || dayNum > lastDate) {
+                html += '<div class="cal-day cal-day-empty"></div>';
+                continue;
+            }
+            var dateKey = year + '-' + pad(month + 1) + '-' + pad(dayNum);
+            var dayEvents = eventsOn(dateKey);
+            var cls = 'cal-day';
+            if (dateKey === todayKey) cls += ' cal-day-today';
+            if (dayEvents.length) cls += ' cal-day-has-event';
+            html += '<div class="' + cls + '" title="' + (dayEvents.length ? dayEvents.length + ' event(s)' : '') + '">';
+            html += '<span class="cal-day-num">' + dayNum + '</span>';
+            if (dayEvents.length) html += '<span class="cal-day-dot"></span>';
+            html += '</div>';
+        }
+        grid.innerHTML = html;
+        if (upcoming) {
+            var monthPrefix = year + '-' + pad(month + 1);
+            var monthEvents = events.filter(function (e) { return e.date.indexOf(monthPrefix) === 0; })
+                .sort(function (a, b) { return a.date.localeCompare(b.date); })
+                .slice(0, 3);
+            var list = '<h4 class="cal-upcoming-title">Events this month</h4>';
+            if (!monthEvents.length) {
+                list += '<div class="cal-upcoming-empty">No receiving dates this month</div>';
+            } else {
+                monthEvents.forEach(function (e) {
+                    var parts = e.date.split('-');
+                    var label = monthNames[parseInt(parts[1], 10) - 1] + ' ' + parseInt(parts[2], 10) + ', ' + parts[0];
+                    list += '<div class="cal-upcoming-item"><div class="cal-upcoming-dot"></div><div class="cal-upcoming-content">';
+                    list += '<span class="cal-upcoming-name">' + e.name + '</span>';
+                    list += '<span class="cal-upcoming-date">' + label + '</span></div></div>';
+                });
+            }
+            upcoming.innerHTML = list;
+        }
+        updateNavButtons();
+        if (typeof lucide !== 'undefined' && lucide.createIcons) lucide.createIcons();
+    }
+    if (prevBtn && nextBtn) {
+        prevBtn.addEventListener('click', function () {
+            if (!canGoPrev()) return;
+            view.setMonth(view.getMonth() - 1);
+            render();
+        });
+        nextBtn.addEventListener('click', function () {
+            view.setMonth(view.getMonth() + 1);
+            render();
+        });
+    }
+    render();
+})();
 </script>
 
 @endsection

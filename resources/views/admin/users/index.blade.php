@@ -129,8 +129,21 @@
                 </tbody>
             </table>
         </div>
-        <div class="border-t border-gray-100 px-5 py-3">
-            <p class="text-xs text-gray-500">Showing <span id="usersVisibleCount" class="font-semibold text-gray-700">{{ $totalUsers }}</span> of <span class="font-semibold text-gray-700">{{ $totalUsers }}</span> user{{ $totalUsers === 1 ? '' : 's' }}</p>
+        <div id="usersPager" class="print-hidden flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-5 py-4">
+            <p class="text-xs text-gray-500">
+                Showing
+                <span id="usersShowingFrom" class="font-semibold text-gray-700">0</span>
+                –
+                <span id="usersShowingTo" class="font-semibold text-gray-700">0</span>
+                of
+                <span id="usersVisibleCount" class="font-semibold text-gray-700">{{ $totalUsers }}</span>
+                users
+            </p>
+            <div id="usersPageControls" class="flex items-center gap-1">
+                <button type="button" id="usersPagePrev" class="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-sm font-semibold text-gray-600 transition hover:bg-gray-50 hover:text-gray-900" title="Previous page">&lt;</button>
+                <span id="usersPageNum" class="flex h-9 min-w-9 items-center justify-center rounded-lg bg-slate-900 px-3 text-sm font-semibold text-white">1</span>
+                <button type="button" id="usersPageNext" class="flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-sm font-semibold text-gray-600 transition hover:bg-gray-50 hover:text-gray-900" title="Next page">&gt;</button>
+            </div>
         </div>
     </div>
 
@@ -317,21 +330,47 @@
         var emptyRow = document.getElementById('usersEmptyFilterRow');
         var rows = document.querySelectorAll('#usersTableBody tr.user-row');
         var currentFilter = 'all';
+        var pageSize = 10;
+        var currentPage = 1;
+        var showingFrom = document.getElementById('usersShowingFrom');
+        var showingTo = document.getElementById('usersShowingTo');
+        var pageControls = document.getElementById('usersPageControls');
+        var prevBtn = document.getElementById('usersPagePrev');
+        var nextBtn = document.getElementById('usersPageNext');
+        var pageNum = document.getElementById('usersPageNum');
 
         function applyUserFilters() {
             var query = (searchInput ? searchInput.value : '').toLowerCase().trim();
-            var shown = 0;
+            var matched = [];
 
             rows.forEach(function (row) {
                 var matchesSearch = !query || row.textContent.toLowerCase().includes(query);
                 var status = row.getAttribute('data-account-status') || 'inactive';
                 var matchesStatus = currentFilter === 'all' || status === currentFilter;
-                var visible = matchesSearch && matchesStatus;
-                row.style.display = visible ? '' : 'none';
-                if (visible) shown += 1;
+                row.style.display = 'none';
+                if (matchesSearch && matchesStatus) matched.push(row);
             });
 
+            var shown = matched.length;
+            var pageCount = Math.max(1, Math.ceil(shown / pageSize));
+            if (currentPage > pageCount) currentPage = pageCount;
+            var start = (currentPage - 1) * pageSize;
+            var end = Math.min(start + pageSize, shown);
+            matched.slice(start, end).forEach(function (row) { row.style.display = ''; });
+
             if (visibleCount) visibleCount.textContent = String(shown);
+            if (showingFrom) showingFrom.textContent = String(shown ? start + 1 : 0);
+            if (showingTo) showingTo.textContent = String(shown ? end : 0);
+            if (pageNum) pageNum.textContent = String(currentPage);
+            if (pageControls) pageControls.style.display = shown > pageSize ? 'flex' : 'none';
+            if (prevBtn) {
+                prevBtn.disabled = currentPage <= 1;
+                prevBtn.classList.toggle('opacity-40', currentPage <= 1);
+            }
+            if (nextBtn) {
+                nextBtn.disabled = currentPage >= pageCount;
+                nextBtn.classList.toggle('opacity-40', currentPage >= pageCount);
+            }
             if (emptyRow) emptyRow.classList.toggle('hidden', shown > 0 || rows.length === 0);
         }
 
@@ -341,11 +380,24 @@
                 if (filter === currentFilter) return;
                 currentFilter = filter;
                 updateUserFilterSlider(currentFilter, true);
+                currentPage = 1;
                 applyUserFilters();
             });
         });
 
-        if (searchInput) searchInput.addEventListener('input', applyUserFilters);
+        if (searchInput) searchInput.addEventListener('input', function () {
+            currentPage = 1;
+            applyUserFilters();
+        });
+        if (prevBtn) prevBtn.addEventListener('click', function () {
+            if (currentPage <= 1) return;
+            currentPage -= 1;
+            applyUserFilters();
+        });
+        if (nextBtn) nextBtn.addEventListener('click', function () {
+            currentPage += 1;
+            applyUserFilters();
+        });
         updateUserFilterSlider(currentFilter, false);
         applyUserFilters();
         window.addEventListener('resize', function () {

@@ -88,6 +88,7 @@
                 </tbody>
             </table>
         </div>
+        @include('layouts.partials.table-showing-pager', ['pager' => $rows, 'noun' => 'tickets'])
     </div>
 </div>
 

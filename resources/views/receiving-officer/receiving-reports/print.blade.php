@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>Receiving Record {{ $row->ris_form_number ?: ($row->authority_purchase_form_number ?: '#'.$row->receiving_report_id) }}</title>
+    <title>Receiving Report {{ $row->receiving_report_form_number ?: ($row->ris_form_number ?: ($row->authority_purchase_form_number ?: '#'.$row->receiving_report_id)) }}</title>
     <style>
         body { font-family: Arial, Helvetica, sans-serif; color: #111; margin: 32px; }
         .bar { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
@@ -32,8 +32,8 @@
 
     <div class="bar">
         <div>
-            <h1>Receiving Record</h1>
-            <p class="muted">STI PRISM · Receiving Officer</p>
+            <h1>Receiving Report</h1>
+            <p class="muted">STI College Ormoc · Receiving Officer</p>
         </div>
         <div class="muted" style="text-align:right;">
             Printed {{ now()->format('M d, Y g:i A') }}
@@ -41,7 +41,9 @@
     </div>
 
     <table class="meta">
-        <tr><td width="180"><strong>Reference</strong></td><td>{{ $row->ris_form_number ?: ($row->authority_purchase_form_number ?: 'RR-'.$row->receiving_report_id) }}</td></tr>
+        <tr><td width="180"><strong>RR No.</strong></td><td>{{ $row->receiving_report_form_number ?: 'RR-'.$row->receiving_report_id }}</td></tr>
+        <tr><td><strong>ATP</strong></td><td>{{ $row->authority_purchase_form_number ?: '—' }}</td></tr>
+        <tr><td><strong>RIS</strong></td><td>{{ $row->ris_form_number ?: '—' }}</td></tr>
         <tr><td><strong>Status</strong></td><td>{{ in_array($row->receiving_report_status, ['Accepted', 'Completed'], true) ? 'Accepted' : $row->receiving_report_status }}</td></tr>
         <tr><td><strong>Supplier</strong></td><td>{{ $row->supplier_name }}</td></tr>
         <tr><td><strong>PO / OR</strong></td><td>{{ $row->authority_purchase_reference_po_no ?: '—' }} / {{ $row->official_receipt ?: '—' }}</td></tr>

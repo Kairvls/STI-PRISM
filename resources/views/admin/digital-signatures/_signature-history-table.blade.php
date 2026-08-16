@@ -267,88 +267,9 @@
 
 </table>
 
-
-{{-- ===================================================== --}}
-{{-- CUSTOM PAGINATION --}}
-{{-- ===================================================== --}}
-
-@if($signatureHistory->hasPages())
-
-    <div class="flex items-center justify-end border-t border-gray-100 px-5 py-4">
-
-        <div class="flex items-center gap-1">
-
-
-            {{-- ================================================= --}}
-            {{-- PREVIOUS PAGE --}}
-            {{-- ================================================= --}}
-
-            @if($signatureHistory->onFirstPage())
-
-                <span
-                    class="flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-300"
-                    title="No previous page"
-                >
-                    <
-                </span>
-
-            @else
-
-                <a
-                    href="{{ $signatureHistory->previousPageUrl() }}"
-                    data-page="{{ $signatureHistory->currentPage() - 1 }}"
-                    title="Previous page"
-                    class="signature-history-pagination-link flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-sm font-semibold text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
-                >
-                    <
-                </a>
-
-            @endif
-
-
-            {{-- ================================================= --}}
-            {{-- CURRENT PAGE --}}
-            {{-- ================================================= --}}
-
-            <span
-                class="flex h-9 min-w-9 items-center justify-center rounded-lg bg-slate-900 px-3 text-sm font-semibold text-white"
-                title="Current page {{ $signatureHistory->currentPage() }}"
-            >
-
-                {{ $signatureHistory->currentPage() }}
-
-            </span>
-
-
-            {{-- ================================================= --}}
-            {{-- NEXT PAGE --}}
-            {{-- ================================================= --}}
-
-            @if($signatureHistory->hasMorePages())
-
-                <a
-                    href="{{ $signatureHistory->nextPageUrl() }}"
-                    data-page="{{ $signatureHistory->currentPage() + 1 }}"
-                    title="Next page"
-                    class="signature-history-pagination-link flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-sm font-semibold text-gray-600 transition hover:bg-gray-50 hover:text-gray-900"
-                >
-                    >
-                </a>
-
-            @else
-
-                <span
-                    class="flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-lg border border-gray-200 bg-gray-50 text-sm text-gray-300"
-                    title="No next page"
-                >
-                    >
-                </span>
-
-            @endif
-
-        </div>
-
-    </div>
-
-@endif
+@include('layouts.partials.table-showing-pager', [
+    'pager' => $signatureHistory,
+    'linkClass' => 'signature-history-pagination-link',
+    'noun' => 'records',
+])
 

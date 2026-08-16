@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\View\View;
 
 class AdminController extends Controller
@@ -221,29 +222,13 @@ class AdminController extends Controller
 
 
         // =====================================================
-        // CALENDAR OF EVENTS — UPCOMING MAINTENANCE SCHEDULES
+        // CALENDAR OF EVENTS — PROCUREMENT / RIS DATES
         // =====================================================
 
-        try {
-            $calendarEvents = DB::table('maintenance_schedules_table')
-                ->leftJoin('equipment_table', 'maintenance_schedules_table.maintenance_schedule_equipment_id', '=', 'equipment_table.equipment_id')
-                ->select(
-                    'maintenance_schedules_table.*',
-                    'equipment_table.equipment_name'
-                )
-                ->where(function ($q) {
-                    $q->where('maintenance_schedules_table.maintenance_schedule_status', 'Active')
-                      ->orWhere('maintenance_schedules_table.maintenance_schedule_status', 'Overdue');
-                })
-                ->orderBy('maintenance_schedules_table.maintenance_schedule_next_date')
-                ->limit(200)
-                ->get();
-        } catch (\Throwable $e) { $calendarEvents = collect(); }
-
-        // Group events by date for the calendar
+        $calendarEvents = $this->adminProcurementCalendarEvents();
         $calendarEventsByDate = [];
         foreach ($calendarEvents as $evt) {
-            $dateKey = $evt->maintenance_schedule_next_date ? \Carbon\Carbon::parse($evt->maintenance_schedule_next_date)->format('Y-m-d') : null;
+            $dateKey = $evt->event_date ?? null;
             if ($dateKey) {
                 if (!isset($calendarEventsByDate[$dateKey])) {
                     $calendarEventsByDate[$dateKey] = [];
@@ -1745,7 +1730,7 @@ class AdminController extends Controller
     public function approvalLogs(Request $request): View
     {
         $filters = $this->systemReportFilters($request);
-        $rows = collect();
+        $rows = $this->emptyReportPager($request);
 
         if (Schema::hasTable('approval_logs_table')) {
             $query = DB::table('approval_logs_table')
@@ -1776,7 +1761,7 @@ class AdminController extends Controller
                 });
             }
 
-            $rows = $query->orderByDesc('approval_logs_table.approval_log_approved_at')->limit(300)->get();
+            $rows = $query->orderByDesc('approval_logs_table.approval_log_approved_at')->paginate(10)->withQueryString();
         }
 
         return view('admin.reports.approval-logs', [
@@ -1793,7 +1778,10 @@ class AdminController extends Controller
     public function maintenanceHistory(Request $request): View
     {
         $filters = $this->systemReportFilters($request);
-        $rows = collect();
+        $rows = new LengthAwarePaginator([], 0, 10, max(1, (int) $request->query('page', 1)), [
+            'path' => $request->url(),
+            'query' => $request->query(),
+        ]);
         $byStatus = collect();
         $repeatEquipment = collect();
         $avgCloseHours = null;
@@ -1856,8 +1844,8 @@ class AdminController extends Controller
                     'technicians.user_full_name as technician_name'
                 )
                 ->orderByDesc('reports_table.report_submitted_at')
-                ->limit(300)
-                ->get();
+                ->paginate(10)
+                ->withQueryString();
         }
 
         return view('admin.reports.maintenance-history', [
@@ -1882,7 +1870,7 @@ class AdminController extends Controller
     public function receivingSummary(Request $request): View
     {
         $filters = $this->systemReportFilters($request);
-        $rows = collect();
+        $rows = $this->emptyReportPager($request);
         $accepted = 0;
         $returned = 0;
         $withOr = 0;
@@ -1930,10 +1918,12 @@ class AdminController extends Controller
                 });
             }
 
-            $rows = $query->orderByDesc('receiving_reports_table.receiving_report_id')->limit(300)->get();
-            $accepted = $rows->filter(fn ($row) => in_array($row->receiving_report_status, ['Completed', 'Accepted'], true))->count();
-            $returned = $rows->where('receiving_report_status', 'Returned')->count();
-            $withOr = $rows->filter(fn ($row) => !empty($row->receiving_report_invoice_no))->count();
+            $accepted = (clone $query)->whereIn('receiving_reports_table.receiving_report_status', ['Completed', 'Accepted'])->count();
+            $returned = (clone $query)->where('receiving_reports_table.receiving_report_status', 'Returned')->count();
+            $withOr = (clone $query)->whereNotNull('receiving_reports_table.receiving_report_invoice_no')
+                ->where('receiving_reports_table.receiving_report_invoice_no', '!=', '')
+                ->count();
+            $rows = $query->orderByDesc('receiving_reports_table.receiving_report_id')->paginate(10)->withQueryString();
         }
 
         if (Schema::hasTable('receiving_report_items_table') && Schema::hasTable('receiving_reports_table')) {
@@ -1960,8 +1950,8 @@ class AdminController extends Controller
     public function userLoginLogs(Request $request): View
     {
         $filters = $this->systemReportFilters($request);
-        $users = collect();
-        $sessions = collect();
+        $users = $this->emptyReportPager($request);
+        $sessions = $this->emptyReportPager($request, 'sessions_page');
 
         if (Schema::hasTable('users_table')) {
             $query = DB::table('users_table')
@@ -2003,7 +1993,7 @@ class AdminController extends Controller
                 });
             }
 
-            $users = $query->orderBy('users_table.user_full_name')->get();
+            $users = $query->orderBy('users_table.user_full_name')->paginate(10)->withQueryString();
         }
 
         if (Schema::hasTable('sessions')) {
@@ -2020,8 +2010,7 @@ class AdminController extends Controller
                     'roles_table.role_name'
                 )
                 ->whereNotNull('sessions.user_id')
-                ->orderByDesc('sessions.last_activity')
-                ->limit(100);
+                ->orderByDesc('sessions.last_activity');
 
             if ($filters['from'] !== '') {
                 $sessionQuery->where('sessions.last_activity', '>=', \Carbon\Carbon::parse($filters['from'])->startOfDay()->timestamp);
@@ -2030,7 +2019,7 @@ class AdminController extends Controller
                 $sessionQuery->where('sessions.last_activity', '<=', \Carbon\Carbon::parse($filters['to'])->endOfDay()->timestamp);
             }
 
-            $sessions = $sessionQuery->get();
+            $sessions = $sessionQuery->paginate(10, ['*'], 'sessions_page')->withQueryString();
         }
 
         return view('admin.reports.user-login-logs', [
@@ -2047,6 +2036,15 @@ class AdminController extends Controller
             'from' => (string) $request->query('from', ''),
             'to' => (string) $request->query('to', ''),
         ];
+    }
+
+    private function emptyReportPager(Request $request, string $pageName = 'page'): LengthAwarePaginator
+    {
+        return new LengthAwarePaginator([], 0, 10, max(1, (int) $request->query($pageName, 1)), [
+            'path' => $request->url(),
+            'query' => $request->query(),
+            'pageName' => $pageName,
+        ]);
     }
 
     private function applyDateFilter($query, string $column, array $filters): void
@@ -2849,6 +2847,69 @@ class AdminController extends Controller
         return $pdf->download($filename);
     }
 
+    private function adminProcurementCalendarEvents()
+    {
+        $events = collect();
+        if (!Schema::hasTable('requisition_issue_slip_table')) {
+            return $events;
+        }
+
+        try {
+            $query = DB::table('requisition_issue_slip_table')
+                ->select(
+                    'ris_id',
+                    'ris_form_number',
+                    'ris_status',
+                    'ris_submitted_at',
+                    'ris_requested_by_date',
+                    'ris_issued_by_date',
+                    'ris_approved_by_date'
+                )
+                ->orderByDesc('ris_id')
+                ->limit(250);
+
+            $rows = $query->get();
+        } catch (\Throwable $e) {
+            return $events;
+        }
+
+        foreach ($rows as $ris) {
+            $ref = $ris->ris_form_number ?: ('RIS-'.$ris->ris_id);
+            $status = (string) ($ris->ris_status ?? '');
+            $this->pushCalendarEvent($events, $ris->ris_submitted_at ?? $ris->ris_requested_by_date, $ref.' · Submitted');
+            if (stripos($status, 'Forwarded') !== false) {
+                $this->pushCalendarEvent($events, $ris->ris_submitted_at ?? $ris->ris_requested_by_date, $ref.' · Forwarded to President');
+            }
+            $this->pushCalendarEvent($events, $ris->ris_approved_by_date, $ref.' · Approved by President');
+            $this->pushCalendarEvent($events, $ris->ris_issued_by_date, $ref.' · Issued by Admin');
+        }
+
+        return $events->sortBy('event_date')->values();
+    }
+
+    private function pushCalendarEvent($events, $rawDate, string $name): void
+    {
+        $date = $this->calendarEventDate($rawDate);
+        if (!$date) {
+            return;
+        }
+        $events->push((object) [
+            'event_date' => $date,
+            'event_name' => $name,
+        ]);
+    }
+
+    private function calendarEventDate($raw): ?string
+    {
+        if (empty($raw)) {
+            return null;
+        }
+        try {
+            return \Carbon\Carbon::parse($raw)->format('Y-m-d');
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
 
     // =====================================================
     // ADDED RIS ADMIN APPROVAL: APPROVE RIS

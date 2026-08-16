@@ -1741,6 +1741,8 @@ Route::middleware(['auth', 'receiving'])
 
         Route::get('/reports/{report}/print', [ReceivingController::class, 'printReport']);
 
+        Route::get('/export-pdf', [ReceivingController::class, 'exportTablePdf']);
+
         Route::post('/reports/{atp}/accept', [ReceivingController::class, 'accept']);
 
         Route::post('/reports/{atp}/return', [ReceivingController::class, 'returnReport']);

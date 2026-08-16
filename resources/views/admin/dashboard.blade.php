@@ -396,6 +396,7 @@
                         <i data-lucide="calendar" class="h-4 w-4" style="margin-right: 6px;"></i>
                         Calendar of Events
                     </h3>
+                    <p class="mt-1 text-[11px] font-normal text-slate-500">RIS submitted, forwarded, approved, and issued dates</p>
                 </div>
                 <div class="sidebar-calendar-body">
 
@@ -468,14 +469,14 @@
                             <div class="cal-upcoming-item">
                                 <div class="cal-upcoming-dot"></div>
                                 <div class="cal-upcoming-content">
-                                    <span class="cal-upcoming-name">{{ $event->equipment_name ?? 'Equipment' }}</span>
+                                    <span class="cal-upcoming-name">{{ $event->event_name ?? 'RIS' }}</span>
                                     <span class="cal-upcoming-date">
-                                        {{ $event->maintenance_schedule_next_date ? \Carbon\Carbon::parse($event->maintenance_schedule_next_date)->format('M d, Y') : 'No date set' }}
+                                        {{ !empty($event->event_date) ? \Carbon\Carbon::parse($event->event_date)->format('M d, Y') : 'No date set' }}
                                     </span>
                                 </div>
                             </div>
                         @empty
-                            <div class="cal-upcoming-empty">No upcoming maintenance events</div>
+                            <div class="cal-upcoming-empty">No procurement dates this month</div>
                         @endforelse
                     </div>
                 </div>
@@ -2648,10 +2649,8 @@ document.addEventListener('DOMContentLoaded', function() {
         var events = {!! json_encode(
             collect($calendarEvents ?? [])->map(function ($event) {
                 return [
-                    'date' => !empty($event->maintenance_schedule_next_date)
-                        ? \Carbon\Carbon::parse($event->maintenance_schedule_next_date)->format('Y-m-d')
-                        : null,
-                    'name' => $event->equipment_name ?? 'Equipment',
+                    'date' => $event->event_date ?? null,
+                    'name' => $event->event_name ?? 'RIS',
                 ];
             })->filter(fn ($e) => !empty($e['date']))->values()
         ) !!};
@@ -2720,7 +2719,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     .slice(0, 3);
                 var list = '<h4 class="cal-upcoming-title">Events this month</h4>';
                 if (!monthEvents.length) {
-                    list += '<div class="cal-upcoming-empty">No maintenance events this month</div>';
+                    list += '<div class="cal-upcoming-empty">No procurement dates this month</div>';
                 } else {
                     monthEvents.forEach(function (e) {
                         var parts = e.date.split('-');

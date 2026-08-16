@@ -47,6 +47,7 @@
                 </tbody>
             </table>
         </div>
+        @include('layouts.partials.table-showing-pager', ['pager' => $users, 'noun' => 'users'])
     </div>
 
     <div class="overflow-hidden rounded-[18px] border border-gray-200 bg-white">
@@ -78,6 +79,7 @@
                 </tbody>
             </table>
         </div>
+        @include('layouts.partials.table-showing-pager', ['pager' => $sessions, 'noun' => 'sessions'])
     </div>
 </div>
 
