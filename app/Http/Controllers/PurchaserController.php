@@ -75,28 +75,37 @@ class PurchaserController extends Controller
                             'request_check_table.request_check_authority_purchase_id',
                             'authority_to_purchase_table.authority_purchase_id'
                         )
-                        ->where(function ($inner) {
+                        ->where('request_check_status', '!=', 'Rejected');
+
+                    if (Schema::hasColumn('request_check_table', 'request_check_is_archived')) {
+                        $query->where(function ($inner) {
                             $inner->whereNull('request_check_is_archived')
                                 ->orWhere('request_check_is_archived', 0);
-                        })
-                        ->where('request_check_status', '!=', 'Rejected');
+                        });
+                    }
                 })
                 ->count();
         }
 
         if (Schema::hasTable('request_check_table')) {
             $rfcReadyQuery = DB::table('request_check_table')
-                ->where('request_check_status', 'Approved')
-                ->where(function ($q) {
+                ->where('request_check_status', 'Approved');
+
+            if (Schema::hasColumn('request_check_table', 'request_check_is_archived')) {
+                $rfcReadyQuery->where(function ($q) {
                     $q->whereNull('request_check_is_archived')
                         ->orWhere('request_check_is_archived', 0);
                 });
+            }
 
             if (Schema::hasColumn('request_check_table', 'request_check_funds_released_at')) {
                 $rfcReadyQuery->whereNotNull('request_check_funds_released_at');
             }
 
-            if (Schema::hasTable('receiving_reports_table')) {
+            if (
+                Schema::hasTable('receiving_reports_table')
+                && Schema::hasColumn('receiving_reports_table', 'receiving_report_request_check_id')
+            ) {
                 $rfcReadyQuery->whereNotExists(function ($query) {
                     $query->select(DB::raw(1))
                         ->from('receiving_reports_table')
@@ -104,11 +113,14 @@ class PurchaserController extends Controller
                             'receiving_reports_table.receiving_report_request_check_id',
                             'request_check_table.request_check_id'
                         )
-                        ->where(function ($inner) {
+                        ->where('receiving_report_status', '!=', 'Returned');
+
+                    if (Schema::hasColumn('receiving_reports_table', 'receiving_report_is_archived')) {
+                        $query->where(function ($inner) {
                             $inner->whereNull('receiving_report_is_archived')
                                 ->orWhere('receiving_report_is_archived', 0);
-                        })
-                        ->where('receiving_report_status', '!=', 'Returned');
+                        });
+                    }
                 });
             }
 
@@ -117,13 +129,19 @@ class PurchaserController extends Controller
 
         if (Schema::hasTable('receiving_reports_table')) {
             $rrReadyQuery = DB::table('receiving_reports_table')
-                ->where('receiving_report_status', 'Completed')
-                ->where(function ($q) {
+                ->where('receiving_report_status', 'Completed');
+
+            if (Schema::hasColumn('receiving_reports_table', 'receiving_report_is_archived')) {
+                $rrReadyQuery->where(function ($q) {
                     $q->whereNull('receiving_report_is_archived')
                         ->orWhere('receiving_report_is_archived', 0);
                 });
+            }
 
-            if (Schema::hasTable('liquidation_reports_table')) {
+            if (
+                Schema::hasTable('liquidation_reports_table')
+                && Schema::hasColumn('liquidation_reports_table', 'liquidation_report_receiving_report_id')
+            ) {
                 $rrReadyQuery->whereNotExists(function ($query) {
                     $query->select(DB::raw(1))
                         ->from('liquidation_reports_table')
@@ -131,11 +149,14 @@ class PurchaserController extends Controller
                             'liquidation_reports_table.liquidation_report_receiving_report_id',
                             'receiving_reports_table.receiving_report_id'
                         )
-                        ->where(function ($inner) {
+                        ->where('liquidation_report_status', '!=', 'Rejected');
+
+                    if (Schema::hasColumn('liquidation_reports_table', 'liquidation_report_is_archived')) {
+                        $query->where(function ($inner) {
                             $inner->whereNull('liquidation_report_is_archived')
                                 ->orWhere('liquidation_report_is_archived', 0);
-                        })
-                        ->where('liquidation_report_status', '!=', 'Rejected');
+                        });
+                    }
                 });
             }
 

@@ -5,7 +5,10 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+<<<<<<< Updated upstream
 use Illuminate\Validation\Rule;
+=======
+>>>>>>> Stashed changes
 use Illuminate\Validation\ValidationException;
 
 class AuthorityToPurchaseController extends Controller
@@ -60,8 +63,11 @@ class AuthorityToPurchaseController extends Controller
             ->select(
                 'authority_to_purchase_table.*',
                 'requisition_issue_slip_table.ris_form_number',
+<<<<<<< Updated upstream
                 'requisition_issue_slip_table.ris_request_type',
                 'requisition_issue_slip_table.ris_manual_title',
+=======
+>>>>>>> Stashed changes
                 'requisition_issue_slip_table.ris_purpose_description',
                 'procurement_requests_table.procurement_request_id',
                 'reports_table.report_id',
@@ -116,6 +122,12 @@ class AuthorityToPurchaseController extends Controller
         $eligibleRis = $this->eligibleRisQuery()->limit(50)->get();
         $suppliers = $this->activeSuppliersQuery()->get();
 
+<<<<<<< Updated upstream
+=======
+        $eligibleRis = $this->eligibleRisQuery()->get();
+        $suppliers = $this->activeSuppliersQuery()->get();
+
+>>>>>>> Stashed changes
         $atpIds = $atps->getCollection()->pluck('authority_purchase_id');
 
         $atpItems = DB::table('authority_to_purchase_items_table')
@@ -126,13 +138,18 @@ class AuthorityToPurchaseController extends Controller
 
         $atpHasRfc = [];
         if ($atpIds->isNotEmpty() && Schema::hasTable('request_check_table')) {
-            $atpHasRfc = DB::table('request_check_table')
+            $rfcLinkQuery = DB::table('request_check_table')
                 ->whereIn('request_check_authority_purchase_id', $atpIds)
-                ->where(function ($q) {
+                ->where('request_check_status', '!=', 'Rejected');
+
+            if (Schema::hasColumn('request_check_table', 'request_check_is_archived')) {
+                $rfcLinkQuery->where(function ($q) {
                     $q->whereNull('request_check_is_archived')
                         ->orWhere('request_check_is_archived', 0);
-                })
-                ->where('request_check_status', '!=', 'Rejected')
+                });
+            }
+
+            $atpHasRfc = $rfcLinkQuery
                 ->pluck('request_check_authority_purchase_id')
                 ->map(fn ($id) => (int) $id)
                 ->all();
@@ -573,10 +590,14 @@ class AuthorityToPurchaseController extends Controller
             ->select(
                 'requisition_issue_slip_table.ris_id',
                 'requisition_issue_slip_table.ris_form_number',
+<<<<<<< Updated upstream
                 'requisition_issue_slip_table.ris_request_type',
                 'requisition_issue_slip_table.ris_manual_title',
                 'requisition_issue_slip_table.ris_purpose_description',
                 'requisition_issue_slip_table.ris_supplier_id',
+=======
+                'requisition_issue_slip_table.ris_purpose_description',
+>>>>>>> Stashed changes
                 'procurement_requests_table.procurement_request_id',
                 'equipment_table.equipment_name',
                 'reports_table.report_unlisted_equipment_name'
