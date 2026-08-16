@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use App\Support\WorkflowNotifier;
 
 class RequestForCheckController extends Controller
 {
@@ -27,22 +28,18 @@ class RequestForCheckController extends Controller
         $archiveView = $request->query('view') === 'archive';
 
         $query = $this->rfcBaseQuery();
-
-        if ($archiveView) {
-            $query->where('request_check_table.request_check_is_archived', 1);
-        } else {
-            $query->where(function ($q) {
-                $q->whereNull('request_check_table.request_check_is_archived')
-                    ->orWhere('request_check_table.request_check_is_archived', 0);
-            });
-        }
+        $this->applyArchiveFilter($query, $archiveView);
 
         if ($request->filled('search')) {
             $search = '%' . $request->search . '%';
             $query->where(function ($sub) use ($search) {
-                $sub->where('request_check_table.request_check_form_number', 'LIKE', $search)
-                    ->orWhere('request_check_table.request_check_payee', 'LIKE', $search)
-                    ->orWhere('authority_to_purchase_table.authority_purchase_form_number', 'LIKE', $search)
+                if ($this->rfcHas('request_check_form_number')) {
+                    $sub->where('request_check_table.request_check_form_number', 'LIKE', $search)
+                        ->orWhere('request_check_table.request_check_payee', 'LIKE', $search);
+                } else {
+                    $sub->where('request_check_table.request_check_payee', 'LIKE', $search);
+                }
+                $sub->orWhere('authority_to_purchase_table.authority_purchase_form_number', 'LIKE', $search)
                     ->orWhere('request_check_table.request_check_particulars_purpose', 'LIKE', $search);
             });
         }
@@ -63,7 +60,7 @@ class RequestForCheckController extends Controller
         }
 
         $rfcs = $query
-            ->orderByDesc('request_check_table.request_check_created_at')
+            ->orderByDesc($this->rfcSortColumn())
             ->paginate(10)
             ->withQueryString();
 
@@ -78,14 +75,23 @@ class RequestForCheckController extends Controller
         $attachments = $this->attachmentsFor($rfcIds);
 
         $rfcHasRr = [];
-        if ($rfcIds->isNotEmpty() && Schema::hasTable('receiving_reports_table')) {
-            $rfcHasRr = DB::table('receiving_reports_table')
+        if (
+            $rfcIds->isNotEmpty()
+            && Schema::hasTable('receiving_reports_table')
+            && Schema::hasColumn('receiving_reports_table', 'receiving_report_request_check_id')
+        ) {
+            $rrQuery = DB::table('receiving_reports_table')
                 ->whereIn('receiving_report_request_check_id', $rfcIds)
-                ->where(function ($q) {
+                ->where('receiving_report_status', '!=', 'Returned');
+
+            if (Schema::hasColumn('receiving_reports_table', 'receiving_report_is_archived')) {
+                $rrQuery->where(function ($q) {
                     $q->whereNull('receiving_report_is_archived')
                         ->orWhere('receiving_report_is_archived', 0);
-                })
-                ->where('receiving_report_status', '!=', 'Returned')
+                });
+            }
+
+            $rfcHasRr = $rrQuery
                 ->pluck('receiving_report_request_check_id')
                 ->map(fn ($id) => (int) $id)
                 ->all();
@@ -121,7 +127,7 @@ class RequestForCheckController extends Controller
             $now = now();
             $user = auth()->user();
 
-            $id = DB::table('request_check_table')->insertGetId([
+            $id = DB::table('request_check_table')->insertGetId($this->rfcPayload([
                 'request_check_authority_purchase_id' => $validated['request_check_authority_purchase_id'] ?? null,
                 'request_check_date' => $validated['request_check_date'] ?? null,
                 'request_check_payee' => $validated['request_check_payee'] ?? null,
@@ -130,19 +136,25 @@ class RequestForCheckController extends Controller
                 'request_check_particulars_purpose' => $validated['request_check_particulars_purpose'] ?? null,
                 'request_check_requested_by' => $validated['request_check_requested_by'] ?? ($user->user_full_name ?? null),
                 'request_check_requested_by_user_id' => auth()->id(),
-                'request_check_status' => $isDraft ? 'Draft' : 'Submitted',
+                'request_check_status' => $this->rfcPersistStatus($isDraft ? 'Draft' : 'Submitted'),
                 'request_check_review_stage' => $isDraft ? null : 'accounting',
                 'request_check_submitted_by' => $isDraft ? null : auth()->id(),
                 'request_check_submitted_at' => $isDraft ? null : $now,
                 'request_check_is_archived' => 0,
                 'request_check_created_at' => $now,
                 'request_check_updated_at' => $now,
-            ]);
-            DB::table('request_check_table')->where('request_check_id', $id)->update([
-                'request_check_form_number' => 'RFC-' . $now->format('Y') . '-' . str_pad((string) $id, 5, '0', STR_PAD_LEFT),
-            ]);
+            ]));
+            if ($this->rfcHas('request_check_form_number')) {
+                DB::table('request_check_table')->where('request_check_id', $id)->update([
+                    'request_check_form_number' => 'RFC-' . $now->format('Y') . '-' . str_pad((string) $id, 5, '0', STR_PAD_LEFT),
+                ]);
+            }
 
             $this->storeAttachments($request, $id);
+
+            if (!$isDraft) {
+                $this->notifyAccountingRfc($id);
+            }
 
             return redirect()->route('purchaser.rfc.index')->with(
                 'success',
@@ -173,12 +185,14 @@ class RequestForCheckController extends Controller
 
         return DB::transaction(function () use ($request, $validated, $rfc, $isDraft, $id) {
             $now = now();
-            $wasRevision = $rfc->request_check_status === 'Minor Revision';
+            $wasRevision = in_array($rfc->request_check_status, $this->rfcEditableStatuses(), true)
+                && $rfc->request_check_status !== 'Draft'
+                && $rfc->request_check_status !== 'Pending';
             $status = $isDraft
-                ? ($wasRevision ? 'Minor Revision' : 'Draft')
-                : ($wasRevision ? 'Resubmitted' : 'Submitted');
+                ? $this->rfcPersistStatus($wasRevision ? 'Minor Revision' : 'Draft')
+                : $this->rfcPersistStatus($wasRevision ? 'Resubmitted' : 'Submitted');
 
-            DB::table('request_check_table')->where('request_check_id', $id)->update([
+            DB::table('request_check_table')->where('request_check_id', $id)->update($this->rfcPayload([
                 'request_check_authority_purchase_id' => $validated['request_check_authority_purchase_id'] ?? $rfc->request_check_authority_purchase_id,
                 'request_check_date' => $validated['request_check_date'] ?? null,
                 'request_check_payee' => $validated['request_check_payee'] ?? null,
@@ -187,14 +201,18 @@ class RequestForCheckController extends Controller
                 'request_check_particulars_purpose' => $validated['request_check_particulars_purpose'] ?? null,
                 'request_check_requested_by' => $validated['request_check_requested_by'] ?? $rfc->request_check_requested_by,
                 'request_check_status' => $status,
-                'request_check_review_stage' => $isDraft ? $rfc->request_check_review_stage : 'accounting',
-                'request_check_submitted_by' => $isDraft ? $rfc->request_check_submitted_by : auth()->id(),
-                'request_check_submitted_at' => $isDraft ? $rfc->request_check_submitted_at : $now,
+                'request_check_review_stage' => $isDraft ? ($rfc->request_check_review_stage ?? null) : 'accounting',
+                'request_check_submitted_by' => $isDraft ? ($rfc->request_check_submitted_by ?? null) : auth()->id(),
+                'request_check_submitted_at' => $isDraft ? ($rfc->request_check_submitted_at ?? null) : $now,
                 'request_check_updated_at' => $now,
-            ]);
+            ]));
 
             $this->deleteRequestedAttachments($request, $id);
             $this->storeAttachments($request, $id);
+
+            if (!$isDraft) {
+                $this->notifyAccountingRfc($id);
+            }
 
             return redirect()->route('purchaser.rfc.index')->with(
                 'success',
@@ -227,13 +245,15 @@ class RequestForCheckController extends Controller
 
             $wasRevision = $rfc->request_check_status === 'Minor Revision';
 
-            DB::table('request_check_table')->where('request_check_id', $id)->update([
-                'request_check_status' => $wasRevision ? 'Resubmitted' : 'Submitted',
+            DB::table('request_check_table')->where('request_check_id', $id)->update($this->rfcPayload([
+                'request_check_status' => $this->rfcPersistStatus($wasRevision ? 'Resubmitted' : 'Submitted'),
                 'request_check_review_stage' => 'accounting',
                 'request_check_submitted_by' => auth()->id(),
                 'request_check_submitted_at' => now(),
                 'request_check_updated_at' => now(),
-            ]);
+            ]));
+
+            $this->notifyAccountingRfc($id);
 
             return back()->with('success', 'Request for Check submitted to Accounting.');
         });
@@ -245,14 +265,17 @@ class RequestForCheckController extends Controller
         if (!$rfc) {
             return back()->with('error', 'Request for Check not found.');
         }
+        if (!$this->rfcHas('request_check_is_archived')) {
+            return back()->with('error', 'Archiving is not available for this Request for Check schema.');
+        }
         if (!in_array($rfc->request_check_status, self::ARCHIVEABLE_STATUSES, true)) {
             return back()->with('error', 'Only approved or rejected Request for Check records can be archived.');
         }
 
-        DB::table('request_check_table')->where('request_check_id', $id)->update([
+        DB::table('request_check_table')->where('request_check_id', $id)->update($this->rfcPayload([
             'request_check_is_archived' => 1,
             'request_check_updated_at' => now(),
-        ]);
+        ]));
 
         return back()->with('success', 'Request for Check archived.');
     }
@@ -264,10 +287,14 @@ class RequestForCheckController extends Controller
             return back()->with('error', 'Request for Check not found.');
         }
 
-        DB::table('request_check_table')->where('request_check_id', $id)->update([
+        if (!$this->rfcHas('request_check_is_archived')) {
+            return back()->with('error', 'Archiving is not available for this Request for Check schema.');
+        }
+
+        DB::table('request_check_table')->where('request_check_id', $id)->update($this->rfcPayload([
             'request_check_is_archived' => 0,
             'request_check_updated_at' => now(),
-        ]);
+        ]));
 
         return back()->with('success', 'Request for Check restored.');
     }
@@ -312,7 +339,7 @@ class RequestForCheckController extends Controller
 
     private function storeAttachments(Request $request, $rfcId): void
     {
-        if (!$request->hasFile('attachments')) {
+        if (!$request->hasFile('attachments') || !Schema::hasTable('request_check_attachments_table')) {
             return;
         }
 
@@ -371,7 +398,9 @@ class RequestForCheckController extends Controller
             'authority_to_purchase_table.authority_purchase_status as atp_status',
         ];
 
-        if (Schema::hasTable('receiving_reports_table')) {
+        if (Schema::hasTable('receiving_reports_table')
+            && $this->rfcHas('request_check_receiving_report_id')
+        ) {
             $query->leftJoin(
                 'receiving_reports_table',
                 'request_check_table.request_check_receiving_report_id',
@@ -458,11 +487,8 @@ class RequestForCheckController extends Controller
                         'request_check_table.request_check_authority_purchase_id',
                         'authority_to_purchase_table.authority_purchase_id'
                     )
-                    ->where(function ($inner) {
-                        $inner->whereNull('request_check_is_archived')
-                            ->orWhere('request_check_is_archived', 0);
-                    })
-                    ->whereIn('request_check_status', self::ACTIVE_STATUSES);
+                    ->whereIn('request_check_status', $this->rfcActiveStatuses());
+                $this->applyUnarchivedRfcConstraint($q);
             })
             ->select(
                 'authority_to_purchase_table.authority_purchase_id',
@@ -471,7 +497,7 @@ class RequestForCheckController extends Controller
                 'online_suppliers_table.shop_name',
                 'suppliers_table.supplier_store_type',
                 'requisition_issue_slip_table.ris_form_number',
-                'requisition_issue_slip_table.ris_manual_title',
+                'requisition_issue_slip_table.ris_purpose_description',
                 'equipment_table.equipment_name',
                 'reports_table.report_unlisted_equipment_name'
             )
@@ -497,6 +523,7 @@ class RequestForCheckController extends Controller
 
             $purpose = $atp->equipment_name
                 ?? $atp->report_unlisted_equipment_name
+                ?? $atp->ris_purpose_description
                 ?? $atp->ris_manual_title
                 ?? '';
 
@@ -512,9 +539,16 @@ class RequestForCheckController extends Controller
 
     private function rfcStatusSummary(): array
     {
+        $select = ['request_check_status', DB::raw('COUNT(*) as aggregate')];
+        $groupBy = ['request_check_status'];
+        if ($this->rfcHas('request_check_is_archived')) {
+            $select[] = 'request_check_is_archived';
+            $groupBy[] = 'request_check_is_archived';
+        }
+
         $counts = DB::table('request_check_table')
-            ->select('request_check_status', 'request_check_is_archived', DB::raw('COUNT(*) as aggregate'))
-            ->groupBy('request_check_status', 'request_check_is_archived')
+            ->select($select)
+            ->groupBy($groupBy)
             ->get();
 
         $summary = [
@@ -525,11 +559,11 @@ class RequestForCheckController extends Controller
             'rejected' => 0,
             'archived' => 0,
         ];
-        $submitted = ['Submitted', 'Under Review', 'Resubmitted', 'Pending Admin Approval'];
+        $submitted = ['Submitted', 'Under Review', 'Resubmitted', 'Pending Admin Approval', 'Pending'];
 
         foreach ($counts as $row) {
             $count = (int) $row->aggregate;
-            if ((int) $row->request_check_is_archived === 1) {
+            if ((int) ($row->request_check_is_archived ?? 0) === 1) {
                 $summary['archived'] += $count;
                 continue;
             }
@@ -581,11 +615,8 @@ class RequestForCheckController extends Controller
 
         $query = DB::table('request_check_table')
             ->where('request_check_authority_purchase_id', $atpId)
-            ->whereIn('request_check_status', self::ACTIVE_STATUSES)
-            ->where(function ($q) {
-                $q->whereNull('request_check_is_archived')
-                    ->orWhere('request_check_is_archived', 0);
-            });
+            ->whereIn('request_check_status', $this->rfcActiveStatuses());
+        $this->applyUnarchivedRfcConstraint($query);
 
         if ($ignoreId) {
             $query->where('request_check_id', '!=', $ignoreId);
@@ -601,7 +632,7 @@ class RequestForCheckController extends Controller
             return;
         }
         if ($status === 'Submitted') {
-            $query->whereIn('request_check_table.request_check_status', ['Submitted', 'Under Review', 'Resubmitted', 'Pending Admin Approval']);
+            $query->whereIn('request_check_table.request_check_status', $this->rfcSubmittedFilterStatuses());
             return;
         }
         $query->where('request_check_table.request_check_status', $status);
@@ -627,8 +658,140 @@ class RequestForCheckController extends Controller
 
     private function isEditable($rfc): bool
     {
-        return in_array($rfc->request_check_status, self::EDITABLE_STATUSES, true)
-            && empty($rfc->request_check_is_archived);
+        return in_array($rfc->request_check_status, $this->rfcEditableStatuses(), true)
+            && empty($rfc->request_check_is_archived ?? null);
+    }
+
+    private function rfcHas(string $column): bool
+    {
+        return Schema::hasTable('request_check_table')
+            && Schema::hasColumn('request_check_table', $column);
+    }
+
+    private function rfcPayload(array $payload): array
+    {
+        $filtered = [];
+        foreach ($payload as $column => $value) {
+            if ($this->rfcHas($column)) {
+                $filtered[$column] = $value;
+            }
+        }
+
+        return $filtered;
+    }
+
+    private function rfcSortColumn(): string
+    {
+        if ($this->rfcHas('request_check_created_at')) {
+            return 'request_check_table.request_check_created_at';
+        }
+
+        return 'request_check_table.request_check_date';
+    }
+
+    private function applyArchiveFilter($query, bool $archiveView): void
+    {
+        if (!$this->rfcHas('request_check_is_archived')) {
+            return;
+        }
+
+        if ($archiveView) {
+            $query->where('request_check_table.request_check_is_archived', 1);
+            return;
+        }
+
+        $query->where(function ($q) {
+            $q->whereNull('request_check_table.request_check_is_archived')
+                ->orWhere('request_check_table.request_check_is_archived', 0);
+        });
+    }
+
+    private function applyUnarchivedRfcConstraint($query): void
+    {
+        if (!$this->rfcHas('request_check_is_archived')) {
+            return;
+        }
+
+        $query->where(function ($q) {
+            $q->whereNull('request_check_is_archived')
+                ->orWhere('request_check_is_archived', 0);
+        });
+    }
+
+    private function rfcStatusAllowed(string $status): bool
+    {
+        $values = $this->rfcStatusEnum();
+
+        return $values === [] || in_array($status, $values, true);
+    }
+
+    private function rfcStatusEnum(): array
+    {
+        static $values = null;
+        if ($values === null) {
+            $values = [];
+            try {
+                $col = DB::select("SHOW COLUMNS FROM request_check_table LIKE 'request_check_status'");
+                $type = $col[0]->Type ?? '';
+                if (preg_match_all("/'([^']+)'/", $type, $matches)) {
+                    $values = $matches[1];
+                }
+            } catch (\Throwable $e) {
+                $values = [];
+            }
+        }
+
+        return $values;
+    }
+
+    private function rfcPersistStatus(string $intended): string
+    {
+        if ($this->rfcStatusAllowed($intended)) {
+            return $intended;
+        }
+
+        if (
+            in_array($intended, ['Draft', 'Submitted', 'Under Review', 'Resubmitted', 'Pending Admin Approval'], true)
+            && $this->rfcStatusAllowed('Pending')
+        ) {
+            return 'Pending';
+        }
+
+        if ($intended === 'Minor Revision' && $this->rfcStatusAllowed('Rejected')) {
+            return 'Rejected';
+        }
+
+        return $intended;
+    }
+
+    private function rfcActiveStatuses(): array
+    {
+        $wanted = array_merge(self::ACTIVE_STATUSES, ['Pending']);
+        $allowed = array_values(array_filter($wanted, fn ($status) => $this->rfcStatusAllowed($status)));
+
+        return $allowed !== [] ? $allowed : $wanted;
+    }
+
+    private function rfcEditableStatuses(): array
+    {
+        $wanted = self::EDITABLE_STATUSES;
+        if ($this->rfcStatusAllowed('Pending')) {
+            $wanted[] = 'Pending';
+        }
+        if (!$this->rfcStatusAllowed('Minor Revision') && $this->rfcStatusAllowed('Rejected')) {
+            $wanted[] = 'Rejected';
+        }
+        $allowed = array_values(array_filter($wanted, fn ($status) => $this->rfcStatusAllowed($status)));
+
+        return $allowed !== [] ? $allowed : $wanted;
+    }
+
+    private function rfcSubmittedFilterStatuses(): array
+    {
+        $wanted = ['Submitted', 'Under Review', 'Resubmitted', 'Pending Admin Approval', 'Pending'];
+        $allowed = array_values(array_filter($wanted, fn ($status) => $this->rfcStatusAllowed($status)));
+
+        return $allowed !== [] ? $allowed : $wanted;
     }
 
     private function amountInWords($amount): ?string
@@ -684,5 +847,20 @@ class RequestForCheckController extends Controller
         }
 
         return implode(' ', array_reverse($parts));
+    }
+
+    private function notifyAccountingRfc($id): void
+    {
+        $rfc = DB::table('request_check_table')->where('request_check_id', $id)->first();
+        $ref = $rfc->request_check_form_number ?? ('RFC #' . $id);
+        WorkflowNotifier::toRole(
+            WorkflowNotifier::ROLE_ACCOUNTING,
+            'Request Check submitted',
+            $ref . ' is waiting for Accounting review.',
+            'rfc_submitted',
+            'RFC',
+            (int) $id,
+            '/accounting/request-check/' . $id
+        );
     }
 }

@@ -1318,6 +1318,11 @@ Route::middleware([
             [PurchaserController::class, 'dashboard']
         )->name('dashboard');
 
+        Route::get(
+            '/notifications',
+            [PurchaserController::class, 'notifications']
+        )->name('notifications');
+
 
         // =====================================================
         // REPLACEMENT REQUESTS
@@ -1866,6 +1871,8 @@ Route::middleware(['auth', 'receiving'])
         Route::get('/history', [ReceivingController::class, 'history']);
 
         Route::get('/logs', [ReceivingController::class, 'receivingLogs']);
+
+        Route::get('/notifications', [ReceivingController::class, 'notifications']);
 
         Route::get('/ris/{ris}/print', [ReceivingController::class, 'printRis']);
 

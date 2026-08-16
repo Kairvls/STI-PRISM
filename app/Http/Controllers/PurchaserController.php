@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use App\Support\WorkflowNotifier;
 
 class PurchaserController extends Controller
 {
@@ -173,6 +174,24 @@ class PurchaserController extends Controller
             'rfcReadyForRr',
             'rrReadyForLiq'
         ));
+    }
+
+    public function notifications()
+    {
+        $items = collect();
+        try {
+            $items = DB::table('notifications_table')
+                ->where(function ($q) {
+                    $q->where('notification_user_id', Auth::id())
+                        ->orWhere('notification_target_role', 'Purchaser');
+                })
+                ->orderByDesc('notification_created_at')
+                ->limit(80)
+                ->get();
+        } catch (\Throwable $e) {
+        }
+
+        return view('purchaser.notifications.index', compact('items'));
     }
 
     // SHOW REPLACEMENT REQUESTS FROM MAINTENANCE
@@ -1185,6 +1204,18 @@ class PurchaserController extends Controller
             }
 
 
+            if (!$isDraft) {
+                WorkflowNotifier::toRole(
+                    WorkflowNotifier::ROLE_ADMIN,
+                    'New RIS submitted',
+                    (($validated['ris_form_number'] ?? null) ?: ('RIS #' . $risId)) . ' was submitted for Admin review.',
+                    'ris_submitted',
+                    'RIS',
+                    (int) $risId,
+                    '/admin/procurement-review'
+                );
+            }
+
             return redirect()
                 ->route('purchaser.ris.index')
                 ->with(
@@ -1664,6 +1695,17 @@ public function updateRis(Request $request, $risId)
                 'RIS changes saved successfully.',
         };
 
+        if (in_array($saveAction, ['submit', 'resubmit'], true)) {
+            WorkflowNotifier::toRole(
+                WorkflowNotifier::ROLE_ADMIN,
+                $saveAction === 'resubmit' ? 'RIS resubmitted' : 'New RIS submitted',
+                ($ris->ris_form_number ?: ('RIS #' . $risId)) . ' was submitted for Admin review.',
+                'ris_submitted',
+                'RIS',
+                (int) $risId,
+                '/admin/procurement-review'
+            );
+        }
 
         return redirect()
             ->route('purchaser.ris.index')
@@ -1893,6 +1935,15 @@ public function submitRis($risId)
                     now(),
             ]);
 
+        WorkflowNotifier::toRole(
+            WorkflowNotifier::ROLE_ADMIN,
+            'New RIS submitted',
+            ($ris->ris_form_number ?: ('RIS #' . $risId)) . ' was submitted for Admin review.',
+            'ris_submitted',
+            'RIS',
+            (int) $risId,
+            '/admin/procurement-review'
+        );
 
         return redirect()
             ->route('purchaser.ris.index')

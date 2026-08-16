@@ -83,7 +83,10 @@
                     $unreadCount = 0;
                     try {
                         $unreadCount = \DB::table('notifications_table')
-                            ->where('notification_user_id', auth()->id())
+                            ->where(function ($q) {
+                                $q->where('notification_user_id', auth()->id())
+                                    ->orWhere('notification_target_role', 'President');
+                            })
                             ->count();
                     } catch (\Throwable $e) {
                         $unreadCount = 0;

@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
+use App\Support\WorkflowNotifier;
 
 class PresidentController extends Controller
 {
@@ -430,6 +431,29 @@ class PresidentController extends Controller
             ]);
         } catch (\Throwable $e) {
             // ignore logging failures to not break testing
+        }
+
+        $form = $target->ris_form_number ?: ('RIS #' . $targetId);
+        if ($decision === 'Approved') {
+            WorkflowNotifier::toRole(
+                WorkflowNotifier::ROLE_ADMIN,
+                'President approved an RIS',
+                $form . ' was approved by the President. Return the result to the Purchaser.',
+                'ris_president_approved',
+                'RIS',
+                (int) $targetId,
+                '/admin/digital-signatures/sign-ris'
+            );
+        } else {
+            WorkflowNotifier::toRole(
+                WorkflowNotifier::ROLE_ADMIN,
+                'President rejected an RIS',
+                $form . (trim((string) $remarks) !== '' ? (': ' . $remarks) : ''),
+                'ris_president_rejected',
+                'RIS',
+                (int) $targetId,
+                '/admin/digital-signatures/sign-ris'
+            );
         }
 
         if ($request->ajax() || $request->wantsJson()) {

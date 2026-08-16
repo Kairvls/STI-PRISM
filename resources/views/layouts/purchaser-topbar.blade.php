@@ -88,7 +88,21 @@
                 <!-- ONLY SHOW WHEN UNREAD EXISTS -->
                 <!-- ===================================== -->
 
-                @if (0 > 0)
+                @php
+                    $unreadCount = 0;
+                    try {
+                        $unreadCount = \DB::table('notifications_table')
+                            ->where(function ($q) {
+                                $q->where('notification_user_id', auth()->id())
+                                    ->orWhere('notification_target_role', 'Purchaser');
+                            })
+                            ->count();
+                    } catch (\Throwable $e) {
+                        $unreadCount = 0;
+                    }
+                @endphp
+
+                @if ($unreadCount > 0)
                     <span
                         class="absolute right-[6px] top-[6px] h-2 w-2 rounded-full border-2 border-white bg-rose-500"
                     ></span>
@@ -128,7 +142,7 @@
                     <span
                         class="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-medium text-slate-600"
                     >
-                        {{-- $headerUnreadCount --}} new
+                        {{ $unreadCount }} new
                     </span>
                 </div>
 
@@ -137,7 +151,30 @@
                 <!-- ===================================== -->
 
                 <div class="max-h-[360px] overflow-y-auto">
+                    @php
+                        $recentNotes = collect();
+                        try {
+                            $recentNotes = \DB::table('notifications_table')
+                                ->where(function ($q) {
+                                    $q->where('notification_user_id', auth()->id())
+                                        ->orWhere('notification_target_role', 'Purchaser');
+                                })
+                                ->orderByDesc('notification_created_at')
+                                ->limit(8)
+                                ->get();
+                        } catch (\Throwable $e) {
+                            $recentNotes = collect();
+                        }
+                    @endphp
 
+                    @forelse ($recentNotes as $note)
+                        <a href="{{ $note->notification_url ?: url('/purchaser/notifications') }}" class="flex items-start gap-3 border-b border-slate-100 px-5 py-3 hover:bg-slate-50">
+                            <div class="min-w-0">
+                                <h4 class="truncate text-sm font-medium text-slate-900">{{ $note->notification_title }}</h4>
+                                <p class="mt-0.5 line-clamp-2 text-xs text-slate-500">{{ $note->notification_message }}</p>
+                            </div>
+                        </a>
+                    @empty
                     <div
                         class="flex min-h-[220px] flex-col items-center justify-center px-6 text-center"
                     >
@@ -156,6 +193,7 @@
                         </p>
 
                     </div>
+                    @endforelse
 
                 </div>
 
@@ -165,7 +203,7 @@
 
                 <div class="border-t border-slate-100 px-3 py-2">
                     <a
-                        href="{{ url('/admin/notifications') }}"
+                        href="{{ url('/purchaser/notifications') }}"
                         class="block w-full rounded-lg px-3 py-2 text-center text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
                     >
                         View all notifications

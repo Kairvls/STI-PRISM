@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use App\Support\WorkflowNotifier;
 
 class AccountingController extends Controller
 {
@@ -1045,25 +1046,17 @@ class AccountingController extends Controller
 
     private function notifyPurchaser($userId, string $title, string $message, string $kind, string $refType, int $refId, string $url): void
     {
-        if (!Schema::hasTable('notifications_table')) {
-            return;
-        }
-        try {
-            DB::table('notifications_table')->insert([
-                'notification_user_id' => $userId ?: null,
-                'notification_target_role' => 'Purchaser',
-                'notification_title' => $title,
-                'notification_message' => $message,
-                'notification_type' => $kind,
-                'notification_category' => 'accounting',
-                'notification_reference_type' => $refType,
-                'notification_reference_id' => $refId,
-                'notification_url' => $url,
-                'notification_event_key' => Str::uuid()->toString(),
-                'notification_created_at' => now(),
-            ]);
-        } catch (\Throwable $e) {
-        }
+        WorkflowNotifier::toUser(
+            $userId,
+            WorkflowNotifier::ROLE_PURCHASER,
+            $title,
+            $message,
+            $kind,
+            $refType,
+            $refId,
+            $url,
+            'accounting'
+        );
     }
 
     private function rfcHas(string $column): bool

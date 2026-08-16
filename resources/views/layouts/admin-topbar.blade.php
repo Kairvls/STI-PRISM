@@ -88,7 +88,21 @@
                 <!-- ONLY SHOW WHEN UNREAD EXISTS -->
                 <!-- ===================================== -->
 
-                @if (0 > 0)
+                @php
+                    $unreadCount = 0;
+                    try {
+                        $unreadCount = \DB::table('notifications_table')
+                            ->where(function ($q) {
+                                $q->where('notification_user_id', auth()->id())
+                                    ->orWhere('notification_target_role', 'Admin');
+                            })
+                            ->count();
+                    } catch (\Throwable $e) {
+                        $unreadCount = 0;
+                    }
+                @endphp
+
+                @if ($unreadCount > 0)
                     <span
                         class="absolute right-[6px] top-[6px] h-2 w-2 rounded-full border-2 border-white bg-rose-500"
                     ></span>

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use App\Support\WorkflowNotifier;
 
 class ReceivingReportController extends Controller
 {
@@ -131,6 +132,10 @@ class ReceivingReportController extends Controller
             }
             $this->linkRfc($validated['receiving_report_request_check_id'] ?? null, $id);
 
+            if (!$isDraft) {
+                $this->notifyReceiving($id);
+            }
+
             return redirect()->route('purchaser.rr.index')->with(
                 'success',
                 $isDraft ? 'Receiving Report draft saved.' : 'Receiving Report submitted to Receiving.'
@@ -183,6 +188,10 @@ class ReceivingReportController extends Controller
             }
             $this->linkRfc($rfcId, $id);
 
+            if (!$isDraft) {
+                $this->notifyReceiving($id);
+            }
+
             return redirect()->route('purchaser.rr.index')->with(
                 'success',
                 $isDraft ? 'Receiving Report updated.' : 'Receiving Report submitted to Receiving.'
@@ -214,6 +223,7 @@ class ReceivingReportController extends Controller
                 'receiving_report_updated_at' => now(),
             ]);
             $this->linkRfc($rr->receiving_report_request_check_id, $id);
+            $this->notifyReceiving($id);
 
             return back()->with('success', 'Receiving Report submitted to Receiving.');
         });
@@ -568,6 +578,21 @@ class ReceivingReportController extends Controller
     private function findRr($id)
     {
         return DB::table('receiving_reports_table')->where('receiving_report_id', $id)->first();
+    }
+
+    private function notifyReceiving($id): void
+    {
+        $rr = DB::table('receiving_reports_table')->where('receiving_report_id', $id)->first();
+        $ref = $rr->receiving_report_form_number ?? ('RR #' . $id);
+        WorkflowNotifier::toRole(
+            WorkflowNotifier::ROLE_RECEIVING,
+            'Receiving Report submitted',
+            $ref . ' is waiting for inspection.',
+            'rr_submitted',
+            'RR',
+            (int) $id,
+            '/receiving/reports'
+        );
     }
 
     private function isEditable($rr): bool

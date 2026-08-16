@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\View\View;
+use App\Support\WorkflowNotifier;
 
 class AdminController extends Controller
 {
@@ -1466,6 +1467,17 @@ class AdminController extends Controller
             // ignore logging failures
         }
 
+        WorkflowNotifier::toUser(
+            $target->ris_submitted_by,
+            WorkflowNotifier::ROLE_PURCHASER,
+            'RIS approved',
+            ($target->ris_form_number ?: ('RIS #' . $targetId)) . ' was approved. You may create an ATP.',
+            'ris_approved',
+            'RIS',
+            (int) $targetId,
+            '/purchaser/ris'
+        );
+
         return redirect()
             ->route('admin.digital-signatures.sign-ris')
             ->with('success', 'RIS signed (Issued by) and returned to the Purchaser.');
@@ -1528,6 +1540,17 @@ class AdminController extends Controller
             }
         }
 
+        WorkflowNotifier::toUser(
+            $ris->ris_submitted_by,
+            WorkflowNotifier::ROLE_PURCHASER,
+            'RIS approved',
+            ($ris->ris_form_number ?: ('RIS #' . $risId)) . ' was returned to you. You may create an ATP.',
+            'ris_returned',
+            'RIS',
+            (int) $risId,
+            '/purchaser/ris'
+        );
+
         return back()->with('success', 'RIS returned to the Purchaser. They can now create an ATP.');
     }
 
@@ -1546,7 +1569,7 @@ class AdminController extends Controller
 
             abort_if(!$ris, 404);
 
-            if ($ris->ris_status !== 'Rejected') {
+            if (!in_array($ris->ris_status, ['Rejected', 'Rejected by President', 'Rejected by the President'], true)) {
                 return back()->with('error', 'Only President-rejected RIS records can be returned for revision.');
             }
 
@@ -1586,6 +1609,17 @@ class AdminController extends Controller
                 // ignore
             }
 
+            WorkflowNotifier::toUser(
+                $ris->ris_submitted_by,
+                WorkflowNotifier::ROLE_PURCHASER,
+                'RIS rejected by President',
+                ($ris->ris_form_number ?: ('RIS #' . $risId)) . ': ' . $remarks,
+                'ris_rejected',
+                'RIS',
+                (int) $risId,
+                '/purchaser/ris'
+            );
+
             return back()->with('success', 'RIS returned to the Purchaser for revision.');
         });
     }
@@ -1598,7 +1632,20 @@ class AdminController extends Controller
 
     public function notifications(): View
     {
-        return view('admin.notifications.index');
+        $items = collect();
+        try {
+            $items = DB::table('notifications_table')
+                ->where(function ($q) {
+                    $q->where('notification_user_id', Auth::id())
+                        ->orWhere('notification_target_role', 'Admin');
+                })
+                ->orderByDesc('notification_created_at')
+                ->limit(80)
+                ->get();
+        } catch (\Throwable $e) {
+        }
+
+        return view('admin.notifications.index', compact('items'));
     }
 
     public function createNotification(): View
@@ -2224,13 +2271,21 @@ class AdminController extends Controller
 
             $adminName = Auth::user()->user_full_name ?? 'Admin';
 
-            DB::table('requisition_issue_slip_table')
-                ->where('ris_id', $risId)
-                ->update([
-                    'ris_status' => 'Approved',
-                    'ris_approved_by_signature' => $adminName,
-                    'ris_approved_by_date' => now()->toDateString(),
-                ]);
+            $forwardStatus = 'Forwarded to President';
+            try {
+                DB::table('requisition_issue_slip_table')
+                    ->where('ris_id', $risId)
+                    ->update([
+                        'ris_status' => $forwardStatus,
+                    ]);
+            } catch (\Throwable $e) {
+                $forwardStatus = 'Approved';
+                DB::table('requisition_issue_slip_table')
+                    ->where('ris_id', $risId)
+                    ->update([
+                        'ris_status' => $forwardStatus,
+                    ]);
+            }
 
             $this->completeLinkedReplacementRequest($ris);
 
@@ -2241,12 +2296,22 @@ class AdminController extends Controller
                     'approval_log_level' => 'Admin',
                     'approval_log_approved_by' => Auth::id(),
                     'approval_log_approval_status' => 'Forwarded to President',
-                    'approval_log_approval_remarks' => 'RIS forwarded to President by ' . $adminName . ' without Issued by signature.',
+                    'approval_log_approval_remarks' => 'RIS forwarded to President by ' . $adminName . '.',
                     'approval_log_approved_at' => now(),
                 ]);
             } catch (\Throwable $e) {
                 // Ignore logging failures
             }
+
+            WorkflowNotifier::toRole(
+                WorkflowNotifier::ROLE_PRESIDENT,
+                'RIS ready for presidential review',
+                ($ris->ris_form_number ?: ('RIS #' . $risId)) . ' was forwarded by Admin.',
+                'ris_forwarded',
+                'RIS',
+                (int) $risId,
+                '/president/approvals'
+            );
 
             return back()->with('success', 'RIS forwarded to the President for final approval.');
         });
@@ -2364,6 +2429,17 @@ class AdminController extends Controller
 
         $this->completeLinkedReplacementRequest($ris);
 
+        WorkflowNotifier::toUser(
+            $ris->ris_submitted_by,
+            WorkflowNotifier::ROLE_PURCHASER,
+            'RIS approved by Admin',
+            ($ris->ris_form_number ?: ('RIS #' . $risId)) . ' was approved. You may create an ATP.',
+            'ris_approved',
+            'RIS',
+            (int) $risId,
+            '/purchaser/ris'
+        );
+
         // =====================================================
         // APPROVAL LOG
         // Keep a record that this was a Direct Approval
@@ -2455,6 +2531,17 @@ public function rejectRis(Request $request, $risId)
             } catch (\Throwable $e) {
                 // Ignore logging failures
             }
+
+            WorkflowNotifier::toUser(
+                $ris->ris_submitted_by,
+                WorkflowNotifier::ROLE_PURCHASER,
+                'RIS revision required',
+                ($ris->ris_form_number ?: ('RIS #' . $risId)) . ': ' . $remarks,
+                'ris_revision',
+                'RIS',
+                (int) $risId,
+                '/purchaser/ris'
+            );
 
             return back()->with('success', 'RIS returned to Purchaser for amendment. No signature was required.');
         });

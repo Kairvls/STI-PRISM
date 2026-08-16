@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\View\View;
 use Barryvdh\DomPDF\Facade\Pdf;
+use App\Support\WorkflowNotifier;
 
 class ReceivingController extends Controller
 {
@@ -77,6 +78,24 @@ class ReceivingController extends Controller
             'calendarEvents' => $calendarEvents,
             'calendarEventsByDate' => $calendarEventsByDate,
         ]));
+    }
+
+    public function notifications(): View
+    {
+        $items = collect();
+        try {
+            $items = DB::table('notifications_table')
+                ->where(function ($q) {
+                    $q->where('notification_user_id', Auth::id())
+                        ->orWhere('notification_target_role', 'Receiving Officer');
+                })
+                ->orderByDesc('notification_created_at')
+                ->limit(80)
+                ->get();
+        } catch (\Throwable $e) {
+        }
+
+        return view('receiving-officer.notifications.index', compact('items'));
     }
 
     public function quickAccessContent(string $section)
@@ -282,6 +301,8 @@ class ReceivingController extends Controller
                 'receiving_report_updated_at' => now(),
             ]));
 
+            $this->notifyPurchaserRr($rr, 'Receiving completed', 'Items were accepted. You may create a Liquidation Report.', 'rr_completed');
+
             return back()->with('success', 'Second Count confirmed. Items marked as received correctly.');
         });
     }
@@ -302,6 +323,8 @@ class ReceivingController extends Controller
                 'receiving_report_updated_at' => now(),
             ]));
 
+            $this->notifyPurchaserRr($rr, 'Receiving returned', $request->input('remarks'), 'rr_returned');
+
             return back()->with('success', 'Receiving Report returned. Items were not accepted.');
         });
     }
@@ -321,6 +344,8 @@ class ReceivingController extends Controller
                 'receiving_report_revision_notes' => $request->input('remarks'),
                 'receiving_report_updated_at' => now(),
             ]);
+
+            $this->notifyPurchaserRr($rr, 'Receiving revision required', $request->input('remarks'), 'rr_revision');
 
             return back()->with('success', 'Receiving Report returned to Purchaser for revision.');
         });
@@ -1318,5 +1343,20 @@ class ReceivingController extends Controller
         }
 
         return $rr;
+    }
+
+    private function notifyPurchaserRr($rr, string $title, string $message, string $type): void
+    {
+        $ref = $rr->receiving_report_form_number ?? ('RR #' . $rr->receiving_report_id);
+        WorkflowNotifier::toUser(
+            $rr->receiving_report_submitted_by ?? null,
+            WorkflowNotifier::ROLE_PURCHASER,
+            $title,
+            $ref . ': ' . $message,
+            $type,
+            'RR',
+            (int) $rr->receiving_report_id,
+            '/purchaser/receiving-reports'
+        );
     }
 }

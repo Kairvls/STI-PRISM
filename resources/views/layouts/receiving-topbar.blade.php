@@ -88,7 +88,21 @@
                 <!-- ONLY SHOW WHEN UNREAD EXISTS -->
                 <!-- ===================================== -->
 
-                @if (0 > 0)
+                @php
+                    $unreadCount = 0;
+                    try {
+                        $unreadCount = \DB::table('notifications_table')
+                            ->where(function ($q) {
+                                $q->where('notification_user_id', auth()->id())
+                                    ->orWhere('notification_target_role', 'Receiving Officer');
+                            })
+                            ->count();
+                    } catch (\Throwable $e) {
+                        $unreadCount = 0;
+                    }
+                @endphp
+
+                @if ($unreadCount > 0)
                     <span
                         class="absolute right-[6px] top-[6px] h-2 w-2 rounded-full border-2 border-white bg-rose-500"
                     ></span>
@@ -165,7 +179,7 @@
 
                 <div class="border-t border-slate-100 px-3 py-2">
                     <a
-                        href="{{ url('/admin/notifications') }}"
+                        href="{{ url('/receiving/notifications') }}"
                         class="block w-full rounded-lg px-3 py-2 text-center text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
                     >
                         View all notifications

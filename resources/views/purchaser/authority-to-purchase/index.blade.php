@@ -578,11 +578,6 @@
                                             {{ $ris->ris_form_number ?? 'RIS-' . $ris->ris_id }}
                                             @if($ris->equipment_name || $ris->report_unlisted_equipment_name)
                                                 · {{ $ris->equipment_name ?? $ris->report_unlisted_equipment_name }}
-<<<<<<< Updated upstream
-                                            @elseif($ris->ris_manual_title)
-                                                · {{ $ris->ris_manual_title }}
-=======
->>>>>>> Stashed changes
                                             @elseif(!empty($ris->ris_purpose_description))
                                                 · {{ \Illuminate\Support\Str::limit($ris->ris_purpose_description, 40) }}
                                             @endif

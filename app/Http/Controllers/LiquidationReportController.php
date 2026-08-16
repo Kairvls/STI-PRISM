@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use App\Support\WorkflowNotifier;
 
 class LiquidationReportController extends Controller
 {
@@ -88,6 +89,10 @@ class LiquidationReportController extends Controller
             $this->recalcTotals($id, $validated['items'] ?? [], $validated['liquidation_report_amount_advance'] ?? null);
             $this->storeAttachments($request, $id);
 
+            if (!$isDraft) {
+                $this->notifyAccountingLiq($id);
+            }
+
             return redirect()->route('purchaser.liq.index')->with(
                 'success',
                 $isDraft ? 'Liquidation Report draft saved.' : 'Liquidation Report submitted to Accounting.'
@@ -123,6 +128,10 @@ class LiquidationReportController extends Controller
             $this->recalcTotals($id, $validated['items'] ?? [], $validated['liquidation_report_amount_advance'] ?? null);
             $this->deleteRequestedAttachments($request, $id);
             $this->storeAttachments($request, $id);
+
+            if (!$isDraft) {
+                $this->notifyAccountingLiq($id);
+            }
 
             return redirect()->route('purchaser.liq.index')->with(
                 'success',
@@ -166,6 +175,8 @@ class LiquidationReportController extends Controller
                 'liquidation_report_days_lapse' => $this->daysLapsed($liq->liquidation_report_submission_deadline, now()->toDateString()),
                 'liquidation_report_updated_at' => now(),
             ]);
+
+            $this->notifyAccountingLiq($id);
 
             return back()->with('success', 'Liquidation Report submitted to Accounting.');
         });
@@ -618,6 +629,21 @@ class LiquidationReportController extends Controller
     private function find($id)
     {
         return DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->first();
+    }
+
+    private function notifyAccountingLiq($id): void
+    {
+        $liq = DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->first();
+        $ref = $liq->liquidation_report_form_number ?? ('LIQ #' . $id);
+        WorkflowNotifier::toRole(
+            WorkflowNotifier::ROLE_ACCOUNTING,
+            'Liquidation Report submitted',
+            $ref . ' is waiting for Accounting review.',
+            'liq_submitted',
+            'LIQ',
+            (int) $id,
+            '/accounting/liquidation-reports/' . $id
+        );
     }
 
     private function isEditable($liq): bool
