@@ -77,6 +77,7 @@ class PurchaserModuleIntegrationTest extends TestCase
         $routes = \Illuminate\Support\Facades\Route::getRoutes();
 
         foreach ([
+            'purchaser.file-maintenance.index',
             'purchaser.brands.index',
             'purchaser.brands.store',
             'purchaser.brands.update',
@@ -88,6 +89,19 @@ class PurchaserModuleIntegrationTest extends TestCase
         ] as $name) {
             $this->assertNotNull($routes->getByName($name), "Missing route: {$name}");
         }
+    }
+
+    public function test_legacy_file_maintenance_index_urls_redirect_to_hub()
+    {
+        $routes = \Illuminate\Support\Facades\Route::getRoutes();
+        $hub = $routes->getByName('purchaser.file-maintenance.index');
+        $brandsIndex = $routes->getByName('purchaser.brands.index');
+
+        $this->assertNotNull($hub);
+        $this->assertNotNull($brandsIndex);
+        $this->assertSame('purchaser/file-maintenance', $hub->uri());
+        $this->assertSame('purchaser/brands', $brandsIndex->uri());
+        $this->assertTrue(method_exists(\App\Http\Controllers\FileMaintenanceController::class, 'index'));
     }
 
     // ============ CONTROLLER METHOD TESTS ============
@@ -331,5 +345,165 @@ class PurchaserModuleIntegrationTest extends TestCase
         $this->assertTrue(method_exists($atpController, 'approve'));
         $this->assertTrue(method_exists($atpController, 'reject'));
         $this->assertTrue(method_exists($atpController, 'archive'));
+    }
+
+    public function test_rfc_liq_and_replacement_routes_are_registered()
+    {
+        $routes = \Illuminate\Support\Facades\Route::getRoutes();
+
+        foreach ([
+            'purchaser.rfc.store',
+            'purchaser.rfc.submit',
+            'purchaser.rr.store',
+            'purchaser.rr.submit',
+            'purchaser.liq.store',
+            'purchaser.liq.submit',
+            'purchaser.procurement.replacement-requests.approve',
+            'purchaser.procurement.replacement-requests.reject',
+        ] as $name) {
+            $this->assertNotNull($routes->getByName($name), "Missing route: {$name}");
+        }
+    }
+
+    public function test_replacement_reject_requires_remarks()
+    {
+        $user = new \App\Models\User();
+        $user->user_id = 99001;
+        $user->user_role_id = 3;
+        $user->user_full_name = 'Test Purchaser';
+
+        $this->actingAs($user)
+            ->from('/purchaser/procurement/replacement-requests')
+            ->post(route('purchaser.procurement.replacement-requests.reject', 1), [])
+            ->assertSessionHasErrors('remarks');
+    }
+
+    public function test_rfc_cannot_bind_unapproved_atp()
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('authority_to_purchase_table')
+            || !\Illuminate\Support\Facades\Schema::hasTable('request_check_table')) {
+            $this->markTestSkipped('Procurement tables are not available in this environment.');
+        }
+
+        $user = new \App\Models\User();
+        $user->user_id = 99002;
+        $user->user_role_id = 3;
+        $user->user_full_name = 'Test Purchaser';
+
+        $atpId = \Illuminate\Support\Facades\DB::table('authority_to_purchase_table')->insertGetId([
+            'authority_purchase_status' => 'Pending',
+            'authority_purchase_is_archived' => 0,
+            'authority_purchase_created_at' => now(),
+            'authority_purchase_updated_at' => now(),
+        ]);
+
+        $this->actingAs($user)
+            ->from(route('purchaser.rfc.index'))
+            ->post(route('purchaser.rfc.store'), [
+                'save_action' => 'submit',
+                'request_check_authority_purchase_id' => $atpId,
+                'request_check_date' => now()->toDateString(),
+                'request_check_payee' => 'Test Payee',
+                'request_check_amount_figures' => 100,
+                'request_check_particulars_purpose' => 'Test purpose',
+                'request_check_requested_by' => 'Test Purchaser',
+            ])
+            ->assertSessionHas('error');
+
+        \Illuminate\Support\Facades\DB::table('authority_to_purchase_table')->where('authority_purchase_id', $atpId)->delete();
+    }
+
+    public function test_liq_cannot_bind_incomplete_receiving_report()
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('receiving_reports_table')
+            || !\Illuminate\Support\Facades\Schema::hasTable('liquidation_reports_table')) {
+            $this->markTestSkipped('Liquidation tables are not available in this environment.');
+        }
+
+        $user = new \App\Models\User();
+        $user->user_id = 99003;
+        $user->user_role_id = 3;
+        $user->user_full_name = 'Test Purchaser';
+
+        $rrId = \Illuminate\Support\Facades\DB::table('receiving_reports_table')->insertGetId([
+            'receiving_report_status' => 'Draft',
+            'receiving_report_is_archived' => 0,
+            'receiving_report_created_at' => now(),
+            'receiving_report_updated_at' => now(),
+        ]);
+
+        $this->actingAs($user)
+            ->from(route('purchaser.liq.index'))
+            ->post(route('purchaser.liq.store'), [
+                'save_action' => 'submit',
+                'liquidation_report_receiving_report_id' => $rrId,
+                'liquidation_report_employee_name' => 'Test Employee',
+                'liquidation_report_purpose' => 'Test purpose',
+                'liquidation_report_amount_advance' => 50,
+                'liquidation_report_submitted_by_signature' => 'Test Purchaser',
+                'items' => [
+                    ['particulars' => 'Item', 'amount' => 50, 'actual_amount' => 50, 'actual_total' => 50],
+                ],
+            ])
+            ->assertSessionHas('error');
+
+        \Illuminate\Support\Facades\DB::table('receiving_reports_table')->where('receiving_report_id', $rrId)->delete();
+    }
+
+    public function test_rfc_submit_rejects_incomplete_draft()
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('request_check_table')) {
+            $this->markTestSkipped('Request for Check table is not available in this environment.');
+        }
+
+        $user = new \App\Models\User();
+        $user->user_id = 99004;
+        $user->user_role_id = 3;
+        $user->user_full_name = 'Test Purchaser';
+
+        $rfcId = \Illuminate\Support\Facades\DB::table('request_check_table')->insertGetId([
+            'request_check_status' => 'Draft',
+            'request_check_is_archived' => 0,
+            'request_check_created_at' => now(),
+            'request_check_updated_at' => now(),
+        ]);
+
+        $this->actingAs($user)
+            ->from(route('purchaser.rfc.index'))
+            ->post(route('purchaser.rfc.submit', $rfcId))
+            ->assertSessionHas('error');
+
+        \Illuminate\Support\Facades\DB::table('request_check_table')->where('request_check_id', $rfcId)->delete();
+    }
+
+    public function test_replacement_cannot_approve_non_pending()
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('procurement_requests_table')) {
+            $this->markTestSkipped('Procurement requests table is not available in this environment.');
+        }
+
+        $user = new \App\Models\User();
+        $user->user_id = 99005;
+        $user->user_role_id = 3;
+        $user->user_full_name = 'Test Purchaser';
+
+        $requestId = \Illuminate\Support\Facades\DB::table('procurement_requests_table')->insertGetId([
+            'procurement_request_status' => 'Approved',
+            'procurement_request_is_archived' => 0,
+        ]);
+
+        $this->actingAs($user)
+            ->from('/purchaser/procurement/replacement-requests')
+            ->post(route('purchaser.procurement.replacement-requests.approve', $requestId))
+            ->assertSessionHas('error');
+
+        $this->actingAs($user)
+            ->from('/purchaser/procurement/replacement-requests')
+            ->post(route('purchaser.procurement.replacement-requests.reject', $requestId), [
+                'remarks' => 'Too late to reject this request',
+            ])
+            ->assertSessionHas('error');
+
+        \Illuminate\Support\Facades\DB::table('procurement_requests_table')->where('procurement_request_id', $requestId)->delete();
     }
 }

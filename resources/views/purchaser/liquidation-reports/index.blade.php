@@ -49,31 +49,31 @@
     "
     class="space-y-6"
 >
-    @if(session('success'))<div class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{{ session('success') }}</div>@endif
-    @if(session('error'))<div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ session('error') }}</div>@endif
-    @if($errors->any())<div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"><ul class="list-disc pl-5">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
+    @if(session('success'))<div class="pur-alert-success">{{ session('success') }}</div>@endif
+    @if(session('error'))<div class="pur-alert-error">{{ session('error') }}</div>@endif
+    @if($errors->any())<div class="pur-alert-error"><ul class="list-disc pl-5">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
 
     <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
-            <h2 class="text-2xl font-semibold text-slate-900">Liquidation Reports</h2>
-            <p class="text-sm text-slate-600">From completed Receiving Reports. Accounting checks, Admin endorses.</p>
+            <p class="pur-page-kicker">Purchasing Workflow</p>
+            <h2 class="pur-page-title">Liquidation Reports</h2>
         </div>
         <div class="flex flex-wrap gap-2">
-            <a href="{{ route('purchaser.liq.index') }}" class="inline-flex h-10 items-center rounded-lg border px-5 text-sm">Active</a>
-            <a href="{{ route('purchaser.liq.index', ['view' => 'archive']) }}" class="inline-flex h-10 items-center rounded-lg border px-5 text-sm">Archive</a>
+            <a href="{{ route('purchaser.liq.index') }}" class="pur-btn-secondary">Active</a>
+            <a href="{{ route('purchaser.liq.index', ['view' => 'archive']) }}" class="pur-btn-secondary">Archive</a>
             @unless($archiveView)
-                <button type="button" @click="createOpen = true" class="h-10 rounded-lg bg-gray-900 px-5 text-sm text-white">Create</button>
+                <button type="button" @click="createOpen = true" class="pur-btn-primary">Create</button>
             @endunless
         </div>
     </div>
 
     <div class="grid grid-cols-1 gap-4 md:grid-cols-6">
         @foreach([['Total',$summary['total'],route('purchaser.liq.index')],['Draft',$summary['draft'],route('purchaser.liq.index',['status'=>'Draft'])],['In Review',$summary['submitted'],route('purchaser.liq.index',['status'=>'Submitted'])],['Approved',$summary['approved'],route('purchaser.liq.index',['status'=>'Approved'])],['Rejected',$summary['rejected'],route('purchaser.liq.index',['status'=>'Rejected'])],['Archived',$summary['archived'],route('purchaser.liq.index',['view'=>'archive'])]] as $card)
-            <a href="{{ $card[2] }}" class="rounded-xl border bg-white p-5"><p class="text-sm text-gray-500">{{ $card[0] }}</p><p class="mt-3 text-3xl font-semibold">{{ $card[1] }}</p></a>
+            <a href="{{ $card[2] }}" class="pur-stat-card"><p class="text-sm text-gray-500">{{ $card[0] }}</p><p class="mt-3 text-3xl font-semibold">{{ $card[1] }}</p></a>
         @endforeach
     </div>
 
-    <form method="GET" class="grid gap-3 rounded-xl border bg-white p-4 lg:grid-cols-5">
+    <form method="GET" class="pur-card grid gap-3 p-4 lg:grid-cols-5">
         @if($archiveView)<input type="hidden" name="view" value="archive">@endif
         <input type="text" name="search" value="{{ request('search') }}" placeholder="Search liquidation, RR, employee" class="h-10 rounded-lg border px-3 text-sm lg:col-span-2">
         <select name="status" class="h-10 rounded-lg border px-3 text-sm">
@@ -83,7 +83,7 @@
             @endforeach
         </select>
         <input type="date" name="date" value="{{ request('date') }}" class="h-10 rounded-lg border px-3 text-sm">
-        <button class="h-10 rounded-lg bg-gray-900 px-5 text-sm text-white">Search</button>
+        <button class="pur-btn-primary">Search</button>
     </form>
 
     <div class="overflow-hidden rounded-xl border bg-white">
@@ -110,7 +110,7 @@
                                 <a href="{{ route('purchaser.liq.export-docx', $liq->liquidation_report_id) }}" class="rounded-lg border px-3 py-2 text-xs">Word</a>
                                 @if($editable)
                                     <button type="button" @click="openEdit({{ $liq->liquidation_report_id }})" class="rounded-lg border px-3 py-2 text-xs">Edit</button>
-                                    <form method="POST" action="{{ route('purchaser.liq.submit', $liq->liquidation_report_id) }}">@csrf<button class="rounded-lg bg-gray-900 px-3 py-2 text-xs text-white">Submit</button></form>
+                                    <form method="POST" action="{{ route('purchaser.liq.submit', $liq->liquidation_report_id) }}">@csrf<button class="pur-btn-primary !px-3 !py-2 !text-xs">Submit</button></form>
                                 @endif
                                 @if($archiveView)
                                     <form method="POST" action="{{ route('purchaser.liq.restore', $liq->liquidation_report_id) }}">@csrf<button class="rounded-lg border px-3 py-2 text-xs">Restore</button></form>
@@ -159,7 +159,7 @@
                         </div>
                         <div class="flex justify-end gap-2 border-t px-6 py-4">
                             <button type="submit" class="rounded-lg border px-4 py-2 text-sm">Save Draft</button>
-                            <button type="submit" onclick="this.form.save_action.value='submit'" class="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white">Save & Submit</button>
+                            <button type="submit" onclick="this.form.save_action.value='submit'" class="pur-btn-primary">Save & Submit</button>
                         </div>
                     </form>
                 @endif
@@ -209,7 +209,7 @@
                             </div>
                             <div class="flex justify-end gap-2 border-t px-6 py-4">
                                 <button type="submit" class="rounded-lg border px-4 py-2 text-sm">Update Draft</button>
-                                <button type="submit" onclick="this.form.save_action.value='submit'" class="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white">Save & Submit</button>
+                                <button type="submit" onclick="this.form.save_action.value='submit'" class="pur-btn-primary">Save & Submit</button>
                             </div>
                         </form>
                     </div>

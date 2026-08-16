@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class AuthorityToPurchaseController extends Controller
@@ -109,37 +110,9 @@ class AuthorityToPurchaseController extends Controller
             ->paginate(10)
             ->withQueryString();
 
-        $activeScope = function ($q) {
-            $q->whereNull('authority_purchase_is_archived')
-                ->orWhere('authority_purchase_is_archived', 0);
-        };
+        $atpSummary = $this->atpStatusSummary();
 
-        $atpSummary = [
-            'total' => DB::table('authority_to_purchase_table')->where($activeScope)->count(),
-            'draft' => DB::table('authority_to_purchase_table')
-                ->where('authority_purchase_status', 'Pending')
-                ->whereNull('authority_purchase_submitted_at')
-                ->where($activeScope)
-                ->count(),
-            'submitted' => DB::table('authority_to_purchase_table')
-                ->where('authority_purchase_status', 'Pending')
-                ->whereNotNull('authority_purchase_submitted_at')
-                ->where($activeScope)
-                ->count(),
-            'approved' => DB::table('authority_to_purchase_table')
-                ->where('authority_purchase_status', 'Approved')
-                ->where($activeScope)
-                ->count(),
-            'rejected' => DB::table('authority_to_purchase_table')
-                ->where('authority_purchase_status', 'Rejected')
-                ->where($activeScope)
-                ->count(),
-            'archived' => DB::table('authority_to_purchase_table')
-                ->where('authority_purchase_is_archived', 1)
-                ->count(),
-        ];
-
-        $eligibleRis = $this->eligibleRisQuery()->get();
+        $eligibleRis = $this->eligibleRisQuery()->limit(50)->get();
         $suppliers = $this->activeSuppliersQuery()->get();
 
         $atpIds = $atps->getCollection()->pluck('authority_purchase_id');
@@ -212,7 +185,7 @@ class AuthorityToPurchaseController extends Controller
             'authority_purchase_supplier_id' => [
                 $isDraft ? 'nullable' : 'required',
                 'integer',
-                'exists:suppliers_table,supplier_id',
+                Rule::exists('suppliers_table', 'supplier_id')->where(fn ($q) => $q->where('supplier_is_active', 1)),
             ],
             'authority_purchase_date' => [
                 $isDraft ? 'nullable' : 'required',
@@ -285,12 +258,6 @@ class AuthorityToPurchaseController extends Controller
 
     public function show($id)
     {
-        $atp = $this->findAtpWithRelations($id);
-
-        if (!$atp) {
-            return redirect()->route('purchaser.atp.index')->with('error', 'Authority to Purchase record not found.');
-        }
-
         return redirect()->route('purchaser.atp.index', ['view_atp' => $id]);
     }
 
@@ -334,7 +301,7 @@ class AuthorityToPurchaseController extends Controller
             'authority_purchase_supplier_id' => [
                 $isDraft ? 'nullable' : 'required',
                 'integer',
-                'exists:suppliers_table,supplier_id',
+                Rule::exists('suppliers_table', 'supplier_id')->where(fn ($q) => $q->where('supplier_is_active', 1)),
             ],
             'authority_purchase_date' => [
                 $isDraft ? 'nullable' : 'required',
@@ -584,8 +551,11 @@ class AuthorityToPurchaseController extends Controller
                 'reports_table.report_equipment_id',
                 '=',
                 'equipment_table.equipment_id'
-            )
-            ->where('requisition_issue_slip_table.ris_status', 'Approved')
+            );
+
+        $this->applyAtpEligibleRisScope($query);
+
+        return $query
             ->whereNotExists(function ($query) {
                 $query->select(DB::raw(1))
                     ->from('authority_to_purchase_table')
@@ -604,17 +574,58 @@ class AuthorityToPurchaseController extends Controller
                 'requisition_issue_slip_table.ris_form_number',
                 'requisition_issue_slip_table.ris_request_type',
                 'requisition_issue_slip_table.ris_manual_title',
+                'requisition_issue_slip_table.ris_supplier_id',
                 'procurement_requests_table.procurement_request_id',
                 'equipment_table.equipment_name',
                 'reports_table.report_unlisted_equipment_name'
             )
             ->orderByDesc('requisition_issue_slip_table.ris_created_at');
+    }
 
-        if (Schema::hasColumn('requisition_issue_slip_table', 'ris_supplier_id')) {
-            $query->addSelect('requisition_issue_slip_table.ris_supplier_id');
+    private function atpStatusSummary(): array
+    {
+        $rows = DB::table('authority_to_purchase_table')
+            ->select(
+                'authority_purchase_status',
+                'authority_purchase_is_archived',
+                DB::raw('CASE WHEN authority_purchase_submitted_at IS NULL THEN 0 ELSE 1 END as is_submitted'),
+                DB::raw('COUNT(*) as aggregate')
+            )
+            ->groupBy(
+                'authority_purchase_status',
+                'authority_purchase_is_archived',
+                DB::raw('CASE WHEN authority_purchase_submitted_at IS NULL THEN 0 ELSE 1 END')
+            )
+            ->get();
+
+        $summary = [
+            'total' => 0,
+            'draft' => 0,
+            'submitted' => 0,
+            'approved' => 0,
+            'rejected' => 0,
+            'archived' => 0,
+        ];
+
+        foreach ($rows as $row) {
+            $count = (int) $row->aggregate;
+            if ((int) $row->authority_purchase_is_archived === 1) {
+                $summary['archived'] += $count;
+                continue;
+            }
+            $summary['total'] += $count;
+            if ($row->authority_purchase_status === 'Pending' && (int) $row->is_submitted === 0) {
+                $summary['draft'] += $count;
+            } elseif ($row->authority_purchase_status === 'Pending') {
+                $summary['submitted'] += $count;
+            } elseif ($row->authority_purchase_status === 'Approved') {
+                $summary['approved'] += $count;
+            } elseif ($row->authority_purchase_status === 'Rejected') {
+                $summary['rejected'] += $count;
+            }
         }
 
-        return $query;
+        return $summary;
     }
 
     private function buildRisPrefill($eligibleRis): array
@@ -797,11 +808,12 @@ class AuthorityToPurchaseController extends Controller
             ->where('authority_purchase_id', $authorityPurchaseId)
             ->delete();
 
+        $rows = [];
         foreach ($items as $item) {
             $quantity = $item['quantity'] ?? null;
             $unitPrice = $item['unit_price'] ?? null;
 
-            DB::table('authority_to_purchase_items_table')->insert([
+            $rows[] = [
                 'authority_purchase_id' => $authorityPurchaseId,
                 'atp_description' => $item['description'],
                 'atp_quantity' => $quantity,
@@ -810,7 +822,10 @@ class AuthorityToPurchaseController extends Controller
                 'atp_amount' => ($quantity !== null && $unitPrice !== null)
                     ? $quantity * $unitPrice
                     : null,
-            ]);
+            ];
+        }
+        if ($rows !== []) {
+            DB::table('authority_to_purchase_items_table')->insert($rows);
         }
     }
 

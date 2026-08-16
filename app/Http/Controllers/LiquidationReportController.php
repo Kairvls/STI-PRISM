@@ -52,18 +52,7 @@ class LiquidationReportController extends Controller
 
         $reports = $query->orderByDesc('liquidation_reports_table.liquidation_report_created_at')->paginate(10)->withQueryString();
 
-        $activeScope = function ($q) {
-            $q->whereNull('liquidation_report_is_archived')->orWhere('liquidation_report_is_archived', 0);
-        };
-
-        $summary = [
-            'total' => DB::table('liquidation_reports_table')->where($activeScope)->count(),
-            'draft' => DB::table('liquidation_reports_table')->where('liquidation_report_status', 'Draft')->where($activeScope)->count(),
-            'submitted' => DB::table('liquidation_reports_table')->whereIn('liquidation_report_status', ['Submitted', 'Under Review', 'Resubmitted', 'Pending Admin Approval'])->where($activeScope)->count(),
-            'approved' => DB::table('liquidation_reports_table')->where('liquidation_report_status', 'Approved')->where($activeScope)->count(),
-            'rejected' => DB::table('liquidation_reports_table')->where('liquidation_report_status', 'Rejected')->where($activeScope)->count(),
-            'archived' => DB::table('liquidation_reports_table')->where('liquidation_report_is_archived', 1)->count(),
-        ];
+        $summary = $this->liqStatusSummary();
 
         $eligibleRrs = $this->eligibleRrQuery()->get();
         $rrPrefill = $this->buildRrPrefill($eligibleRrs);
@@ -80,8 +69,8 @@ class LiquidationReportController extends Controller
         $isDraft = $request->input('save_action', 'draft') === 'draft';
         $validated = $this->validateLiq($request, $isDraft);
 
-        if ($this->hasBlocking($validated['liquidation_report_receiving_report_id'] ?? null)) {
-            return back()->withInput()->with('error', 'A Liquidation Report already exists for the selected Receiving Report.');
+        if ($error = $this->rrEligibilityError($validated['liquidation_report_receiving_report_id'] ?? null, null, !$isDraft)) {
+            return back()->withInput()->with('error', $error);
         }
 
         return DB::transaction(function () use ($request, $validated, $isDraft) {
@@ -91,7 +80,12 @@ class LiquidationReportController extends Controller
                 'liquidation_report_form_number' => 'LIQ-' . now()->format('Y') . '-' . str_pad((string) $id, 5, '0', STR_PAD_LEFT),
             ]);
             $this->replaceItems($id, $validated['items'] ?? []);
-            $this->recalcTotals($id);
+            if (!$isDraft && !$this->hasCompleteLiqItem($id)) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'items' => 'Add at least one expense line before submitting.',
+                ]);
+            }
+            $this->recalcTotals($id, $validated['items'] ?? [], $validated['liquidation_report_amount_advance'] ?? null);
             $this->storeAttachments($request, $id);
 
             return redirect()->route('purchaser.liq.index')->with(
@@ -112,8 +106,8 @@ class LiquidationReportController extends Controller
         $validated = $this->validateLiq($request, $isDraft);
         $rrId = $validated['liquidation_report_receiving_report_id'] ?? $liq->liquidation_report_receiving_report_id;
 
-        if ($this->hasBlocking($rrId, $id)) {
-            return back()->withInput()->with('error', 'A Liquidation Report already exists for the selected Receiving Report.');
+        if ($error = $this->rrEligibilityError($rrId, $id, !$isDraft)) {
+            return back()->withInput()->with('error', $error);
         }
 
         return DB::transaction(function () use ($request, $validated, $liq, $isDraft, $id) {
@@ -121,7 +115,12 @@ class LiquidationReportController extends Controller
             unset($payload['liquidation_report_created_at']);
             DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->update($payload);
             $this->replaceItems($id, $validated['items'] ?? []);
-            $this->recalcTotals($id);
+            if (!$isDraft && !$this->hasCompleteLiqItem($id)) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'items' => 'Add at least one expense line before submitting.',
+                ]);
+            }
+            $this->recalcTotals($id, $validated['items'] ?? [], $validated['liquidation_report_amount_advance'] ?? null);
             $this->deleteRequestedAttachments($request, $id);
             $this->storeAttachments($request, $id);
 
@@ -134,24 +133,42 @@ class LiquidationReportController extends Controller
 
     public function submit($id)
     {
-        $liq = $this->find($id);
-        if (!$liq || !$this->isEditable($liq)) {
-            return back()->with('error', 'This Liquidation Report cannot be submitted.');
-        }
+        return DB::transaction(function () use ($id) {
+            $liq = DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->lockForUpdate()->first();
+            if (!$liq || !$this->isEditable($liq)) {
+                return back()->with('error', 'This Liquidation Report cannot be submitted.');
+            }
 
-        $wasRevision = $liq->liquidation_report_status === 'Minor Revision';
-        DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->update([
-            'liquidation_report_status' => $wasRevision ? 'Resubmitted' : 'Submitted',
-            'liquidation_report_review_stage' => 'accounting',
-            'liquidation_report_submitted_by' => auth()->id(),
-            'liquidation_report_submitted_at' => now(),
-            'liquidation_report_date_submitted' => now()->toDateString(),
-            'liquidation_report_submitted_by_date' => now()->toDateString(),
-            'liquidation_report_days_lapse' => $this->daysLapsed($liq->liquidation_report_submission_deadline, now()->toDateString()),
-            'liquidation_report_updated_at' => now(),
-        ]);
+            if (
+                blank($liq->liquidation_report_employee_name)
+                || blank($liq->liquidation_report_purpose)
+                || $liq->liquidation_report_amount_advance === null
+            ) {
+                return back()->with('error', 'Complete employee, purpose, and amount advanced before submitting.');
+            }
 
-        return back()->with('success', 'Liquidation Report submitted to Accounting.');
+            if ($error = $this->rrEligibilityError($liq->liquidation_report_receiving_report_id, $id, true)) {
+                return back()->with('error', $error);
+            }
+
+            if (!$this->hasCompleteLiqItem($id)) {
+                return back()->with('error', 'Add at least one expense line before submitting.');
+            }
+
+            $wasRevision = $liq->liquidation_report_status === 'Minor Revision';
+            DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->update([
+                'liquidation_report_status' => $wasRevision ? 'Resubmitted' : 'Submitted',
+                'liquidation_report_review_stage' => 'accounting',
+                'liquidation_report_submitted_by' => auth()->id(),
+                'liquidation_report_submitted_at' => now(),
+                'liquidation_report_date_submitted' => now()->toDateString(),
+                'liquidation_report_submitted_by_date' => now()->toDateString(),
+                'liquidation_report_days_lapse' => $this->daysLapsed($liq->liquidation_report_submission_deadline, now()->toDateString()),
+                'liquidation_report_updated_at' => now(),
+            ]);
+
+            return back()->with('success', 'Liquidation Report submitted to Accounting.');
+        });
     }
 
     public function archive($id)
@@ -244,18 +261,19 @@ class LiquidationReportController extends Controller
             'liquidation_report_activity_end_date' => ['nullable', 'date'],
             'liquidation_report_submission_deadline' => ['nullable', 'date'],
             'liquidation_report_date_submitted' => ['nullable', 'date'],
-            'liquidation_report_other_income' => ['nullable', 'numeric'],
+            'liquidation_report_other_income' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
             'liquidation_report_cash_returned_or_no' => ['nullable', 'string', 'max:100'],
             'liquidation_report_submitted_by_signature' => [$isDraft ? 'nullable' : 'required', 'string', 'max:255'],
             'items' => ['nullable', 'array', 'max:20'],
             'items.*.particulars' => ['nullable', 'string', 'max:2000'],
-            'items.*.amount' => ['nullable', 'numeric'],
-            'items.*.actual_amount' => ['nullable', 'numeric'],
-            'items.*.actual_total' => ['nullable', 'numeric'],
+            'items.*.amount' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
+            'items.*.actual_amount' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
+            'items.*.actual_total' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
             'items.*.ref_no' => ['nullable', 'string', 'max:100'],
             'attachments' => ['nullable', 'array', 'max:10'],
             'attachments.*' => ['file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
             'delete_attachments' => ['nullable', 'array'],
+            'delete_attachments.*' => ['integer'],
         ]);
     }
 
@@ -302,6 +320,7 @@ class LiquidationReportController extends Controller
     private function replaceItems($id, array $items): void
     {
         DB::table('liquidation_report_items_table')->where('liquidation_report_id', $id)->delete();
+        $rows = [];
         foreach ($items as $row) {
             $particulars = $row['particulars'] ?? null;
             $amount = $row['amount'] ?? null;
@@ -311,7 +330,7 @@ class LiquidationReportController extends Controller
                 continue;
             }
             $variance = ((float) ($total ?? 0)) - ((float) ($amount ?? 0));
-            DB::table('liquidation_report_items_table')->insert([
+            $rows[] = [
                 'liquidation_report_id' => $id,
                 'liquidation_item_particulars' => $particulars,
                 'liquidation_item_particulars_amount' => $amount,
@@ -319,16 +338,22 @@ class LiquidationReportController extends Controller
                 'liquidation_item_actual_total_amount' => $total,
                 'liquidation_item_variance' => $variance,
                 'liquidation_item_ref_no' => $row['ref_no'] ?? null,
-            ]);
+            ];
+        }
+        if ($rows !== []) {
+            DB::table('liquidation_report_items_table')->insert($rows);
         }
     }
 
-    private function recalcTotals($id): void
+    private function recalcTotals($id, array $items = [], $headerAdvance = null): void
     {
-        $advance = (float) DB::table('liquidation_report_items_table')->where('liquidation_report_id', $id)->sum('liquidation_item_particulars_amount');
-        $actual = (float) DB::table('liquidation_report_items_table')->where('liquidation_report_id', $id)->sum('liquidation_item_actual_total_amount');
-        $headerAdvance = DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->value('liquidation_report_amount_advance');
-        $amtAdvanced = $headerAdvance !== null ? (float) $headerAdvance : $advance;
+        $advance = 0.0;
+        $actual = 0.0;
+        foreach ($items as $row) {
+            $advance += (float) ($row['amount'] ?? 0);
+            $actual += (float) ($row['actual_total'] ?? $row['actual_amount'] ?? 0);
+        }
+        $amtAdvanced = $headerAdvance !== null && $headerAdvance !== '' ? (float) $headerAdvance : $advance;
 
         DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->update([
             'liquidation_report_summary_amt_advanced' => $amtAdvanced,
@@ -438,7 +463,8 @@ class LiquidationReportController extends Controller
                 'request_check_table.request_check_amount_figures',
                 'authority_to_purchase_table.authority_purchase_id'
             )
-            ->orderByDesc('receiving_reports_table.receiving_report_id');
+            ->orderByDesc('receiving_reports_table.receiving_report_id')
+            ->limit(50);
     }
 
     private function buildRrPrefill($eligibleRrs): array
@@ -483,6 +509,77 @@ class LiquidationReportController extends Controller
         }
 
         return $prefill;
+    }
+
+    private function liqStatusSummary(): array
+    {
+        $counts = DB::table('liquidation_reports_table')
+            ->select('liquidation_report_status', 'liquidation_report_is_archived', DB::raw('COUNT(*) as aggregate'))
+            ->groupBy('liquidation_report_status', 'liquidation_report_is_archived')
+            ->get();
+
+        $summary = [
+            'total' => 0,
+            'draft' => 0,
+            'submitted' => 0,
+            'approved' => 0,
+            'rejected' => 0,
+            'archived' => 0,
+        ];
+        $submitted = ['Submitted', 'Under Review', 'Resubmitted', 'Pending Admin Approval'];
+
+        foreach ($counts as $row) {
+            $count = (int) $row->aggregate;
+            if ((int) $row->liquidation_report_is_archived === 1) {
+                $summary['archived'] += $count;
+                continue;
+            }
+            $summary['total'] += $count;
+            if ($row->liquidation_report_status === 'Draft') {
+                $summary['draft'] += $count;
+            } elseif (in_array($row->liquidation_report_status, $submitted, true)) {
+                $summary['submitted'] += $count;
+            } elseif ($row->liquidation_report_status === 'Approved') {
+                $summary['approved'] += $count;
+            } elseif ($row->liquidation_report_status === 'Rejected') {
+                $summary['rejected'] += $count;
+            }
+        }
+
+        return $summary;
+    }
+
+    private function rrEligibilityError($rrId, $ignoreId, bool $required): ?string
+    {
+        if (!$rrId) {
+            return $required ? 'Select a completed Receiving Report before submitting.' : null;
+        }
+
+        $rr = DB::table('receiving_reports_table')->where('receiving_report_id', $rrId)->first();
+        if (
+            !$rr
+            || $rr->receiving_report_status !== 'Completed'
+            || !empty($rr->receiving_report_is_archived)
+        ) {
+            return 'Only a completed Receiving Report can be used for a Liquidation Report.';
+        }
+
+        if ($this->hasBlocking($rrId, $ignoreId)) {
+            return 'A Liquidation Report already exists for the selected Receiving Report.';
+        }
+
+        return null;
+    }
+
+    private function hasCompleteLiqItem($id): bool
+    {
+        return DB::table('liquidation_report_items_table')
+            ->where('liquidation_report_id', $id)
+            ->where(function ($q) {
+                $q->whereNotNull('liquidation_item_particulars')
+                    ->where('liquidation_item_particulars', '!=', '');
+            })
+            ->exists();
     }
 
     private function hasBlocking($rrId, $ignoreId = null): bool

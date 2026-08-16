@@ -8,29 +8,6 @@ use Illuminate\Validation\Rule;
 
 class BrandController extends Controller
 {
-    public function index(Request $request)
-    {
-        $query = Brand::query();
-
-        if ($request->filled('search')) {
-            $query->where('brand_name', 'LIKE', '%' . $request->search . '%');
-        }
-
-        if ($request->filled('status')) {
-            $query->where('brand_status', $request->status);
-        }
-
-        $brands = $query->orderBy('brand_name')->paginate(10)->withQueryString();
-
-        $summary = [
-            'total' => Brand::count(),
-            'active' => Brand::where('brand_status', 'Active')->count(),
-            'inactive' => Brand::where('brand_status', 'Inactive')->count(),
-        ];
-
-        return view('purchaser.file-maintenance.brands.index', compact('brands', 'summary'));
-    }
-
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -45,7 +22,7 @@ class BrandController extends Controller
             'brand_updated_at' => now(),
         ]);
 
-        return redirect()->route('purchaser.brands.index')->with('success', 'Brand created successfully.');
+        return redirect()->route('purchaser.file-maintenance.index', ['tab' => 'brands'])->with('success', 'Brand created successfully.');
     }
 
     public function update(Request $request, $brandId)
@@ -68,7 +45,7 @@ class BrandController extends Controller
             'brand_updated_at' => now(),
         ]);
 
-        return redirect()->route('purchaser.brands.index')->with('success', 'Brand updated successfully.');
+        return redirect()->route('purchaser.file-maintenance.index', ['tab' => 'brands'])->with('success', 'Brand updated successfully.');
     }
 
     public function destroy($brandId)
@@ -76,6 +53,6 @@ class BrandController extends Controller
         $brand = Brand::findOrFail($brandId);
         $brand->delete();
 
-        return redirect()->route('purchaser.brands.index')->with('success', 'Brand deleted successfully.');
+        return redirect()->route('purchaser.file-maintenance.index', ['tab' => 'brands'])->with('success', 'Brand deleted successfully.');
     }
 }

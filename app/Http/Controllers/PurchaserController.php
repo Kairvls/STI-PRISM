@@ -7,26 +7,28 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 
 class PurchaserController extends Controller
 {
+    private ?bool $risItemsHaveUomColumn = null;
+
+    private ?bool $risItemsHaveSupplierColumn = null;
+
+    private $validUomIds = null;
+
+    private $validSupplierIds = null;
     // PURCHASER DASHBOARD
     public function dashboard()
     {
-        // Count pending replacement requests
-        $pendingReplacementRequests = DB::table('procurement_requests_table')
-            ->where('procurement_request_status', 'Pending')
-            ->count();
+        $replacementCounts = DB::table('procurement_requests_table')
+            ->select('procurement_request_status', DB::raw('COUNT(*) as aggregate'))
+            ->groupBy('procurement_request_status')
+            ->pluck('aggregate', 'procurement_request_status');
 
-        // Count approved replacement requests
-        $approvedReplacementRequests = DB::table('procurement_requests_table')
-            ->where('procurement_request_status', 'Approved')
-            ->count();
-
-        // Count completed replacement requests
-        $completedReplacementRequests = DB::table('procurement_requests_table')
-            ->where('procurement_request_status', 'Completed')
-            ->count();
+        $pendingReplacementRequests = (int) ($replacementCounts['Pending'] ?? 0);
+        $approvedReplacementRequests = (int) ($replacementCounts['Approved'] ?? 0);
+        $completedReplacementRequests = (int) ($replacementCounts['Completed'] ?? 0);
 
         // Count available urgent reports
         // Available = urgent, pending, not archived, unclaimed by maintenance or purchaser
@@ -516,7 +518,26 @@ class PurchaserController extends Controller
             ->leftJoin('equipment_table', 'reports_table.report_equipment_id', '=', 'equipment_table.equipment_id')
             ->leftJoin('rooms_table', 'reports_table.report_room_id', '=', 'rooms_table.room_id')
             ->select(
-                'requisition_issue_slip_table.*',
+                'requisition_issue_slip_table.ris_id',
+                'requisition_issue_slip_table.ris_form_number',
+                'requisition_issue_slip_table.ris_procurement_request_id',
+                'requisition_issue_slip_table.ris_status',
+                'requisition_issue_slip_table.ris_request_type',
+                'requisition_issue_slip_table.ris_manual_title',
+                'requisition_issue_slip_table.ris_purpose_description',
+                'requisition_issue_slip_table.ris_supplier_id',
+                'requisition_issue_slip_table.ris_requested_by_signature',
+                'requisition_issue_slip_table.ris_requested_by_date',
+                'requisition_issue_slip_table.ris_approved_by_date',
+                'requisition_issue_slip_table.ris_issued_by_date',
+                'requisition_issue_slip_table.ris_received_by_date',
+                'requisition_issue_slip_table.ris_submitted_at',
+                'requisition_issue_slip_table.ris_submitted_by',
+                'requisition_issue_slip_table.ris_created_at',
+                'requisition_issue_slip_table.ris_updated_at',
+                DB::raw('CASE WHEN requisition_issue_slip_table.ris_issued_by_signature IS NOT NULL AND TRIM(requisition_issue_slip_table.ris_issued_by_signature) != "" THEN 1 ELSE 0 END as has_issued_by_signature'),
+                DB::raw('CASE WHEN requisition_issue_slip_table.ris_approved_by_signature IS NOT NULL AND TRIM(requisition_issue_slip_table.ris_approved_by_signature) != "" THEN 1 ELSE 0 END as has_approved_by_signature'),
+                DB::raw('CASE WHEN requisition_issue_slip_table.ris_received_by_signature IS NOT NULL AND TRIM(requisition_issue_slip_table.ris_received_by_signature) != "" THEN 1 ELSE 0 END as has_received_by_signature'),
                 'procurement_requests_table.procurement_request_id',
                 'procurement_requests_table.procurement_request_status',
                 'reports_table.report_id',
@@ -570,24 +591,26 @@ class PurchaserController extends Controller
             ->withQueryString();
 
         // Supporting documents for list downloads
+        $risIds = $risRecords->getCollection()->pluck('ris_id');
+
         $attachmentsByRis = DB::table('ris_attachments_table')
-            ->whereIn('ris_id', $risRecords->pluck('ris_id'))
+            ->whereIn('ris_id', $risIds)
             ->orderBy('ris_attachment_original_name')
             ->get()
             ->groupBy('ris_id');
 
-        $itemsByRis = $this->risItemsWithLookups($risRecords->pluck('ris_id'))
+        $itemsByRis = $this->risItemsWithLookups($risIds)
             ->groupBy('ris_id');
 
         $risHasAtp = DB::table('authority_to_purchase_table')
-            ->whereIn('authority_purchase_ris_id', $risRecords->pluck('ris_id'))
+            ->whereIn('authority_purchase_ris_id', $risIds)
             ->pluck('authority_purchase_ris_id')
             ->map(fn ($id) => (int) $id)
             ->all();
 
         $releasedRisIds = DB::table('approval_logs_table')
             ->where('approval_log_reference_type', 'RIS')
-            ->whereIn('approval_log_reference_id', $risRecords->pluck('ris_id'))
+            ->whereIn('approval_log_reference_id', $risIds)
             ->where(function ($q) {
                 $q->where('approval_log_approval_remarks', 'like', '%returned to Purchaser%')
                     ->orWhere('approval_log_approval_status', 'Co-signed')
@@ -600,7 +623,7 @@ class PurchaserController extends Controller
         // Revision history (Minor Revision notes from Admin)
         $risRevisions = DB::table('ris_revision_notes_table as revisions')
             ->leftJoin('users_table as users', 'users.user_id', '=', 'revisions.ris_revision_requested_by')
-            ->whereIn('revisions.ris_id', $risRecords->pluck('ris_id'))
+            ->whereIn('revisions.ris_id', $risIds)
             ->select(
                 'revisions.*',
                 'users.user_full_name as revision_requested_by_name'
@@ -616,33 +639,16 @@ class PurchaserController extends Controller
             $ris->risRevisions = $risRevisions->get($ris->ris_id, collect());
             $ris->has_atp = in_array($ris->ris_id, $risHasAtp);
             $ris->released_to_purchaser = in_array((int) $ris->ris_id, $releasedRisIds, true);
-            $issuedBy = trim((string) ($ris->ris_issued_by_signature ?? ''));
+            $issuedByPresent = (int) ($ris->has_issued_by_signature ?? 0) === 1;
             $ris->can_create_atp = $ris->ris_status === 'Directly Approved'
                 || (in_array($ris->ris_status, ['Approved', 'Approved by the President'], true) && $ris->released_to_purchaser)
-                || ($ris->ris_status === 'Approved by the President' && $issuedBy !== '');
+                || ($ris->ris_status === 'Approved by the President' && $issuedByPresent);
         }
 
         // Dashboard counts
-        $risSummary = [
-            'total' => DB::table('requisition_issue_slip_table')->count(),
-
-            'draft' => DB::table('requisition_issue_slip_table')
-                ->where('ris_status', 'Draft')
-                ->count(),
-
-            'submitted' => DB::table('requisition_issue_slip_table')
-                ->whereIn('ris_status', ['Submitted', 'Under Review', 'Resubmitted'])
-                ->count(),
-
-            'approved' => DB::table('requisition_issue_slip_table')
-                ->whereIn('ris_status', ['Approved', 'Approved by the President', 'Directly Approved'])
-                ->count(),
-
-            'rejected' => DB::table('requisition_issue_slip_table')
-                ->whereIn('ris_status', ['Rejected', 'Rejected by President', 'Rejected by the President'])
-                ->count(),
-        ];
-        // RIS MODULE: load approved replacement requests without an existing RIS
+        $risSummary = $this->risStatusSummary();
+        $availableReplacementRequests = collect();
+        if (!$request->ajax()) {
         $availableReplacementRequests = DB::table('procurement_requests_table')
             ->join(
                 'reports_table',
@@ -686,14 +692,18 @@ class PurchaserController extends Controller
                 'rooms_table.room_name'
             )
             ->orderByDesc('procurement_requests_table.procurement_request_created_at')
+            ->limit(50)
             ->get();
+        }
 
-        $activeSuppliers = $this->activeSuppliersForRis();
-        $uoms = Schema::hasTable('uom_table')
-            ? DB::table('uom_table')->orderBy('uom_name')->get()
-            : collect();
+        $isAjax = $request->ajax();
+        $activeSuppliers = $isAjax ? collect() : $this->activeSuppliersForRis();
+        $uoms = ($isAjax || !$this->uomTableExists())
+            ? collect()
+            : DB::table('uom_table')->orderBy('uom_name')->get();
 
-        $supplierNames = $this->supplierOptionsForRis(false)->keyBy('supplier_id');
+        $supplierIdsOnPage = $risRecords->getCollection()->pluck('ris_supplier_id')->filter()->unique()->values();
+        $supplierNames = $this->supplierOptionsForRis(false, $supplierIdsOnPage)->keyBy('supplier_id');
         foreach ($risRecords as $ris) {
             $ris->supplier_display_name = optional($supplierNames->get($ris->ris_supplier_id ?? null))->display_name;
         }
@@ -741,17 +751,9 @@ class PurchaserController extends Controller
                 'exists:procurement_requests_table,procurement_request_id',
             ],
 
-            'ris_form_number' => [
-                $isDraft ? 'nullable' : 'required',
-                'string',
-                'max:100',
-            ],
+            'ris_form_number' => $this->risFormNumberRules(!$isDraft),
 
-            'ris_supplier_id' => [
-                'nullable',
-                'integer',
-                'exists:suppliers_table,supplier_id',
-            ],
+            'ris_supplier_id' => $this->activeSupplierRule(),
 
             'ris_purpose_description' => [
                 $isDraft ? 'nullable' : 'required',
@@ -774,11 +776,7 @@ class PurchaserController extends Controller
                 'max:2000',
             ],
 
-            'ris_items.*.supplier_id' => [
-                'nullable',
-                'integer',
-                'exists:suppliers_table,supplier_id',
-            ],
+            'ris_items.*.supplier_id' => $this->activeSupplierRule(),
 
             'ris_items.*.uom_id' => array_values(array_filter([
                 'nullable',
@@ -1117,9 +1115,12 @@ class PurchaserController extends Controller
             // =====================================================
             // 8. SAVE RIS ITEMS
             // =====================================================
+            $itemRows = [];
             foreach ($items as $item) {
-                DB::table('requisition_issue_slip_items_table')
-                    ->insert($this->risItemPayload($risId, $item));
+                $itemRows[] = $this->risItemPayload($risId, $item);
+            }
+            if ($itemRows !== []) {
+                DB::table('requisition_issue_slip_items_table')->insert($itemRows);
             }
 
 
@@ -1190,28 +1191,6 @@ class PurchaserController extends Controller
             ->first();
 
         abort_if(!$ris, 404, 'RIS not found.');
-
-
-        // =====================================================
-        // GET RIS ITEMS
-        // =====================================================
-
-        $risItems = DB::table('requisition_issue_slip_items_table')
-            ->where('ris_id', $risId)
-            ->orderBy('ris_item_id')
-            ->get();
-
-        // Pad with empty items to fill 10 rows
-        $risItems = $risItems->pad(10, null);
-
-
-        // =====================================================
-        // GET PRESIDENT NAME (if President has signed)
-        //
-        // When the President signs (Forwarded to President),
-        // ris_approved_by_signature stores the base64 image.
-        // The President's name is stored in approval_logs_table.
-        // =====================================================
 
         $presidentName = null;
 
@@ -1300,17 +1279,9 @@ public function updateRis(Request $request, $risId)
             'in:save,submit,resubmit',
         ],
 
-        'ris_form_number' => [
-            $isSaveOnly ? 'nullable' : 'required',
-            'string',
-            'max:100',
-        ],
+        'ris_form_number' => $this->risFormNumberRules(!$isSaveOnly, $risId),
 
-        'ris_supplier_id' => [
-            'nullable',
-            'integer',
-            'exists:suppliers_table,supplier_id',
-        ],
+        'ris_supplier_id' => $this->activeSupplierRule(),
 
         'ris_purpose_description' => [
             $isSaveOnly ? 'nullable' : 'required',
@@ -1334,11 +1305,7 @@ public function updateRis(Request $request, $risId)
             'max:2000',
         ],
 
-        'ris_items.*.supplier_id' => [
-            'nullable',
-            'integer',
-            'exists:suppliers_table,supplier_id',
-        ],
+        'ris_items.*.supplier_id' => $this->activeSupplierRule(),
 
         'ris_items.*.uom_id' => array_values(array_filter([
             'nullable',
@@ -1612,9 +1579,12 @@ public function updateRis(Request $request, $risId)
             ->delete();
 
 
+        $itemRows = [];
         foreach ($items as $item) {
-            DB::table('requisition_issue_slip_items_table')
-                ->insert($this->risItemPayload($risId, $item));
+            $itemRows[] = $this->risItemPayload($risId, $item);
+        }
+        if ($itemRows !== []) {
+            DB::table('requisition_issue_slip_items_table')->insert($itemRows);
         }
 
 
@@ -1933,7 +1903,7 @@ public function submitRis($risId)
         return $this->supplierOptionsForRis(true);
     }
 
-    private function supplierOptionsForRis(bool $activeOnly = false)
+    private function supplierOptionsForRis(bool $activeOnly = false, $limitIds = null)
     {
         $query = DB::table('suppliers_table')
             ->leftJoin('physical_suppliers_table', 'suppliers_table.supplier_id', '=', 'physical_suppliers_table.supplier_id')
@@ -1948,6 +1918,14 @@ public function submitRis($risId)
 
         if ($activeOnly) {
             $query->where('suppliers_table.supplier_is_active', 1);
+        }
+
+        if ($limitIds !== null) {
+            $ids = collect($limitIds)->filter()->values();
+            if ($ids->isEmpty()) {
+                return collect();
+            }
+            $query->whereIn('suppliers_table.supplier_id', $ids);
         }
 
         return $query
@@ -1976,11 +1954,11 @@ public function submitRis($risId)
             'ris_total_amount' => round($quantityIssued * $unitCost, 2),
         ];
 
-        if (Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_uom_id')) {
+        if ($this->risItemsHaveUomColumn()) {
             $payload['ris_item_uom_id'] = $this->resolveRisUomId($item['uom_id'] ?? null);
         }
 
-        if (Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_supplier_id')) {
+        if ($this->risItemsHaveSupplierColumn()) {
             $payload['ris_item_supplier_id'] = $this->resolveRisSupplierId($item['supplier_id'] ?? null);
         }
 
@@ -1989,13 +1967,15 @@ public function submitRis($risId)
 
     private function resolveRisUomId($uomId): ?int
     {
-        if (!filled($uomId) || !Schema::hasTable('uom_table')) {
+        if (!filled($uomId) || !$this->uomTableExists()) {
             return null;
         }
 
-        $exists = DB::table('uom_table')->where('uom_id', $uomId)->exists();
+        if ($this->validUomIds === null) {
+            $this->validUomIds = DB::table('uom_table')->pluck('uom_id')->flip();
+        }
 
-        return $exists ? (int) $uomId : null;
+        return isset($this->validUomIds[(int) $uomId]) ? (int) $uomId : null;
     }
 
     private function resolveRisSupplierId($supplierId): ?int
@@ -2004,9 +1984,73 @@ public function submitRis($risId)
             return null;
         }
 
-        $exists = DB::table('suppliers_table')->where('supplier_id', $supplierId)->exists();
+        if ($this->validSupplierIds === null) {
+            $this->validSupplierIds = DB::table('suppliers_table')
+                ->where('supplier_is_active', 1)
+                ->pluck('supplier_id')
+                ->flip();
+        }
 
-        return $exists ? (int) $supplierId : null;
+        return isset($this->validSupplierIds[(int) $supplierId]) ? (int) $supplierId : null;
+    }
+
+    private function activeSupplierRule(): array
+    {
+        return [
+            'nullable',
+            'integer',
+            Rule::exists('suppliers_table', 'supplier_id')->where(fn ($q) => $q->where('supplier_is_active', 1)),
+        ];
+    }
+
+    private function risFormNumberRules(bool $required, $ignoreRisId = null): array
+    {
+        $unique = Rule::unique('requisition_issue_slip_table', 'ris_form_number');
+        if ($ignoreRisId) {
+            $unique->ignore($ignoreRisId, 'ris_id');
+        }
+
+        return [
+            $required ? 'required' : 'nullable',
+            'string',
+            'max:100',
+            $unique,
+        ];
+    }
+
+    private function risStatusSummary(): array
+    {
+        $counts = DB::table('requisition_issue_slip_table')
+            ->select('ris_status', DB::raw('COUNT(*) as aggregate'))
+            ->groupBy('ris_status')
+            ->pluck('aggregate', 'ris_status');
+
+        $submitted = ['Submitted', 'Under Review', 'Resubmitted'];
+        $approved = ['Approved', 'Approved by the President', 'Directly Approved'];
+        $rejected = ['Rejected', 'Rejected by President', 'Rejected by the President'];
+
+        return [
+            'total' => (int) $counts->sum(),
+            'draft' => (int) ($counts['Draft'] ?? 0),
+            'submitted' => (int) $counts->only($submitted)->sum(),
+            'approved' => (int) $counts->only($approved)->sum(),
+            'rejected' => (int) $counts->only($rejected)->sum(),
+        ];
+    }
+
+    private function uomTableExists(): bool
+    {
+        return Schema::hasTable('uom_table');
+    }
+
+    private function risItemsHaveUomColumn(): bool
+    {
+        return $this->risItemsHaveUomColumn ??= Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_uom_id');
+    }
+
+    private function risItemsHaveSupplierColumn(): bool
+    {
+        return $this->risItemsHaveSupplierColumn ??= Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_supplier_id');
     }
 
     private function risItemsWithLookups($risIds)
@@ -2126,6 +2170,14 @@ public function submitRis($risId)
 
             if ($isFirstOfGroup && (int) $item['quantity_requested'] < 1) {
                 return "Item {$rowNumber} Quantity Requested must be at least 1.";
+            }
+
+            if ($isFirstOfGroup && blank($item['uom_id'] ?? null)) {
+                return "Item {$rowNumber} needs a unit of measure.";
+            }
+
+            if ($isFirstOfGroup && (!isset($item['unit_cost']) || $item['unit_cost'] === '' || (float) $item['unit_cost'] <= 0)) {
+                return "Item {$rowNumber} needs a unit cost greater than 0.";
             }
         }
 

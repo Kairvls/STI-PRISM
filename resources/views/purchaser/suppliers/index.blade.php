@@ -8,25 +8,8 @@
 <div
     x-data="{
         openModal: null,
-        addSupplierModal: false,
-        supplierType: 'Physical Store',
-        linkRows: [
-            { platform: 'Shopee', label: '', url: '' }
-        ],
-
-        addLink() {
-            this.linkRows.push({
-                platform: 'Shopee',
-                label: '',
-                url: ''
-            });
-        },
-
-        removeLink(index) {
-            if (this.linkRows.length > 1) {
-                this.linkRows.splice(index, 1);
-            }
-        }
+        addSupplierModal: {{ $errors->any() ? 'true' : 'false' }},
+        supplierType: @js(old('supplier_store_type', 'Physical Store'))
     }"
 >
 
@@ -35,19 +18,19 @@
     {{-- ========================================================= --}}
 
     @if(session('success'))
-        <div class="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+        <div class="pur-alert-success">
             {{ session('success') }}
         </div>
     @endif
 
     @if(session('error'))
-        <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div class="pur-alert-error">
             {{ session('error') }}
         </div>
     @endif
 
     @if($errors->any())
-        <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div class="pur-alert-error">
             <p class="font-medium">Please fix the following supplier form errors:</p>
             <ul class="mt-2 list-disc space-y-1 pl-5">
                 @foreach($errors->all() as $error)
@@ -66,29 +49,17 @@
         <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
 
             <div>
-                <div class="mb-2 flex items-center gap-2">
-                    <span class="h-2 w-2 rounded-full bg-gray-900"></span>
-
-                    <span class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">
-                        File Maintenance
-                    </span>
-                </div>
-
-                <h1 class="text-3xl font-semibold tracking-tight text-gray-950">
+                <p class="pur-page-kicker">File Maintenance</p>
+                <h1 class="pur-page-title">
                     Suppliers
                 </h1>
-
-                <p class="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
-                    Manage physical and online suppliers, contact information,
-                    purchasing sources, supplier links, and supplier history.
-                </p>
             </div>
 
             <div class="flex flex-wrap gap-2">
                 <button
                     type="button"
                     x-on:click="addSupplierModal = true"
-                    class="rounded-xl bg-gray-950 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-gray-800"
+                    class="pur-btn-primary"
                 >
                     + Add Supplier
                 </button>
@@ -102,11 +73,10 @@
     {{-- SUMMARY CARDS --}}
     {{-- ========================================================= --}}
 
-    <div class="mb-7 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+    <div class="pur-card mb-7">
 
-        <div class="grid grid-cols-2 divide-x divide-y divide-gray-100 sm:grid-cols-3 lg:grid-cols-5 lg:divide-y-0">
+        <div class="grid grid-cols-1 divide-x divide-y divide-gray-100 sm:grid-cols-3 sm:divide-y-0">
 
-            {{-- TOTAL --}}
             <div class="px-5 py-5">
                 <p class="text-2xl font-semibold tracking-tight text-gray-950">
                     {{ $supplierSummary['total'] ?? 0 }}
@@ -114,14 +84,10 @@
 
                 <div class="mt-1 flex items-center gap-2">
                     <span class="h-1.5 w-1.5 rounded-full bg-gray-400"></span>
-
-                    <p class="text-xs font-medium text-gray-500">
-                        Total Suppliers
-                    </p>
+                    <p class="text-xs font-medium text-gray-500">Total Suppliers</p>
                 </div>
             </div>
 
-            {{-- ACTIVE --}}
             <div class="px-5 py-5">
                 <p class="text-2xl font-semibold tracking-tight text-gray-950">
                     {{ $supplierSummary['active'] ?? 0 }}
@@ -129,44 +95,10 @@
 
                 <div class="mt-1 flex items-center gap-2">
                     <span class="h-1.5 w-1.5 rounded-full bg-green-500"></span>
-
-                    <p class="text-xs font-medium text-gray-500">
-                        Active
-                    </p>
+                    <p class="text-xs font-medium text-gray-500">Active</p>
                 </div>
             </div>
 
-            {{-- UNDER REVIEW --}}
-            <div class="px-5 py-5">
-                <p class="text-2xl font-semibold tracking-tight text-gray-950">
-                    {{ $supplierSummary['review'] ?? 0 }}
-                </p>
-
-                <div class="mt-1 flex items-center gap-2">
-                    <span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span>
-
-                    <p class="text-xs font-medium text-gray-500">
-                        Under Review
-                    </p>
-                </div>
-            </div>
-
-            {{-- BLACKLISTED --}}
-            <div class="px-5 py-5">
-                <p class="text-2xl font-semibold tracking-tight text-gray-950">
-                    {{ $supplierSummary['blacklisted'] ?? 0 }}
-                </p>
-
-                <div class="mt-1 flex items-center gap-2">
-                    <span class="h-1.5 w-1.5 rounded-full bg-red-500"></span>
-
-                    <p class="text-xs font-medium text-gray-500">
-                        Blacklisted
-                    </p>
-                </div>
-            </div>
-
-            {{-- INACTIVE --}}
             <div class="px-5 py-5">
                 <p class="text-2xl font-semibold tracking-tight text-gray-950">
                     {{ $supplierSummary['inactive'] ?? 0 }}
@@ -174,10 +106,7 @@
 
                 <div class="mt-1 flex items-center gap-2">
                     <span class="h-1.5 w-1.5 rounded-full bg-gray-400"></span>
-
-                    <p class="text-xs font-medium text-gray-500">
-                        Inactive
-                    </p>
+                    <p class="text-xs font-medium text-gray-500">Inactive</p>
                 </div>
             </div>
 
@@ -189,7 +118,7 @@
     {{-- SUPPLIER RECORDS --}}
     {{-- ========================================================= --}}
 
-    <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+    <div class="pur-card">
 
         {{-- TABLE HEADER / FILTERS --}}
         <div class="border-b border-gray-100 px-5 py-5">
@@ -217,7 +146,7 @@
                 <form
                     method="GET"
                     action="{{ route('purchaser.suppliers.index') }}"
-                    class="flex flex-col gap-2 sm:flex-row sm:flex-wrap"
+                    class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center"
                 >
 
                     {{-- SEARCH --}}
@@ -241,7 +170,7 @@
                             name="search"
                             value="{{ request('search') }}"
                             placeholder="Search suppliers..."
-                            class="w-full rounded-xl border border-gray-200 bg-gray-50 py-2.5 pl-10 pr-4 text-sm text-gray-700 outline-none transition focus:border-gray-300 focus:bg-white sm:w-64"
+                            class="pur-input pur-input-search sm:w-64"
                         >
                     </div>
 
@@ -249,7 +178,7 @@
                     {{-- TYPE --}}
                     <select
                         name="type"
-                        class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white"
+                        class="pur-select"
                     >
                         <option value="">All Types</option>
 
@@ -266,29 +195,17 @@
                         >
                             Online Store
                         </option>
-
-                        <option
-                            value="Both"
-                            {{ request('type') === 'Both' ? 'selected' : '' }}
-                        >
-                            Both
-                        </option>
                     </select>
 
 
                     {{-- STATUS --}}
                     <select
                         name="status"
-                        class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white"
+                        class="pur-select"
                     >
                         <option value="">All Statuses</option>
 
-                        @foreach([
-                            'Active',
-                            'Under Review',
-                            'Inactive',
-                            'Blacklisted'
-                        ] as $status)
+                        @foreach(['Active', 'Inactive'] as $status)
 
                             <option
                                 value="{{ $status }}"
@@ -304,7 +221,7 @@
                     {{-- APPLY --}}
                     <button
                         type="submit"
-                        class="rounded-xl bg-gray-950 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800"
+                        class="pur-btn-primary"
                     >
                         Apply
                     </button>
@@ -318,7 +235,7 @@
                     )
                         <a
                             href="{{ route('purchaser.suppliers.index') }}"
-                            class="rounded-xl border border-gray-200 px-4 py-2.5 text-center text-sm font-medium text-gray-600 transition hover:bg-gray-50"
+                            class="pur-btn-secondary"
                         >
                             Clear
                         </a>
@@ -335,7 +252,7 @@
 
         <div class="overflow-x-auto">
 
-            <table class="w-full text-sm">
+            <table class="pur-table">
 
                 <thead class="bg-gray-50/70">
 
@@ -380,38 +297,20 @@
                             // SUPPLIER INDEX: DETERMINE DISPLAY INFORMATION
                             // =================================================
 
-                            $physical = $supplier->physicalSupplier ?? null;
-                            $online = $supplier->onlineSupplier ?? null;
+                            $isActive = (int) ($supplier->supplier_is_active ?? 1) === 1;
+                            $supplierStatus = $isActive ? 'Active' : 'Inactive';
 
                             $supplierName =
-                                $physical?->company_name
-                                ?? $online?->shop_name
+                                $supplier->company_name
+                                ?? $supplier->shop_name
                                 ?? 'Unnamed Supplier';
 
-                            $contactPerson =
-                                $physical?->contact_person
-                                ?? 'Not specified';
+                            $contactPerson = $supplier->contact_person ?? 'Not specified';
+                            $contactNumber = $supplier->contact_number ?? 'No contact number';
 
-                            $contactNumber =
-                                $physical?->contact_number
-                                ?? 'No contact number';
-
-                            $statusClass = match($supplier->supplier_status ?? 'Active') {
-                                'Active' =>
-                                    'bg-green-50 text-green-700',
-
-                                'Under Review' =>
-                                    'bg-amber-50 text-amber-700',
-
-                                'Blacklisted' =>
-                                    'bg-red-50 text-red-700',
-
-                                'Inactive' =>
-                                    'bg-gray-100 text-gray-600',
-
-                                default =>
-                                    'bg-gray-100 text-gray-600',
-                            };
+                            $statusClass = $isActive
+                                ? 'bg-green-50 text-green-700'
+                                : 'bg-gray-100 text-gray-600';
 
                         @endphp
 
@@ -487,7 +386,7 @@
                             <td class="px-5 py-4">
 
                                 <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium {{ $statusClass }}">
-                                    {{ $supplier->supplier_status ?? 'Active' }}
+                                    {{ $supplierStatus }}
                                 </span>
 
                             </td>
@@ -579,7 +478,7 @@
                                                 </h3>
 
                                                 <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium {{ $statusClass }}">
-                                                    {{ $supplier->supplier_status ?? 'Active' }}
+                                                    {{ $supplierStatus }}
                                                 </span>
 
                                             </div>
@@ -644,7 +543,7 @@
                                                     </p>
 
                                                     <p class="mt-1 font-medium text-gray-900">
-                                                        {{ $supplier->supplier_status ?? 'Active' }}
+                                                        {{ $supplierStatus }}
                                                     </p>
                                                 </div>
 
@@ -655,7 +554,7 @@
                                                     </p>
 
                                                     <p class="mt-1 font-medium text-gray-900">
-                                                        {{ $physical?->contact_person ?? 'Not specified' }}
+                                                        {{ $supplier->contact_person ?? 'Not specified' }}
                                                     </p>
                                                 </div>
 
@@ -666,7 +565,7 @@
                                                     </p>
 
                                                     <p class="mt-1 font-medium text-gray-900">
-                                                        {{ $physical?->contact_number ?? 'Not specified' }}
+                                                        {{ $supplier->contact_number ?? 'Not specified' }}
                                                     </p>
                                                 </div>
 
@@ -677,14 +576,14 @@
                                                     </p>
 
                                                     <p class="mt-1 break-all font-medium text-gray-900">
-                                                        {{ $physical?->email_address ?? 'Not specified' }}
+                                                        {{ $supplier->email_address ?? 'Not specified' }}
                                                     </p>
                                                 </div>
 
                                             </div>
 
 
-                                            @if($physical?->company_address)
+                                            @if($supplier->company_address)
 
                                                 <div class="mt-3 rounded-lg border border-gray-200 p-4">
 
@@ -693,7 +592,7 @@
                                                     </p>
 
                                                     <p class="mt-1 text-sm leading-6 text-gray-700">
-                                                        {{ $physical->company_address }}
+                                                        {{ $supplier->company_address }}
                                                     </p>
 
                                                 </div>
@@ -704,7 +603,7 @@
 
 
                                         {{-- ONLINE INFORMATION --}}
-                                        @if($online)
+                                        @if($supplier->app_used || $supplier->shop_name)
 
                                             <div class="mt-8">
 
@@ -722,7 +621,7 @@
                                                         </p>
 
                                                         <p class="mt-1 font-medium text-gray-900">
-                                                            {{ $online->app_used ?? 'Not specified' }}
+                                                            {{ $supplier->app_used ?? 'Not specified' }}
                                                         </p>
 
                                                     </div>
@@ -735,7 +634,7 @@
                                                         </p>
 
                                                         <p class="mt-1 font-medium text-gray-900">
-                                                            {{ $online->shop_name ?? 'Not specified' }}
+                                                            {{ $supplier->shop_name ?? 'Not specified' }}
                                                         </p>
 
                                                     </div>
@@ -745,131 +644,6 @@
                                             </div>
 
                                         @endif
-
-
-                                        {{-- SUPPLIER LINKS --}}
-                                        <div class="mt-8">
-
-                                            <div class="flex items-center justify-between">
-
-                                                <h4 class="text-sm font-semibold uppercase tracking-wide text-gray-500">
-                                                    Supplier Links
-                                                </h4>
-
-                                            </div>
-
-
-                                            <div class="mt-3 space-y-2">
-
-                                                @forelse($supplier->supplierLinks ?? [] as $link)
-
-                                                    <div class="flex flex-col gap-3 rounded-lg border border-gray-200 p-4 sm:flex-row sm:items-center sm:justify-between">
-
-                                                        <div>
-
-                                                            <p class="font-medium text-gray-900">
-                                                                {{ $link->supplier_link_platform }}
-                                                            </p>
-
-                                                            @if($link->supplier_link_label)
-                                                                <p class="mt-1 text-xs text-gray-400">
-                                                                    {{ $link->supplier_link_label }}
-                                                                </p>
-                                                            @endif
-
-                                                        </div>
-
-
-                                                        <a
-                                                            href="{{ $link->supplier_link_url }}"
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            class="text-sm font-medium text-gray-600 hover:text-gray-950"
-                                                        >
-                                                            Open Link
-                                                        </a>
-
-                                                    </div>
-
-                                                @empty
-
-                                                    <div class="rounded-lg border border-dashed border-gray-200 px-4 py-8 text-center">
-
-                                                        <p class="text-sm text-gray-500">
-                                                            No supplier links added.
-                                                        </p>
-
-                                                    </div>
-
-                                                @endforelse
-
-                                            </div>
-
-                                        </div>
-
-
-                                        {{-- SUPPLIER HISTORY --}}
-                                        <div class="mt-8">
-
-                                            <div class="flex items-center justify-between gap-3">
-
-                                                <div>
-                                                    <h4 class="text-sm font-semibold uppercase tracking-wide text-gray-500">
-                                                        Supplier History
-                                                    </h4>
-
-                                                    <p class="mt-1 text-sm text-gray-400">
-                                                        Notes, issues, warnings, and purchasing experiences.
-                                                    </p>
-                                                </div>
-
-                                            </div>
-
-
-                                            <div class="mt-4 space-y-3">
-
-                                                @forelse($supplier->supplierHistory ?? [] as $history)
-
-                                                    <div class="rounded-lg border border-gray-200 p-4">
-
-                                                        <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-
-                                                            <div>
-
-                                                                <p class="text-sm font-semibold text-gray-900">
-                                                                    {{ $history->supplier_history_type }}
-                                                                </p>
-
-                                                                <p class="mt-2 text-sm leading-6 text-gray-600">
-                                                                    {{ $history->supplier_history_note }}
-                                                                </p>
-
-                                                            </div>
-
-
-                                                            <p class="whitespace-nowrap text-xs text-gray-400">
-                                                                {{ \Carbon\Carbon::parse($history->supplier_history_created_at)->format('M d, Y') }}
-                                                            </p>
-
-                                                        </div>
-
-                                                    </div>
-
-                                                @empty
-
-                                                    <div class="rounded-lg border border-dashed border-gray-200 px-4 py-8 text-center">
-
-                                                        <p class="text-sm text-gray-500">
-                                                            No supplier history recorded.
-                                                        </p>
-
-                                                    </div>
-
-                                                @endforelse
-
-                                            </div>
-
-                                        </div>
 
                                     </div>
 
@@ -885,12 +659,12 @@
                                             Close
                                         </button>
 
-                                        <button
-                                            type="button"
-                                            class="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+                                        <a
+                                            href="{{ route('purchaser.suppliers.edit', $supplier->supplier_id) }}"
+                                            class="pur-btn-primary"
                                         >
                                             Edit Supplier
-                                        </button>
+                                        </a>
 
                                     </div>
 
@@ -1043,19 +817,10 @@
                                         name="supplier_store_type"
                                         x-model="supplierType"
                                         required
-                                        class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-700 outline-none transition focus:border-gray-300 focus:bg-white"
+                                        class="pur-input"
                                     >
-                                        <option value="Physical Store">
-                                            Physical Store
-                                        </option>
-
-                                        <option value="Online Store">
-                                            Online Store
-                                        </option>
-
-                                        <option value="Both">
-                                            Both
-                                        </option>
+                                        <option value="Physical Store">Physical Store</option>
+                                        <option value="Online Store">Online Store</option>
                                     </select>
 
                                 </div>
@@ -1072,9 +837,10 @@
                                     <input
                                         type="text"
                                         name="supplier_name"
+                                        value="{{ old('supplier_name', old('company_name', old('shop_name'))) }}"
                                         required
                                         placeholder="Enter supplier name"
-                                        class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-700 outline-none transition focus:border-gray-300 focus:bg-white"
+                                        class="pur-input"
                                     >
 
                                 </div>
@@ -1090,8 +856,9 @@
                                     <input
                                         type="text"
                                         name="contact_person"
+                                        value="{{ old('contact_person') }}"
                                         placeholder="Enter contact person"
-                                        class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-700 outline-none transition focus:border-gray-300 focus:bg-white"
+                                        class="pur-input"
                                     >
 
                                 </div>
@@ -1107,8 +874,9 @@
                                     <input
                                         type="text"
                                         name="contact_number"
+                                        value="{{ old('contact_number') }}"
                                         placeholder="Enter contact number"
-                                        class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-700 outline-none transition focus:border-gray-300 focus:bg-white"
+                                        class="pur-input"
                                     >
 
                                 </div>
@@ -1124,8 +892,9 @@
                                     <input
                                         type="email"
                                         name="email_address"
+                                        value="{{ old('email_address') }}"
                                         placeholder="Enter email address"
-                                        class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-700 outline-none transition focus:border-gray-300 focus:bg-white"
+                                        class="pur-input"
                                     >
 
                                 </div>
@@ -1135,273 +904,46 @@
                         </div>
 
 
-                        {{-- ================================================= --}}
-                        {{-- PHYSICAL INFORMATION --}}
-                        {{-- ================================================= --}}
-
-                        <div
-                            x-show="
-                                supplierType === 'Physical Store' ||
-                                supplierType === 'Both'
-                            "
-                            class="mt-8"
-                        >
-
-                            <h4 class="text-sm font-semibold uppercase tracking-wide text-gray-500">
-                                Physical Location
-                            </h4>
-
-
-                            <div class="mt-4">
-
-                                <label class="mb-2 block text-sm font-medium text-gray-700">
-                                    Company Address
-                                </label>
-
-                                <textarea
-                                    name="company_address"
-                                    rows="3"
-                                    placeholder="Enter physical store address"
-                                    class="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700 outline-none transition focus:border-gray-300 focus:bg-white"
-                                ></textarea>
-
+                        <template x-if="supplierType === 'Physical Store'">
+                            <div class="mt-8">
+                                <h4 class="text-sm font-semibold uppercase tracking-wide text-gray-500">
+                                    Physical Location
+                                </h4>
+                                <div class="mt-4">
+                                    <label class="mb-2 block text-sm font-medium text-gray-700">
+                                        Company Address
+                                    </label>
+                                    <textarea
+                                        name="company_address"
+                                        rows="3"
+                                        placeholder="Enter physical store address"
+                                        class="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700 outline-none transition focus:border-gray-300 focus:bg-white"
+                                    >{{ old('company_address') }}</textarea>
+                                </div>
                             </div>
+                        </template>
 
-                        </div>
-
-
-                        {{-- ================================================= --}}
-                        {{-- ONLINE INFORMATION --}}
-                        {{-- ================================================= --}}
-
-                        <div
-                            x-show="
-                                supplierType === 'Online Store' ||
-                                supplierType === 'Both'
-                            "
-                            class="mt-8"
-                        >
-
-                            <h4 class="text-sm font-semibold uppercase tracking-wide text-gray-500">
-                                Online Information
-                            </h4>
-
-
-                            <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-
-
-                                <div>
-
+                        <template x-if="supplierType === 'Online Store'">
+                            <div class="mt-8">
+                                <h4 class="text-sm font-semibold uppercase tracking-wide text-gray-500">
+                                    Online Information
+                                </h4>
+                                <div class="mt-4">
                                     <label class="mb-2 block text-sm font-medium text-gray-700">
                                         Primary Platform
+                                        <span class="text-red-500">*</span>
                                     </label>
-
-                                    <select
-                                        name="app_used"
-                                        class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-700 outline-none transition focus:border-gray-300 focus:bg-white"
-                                    >
-                                        <option value="">
-                                            Select platform
-                                        </option>
-
-                                        <option value="Shopee">Shopee</option>
-                                        <option value="Lazada">Lazada</option>
-                                        <option value="Facebook">Facebook</option>
-                                        <option value="TikTok Shop">TikTok Shop</option>
-                                        <option value="Website">Website</option>
-                                        <option value="Other">Other</option>
+                                    <select name="app_used" required class="pur-input">
+                                        <option value="">Select platform</option>
+                                        @foreach(['Shopee', 'Lazada', 'Facebook', 'TikTok Shop', 'Website', 'Other'] as $platform)
+                                            <option value="{{ $platform }}" @selected(old('app_used') === $platform)>
+                                                {{ $platform }}
+                                            </option>
+                                        @endforeach
                                     </select>
-
                                 </div>
-
-
-                                <div>
-
-                                    <label class="mb-2 block text-sm font-medium text-gray-700">
-                                        Online Shop Name
-                                    </label>
-
-                                    <input
-                                        type="text"
-                                        name="shop_name"
-                                        placeholder="Enter online shop name"
-                                        class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-700 outline-none transition focus:border-gray-300 focus:bg-white"
-                                    >
-
-                                </div>
-
                             </div>
-
-                        </div>
-
-
-                        {{-- ================================================= --}}
-                        {{-- SUPPLIER LINKS --}}
-                        {{-- ================================================= --}}
-
-                        <div class="mt-8">
-
-                            <div class="flex items-center justify-between gap-3">
-
-                                <div>
-                                    <h4 class="text-sm font-semibold uppercase tracking-wide text-gray-500">
-                                        Supplier Links
-                                    </h4>
-
-                                    <p class="mt-1 text-xs text-gray-400">
-                                        Add Shopee, Facebook, website, or other supplier pages.
-                                    </p>
-                                </div>
-
-
-                                <button
-                                    type="button"
-                                    x-on:click="addLink()"
-                                    class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50"
-                                >
-                                    + Add Link
-                                </button>
-
-                            </div>
-
-
-                            <div class="mt-4 space-y-3">
-
-                                <template
-                                    x-for="(link, index) in linkRows"
-                                    :key="index"
-                                >
-
-                                    <div class="grid grid-cols-1 gap-3 rounded-xl border border-gray-200 bg-gray-50/50 p-4 lg:grid-cols-[160px_1fr_2fr_auto]">
-
-
-                                        {{-- PLATFORM --}}
-                                        <select
-                                            x-model="link.platform"
-                                            x-bind:name="'links[' + index + '][platform]'"
-                                            class="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-700 outline-none"
-                                        >
-                                            <option value="Shopee">Shopee</option>
-                                            <option value="Lazada">Lazada</option>
-                                            <option value="Facebook">Facebook</option>
-                                            <option value="Website">Website</option>
-                                            <option value="TikTok Shop">TikTok Shop</option>
-                                            <option value="Other">Other</option>
-                                        </select>
-
-
-                                        {{-- LABEL --}}
-                                        <input
-                                            type="text"
-                                            x-model="link.label"
-                                            x-bind:name="'links[' + index + '][label]'"
-                                            placeholder="Label"
-                                            class="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-700 outline-none"
-                                        >
-
-
-                                        {{-- URL --}}
-                                        <input
-                                            type="url"
-                                            x-model="link.url"
-                                            x-bind:name="'links[' + index + '][url]'"
-                                            placeholder="https://..."
-                                            class="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-700 outline-none"
-                                        >
-
-
-                                        {{-- REMOVE --}}
-                                        <button
-                                            type="button"
-                                            x-on:click="removeLink(index)"
-                                            class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50"
-                                        >
-                                            Remove
-                                        </button>
-
-                                    </div>
-
-                                </template>
-
-                            </div>
-
-                        </div>
-
-
-                        {{-- ================================================= --}}
-                        {{-- INITIAL HISTORY --}}
-                        {{-- ================================================= --}}
-
-                        <div class="mt-8">
-
-                            <h4 class="text-sm font-semibold uppercase tracking-wide text-gray-500">
-                                Initial History
-                            </h4>
-
-                            <p class="mt-1 text-xs text-gray-400">
-                                Optional initial note about this supplier.
-                            </p>
-
-
-                            <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
-
-
-                                <div>
-
-                                    <label class="mb-2 block text-sm font-medium text-gray-700">
-                                        Type
-                                    </label>
-
-                                    <select
-                                        name="history_type"
-                                        class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-700 outline-none"
-                                    >
-                                        <option value="General Note">
-                                            General Note
-                                        </option>
-
-                                        <option value="Purchase Experience">
-                                            Purchase Experience
-                                        </option>
-
-                                        <option value="Product Issue">
-                                            Product Issue
-                                        </option>
-
-                                        <option value="Delivery Issue">
-                                            Delivery Issue
-                                        </option>
-
-                                        <option value="Warning">
-                                            Warning
-                                        </option>
-
-                                        <option value="Positive Feedback">
-                                            Positive Feedback
-                                        </option>
-                                    </select>
-
-                                </div>
-
-
-                                <div class="sm:col-span-2">
-
-                                    <label class="mb-2 block text-sm font-medium text-gray-700">
-                                        Note
-                                    </label>
-
-                                    <textarea
-                                        name="history_note"
-                                        rows="3"
-                                        placeholder="Optional supplier note..."
-                                        class="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700 outline-none"
-                                    ></textarea>
-
-                                </div>
-
-                            </div>
-
-                        </div>
+                        </template>
 
                     </div>
 
@@ -1423,7 +965,7 @@
 
                         <button
                             type="submit"
-                            class="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+                            class="pur-btn-primary"
                         >
                             Save Supplier
                         </button>

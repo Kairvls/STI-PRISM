@@ -14,15 +14,18 @@ class SupplierRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        // ADDED SUPPLIERS MODULE: trim supplier fields before validation and saving.
+        $supplierName = $this->filled('supplier_name') ? trim((string) $this->supplier_name) : null;
+        $companyName = $this->filled('company_name') ? trim((string) $this->company_name) : $supplierName;
+        $shopName = $this->filled('shop_name') ? trim((string) $this->shop_name) : $supplierName;
+
         $this->merge([
-            'company_name' => $this->filled('company_name') ? trim($this->company_name) : null,
+            'company_name' => $companyName,
             'contact_person' => $this->filled('contact_person') ? trim($this->contact_person) : null,
             'email_address' => $this->filled('email_address') ? trim($this->email_address) : null,
             'contact_number' => $this->filled('contact_number') ? trim($this->contact_number) : null,
             'company_address' => $this->filled('company_address') ? trim($this->company_address) : null,
             'app_used' => $this->filled('app_used') ? trim($this->app_used) : null,
-            'shop_name' => $this->filled('shop_name') ? trim($this->shop_name) : null,
+            'shop_name' => $shopName,
             'order_id' => $this->filled('order_id') ? trim($this->order_id) : null,
         ]);
     }
@@ -34,21 +37,29 @@ class SupplierRequest extends FormRequest
         ];
 
         if ($this->input('supplier_store_type') === 'Physical Store') {
-            $rules = array_merge($rules, [
+            return array_merge($rules, [
                 'company_name' => ['required', 'string', 'max:255'],
                 'contact_person' => ['nullable', 'string', 'max:255'],
                 'email_address' => ['nullable', 'email', 'max:255'],
                 'contact_number' => ['nullable', 'string', 'max:50'],
                 'company_address' => ['nullable', 'string', 'max:2000'],
             ]);
-        } else {
-            $rules = array_merge($rules, [
-                'app_used' => ['required', 'string', 'max:100'],
-                'shop_name' => ['required', 'string', 'max:255'],
-                'order_id' => ['nullable', 'string', 'max:255'],
-            ]);
         }
 
-        return $rules;
+        return array_merge($rules, [
+            'app_used' => ['required', 'string', 'max:100'],
+            'shop_name' => ['required', 'string', 'max:255'],
+            'order_id' => ['nullable', 'string', 'max:255'],
+        ]);
+    }
+
+    public function attributes(): array
+    {
+        return [
+            'supplier_store_type' => 'supplier type',
+            'company_name' => 'company name',
+            'app_used' => 'platform',
+            'shop_name' => 'shop name',
+        ];
     }
 }

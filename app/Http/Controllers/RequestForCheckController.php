@@ -51,8 +51,15 @@ class RequestForCheckController extends Controller
             $this->applyStatusFilter($query, $request->status);
         }
 
-        if ($request->filled('date')) {
-            $query->whereDate('request_check_table.request_check_date', $request->date);
+        $dateFrom = $request->input('date_from', $request->input('date'));
+        $dateTo = $request->input('date_to');
+
+        if ($dateFrom) {
+            $query->whereDate('request_check_table.request_check_date', '>=', $dateFrom);
+        }
+
+        if ($dateTo) {
+            $query->whereDate('request_check_table.request_check_date', '<=', $dateTo);
         }
 
         $rfcs = $query
@@ -60,22 +67,13 @@ class RequestForCheckController extends Controller
             ->paginate(10)
             ->withQueryString();
 
-        $activeScope = function ($q) {
-            $q->whereNull('request_check_is_archived')
-                ->orWhere('request_check_is_archived', 0);
-        };
-
-        $rfcSummary = [
-            'total' => DB::table('request_check_table')->where($activeScope)->count(),
-            'draft' => DB::table('request_check_table')->where('request_check_status', 'Draft')->where($activeScope)->count(),
-            'submitted' => DB::table('request_check_table')->whereIn('request_check_status', ['Submitted', 'Under Review', 'Resubmitted', 'Pending Admin Approval'])->where($activeScope)->count(),
-            'approved' => DB::table('request_check_table')->where('request_check_status', 'Approved')->where($activeScope)->count(),
-            'rejected' => DB::table('request_check_table')->where('request_check_status', 'Rejected')->where($activeScope)->count(),
-            'archived' => DB::table('request_check_table')->where('request_check_is_archived', 1)->count(),
-        ];
-
-        $eligibleAtps = $this->eligibleAtpQuery()->get();
-        $atpPrefill = $this->buildAtpPrefill($eligibleAtps);
+        $rfcSummary = $this->rfcStatusSummary();
+        $eligibleAtps = collect();
+        $atpPrefill = [];
+        if (!$request->ajax()) {
+            $eligibleAtps = $this->eligibleAtpQuery()->get();
+            $atpPrefill = $this->buildAtpPrefill($eligibleAtps);
+        }
         $rfcIds = $rfcs->getCollection()->pluck('request_check_id');
         $attachments = $this->attachmentsFor($rfcIds);
 
@@ -115,8 +113,8 @@ class RequestForCheckController extends Controller
         $isDraft = $saveAction === 'draft';
         $validated = $this->validateRfc($request, $isDraft);
 
-        if ($this->hasBlockingRfcForAtp($validated['request_check_authority_purchase_id'] ?? null)) {
-            return back()->withInput()->with('error', 'A Request for Check already exists for the selected ATP.');
+        if ($error = $this->atpEligibilityError($validated['request_check_authority_purchase_id'] ?? null, null, !$isDraft)) {
+            return back()->withInput()->with('error', $error);
         }
 
         return DB::transaction(function () use ($request, $validated, $isDraft) {
@@ -140,7 +138,6 @@ class RequestForCheckController extends Controller
                 'request_check_created_at' => $now,
                 'request_check_updated_at' => $now,
             ]);
-
             DB::table('request_check_table')->where('request_check_id', $id)->update([
                 'request_check_form_number' => 'RFC-' . $now->format('Y') . '-' . str_pad((string) $id, 5, '0', STR_PAD_LEFT),
             ]);
@@ -170,8 +167,8 @@ class RequestForCheckController extends Controller
         $validated = $this->validateRfc($request, $isDraft);
 
         $atpId = $validated['request_check_authority_purchase_id'] ?? $rfc->request_check_authority_purchase_id;
-        if ($this->hasBlockingRfcForAtp($atpId, $id)) {
-            return back()->withInput()->with('error', 'A Request for Check already exists for the selected ATP.');
+        if ($error = $this->atpEligibilityError($atpId, $id, !$isDraft)) {
+            return back()->withInput()->with('error', $error);
         }
 
         return DB::transaction(function () use ($request, $validated, $rfc, $isDraft, $id) {
@@ -208,28 +205,38 @@ class RequestForCheckController extends Controller
 
     public function submit($id)
     {
-        $rfc = $this->findRfc($id);
-        if (!$rfc) {
-            return back()->with('error', 'Request for Check not found.');
-        }
-        if (!$this->isEditable($rfc)) {
-            return back()->with('error', 'This Request for Check cannot be submitted.');
-        }
-        if (!$rfc->request_check_authority_purchase_id || !$rfc->request_check_payee || !$rfc->request_check_amount_figures || !$rfc->request_check_particulars_purpose) {
-            return back()->with('error', 'Complete payee, amount, purpose, and ATP before submitting.');
-        }
+        return DB::transaction(function () use ($id) {
+            $rfc = DB::table('request_check_table')->where('request_check_id', $id)->lockForUpdate()->first();
+            if (!$rfc) {
+                return back()->with('error', 'Request for Check not found.');
+            }
+            if (!$this->isEditable($rfc)) {
+                return back()->with('error', 'This Request for Check cannot be submitted.');
+            }
+            if (
+                !$rfc->request_check_authority_purchase_id
+                || blank($rfc->request_check_payee)
+                || (float) $rfc->request_check_amount_figures <= 0
+                || blank($rfc->request_check_particulars_purpose)
+            ) {
+                return back()->with('error', 'Complete payee, amount, purpose, and ATP before submitting.');
+            }
+            if ($error = $this->atpEligibilityError($rfc->request_check_authority_purchase_id, $id, true)) {
+                return back()->with('error', $error);
+            }
 
-        $wasRevision = $rfc->request_check_status === 'Minor Revision';
+            $wasRevision = $rfc->request_check_status === 'Minor Revision';
 
-        DB::table('request_check_table')->where('request_check_id', $id)->update([
-            'request_check_status' => $wasRevision ? 'Resubmitted' : 'Submitted',
-            'request_check_review_stage' => 'accounting',
-            'request_check_submitted_by' => auth()->id(),
-            'request_check_submitted_at' => now(),
-            'request_check_updated_at' => now(),
-        ]);
+            DB::table('request_check_table')->where('request_check_id', $id)->update([
+                'request_check_status' => $wasRevision ? 'Resubmitted' : 'Submitted',
+                'request_check_review_stage' => 'accounting',
+                'request_check_submitted_by' => auth()->id(),
+                'request_check_submitted_at' => now(),
+                'request_check_updated_at' => now(),
+            ]);
 
-        return back()->with('success', 'Request for Check submitted to Accounting.');
+            return back()->with('success', 'Request for Check submitted to Accounting.');
+        });
     }
 
     public function archive($id)
@@ -293,7 +300,7 @@ class RequestForCheckController extends Controller
             ],
             'request_check_date' => [$isDraft ? 'nullable' : 'required', 'date'],
             'request_check_payee' => [$isDraft ? 'nullable' : 'required', 'string', 'max:255'],
-            'request_check_amount_figures' => [$isDraft ? 'nullable' : 'required', 'numeric', 'min:0', 'max:999999999.99'],
+            'request_check_amount_figures' => [$isDraft ? 'nullable' : 'required', 'numeric', $isDraft ? 'min:0' : 'gt:0', 'max:999999999.99'],
             'request_check_particulars_purpose' => [$isDraft ? 'nullable' : 'required', 'string', 'max:5000'],
             'request_check_requested_by' => [$isDraft ? 'nullable' : 'required', 'string', 'max:255'],
             'attachments' => ['nullable', 'array', 'max:10'],
@@ -468,7 +475,8 @@ class RequestForCheckController extends Controller
                 'equipment_table.equipment_name',
                 'reports_table.report_unlisted_equipment_name'
             )
-            ->orderByDesc('authority_to_purchase_table.authority_purchase_id');
+            ->orderByDesc('authority_to_purchase_table.authority_purchase_id')
+            ->limit(50);
     }
 
     private function buildAtpPrefill($eligibleAtps): array
@@ -500,6 +508,69 @@ class RequestForCheckController extends Controller
         }
 
         return $prefill;
+    }
+
+    private function rfcStatusSummary(): array
+    {
+        $counts = DB::table('request_check_table')
+            ->select('request_check_status', 'request_check_is_archived', DB::raw('COUNT(*) as aggregate'))
+            ->groupBy('request_check_status', 'request_check_is_archived')
+            ->get();
+
+        $summary = [
+            'total' => 0,
+            'draft' => 0,
+            'submitted' => 0,
+            'approved' => 0,
+            'rejected' => 0,
+            'archived' => 0,
+        ];
+        $submitted = ['Submitted', 'Under Review', 'Resubmitted', 'Pending Admin Approval'];
+
+        foreach ($counts as $row) {
+            $count = (int) $row->aggregate;
+            if ((int) $row->request_check_is_archived === 1) {
+                $summary['archived'] += $count;
+                continue;
+            }
+            $summary['total'] += $count;
+            if ($row->request_check_status === 'Draft') {
+                $summary['draft'] += $count;
+            } elseif (in_array($row->request_check_status, $submitted, true)) {
+                $summary['submitted'] += $count;
+            } elseif ($row->request_check_status === 'Approved') {
+                $summary['approved'] += $count;
+            } elseif ($row->request_check_status === 'Rejected') {
+                $summary['rejected'] += $count;
+            }
+        }
+
+        return $summary;
+    }
+
+    private function atpEligibilityError($atpId, $ignoreRfcId, bool $required): ?string
+    {
+        if (!$atpId) {
+            return $required ? 'Complete payee, amount, purpose, and ATP before submitting.' : null;
+        }
+
+        $atp = DB::table('authority_to_purchase_table')
+            ->where('authority_purchase_id', $atpId)
+            ->first();
+
+        if (
+            !$atp
+            || $atp->authority_purchase_status !== 'Approved'
+            || !empty($atp->authority_purchase_is_archived)
+        ) {
+            return 'Only an approved, unarchived Authority to Purchase can be used for a Request for Check.';
+        }
+
+        if ($this->hasBlockingRfcForAtp($atpId, $ignoreRfcId)) {
+            return 'A Request for Check already exists for the selected ATP.';
+        }
+
+        return null;
     }
 
     private function hasBlockingRfcForAtp($atpId, $ignoreId = null): bool

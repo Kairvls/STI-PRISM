@@ -67,13 +67,13 @@
     @endphp
 
     @if(session('success'))
-        <div class="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+        <div class="pur-alert-success">
             {{ session('success') }}
         </div>
     @endif
 
     @if(session('error'))
-        <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div class="pur-alert-error">
             {{ session('error') }}
         </div>
     @endif
@@ -81,27 +81,19 @@
     <div class="mb-7">
         <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
-                <div class="mb-2 flex items-center gap-2">
-                    <span class="h-2 w-2 rounded-full bg-gray-900"></span>
-                    <span class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">Procurement</span>
-                </div>
-                <h1 class="text-3xl font-semibold tracking-tight text-gray-950">
+                <p class="pur-page-kicker">Procurement</p>
+                <h1 class="pur-page-title">
                     {{ $archiveView ? 'Archived Replacement Requests' : 'Replacement Requests' }}
                 </h1>
-                <p class="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
-                    {{ $archiveView
-                        ? 'Review replacement requests that have been moved to the archive.'
-                        : 'Review equipment recommended for replacement and manage purchasing decisions.' }}
-                </p>
             </div>
 
             <div class="flex flex-wrap gap-2">
                 @if($archiveView)
-                    <a href="{{ url()->current() }}" class="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition hover:border-gray-300 hover:bg-gray-50">
+                    <a href="{{ url()->current() }}" class="pur-btn-secondary">
                         Back to Requests
                     </a>
                 @else
-                    <a href="{{ url()->current() }}?view=archive" class="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition hover:border-gray-300 hover:bg-gray-50">
+                    <a href="{{ url()->current() }}?view=archive" class="pur-btn-secondary">
                         View Archive
                     </a>
                 @endif
@@ -109,7 +101,7 @@
         </div>
     </div>
 
-    <div class="mb-6 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+    <div class="pur-card mb-6">
         <div class="grid grid-cols-2 divide-gray-100 sm:grid-cols-3 lg:grid-cols-5 lg:divide-x">
             <div class="px-5 py-5">
                 <p class="text-2xl font-semibold tracking-tight text-gray-950">{{ $totalRequests }}</p>
@@ -147,7 +139,7 @@
         </div>
     </div>
 
-    <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+    <div class="pur-card">
         <div class="border-b border-gray-100 px-5 py-5">
             <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
                 <div>
@@ -328,7 +320,7 @@
                                     @if($canCreateRis)
                                         <a
                                             href="{{ route('purchaser.ris.index') }}?replacement_request={{ $request->procurement_request_id }}"
-                                            class="inline-flex items-center rounded-lg bg-gray-950 px-3 py-2 text-xs font-medium text-white transition hover:bg-gray-800"
+                                            class="pur-btn-primary !px-3 !py-2 !text-xs"
                                         >
                                             Create RIS
                                         </a>
@@ -560,8 +552,19 @@
                                         <div class="flex flex-wrap gap-2">
                                             @if(!$request->procurement_request_is_archived)
                                                 @if($request->procurement_request_status === 'Pending')
-                                                    <form method="POST" action="{{ route('purchaser.procurement.replacement-requests.reject', $request->procurement_request_id) }}">
+                                                    <form method="POST" action="{{ route('purchaser.procurement.replacement-requests.reject', $request->procurement_request_id) }}" class="flex flex-wrap items-end gap-2">
                                                         @csrf
+                                                        <label class="sr-only" for="reject-remarks-{{ $request->procurement_request_id }}">Reject remarks</label>
+                                                        <input
+                                                            id="reject-remarks-{{ $request->procurement_request_id }}"
+                                                            type="text"
+                                                            name="remarks"
+                                                            required
+                                                            minlength="8"
+                                                            maxlength="2000"
+                                                            placeholder="Reason for rejection"
+                                                            class="min-w-[12rem] rounded-lg border border-gray-200 px-3 py-2 text-sm"
+                                                        >
                                                         <button type="submit" class="rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50">
                                                             Reject
                                                         </button>
@@ -569,7 +572,7 @@
 
                                                     <form method="POST" action="{{ route('purchaser.procurement.replacement-requests.approve', $request->procurement_request_id) }}">
                                                         @csrf
-                                                        <button type="submit" class="rounded-lg bg-gray-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800">
+                                                        <button type="submit" class="pur-btn-primary">
                                                             Approve Request
                                                         </button>
                                                     </form>
@@ -586,7 +589,7 @@
                                                 @elseif($canCreateRis)
                                                     <a
                                                         href="{{ route('purchaser.ris.index') }}?replacement_request={{ $request->procurement_request_id }}"
-                                                        class="inline-flex items-center rounded-lg bg-gray-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800"
+                                                        class="pur-btn-primary"
                                                     >
                                                         Create RIS
                                                     </a>
@@ -611,7 +614,7 @@
                                             @else
                                                 <form method="POST" action="{{ route('purchaser.procurement.replacement-requests.restore', $request->procurement_request_id) }}">
                                                     @csrf
-                                                    <button type="submit" class="rounded-lg bg-gray-950 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800">
+                                                    <button type="submit" class="pur-btn-primary">
                                                         Restore Request
                                                     </button>
                                                 </form>

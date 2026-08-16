@@ -44,30 +44,10 @@
 
         <div>
 
-            <h1
-                class="
-                    text-3xl
-                    font-bold
-                    tracking-tight
-                    text-slate-950
-                "
-            >
+            <p class="pur-page-kicker">Emergency Response</p>
+            <h1 class="pur-page-title">
                 Urgent Reports
             </h1>
-
-
-            <p
-                class="
-                    mt-1
-                    max-w-2xl
-                    text-sm
-                    leading-6
-                    text-slate-500
-                "
-            >
-                Respond to urgent maintenance reports when maintenance
-                personnel are unavailable.
-            </p>
 
         </div>
 
@@ -476,13 +456,13 @@
                 justify-center
                 gap-2
                 rounded-xl
-                bg-slate-900
+                bg-[#fff200]
                 px-5
                 text-sm
                 font-semibold
-                text-white
+                text-slate-950
                 transition
-                hover:bg-slate-800
+                hover:bg-[#e6dc00]
             "
         >
 

@@ -3,6 +3,8 @@
 
 @section("sidebar")
 
+    <link rel="stylesheet" href="{{ asset('css/purchaser-modern.css') }}">
+
     {{-- ===================================================== --}}
     {{-- PURCHASER SIDEBAR HERE --}}
     {{-- FIXED WIDTH: w-64 --}}

@@ -57,28 +57,28 @@
     class="space-y-6"
 >
     @if(session('success'))
-        <div class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{{ session('success') }}</div>
+        <div class="pur-alert-success">{{ session('success') }}</div>
     @endif
     @if(session('error'))
-        <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ session('error') }}</div>
+        <div class="pur-alert-error">{{ session('error') }}</div>
     @endif
     @if($errors->any())
-        <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div class="pur-alert-error">
             <ul class="list-disc pl-5">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
         </div>
     @endif
 
     <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
-            <h2 class="text-2xl font-semibold text-slate-900">Receiving Reports</h2>
-            <p class="text-sm text-slate-600">Linked to approved Request for Check. Receiving Officer confirms Second Count.</p>
+            <p class="pur-page-kicker">Purchasing Workflow</p>
+            <h2 class="pur-page-title">Receiving Reports</h2>
         </div>
         <div class="flex flex-wrap gap-2">
-            <a href="{{ route('purchaser.rr.index') }}" class="inline-flex h-10 items-center rounded-lg border border-gray-300 bg-white px-5 text-sm font-medium text-gray-700">Active</a>
-            <a href="{{ route('purchaser.rr.index', ['view' => 'archive']) }}" class="inline-flex h-10 items-center rounded-lg border border-gray-300 bg-white px-5 text-sm font-medium text-gray-700">Archive</a>
+            <a href="{{ route('purchaser.rr.index') }}" class="pur-btn-secondary">Active</a>
+            <a href="{{ route('purchaser.rr.index', ['view' => 'archive']) }}" class="pur-btn-secondary">Archive</a>
             @unless($archiveView)
-                <button type="button" @click="createOpen = true" class="h-10 rounded-lg bg-gray-900 px-5 text-sm font-medium text-white">Create</button>
-                <button type="button" @click="printRr('blank')" class="h-10 rounded-lg border border-gray-300 bg-white px-5 text-sm font-medium text-gray-700">Print blank</button>
+                <button type="button" @click="createOpen = true" class="pur-btn-primary">Create</button>
+                <button type="button" @click="printRr('blank')" class="pur-btn-secondary">Print blank</button>
             @endunless
         </div>
     </div>
@@ -92,14 +92,14 @@
             ['Returned', $summary['returned'], route('purchaser.rr.index', ['status' => 'Returned'])],
             ['Archived', $summary['archived'], route('purchaser.rr.index', ['view' => 'archive'])],
         ] as $card)
-            <a href="{{ $card[2] }}" class="rounded-xl border border-gray-200 bg-white p-5 hover:shadow-sm">
+            <a href="{{ $card[2] }}" class="pur-stat-card">
                 <p class="text-sm font-medium text-gray-500">{{ $card[0] }}</p>
                 <p class="mt-3 text-3xl font-semibold text-gray-900">{{ $card[1] }}</p>
             </a>
         @endforeach
     </div>
 
-    <form method="GET" class="grid gap-3 rounded-xl border border-gray-200 bg-white p-4 lg:grid-cols-5">
+    <form method="GET" class="pur-card grid gap-3 p-4 lg:grid-cols-5">
         @if($archiveView)<input type="hidden" name="view" value="archive">@endif
         <input type="text" name="search" value="{{ request('search') }}" placeholder="Search RR, RFC, supplier, invoice" class="h-10 rounded-lg border border-gray-300 px-3 text-sm lg:col-span-2">
         <select name="status" class="h-10 rounded-lg border border-gray-300 px-3 text-sm">
@@ -110,12 +110,12 @@
         </select>
         <input type="date" name="date" value="{{ request('date') }}" class="h-10 rounded-lg border border-gray-300 px-3 text-sm">
         <div class="flex gap-2">
-            <button class="h-10 rounded-lg bg-gray-900 px-5 text-sm font-medium text-white">Search</button>
+            <button class="pur-btn-primary">Search</button>
             <a href="{{ $archiveView ? route('purchaser.rr.index', ['view' => 'archive']) : route('purchaser.rr.index') }}" class="inline-flex h-10 items-center rounded-lg border px-5 text-sm">Reset</a>
         </div>
     </form>
 
-    <div class="overflow-hidden rounded-xl border border-gray-200 bg-white">
+    <div class="pur-card">
         <div class="overflow-x-auto">
             <table class="w-full min-w-[1000px] text-sm">
                 <thead class="border-b bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
@@ -157,7 +157,7 @@
                                         <button type="button" @click="openEdit({{ $rr->receiving_report_id }})" class="rounded-lg border px-3 py-2 text-xs">Edit</button>
                                         <form method="POST" action="{{ route('purchaser.rr.submit', $rr->receiving_report_id) }}" onsubmit="return confirm('Submit this Receiving Report?')">
                                             @csrf
-                                            <button class="rounded-lg bg-gray-900 px-3 py-2 text-xs text-white">Submit</button>
+                                            <button class="pur-btn-primary !px-3 !py-2 !text-xs">Submit</button>
                                         </form>
                                     @endif
                                     @if(!$archiveView && $rr->receiving_report_status === 'Completed')
@@ -217,7 +217,7 @@
                         </div>
                         <div class="flex justify-end gap-2 border-t px-6 py-4">
                             <button type="submit" class="rounded-lg border px-4 py-2 text-sm">Save Draft</button>
-                            <button type="submit" onclick="this.form.save_action.value='submit'" class="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white">Save & Submit</button>
+                            <button type="submit" onclick="this.form.save_action.value='submit'" class="pur-btn-primary">Save & Submit</button>
                         </div>
                     </form>
                 @endif
@@ -254,7 +254,7 @@
                                 <span class="inline-flex h-10 items-center rounded-lg border border-green-200 bg-green-50 px-4 text-sm font-medium text-green-700">Liquidation Created</span>
                             @endif
                         @endif
-                        <button type="button" @click="printRr({{ $rr->receiving_report_id }})" class="h-10 rounded-lg bg-gray-900 px-5 text-sm text-white">Print</button>
+                        <button type="button" @click="printRr({{ $rr->receiving_report_id }})" class="pur-btn-primary">Print</button>
                         <button type="button" @click="viewOpen = false" class="h-10 rounded-lg border px-5 text-sm">Close</button>
                     </div>
                 </div>
@@ -279,7 +279,7 @@
                             </div>
                             <div class="flex justify-end gap-2 border-t px-6 py-4">
                                 <button type="submit" class="rounded-lg border px-4 py-2 text-sm">Update Draft</button>
-                                <button type="submit" onclick="this.form.save_action.value='submit'" class="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white">Save & Submit</button>
+                                <button type="submit" onclick="this.form.save_action.value='submit'" class="pur-btn-primary">Save & Submit</button>
                             </div>
                         </form>
                     </div>

@@ -53,19 +53,7 @@ class ReceivingReportController extends Controller
             ->paginate(10)
             ->withQueryString();
 
-        $activeScope = function ($q) {
-            $q->whereNull('receiving_report_is_archived')
-                ->orWhere('receiving_report_is_archived', 0);
-        };
-
-        $summary = [
-            'total' => DB::table('receiving_reports_table')->where($activeScope)->count(),
-            'draft' => DB::table('receiving_reports_table')->where('receiving_report_status', 'Draft')->where($activeScope)->count(),
-            'submitted' => DB::table('receiving_reports_table')->whereIn('receiving_report_status', ['Submitted', 'Under Review', 'Resubmitted'])->where($activeScope)->count(),
-            'completed' => DB::table('receiving_reports_table')->where('receiving_report_status', 'Completed')->where($activeScope)->count(),
-            'returned' => DB::table('receiving_reports_table')->where('receiving_report_status', 'Returned')->where($activeScope)->count(),
-            'archived' => DB::table('receiving_reports_table')->where('receiving_report_is_archived', 1)->count(),
-        ];
+        $summary = $this->rrStatusSummary();
 
         $eligibleRfcs = $this->eligibleRfcQuery()->get();
         $rfcPrefill = $this->buildRfcPrefill($eligibleRfcs);
@@ -106,12 +94,8 @@ class ReceivingReportController extends Controller
         $isDraft = $request->input('save_action', 'draft') === 'draft';
         $validated = $this->validateRr($request, $isDraft);
 
-        if ($this->hasBlockingRr($validated['receiving_report_request_check_id'] ?? null)) {
-            return back()->withInput()->with('error', 'A Receiving Report already exists for the selected Request for Check.');
-        }
-
-        if (!$this->rfcReadyForReceivingReport($validated['receiving_report_request_check_id'] ?? null)) {
-            return back()->withInput()->with('error', 'Funds must be released by Accounting before a Receiving Report can be created.');
+        if ($error = $this->rrEligibilityError($validated['receiving_report_request_check_id'] ?? null, null, !$isDraft)) {
+            return back()->withInput()->with('error', $error);
         }
 
         return DB::transaction(function () use ($validated, $isDraft) {
@@ -140,6 +124,11 @@ class ReceivingReportController extends Controller
             ]);
 
             $this->replaceItems($id, $validated['items'] ?? []);
+            if (!$isDraft && !$this->hasCompleteRrItem($id)) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'items' => 'Add at least one item with quantity of 1 or more before submitting.',
+                ]);
+            }
             $this->linkRfc($validated['receiving_report_request_check_id'] ?? null, $id);
 
             return redirect()->route('purchaser.rr.index')->with(
@@ -160,12 +149,8 @@ class ReceivingReportController extends Controller
         $validated = $this->validateRr($request, $isDraft);
         $rfcId = $validated['receiving_report_request_check_id'] ?? $rr->receiving_report_request_check_id;
 
-        if ($this->hasBlockingRr($rfcId, $id)) {
-            return back()->withInput()->with('error', 'A Receiving Report already exists for the selected Request for Check.');
-        }
-
-        if (!$this->rfcReadyForReceivingReport($rfcId)) {
-            return back()->withInput()->with('error', 'Funds must be released by Accounting before a Receiving Report can be created.');
+        if ($error = $this->rrEligibilityError($rfcId, $id, !$isDraft)) {
+            return back()->withInput()->with('error', $error);
         }
 
         return DB::transaction(function () use ($validated, $rr, $isDraft, $id, $rfcId) {
@@ -191,6 +176,11 @@ class ReceivingReportController extends Controller
             ]);
 
             $this->replaceItems($id, $validated['items'] ?? []);
+            if (!$isDraft && !$this->hasCompleteRrItem($id)) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'items' => 'Add at least one item with quantity of 1 or more before submitting.',
+                ]);
+            }
             $this->linkRfc($rfcId, $id);
 
             return redirect()->route('purchaser.rr.index')->with(
@@ -202,21 +192,31 @@ class ReceivingReportController extends Controller
 
     public function submit($id)
     {
-        $rr = $this->findRr($id);
-        if (!$rr || !$this->isEditable($rr)) {
-            return back()->with('error', 'This Receiving Report cannot be submitted.');
-        }
+        return DB::transaction(function () use ($id) {
+            $rr = DB::table('receiving_reports_table')->where('receiving_report_id', $id)->lockForUpdate()->first();
+            if (!$rr || !$this->isEditable($rr)) {
+                return back()->with('error', 'This Receiving Report cannot be submitted.');
+            }
 
-        $wasRevision = $rr->receiving_report_status === 'Minor Revision';
-        DB::table('receiving_reports_table')->where('receiving_report_id', $id)->update([
-            'receiving_report_status' => $wasRevision ? 'Resubmitted' : 'Submitted',
-            'receiving_report_submitted_by' => auth()->id(),
-            'receiving_report_submitted_at' => now(),
-            'receiving_report_updated_at' => now(),
-        ]);
-        $this->linkRfc($rr->receiving_report_request_check_id, $id);
+            if ($error = $this->rrEligibilityError($rr->receiving_report_request_check_id, $id, true)) {
+                return back()->with('error', $error);
+            }
 
-        return back()->with('success', 'Receiving Report submitted to Receiving.');
+            if (!$this->hasCompleteRrItem($id)) {
+                return back()->with('error', 'Add at least one item with quantity of 1 or more before submitting.');
+            }
+
+            $wasRevision = $rr->receiving_report_status === 'Minor Revision';
+            DB::table('receiving_reports_table')->where('receiving_report_id', $id)->update([
+                'receiving_report_status' => $wasRevision ? 'Resubmitted' : 'Submitted',
+                'receiving_report_submitted_by' => auth()->id(),
+                'receiving_report_submitted_at' => now(),
+                'receiving_report_updated_at' => now(),
+            ]);
+            $this->linkRfc($rr->receiving_report_request_check_id, $id);
+
+            return back()->with('success', 'Receiving Report submitted to Receiving.');
+        });
     }
 
     public function archive($id)
@@ -292,6 +292,7 @@ class ReceivingReportController extends Controller
     {
         DB::table('receiving_report_items_table')->where('receiving_report_id', $rrId)->delete();
 
+        $rows = [];
         foreach (array_slice($items, 0, 10) as $row) {
             $qty = $row['quantity'] ?? null;
             $unit = $row['unit'] ?? null;
@@ -299,12 +300,15 @@ class ReceivingReportController extends Controller
             if ($qty === null && blank($unit) && blank($article)) {
                 continue;
             }
-            DB::table('receiving_report_items_table')->insert([
+            $rows[] = [
                 'receiving_report_id' => $rrId,
                 'receiving_report_item_quantity' => $qty ?: null,
                 'receiving_report_item_unit' => $unit,
                 'receiving_report_item_article' => $article,
-            ]);
+            ];
+        }
+        if ($rows !== []) {
+            DB::table('receiving_report_items_table')->insert($rows);
         }
     }
 
@@ -397,7 +401,8 @@ class ReceivingReportController extends Controller
                 'online_suppliers_table.shop_name',
                 'suppliers_table.supplier_store_type'
             )
-            ->orderByDesc('request_check_table.request_check_id');
+            ->orderByDesc('request_check_table.request_check_id')
+            ->limit(50);
     }
 
     private function buildRfcPrefill($eligibleRfcs): array
@@ -433,6 +438,69 @@ class ReceivingReportController extends Controller
         return $prefill;
     }
 
+    private function rrStatusSummary(): array
+    {
+        $counts = DB::table('receiving_reports_table')
+            ->select('receiving_report_status', 'receiving_report_is_archived', DB::raw('COUNT(*) as aggregate'))
+            ->groupBy('receiving_report_status', 'receiving_report_is_archived')
+            ->get();
+
+        $summary = [
+            'total' => 0,
+            'draft' => 0,
+            'submitted' => 0,
+            'completed' => 0,
+            'returned' => 0,
+            'archived' => 0,
+        ];
+        $submitted = ['Submitted', 'Under Review', 'Resubmitted'];
+
+        foreach ($counts as $row) {
+            $count = (int) $row->aggregate;
+            if ((int) $row->receiving_report_is_archived === 1) {
+                $summary['archived'] += $count;
+                continue;
+            }
+            $summary['total'] += $count;
+            if ($row->receiving_report_status === 'Draft') {
+                $summary['draft'] += $count;
+            } elseif (in_array($row->receiving_report_status, $submitted, true)) {
+                $summary['submitted'] += $count;
+            } elseif ($row->receiving_report_status === 'Completed') {
+                $summary['completed'] += $count;
+            } elseif ($row->receiving_report_status === 'Returned') {
+                $summary['returned'] += $count;
+            }
+        }
+
+        return $summary;
+    }
+
+    private function rrEligibilityError($rfcId, $ignoreId, bool $required): ?string
+    {
+        if (!$rfcId) {
+            return $required ? 'Select an approved Request for Check with released funds before submitting.' : null;
+        }
+
+        if ($this->hasBlockingRr($rfcId, $ignoreId)) {
+            return 'A Receiving Report already exists for the selected Request for Check.';
+        }
+
+        if (!$this->rfcReadyForReceivingReport($rfcId)) {
+            return 'Funds must be released by Accounting before a Receiving Report can be created.';
+        }
+
+        return null;
+    }
+
+    private function hasCompleteRrItem($rrId): bool
+    {
+        return DB::table('receiving_report_items_table')
+            ->where('receiving_report_id', $rrId)
+            ->where('receiving_report_item_quantity', '>=', 1)
+            ->exists();
+    }
+
     private function hasBlockingRr($rfcId, $ignoreId = null): bool
     {
         if (!$rfcId) {
@@ -457,7 +525,7 @@ class ReceivingReportController extends Controller
     private function rfcReadyForReceivingReport($rfcId): bool
     {
         if (!$rfcId) {
-            return true;
+            return false;
         }
 
         $rfc = DB::table('request_check_table')->where('request_check_id', $rfcId)->first();

@@ -24,19 +24,24 @@ class SupplierController extends Controller
             });
         }
 
-        // ADDED SUPPLIERS MODULE: supplier type filter.
-        if ($request->filled('type')) {
+        $allowedTypes = ['Physical Store', 'Online Store'];
+        if ($request->filled('type') && in_array($request->type, $allowedTypes, true)) {
             $query->where('suppliers_table.supplier_store_type', $request->type);
         }
 
-        // ADDED SUPPLIERS MODULE: active/inactive filter.
-        if ($request->filled('status')) {
+        if ($request->filled('status') && in_array($request->status, ['Active', 'Inactive'], true)) {
             $query->where('suppliers_table.supplier_is_active', $request->status === 'Inactive' ? 0 : 1);
         }
 
         $suppliers = $query->orderByDesc('suppliers_table.supplier_id')->paginate(10)->withQueryString();
 
-        return view('purchaser.suppliers.index', compact('suppliers'));
+        $supplierSummary = [
+            'total' => (int) DB::table('suppliers_table')->count(),
+            'active' => (int) DB::table('suppliers_table')->where('supplier_is_active', 1)->count(),
+            'inactive' => (int) DB::table('suppliers_table')->where('supplier_is_active', 0)->count(),
+        ];
+
+        return view('purchaser.suppliers.index', compact('suppliers', 'supplierSummary'));
     }
 
     public function create(Request $request)

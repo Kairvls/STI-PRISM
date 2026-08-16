@@ -43,10 +43,6 @@
                 Purchaser Dashboard
             </h1>
 
-            <p class="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
-                Review equipment replacement requests forwarded by maintenance personnel.
-            </p>
-
         </div>
 
 

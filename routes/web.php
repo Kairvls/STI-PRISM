@@ -23,6 +23,7 @@ use App\Http\Controllers\BrandController;
 use App\Http\Controllers\UomController;
 use App\Http\Controllers\ItemCategoryController;
 use App\Http\Controllers\ItemSubCategoryController;
+use App\Http\Controllers\FileMaintenanceController;
 
 /*
 |--------------------------------------------------------------------------
@@ -1592,22 +1593,32 @@ Route::middleware([
         // FILE MAINTENANCE
         // =====================================================
 
-        Route::get('/brands', [BrandController::class, 'index'])->name('brands.index');
+        Route::get('/file-maintenance', [FileMaintenanceController::class, 'index'])->name('file-maintenance.index');
+
+        Route::get('/brands', function () {
+            return redirect()->route('purchaser.file-maintenance.index', ['tab' => 'brands']);
+        })->name('brands.index');
         Route::post('/brands', [BrandController::class, 'store'])->name('brands.store');
         Route::put('/brands/{brand}', [BrandController::class, 'update'])->name('brands.update');
         Route::delete('/brands/{brand}', [BrandController::class, 'destroy'])->name('brands.destroy');
 
-        Route::get('/uom', [UomController::class, 'index'])->name('uom.index');
+        Route::get('/uom', function () {
+            return redirect()->route('purchaser.file-maintenance.index', ['tab' => 'uom']);
+        })->name('uom.index');
         Route::post('/uom', [UomController::class, 'store'])->name('uom.store');
         Route::put('/uom/{uom}', [UomController::class, 'update'])->name('uom.update');
         Route::delete('/uom/{uom}', [UomController::class, 'destroy'])->name('uom.destroy');
 
-        Route::get('/categories', [ItemCategoryController::class, 'index'])->name('categories.index');
+        Route::get('/categories', function () {
+            return redirect()->route('purchaser.file-maintenance.index', ['tab' => 'categories']);
+        })->name('categories.index');
         Route::post('/categories', [ItemCategoryController::class, 'store'])->name('categories.store');
         Route::put('/categories/{category}', [ItemCategoryController::class, 'update'])->name('categories.update');
         Route::delete('/categories/{category}', [ItemCategoryController::class, 'destroy'])->name('categories.destroy');
 
-        Route::get('/subcategories', [ItemSubCategoryController::class, 'index'])->name('subcategories.index');
+        Route::get('/subcategories', function () {
+            return redirect()->route('purchaser.file-maintenance.index', ['tab' => 'subcategories']);
+        })->name('subcategories.index');
         Route::post('/subcategories', [ItemSubCategoryController::class, 'store'])->name('subcategories.store');
         Route::put('/subcategories/{subcategory}', [ItemSubCategoryController::class, 'update'])->name('subcategories.update');
         Route::delete('/subcategories/{subcategory}', [ItemSubCategoryController::class, 'destroy'])->name('subcategories.destroy');

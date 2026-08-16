@@ -322,35 +322,11 @@
         </a>
 
         <a
-            href="{{ route('purchaser.brands.index') }}"
-            class="menu-item mt-1 {{ request()->routeIs('purchaser.brands.*') ? 'active' : '' }}"
+            href="{{ route('purchaser.file-maintenance.index') }}"
+            class="menu-item mt-1 {{ request()->routeIs('purchaser.file-maintenance.*') || request()->routeIs('purchaser.brands.*') || request()->routeIs('purchaser.uom.*') || request()->routeIs('purchaser.categories.*') || request()->routeIs('purchaser.subcategories.*') ? 'active' : '' }}"
         >
-            <i data-lucide="tag" class="h-5 w-5"></i>
-            <span>Brands</span>
-        </a>
-
-        <a
-            href="{{ route('purchaser.uom.index') }}"
-            class="menu-item mt-1 {{ request()->routeIs('purchaser.uom.*') ? 'active' : '' }}"
-        >
-            <i data-lucide="ruler" class="h-5 w-5"></i>
-            <span>UOM</span>
-        </a>
-
-        <a
-            href="{{ route('purchaser.categories.index') }}"
-            class="menu-item mt-1 {{ request()->routeIs('purchaser.categories.*') ? 'active' : '' }}"
-        >
-            <i data-lucide="folder" class="h-5 w-5"></i>
-            <span>Categories</span>
-        </a>
-
-        <a
-            href="{{ route('purchaser.subcategories.index') }}"
-            class="menu-item mt-1 {{ request()->routeIs('purchaser.subcategories.*') ? 'active' : '' }}"
-        >
-            <i data-lucide="folders" class="h-5 w-5"></i>
-            <span>Sub Categories</span>
+            <i data-lucide="database" class="h-5 w-5"></i>
+            <span>File Maintenance</span>
         </a>
 
 

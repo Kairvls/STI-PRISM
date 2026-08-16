@@ -8,14 +8,14 @@
 <div class="space-y-6">
     <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
-            <h2 class="text-2xl font-semibold text-slate-900">Supplier #{{ $supplier->supplier_id }}</h2>
-            <p class="text-sm text-slate-600">{{ $supplier->supplier_store_type }}</p>
+            <h2 class="pur-page-title">Supplier #{{ $supplier->supplier_id }}</h2>
+            <p class="pur-page-subtitle">{{ $supplier->supplier_store_type }}</p>
         </div>
-        <a href="{{ route('purchaser.suppliers.index') }}" class="inline-flex h-10 items-center rounded-lg border border-gray-300 bg-white px-4 text-sm font-medium text-gray-700">Back to suppliers</a>
+        <a href="{{ route('purchaser.suppliers.index') }}" class="pur-btn-secondary">Back to suppliers</a>
     </div>
 
     <div class="grid gap-6 lg:grid-cols-2">
-        <section class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+        <section class="pur-card p-6">
             <div class="mb-5 flex items-center justify-between">
                 <div>
                     <h3 class="text-lg font-semibold text-slate-900">Supplier Information</h3>
@@ -73,7 +73,7 @@
             </dl>
         </section>
 
-        <section class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+        <section class="pur-card p-6">
             <h3 class="mb-4 text-lg font-semibold text-slate-900">Procurement history</h3>
             @if($procurementHistory->isEmpty())
                 <div class="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-sm text-slate-600">

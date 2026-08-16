@@ -158,19 +158,19 @@
 >
 
     @if(session('success'))
-        <div class="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+        <div class="pur-alert-success">
             {{ session('success') }}
         </div>
     @endif
 
     @if(session('error'))
-        <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div class="pur-alert-error">
             {{ session('error') }}
         </div>
     @endif
 
     @if($errors->any())
-        <div class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div class="pur-alert-error">
             <p class="font-medium">Please fix the following RIS form errors:</p>
             <ul class="mt-2 list-disc space-y-1 pl-5">
                 @foreach($errors->all() as $error)
@@ -183,23 +183,15 @@
     <div class="mb-7">
         <div class="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div>
-                <div class="mb-2 flex items-center gap-2">
-                    <span class="h-2 w-2 rounded-full bg-gray-900"></span>
-                    <span class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">Procurement</span>
-                </div>
-
-                <h1 class="text-3xl font-semibold tracking-tight text-gray-950">Requisition &amp; Issue Slips</h1>
-
-                <p class="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
-                    Manage RIS drafts, submissions, revisions, approvals, and procurement records.
-                </p>
+                <p class="pur-page-kicker">Procurement</p>
+                <h1 class="pur-page-title">Requisition &amp; Issue Slips</h1>
             </div>
 
             <div class="flex flex-wrap gap-2">
                 <button
                     type="button"
                     x-on:click="openModal = 'empty-ris'"
-                    class="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition hover:border-gray-300 hover:bg-gray-50"
+                    class="pur-btn-secondary"
                 >
                     Print Empty RIS
                 </button>
@@ -207,7 +199,7 @@
                 <button
                     type="button"
                     x-on:click="createRisModal = true"
-                    class="rounded-xl bg-gray-950 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-gray-800"
+                    class="pur-btn-primary"
                 >
                     + New RIS
                 </button>
@@ -219,7 +211,7 @@
 
         <a
             href="{{ route('purchaser.ris.index') }}"
-            class="group rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:shadow-sm"
+            class="pur-stat-card group"
         >
             <div class="flex items-start justify-between gap-4">
                 <div>
@@ -240,7 +232,7 @@
 
         <a
             href="{{ route('purchaser.ris.index', ['status' => 'Draft']) }}"
-            class="group rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:shadow-sm"
+            class="pur-stat-card group"
         >
             <div class="flex items-start justify-between gap-4">
                 <div>
@@ -261,7 +253,7 @@
 
         <a
             href="{{ route('purchaser.ris.index', ['status' => 'In Review']) }}"
-            class="group rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:shadow-sm"
+            class="pur-stat-card group"
         >
             <div class="flex items-start justify-between gap-4">
                 <div>
@@ -282,7 +274,7 @@
 
         <a
             href="{{ route('purchaser.ris.index', ['status' => 'Approved']) }}"
-            class="group rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:shadow-sm"
+            class="pur-stat-card group"
         >
             <div class="flex items-start justify-between gap-4">
                 <div>
@@ -303,7 +295,7 @@
 
         <a
             href="{{ route('purchaser.ris.index', ['status' => 'Rejected']) }}"
-            class="group rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:shadow-sm"
+            class="pur-stat-card group"
         >
             <div class="flex items-start justify-between gap-4">
                 <div>
@@ -557,7 +549,7 @@
                     <button
                         type="button"
                         onclick="printRis('print-empty-ris-content')"
-                        class="rounded-lg bg-gray-900 px-5 py-2 text-sm font-medium text-white hover:bg-gray-800"
+                        class="pur-btn-primary"
                     >
                         Print Empty RIS
                     </button>
@@ -880,6 +872,7 @@
 
     </style>
     <div
+        x-cloak
         x-show="createRisModal"
         x-transition.opacity
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
@@ -1231,7 +1224,7 @@
                     <button
                         type="submit"
                         x-bind:disabled="risHasOverflow(createItems)"
-                        class="rounded-lg bg-gray-900 px-5 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+                        class="pur-btn-primary disabled:cursor-not-allowed disabled:opacity-50"
                     >
                         Save RIS
                     </button>
@@ -1240,7 +1233,7 @@
         </div>
     </div>
 
-    <div id="ris-records-section" class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+    <div id="ris-records-section" class="pur-card">
 
         {{-- TOOLBAR --}}
         <div class="border-b border-gray-100 px-5 py-5">
@@ -1252,7 +1245,6 @@
                             {{ $risRecords->total() }}
                         </span>
                     </div>
-                    <p class="mt-1 text-xs text-gray-400">View and manage your requisition records.</p>
                 </div>
 
                 <form
@@ -1292,10 +1284,10 @@
                     <button
                         type="submit"
                         x-bind:disabled="recordsLoading"
-                        class="rounded-xl bg-gray-950 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800 disabled:cursor-wait disabled:opacity-60"
+                        class="pur-btn-primary disabled:cursor-wait disabled:opacity-60"
                     >
-                        <span x-show="!recordsLoading">Apply</span>
-                        <span x-show="recordsLoading">Loading...</span>
+                        <span x-cloak x-show="!recordsLoading">Apply</span>
+                        <span x-cloak x-show="recordsLoading">Loading...</span>
                     </button>
 
                     @if(request()->filled('search') || request()->filled('status') || request()->filled('date_from') || request()->filled('date_to'))
@@ -1402,8 +1394,8 @@
 
                             <td class="px-5 py-4">
                                 @php
-                                    $issuedBy = trim((string) ($ris->ris_issued_by_signature ?? ''));
-                                    $presidentSig = trim((string) ($ris->ris_approved_by_signature ?? ''));
+                                    $issuedBy = (int) ($ris->has_issued_by_signature ?? 0) === 1 ? 'signed' : '';
+                                    $presidentSig = (int) ($ris->has_approved_by_signature ?? 0) === 1 ? 'signed' : '';
                                     $awaitingAdmin = in_array($ris->ris_status, ['Approved', 'Approved by the President'], true)
                                         && $presidentSig !== ''
                                         && $issuedBy === '';
@@ -1448,7 +1440,7 @@
                             </td>
 
                             <td class="whitespace-nowrap px-5 py-4">
-                                @if($ris->ris_submitted_at)
+                                @if(!empty($ris->ris_submitted_at))
                                     <p class="text-sm text-gray-700">{{ \Carbon\Carbon::parse($ris->ris_submitted_at)->format('M d, Y') }}</p>
                                     <p class="mt-1 text-xs text-gray-400">{{ \Carbon\Carbon::parse($ris->ris_submitted_at)->format('h:i A') }}</p>
                                 @else
@@ -1517,8 +1509,8 @@
                             </h3>
 
                             @php
-                                $issuedBy = trim((string) ($ris->ris_issued_by_signature ?? ''));
-                                $presidentSig = trim((string) ($ris->ris_approved_by_signature ?? ''));
+                                $issuedBy = (int) ($ris->has_issued_by_signature ?? 0) === 1 ? 'signed' : '';
+                                $presidentSig = (int) ($ris->has_approved_by_signature ?? 0) === 1 ? 'signed' : '';
                                 $awaitingAdmin = in_array($ris->ris_status, ['Approved', 'Approved by the President'], true)
                                     && $presidentSig !== ''
                                     && $issuedBy === '';
@@ -1665,9 +1657,9 @@
                             <div class="ris-signatures">
                                 @foreach([
                                     ['Requested by:', $ris->ris_requested_by_signature, $ris->ris_requested_by_date],
-                                    ['Approved by:', $ris->ris_approved_by_signature, $ris->ris_approved_by_date],
-                                    ['Issued by:', $ris->ris_issued_by_signature, $ris->ris_issued_by_date],
-                                    ['Received by:', $ris->ris_received_by_signature, $ris->ris_received_by_date],
+                                    ['Approved by:', ((int) ($ris->has_approved_by_signature ?? 0) === 1 ? 'Signed' : ''), $ris->ris_approved_by_date],
+                                    ['Issued by:', ((int) ($ris->has_issued_by_signature ?? 0) === 1 ? 'Signed' : ''), $ris->ris_issued_by_date],
+                                    ['Received by:', ((int) ($ris->has_received_by_signature ?? 0) === 1 ? 'Signed' : ''), $ris->ris_received_by_date],
                                 ] as [$label, $signature, $date])
                                     <div class="ris-signature-column">
                                         <div class="ris-signature-label">{{ $label }}</div>
@@ -1809,7 +1801,7 @@
                                 <button
                                     type="submit"
                                     onclick="return confirm('Submit this RIS to Admin?')"
-                                    class="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+                                    class="pur-btn-primary"
                                 >
                                     Submit to Admin
                                 </button>
@@ -1916,9 +1908,9 @@
                             <div class="ris-signatures">
                                 @foreach([
                                     ['Requested by:', $ris->ris_requested_by_signature, $ris->ris_requested_by_date],
-                                    ['Approved by:', $ris->ris_approved_by_signature, $ris->ris_approved_by_date],
-                                    ['Issued by:', $ris->ris_issued_by_signature, $ris->ris_issued_by_date],
-                                    ['Received by:', $ris->ris_received_by_signature, $ris->ris_received_by_date],
+                                    ['Approved by:', ((int) ($ris->has_approved_by_signature ?? 0) === 1 ? 'Signed' : ''), $ris->ris_approved_by_date],
+                                    ['Issued by:', ((int) ($ris->has_issued_by_signature ?? 0) === 1 ? 'Signed' : ''), $ris->ris_issued_by_date],
+                                    ['Received by:', ((int) ($ris->has_received_by_signature ?? 0) === 1 ? 'Signed' : ''), $ris->ris_received_by_date],
                                 ] as [$label, $signature, $date])
                                     <div class="ris-signature-column">
                                         <div class="ris-signature-label">{{ $label }}</div>
@@ -1945,7 +1937,7 @@
                         <button
                             type="button"
                             onclick="printRis('print-ris-content-{{ $ris->ris_id }}')"
-                            class="rounded-lg bg-gray-900 px-5 py-2 text-sm font-medium text-white hover:bg-gray-800"
+                            class="pur-btn-primary"
                         >
                             Print RIS
                         </button>
@@ -2153,7 +2145,7 @@
                                         </div>
                                         <div class="ris-signature-column">
                                             <div class="ris-signature-label">Approved by:</div>
-                                            <div class="ris-signature-line ris-value-line">{{ $ris->ris_approved_by_signature ?: ' ' }}</div>
+                                            <div class="ris-signature-line ris-value-line">{{ (int) ($ris->has_approved_by_signature ?? 0) === 1 ? 'Signed' : ' ' }}</div>
                                             <div class="ris-date-label">Date:</div>
                                             <div class="ris-date-line ris-value-line">
                                                 {{ $ris->ris_approved_by_date ? \Carbon\Carbon::parse($ris->ris_approved_by_date)->format('d/m/Y') : 'dd/mm/yyyy' }}
@@ -2161,7 +2153,7 @@
                                         </div>
                                         <div class="ris-signature-column">
                                             <div class="ris-signature-label">Issued by:</div>
-                                            <div class="ris-signature-line ris-value-line">{{ $ris->ris_issued_by_signature ?: ' ' }}</div>
+                                            <div class="ris-signature-line ris-value-line">{{ (int) ($ris->has_issued_by_signature ?? 0) === 1 ? 'Signed' : ' ' }}</div>
                                             <div class="ris-date-label">Date:</div>
                                             <div class="ris-date-line ris-value-line">
                                                 {{ $ris->ris_issued_by_date ? \Carbon\Carbon::parse($ris->ris_issued_by_date)->format('d/m/Y') : 'dd/mm/yyyy' }}
@@ -2169,7 +2161,7 @@
                                         </div>
                                         <div class="ris-signature-column">
                                             <div class="ris-signature-label">Received by:</div>
-                                            <div class="ris-signature-line ris-value-line">{{ $ris->ris_received_by_signature ?: ' ' }}</div>
+                                            <div class="ris-signature-line ris-value-line">{{ (int) ($ris->has_received_by_signature ?? 0) === 1 ? 'Signed' : ' ' }}</div>
                                             <div class="ris-date-label">Date:</div>
                                             <div class="ris-date-line ris-value-line">
                                                 {{ $ris->ris_received_by_date ? \Carbon\Carbon::parse($ris->ris_received_by_date)->format('d/m/Y') : 'dd/mm/yyyy' }}
@@ -2229,7 +2221,7 @@
                                     type="submit"
                                     x-bind:disabled="$root.risHasOverflow(editItems)"
                                     onclick="this.form.querySelector('input[name=save_action]').value='submit'"
-                                    class="rounded-lg bg-gray-900 px-5 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+                                    class="pur-btn-primary disabled:cursor-not-allowed disabled:opacity-50"
                                 >
                                     Save & Submit
                                 </button>
@@ -2239,7 +2231,7 @@
                                     type="submit"
                                     x-bind:disabled="$root.risHasOverflow(editItems)"
                                     onclick="this.form.querySelector('input[name=save_action]').value='resubmit'"
-                                    class="rounded-lg bg-gray-900 px-5 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+                                    class="pur-btn-primary disabled:cursor-not-allowed disabled:opacity-50"
                                 >
                                     Save & Resubmit
                                 </button>

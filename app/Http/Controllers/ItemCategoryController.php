@@ -8,32 +8,6 @@ use Illuminate\Validation\Rule;
 
 class ItemCategoryController extends Controller
 {
-    public function index(Request $request)
-    {
-        $query = ItemCategory::query()->withCount('subcategories');
-
-        if ($request->filled('search')) {
-            $query->where(function ($q) use ($request) {
-                $q->where('item_category_name', 'LIKE', '%' . $request->search . '%')
-                    ->orWhere('item_category_description', 'LIKE', '%' . $request->search . '%');
-            });
-        }
-
-        if ($request->filled('status')) {
-            $query->where('item_category_status', $request->status);
-        }
-
-        $categories = $query->orderBy('item_category_name')->paginate(10)->withQueryString();
-
-        $summary = [
-            'total' => ItemCategory::count(),
-            'active' => ItemCategory::where('item_category_status', 'Active')->count(),
-            'inactive' => ItemCategory::where('item_category_status', 'Inactive')->count(),
-        ];
-
-        return view('purchaser.file-maintenance.categories.index', compact('categories', 'summary'));
-    }
-
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -50,7 +24,7 @@ class ItemCategoryController extends Controller
             'item_category_updated_at' => now(),
         ]);
 
-        return redirect()->route('purchaser.categories.index')->with('success', 'Category created successfully.');
+        return redirect()->route('purchaser.file-maintenance.index', ['tab' => 'categories'])->with('success', 'Category created successfully.');
     }
 
     public function update(Request $request, $categoryId)
@@ -75,7 +49,7 @@ class ItemCategoryController extends Controller
             'item_category_updated_at' => now(),
         ]);
 
-        return redirect()->route('purchaser.categories.index')->with('success', 'Category updated successfully.');
+        return redirect()->route('purchaser.file-maintenance.index', ['tab' => 'categories'])->with('success', 'Category updated successfully.');
     }
 
     public function destroy($categoryId)
@@ -83,11 +57,11 @@ class ItemCategoryController extends Controller
         $category = ItemCategory::withCount('subcategories')->findOrFail($categoryId);
 
         if ($category->subcategories_count > 0) {
-            return back()->with('error', 'This category has sub categories and cannot be deleted.');
+            return redirect()->route('purchaser.file-maintenance.index', ['tab' => 'categories'])->with('error', 'This category has sub categories and cannot be deleted.');
         }
 
         $category->delete();
 
-        return redirect()->route('purchaser.categories.index')->with('success', 'Category deleted successfully.');
+        return redirect()->route('purchaser.file-maintenance.index', ['tab' => 'categories'])->with('success', 'Category deleted successfully.');
     }
 }

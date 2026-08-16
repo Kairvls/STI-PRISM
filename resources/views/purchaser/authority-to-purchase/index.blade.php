@@ -123,13 +123,10 @@
 
     <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
-            <h2 class="text-2xl font-semibold text-slate-900">
+            <p class="pur-page-kicker">Purchasing Workflow</p>
+            <h2 class="pur-page-title">
                 Authority to Purchase
             </h2>
-
-            <p class="text-sm text-slate-600">
-                Create Authority to Purchase records from approved RIS.
-            </p>
         </div>
 
         <div class="flex flex-wrap gap-2">
@@ -137,14 +134,14 @@
             @if($archiveView)
                 <a
                     href="{{ route('purchaser.atp.index') }}"
-                    class="inline-flex h-10 items-center rounded-lg border border-gray-300 bg-white px-5 text-sm font-medium text-gray-700"
+                    class="pur-btn-secondary"
                 >
                     Active ATP
                 </a>
             @else
                 <a
                     href="{{ route('purchaser.atp.index', ['view' => 'archive']) }}"
-                    class="inline-flex h-10 items-center rounded-lg border border-gray-300 bg-white px-5 text-sm font-medium text-gray-700"
+                    class="pur-btn-secondary"
                 >
                     Archive
                 </a>
@@ -154,7 +151,7 @@
                 <button
                     type="button"
                     @click="createOpen = true"
-                    class="h-10 rounded-lg bg-gray-900 px-5 text-sm font-medium text-white"
+                    class="pur-btn-primary"
                 >
                     Create ATP
                 </button>
@@ -172,7 +169,7 @@
 
         <a
             href="{{ route('purchaser.atp.index') }}"
-            class="group rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:shadow-sm"
+            class="pur-stat-card group"
         >
             <div class="flex items-start justify-between gap-4">
                 <div>
@@ -193,7 +190,7 @@
 
         <a
             href="{{ route('purchaser.atp.index', ['status' => 'Draft']) }}"
-            class="group rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:shadow-sm"
+            class="pur-stat-card group"
         >
             <div class="flex items-start justify-between gap-4">
                 <div>
@@ -214,7 +211,7 @@
 
         <a
             href="{{ route('purchaser.atp.index', ['status' => 'Submitted']) }}"
-            class="group rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:shadow-sm"
+            class="pur-stat-card group"
         >
             <div class="flex items-start justify-between gap-4">
                 <div>
@@ -235,7 +232,7 @@
 
         <a
             href="{{ route('purchaser.atp.index', ['status' => 'Approved']) }}"
-            class="group rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:shadow-sm"
+            class="pur-stat-card group"
         >
             <div class="flex items-start justify-between gap-4">
                 <div>
@@ -256,7 +253,7 @@
 
         <a
             href="{{ route('purchaser.atp.index', ['status' => 'Rejected']) }}"
-            class="group rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:shadow-sm"
+            class="pur-stat-card group"
         >
             <div class="flex items-start justify-between gap-4">
                 <div>
@@ -277,7 +274,7 @@
 
         <a
             href="{{ route('purchaser.atp.index', ['view' => 'archive']) }}"
-            class="group rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:shadow-sm"
+            class="pur-stat-card group"
         >
             <div class="flex items-start justify-between gap-4">
                 <div>
@@ -305,7 +302,7 @@
 
     <form
         method="GET"
-        class="grid gap-3 rounded-xl border border-gray-200 bg-white p-4 lg:grid-cols-5"
+        class="pur-card grid gap-3 p-4 lg:grid-cols-5"
     >
 
         @if($archiveView)
@@ -336,7 +333,7 @@
 
         <div class="flex gap-2">
 
-            <button type="submit" class="h-10 rounded-lg bg-gray-900 px-5 text-sm font-medium text-white">
+            <button type="submit" class="pur-btn-primary">
                 Search
             </button>
 
@@ -356,7 +353,7 @@
     {{-- ATP TABLE --}}
     {{-- ========================================================= --}}
 
-    <div class="overflow-hidden rounded-xl border border-gray-200 bg-white">
+    <div class="pur-card">
 
         <div class="overflow-x-auto">
 
@@ -446,7 +443,7 @@
 
                                         <form method="POST" action="{{ route('purchaser.atp.submit', $atp->authority_purchase_id) }}" onsubmit="return confirm('Submit this ATP for review?')">
                                             @csrf
-                                            <button type="submit" class="rounded-lg bg-gray-900 px-3 py-2 text-xs font-medium text-white">
+                                            <button type="submit" class="pur-btn-primary !px-3 !py-2 !text-xs">
                                                 Submit
                                             </button>
                                         </form>
@@ -727,7 +724,7 @@
                             <button type="button" @click="createOpen = false" class="h-10 rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700">
                                 Cancel
                             </button>
-                            <button type="submit" class="h-10 rounded-lg bg-gray-900 px-5 text-sm font-medium text-white">
+                            <button type="submit" class="pur-btn-primary">
                                 Save Draft
                             </button>
                         </div>
@@ -931,7 +928,7 @@
 
                                 <form method="POST" action="{{ route('purchaser.atp.submit', $atp->authority_purchase_id) }}" onsubmit="return confirm('Submit this ATP for review?')">
                                     @csrf
-                                    <button type="submit" class="h-10 rounded-lg bg-gray-900 px-5 text-sm font-medium text-white">
+                                    <button type="submit" class="pur-btn-primary">
                                         Submit to Review
                                     </button>
                                 </form>
@@ -953,7 +950,7 @@
                                     </span>
                                 @endif
                             @endif
-                            <button type="button" @click="printAtp({{ $atp->authority_purchase_id }})" class="h-10 rounded-lg bg-gray-900 px-5 text-sm text-white">
+                            <button type="button" @click="printAtp({{ $atp->authority_purchase_id }})" class="pur-btn-primary">
                                 Print
                             </button>
                             <button type="button" @click="viewOpen = false" class="h-10 rounded-lg border border-gray-300 px-5 text-sm">
@@ -1181,7 +1178,7 @@
                                 <button
                                     type="submit"
                                     onclick="this.form.querySelector('input[name=save_action]').value='submit'"
-                                    class="h-10 rounded-lg bg-gray-900 px-5 text-sm font-medium text-white"
+                                    class="pur-btn-primary"
                                 >
                                     Save & Submit
                                 </button>

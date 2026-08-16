@@ -10,26 +10,6 @@ use Illuminate\Validation\Rule;
 
 class UomController extends Controller
 {
-    public function index(Request $request)
-    {
-        $query = Uom::query();
-
-        if ($request->filled('search')) {
-            $query->where(function ($q) use ($request) {
-                $q->where('uom_name', 'LIKE', '%' . $request->search . '%')
-                    ->orWhere('uom_description', 'LIKE', '%' . $request->search . '%');
-            });
-        }
-
-        $uoms = $query->orderBy('uom_name')->paginate(10)->withQueryString();
-
-        $summary = [
-            'total' => Uom::count(),
-        ];
-
-        return view('purchaser.file-maintenance.uom.index', compact('uoms', 'summary'));
-    }
-
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -44,7 +24,7 @@ class UomController extends Controller
             'uom_updated_at' => now(),
         ]);
 
-        return redirect()->route('purchaser.uom.index')->with('success', 'UOM created successfully.');
+        return redirect()->route('purchaser.file-maintenance.index', ['tab' => 'uom'])->with('success', 'UOM created successfully.');
     }
 
     public function update(Request $request, $uomId)
@@ -67,7 +47,7 @@ class UomController extends Controller
             'uom_updated_at' => now(),
         ]);
 
-        return redirect()->route('purchaser.uom.index')->with('success', 'UOM updated successfully.');
+        return redirect()->route('purchaser.file-maintenance.index', ['tab' => 'uom'])->with('success', 'UOM updated successfully.');
     }
 
     public function destroy($uomId)
@@ -79,11 +59,11 @@ class UomController extends Controller
             && Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_uom_id')
             && DB::table('requisition_issue_slip_items_table')->where('ris_item_uom_id', $uom->uom_id)->exists()
         ) {
-            return back()->with('error', 'This UOM is used on RIS items and cannot be deleted.');
+            return redirect()->route('purchaser.file-maintenance.index', ['tab' => 'uom'])->with('error', 'This UOM is used on RIS items and cannot be deleted.');
         }
 
         $uom->delete();
 
-        return redirect()->route('purchaser.uom.index')->with('success', 'UOM deleted successfully.');
+        return redirect()->route('purchaser.file-maintenance.index', ['tab' => 'uom'])->with('success', 'UOM deleted successfully.');
     }
 }
