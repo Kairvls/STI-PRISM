@@ -51,7 +51,7 @@
                     </div>
 
                     <div class="dropdown-item" data-target="approvals-section">
-                        Approvals
+                        RIS Approvals
                     </div>
 
                     <div class="dropdown-item" data-target="reports-section">
@@ -78,10 +78,10 @@
             <a
                 href="/president/approvals"
                 class="quick-card {{ request()->is('president/approvals*') ? 'active' : '' }}"
-                title="Manage RIS approvals"
+                title="Open RIS Approvals"
             >
                 <i data-lucide="clipboard-check"></i>
-                <span>RIS Management</span>
+                <span>RIS Approvals</span>
             </a>
 
 
@@ -136,7 +136,7 @@
 
             <i data-lucide="clipboard-check"></i>
 
-            <span>Approvals</span>
+            <span>RIS Approvals</span>
 
         </a>
 
@@ -157,7 +157,7 @@
 
             <i data-lucide="badge-check"></i>
 
-            <span>RIS Status</span>
+            <span>History</span>
 
         </a>
 

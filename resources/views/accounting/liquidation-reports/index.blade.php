@@ -1,65 +1,55 @@
 @extends('layouts.accounting-layout')
+
+@section('title', 'Liquidation Reports')
+
 @section('content')
-<div x-data="{ viewOpen:false, selectedLiq:null, reviseOpen:false, rejectOpen:false, remarksId:null }" class="space-y-6 p-6">
-    @if(session('success'))<div class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">{{ session('success') }}</div>@endif
-    @if(session('error'))<div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{{ session('error') }}</div>@endif
+@include('accounting.partials.flash')
+<div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between fade-in">
     <div>
-        <h2 class="text-2xl font-semibold">Liquidation Reports</h2>
-        <p class="text-sm text-slate-600">Check submitted liquidations, then forward to Admin.</p>
+        <h1 class="text-2xl font-bold tracking-tight text-gray-900">Liquidation Reports</h1>
+        <p class="mt-1 text-sm text-gray-500">Review expenses, receipts, and close the transaction.</p>
     </div>
-    <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <a href="{{ route('accounting.liq.index', ['status'=>'submitted']) }}" class="rounded-xl border bg-white p-5 {{ $filter==='submitted'?'ring-2 ring-slate-900':'' }}"><p class="text-sm text-gray-500">For review</p><p class="mt-3 text-3xl font-semibold">{{ $counts['submitted'] }}</p></a>
-        <a href="{{ route('accounting.liq.index', ['status'=>'forwarded']) }}" class="rounded-xl border bg-white p-5 {{ $filter==='forwarded'?'ring-2 ring-slate-900':'' }}"><p class="text-sm text-gray-500">Forwarded / Approved</p><p class="mt-3 text-3xl font-semibold">{{ $counts['forwarded'] }}</p></a>
-        <a href="{{ route('accounting.liq.index', ['status'=>'rejected']) }}" class="rounded-xl border bg-white p-5 {{ $filter==='rejected'?'ring-2 ring-slate-900':'' }}"><p class="text-sm text-gray-500">Rejected</p><p class="mt-3 text-3xl font-semibold">{{ $counts['rejected'] }}</p></a>
-    </div>
-    <div class="overflow-hidden rounded-xl border bg-white">
-        <table class="w-full min-w-[900px] text-sm">
-            <thead class="border-b bg-gray-50 text-left text-xs uppercase text-gray-500"><tr><th class="px-4 py-3">No.</th><th class="px-4 py-3">RR</th><th class="px-4 py-3">Employee</th><th class="px-4 py-3">Status</th><th class="px-4 py-3">Action</th></tr></thead>
-            <tbody class="divide-y">
-                @forelse($reports as $liq)
-                    @php $reviewable = in_array($liq->liquidation_report_status, ['Submitted','Resubmitted','Under Review'], true); @endphp
-                    <tr>
-                        <td class="px-4 py-4 font-medium">{{ $liq->liquidation_report_form_number }}</td>
-                        <td class="px-4 py-4">{{ $liq->receiving_report_form_number ?? '—' }}</td>
-                        <td class="px-4 py-4">{{ $liq->liquidation_report_employee_name }}</td>
-                        <td class="px-4 py-4">{{ $liq->liquidation_report_status }}</td>
-                        <td class="px-4 py-4">
-                            <div class="flex flex-wrap gap-2">
-                                <button type="button" @click="selectedLiq={{ $liq->liquidation_report_id }}; viewOpen=true; fetch('{{ route('accounting.liq.start-review', $liq->liquidation_report_id) }}',{method:'POST',headers:{'X-CSRF-TOKEN':'{{ csrf_token() }}','Accept':'application/json'}})" class="rounded-lg border px-3 py-2 text-xs">View</button>
-                                <a href="{{ route('accounting.liq.export-xlsx', $liq->liquidation_report_id) }}" class="rounded-lg border px-3 py-2 text-xs">Excel</a>
-                                @if($reviewable)
-                                    <form method="POST" action="{{ route('accounting.liq.check', $liq->liquidation_report_id) }}">@csrf<button class="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700" onclick="return confirm('Check and forward to Admin?')">Check</button></form>
-                                    <button type="button" @click="remarksId={{ $liq->liquidation_report_id }}; reviseOpen=true" class="rounded-lg border border-amber-300 px-3 py-2 text-xs text-amber-700">Revise</button>
-                                    <button type="button" @click="remarksId={{ $liq->liquidation_report_id }}; rejectOpen=true" class="rounded-lg border border-red-300 px-3 py-2 text-xs text-red-700">Reject</button>
-                                @endif
-                            </div>
-                        </td>
-                    </tr>
-                @empty
-                    <tr><td colspan="5" class="px-4 py-12 text-center text-sm text-gray-500">No liquidation reports in this queue.</td></tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
-    <div>{{ $reports->links() }}</div>
-    @foreach($reports as $liq)
-        @php $liqItems = $items->get($liq->liquidation_report_id, collect())->values(); @endphp
-        <div x-show="viewOpen && selectedLiq === {{ $liq->liquidation_report_id }}" x-cloak class="fixed inset-0 z-50 overflow-y-auto">
-            <div class="fixed inset-0 bg-black/40" @click="viewOpen=false"></div>
-            <div class="relative flex min-h-full items-center justify-center p-4">
-                <div @click.stop class="w-full max-w-6xl rounded-2xl bg-white shadow-xl">
-                    <div class="flex justify-between border-b px-6 py-5"><h3 class="text-xl font-semibold">{{ $liq->liquidation_report_form_number }}</h3><button type="button" @click="viewOpen=false">✕</button></div>
-                    <div class="max-h-[75vh] overflow-y-auto bg-gray-100 p-6">@include('partials.liquidation-report-paper', ['editable'=>false,'liq'=>$liq,'rows'=>$liqItems])</div>
-                </div>
-            </div>
-        </div>
-    @endforeach
-    <div x-show="reviseOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-        <form method="POST" :action="'/accounting/liquidation-reports/'+remarksId+'/revise'" @click.stop class="w-full max-w-lg rounded-2xl bg-white p-6">@csrf<textarea name="remarks" required rows="4" class="w-full rounded-lg border p-3 text-sm"></textarea><div class="mt-4 flex justify-end gap-2"><button type="button" @click="reviseOpen=false" class="rounded-lg border px-4 py-2 text-sm">Cancel</button><button class="rounded-lg bg-amber-600 px-4 py-2 text-sm text-white">Send back</button></div></form>
-    </div>
-    <div x-show="rejectOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-        <form method="POST" :action="'/accounting/liquidation-reports/'+remarksId+'/reject'" @click.stop class="w-full max-w-lg rounded-2xl bg-white p-6">@csrf<textarea name="remarks" required rows="4" class="w-full rounded-lg border p-3 text-sm"></textarea><div class="mt-4 flex justify-end gap-2"><button type="button" @click="rejectOpen=false" class="rounded-lg border px-4 py-2 text-sm">Cancel</button><button class="rounded-lg bg-red-600 px-4 py-2 text-sm text-white">Reject</button></div></form>
-    </div>
+    <form method="GET" class="flex gap-2">
+        <input type="hidden" name="status" value="{{ $filter }}">
+        <input type="search" name="search" value="{{ request('search') }}" placeholder="Search liquidation or employee" class="h-10 w-72 rounded-xl border border-gray-200 bg-white px-3 text-sm">
+        <button class="acc-btn acc-btn-funds">Search</button>
+    </form>
 </div>
-<style>[x-cloak]{display:none!important}</style>
+<div class="mt-5 flex flex-wrap gap-2 slide-up">
+    @foreach (['incoming' => 'Needs review ('.$counts['incoming'].')', 'revision' => 'Revision ('.$counts['revision'].')', 'approved' => 'Approved ('.$counts['approved'].')', 'all' => 'All'] as $key => $label)
+        <a href="/accounting/liquidation-reports?status={{ $key }}" class="rounded-full px-3 py-1.5 text-xs font-semibold {{ $filter === $key ? 'bg-gray-900 text-white' : 'border border-gray-200 bg-white text-gray-600' }}">{{ $label }}</a>
+    @endforeach
+</div>
+<div class="mt-4 overflow-hidden rounded-xl border border-gray-200 bg-white slide-up">
+    <table class="acc-table w-full min-w-[880px] text-sm">
+        <thead class="border-b border-gray-100 bg-gray-50 text-left text-[11px] font-semibold uppercase tracking-wider text-gray-500">
+            <tr>
+                <th class="px-4 py-3">Liquidation</th>
+                <th class="px-4 py-3">Receiving Report</th>
+                <th class="px-4 py-3">Employee</th>
+                <th class="px-4 py-3 text-right">Amount</th>
+                <th class="px-4 py-3">Submitted</th>
+                <th class="px-4 py-3">Status</th>
+                <th class="px-4 py-3"></th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+            @forelse ($records as $row)
+                @php $when = $row->liquidation_report_submitted_at ?? $row->liquidation_report_date_submitted ?? $row->liquidation_report_created_at; @endphp
+                <tr>
+                    <td class="px-4 py-3 font-semibold text-gray-900">{{ $row->liquidation_report_form_number ?? ('LIQ-'.$row->liquidation_report_id) }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ $row->receiving_report_form_number ?? '—' }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ $row->liquidation_report_employee_name }}</td>
+                    <td class="px-4 py-3 text-right font-medium">{{ $row->liquidation_report_amount_advance !== null ? '₱'.number_format((float)$row->liquidation_report_amount_advance, 2) : '—' }}</td>
+                    <td class="px-4 py-3 text-gray-500">{{ $when ? \Carbon\Carbon::parse($when)->format('M d, Y') : '—' }}</td>
+                    <td class="px-4 py-3">@include('accounting.partials.status-badge', ['status' => $row->liquidation_report_status])</td>
+                    <td class="px-4 py-3 text-right"><a href="/accounting/liquidation-reports/{{ $row->liquidation_report_id }}" class="text-xs font-semibold text-gray-900 hover:text-amber-600">Review</a></td>
+                </tr>
+            @empty
+                <tr><td colspan="7" class="px-4 py-14 text-center text-sm text-gray-500">No liquidation reports in this queue.</td></tr>
+            @endforelse
+        </tbody>
+    </table>
+</div>
+<div class="mt-4">{{ $records->links() }}</div>
 @endsection

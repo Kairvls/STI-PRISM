@@ -1,854 +1,455 @@
 @extends('layouts.president-layout')
 
-@section('title', 'RIS Management')
+@section('title', 'RIS Approvals')
 
 @section('content')
 
-<div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between fade-in">
-    <div>
-        <h1 class="text-2xl font-semibold tracking-tight text-gray-900">RIS Management</h1>
-    <p class="mt-1 text-sm leading-6 text-gray-500">Review and manage Requisition Issue Slips — approve or reject forwarded requests.</p>
-    </div>
-</div>
-
-{{-- ============================== --}}
-{{-- SUMMARY CARDS --}}
-{{-- ============================== --}}
-<div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-    <div class="rounded-xl border border-gray-200 bg-white p-5 slide-up summary-card" style="animation-delay: 0s">
-        <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Total RIS</p>
-        <p class="mt-2 text-3xl font-bold text-gray-900 count-up" data-target="{{ $totalRisCount ?? 0 }}">0</p>
-    </div>
-    <div class="rounded-xl border border-gray-200 bg-white p-5 slide-up summary-card" style="animation-delay: 0.05s">
-        <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Pending RIS</p>
-        <p class="mt-2 text-3xl font-bold text-amber-600 count-up" data-target="{{ $totalPendingRis ?? 0 }}">0</p>
-    </div>
-    <div class="rounded-xl border border-gray-200 bg-white p-5 slide-up summary-card" style="animation-delay: 0.1s">
-        <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Approved RIS</p>
-        <p class="mt-2 text-3xl font-bold text-emerald-600 count-up" data-target="{{ $totalApprovedRis ?? 0 }}">0</p>
-    </div>
-    <div class="rounded-xl border border-gray-200 bg-white p-5 slide-up summary-card" style="animation-delay: 0.15s">
-        <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Rejected RIS</p>
-        <p class="mt-2 text-3xl font-bold text-rose-600 count-up" data-target="{{ $totalRejectedRis ?? 0 }}">0</p>
-    </div>
-</div>
-
-<div class="mt-4 grid grid-cols-1 gap-4">
-
-    {{-- ============================== --}}
-    {{-- RIS APPROVALS TABLE --}}
-    {{-- ============================== --}}
-    <section class="rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.2s">
-        <div class="flex items-center justify-between">
-            <div>
-                <h2 class="text-sm font-semibold text-gray-900">RIS Records</h2>
-                <p class="mt-1 text-xs text-gray-500">Requisition Issue Slips forwarded for your decision</p>
-            </div>
-            <span id="risTotalCount" class="inline-flex items-center rounded-lg bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800 border border-amber-200">
-                {{ $pendingRis->total() }} total
-            </span>
+<div class="ris-workspace">
+    <header class="ris-page-header">
+        <div>
+            <h1 class="text-2xl font-semibold tracking-tight text-gray-900">RIS Approvals</h1>
+            <p class="mt-1 text-sm leading-6 text-gray-500">Review forwarded RIS documents and send approved records to Admin.</p>
         </div>
-
-        {{-- Filters inside RIS Records --}}
-        <div class="mt-4 flex flex-wrap items-center gap-3">
-            {{-- Status Filter Buttons --}}
-            <div class="flex items-center gap-2">
-                <button
-                    type="button"
-                    class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ ($status ?? request('status', 'Pending')) === '' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50' }}"
-                    data-status=""
-                >
-                    All
-                </button>
-                <button
-                    type="button"
-                    class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ ($status ?? request('status', 'Pending')) == 'Pending' ? 'bg-amber-500 text-white border-amber-500' : 'bg-white text-amber-700 border-amber-200 hover:bg-amber-50' }}"
-                    data-status="Pending"
-                >
-                    Pending
-                </button>
-                <button
-                    type="button"
-                    class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ ($status ?? '') == 'Approved' ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50' }}"
-                    data-status="Approved"
-                >
-                    Approved
-                </button>
-                <button
-                    type="button"
-                    class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ ($status ?? '') == 'Rejected' ? 'bg-rose-500 text-white border-rose-500' : 'bg-white text-rose-700 border-rose-200 hover:bg-rose-50' }}"
-                    data-status="Rejected"
-                >
-                    Rejected
-                </button>
+        <div class="metric-row">
+            <div class="metric metric-pending">
+                <span>Pending</span>
+                <strong>{{ number_format($totalPendingRis ?? 0) }}</strong>
             </div>
-
-            {{-- Live Search --}}
-            <div class="relative flex-1 min-w-[220px]">
-                <i data-lucide="search" class="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"></i>
-                <input
-                    type="text"
-                    id="liveSearch"
-                    name="search"
-                    value="{{ request('search') }}"
-                    placeholder="Search by ID, Reference No., or Purpose..."
-                    class="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-900 outline-none focus:ring-4 focus:ring-amber-100 transition-all duration-200"
-                    autocomplete="off"
-                />
+            <div class="metric metric-approved">
+                <span>Approved</span>
+                <strong>{{ number_format($totalApprovedRis ?? 0) }}</strong>
             </div>
-
-            {{-- Clear link --}}
-            <a id="clearFiltersLink" href="{{ route('president.approvals') }}" class="inline-flex h-10 items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-600 transition-all duration-200 hover:bg-gray-50 active:scale-95 {{ request('search') || request('status') ? '' : 'hidden' }}">
-                Clear
-            </a>
-        </div>
-
-        <div class="mt-4 overflow-x-auto">
-            <table class="w-full">
-                <thead>
-                    <tr class="border-b border-gray-100">
-                        <th class="px-2 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Reference No.</th>
-                        <th class="px-2 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Purpose</th>
-                        <th class="px-2 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Date</th>
-                        <th class="px-2 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Status</th>
-                        <th class="px-2 py-3 text-center text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Total Amount</th>
-                        <th class="px-2 py-3 text-center text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="risTableBody">
-                    @include('president.approvals._table', ['pendingRis' => $pendingRis])
-                </tbody>
-            </table>
-        </div>
-
-        {{-- ============================== --}}
-        {{-- PAGINATION --}}
-        {{-- ============================== --}}
-        @if ($pendingRis->hasPages())
-            <div id="risPagination" class="mt-4 border-t border-gray-100 pt-4">
-                {{ $pendingRis->links() }}
+            <div class="metric metric-rejected">
+                <span>Rejected</span>
+                <strong>{{ number_format($totalRejectedRis ?? 0) }}</strong>
             </div>
-        @endif
-    </section>
-
-</div>
-
-{{-- ============================== --}}
-{{-- RIS VIEWER --}}
-{{-- ============================== --}}
-<div id="risFormModal" class="fixed inset-0 z-50 hidden">
-    <div class="flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 backdroop-overlay" onclick="closeRisFormModal()">
-        <div class="relative flex items-center justify-center" onclick="event.stopPropagation()">
-            <div id="risViewContainer" class="relative">
-                <iframe id="risFormIframe" class="bg-white shadow-2xl" style="width: 11in; height: 8.5in; border: 1px solid #e5e7eb; transform-origin: center center;" src="about:blank"></iframe>
-            </div>
-            <div class="fixed top-4 right-4 z-10 flex items-center gap-2">
-                <button type="button" class="print-btn inline-flex h-9 items-center justify-center rounded-lg bg-white border border-gray-200 px-3 text-xs font-semibold text-gray-700 shadow-sm transition-all duration-200 hover:bg-gray-50 active:scale-95" onclick="printRis()" title="Print RIS">
-                    <i data-lucide="printer" class="h-4 w-4"></i>
-                    <span class="ml-1.5">Print</span>
-                </button>
-                <button type="button" class="flex h-9 w-9 items-center justify-center rounded-full bg-white border border-gray-200 text-slate-400 shadow-sm transition-all duration-200 hover:bg-slate-100 hover:text-slate-900 active:scale-90" onclick="closeRisFormModal()" aria-label="Close">
-                    <i data-lucide="x" class="h-4 w-4"></i>
-                </button>
+            <div class="metric metric-value">
+                <span>Awaiting value</span>
+                <strong>₱{{ number_format($pendingValue ?? 0, 2) }}</strong>
             </div>
         </div>
-    </div>
-</div>
+    </header>
 
-{{-- PRESIDENT APPROVE MODAL (physical RIS form) --}}
-<div id="presidentApproveModal" class="fixed inset-0 z-50 hidden">
-    <div class="flex h-screen items-center justify-center bg-black/60 p-2 backdrop-blur-sm md:p-4" onclick="if (event.target === this) closePresidentApproveModal()">
-        <div class="relative flex max-h-[95vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl" onclick="event.stopPropagation()">
-            <div class="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+    <div class="ris-layout">
+        <section class="queue-panel">
+            <div class="panel-head">
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-900">Approve RIS</h3>
-                    <p class="mt-1 text-sm text-gray-500">Sign Approved by on the RIS form, then confirm.</p>
+                    <h2>Queue</h2>
+                    <p>{{ $pendingRis->total() }} awaiting review</p>
                 </div>
-                <button type="button" onclick="closePresidentApproveModal()" class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50">
-                    Close
-                </button>
+                <div class="search-wrap">
+                    <input type="text" id="queueSearch" value="{{ request('search') }}" placeholder="Search RIS, requester, purpose" autocomplete="off" />
+                </div>
             </div>
-            <div id="presidentApproveModalBody" class="flex min-h-0 flex-1 flex-col overflow-hidden bg-white"></div>
+            <div id="queueList">
+                @include('president.approvals._table')
+            </div>
+            <div id="risPagination" class="{{ $pendingRis->hasPages() ? '' : 'hidden' }}">
+                @if ($pendingRis->hasPages())
+                    {{ $pendingRis->links() }}
+                @endif
+            </div>
+        </section>
+
+        <aside class="recent-panel">
+            <div class="panel-head compact">
+                <div>
+                    <h2>Recent</h2>
+                    <p>
+                        @if (!empty($latestSubmitted))
+                            Latest in queue: {{ $latestSubmitted->ris_form_number ?? ('RIS #' . $latestSubmitted->ris_id) }}
+                        @else
+                            Latest decisions
+                        @endif
+                    </p>
+                </div>
+            </div>
+            <div class="recent-list">
+                @forelse ($recentRis as $ris)
+                    @php
+                        $rawStatus = (string) ($ris->ris_status ?? '');
+                        $isApproved = in_array($rawStatus, ['Approved', 'Approved by the President'], true);
+                        $isRejected = in_array($rawStatus, ['Rejected', 'Rejected by President', 'Rejected by the President'], true);
+                        $displayStatus = $isApproved ? 'Approved' : ($isRejected ? 'Rejected' : 'Pending');
+                    @endphp
+                    <div class="recent-item">
+                        <div class="min-w-0">
+                            <p class="truncate text-sm font-semibold text-gray-900">{{ $ris->ris_form_number ?? 'RIS #' . $ris->ris_id }}</p>
+                            <p class="truncate text-xs text-gray-500">{{ Str::limit($ris->ris_purpose_description ?? '—', 42) }}</p>
+                        </div>
+                        <span class="status-pill status-{{ strtolower($displayStatus) }}">{{ $displayStatus }}</span>
+                    </div>
+                @empty
+                    <p class="empty-note">No recent decisions</p>
+                @endforelse
+            </div>
+        </aside>
+    </div>
+</div>
+
+<div id="risReviewModal" class="doc-modal hidden">
+    <div class="doc-backdrop" onclick="closeRisReviewModal()"></div>
+    <div class="doc-shell" onclick="event.stopPropagation()">
+        <header class="doc-head">
+            <div class="min-w-0">
+                <p class="eyebrow">Review</p>
+                <h2 id="reviewRisNumber">RIS</h2>
+                <p class="doc-meta">
+                    <span id="reviewRequester">—</span><span>·</span>
+                    <span id="reviewDateSubmitted">—</span><span>·</span>
+                    <span id="reviewAmount">—</span>
+                </p>
+            </div>
+            <button type="button" class="icon-close" onclick="closeRisReviewModal()" aria-label="Close"><i data-lucide="x"></i></button>
+        </header>
+        <div class="doc-stage" id="reviewStage">
+            <div class="doc-fit" id="reviewFit">
+                <iframe id="risReviewIframe" title="RIS document" scrolling="no" src="about:blank"></iframe>
+            </div>
+        </div>
+        <div class="doc-actions">
+            <button type="button" class="btn-ghost" onclick="closeRisReviewModal()">Close</button>
+            <button type="button" class="btn-reject" onclick="openDecisionModal('ris', window.currentRisId, 'Rejected')">Reject</button>
+            <button type="button" class="btn-approve" onclick="submitRisApproval()">Approve</button>
         </div>
     </div>
 </div>
 
-{{-- ============================== --}}
-{{-- DECISION MODAL --}}
-{{-- ============================== --}}
-<div id="decisionModal" class="fixed inset-0 z-50 hidden">
-    <div class="flex min-h-screen items-center justify-center bg-black/30 p-4 backdrop-blur-[2px] modal-overlay" onclick="closeDecisionModal()">
-        <div class="w-full max-w-lg overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)] modal-content" onclick="event.stopPropagation()">
-            <div class="border-b border-gray-100 px-6 py-5">
-                <div class="flex items-start justify-between gap-4">
-                    <div>
-                        <h3 class="text-lg font-bold text-slate-950">Decision</h3>
-                        <p id="decisionModalSubtitle" class="mt-1 text-sm text-slate-600">Approve or reject the selected RIS</p>
-                    </div>
-                    <button type="button" class="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition-all duration-200 hover:bg-slate-100 hover:text-slate-900 active:scale-90" onclick="closeDecisionModal()" aria-label="Close">
-                        <i data-lucide="x" class="h-4 w-4"></i>
-                    </button>
-                </div>
+<div id="approvedRisPreviewModal" class="doc-modal hidden">
+    <div class="doc-backdrop" onclick="closeApprovedRisPreviewModal()"></div>
+    <div class="doc-shell" onclick="event.stopPropagation()">
+        <header class="doc-head">
+            <div class="min-w-0">
+                <p class="eyebrow" style="color:#059669">Approved</p>
+                <h2>Final RIS</h2>
+                <p class="doc-meta">
+                    <span id="previewPresidentName">—</span><span>·</span>
+                    <span id="previewApprovedDate">—</span>
+                </p>
             </div>
-
-            <form id="decisionForm" method="POST" action="">
-                @csrf
-                <div class="px-6 py-6">
-                    <input type="hidden" name="target_type" id="targetType" value="" />
-                    <input type="hidden" name="target_id" id="targetId" value="" />
-                    <input type="hidden" name="decision" id="targetDecision" value="" />
-                    <input type="hidden" name="signature_data" id="signatureData" value="" />
-                    <input type="hidden" name="signature_used" id="signatureUsed" value="0" />
-
-                    <div class="space-y-6">
-                        {{-- Signature area — shown only when approving --}}
-                        <div id="signatureBlock" class="hidden">
-                            <div>
-                                <label class="block text-sm font-medium text-slate-700">Digital Signature</label>
-                                <p class="mt-1 text-xs text-slate-500">Sign using your mouse or touch to approve this RIS.</p>
-                                <div class="mt-3 rounded-lg border border-gray-200 bg-white p-2">
-                                    <canvas
-                                        id="signatureCanvas"
-                                        width="520"
-                                        height="180"
-                                        class="w-full rounded-md border border-gray-100"
-                                        style="touch-action: none;"
-                                    ></canvas>
-
-                                    <div class="mt-3">
-                                        <button type="button" class="action-btn rounded-lg bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 border border-slate-200 transition-all duration-200 hover:bg-slate-100 active:scale-95" onclick="clearSignature()">
-                                            Clear Signature
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {{-- Remarks below the signature area --}}
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700">Remarks (optional)</label>
-                            <textarea name="remarks" rows="3" placeholder="Add remarks for your decision..." class="mt-2 w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-4 focus:ring-amber-100 transition-all duration-200 resize-none"></textarea>
-                        </div>
-
-                        <div class="text-xs text-slate-500">
-                            This will update the RIS status accordingly.
-                        </div>
-                    </div>
-                </div>
-
-                <div class="flex items-center justify-end gap-3 border-t border-gray-100 px-6 py-4">
-                    <button type="button" class="action-btn rounded-lg px-4 py-2.5 text-sm font-medium text-slate-600 transition-all duration-200 hover:bg-slate-100 hover:text-slate-950 active:scale-95" onclick="closeDecisionModal()">Cancel</button>
-                    <button
-                        type="button"
-                        id="approveBtn"
-                        class="action-btn rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-emerald-700 active:scale-95"
-                        onclick="submitDecision('Approved')">
-                        <i data-lucide="check" class="inline h-4 w-4 -ml-1 mr-1.5"></i>
-                        Approve
-                    </button>
-                    <button
-                        type="button"
-                        id="rejectBtn"
-                        class="action-btn rounded-lg bg-rose-600 px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-rose-700 active:scale-95"
-                        onclick="submitDecision('Rejected')">
-                        <i data-lucide="x" class="inline h-4 w-4 -ml-1 mr-1.5"></i>
-                        Reject
-                    </button>
-                </div>
-            </form>
+            <button type="button" class="icon-close" onclick="closeApprovedRisPreviewModal()" aria-label="Close"><i data-lucide="x"></i></button>
+        </header>
+        <div class="doc-stage" id="previewStage">
+            <div class="doc-fit" id="previewFit">
+                <iframe id="approvedRisIframe" title="Approved RIS" scrolling="no" src="about:blank"></iframe>
+            </div>
         </div>
+        <div class="doc-actions">
+            <button type="button" class="btn-ghost" onclick="closeApprovedRisPreviewModal()">Close</button>
+            <button type="button" class="btn-send" id="sendApprovedRisBtn" onclick="sendApprovedRisToAdmin()">Send Back to Admin</button>
+        </div>
+    </div>
+</div>
+
+<div id="sendConfirmationModal" class="confirm-modal hidden">
+    <div class="confirm-backdrop" onclick="closeSendConfirmationModal()"></div>
+    <div class="confirm-card" onclick="event.stopPropagation()">
+        <h3>Send back to Admin?</h3>
+        <p>This forwards the approved RIS for Admin co-sign. The document is not duplicated.</p>
+        <div class="confirm-actions">
+            <button type="button" class="btn-ghost" onclick="closeSendConfirmationModal()">Cancel</button>
+            <button type="button" class="btn-send" id="confirmSendActionBtn" onclick="executeSendRis()">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<div id="decisionModal" class="confirm-modal hidden">
+    <div class="confirm-backdrop" onclick="closeDecisionModal()"></div>
+    <div class="confirm-card wide" onclick="event.stopPropagation()">
+        <div class="flex items-start justify-between gap-3">
+            <div>
+                <h3 id="decisionModalTitle">Decision</h3>
+                <p id="decisionModalSubtitle">Approve or reject the selected RIS</p>
+            </div>
+            <button type="button" class="icon-close" onclick="closeDecisionModal()" aria-label="Close"><i data-lucide="x"></i></button>
+        </div>
+        <form id="decisionForm" method="POST" action="">
+            @csrf
+            <input type="hidden" name="target_type" id="targetType" value="" />
+            <input type="hidden" name="target_id" id="targetId" value="" />
+            <input type="hidden" name="decision" id="targetDecision" value="" />
+            <input type="hidden" name="signature_data" id="signatureData" value="" />
+            <input type="hidden" name="signature_used" id="signatureUsed" value="0" />
+            <div id="signatureBlock" class="hidden mt-4">
+                <label>Digital signature</label>
+                <p class="hint">Sign to approve this RIS.</p>
+                <canvas id="signatureCanvas" width="520" height="160"></canvas>
+                <button type="button" class="btn-ghost sm" onclick="clearSignature()">Clear</button>
+            </div>
+            <div class="mt-4">
+                <label>Remarks</label>
+                <textarea name="remarks" rows="3" placeholder="Optional for approve. Required for reject."></textarea>
+            </div>
+            <div class="confirm-actions mt-5">
+                <button type="button" class="btn-ghost" onclick="closeDecisionModal()">Cancel</button>
+                <button type="button" id="approveBtn" class="btn-approve" onclick="submitDecision('Approved')">Approve</button>
+                <button type="button" id="rejectBtn" class="btn-reject" onclick="submitDecision('Rejected')">Reject</button>
+            </div>
+        </form>
     </div>
 </div>
 
 <style>
-    /* ======================================
-       ANIMATIONS
-    ====================================== */
-
-    @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-    }
-
-    @keyframes slideUp {
-        from { opacity: 0; transform: translateY(16px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-
-    @keyframes modalIn {
-        from { opacity: 0; transform: scale(0.95) translateY(10px); }
-        to { opacity: 1; transform: scale(1) translateY(0); }
-    }
-
-    @keyframes overlayIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-    }
-
-    .fade-in {
-        animation: fadeIn 0.4s ease-out forwards;
-    }
-
-    .slide-up {
-        opacity: 0;
-        animation: slideUp 0.5s ease-out forwards;
-    }
-
-    .modal-overlay {
-        animation: overlayIn 0.2s ease-out forwards;
-    }
-
-    .modal-content {
-        animation: modalIn 0.25s ease-out forwards;
-    }
-
-    .approval-row {
-        transition: background-color 0.2s ease;
-    }
-
-    .approval-row:hover {
-        background-color: rgba(254, 252, 232, 0.4);
-    }
-
-    .action-btn {
-        transition: all 0.2s ease;
-    }
-
-    .action-btn:active {
-        transform: scale(0.95);
-    }
-
-    .summary-card {
-        transition: all 0.25s ease;
-    }
-
-    .summary-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-    }
-
-    .status-filter-btn {
-        transition: all 0.2s ease;
-    }
-
-    /* Smooth table fade on refresh */
-    #risTableBody {
-        transition: opacity 0.2s ease;
-    }
-
-    #risTableBody.updating {
-        opacity: 0.5;
-    }
-
-    .backdroop-overlay {
-        animation: overlayIn 0.2s ease-out forwards;
-    }
-
-    @media print {
-        body * {
-            visibility: hidden;
-        }
-        #risFormModal, #risFormModal * {
-            visibility: visible;
-        }
-        #risFormModal {
-            position: static;
-            background: white;
-            backdrop-filter: none;
-        }
-        #risViewContainer {
-            transform: scale(1) !important;
-        }
-        .print-btn {
-            display: none !important;
-        }
-    }
+    .ris-workspace { animation: fadeIn .35s ease; }
+    .eyebrow { margin: 0; font-size: 0.75rem; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: #6b7280; }
+    .ris-page-header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+    .metric-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .metric { min-width: 92px; padding: 8px 12px; border-radius: 12px; background: #fff; border: 1px solid #e2e8f0; }
+    .metric span { display: block; font-size: 0.75rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: #6b7280; }
+    .metric strong { display: block; margin-top: 2px; font-size: 1.5rem; line-height: 2rem; font-weight: 700; }
+    .metric.metric-value strong { font-size: 1.125rem; line-height: 1.75rem; color: #111827; }
+    .metric-pending strong { color: #d97706; }
+    .metric-approved strong { color: #059669; }
+    .metric-rejected strong { color: #e11d48; }
+    .ris-layout { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(260px, .8fr); gap: 16px; }
+    .queue-panel, .recent-panel { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: 0 8px 24px rgba(15, 23, 42, .04); overflow: hidden; }
+    .panel-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid #f1f5f9; }
+    .panel-head h2 { margin: 0; font-size: 0.875rem; line-height: 1.25rem; font-weight: 600; color: #111827; }
+    .panel-head p { margin: 2px 0 0; font-size: 0.75rem; line-height: 1rem; color: #6b7280; }
+    .search-wrap { min-width: 220px; flex: 1; max-width: 320px; }
+    .search-wrap input { width: 100%; border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px 12px; font-size: 0.875rem; line-height: 1.25rem; outline: none; background: #f8fafc; }
+    .search-wrap input:focus { border-color: #fbbf24; background: #fff; box-shadow: 0 0 0 3px rgba(251, 191, 36, .15); }
+    #queueList { padding: 8px; }
+    #queueList.updating { opacity: .55; }
+    .queue-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; cursor: pointer; }
+    .queue-item:hover { background: #f8fafc; }
+    .review-btn { flex-shrink: 0; border: 0; border-radius: 9px; padding: 6px 12px; font-size: 0.75rem; line-height: 1rem; font-weight: 600; color: #fff; background: #0f172a; cursor: pointer; }
+    .empty-queue, .empty-note { padding: 36px 16px; text-align: center; color: #6b7280; font-size: 0.875rem; line-height: 1.25rem; }
+    .status-pill { display: inline-flex; align-items: center; border-radius: 999px; padding: 2px 8px; font-size: 0.75rem; line-height: 1rem; font-weight: 600; }
+    .status-pending { background: #fffbeb; color: #b45309; }
+    .status-approved { background: #ecfdf5; color: #047857; }
+    .status-rejected { background: #fff1f2; color: #be123c; }
+    .recent-list { padding: 8px; }
+    .recent-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 8px; border-radius: 10px; }
+    #risPagination { padding: 8px 16px 12px; border-top: 1px solid #f1f5f9; font-size: 0.875rem; }
+    .confirm-modal { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; }
+    .confirm-backdrop { position: absolute; inset: 0; background: rgba(15, 23, 42, .4); }
+    .confirm-card { position: relative; width: min(420px, calc(100vw - 32px)); background: #fff; border-radius: 16px; padding: 20px; box-shadow: 0 20px 60px rgba(15, 23, 42, .2); }
+    .confirm-card.wide { width: min(560px, calc(100vw - 32px)); }
+    .confirm-card h3 { margin: 0; font-size: 1.125rem; line-height: 1.75rem; font-weight: 700; color: #0f172a; }
+    .confirm-card p { margin: 6px 0 0; font-size: 0.875rem; line-height: 1.5rem; color: #64748b; }
+    .confirm-card label { display: block; font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; color: #334155; }
+    .confirm-card .hint { margin: 4px 0 8px; font-size: 0.75rem; line-height: 1rem; }
+    .confirm-card textarea, #signatureCanvas { width: 100%; border: 1px solid #e2e8f0; border-radius: 10px; margin-top: 6px; }
+    .confirm-card textarea { padding: 8px 10px; font-size: 0.875rem; line-height: 1.25rem; resize: none; }
+    #signatureCanvas { height: 160px; touch-action: none; }
+    .confirm-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+    .btn-ghost.sm { padding: 6px 10px; font-size: 0.75rem; line-height: 1rem; font-weight: 600; margin-top: 8px; }
+    .hidden { display: none !important; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @media (max-width: 1024px) { .ris-layout { grid-template-columns: 1fr; } }
 </style>
 
+@include('president.partials.ris-fit-viewer')
+
 <script>
-    // =====================================================
-    // COUNT-UP ANIMATION
-    // =====================================================
-    function animateCountUp() {
-        document.querySelectorAll('.count-up').forEach(el => {
-            const target = parseInt(el.getAttribute('data-target'));
-            const duration = 800;
-            const start = performance.now();
+    document.addEventListener('DOMContentLoaded', function () {
+        if (window.lucide) lucide.createIcons();
+        initSignatureCanvas();
+    });
 
-            function update(now) {
-                const elapsed = now - start;
-                const progress = Math.min(elapsed / duration, 1);
-                // Ease out cubic
-                const eased = 1 - Math.pow(1 - progress, 3);
-                const current = Math.round(eased * target);
-                el.textContent = current.toLocaleString();
-                if (progress < 1) {
-                    requestAnimationFrame(update);
-                } else {
-                    el.textContent = target.toLocaleString();
-                }
-            }
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    const presidentDisplayName = @json(Auth::user()->user_full_name ?? 'President');
+    const searchInput = document.getElementById('queueSearch');
+    let searchTimeout = null, sendInFlight = false, decideInFlight = false;
 
-            requestAnimationFrame(update);
-        });
+    function formatMoney(value) {
+        return '₱' + Number(value || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
-
-    // Run count-up after DOM is ready
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', animateCountUp);
-    } else {
-        animateCountUp();
-    }
-
-    // =====================================================
-    // LIVE SEARCH + STATUS FILTER (AJAX)
-    // =====================================================
-    let searchTimeout = null;
-    const searchInput = document.getElementById('liveSearch');
-    const filterButtons = document.querySelectorAll('.status-filter-btn');
-    const clearLink = document.getElementById('clearFiltersLink');
-
-    // Track current active status ('' = All)
-    let activeStatus = '{{ $status ?? 'Pending' }}';
-
-    function getActiveStatus() {
-        for (const btn of filterButtons) {
-            const status = btn.getAttribute('data-status');
-            if (status === activeStatus) {
-                return status;
-            }
-        }
-        return '';
+    function formatDate(value) {
+        if (!value) return '—';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return String(value);
+        return date.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
     }
 
     function fetchTableData(page) {
         const search = searchInput ? searchInput.value : '';
-        const status = getActiveStatus();
-        page = page || 1;
-
-        // Show/hide clear link
-        if (clearLink) {
-            if (search || status) {
-                clearLink.classList.remove('hidden');
-            } else {
-                clearLink.classList.add('hidden');
-            }
-        }
-
-        const tbody = document.getElementById('risTableBody');
+        const queueList = document.getElementById('queueList');
         const pagination = document.getElementById('risPagination');
-        const totalSpan = document.getElementById('risTotalCount');
-
-        if (tbody) tbody.classList.add('updating');
-
+        if (queueList) queueList.classList.add('updating');
         const params = new URLSearchParams();
         if (search) params.set('search', search);
-        if (status) params.set('status', status);
-        params.set('page', page);
-
+        params.set('page', page || 1);
         fetch(`{{ route('president.approvals') }}?${params.toString()}`, {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json'
-            }
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
         })
         .then(res => res.json())
         .then(data => {
-            if (tbody) {
-                tbody.innerHTML = data.table_html;
-                tbody.classList.remove('updating');
-            }
-            if (totalSpan) {
-                totalSpan.textContent = data.total + ' total';
-            }
-            if (pagination) {
-                if (data.last_page > 1) {
-                    let html = buildPagination(data);
-                    pagination.innerHTML = html;
-                    pagination.classList.remove('hidden');
-                } else {
-                    pagination.innerHTML = '';
-                }
-            }
-            if (window.lucide) {
-                lucide.createIcons();
-            }
+            if (queueList) { queueList.innerHTML = data.table_html; queueList.classList.remove('updating'); }
+            if (pagination) pagination.classList.toggle('hidden', !(data.last_page > 1));
+            if (window.lucide) lucide.createIcons();
         })
-        .catch(err => {
-            console.error('Search/filter error:', err);
-            if (tbody) tbody.classList.remove('updating');
-        });
+        .catch(() => { if (queueList) queueList.classList.remove('updating'); });
     }
-
-    function buildPagination(data) {
-        let html = '<nav class="flex items-center justify-between"><div class="text-sm text-gray-500">Showing ' + data.from + ' to ' + data.to + ' of ' + data.total + ' results</div><ul class="flex items-center gap-1">';
-
-        const prevDisabled = data.current_page <= 1;
-        html += '<li class="' + (prevDisabled ? 'opacity-50 pointer-events-none' : '') + '"><button onclick="goToPage(' + (data.current_page - 1) + ')" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-sm text-gray-600 hover:bg-gray-50">&laquo;</button></li>';
-
-        for (let i = 1; i <= data.last_page; i++) {
-            if (i === data.current_page) {
-                html += '<li><span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-gray-900 text-sm font-semibold text-white">' + i + '</span></li>';
-            } else {
-                html += '<li><button onclick="goToPage(' + i + ')" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-sm text-gray-600 hover:bg-gray-50">' + i + '</button></li>';
-            }
-        }
-
-        const nextDisabled = data.current_page >= data.last_page;
-        html += '<li class="' + (nextDisabled ? 'opacity-50 pointer-events-none' : '') + '"><button onclick="goToPage(' + (data.current_page + 1) + ')" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-sm text-gray-600 hover:bg-gray-50">&raquo;</button></li>';
-
-        html += '</ul></nav>';
-        return html;
-    }
-
-    function goToPage(page) {
-        fetchTableData(page);
-    }
-
-    // Live search with debounce — always resets to page 1
+    window.goToPage = fetchTableData;
     if (searchInput) {
-        searchInput.addEventListener('input', function() {
+        searchInput.addEventListener('input', function () {
             clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(function() {
-                fetchTableData(1);
-            }, 300);
+            searchTimeout = setTimeout(() => fetchTableData(1), 300);
         });
     }
 
-    // Status filter buttons
-    filterButtons.forEach(btn => {
-        btn.addEventListener('click', function() {
-            const status = this.getAttribute('data-status');
-
-            activeStatus = status;
-
-            filterButtons.forEach(b => {
-                const btnStatus = b.getAttribute('data-status');
-                let classes = 'status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95';
-
-                if (btnStatus === activeStatus) {
-                    if (btnStatus === '') {
-                        classes += ' bg-gray-900 text-white border-gray-900';
-                    } else if (btnStatus === 'Pending') {
-                        classes += ' bg-amber-500 text-white border-amber-500';
-                    } else if (btnStatus === 'Approved') {
-                        classes += ' bg-emerald-500 text-white border-emerald-500';
-                    } else if (btnStatus === 'Rejected') {
-                        classes += ' bg-rose-500 text-white border-rose-500';
-                    }
-                } else {
-                    if (btnStatus === '') {
-                        classes += ' bg-white text-gray-600 border-gray-200 hover:bg-gray-50';
-                    } else if (btnStatus === 'Pending') {
-                        classes += ' bg-white text-amber-700 border-amber-200 hover:bg-amber-50';
-                    } else if (btnStatus === 'Approved') {
-                        classes += ' bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50';
-                    } else if (btnStatus === 'Rejected') {
-                        classes += ' bg-white text-rose-700 border-rose-200 hover:bg-rose-50';
-                    } else {
-                        classes += ' bg-white text-gray-600 border-gray-200 hover:bg-gray-50';
-                    }
-                }
-                b.className = classes;
-            });
-
-            fetchTableData(1);
-        });
-    });
-
-    // Clear button — resets everything via AJAX
-    if (clearLink) {
-        clearLink.addEventListener('click', function(e) {
-            e.preventDefault();
-
-            if (searchInput) {
-                searchInput.value = '';
-            }
-
-            activeStatus = '';
-
-            filterButtons.forEach(b => {
-                const btnStatus = b.getAttribute('data-status');
-                let classes = 'status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95';
-                if (btnStatus === '') {
-                    classes += ' bg-gray-900 text-white border-gray-900';
-                } else if (btnStatus === 'Pending') {
-                    classes += ' bg-white text-amber-700 border-amber-200 hover:bg-amber-50';
-                } else if (btnStatus === 'Approved') {
-                    classes += ' bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50';
-                } else if (btnStatus === 'Rejected') {
-                    classes += ' bg-white text-rose-700 border-rose-200 hover:bg-rose-50';
-                } else {
-                    classes += ' bg-white text-gray-600 border-gray-200 hover:bg-gray-50';
-                }
-                b.className = classes;
-            });
-
-            clearLink.classList.add('hidden');
-
-            fetchTableData(1);
-        });
-    }
-
-    // =====================================================
-    // DECISION MODAL
-    // =====================================================
-    function openDecisionModal(type, id, presetDecision) {
-        const modal = document.getElementById('decisionModal');
-        const targetType = document.getElementById('targetType');
-        const targetId = document.getElementById('targetId');
-        const subtitle = document.getElementById('decisionModalSubtitle');
-        const decisionForm = document.getElementById('decisionForm');
-        const targetDecision = document.getElementById('targetDecision');
-        const signatureBlock = document.getElementById('signatureBlock');
-        const signatureCanvas = document.getElementById('signatureCanvas');
-        const signatureDataInput = document.getElementById('signatureData');
-        const signatureUsedInput = document.getElementById('signatureUsed');
-        const remarksField = document.querySelector('textarea[name="remarks"]');
-
-        // Reset form
-        if (signatureDataInput) signatureDataInput.value = '';
-        if (signatureUsedInput) signatureUsedInput.value = '0';
-        if (remarksField) remarksField.value = '';
-        if (signatureCanvas) {
-            const ctx = signatureCanvas.getContext('2d');
-            ctx.clearRect(0, 0, signatureCanvas.width, signatureCanvas.height);
-        }
-
-        targetType.value = type;
-        targetId.value = id;
-        targetDecision.value = presetDecision || '';
-        subtitle.textContent = `RIS #${id}`;
-        decisionForm.action = `/president/approvals/ris/decide`;
-
-        // Show signature block only when approving
-        if (signatureBlock) {
-            const isApproved = (presetDecision || '').toLowerCase() === 'approved';
-            signatureBlock.classList.toggle('hidden', !isApproved);
-        }
-
+    window.openRisReviewModal = function (risId) {
+        const modal = document.getElementById('risReviewModal');
+        const iframe = document.getElementById('risReviewIframe');
+        window.currentRisId = risId;
+        iframe.src = '/president/ris/' + risId + '/view?preview=1&ts=' + Date.now();
         modal.classList.remove('hidden');
-
-        if (window.lucide) {
-            lucide.createIcons();
-        }
+        requestAnimationFrame(() => window.fitRisDocument('risReviewIframe', 'reviewStage', 'reviewFit'));
+        iframe.onload = () => window.fitRisDocument('risReviewIframe', 'reviewStage', 'reviewFit');
+        if (window.lucide) lucide.createIcons();
+        fetch('/president/ris/' + risId + '/details', { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('reviewRisNumber').textContent = data.form_number || ('RIS #' + risId);
+                document.getElementById('reviewRequester').textContent = data.requester_name || '—';
+                document.getElementById('reviewDateSubmitted').textContent = formatDate(data.created_at || data.requested_by_date);
+                document.getElementById('reviewAmount').textContent = formatMoney(data.total_amount);
+            }).catch(() => {});
+    };
+    window.closeRisReviewModal = function () {
+        const iframe = document.getElementById('risReviewIframe');
+        if (iframe) iframe.src = 'about:blank';
+        document.getElementById('risReviewModal').classList.add('hidden');
+    };
+    window.submitRisApproval = function () {
+        closeRisReviewModal();
+        openDecisionModal('ris', window.currentRisId, 'Approved');
+    };
+    window.openApprovedRisPreviewModal = function (risId) {
+        const modal = document.getElementById('approvedRisPreviewModal');
+        const iframe = document.getElementById('approvedRisIframe');
+        window.currentRisId = risId;
+        iframe.src = '/president/ris/' + risId + '/print?preview=1&ts=' + Date.now();
+        document.getElementById('previewPresidentName').textContent = presidentDisplayName;
+        document.getElementById('previewApprovedDate').textContent = new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
+        modal.classList.remove('hidden');
+        requestAnimationFrame(() => window.fitRisDocument('approvedRisIframe', 'previewStage', 'previewFit'));
+        iframe.onload = () => window.fitRisDocument('approvedRisIframe', 'previewStage', 'previewFit');
+        if (window.lucide) lucide.createIcons();
+    };
+    window.closeApprovedRisPreviewModal = function () {
+        const iframe = document.getElementById('approvedRisIframe');
+        if (iframe) iframe.src = 'about:blank';
+        document.getElementById('approvedRisPreviewModal').classList.add('hidden');
+    };
+    window.sendApprovedRisToAdmin = function () { confirmSendRis(); };
+    function confirmSendRis() {
+        const btn = document.getElementById('confirmSendActionBtn');
+        if (btn) btn.dataset.risId = window.currentRisId;
+        document.getElementById('sendConfirmationModal').classList.remove('hidden');
     }
-
+    function closeSendConfirmationModal() {
+        document.getElementById('sendConfirmationModal').classList.add('hidden');
+    }
+    function executeSendRis() {
+        const confirmBtn = document.getElementById('confirmSendActionBtn');
+        const risId = (confirmBtn && confirmBtn.dataset.risId) || window.currentRisId;
+        if (!risId || sendInFlight) return;
+        sendInFlight = true;
+        const original = confirmBtn.textContent;
+        confirmBtn.textContent = 'Sending...';
+        confirmBtn.disabled = true;
+        fetch('/president/ris/' + risId + '/send-to-admin', {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken },
+            body: JSON.stringify({})
+        })
+        .then(async response => {
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || data.ok === false) throw new Error(data.message || 'Unable to send RIS to Admin.');
+            closeSendConfirmationModal();
+            closeApprovedRisPreviewModal();
+            showToast('RIS sent back to Admin successfully.');
+            setTimeout(() => window.location.reload(), 900);
+        })
+        .catch(error => {
+            sendInFlight = false;
+            confirmBtn.textContent = original;
+            confirmBtn.disabled = false;
+            alert(error.message);
+        });
+    }
+    function showToast(message) {
+        const toast = document.createElement('div');
+        toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#059669;color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;z-index:100';
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 2800);
+    }
+    function openDecisionModal(type, id, presetDecision) {
+        const form = document.getElementById('decisionForm');
+        document.getElementById('targetType').value = type;
+        document.getElementById('targetId').value = id;
+        document.getElementById('targetDecision').value = presetDecision || '';
+        document.getElementById('signatureData').value = '';
+        document.getElementById('signatureUsed').value = '0';
+        const remarks = form.querySelector('textarea[name="remarks"]');
+        if (remarks) remarks.value = '';
+        const canvas = document.getElementById('signatureCanvas');
+        if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+        document.getElementById('decisionModalSubtitle').textContent = 'RIS #' + id;
+        form.action = '/president/approvals/ris/decide';
+        const isApproved = (presetDecision || '').toLowerCase() === 'approved';
+        document.getElementById('signatureBlock').classList.toggle('hidden', !isApproved);
+        document.getElementById('approveBtn').classList.toggle('hidden', !isApproved);
+        document.getElementById('rejectBtn').classList.toggle('hidden', isApproved);
+        document.getElementById('decisionModalTitle').textContent = isApproved ? 'Sign to approve' : 'Reject RIS';
+        document.getElementById('decisionModal').classList.remove('hidden');
+        if (window.lucide) lucide.createIcons();
+    }
     function closeDecisionModal() {
         document.getElementById('decisionModal').classList.add('hidden');
     }
-
     function submitDecision(decision) {
-        const targetDecision = document.getElementById('targetDecision');
-        const signatureDataInput = document.getElementById('signatureData');
-        const signatureUsedInput = document.getElementById('signatureUsed');
+        if (decideInFlight) return;
         const form = document.getElementById('decisionForm');
-
-        targetDecision.value = decision;
-
-        // If approving, require signature
+        document.getElementById('targetDecision').value = decision;
         if (decision === 'Approved') {
-            // Auto-capture whatever is on the canvas
             const canvas = document.getElementById('signatureCanvas');
-            if (canvas) {
-                const dataUrl = canvas.toDataURL('image/png');
-                // Check if canvas has any drawing (not blank)
-                const ctx = canvas.getContext('2d');
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                const pixels = imageData.data;
-                let hasDrawing = false;
-                for (let i = 3; i < pixels.length; i += 4) {
-                    if (pixels[i] > 0) {
-                        hasDrawing = true;
-                        break;
-                    }
-                }
-                if (!hasDrawing) {
-                    alert('Please sign the RIS before approving.');
-                    return;
-                }
-                signatureDataInput.value = dataUrl;
-                signatureUsedInput.value = '1';
-            }
+            const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+            let hasDrawing = false;
+            for (let i = 3; i < pixels.length; i += 4) { if (pixels[i] > 0) { hasDrawing = true; break; } }
+            if (!hasDrawing) { alert('Please sign the RIS before approving.'); return; }
+            document.getElementById('signatureData').value = canvas.toDataURL('image/png');
+            document.getElementById('signatureUsed').value = '1';
+        } else {
+            const remarksField = form.querySelector('textarea[name="remarks"]');
+            if (!remarksField || !remarksField.value.trim()) { alert('Please provide a rejection reason.'); return; }
         }
-
-        form.submit();
-    }
-
-    // =====================================================
-    // RIS FORM PREVIEW MODAL
-    // =====================================================
-    function openRisFormModal(risId) {
-        const modal = document.getElementById('risFormModal');
-        const iframe = document.getElementById('risFormIframe');
-        if (!modal || !iframe) return;
-        iframe.src = `/president/ris/${risId}/view?ts=${Date.now()}`;
-        modal.classList.remove('hidden');
-        scaleRisToFit();
-    }
-
-    function closeRisFormModal() {
-        const modal = document.getElementById('risFormModal');
-        const iframe = document.getElementById('risFormIframe');
-        if (iframe) iframe.src = 'about:blank';
-        if (modal) modal.classList.add('hidden');
-    }
-
-    function scaleRisToFit() {
-        const iframe = document.getElementById('risFormIframe');
-        if (!iframe) return;
-
-        // Document dimensions in inches (landscape)
-        const docWidthInches = 11;
-        const docHeightInches = 8.5;
-        
-        // Convert to pixels (96 DPI)
-        const docWidthPx = docWidthInches * 96;
-        const docHeightPx = docHeightInches * 96;
-
-        // Calculate available viewport (with margins)
-        const viewportWidth = window.innerWidth - 64;
-        const viewportHeight = window.innerHeight - 64;
-
-        // Calculate scale to fit
-        const scaleX = viewportWidth / docWidthPx;
-        const scaleY = viewportHeight / docHeightPx;
-        const scale = Math.min(scaleX, scaleY, 1);
-
-        // Apply CSS transform to the iframe
-        iframe.style.transform = `scale(${scale})`;
-        iframe.style.width = docWidthPx + 'px';
-        iframe.style.height = docHeightPx + 'px';
-    }
-
-    window.addEventListener('resize', function() {
-        const modal = document.getElementById('risFormModal');
-        if (modal && !modal.classList.contains('hidden')) {
-            scaleRisToFit();
-        }
-    });
-
-    function printRis() {
-        const iframe = document.getElementById('risFormIframe');
-        if (!iframe || !iframe.contentWindow) return;
-        iframe.contentWindow.focus();
-        iframe.contentWindow.print();
-    }
-
-    window.openPresidentApproveModal = function(risId) {
-        var modal = document.getElementById('presidentApproveModal');
-        var body = document.getElementById('presidentApproveModalBody');
-        if (!modal || !body) return;
-
-        body.innerHTML = '<div class="flex flex-1 items-center justify-center gap-3 py-16 text-sm text-gray-500">Loading RIS form...</div>';
-        modal.classList.remove('hidden');
-
-        fetch('/president/approvals/ris/' + risId + '/approve-form', {
-            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'text/html' }
+        decideInFlight = true;
+        fetch(form.action, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken },
+            body: new FormData(form)
         })
-        .then(function(response) {
-            if (!response.ok) throw new Error('Failed to load form');
-            return response.text();
+        .then(async response => {
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok || data.ok === false) throw new Error(data.message || 'Unable to save decision.');
+            const risId = data.ris_id || document.getElementById('targetId').value;
+            closeDecisionModal();
+            if (decision === 'Approved') openApprovedRisPreviewModal(risId);
+            else { showToast('RIS rejected successfully.'); setTimeout(() => window.location.reload(), 900); }
         })
-        .then(function(html) {
-            body.innerHTML = html;
-            var dateInput = document.getElementById('pa_approved_by_date');
-            if (dateInput) {
-                dateInput.addEventListener('input', function() {
-                    var digits = this.value.replace(/\D/g, '').slice(0, 8);
-                    var parts = [];
-                    if (digits.length > 0) parts.push(digits.slice(0, 2));
-                    if (digits.length > 2) parts.push(digits.slice(2, 4));
-                    if (digits.length > 4) parts.push(digits.slice(4, 8));
-                    this.value = parts.join('/');
-                });
-            }
-        })
-        .catch(function() {
-            body.innerHTML = '<div class="px-6 py-16 text-center text-sm text-rose-600">Failed to load RIS form. Please try again.</div>';
-        });
-    };
-
-    window.closePresidentApproveModal = function() {
-        var modal = document.getElementById('presidentApproveModal');
-        var body = document.getElementById('presidentApproveModalBody');
-        if (body) body.innerHTML = '';
-        if (modal) modal.classList.add('hidden');
-    };
-
-    // Close modal on Escape key
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            const risModal = document.getElementById('risFormModal');
-            const decisionModal = document.getElementById('decisionModal');
-            if (risModal && !risModal.classList.contains('hidden')) {
-                closeRisFormModal();
-            }
-            if (decisionModal && !decisionModal.classList.contains('hidden')) {
-                closeDecisionModal();
-            }
-        }
-    });
-
-    // =====================================================
-    // SIGNATURE CANVAS
-    // =====================================================
-    function clearSignature() {
-        const canvas = document.getElementById('signatureCanvas');
-        const input = document.getElementById('signatureData');
-        const usedInput = document.getElementById('signatureUsed');
-        if (!canvas) return;
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        if (input) input.value = '';
-        if (usedInput) usedInput.value = '0';
+        .catch(error => alert(error.message))
+        .finally(() => { decideInFlight = false; });
     }
-
-    (function initSignatureCanvas() {
+    function initSignatureCanvas() {
         const canvas = document.getElementById('signatureCanvas');
         if (!canvas) return;
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.lineWidth = 2.5;
-        ctx.lineJoin = 'round';
-        ctx.lineCap = 'round';
-        ctx.strokeStyle = '#1f2937';
-
-        let drawing = false;
-        let lastX = 0;
-        let lastY = 0;
-
+        ctx.lineWidth = 2.5; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.strokeStyle = '#1f2937';
+        let drawing = false, lastX = 0, lastY = 0;
         function getPos(evt) {
             const rect = canvas.getBoundingClientRect();
             const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
             const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
-            const x = (clientX - rect.left) * (canvas.width / rect.width);
-            const y = (clientY - rect.top) * (canvas.height / rect.height);
-            return { x, y };
+            return { x: (clientX - rect.left) * (canvas.width / rect.width), y: (clientY - rect.top) * (canvas.height / rect.height) };
         }
-
-        function start(evt) {
-            drawing = true;
-            const p = getPos(evt);
-            lastX = p.x;
-            lastY = p.y;
-        }
-
-        function move(evt) {
-            if (!drawing) return;
-            const p = getPos(evt);
-            ctx.beginPath();
-            ctx.moveTo(lastX, lastY);
-            ctx.lineTo(p.x, p.y);
-            ctx.stroke();
-            lastX = p.x;
-            lastY = p.y;
-        }
-
-        function end() {
-            drawing = false;
-        }
-
+        function start(evt) { drawing = true; const p = getPos(evt); lastX = p.x; lastY = p.y; }
+        function move(evt) { if (!drawing) return; const p = getPos(evt); ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(p.x, p.y); ctx.stroke(); lastX = p.x; lastY = p.y; }
+        function end() { drawing = false; }
         canvas.addEventListener('mousedown', start);
         canvas.addEventListener('mousemove', move);
         canvas.addEventListener('mouseup', end);
@@ -856,7 +457,21 @@
         canvas.addEventListener('touchstart', (e) => { e.preventDefault(); start(e); }, { passive: false });
         canvas.addEventListener('touchmove', (e) => { e.preventDefault(); move(e); }, { passive: false });
         canvas.addEventListener('touchend', end);
-    })();
+    }
+    function clearSignature() {
+        const canvas = document.getElementById('signatureCanvas');
+        if (!canvas) return;
+        canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+        document.getElementById('signatureData').value = '';
+        document.getElementById('signatureUsed').value = '0';
+    }
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        closeRisReviewModal();
+        closeApprovedRisPreviewModal();
+        closeDecisionModal();
+        closeSendConfirmationModal();
+    });
 </script>
 
 @endsection

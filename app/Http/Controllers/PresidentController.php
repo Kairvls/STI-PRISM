@@ -4,10 +4,11 @@ namespace App\Http\Controllers;
 
 use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\View\View;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
+use Illuminate\View\View;
 
 class PresidentController extends Controller
 {
@@ -22,7 +23,12 @@ class PresidentController extends Controller
         // ================================
         $totalRisCount = DB::table('requisition_issue_slip_table')->count();
 
-        $pendingApprovalsCount = $this->countAwaitingPresidentDecision();
+        $pendingApprovalsCount =
+            DB::table('requisition_issue_slip_table')
+                ->where(function ($q) {
+                    $this->scopeAwaitingPresident($q);
+                })
+                ->count();
 
         $approvedDecisionsCount =
             DB::table('requisition_issue_slip_table')
@@ -132,10 +138,11 @@ class PresidentController extends Controller
             })
             ->count();
 
-        $totalPendingRis = $this->scopeAwaitingPresidentDecision(
-            DB::table('requisition_issue_slip_table')
-                ->whereNotNull('ris_requested_by_date')
-        )->count();
+        $totalApprovedRis = (clone $forwardedBase)
+            ->where(function ($q) {
+                $this->scopePresidentApproved($q);
+            })
+            ->count();
 
         $totalRejectedRis = (clone $forwardedBase)
             ->whereIn('ris_status', ['Rejected', 'Rejected by President', 'Rejected by the President'])
@@ -153,6 +160,7 @@ class PresidentController extends Controller
                 'ris.ris_status',
                 'ris.ris_approved_by_date',
                 'ris.ris_approved_by_signature',
+                'ris.ris_requested_by_signature',
                 'ris.ris_created_at',
                 DB::raw('COALESCE(SUM(items.ris_total_amount), 0) as total_amount')
             )
@@ -165,20 +173,13 @@ class PresidentController extends Controller
                 'ris.ris_status',
                 'ris.ris_approved_by_date',
                 'ris.ris_approved_by_signature',
+                'ris.ris_requested_by_signature',
                 'ris.ris_created_at'
             );
 
-        // ================================
-        // Status filter
-        // ================================
-        if ($request->filled('status')) {
-            $status = $request->status;
-            if ($status === 'Pending') {
-                $this->scopeAwaitingPresidentDecision($query, 'ris');
-            } elseif (in_array($status, ['Approved', 'Rejected'], true)) {
-                $query->where('ris.ris_status', $status);
-            }
-        }
+        $query->where(function ($q) {
+            $this->scopeAwaitingPresident($q, 'ris.');
+        });
 
         // ================================
         // Search filter
@@ -204,6 +205,44 @@ class PresidentController extends Controller
             ->withQueryString();
 
         // ================================
+        // Recent decisions (approved or rejected by President)
+        // ================================
+        $recentRis = DB::table('requisition_issue_slip_table as ris')
+            ->leftJoin('requisition_issue_slip_items_table as items', 'ris.ris_id', '=', 'items.ris_id')
+            ->select(
+                'ris.ris_id',
+                'ris.ris_form_number',
+                'ris.ris_status',
+                'ris.ris_created_at',
+                'ris.ris_purpose_description',
+                'ris.ris_approved_by_date',
+                'ris.ris_approved_by_signature',
+                DB::raw('COALESCE(SUM(items.ris_total_amount), 0) as total_amount')
+            )
+            ->whereIn('ris.ris_status', [
+                'Approved',
+                'Approved by the President',
+                'Rejected',
+                'Rejected by President',
+                'Rejected by the President',
+            ])
+            ->whereNotNull('ris.ris_requested_by_date')
+            ->where('ris.ris_status', '!=', 'Directly Approved')
+            ->groupBy(
+                'ris.ris_id',
+                'ris.ris_form_number',
+                'ris.ris_status',
+                'ris.ris_created_at',
+                'ris.ris_purpose_description',
+                'ris.ris_approved_by_date',
+                'ris.ris_approved_by_signature'
+            )
+            ->orderByDesc('ris.ris_approved_by_date')
+            ->orderByDesc('ris.ris_created_at')
+            ->limit(10)
+            ->get();
+
+        // ================================
         // AJAX response: return JSON with rendered partial
         // ================================
         if ($request->ajax()) {
@@ -218,13 +257,24 @@ class PresidentController extends Controller
             ]);
         }
 
+        $pendingValue = (float) DB::table('requisition_issue_slip_items_table as items')
+            ->join('requisition_issue_slip_table as ris', 'items.ris_id', '=', 'ris.ris_id')
+            ->where(function ($q) {
+                $this->scopeAwaitingPresident($q, 'ris.');
+            })
+            ->sum('items.ris_total_amount');
+
+        $latestSubmitted = $pendingRis->first();
+
         return view('president.approvals.index', [
             'pendingRis' => $pendingRis,
             'totalRisCount' => $totalRisCount,
             'totalPendingRis' => $totalPendingRis,
             'totalApprovedRis' => $totalApprovedRis,
             'totalRejectedRis' => $totalRejectedRis,
-            'status' => $status,
+            'recentRis' => $recentRis,
+            'pendingValue' => $pendingValue,
+            'latestSubmitted' => $latestSubmitted,
         ]);
     }
 
@@ -316,9 +366,15 @@ class PresidentController extends Controller
         $decision = $request->input('decision');
         $remarks = $request->input('remarks');
 
-        // Basic validation
+        $fail = function (string $message, int $code = 422) use ($request) {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['ok' => false, 'message' => $message], $code);
+            }
+            return back()->with('error', $message);
+        };
+
         if (empty($targetId) || !in_array($decision, ['Approved', 'Rejected'], true)) {
-            return back()->with('error', 'Invalid RIS decision payload.');
+            return $fail('Invalid RIS decision payload.');
         }
 
         $target = DB::table('requisition_issue_slip_table')
@@ -326,11 +382,15 @@ class PresidentController extends Controller
             ->first();
 
         if (!$target) {
-            return back()->with('error', 'RIS not found.');
+            return $fail('RIS not found.', 404);
         }
 
-        if ($target->ris_status !== 'Approved' || empty($target->ris_approved_by_date)) {
-            return back()->with('error', 'Only RIS records approved by Admin can be decided by President.');
+        if (!$this->risIsAwaitingPresident($target)) {
+            return $fail('Only RIS records forwarded by Admin can be decided by President.');
+        }
+
+        if ($decision === 'Rejected' && trim((string) $remarks) === '') {
+            return $fail('Please provide a rejection reason.');
         }
 
         $updateValues = [
@@ -338,18 +398,12 @@ class PresidentController extends Controller
         ];
 
         if ($decision === 'Approved') {
-            $validated = $request->validate([
-                'ris_approved_by' => ['required', 'string', 'max:255'],
-                'ris_approved_by_date' => ['required', 'string', 'max:20'],
-            ]);
-
-            $approvedDate = $this->parseFlexibleDate($validated['ris_approved_by_date']);
-            if (!$approvedDate) {
-                return back()->with('error', 'Approved by date must be a valid date (dd/mm/yyyy).');
-            }
-
-            $updateValues['ris_approved_by_signature'] = trim($validated['ris_approved_by']);
-            $updateValues['ris_approved_by_date'] = $approvedDate;
+            $presidentName = Auth::user()->user_full_name ?? 'President';
+            $signature = trim((string) $request->input('signature_data', ''));
+            $updateValues['ris_approved_by_signature'] = $signature !== '' && str_starts_with($signature, 'data:image')
+                ? $signature
+                : $presidentName;
+            $updateValues['ris_approved_by_date'] = now()->toDateString();
         }
 
         try {
@@ -376,6 +430,17 @@ class PresidentController extends Controller
             ]);
         } catch (\Throwable $e) {
             // ignore logging failures to not break testing
+        }
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'ok' => true,
+                'decision' => $decision,
+                'ris_id' => (int) $targetId,
+                'message' => $decision === 'Approved'
+                    ? 'RIS approved successfully.'
+                    : 'RIS rejected successfully.',
+            ]);
         }
 
         return redirect('/president/approvals')->with('success', 'RIS decision saved successfully.');
@@ -465,12 +530,8 @@ class PresidentController extends Controller
             );
 
         if ($filter !== 'all') {
-            if ($filter === 'pending') {
-                $this->scopeAwaitingPresidentDecision($query, 'ris');
-            } else {
-                $status = $filter === 'approved' ? 'Approved' : 'Rejected';
-                $query->where('ris.ris_status', $status);
-            }
+            $status = $filter === 'approved' ? 'Approved' : ($filter === 'rejected' ? 'Rejected' : 'Pending');
+            $query->where('ris.ris_status', $status);
         }
 
         if ($request->filled('search')) {
@@ -492,8 +553,8 @@ class PresidentController extends Controller
             ->withQueryString();
 
         $totalApproved = DB::table('requisition_issue_slip_table')->where('ris_status', 'Approved')->count();
-        $totalRejected = DB::table('requisition_issue_slip_table')->where('ris_status', 'Rejected')->count();
-        $totalPending = $this->countAwaitingPresidentDecision();
+        $totalRejected = DB::table('requisition_issue_slip_table')->whereIn('ris_status', ['Rejected', 'Rejected by President'])->count();
+        $totalPending = DB::table('requisition_issue_slip_table')->where('ris_status', 'Pending')->count();
         $totalDecisions = $totalApproved + $totalRejected + $totalPending;
 
         if ($request->ajax()) {
@@ -542,14 +603,14 @@ class PresidentController extends Controller
         // ================================
 
         $risApproved = (clone $risQuery)->where('ris_status', 'Approved')->count();
-        $risRejected = (clone $risQuery)->where('ris_status', 'Rejected')->count();
-        $risPending = $this->scopeAwaitingPresidentDecision(clone $risQuery)->count();
+        $risRejected = (clone $risQuery)->whereIn('ris_status', ['Rejected', 'Rejected by President'])->count();
+        $risPending = (clone $risQuery)->where('ris_status', 'Pending')->count();
         $totalRis = $risApproved + $risRejected + $risPending;
 
         // Total amount (filtered)
         $totalAmountQuery = DB::table('requisition_issue_slip_items_table as items')
             ->join('requisition_issue_slip_table as ris', 'items.ris_id', '=', 'ris.ris_id')
-            ->whereIn('ris.ris_status', ['Approved', 'Rejected']);
+            ->whereIn('ris.ris_status', ['Approved', 'Rejected', 'Rejected by President', 'Pending']);
 
         if ($filterMonth && $filterYear) {
             $totalAmountQuery->whereYear('ris.ris_created_at', $filterYear)
@@ -597,9 +658,8 @@ class PresidentController extends Controller
                 ->whereBetween('ris_created_at', [$weekStart, $weekEnd])
                 ->count();
 
-            $pending = $this->scopeAwaitingPresidentDecision(
-                DB::table('requisition_issue_slip_table')
-            )
+            $pending = DB::table('requisition_issue_slip_table')
+                ->where('ris_status', 'Pending')
                 ->whereBetween('ris_created_at', [$weekStart, $weekEnd])
                 ->count();
 
@@ -684,9 +744,8 @@ class PresidentController extends Controller
                 ->whereMonth('ris_created_at', $filterMonth)
                 ->count();
 
-            $pending = $this->scopeAwaitingPresidentDecision(
-                DB::table('requisition_issue_slip_table')
-            )
+            $pending = DB::table('requisition_issue_slip_table')
+                ->where('ris_status', 'Pending')
                 ->whereYear('ris_created_at', $filterYear)
                 ->whereMonth('ris_created_at', $filterMonth)
                 ->count();
@@ -766,9 +825,8 @@ class PresidentController extends Controller
                     ->whereMonth('ris_created_at', $m)
                     ->count();
 
-                $pending = $this->scopeAwaitingPresidentDecision(
-                    DB::table('requisition_issue_slip_table')
-                )
+                $pending = DB::table('requisition_issue_slip_table')
+                    ->where('ris_status', 'Pending')
                     ->whereYear('ris_created_at', $y)
                     ->whereMonth('ris_created_at', $m)
                     ->count();
@@ -939,7 +997,7 @@ class PresidentController extends Controller
     // =====================================================
     // RIS VIEWER (for preview in modal)
     // =====================================================
-    public function viewRis($ris)
+    public function viewRis($ris, Request $request)
     {
         $ris = DB::table('requisition_issue_slip_table')
             ->where('ris_id', $ris)
@@ -949,58 +1007,135 @@ class PresidentController extends Controller
             abort(404, 'RIS not found');
         }
 
-        $itemsQuery = DB::table('requisition_issue_slip_items_table')
-            ->where('requisition_issue_slip_items_table.ris_id', $ris->ris_id);
+        $risItems = DB::table('requisition_issue_slip_items_table')
+            ->where('ris_id', $ris->ris_id)
+            ->orderBy('ris_item_id')
+            ->get()
+            ->pad(8, null);
 
-        $select = ['requisition_issue_slip_items_table.*'];
-
-        if (
-            Schema::hasTable('uom_table')
-            && Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_uom_id')
-        ) {
-            $itemsQuery->leftJoin(
-                'uom_table',
-                'uom_table.uom_id',
-                '=',
-                'requisition_issue_slip_items_table.ris_item_uom_id'
-            );
-            $select[] = 'uom_table.uom_name';
+        if ($request->boolean('preview')) {
+            return view('president.ris.viewer', [
+                'ris' => $ris,
+                'risItems' => $risItems,
+                'presidentName' => Auth::user()->user_full_name ?? 'President',
+                'isScreenPreview' => true,
+            ]);
         }
 
-        if (
-            Schema::hasTable('suppliers_table')
-            && Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_supplier_id')
-        ) {
-            $itemsQuery
-                ->leftJoin(
-                    'suppliers_table',
-                    'suppliers_table.supplier_id',
-                    '=',
-                    'requisition_issue_slip_items_table.ris_item_supplier_id'
-                )
-                ->leftJoin(
-                    'physical_suppliers_table',
-                    'physical_suppliers_table.supplier_id',
-                    '=',
-                    'suppliers_table.supplier_id'
-                )
-                ->leftJoin(
-                    'online_suppliers_table',
-                    'online_suppliers_table.supplier_id',
-                    '=',
-                    'suppliers_table.supplier_id'
-                );
-            $select[] = DB::raw(
-                "CASE
-                    WHEN suppliers_table.supplier_store_type = 'Online Store'
-                        THEN COALESCE(online_suppliers_table.shop_name, CONCAT('Online supplier #', suppliers_table.supplier_id))
-                    ELSE COALESCE(physical_suppliers_table.company_name, CONCAT('Physical supplier #', suppliers_table.supplier_id))
-                END as supplier_display_name"
-            );
+        return view('admin.ris.print', [
+            'ris' => $ris,
+            'risItems' => $risItems,
+            'presidentName' => Auth::user()->user_full_name ?? 'President',
+        ]);
+    }
+
+    public function risDetails($ris)
+    {
+        $record = DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $ris)
+            ->first();
+
+        abort_if(!$record, 404);
+
+        $items = DB::table('requisition_issue_slip_items_table')
+            ->where('ris_id', $record->ris_id)
+            ->orderBy('ris_item_id')
+            ->get();
+
+        $attachments = collect();
+        if (Schema::hasTable('ris_attachments_table')) {
+            $attachments = DB::table('ris_attachments_table')
+                ->where('ris_id', $record->ris_id)
+                ->orderBy('ris_attachment_original_name')
+                ->get();
         }
 
-        $risItems = $itemsQuery
-            ->select($select)
+        return response()->json([
+            'ris_id' => $record->ris_id,
+            'form_number' => $record->ris_form_number,
+            'purpose' => $record->ris_purpose_description,
+            'requester_name' => $record->ris_requested_by_signature,
+            'status' => $record->ris_status,
+            'created_at' => $record->ris_created_at,
+            'approved_by_date' => $record->ris_approved_by_date,
+            'requested_by_date' => $record->ris_requested_by_date,
+            'total_amount' => $items->sum(fn ($item) => (float) $item->ris_total_amount),
+            'items' => $items,
+            'attachments' => $attachments,
+            'has_president_signature' => trim((string) ($record->ris_approved_by_signature ?? '')) !== '',
+        ]);
+    }
+
+    public function sendToAdmin($ris)
+    {
+        $record = DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $ris)
+            ->first();
+
+        abort_if(!$record, 404);
+
+        $approved = in_array((string) $record->ris_status, ['Approved by the President', 'Approved'], true)
+            && trim((string) ($record->ris_approved_by_signature ?? '')) !== '';
+
+        if (!$approved) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Only an approved RIS can be sent back to Admin.',
+            ], 422);
+        }
+
+        try {
+            DB::table('approval_logs_table')->insert([
+                'approval_log_reference_type' => 'RIS',
+                'approval_log_reference_id' => (int) $record->ris_id,
+                'approval_log_level' => 'President',
+                'approval_log_approved_by' => Auth::id(),
+                'approval_log_approval_status' => 'Approved',
+                'approval_log_approval_remarks' => 'Forwarded to Admin for co-sign',
+                'approval_log_approved_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+        }
+
+        try {
+            DB::table('notifications_table')->insert([
+                'notification_user_id' => null,
+                'notification_target_role' => 'Admin',
+                'notification_title' => 'RIS approved by President',
+                'notification_message' => ($record->ris_form_number ?: ('RIS #' . $record->ris_id))
+                    . ' was approved by the President and sent back to Admin.',
+                'notification_type' => 'ris_president_approved',
+                'notification_category' => 'approvals',
+                'notification_reference_type' => 'RIS',
+                'notification_reference_id' => (int) $record->ris_id,
+                'notification_url' => '/admin/digital-signatures/sign-ris',
+                'notification_event_key' => Str::uuid()->toString(),
+                'notification_created_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+        }
+
+        return response()->json([
+            'ok' => true,
+            'ris_id' => (int) $record->ris_id,
+            'message' => 'Approved RIS sent back to Admin.',
+        ]);
+    }
+
+    public function approveForm($risId)
+    {
+        $ris = DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $risId)
+            ->first();
+
+        abort_if(!$ris, 404);
+
+        if (!$this->risIsAwaitingPresident($ris)) {
+            abort(403, 'Only RIS records forwarded by Admin can be signed by the President.');
+        }
+
+        $risItems = DB::table('requisition_issue_slip_items_table')
+            ->where('ris_id', $risId)
             ->orderBy('ris_item_id')
             ->get();
 
@@ -1066,23 +1201,88 @@ class PresidentController extends Controller
         });
     }
 
-    private function scopeAwaitingPresidentDecision($query, string $alias = '')
+    private function risIsAwaitingPresident(object $ris): bool
     {
-        $prefix = $alias !== '' ? $alias . '.' : '';
+        if (($ris->ris_status ?? '') === 'Directly Approved') {
+            return false;
+        }
 
-        return $query
-            ->where($prefix . 'ris_status', 'Approved')
-            ->whereNotNull($prefix . 'ris_approved_by_date')
-            ->where(function ($q) use ($prefix) {
-                $q->whereNull($prefix . 'ris_approved_by_signature')
-                    ->orWhere($prefix . 'ris_approved_by_signature', 'not like', 'data:image%');
-            });
+        $sig = trim((string) ($ris->ris_approved_by_signature ?? ''));
+        if ($sig !== '') {
+            return false;
+        }
+
+        return in_array((string) ($ris->ris_status ?? ''), [
+            'Forwarded to President',
+            'Approved',
+        ], true)
+            || (
+                ($ris->ris_status ?? '') === 'Pending'
+                && !empty($ris->ris_approved_by_date)
+            );
     }
 
-    private function countAwaitingPresidentDecision(): int
+    private function scopeAwaitingPresident($query, string $prefix = '')
     {
-        return $this->scopeAwaitingPresidentDecision(
-            DB::table('requisition_issue_slip_table')
-        )->count();
+        $status = $prefix . 'ris_status';
+        $sig = $prefix . 'ris_approved_by_signature';
+        $approvedDate = $prefix . 'ris_approved_by_date';
+
+        return $query->where(function ($q) use ($status, $sig, $approvedDate) {
+            $q->where($status, 'Forwarded to President')
+                ->orWhere(function ($legacy) use ($status, $sig) {
+                    $legacy->where($status, 'Approved')
+                        ->where(function ($empty) use ($sig) {
+                            $empty->whereNull($sig)->orWhere($sig, '');
+                        });
+                })
+                ->orWhere(function ($queuedPending) use ($status, $sig, $approvedDate) {
+                    $queuedPending->where($status, 'Pending')
+                        ->whereNotNull($approvedDate)
+                        ->where(function ($empty) use ($sig) {
+                            $empty->whereNull($sig)->orWhere($sig, '');
+                        });
+                });
+        });
+    }
+
+    private function scopePresidentApproved($query, string $prefix = '')
+    {
+        $status = $prefix . 'ris_status';
+        $sig = $prefix . 'ris_approved_by_signature';
+
+        return $query->where(function ($q) use ($status, $sig) {
+            $q->where($status, 'Approved by the President')
+                ->orWhere(function ($legacy) use ($status, $sig) {
+                    $legacy->where($status, 'Approved')
+                        ->whereNotNull($sig)
+                        ->where($sig, '!=', '');
+                });
+        });
+    }
+
+    private function parseFlexibleDate(?string $value): ?string
+    {
+        $value = trim((string) $value);
+        if ($value === '') {
+            return null;
+        }
+
+        foreach (['d/m/Y', 'j/n/Y', 'Y-m-d', 'd-m-Y', 'Y/m/d'] as $format) {
+            try {
+                $parsed = Carbon::createFromFormat($format, $value);
+                if ($parsed !== false) {
+                    return $parsed->format('Y-m-d');
+                }
+            } catch (\Throwable $e) {
+                // try next format
+            }
+        }
+
+        try {
+            return Carbon::parse($value)->format('Y-m-d');
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 }

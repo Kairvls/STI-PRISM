@@ -51,15 +51,11 @@
                     </div>
 
                     <div class="dropdown-item" data-target="procurement-section">
-                        Procurement
+                        Transactions
                     </div>
 
                     <div class="dropdown-item" data-target="finance-section">
-                        Finance
-                    </div>
-
-                    <div class="dropdown-item" data-target="account-section">
-                        Account
+                        History
                     </div>
 
                 </div>
@@ -86,35 +82,35 @@
             </a>
 
             <a
+                href="/accounting/authority-to-purchase"
+                class="quick-card {{ request()->is('accounting/authority-to-purchase*') ? 'active' : '' }}"
+            >
+
+                <i data-lucide="file-check"></i>
+
+                <span>ATP</span>
+
+            </a>
+
+            <a
                 href="/accounting/request-check"
                 class="quick-card {{ request()->is('accounting/request-check*') ? 'active' : '' }}"
             >
 
                 <i data-lucide="clipboard-list"></i>
 
-                <span>Requests</span>
+                <span>Request Checks</span>
 
             </a>
 
             <a
-                href="/accounting/financial-records"
-                class="quick-card {{ request()->is('accounting/financial-records*') ? 'active' : '' }}"
+                href="/accounting/history"
+                class="quick-card {{ request()->is('accounting/history*') || request()->is('accounting/financial-records*') ? 'active' : '' }}"
             >
 
-                <i data-lucide="wallet"></i>
+                <i data-lucide="history"></i>
 
-                <span>Finance</span>
-
-            </a>
-
-            <a
-                href="/accounting/notifications"
-                class="quick-card {{ request()->is('accounting/notifications*') ? 'active' : '' }}"
-            >
-
-                <i data-lucide="bell"></i>
-
-                <span>Notifications</span>
+                <span>History</span>
 
             </a>
 
@@ -147,20 +143,9 @@
 
         <div class="menu-title" id="procurement-section">
 
-            PROCUREMENT
+            TRANSACTIONS
 
         </div>
-
-        <a
-            href="/accounting/request-check"
-            class="menu-item {{ request()->is('accounting/request-check*') ? 'active' : '' }}"
-        >
-
-            <i data-lucide="clipboard-list"></i>
-
-            <span>Request Check</span>
-
-        </a>
 
         <a
             href="/accounting/authority-to-purchase"
@@ -169,28 +154,18 @@
 
             <i data-lucide="file-check"></i>
 
-            <span>Authority to Purchase</span>
+            <span>ATP</span>
 
         </a>
 
-        {{-- ====================================== --}}
-        {{-- FINANCE --}}
-        {{-- ====================================== --}}
-
-        <div class="menu-title" id="finance-section">
-
-            FINANCE
-
-        </div>
-
         <a
-            href="/accounting/financial-records"
-            class="menu-item {{ request()->is('accounting/financial-records*') ? 'active' : '' }}"
+            href="/accounting/request-check"
+            class="menu-item {{ request()->is('accounting/request-check*') ? 'active' : '' }}"
         >
 
-            <i data-lucide="wallet"></i>
+            <i data-lucide="clipboard-list"></i>
 
-            <span>Financial Records</span>
+            <span>Request Checks</span>
 
         </a>
 
@@ -206,23 +181,23 @@
         </a>
 
         {{-- ====================================== --}}
-        {{-- ACCOUNT --}}
+        {{-- RECORDS --}}
         {{-- ====================================== --}}
 
-        <div class="menu-title" id="account-section">
+        <div class="menu-title" id="finance-section">
 
-            ACCOUNT
+            HISTORY
 
         </div>
 
         <a
-            href="/accounting/notifications"
-            class="menu-item {{ request()->is('accounting/notifications*') ? 'active' : '' }}"
+            href="/accounting/history"
+            class="menu-item {{ request()->is('accounting/history*') || request()->is('accounting/financial-records*') ? 'active' : '' }}"
         >
 
-            <i data-lucide="bell"></i>
+            <i data-lucide="history"></i>
 
-            <span>Notifications</span>
+            <span>History</span>
 
         </a>
 
