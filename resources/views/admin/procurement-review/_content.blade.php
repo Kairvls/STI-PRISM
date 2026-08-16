@@ -46,6 +46,7 @@
     {{-- RIS STATISTIC CARDS --}}
     {{-- ===================================================== --}}
 
+<<<<<<< Updated upstream
     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         @foreach ($procurementCards as $card)
             <button
@@ -72,6 +73,130 @@
                 </div>
             </button>
         @endforeach
+=======
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+
+
+        {{-- ================================================= --}}
+        {{-- TOTAL RIS --}}
+        {{-- ================================================= --}}
+
+        <div
+            class="rounded-xl border border-gray-200 bg-white px-5 py-5"
+            title="Total number of submitted RIS forms"
+        >
+
+            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Total RIS
+            </p>
+
+            <div class="mt-3">
+
+                <span class="text-3xl font-bold text-gray-900">
+                    {{ $totalRis }}
+                </span>
+
+            </div>
+
+        </div>
+
+
+        {{-- ================================================= --}}
+        {{-- PENDING --}}
+        {{-- ================================================= --}}
+
+        <div
+            class="rounded-xl border border-gray-200 bg-white px-5 py-5"
+            title="RIS forms currently waiting for review"
+        >
+
+            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                For Review
+            </p>
+
+            <div class="mt-3">
+
+                <span class="text-3xl font-bold text-amber-600">
+                    {{ $pendingRis }}
+                </span>
+
+            </div>
+
+        </div>
+
+
+        {{-- ================================================= --}}
+        {{-- AMEND --}}
+        {{-- ================================================= --}}
+
+        <div
+            class="rounded-xl border border-gray-200 bg-white px-5 py-5"
+            title="RIS forms returned for amendment"
+        >
+
+            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Amend
+            </p>
+
+            <div class="mt-3">
+
+                <span class="text-3xl font-bold text-rose-600">
+                    {{ $amendRis }}
+                </span>
+
+            </div>
+
+        </div>
+
+
+        {{-- ================================================= --}}
+        {{-- FORWARDED TO PRESIDENT --}}
+        {{-- ================================================= --}}
+
+        <div
+            class="rounded-xl border border-gray-200 bg-white px-5 py-5"
+            title="RIS forms forwarded to the President for final approval"
+        >
+
+            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Forwarded to President
+            </p>
+
+            <div class="mt-3">
+
+                <span class="text-3xl font-bold text-emerald-600">
+                    {{ $approvedRis }}
+                </span>
+
+            </div>
+
+        </div>
+
+
+        {{-- ================================================= --}}
+        {{-- DIRECT APPROVED --}}
+        {{-- ================================================= --}}
+
+        <div
+            class="rounded-xl border border-gray-200 bg-white px-5 py-5"
+            title="RIS forms that have been directly approved"
+        >
+
+            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Direct Approved
+            </p>
+
+            <div class="mt-3">
+
+                <span class="text-3xl font-bold text-slate-900">
+                    {{ $directApprovedRis }}
+                </span>
+
+            </div>
+
+        </div>
+
+>>>>>>> Stashed changes
     </div>
 
 
@@ -149,6 +274,7 @@
                     {{-- STATUS FILTER SLIDER --}}
                     {{-- ================================================= --}}
 
+<<<<<<< Updated upstream
                     <div
                         id="risFilterSlider"
                         role="tablist"
@@ -160,6 +286,94 @@
                             style="transform: translate3d(0, 0, 0); transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), width 220ms cubic-bezier(0.22, 1, 0.36, 1);"
                             aria-hidden="true"
                         ></span>
+=======
+                    <div class="flex flex-wrap items-center gap-2">
+
+
+                        {{-- ALL --}}
+
+                        <button
+                            type="button"
+                            data-filter="all"
+                            title="Show all RIS records"
+                            class="ris-filter-btn rounded-lg px-4 py-2 text-sm font-semibold transition
+                                {{ $filter === 'all'
+                                    ? 'bg-slate-900 text-white shadow-sm'
+                                    : 'border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                }}
+                            "
+                        >
+                            All
+                        </button>
+
+
+                        {{-- PENDING --}}
+
+                        <button
+                            type="button"
+                            data-filter="pending"
+                            title="Show submitted RIS waiting for review"
+                            class="ris-filter-btn rounded-lg px-4 py-2 text-sm font-semibold transition
+                                {{ $filter === 'pending'
+                                    ? 'border border-amber-300 bg-amber-50 text-amber-700'
+                                    : 'border border-gray-200 bg-white text-gray-600 hover:border-amber-200 hover:bg-amber-50 hover:text-amber-700'
+                                }}
+                            "
+                        >
+                            For Review
+                        </button>
+
+
+                        {{-- AMEND --}}
+
+                        <button
+                            type="button"
+                            data-filter="rejected"
+                            title="Show RIS records returned for amendment"
+                            class="ris-filter-btn rounded-lg px-4 py-2 text-sm font-semibold transition
+                                {{ $filter === 'rejected'
+                                    ? 'border border-rose-300 bg-rose-50 text-rose-700'
+                                    : 'border border-gray-200 bg-white text-gray-600 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700'
+                                }}
+                            "
+                        >
+                            Amend
+                        </button>
+
+
+                        {{-- FORWARDED TO PRESIDENT --}}
+
+                        <button
+                            type="button"
+                            data-filter="approved"
+                            title="Show only RIS records forwarded to the President"
+                            class="ris-filter-btn rounded-lg px-4 py-2 text-sm font-semibold transition
+                                {{ $filter === 'approved'
+                                    ? 'border border-emerald-300 bg-emerald-50 text-emerald-700'
+                                    : 'border border-gray-200 bg-white text-gray-600 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700'
+                                }}
+                            "
+                        >
+                            Forwarded to President
+                        </button>
+
+
+                        {{-- DIRECT APPROVED --}}
+
+                        <button
+                            type="button"
+                            data-filter="direct_approved"
+                            title="Show only Directly Approved RIS records"
+                            class="ris-filter-btn rounded-lg px-4 py-2 text-sm font-semibold transition
+                                {{ $filter === 'direct_approved'
+                                    ? 'border border-slate-400 bg-slate-100 text-slate-900'
+                                    : 'border border-gray-200 bg-white text-gray-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900'
+                                }}
+                            "
+                        >
+                            Direct Approved
+                        </button>
+>>>>>>> Stashed changes
 
                         @foreach ($procurementCards as $card)
                             <button

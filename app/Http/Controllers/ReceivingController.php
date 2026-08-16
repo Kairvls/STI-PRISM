@@ -2,12 +2,18 @@
 
 namespace App\Http\Controllers;
 
+<<<<<<< Updated upstream
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+=======
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+>>>>>>> Stashed changes
 use Illuminate\View\View;
 use Barryvdh\DomPDF\Facade\Pdf;
 
@@ -78,6 +84,7 @@ class ReceivingController extends Controller
         ]));
     }
 
+<<<<<<< Updated upstream
     public function quickAccessContent(string $section)
     {
         $views = [
@@ -104,6 +111,142 @@ class ReceivingController extends Controller
         };
 
         return view($views[$section], $this->withQueryError($data));
+=======
+    public function reports(Request $request)
+    {
+        $filter = $request->query('status', 'queue');
+
+        $query = ReceivingReportController::reviewBaseQuery()
+            ->where(function ($q) {
+                $q->whereNull('receiving_reports_table.receiving_report_is_archived')
+                    ->orWhere('receiving_reports_table.receiving_report_is_archived', 0);
+            });
+
+        if ($filter === 'queue') {
+            $query->whereIn('receiving_reports_table.receiving_report_status', ['Submitted', 'Resubmitted', 'Under Review']);
+        } elseif ($filter === 'completed') {
+            $query->where('receiving_reports_table.receiving_report_status', 'Completed');
+        } elseif ($filter === 'returned') {
+            $query->where('receiving_reports_table.receiving_report_status', 'Returned');
+        }
+
+        $reports = $query
+            ->orderByDesc('receiving_reports_table.receiving_report_submitted_at')
+            ->orderByDesc('receiving_reports_table.receiving_report_id')
+            ->paginate(10)
+            ->withQueryString();
+
+        $ids = $reports->getCollection()->pluck('receiving_report_id');
+        $items = $ids->isEmpty()
+            ? collect()
+            : DB::table('receiving_report_items_table')
+                ->whereIn('receiving_report_id', $ids)
+                ->orderBy('receiving_report_item_id')
+                ->get()
+                ->groupBy('receiving_report_id');
+
+        $base = function () {
+            return ReceivingReportController::reviewBaseQuery()
+                ->where(function ($q) {
+                    $q->whereNull('receiving_report_is_archived')->orWhere('receiving_report_is_archived', 0);
+                });
+        };
+
+        $counts = [
+            'queue' => $base()->whereIn('receiving_report_status', ['Submitted', 'Resubmitted', 'Under Review'])->count(),
+            'completed' => $base()->where('receiving_report_status', 'Completed')->count(),
+            'returned' => $base()->where('receiving_report_status', 'Returned')->count(),
+        ];
+
+        return view('receiving-officer.receiving-reports.index', compact('reports', 'items', 'filter', 'counts'));
+    }
+
+    public function startRrReview($id)
+    {
+        return DB::transaction(function () use ($id) {
+            $rr = $this->lockQueueRr($id);
+            if (!is_object($rr)) {
+                return $rr;
+            }
+
+            if (in_array($rr->receiving_report_status, ['Submitted', 'Resubmitted'], true)) {
+                DB::table('receiving_reports_table')->where('receiving_report_id', $id)->update([
+                    'receiving_report_status' => 'Under Review',
+                    'receiving_report_updated_at' => now(),
+                ]);
+            }
+
+            if (request()->expectsJson() || request()->ajax()) {
+                return response()->json(['status' => 'Under Review']);
+            }
+
+            return back();
+        });
+    }
+
+    public function secondCount($id)
+    {
+        return DB::transaction(function () use ($id) {
+            $rr = $this->lockQueueRr($id);
+            if (!is_object($rr)) {
+                return $rr;
+            }
+
+            $name = Auth::user()->user_full_name ?? 'Receiving Officer';
+
+            DB::table('receiving_reports_table')->where('receiving_report_id', $id)->update([
+                'receiving_report_status' => 'Completed',
+                'receiving_report_second_count_by' => $name,
+                'receiving_report_second_count_by_user_id' => Auth::id(),
+                'receiving_report_second_count_at' => now(),
+                'receiving_report_second_count_signature' => $name,
+                'receiving_report_return_reason' => null,
+                'receiving_report_updated_at' => now(),
+            ]);
+
+            return back()->with('success', 'Second Count confirmed. Items marked as received correctly.');
+        });
+    }
+
+    public function returnRr(Request $request, $id)
+    {
+        $request->validate(['remarks' => ['required', 'string', 'max:5000']]);
+
+        return DB::transaction(function () use ($request, $id) {
+            $rr = $this->lockQueueRr($id);
+            if (!is_object($rr)) {
+                return $rr;
+            }
+
+            DB::table('receiving_reports_table')->where('receiving_report_id', $id)->update([
+                'receiving_report_status' => 'Returned',
+                'receiving_report_return_reason' => $request->input('remarks'),
+                'receiving_report_updated_at' => now(),
+            ]);
+
+            return back()->with('success', 'Receiving Report returned. Items were not accepted.');
+        });
+    }
+
+    public function reviseRr(Request $request, $id)
+    {
+        $request->validate(['remarks' => ['required', 'string', 'max:5000']]);
+
+        return DB::transaction(function () use ($request, $id) {
+            $rr = $this->lockQueueRr($id);
+            if (!is_object($rr)) {
+                return $rr;
+            }
+
+            DB::table('receiving_reports_table')->where('receiving_report_id', $id)->update([
+                'receiving_report_status' => 'Minor Revision',
+                'receiving_report_revision_notes' => $request->input('remarks'),
+                'receiving_report_updated_at' => now(),
+            ]);
+
+            return back()->with('success', 'Receiving Report returned to Purchaser for revision.');
+        });
+>>>>>>> Stashed changes
     }
 
     public function reports(Request $request): View
@@ -331,6 +474,7 @@ class ReceivingController extends Controller
         ]));
     }
 
+<<<<<<< Updated upstream
     public function supplierRecords(Request $request): View
     {
         return view('receiving-officer.receiving-reports.supplier-records', $this->withQueryError([
@@ -1102,5 +1246,27 @@ class ReceivingController extends Controller
 
             return true;
         })->values();
+=======
+    private function lockQueueRr($id)
+    {
+        $rr = DB::table('receiving_reports_table')
+            ->where('receiving_report_id', $id)
+            ->lockForUpdate()
+            ->first();
+
+        if (!$rr) {
+            return back()->with('error', 'Receiving Report not found.');
+        }
+
+        if ((int) ($rr->receiving_report_is_archived ?? 0) === 1) {
+            return back()->with('error', 'Archived Receiving Reports cannot be reviewed.');
+        }
+
+        if (!in_array($rr->receiving_report_status, ['Submitted', 'Resubmitted', 'Under Review'], true)) {
+            return back()->with('error', 'Only submitted Receiving Reports can be reviewed.');
+        }
+
+        return $rr;
+>>>>>>> Stashed changes
     }
 }

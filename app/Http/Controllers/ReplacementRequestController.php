@@ -18,9 +18,6 @@ class ReplacementRequestController extends Controller
             ->leftJoin('rooms_table', 'reports_table.report_room_id', '=', 'rooms_table.room_id')
             ->leftJoin('reporters_table', 'reports_table.report_reporter_employee_id', '=', 'reporters_table.reporter_employee_id')
             ->leftJoin('users_table as request_creator', 'procurement_requests_table.procurement_request_created_by', '=', 'request_creator.user_id')
-            // =====================================================
-            // CHECK IF THIS REPLACEMENT REQUEST ALREADY HAS AN RIS
-            // =====================================================
             ->leftJoin(
                 'requisition_issue_slip_table',
                 'procurement_requests_table.procurement_request_id',
@@ -172,12 +169,15 @@ class ReplacementRequestController extends Controller
             return back()->with('error', 'This request is already archived.');
         }
 
+        if (!in_array($replacementRequest->procurement_request_status, ['Approved', 'Rejected', 'Completed'], true)) {
+            return back()->with('error', 'Only approved, rejected, or completed replacement requests can be archived.');
+        }
+
         DB::transaction(function () use ($requestId) {
             DB::table('procurement_requests_table')
                 ->where('procurement_request_id', $requestId)
                 ->update([
                     'procurement_request_is_archived' => true,
-                    'procurement_request_archived_at' => now(),
                 ]);
 
             DB::table('audit_logs_table')->insert([
@@ -213,7 +213,6 @@ class ReplacementRequestController extends Controller
                 ->where('procurement_request_id', $requestId)
                 ->update([
                     'procurement_request_is_archived' => false,
-                    'procurement_request_archived_at' => null,
                 ]);
 
             DB::table('audit_logs_table')->insert([

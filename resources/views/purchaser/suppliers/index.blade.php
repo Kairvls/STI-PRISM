@@ -71,7 +71,7 @@
                     <span class="h-2 w-2 rounded-full bg-gray-900"></span>
 
                     <span class="text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">
-                        Procurement
+                        File Maintenance
                     </span>
                 </div>
 

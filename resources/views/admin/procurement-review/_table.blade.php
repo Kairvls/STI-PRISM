@@ -62,7 +62,11 @@
             <tr
                 class="
                     transition hover:bg-gray-50/70
+<<<<<<< Updated upstream
                     {{ !in_array($ris->ris_status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true)
+=======
+                    {{ !in_array($ris->ris_status, ['Submitted', 'Resubmitted', 'Under Review'], true)
+>>>>>>> Stashed changes
                         ? 'bg-gray-50 text-gray-500'
                         : ''
                     }}
@@ -77,7 +81,11 @@
                 <td class="px-5 py-4">
 
                     <div
+<<<<<<< Updated upstream
                         class="text-sm font-semibold {{ !in_array($ris->ris_status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true) ? 'text-gray-500' : 'text-gray-900' }}"
+=======
+                        class="text-sm font-semibold {{ !in_array($ris->ris_status, ['Submitted', 'Resubmitted', 'Under Review'], true) ? 'text-gray-500' : 'text-gray-900' }}"
+>>>>>>> Stashed changes
                         title="RIS Number"
                     >
 
@@ -95,8 +103,13 @@
                 <td class="px-5 py-4">
 
                     <div
+<<<<<<< Updated upstream
                         class="max-w-[220px] truncate text-sm font-medium {{ !in_array($ris->ris_status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true) ? 'text-gray-500' : 'text-gray-700' }}"
                         title="{{ $ris->ris_purpose_description ?: ($ris->ris_manual_description ?? 'N/A') }}"
+=======
+                        class="max-w-[220px] truncate text-sm font-medium {{ !in_array($ris->ris_status, ['Submitted', 'Resubmitted', 'Under Review'], true) ? 'text-gray-500' : 'text-gray-700' }}"
+                        title="{{ $ris->ris_purpose_description ?? 'N/A' }}"
+>>>>>>> Stashed changes
                     >
 
                         {{ $ris->ris_purpose_description ?: ($ris->ris_manual_description ?? 'N/A') }}
@@ -113,7 +126,11 @@
                 <td class="px-5 py-4">
 
                     <div
+<<<<<<< Updated upstream
                         class="max-w-[220px] truncate text-sm {{ !in_array($ris->ris_status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true) ? 'text-gray-500' : 'text-gray-700' }}"
+=======
+                        class="max-w-[220px] truncate text-sm {{ !in_array($ris->ris_status, ['Submitted', 'Resubmitted', 'Under Review'], true) ? 'text-gray-500' : 'text-gray-700' }}"
+>>>>>>> Stashed changes
                         title="Items / Equipment included in this RIS"
                     >
 
@@ -135,7 +152,11 @@
                 <td class="px-5 py-4">
 
                     <div
+<<<<<<< Updated upstream
                         class="text-sm font-medium {{ !in_array($ris->ris_status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true) ? 'text-gray-500' : 'text-gray-700' }}"
+=======
+                        class="text-sm font-medium {{ !in_array($ris->ris_status, ['Submitted', 'Resubmitted', 'Under Review'], true) ? 'text-gray-500' : 'text-gray-700' }}"
+>>>>>>> Stashed changes
                         title="Person who sent this RIS request"
                     >
 
@@ -163,7 +184,85 @@
                 {{-- ================================================= --}}
 
                 <td class="px-5 py-4">
+<<<<<<< Updated upstream
                     @include('admin.partials.ris-status-badge', ['ris' => $ris])
+=======
+
+
+                    {{-- PENDING --}}
+
+                    @if(in_array($ris->ris_status, ['Submitted', 'Resubmitted', 'Under Review'], true))
+
+                        <span
+                            class="inline-flex items-center rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700"
+                            title="This RIS is waiting for review"
+                        >
+                            {{ $ris->ris_status }}
+                        </span>
+
+
+                    {{-- DIRECT APPROVED --}}
+                    {{-- (Approved WITH plain-text signature from admin) --}}
+
+                    @elseif($ris->ris_status === 'Approved' && !empty($ris->ris_approved_by_date) && !empty($ris->ris_approved_by_signature) && !str_starts_with($ris->ris_approved_by_signature, 'data:image'))
+
+                        <span
+                            class="inline-flex items-center rounded-lg border border-slate-300 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-900"
+                            title="This RIS has been directly approved by Admin"
+                        >
+                            Direct Approved
+                        </span>
+
+
+                    {{-- FORWARDED TO PRESIDENT --}}
+                    {{-- (Approved AND has approved_by_date, but no signature or base64 sig) --}}
+
+                    @elseif($ris->ris_status === 'Approved' && !empty($ris->ris_approved_by_date))
+
+                        <span
+                            class="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700"
+                            title="This RIS has been forwarded to the President"
+                        >
+                            Forwarded to President
+                        </span>
+
+
+                    {{-- AMEND --}}
+                    {{-- Database value remains Rejected --}}
+
+                    @elseif($ris->ris_status === 'Minor Revision')
+
+                        <span
+                            class="inline-flex items-center rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700"
+                            title="This RIS was returned for amendment"
+                        >
+                            Minor Revision
+                        </span>
+
+                    @elseif($ris->ris_status === 'Rejected')
+
+                        <span
+                            class="inline-flex items-center rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-700"
+                            title="This RIS was rejected"
+                        >
+                            Rejected
+                        </span>
+
+
+                    {{-- OTHER STATUS --}}
+
+                    @else
+
+                        <span
+                            class="inline-flex items-center rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-semibold text-gray-600"
+                            title="Current RIS status"
+                        >
+                            {{ $ris->ris_status }}
+                        </span>
+
+                    @endif
+
+>>>>>>> Stashed changes
                 </td>
 
 
@@ -172,7 +271,11 @@
                 {{-- ================================================= --}}
 
                 <td
+<<<<<<< Updated upstream
                     class="px-5 py-4 text-right text-sm font-semibold {{ !in_array($ris->ris_status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true) ? 'text-gray-500' : 'text-gray-900' }}"
+=======
+                    class="px-5 py-4 text-right text-sm font-semibold {{ !in_array($ris->ris_status, ['Submitted', 'Resubmitted', 'Under Review'], true) ? 'text-gray-500' : 'text-gray-900' }}"
+>>>>>>> Stashed changes
                     title="Total computed amount of this RIS"
                 >
 
@@ -202,7 +305,44 @@
                             </svg>
                         </button>
 
+<<<<<<< Updated upstream
                         @if(in_array($ris->ris_status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true))
+=======
+
+                        {{-- ================================================= --}}
+                        {{-- PENDING ACTIONS --}}
+                        {{-- ================================================= --}}
+
+                        @if(in_array($ris->ris_status, ['Submitted', 'Resubmitted', 'Under Review'], true))
+
+
+                            {{-- ================================================= --}}
+                            {{-- FORWARD TO PRESIDENT --}}
+                            {{-- ================================================= --}}
+
+                            <form
+                                method="POST"
+                                action="{{ route('admin.procurement-review.ris.approve', $ris->ris_id) }}"
+                            >
+
+                                @csrf
+
+                                <button
+                                    type="submit"
+                                    title="Forward this RIS to the President for final approval"
+                                    onclick="return confirm('Forward this RIS to the President for final approval?')"
+                                    class="inline-flex items-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                                >
+                                    Forward to President
+                                </button>
+
+                            </form>
+
+
+                            {{-- ================================================= --}}
+                            {{-- DIRECT APPROVAL (opens modal) --}}
+                            {{-- ================================================= --}}
+>>>>>>> Stashed changes
 
                             <button
                                 type="button"
@@ -239,6 +379,21 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                 </svg>
                             </button>
+
+                            <form
+                                method="POST"
+                                action="{{ route('admin.procurement-review.ris.final-reject', $ris->ris_id) }}"
+                            >
+                                @csrf
+                                <button
+                                    type="submit"
+                                    title="Permanently reject this RIS"
+                                    onclick="return confirm('Reject this RIS? The Purchaser will not be able to resubmit it.')"
+                                    class="inline-flex items-center rounded-lg border border-rose-300 bg-white px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-50"
+                                >
+                                    Reject
+                                </button>
+                            </form>
 
                         @endif
 

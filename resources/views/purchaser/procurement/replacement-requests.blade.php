@@ -30,7 +30,6 @@
             return matchesText && matchesStatus;
         }
     }"
-    x-cloak
 >
     @php
         $archiveView = request('view') === 'archive';
@@ -322,14 +321,57 @@
                                 </p>
                             </td>
 
-                            <td class="px-5 py-4 text-right">
-                                <button
-                                    type="button"
-                                    x-on:click="openModal = 'replacement-{{ $request->procurement_request_id }}'"
-                                    class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50"
-                                >
-                                    View
-                                </button>
+                            <td class="px-5 py-4">
+                                <div class="flex justify-end items-center gap-2">
+
+                                    {{-- CREATE RIS --}}
+                                    @if($canCreateRis)
+                                        <a
+                                            href="{{ route('purchaser.ris.index') }}?replacement_request={{ $request->procurement_request_id }}"
+                                            class="inline-flex items-center rounded-lg bg-gray-950 px-3 py-2 text-xs font-medium text-white transition hover:bg-gray-800"
+                                        >
+                                            Create RIS
+                                        </a>
+                                    @elseif($hasRis)
+                                        <a
+                                            href="{{ route('purchaser.ris.index') }}?ris_id={{ $request->ris_id }}"
+                                            class="inline-flex items-center rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs font-medium text-green-700 transition hover:bg-green-100"
+                                        >
+                                            View RIS
+                                        </a>
+                                    @endif
+
+                                    {{-- VIEW --}}
+                                    <button
+                                        type="button"
+                                        x-on:click="openModal = 'replacement-{{ $request->procurement_request_id }}'"
+                                        class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-700 transition hover:border-gray-300 hover:bg-gray-50"
+                                    >
+                                        View
+                                    </button>
+
+                                    {{-- ARCHIVE --}}
+                                    @if(
+                                        !$request->procurement_request_is_archived
+                                        && in_array($request->procurement_request_status, ['Approved', 'Rejected', 'Completed'], true)
+                                    )
+                                        <form
+                                            method="POST"
+                                            action="{{ route('purchaser.procurement.replacement-requests.archive', $request->procurement_request_id) }}"
+                                            onsubmit="return confirm('Archive this replacement request?')"
+                                        >
+                                            @csrf
+
+                                            <button
+                                                type="submit"
+                                                class="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-medium text-gray-600 transition hover:bg-gray-100"
+                                            >
+                                                Archive
+                                            </button>
+                                        </form>
+                                    @endif
+
+                                </div>
                             </td>
                         </tr>
 
@@ -552,15 +594,19 @@
 
                                                 {{-- ===================================================== --}}
                                                 {{-- ARCHIVE REQUEST --}}
-                                                {{-- Only Approved or Rejected requests can be archived --}}
+                                                {{-- Only Approved, Rejected, or Completed requests can be archived --}}
                                                 {{-- ===================================================== --}}
-                                                @if(in_array($request->procurement_request_status, ['Approved', 'Rejected']))
-                                                    <form method="POST" action="{{ route('purchaser.procurement.replacement-requests.archive', $request->procurement_request_id) }}">
-                                                        @csrf
-                                                        <button type="submit" class="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-100">
-                                                            Archive
-                                                        </button>
-                                                    </form>
+                                                @if(in_array($request->procurement_request_status, ['Approved', 'Rejected', 'Completed'], true))
+                                                <form method="POST" action="{{ route('purchaser.procurement.replacement-requests.archive', $request->procurement_request_id) }}">
+                                                    @csrf
+                                                    <button
+                                                        type="submit"
+                                                        onclick="return confirm('Archive this replacement request?')"
+                                                        class="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition hover:bg-gray-100"
+                                                    >
+                                                        Archive
+                                                    </button>
+                                                </form>
                                                 @endif
                                             @else
                                                 <form method="POST" action="{{ route('purchaser.procurement.replacement-requests.restore', $request->procurement_request_id) }}">

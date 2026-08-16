@@ -416,6 +416,18 @@
         iframe.src =
             `/admin/procurement-review/ris/${risId}/print?ts=${Date.now()}`;
 
+        const csrfToken = document.querySelector('input[name="_token"]')?.value;
+        if (csrfToken) {
+            fetch(`/admin/procurement-review/ris/${risId}/review`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            }).catch(function () {});
+        }
+
 
         // =====================================================
         // SHOW MODAL

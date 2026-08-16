@@ -75,6 +75,9 @@
                     <div class="dropdown-item" data-target="procurement-section">
                         Procurement
                     </div>
+                    <div class="dropdown-item" data-target="file-maintenance-section">
+                        File Maintenance
+                    </div>
                     <div
                         class="dropdown-item"
                         data-target="purchasing-workflow-section"
@@ -303,23 +306,51 @@
 
 
         {{-- ===================================================== --}}
-        {{-- SUPPLIERS --}}
+        {{-- FILE MAINTENANCE SECTION --}}
         {{-- ===================================================== --}}
+
+        <div class="menu-title" id="file-maintenance-section">
+            FILE MAINTENANCE
+        </div>
 
         <a
             href="{{ route('purchaser.suppliers.index') }}"
             class="menu-item mt-1 {{ request()->routeIs('purchaser.suppliers.*') ? 'active' : '' }}"
         >
+            <i data-lucide="truck" class="h-5 w-5"></i>
+            <span>Suppliers</span>
+        </a>
 
-            <i
-                data-lucide="truck"
-                class="h-5 w-5"
-            ></i>
+        <a
+            href="{{ route('purchaser.brands.index') }}"
+            class="menu-item mt-1 {{ request()->routeIs('purchaser.brands.*') ? 'active' : '' }}"
+        >
+            <i data-lucide="tag" class="h-5 w-5"></i>
+            <span>Brands</span>
+        </a>
 
-            <span>
-                Suppliers
-            </span>
+        <a
+            href="{{ route('purchaser.uom.index') }}"
+            class="menu-item mt-1 {{ request()->routeIs('purchaser.uom.*') ? 'active' : '' }}"
+        >
+            <i data-lucide="ruler" class="h-5 w-5"></i>
+            <span>UOM</span>
+        </a>
 
+        <a
+            href="{{ route('purchaser.categories.index') }}"
+            class="menu-item mt-1 {{ request()->routeIs('purchaser.categories.*') ? 'active' : '' }}"
+        >
+            <i data-lucide="folder" class="h-5 w-5"></i>
+            <span>Categories</span>
+        </a>
+
+        <a
+            href="{{ route('purchaser.subcategories.index') }}"
+            class="menu-item mt-1 {{ request()->routeIs('purchaser.subcategories.*') ? 'active' : '' }}"
+        >
+            <i data-lucide="folders" class="h-5 w-5"></i>
+            <span>Sub Categories</span>
         </a>
 
 
@@ -384,8 +415,8 @@
         {{-- ===================================================== --}}
 
         <a
-            href="#"
-            class="menu-item"
+            href="{{ route('purchaser.rfc.index') }}"
+            class="menu-item mt-1 {{ request()->routeIs('purchaser.rfc*') ? 'active' : '' }}"
         >
 
             <i
@@ -406,8 +437,8 @@
         {{-- ===================================================== --}}
 
         <a
-            href="#"
-            class="menu-item mt-1"
+            href="{{ route('purchaser.rr.index') }}"
+            class="menu-item mt-1 {{ request()->routeIs('purchaser.rr*') ? 'active' : '' }}"
         >
 
             <i
@@ -426,8 +457,8 @@
         {{-- ===================================================== --}}
 
         <a
-            href="#"
-            class="menu-item mt-1"
+            href="{{ route('purchaser.liq.index') }}"
+            class="menu-item mt-1 {{ request()->routeIs('purchaser.liq*') ? 'active' : '' }}"
         >
 
             <i

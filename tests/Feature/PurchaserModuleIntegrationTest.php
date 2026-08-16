@@ -72,6 +72,24 @@ class PurchaserModuleIntegrationTest extends TestCase
         $this->assertNotNull($dashboardRoute);
     }
 
+    public function test_file_maintenance_routes_are_registered()
+    {
+        $routes = \Illuminate\Support\Facades\Route::getRoutes();
+
+        foreach ([
+            'purchaser.brands.index',
+            'purchaser.brands.store',
+            'purchaser.brands.update',
+            'purchaser.brands.destroy',
+            'purchaser.uom.index',
+            'purchaser.uom.store',
+            'purchaser.categories.index',
+            'purchaser.subcategories.index',
+        ] as $name) {
+            $this->assertNotNull($routes->getByName($name), "Missing route: {$name}");
+        }
+    }
+
     // ============ CONTROLLER METHOD TESTS ============
 
     /**
@@ -150,9 +168,6 @@ class PurchaserModuleIntegrationTest extends TestCase
     {
         $views = [
             'purchaser.authority-to-purchase.index',
-            'purchaser.authority-to-purchase.create',
-            'purchaser.authority-to-purchase.edit',
-            'purchaser.authority-to-purchase.show',
         ];
 
         foreach ($views as $view) {

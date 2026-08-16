@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 
 class PresidentController extends Controller
 {
@@ -21,12 +22,16 @@ class PresidentController extends Controller
         // ================================
         $totalRisCount = DB::table('requisition_issue_slip_table')->count();
 
+<<<<<<< Updated upstream
         $pendingApprovalsCount =
             DB::table('requisition_issue_slip_table')
                 ->where(function ($q) {
                     $this->scopeAwaitingPresident($q);
                 })
                 ->count();
+=======
+        $pendingApprovalsCount = $this->countAwaitingPresidentDecision();
+>>>>>>> Stashed changes
 
         $approvedDecisionsCount =
             DB::table('requisition_issue_slip_table')
@@ -136,11 +141,18 @@ class PresidentController extends Controller
             })
             ->count();
 
+<<<<<<< Updated upstream
         $totalApprovedRis = (clone $forwardedBase)
             ->where(function ($q) {
                 $this->scopePresidentApproved($q);
             })
             ->count();
+=======
+        $totalPendingRis = $this->scopeAwaitingPresidentDecision(
+            DB::table('requisition_issue_slip_table')
+                ->whereNotNull('ris_requested_by_date')
+        )->count();
+>>>>>>> Stashed changes
 
         $totalRejectedRis = (clone $forwardedBase)
             ->whereIn('ris_status', ['Rejected', 'Rejected by President', 'Rejected by the President'])
@@ -173,6 +185,7 @@ class PresidentController extends Controller
                 'ris.ris_created_at'
             );
 
+<<<<<<< Updated upstream
         $status = $request->query('status', 'Pending');
         if (!in_array($status, ['', 'Pending', 'Approved', 'Rejected'], true)) {
             $status = 'Pending';
@@ -188,6 +201,18 @@ class PresidentController extends Controller
             });
         } elseif ($status === 'Rejected') {
             $query->whereIn('ris.ris_status', ['Rejected', 'Rejected by President', 'Rejected by the President']);
+=======
+        // ================================
+        // Status filter
+        // ================================
+        if ($request->filled('status')) {
+            $status = $request->status;
+            if ($status === 'Pending') {
+                $this->scopeAwaitingPresidentDecision($query, 'ris');
+            } elseif (in_array($status, ['Approved', 'Rejected'], true)) {
+                $query->where('ris.ris_status', $status);
+            }
+>>>>>>> Stashed changes
         }
 
         // ================================
@@ -339,8 +364,13 @@ class PresidentController extends Controller
             return back()->with('error', 'RIS not found.');
         }
 
+<<<<<<< Updated upstream
         if (!$this->risIsAwaitingPresident($target)) {
             return back()->with('error', 'Only RIS records forwarded by Admin can be decided by President.');
+=======
+        if ($target->ris_status !== 'Approved' || empty($target->ris_approved_by_date)) {
+            return back()->with('error', 'Only RIS records approved by Admin can be decided by President.');
+>>>>>>> Stashed changes
         }
 
         $updateValues = [
@@ -475,8 +505,12 @@ class PresidentController extends Controller
             );
 
         if ($filter !== 'all') {
-            $status = $filter === 'approved' ? 'Approved' : ($filter === 'rejected' ? 'Rejected' : 'Pending');
-            $query->where('ris.ris_status', $status);
+            if ($filter === 'pending') {
+                $this->scopeAwaitingPresidentDecision($query, 'ris');
+            } else {
+                $status = $filter === 'approved' ? 'Approved' : 'Rejected';
+                $query->where('ris.ris_status', $status);
+            }
         }
 
         if ($request->filled('search')) {
@@ -498,8 +532,13 @@ class PresidentController extends Controller
             ->withQueryString();
 
         $totalApproved = DB::table('requisition_issue_slip_table')->where('ris_status', 'Approved')->count();
+<<<<<<< Updated upstream
         $totalRejected = DB::table('requisition_issue_slip_table')->whereIn('ris_status', ['Rejected', 'Rejected by President'])->count();
         $totalPending = DB::table('requisition_issue_slip_table')->where('ris_status', 'Pending')->count();
+=======
+        $totalRejected = DB::table('requisition_issue_slip_table')->where('ris_status', 'Rejected')->count();
+        $totalPending = $this->countAwaitingPresidentDecision();
+>>>>>>> Stashed changes
         $totalDecisions = $totalApproved + $totalRejected + $totalPending;
 
         if ($request->ajax()) {
@@ -548,14 +587,23 @@ class PresidentController extends Controller
         // ================================
 
         $risApproved = (clone $risQuery)->where('ris_status', 'Approved')->count();
+<<<<<<< Updated upstream
         $risRejected = (clone $risQuery)->whereIn('ris_status', ['Rejected', 'Rejected by President'])->count();
         $risPending = (clone $risQuery)->where('ris_status', 'Pending')->count();
+=======
+        $risRejected = (clone $risQuery)->where('ris_status', 'Rejected')->count();
+        $risPending = $this->scopeAwaitingPresidentDecision(clone $risQuery)->count();
+>>>>>>> Stashed changes
         $totalRis = $risApproved + $risRejected + $risPending;
 
         // Total amount (filtered)
         $totalAmountQuery = DB::table('requisition_issue_slip_items_table as items')
             ->join('requisition_issue_slip_table as ris', 'items.ris_id', '=', 'ris.ris_id')
+<<<<<<< Updated upstream
             ->whereIn('ris.ris_status', ['Approved', 'Rejected', 'Rejected by President', 'Pending']);
+=======
+            ->whereIn('ris.ris_status', ['Approved', 'Rejected']);
+>>>>>>> Stashed changes
 
         if ($filterMonth && $filterYear) {
             $totalAmountQuery->whereYear('ris.ris_created_at', $filterYear)
@@ -603,8 +651,9 @@ class PresidentController extends Controller
                 ->whereBetween('ris_created_at', [$weekStart, $weekEnd])
                 ->count();
 
-            $pending = DB::table('requisition_issue_slip_table')
-                ->where('ris_status', 'Pending')
+            $pending = $this->scopeAwaitingPresidentDecision(
+                DB::table('requisition_issue_slip_table')
+            )
                 ->whereBetween('ris_created_at', [$weekStart, $weekEnd])
                 ->count();
 
@@ -689,8 +738,9 @@ class PresidentController extends Controller
                 ->whereMonth('ris_created_at', $filterMonth)
                 ->count();
 
-            $pending = DB::table('requisition_issue_slip_table')
-                ->where('ris_status', 'Pending')
+            $pending = $this->scopeAwaitingPresidentDecision(
+                DB::table('requisition_issue_slip_table')
+            )
                 ->whereYear('ris_created_at', $filterYear)
                 ->whereMonth('ris_created_at', $filterMonth)
                 ->count();
@@ -770,8 +820,9 @@ class PresidentController extends Controller
                     ->whereMonth('ris_created_at', $m)
                     ->count();
 
-                $pending = DB::table('requisition_issue_slip_table')
-                    ->where('ris_status', 'Pending')
+                $pending = $this->scopeAwaitingPresidentDecision(
+                    DB::table('requisition_issue_slip_table')
+                )
                     ->whereYear('ris_created_at', $y)
                     ->whereMonth('ris_created_at', $m)
                     ->count();
@@ -952,6 +1003,7 @@ class PresidentController extends Controller
             abort(404, 'RIS not found');
         }
 
+<<<<<<< Updated upstream
         $risItems = DB::table('requisition_issue_slip_items_table')
             ->where('ris_id', $ris->ris_id)
             ->orderBy('ris_item_id')
@@ -979,6 +1031,60 @@ class PresidentController extends Controller
 
         $risItems = DB::table('requisition_issue_slip_items_table')
             ->where('ris_id', $risId)
+=======
+        $itemsQuery = DB::table('requisition_issue_slip_items_table')
+            ->where('requisition_issue_slip_items_table.ris_id', $ris->ris_id);
+
+        $select = ['requisition_issue_slip_items_table.*'];
+
+        if (
+            Schema::hasTable('uom_table')
+            && Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_uom_id')
+        ) {
+            $itemsQuery->leftJoin(
+                'uom_table',
+                'uom_table.uom_id',
+                '=',
+                'requisition_issue_slip_items_table.ris_item_uom_id'
+            );
+            $select[] = 'uom_table.uom_name';
+        }
+
+        if (
+            Schema::hasTable('suppliers_table')
+            && Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_supplier_id')
+        ) {
+            $itemsQuery
+                ->leftJoin(
+                    'suppliers_table',
+                    'suppliers_table.supplier_id',
+                    '=',
+                    'requisition_issue_slip_items_table.ris_item_supplier_id'
+                )
+                ->leftJoin(
+                    'physical_suppliers_table',
+                    'physical_suppliers_table.supplier_id',
+                    '=',
+                    'suppliers_table.supplier_id'
+                )
+                ->leftJoin(
+                    'online_suppliers_table',
+                    'online_suppliers_table.supplier_id',
+                    '=',
+                    'suppliers_table.supplier_id'
+                );
+            $select[] = DB::raw(
+                "CASE
+                    WHEN suppliers_table.supplier_store_type = 'Online Store'
+                        THEN COALESCE(online_suppliers_table.shop_name, CONCAT('Online supplier #', suppliers_table.supplier_id))
+                    ELSE COALESCE(physical_suppliers_table.company_name, CONCAT('Physical supplier #', suppliers_table.supplier_id))
+                END as supplier_display_name"
+            );
+        }
+
+        $risItems = $itemsQuery
+            ->select($select)
+>>>>>>> Stashed changes
             ->orderBy('ris_item_id')
             ->get();
 
@@ -1044,6 +1150,7 @@ class PresidentController extends Controller
         });
     }
 
+<<<<<<< Updated upstream
     private function risIsAwaitingPresident(object $ris): bool
     {
         if (($ris->ris_status ?? '') === 'Directly Approved') {
@@ -1127,5 +1234,25 @@ class PresidentController extends Controller
         } catch (\Throwable $e) {
             return null;
         }
+=======
+    private function scopeAwaitingPresidentDecision($query, string $alias = '')
+    {
+        $prefix = $alias !== '' ? $alias . '.' : '';
+
+        return $query
+            ->where($prefix . 'ris_status', 'Approved')
+            ->whereNotNull($prefix . 'ris_approved_by_date')
+            ->where(function ($q) use ($prefix) {
+                $q->whereNull($prefix . 'ris_approved_by_signature')
+                    ->orWhere($prefix . 'ris_approved_by_signature', 'not like', 'data:image%');
+            });
+    }
+
+    private function countAwaitingPresidentDecision(): int
+    {
+        return $this->scopeAwaitingPresidentDecision(
+            DB::table('requisition_issue_slip_table')
+        )->count();
+>>>>>>> Stashed changes
     }
 }

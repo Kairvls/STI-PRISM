@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 
 class PurchaserController extends Controller
@@ -54,12 +55,100 @@ class PurchaserController extends Controller
             })
             ->count();
 
+        $atpReadyForRfc = 0;
+        $rfcReadyForRr = 0;
+        $rrReadyForLiq = 0;
+
+        if (Schema::hasTable('authority_to_purchase_table')) {
+            $atpReadyForRfc = DB::table('authority_to_purchase_table')
+                ->where('authority_purchase_status', 'Approved')
+                ->where(function ($q) {
+                    $q->whereNull('authority_purchase_is_archived')
+                        ->orWhere('authority_purchase_is_archived', 0);
+                })
+                ->whereNotExists(function ($query) {
+                    $query->select(DB::raw(1))
+                        ->from('request_check_table')
+                        ->whereColumn(
+                            'request_check_table.request_check_authority_purchase_id',
+                            'authority_to_purchase_table.authority_purchase_id'
+                        )
+                        ->where(function ($inner) {
+                            $inner->whereNull('request_check_is_archived')
+                                ->orWhere('request_check_is_archived', 0);
+                        })
+                        ->where('request_check_status', '!=', 'Rejected');
+                })
+                ->count();
+        }
+
+        if (Schema::hasTable('request_check_table')) {
+            $rfcReadyQuery = DB::table('request_check_table')
+                ->where('request_check_status', 'Approved')
+                ->where(function ($q) {
+                    $q->whereNull('request_check_is_archived')
+                        ->orWhere('request_check_is_archived', 0);
+                });
+
+            if (Schema::hasColumn('request_check_table', 'request_check_funds_released_at')) {
+                $rfcReadyQuery->whereNotNull('request_check_funds_released_at');
+            }
+
+            if (Schema::hasTable('receiving_reports_table')) {
+                $rfcReadyQuery->whereNotExists(function ($query) {
+                    $query->select(DB::raw(1))
+                        ->from('receiving_reports_table')
+                        ->whereColumn(
+                            'receiving_reports_table.receiving_report_request_check_id',
+                            'request_check_table.request_check_id'
+                        )
+                        ->where(function ($inner) {
+                            $inner->whereNull('receiving_report_is_archived')
+                                ->orWhere('receiving_report_is_archived', 0);
+                        })
+                        ->where('receiving_report_status', '!=', 'Returned');
+                });
+            }
+
+            $rfcReadyForRr = $rfcReadyQuery->count();
+        }
+
+        if (Schema::hasTable('receiving_reports_table')) {
+            $rrReadyQuery = DB::table('receiving_reports_table')
+                ->where('receiving_report_status', 'Completed')
+                ->where(function ($q) {
+                    $q->whereNull('receiving_report_is_archived')
+                        ->orWhere('receiving_report_is_archived', 0);
+                });
+
+            if (Schema::hasTable('liquidation_reports_table')) {
+                $rrReadyQuery->whereNotExists(function ($query) {
+                    $query->select(DB::raw(1))
+                        ->from('liquidation_reports_table')
+                        ->whereColumn(
+                            'liquidation_reports_table.liquidation_report_receiving_report_id',
+                            'receiving_reports_table.receiving_report_id'
+                        )
+                        ->where(function ($inner) {
+                            $inner->whereNull('liquidation_report_is_archived')
+                                ->orWhere('liquidation_report_is_archived', 0);
+                        })
+                        ->where('liquidation_report_status', '!=', 'Rejected');
+                });
+            }
+
+            $rrReadyForLiq = $rrReadyQuery->count();
+        }
+
         return view('purchaser.dashboard', compact(
             'pendingReplacementRequests',
             'approvedReplacementRequests',
             'completedReplacementRequests',
             'availableUrgentReports',
-            'risReadyForAtp'
+            'risReadyForAtp',
+            'atpReadyForRfc',
+            'rfcReadyForRr',
+            'rrReadyForLiq'
         ));
     }
 
@@ -452,7 +541,17 @@ class PurchaserController extends Controller
 
         // Status filter
         if ($request->filled('status')) {
-            $risQuery->where('requisition_issue_slip_table.ris_status', $request->status);
+            if ($request->status === 'In Review') {
+                $risQuery->whereIn(
+                    'requisition_issue_slip_table.ris_status',
+                    ['Submitted', 'Under Review', 'Resubmitted']
+                );
+            } else {
+                $risQuery->where(
+                    'requisition_issue_slip_table.ris_status',
+                    $request->status
+                );
+            }
         }
 
         // Date filters
@@ -477,10 +576,7 @@ class PurchaserController extends Controller
             ->get()
             ->groupBy('ris_id');
 
-        $itemsByRis = DB::table('requisition_issue_slip_items_table')
-            ->whereIn('ris_id', $risRecords->pluck('ris_id'))
-            ->orderBy('ris_item_id')
-            ->get()
+        $itemsByRis = $this->risItemsWithLookups($risRecords->pluck('ris_id'))
             ->groupBy('ris_id');
 
         $risHasAtp = DB::table('authority_to_purchase_table')
@@ -592,13 +688,25 @@ class PurchaserController extends Controller
             ->orderByDesc('procurement_requests_table.procurement_request_created_at')
             ->get();
 
+        $activeSuppliers = $this->activeSuppliersForRis();
+        $uoms = Schema::hasTable('uom_table')
+            ? DB::table('uom_table')->orderBy('uom_name')->get()
+            : collect();
+
+        $supplierNames = $this->supplierOptionsForRis(false)->keyBy('supplier_id');
+        foreach ($risRecords as $ris) {
+            $ris->supplier_display_name = optional($supplierNames->get($ris->ris_supplier_id ?? null))->display_name;
+        }
+
         return view('purchaser.ris.index', compact(
             'risRecords',
             'risSummary',
             'attachmentsByRis',
             'itemsByRis',
             'risHasAtp',
-            'availableReplacementRequests'
+            'availableReplacementRequests',
+            'activeSuppliers',
+            'uoms'
         ));
     }
 
@@ -639,6 +747,12 @@ class PurchaserController extends Controller
                 'max:100',
             ],
 
+            'ris_supplier_id' => [
+                'nullable',
+                'integer',
+                'exists:suppliers_table,supplier_id',
+            ],
+
             'ris_purpose_description' => [
                 $isDraft ? 'nullable' : 'required',
                 'string',
@@ -659,6 +773,18 @@ class PurchaserController extends Controller
                 'string',
                 'max:2000',
             ],
+
+            'ris_items.*.supplier_id' => [
+                'nullable',
+                'integer',
+                'exists:suppliers_table,supplier_id',
+            ],
+
+            'ris_items.*.uom_id' => array_values(array_filter([
+                'nullable',
+                'integer',
+                Schema::hasTable('uom_table') ? 'exists:uom_table,uom_id' : null,
+            ])),
 
             'ris_items.*.quantity_requested' => [
                 'nullable',
@@ -813,10 +939,17 @@ class PurchaserController extends Controller
                 return filled($item['name_description'] ?? null)
                     || filled($item['quantity_requested'] ?? null)
                     || filled($item['quantity_issued'] ?? null)
-                    || filled($item['unit_cost'] ?? null);
+                    || filled($item['unit_cost'] ?? null)
+                    || filled($item['uom_id'] ?? null)
+                    || filled($item['supplier_id'] ?? null);
 
             })
             ->values();
+
+        $splitOverflow = $this->risItemSplitOverflowMessage($items);
+        if ($splitOverflow) {
+            return back()->withInput()->with('error', $splitOverflow);
+        }
 
 
         // =====================================================
@@ -833,36 +966,9 @@ class PurchaserController extends Controller
                     );
             }
 
-            foreach ($items as $index => $item) {
-
-                $rowNumber = $index + 1;
-
-                if (blank($item['name_description'] ?? null)) {
-                    return back()
-                        ->withInput()
-                        ->with(
-                            'error',
-                            "Item {$rowNumber} needs an item description."
-                        );
-                }
-
-                if (blank($item['quantity_requested'] ?? null)) {
-                    return back()
-                        ->withInput()
-                        ->with(
-                            'error',
-                            "Item {$rowNumber} needs a Quantity Requested."
-                        );
-                }
-
-                if ((int) $item['quantity_requested'] < 1) {
-                    return back()
-                        ->withInput()
-                        ->with(
-                            'error',
-                            "Item {$rowNumber} Quantity Requested must be at least 1."
-                        );
-                }
+            $submitError = $this->validateRisItemsForSubmit($items);
+            if ($submitError) {
+                return back()->withInput()->with('error', $submitError);
             }
         }
 
@@ -958,6 +1064,8 @@ class PurchaserController extends Controller
                         'ris_form_number' =>
                             $validated['ris_form_number'] ?? null,
 
+                        'ris_supplier_id' => null,
+
                         'ris_purpose_description' =>
                             $validated['ris_purpose_description'] ?? null,
 
@@ -1010,48 +1118,8 @@ class PurchaserController extends Controller
             // 8. SAVE RIS ITEMS
             // =====================================================
             foreach ($items as $item) {
-
-                $quantityIssued =
-                    (int) ($item['quantity_issued'] ?? 0);
-
-                $unitCost =
-                    (float) ($item['unit_cost'] ?? 0);
-
-
-                // =============================================
-                // IMPORTANT:
-                // Never trust total_amount from the browser.
-                //
-                // Amount = Quantity Issued × Unit Cost
-                // =============================================
-                $totalAmount =
-                    round(
-                        $quantityIssued * $unitCost,
-                        2
-                    );
-
-
-                DB::table(
-                    'requisition_issue_slip_items_table'
-                )->insert([
-
-                    'ris_id' => $risId,
-
-                    'ris_item_name_description' =>
-                        $item['name_description'] ?? null,
-
-                    'ris_quantity_requested' =>
-                        $item['quantity_requested'] ?? null,
-
-                    'ris_quantity_issued' =>
-                        $quantityIssued,
-
-                    'ris_unit_cost' =>
-                        $item['unit_cost'] ?? null,
-
-                    'ris_total_amount' =>
-                        $totalAmount,
-                ]);
+                DB::table('requisition_issue_slip_items_table')
+                    ->insert($this->risItemPayload($risId, $item));
             }
 
 
@@ -1175,10 +1243,15 @@ class PurchaserController extends Controller
         // RETURN RIS PRINT VIEW
         // =====================================================
 
+        $risItems = $this->risItemsWithLookups([$risId])->values();
+
         return view('purchaser.ris.print', [
             'ris' => $ris,
             'risItems' => $risItems,
+<<<<<<< Updated upstream
             'presidentName' => $presidentName,
+=======
+>>>>>>> Stashed changes
         ]);
     }
 // =====================================================
@@ -1236,6 +1309,12 @@ public function updateRis(Request $request, $risId)
             'max:100',
         ],
 
+        'ris_supplier_id' => [
+            'nullable',
+            'integer',
+            'exists:suppliers_table,supplier_id',
+        ],
+
         'ris_purpose_description' => [
             $isSaveOnly ? 'nullable' : 'required',
             'string',
@@ -1257,6 +1336,18 @@ public function updateRis(Request $request, $risId)
             'string',
             'max:2000',
         ],
+
+        'ris_items.*.supplier_id' => [
+            'nullable',
+            'integer',
+            'exists:suppliers_table,supplier_id',
+        ],
+
+        'ris_items.*.uom_id' => array_values(array_filter([
+            'nullable',
+            'integer',
+            Schema::hasTable('uom_table') ? 'exists:uom_table,uom_id' : null,
+        ])),
 
         'ris_items.*.quantity_requested' => [
             'nullable',
@@ -1359,10 +1450,17 @@ public function updateRis(Request $request, $risId)
             return filled($item['name_description'] ?? null)
                 || filled($item['quantity_requested'] ?? null)
                 || filled($item['quantity_issued'] ?? null)
-                || filled($item['unit_cost'] ?? null);
+                || filled($item['unit_cost'] ?? null)
+                || filled($item['uom_id'] ?? null)
+                || filled($item['supplier_id'] ?? null);
 
         })
         ->values();
+
+    $splitOverflow = $this->risItemSplitOverflowMessage($items);
+    if ($splitOverflow) {
+        return back()->withInput()->with('error', $splitOverflow);
+    }
 
 
     // =====================================================
@@ -1380,30 +1478,9 @@ public function updateRis(Request $request, $risId)
                 );
         }
 
-
-        foreach ($items as $index => $item) {
-
-            $rowNumber = $index + 1;
-
-            if (blank($item['name_description'] ?? null)) {
-
-                return back()
-                    ->withInput()
-                    ->with(
-                        'error',
-                        "Item {$rowNumber} needs an item description."
-                    );
-            }
-
-            if (blank($item['quantity_requested'] ?? null)) {
-
-                return back()
-                    ->withInput()
-                    ->with(
-                        'error',
-                        "Item {$rowNumber} needs a Quantity Requested."
-                    );
-            }
+        $submitError = $this->validateRisItemsForSubmit($items);
+        if ($submitError) {
+            return back()->withInput()->with('error', $submitError);
         }
     }
 
@@ -1487,6 +1564,8 @@ public function updateRis(Request $request, $risId)
             'ris_form_number' =>
                 $validated['ris_form_number'] ?? null,
 
+            'ris_supplier_id' => null,
+
             'ris_purpose_description' =>
                 $validated['ris_purpose_description'] ?? null,
 
@@ -1537,44 +1616,8 @@ public function updateRis(Request $request, $risId)
 
 
         foreach ($items as $item) {
-
-            $quantityIssued =
-                (int) ($item['quantity_issued'] ?? 0);
-
-            $unitCost =
-                (float) ($item['unit_cost'] ?? 0);
-
-
-            // SERVER CALCULATES THE AMOUNT
-            $totalAmount =
-                round(
-                    $quantityIssued * $unitCost,
-                    2
-                );
-
-
-            DB::table(
-                'requisition_issue_slip_items_table'
-            )->insert([
-
-                'ris_id' =>
-                    $risId,
-
-                'ris_item_name_description' =>
-                    $item['name_description'] ?? null,
-
-                'ris_quantity_requested' =>
-                    $item['quantity_requested'] ?? null,
-
-                'ris_quantity_issued' =>
-                    $quantityIssued,
-
-                'ris_unit_cost' =>
-                    $item['unit_cost'] ?? null,
-
-                'ris_total_amount' =>
-                    $totalAmount,
-            ]);
+            DB::table('requisition_issue_slip_items_table')
+                ->insert($this->risItemPayload($risId, $item));
         }
 
 
@@ -1886,5 +1929,209 @@ public function submitRis($risId)
             $attachment->ris_attachment_path,
             $attachment->ris_attachment_original_name
         );
+    }
+
+    private function activeSuppliersForRis()
+    {
+        return $this->supplierOptionsForRis(true);
+    }
+
+    private function supplierOptionsForRis(bool $activeOnly = false)
+    {
+        $query = DB::table('suppliers_table')
+            ->leftJoin('physical_suppliers_table', 'suppliers_table.supplier_id', '=', 'physical_suppliers_table.supplier_id')
+            ->leftJoin('online_suppliers_table', 'suppliers_table.supplier_id', '=', 'online_suppliers_table.supplier_id')
+            ->select(
+                'suppliers_table.supplier_id',
+                'suppliers_table.supplier_store_type',
+                'suppliers_table.supplier_is_active',
+                'physical_suppliers_table.company_name',
+                'online_suppliers_table.shop_name'
+            );
+
+        if ($activeOnly) {
+            $query->where('suppliers_table.supplier_is_active', 1);
+        }
+
+        return $query
+            ->orderBy('suppliers_table.supplier_id')
+            ->get()
+            ->map(function ($supplier) {
+                $supplier->display_name = $supplier->supplier_store_type === 'Online Store'
+                    ? ($supplier->shop_name ?: 'Online supplier #' . $supplier->supplier_id)
+                    : ($supplier->company_name ?: 'Physical supplier #' . $supplier->supplier_id);
+
+                return $supplier;
+            });
+    }
+
+    private function risItemPayload($risId, array $item): array
+    {
+        $quantityIssued = (int) ($item['quantity_issued'] ?? 0);
+        $unitCost = (float) ($item['unit_cost'] ?? 0);
+
+        $payload = [
+            'ris_id' => $risId,
+            'ris_item_name_description' => $item['name_description'] ?? null,
+            'ris_quantity_requested' => $item['quantity_requested'] ?? null,
+            'ris_quantity_issued' => $quantityIssued,
+            'ris_unit_cost' => $item['unit_cost'] ?? null,
+            'ris_total_amount' => round($quantityIssued * $unitCost, 2),
+        ];
+
+        if (Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_uom_id')) {
+            $payload['ris_item_uom_id'] = $this->resolveRisUomId($item['uom_id'] ?? null);
+        }
+
+        if (Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_supplier_id')) {
+            $payload['ris_item_supplier_id'] = $this->resolveRisSupplierId($item['supplier_id'] ?? null);
+        }
+
+        return $payload;
+    }
+
+    private function resolveRisUomId($uomId): ?int
+    {
+        if (!filled($uomId) || !Schema::hasTable('uom_table')) {
+            return null;
+        }
+
+        $exists = DB::table('uom_table')->where('uom_id', $uomId)->exists();
+
+        return $exists ? (int) $uomId : null;
+    }
+
+    private function resolveRisSupplierId($supplierId): ?int
+    {
+        if (!filled($supplierId)) {
+            return null;
+        }
+
+        $exists = DB::table('suppliers_table')->where('supplier_id', $supplierId)->exists();
+
+        return $exists ? (int) $supplierId : null;
+    }
+
+    private function risItemsWithLookups($risIds)
+    {
+        $query = DB::table('requisition_issue_slip_items_table')
+            ->whereIn('requisition_issue_slip_items_table.ris_id', $risIds)
+            ->orderBy('ris_item_id');
+
+        $select = ['requisition_issue_slip_items_table.*'];
+
+        if (
+            Schema::hasTable('uom_table')
+            && Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_uom_id')
+        ) {
+            $query->leftJoin(
+                'uom_table',
+                'uom_table.uom_id',
+                '=',
+                'requisition_issue_slip_items_table.ris_item_uom_id'
+            );
+            $select[] = 'uom_table.uom_name';
+        }
+
+        if (
+            Schema::hasTable('suppliers_table')
+            && Schema::hasColumn('requisition_issue_slip_items_table', 'ris_item_supplier_id')
+        ) {
+            $query
+                ->leftJoin(
+                    'suppliers_table',
+                    'suppliers_table.supplier_id',
+                    '=',
+                    'requisition_issue_slip_items_table.ris_item_supplier_id'
+                )
+                ->leftJoin(
+                    'physical_suppliers_table',
+                    'physical_suppliers_table.supplier_id',
+                    '=',
+                    'suppliers_table.supplier_id'
+                )
+                ->leftJoin(
+                    'online_suppliers_table',
+                    'online_suppliers_table.supplier_id',
+                    '=',
+                    'suppliers_table.supplier_id'
+                );
+
+            $select[] = DB::raw(
+                "CASE
+                    WHEN suppliers_table.supplier_store_type = 'Online Store'
+                        THEN COALESCE(online_suppliers_table.shop_name, CONCAT('Online supplier #', suppliers_table.supplier_id))
+                    ELSE COALESCE(physical_suppliers_table.company_name, CONCAT('Physical supplier #', suppliers_table.supplier_id))
+                END as supplier_display_name"
+            );
+        }
+
+        return $query->select($select)->get();
+    }
+
+    private function risNormalizedItemName($name): string
+    {
+        return mb_strtolower(trim((string) $name));
+    }
+
+    private function risItemSplitOverflowMessage($items): ?string
+    {
+        $groups = [];
+
+        foreach ($items as $item) {
+            $key = $this->risNormalizedItemName($item['name_description'] ?? '');
+            if ($key === '') {
+                continue;
+            }
+            $groups[$key][] = $item;
+        }
+
+        foreach ($groups as $rows) {
+            $asked = (int) ($rows[0]['quantity_requested'] ?? 0);
+            if ($asked < 1) {
+                continue;
+            }
+
+            $allocated = 0;
+            foreach ($rows as $row) {
+                $allocated += (int) ($row['quantity_issued'] ?? 0);
+            }
+
+            if ($allocated > $asked) {
+                $label = trim((string) ($rows[0]['name_description'] ?? 'Item'));
+
+                return "\"{$label}\" is over the requested amount ({$allocated} issued of {$asked} requested).";
+            }
+        }
+
+        return null;
+    }
+
+    private function validateRisItemsForSubmit($items): ?string
+    {
+        $seenNames = [];
+
+        foreach ($items as $index => $item) {
+            $rowNumber = $index + 1;
+            $name = trim((string) ($item['name_description'] ?? ''));
+
+            if ($name === '') {
+                return "Item {$rowNumber} needs an item description.";
+            }
+
+            $key = $this->risNormalizedItemName($name);
+            $isFirstOfGroup = !isset($seenNames[$key]);
+            $seenNames[$key] = true;
+
+            if ($isFirstOfGroup && blank($item['quantity_requested'] ?? null)) {
+                return "Item {$rowNumber} needs a Quantity Requested.";
+            }
+
+            if ($isFirstOfGroup && (int) $item['quantity_requested'] < 1) {
+                return "Item {$rowNumber} Quantity Requested must be at least 1.";
+            }
+        }
+
+        return null;
     }
 }

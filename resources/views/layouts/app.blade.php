@@ -34,6 +34,14 @@
 
     <style>
 
+        /* ======================================
+           ALPINE CLOAK
+           Keeps Alpine elements hidden until Alpine initializes
+        ====================================== */
+        [x-cloak] {
+            display: none !important;
+        }
+
         *{
 
             font-family:'Poppins',sans-serif;
@@ -575,7 +583,7 @@
     }
 </style>
 
-<script>
+{{-- <script>
     // =====================================================
     // SIDEBAR ELEMENTS
     // =====================================================
@@ -886,7 +894,7 @@
         });
 
     });
-</script>
+</script> --}}
 
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>

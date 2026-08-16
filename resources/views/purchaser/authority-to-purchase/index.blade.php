@@ -1,45 +1,89 @@
 @extends('layouts.purchaser-layout')
 
 @section('page-title', 'Authority to Purchase')
-@section('page-subtitle', 'Manage ATP drafts, submissions, approvals, and archives')
+@section('page-subtitle', 'Create, manage, print, and archive Authority to Purchase records.')
 
 @section('content')
 
+<script type="application/json" id="atp-ris-prefill">{!! json_encode($risPrefill ?? []) !!}</script>
+
 <div
     x-data="{
-        createOpen: {{ $errors->any() && old('authority_purchase_ris_id') ? 'true' : 'false' }},
-        viewOpen: false,
-        editOpen: false,
-        rejectOpen: false,
-        selectedAtp: null,
+        createOpen: {{ ($errors->any() && old('authority_purchase_ris_id')) || !empty($selectedRisId) ? 'true' : 'false' }},
+        viewOpen: {{ !empty($viewAtpId) ? 'true' : 'false' }},
+        editOpen: {{ !empty($editAtpId) ? 'true' : 'false' }},
+        selectedAtp: {{ !empty($editAtpId) ? (int) $editAtpId : (!empty($viewAtpId) ? (int) $viewAtpId : 'null') }},
+        risPrefill: JSON.parse(document.getElementById('atp-ris-prefill').textContent || '{}'),
 
         openView(id) {
             this.selectedAtp = id;
             this.viewOpen = true;
             this.editOpen = false;
-            this.rejectOpen = false;
         },
 
         openEdit(id) {
             this.selectedAtp = id;
             this.editOpen = true;
             this.viewOpen = false;
-            this.rejectOpen = false;
-        },
-
-        openReject(id) {
-            this.selectedAtp = id;
-            this.rejectOpen = true;
         },
 
         closeAll() {
             this.createOpen = false;
             this.viewOpen = false;
             this.editOpen = false;
-            this.rejectOpen = false;
             this.selectedAtp = null;
+        },
+
+        applyRisPrefill(risId) {
+            const data = this.risPrefill[String(risId)];
+            const form = this.$refs.createForm;
+            if (!form || !data) {
+                return;
+            }
+
+            if (data.supplier_id) {
+                const supplierSelect = form.querySelector('[name=authority_purchase_supplier_id]');
+                if (supplierSelect) {
+                    supplierSelect.value = data.supplier_id;
+                }
+            }
+
+            for (let i = 0; i < 8; i++) {
+                const item = (data.items && data.items[i]) ? data.items[i] : {};
+                const qty = form.querySelector('[name=\'items[' + i + '][quantity]\']');
+                const unit = form.querySelector('[name=\'items[' + i + '][unit]\']');
+                const desc = form.querySelector('[name=\'items[' + i + '][description]\']');
+                const price = form.querySelector('[name=\'items[' + i + '][unit_price]\']');
+                const amount = form.querySelector('[name=\'items[' + i + '][amount_display]\']');
+
+                if (qty) qty.value = item.quantity ?? '';
+                if (unit) unit.value = item.unit ?? '';
+                if (desc) desc.value = item.description ?? '';
+                if (price) price.value = item.unit_price ?? '';
+                if (amount) {
+                    const quantity = parseFloat(item.quantity || 0);
+                    const unitPrice = parseFloat(item.unit_price || 0);
+                    amount.value = quantity && unitPrice ? (quantity * unitPrice).toFixed(2) : '';
+                }
+            }
+        },
+
+        printAtp(id) {
+            document.querySelectorAll('.atp-print-sheet').forEach(function (sheet) {
+                sheet.classList.remove('atp-print-active');
+            });
+            const sheet = document.getElementById('atp-print-' + id);
+            if (sheet) {
+                sheet.classList.add('atp-print-active');
+            }
+            window.print();
         }
     }"
+    x-init="
+        if (createOpen && '{{ $selectedRisId ?? '' }}') {
+            $nextTick(() => applyRisPrefill('{{ $selectedRisId ?? '' }}'));
+        }
+    "
     @keydown.escape.window="closeAll()"
     class="space-y-6"
 >
@@ -84,13 +128,12 @@
             </h2>
 
             <p class="text-sm text-slate-600">
-                Create ATP only from approved RIS and track its approval lifecycle.
+                Create Authority to Purchase records from approved RIS.
             </p>
         </div>
 
         <div class="flex flex-wrap gap-2">
 
-            {{-- Archive / Active View --}}
             @if($archiveView)
                 <a
                     href="{{ route('purchaser.atp.index') }}"
@@ -107,14 +150,13 @@
                 </a>
             @endif
 
-            {{-- Open Create Modal --}}
             @if(!$archiveView)
                 <button
                     type="button"
                     @click="createOpen = true"
                     class="h-10 rounded-lg bg-gray-900 px-5 text-sm font-medium text-white"
                 >
-                    New ATP
+                    Create ATP
                 </button>
             @endif
 
@@ -123,50 +165,136 @@
 
 
     {{-- ========================================================= --}}
-    {{-- SUMMARY CARDS --}}
+    {{-- SUMMARY CARDS (dashboard style) --}}
     {{-- ========================================================= --}}
 
-    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-6">
 
-        <div class="rounded-xl border border-gray-200 bg-white p-4">
-            <p class="text-sm font-medium text-gray-500">
-                Draft
-            </p>
+        <a
+            href="{{ route('purchaser.atp.index') }}"
+            class="group rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:shadow-sm"
+        >
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <p class="text-sm font-medium text-gray-500">Total ATP</p>
+                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">
+                        {{ number_format($atpSummary['total']) }}
+                    </p>
+                </div>
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+                    <i data-lucide="files" class="h-5 w-5"></i>
+                </div>
+            </div>
+            <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
+                <span>All active Authority to Purchase</span>
+                <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
+            </div>
+        </a>
 
-            <p class="mt-3 text-3xl font-semibold text-slate-900">
-                {{ $atpSummary['draft'] }}
-            </p>
-        </div>
+        <a
+            href="{{ route('purchaser.atp.index', ['status' => 'Draft']) }}"
+            class="group rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:shadow-sm"
+        >
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <p class="text-sm font-medium text-gray-500">Draft</p>
+                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">
+                        {{ number_format($atpSummary['draft']) }}
+                    </p>
+                </div>
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
+                    <i data-lucide="file-pen-line" class="h-5 w-5"></i>
+                </div>
+            </div>
+            <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
+                <span>Incomplete drafts awaiting submit</span>
+                <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
+            </div>
+        </a>
 
-        <div class="rounded-xl border border-gray-200 bg-white p-4">
-            <p class="text-sm font-medium text-gray-500">
-                Submitted
-            </p>
+        <a
+            href="{{ route('purchaser.atp.index', ['status' => 'Submitted']) }}"
+            class="group rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:shadow-sm"
+        >
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <p class="text-sm font-medium text-gray-500">Submitted</p>
+                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">
+                        {{ number_format($atpSummary['submitted']) }}
+                    </p>
+                </div>
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
+                    <i data-lucide="send" class="h-5 w-5"></i>
+                </div>
+            </div>
+            <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
+                <span>Waiting for accounting review</span>
+                <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
+            </div>
+        </a>
 
-            <p class="mt-3 text-3xl font-semibold text-slate-900">
-                {{ $atpSummary['submitted'] }}
-            </p>
-        </div>
+        <a
+            href="{{ route('purchaser.atp.index', ['status' => 'Approved']) }}"
+            class="group rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:shadow-sm"
+        >
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <p class="text-sm font-medium text-gray-500">Approved</p>
+                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">
+                        {{ number_format($atpSummary['approved']) }}
+                    </p>
+                </div>
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+                    <i data-lucide="circle-check-big" class="h-5 w-5"></i>
+                </div>
+            </div>
+            <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
+                <span>Approved for purchasing workflow</span>
+                <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
+            </div>
+        </a>
 
-        <div class="rounded-xl border border-gray-200 bg-white p-4">
-            <p class="text-sm font-medium text-gray-500">
-                Approved
-            </p>
+        <a
+            href="{{ route('purchaser.atp.index', ['status' => 'Rejected']) }}"
+            class="group rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:shadow-sm"
+        >
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <p class="text-sm font-medium text-gray-500">Rejected</p>
+                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">
+                        {{ number_format($atpSummary['rejected']) }}
+                    </p>
+                </div>
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-red-50 text-red-700">
+                    <i data-lucide="circle-x" class="h-5 w-5"></i>
+                </div>
+            </div>
+            <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
+                <span>Returned or declined ATP records</span>
+                <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
+            </div>
+        </a>
 
-            <p class="mt-3 text-3xl font-semibold text-green-600">
-                {{ $atpSummary['approved'] }}
-            </p>
-        </div>
-
-        <div class="rounded-xl border border-gray-200 bg-white p-4">
-            <p class="text-sm font-medium text-gray-500">
-                Rejected
-            </p>
-
-            <p class="mt-3 text-3xl font-semibold text-red-600">
-                {{ $atpSummary['rejected'] }}
-            </p>
-        </div>
+        <a
+            href="{{ route('purchaser.atp.index', ['view' => 'archive']) }}"
+            class="group rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:shadow-sm"
+        >
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <p class="text-sm font-medium text-gray-500">Archived</p>
+                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">
+                        {{ number_format($atpSummary['archived']) }}
+                    </p>
+                </div>
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+                    <i data-lucide="archive" class="h-5 w-5"></i>
+                </div>
+            </div>
+            <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
+                <span>Stored away from the active list</span>
+                <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
+            </div>
+        </a>
 
     </div>
 
@@ -192,65 +320,23 @@
             class="h-10 rounded-lg border border-gray-300 px-3 text-sm lg:col-span-2"
         >
 
-        <select
-            name="status"
-            class="h-10 rounded-lg border border-gray-300 px-3 text-sm"
-        >
-            <option value="">
-                All statuses
-            </option>
-
-            <option
-                value="Pending"
-                {{ request('status') === 'Pending' ? 'selected' : '' }}
-            >
-                Pending
-            </option>
-
-            <option
-                value="Approved"
-                {{ request('status') === 'Approved' ? 'selected' : '' }}
-            >
-                Approved
-            </option>
-
-            <option
-                value="Rejected"
-                {{ request('status') === 'Rejected' ? 'selected' : '' }}
-            >
-                Rejected
-            </option>
+        <select name="status" class="h-10 rounded-lg border border-gray-300 px-3 text-sm">
+            <option value="">All statuses</option>
+            <option value="Draft" {{ request('status') === 'Draft' ? 'selected' : '' }}>Draft</option>
+            <option value="Submitted" {{ request('status') === 'Submitted' ? 'selected' : '' }}>Submitted</option>
+            <option value="Approved" {{ request('status') === 'Approved' ? 'selected' : '' }}>Approved</option>
+            <option value="Rejected" {{ request('status') === 'Rejected' ? 'selected' : '' }}>Rejected</option>
         </select>
 
-        <select
-            name="request_type"
-            class="h-10 rounded-lg border border-gray-300 px-3 text-sm"
-        >
-            <option value="">
-                All RIS types
-            </option>
-
-            <option
-                value="New Procurement"
-                {{ request('request_type') === 'New Procurement' ? 'selected' : '' }}
-            >
-                New Procurement
-            </option>
-
-            <option
-                value="Replacement"
-                {{ request('request_type') === 'Replacement' ? 'selected' : '' }}
-            >
-                Replacement
-            </option>
+        <select name="request_type" class="h-10 rounded-lg border border-gray-300 px-3 text-sm">
+            <option value="">All RIS types</option>
+            <option value="New Procurement" {{ request('request_type') === 'New Procurement' ? 'selected' : '' }}>New Procurement</option>
+            <option value="Replacement" {{ request('request_type') === 'Replacement' ? 'selected' : '' }}>Replacement</option>
         </select>
 
         <div class="flex gap-2">
 
-            <button
-                type="submit"
-                class="h-10 rounded-lg bg-gray-900 px-5 text-sm font-medium text-white"
-            >
+            <button type="submit" class="h-10 rounded-lg bg-gray-900 px-5 text-sm font-medium text-white">
                 Search
             </button>
 
@@ -277,7 +363,6 @@
             <table class="w-full min-w-[1000px] text-sm">
 
                 <thead class="border-b border-gray-200 bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
-
                     <tr>
                         <th class="px-4 py-3">ATP No.</th>
                         <th class="px-4 py-3">RIS</th>
@@ -286,7 +371,6 @@
                         <th class="px-4 py-3">Status</th>
                         <th class="px-4 py-3">Action</th>
                     </tr>
-
                 </thead>
 
                 <tbody class="divide-y divide-gray-100 bg-white">
@@ -295,106 +379,49 @@
 
                         <tr class="hover:bg-gray-50">
 
-                            {{-- ATP Number --}}
                             <td class="px-4 py-4 font-medium text-slate-900">
-
-                                {{ $atp->authority_purchase_form_number
-                                    ?? 'ATP-' . $atp->authority_purchase_id }}
-
+                                {{ $atp->authority_purchase_form_number ?? 'ATP-' . $atp->authority_purchase_id }}
                             </td>
 
-
-                            {{-- RIS --}}
                             <td class="px-4 py-4 text-gray-600">
-
-                                {{ $atp->ris_form_number
-                                    ?? 'RIS-' . $atp->authority_purchase_ris_id }}
-
+                                {{ $atp->ris_form_number ?? 'RIS-' . $atp->authority_purchase_ris_id }}
                                 <br>
-
                                 <span class="text-xs text-gray-400">
-
-                                    {{ $atp->equipment_name
-                                        ?? $atp->report_unlisted_equipment_name
-                                        ?? 'No equipment' }}
-
+                                    {{ $atp->equipment_name ?? $atp->report_unlisted_equipment_name ?? 'No equipment' }}
                                 </span>
-
                             </td>
 
-
-                            {{-- Supplier --}}
                             <td class="px-4 py-4 text-gray-600">
-
                                 @if($atp->supplier_store_type === 'Physical Store')
-
-                                    {{ $atp->company_name
-                                        ?? 'Physical supplier' }}
-
+                                    {{ $atp->company_name ?? 'Physical supplier' }}
                                 @else
-
-                                    {{ $atp->shop_name
-                                        ?? 'Online supplier' }}
-
+                                    {{ $atp->shop_name ?? 'Online supplier' }}
                                 @endif
-
                             </td>
 
-
-                            {{-- Date --}}
                             <td class="px-4 py-4 text-gray-600">
-
                                 @if($atp->authority_purchase_date)
-
-                                    {{ \Carbon\Carbon::parse(
-                                        $atp->authority_purchase_date
-                                    )->format('M d, Y') }}
-
+                                    {{ \Carbon\Carbon::parse($atp->authority_purchase_date)->format('M d, Y') }}
                                 @else
                                     —
                                 @endif
-
                             </td>
 
-
-                            {{-- Status --}}
                             <td class="px-4 py-4">
-
                                 @if($atp->authority_purchase_status === 'Approved')
-
-                                    <span class="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-                                        Approved
-                                    </span>
-
+                                    <span class="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">Approved</span>
                                 @elseif($atp->authority_purchase_status === 'Rejected')
-
-                                    <span class="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">
-                                        Rejected
-                                    </span>
-
+                                    <span class="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">Rejected</span>
                                 @elseif($atp->authority_purchase_submitted_at)
-
-                                    <span class="rounded-full bg-gray-900 px-3 py-1 text-xs font-semibold text-white">
-                                        Submitted
-                                    </span>
-
+                                    <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">Submitted</span>
                                 @else
-
-                                    <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
-                                        Draft
-                                    </span>
-
+                                    <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">Draft</span>
                                 @endif
-
                             </td>
 
-
-                            {{-- Actions --}}
                             <td class="px-4 py-4">
-
                                 <div class="flex flex-wrap gap-2">
 
-                                    {{-- VIEW --}}
                                     <button
                                         type="button"
                                         @click="openView({{ $atp->authority_purchase_id }})"
@@ -403,8 +430,6 @@
                                         View
                                     </button>
 
-
-                                    {{-- DRAFT ACTIONS --}}
                                     @if(
                                         !$atp->authority_purchase_submitted_at
                                         && $atp->authority_purchase_status === 'Pending'
@@ -419,109 +444,51 @@
                                             Edit
                                         </button>
 
-
-                                        <form
-                                            method="POST"
-                                            action="{{ route(
-                                                'purchaser.atp.submit',
-                                                $atp->authority_purchase_id
-                                            ) }}"
-                                        >
+                                        <form method="POST" action="{{ route('purchaser.atp.submit', $atp->authority_purchase_id) }}" onsubmit="return confirm('Submit this ATP for review?')">
                                             @csrf
-
-                                            <button
-                                                type="submit"
-                                                class="rounded-lg bg-gray-900 px-3 py-2 text-xs font-medium text-white"
-                                            >
+                                            <button type="submit" class="rounded-lg bg-gray-900 px-3 py-2 text-xs font-medium text-white">
                                                 Submit
                                             </button>
                                         </form>
 
                                     @endif
 
-
-                                    {{-- SUBMITTED ACTIONS --}}
-                                    @if(
-                                        $atp->authority_purchase_status === 'Pending'
-                                        && $atp->authority_purchase_submitted_at
-                                        && !$archiveView
-                                    )
-
-                                        <form
-                                            method="POST"
-                                            action="{{ route(
-                                                'purchaser.atp.approve',
-                                                $atp->authority_purchase_id
-                                            ) }}"
-                                        >
-                                            @csrf
-
-                                            <button
-                                                type="submit"
-                                                class="rounded-lg bg-green-100 px-3 py-2 text-xs font-medium text-green-700"
+                                    @if(!$archiveView && $atp->authority_purchase_status === 'Approved')
+                                        @if(!$atp->has_rfc)
+                                            <a
+                                                href="{{ route('purchaser.rfc.index', ['selected_atp' => $atp->authority_purchase_id]) }}"
+                                                class="rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white hover:bg-blue-700"
                                             >
-                                                Approve
-                                            </button>
-
-                                        </form>
-
-
-                                        <button
-                                            type="button"
-                                            @click="openReject({{ $atp->authority_purchase_id }})"
-                                            class="rounded-lg border border-red-300 px-3 py-2 text-xs font-medium text-red-700"
-                                        >
-                                            Reject
-                                        </button>
-
+                                                Create RFC
+                                            </a>
+                                        @else
+                                            <span class="inline-flex items-center rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs font-medium text-green-700">
+                                                RFC Created
+                                            </span>
+                                        @endif
                                     @endif
 
-
-                                    {{-- ARCHIVE --}}
                                     @if($archiveView)
 
-                                        <form
-                                            method="POST"
-                                            action="{{ route(
-                                                'purchaser.atp.restore',
-                                                $atp->authority_purchase_id
-                                            ) }}"
-                                        >
+                                        <form method="POST" action="{{ route('purchaser.atp.restore', $atp->authority_purchase_id) }}">
                                             @csrf
-
-                                            <button
-                                                type="submit"
-                                                class="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700"
-                                            >
+                                            <button type="submit" class="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700">
                                                 Restore
                                             </button>
-
                                         </form>
 
                                     @elseif(!$atp->authority_purchase_is_archived)
 
-                                        <form
-                                            method="POST"
-                                            action="{{ route(
-                                                'purchaser.atp.archive',
-                                                $atp->authority_purchase_id
-                                            ) }}"
-                                        >
+                                        <form method="POST" action="{{ route('purchaser.atp.archive', $atp->authority_purchase_id) }}">
                                             @csrf
-
-                                            <button
-                                                type="submit"
-                                                class="rounded-lg bg-gray-100 px-3 py-2 text-xs font-medium text-gray-700"
-                                            >
+                                            <button type="submit" class="rounded-lg bg-gray-100 px-3 py-2 text-xs font-medium text-gray-700">
                                                 Archive
                                             </button>
-
                                         </form>
 
                                     @endif
 
                                 </div>
-
                             </td>
 
                         </tr>
@@ -529,10 +496,7 @@
                     @empty
 
                         <tr>
-                            <td
-                                colspan="6"
-                                class="px-4 py-12 text-center text-sm text-gray-500"
-                            >
+                            <td colspan="6" class="px-4 py-12 text-center text-sm text-gray-500">
                                 No ATP records found.
                             </td>
                         </tr>
@@ -548,10 +512,6 @@
     </div>
 
 
-    {{-- ========================================================= --}}
-    {{-- PAGINATION --}}
-    {{-- ========================================================= --}}
-
     <div>
         {{ $atps->links() }}
     </div>
@@ -559,351 +519,203 @@
 
 
     {{-- ========================================================= --}}
-    {{-- CREATE ATP MODAL --}}
+    {{-- CREATE ATP MODAL (paper layout, same direction as RIS) --}}
     {{-- ========================================================= --}}
 
-    <div
-        x-show="createOpen"
-        x-cloak
-        class="fixed inset-0 z-50 overflow-y-auto"
-    >
+    <div x-show="createOpen" x-cloak class="fixed inset-0 z-50 overflow-y-auto">
 
-        {{-- Overlay --}}
-        <div
-            class="fixed inset-0 bg-black/40"
-            @click="createOpen = false"
-        ></div>
-
+        <div class="fixed inset-0 bg-black/40" @click="createOpen = false"></div>
 
         <div class="relative flex min-h-full items-center justify-center p-4">
 
-            <div
-                @click.stop
-                class="relative w-full max-w-6xl rounded-2xl bg-white shadow-xl"
-            >
+            <div @click.stop class="relative w-full max-w-5xl rounded-2xl bg-white shadow-xl">
 
-                {{-- Modal Header --}}
                 <div class="flex items-start justify-between border-b border-gray-200 px-6 py-5">
-
                     <div>
-                        <h3 class="text-xl font-semibold text-slate-900">
-                            New Authority to Purchase
-                        </h3>
-
-                        <p class="mt-1 text-sm text-gray-500">
-                            Select an approved RIS and create an ATP draft.
-                        </p>
+                        <h3 class="text-xl font-semibold text-slate-900">Create Authority to Purchase</h3>
+                        <p class="mt-1 text-sm text-gray-500">Select an approved RIS to generate an Authority to Purchase.</p>
                     </div>
 
-                    <button
-                        type="button"
-                        @click="createOpen = false"
-                        class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-                    >
+                    <button type="button" @click="createOpen = false" class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700">
                         ✕
                     </button>
-
                 </div>
 
-
-                {{-- No RIS Available --}}
                 @if($eligibleRis->isEmpty())
 
                     <div class="p-6">
-
                         <div class="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-6 text-sm text-gray-600">
-
                             No approved RIS is currently available for Authority to Purchase creation.
-
                         </div>
-
                     </div>
 
                 @else
 
-                    {{-- Create Form --}}
-                    <form
-                        method="POST"
-                        action="{{ route('purchaser.atp.store') }}"
-                    >
+                    <form method="POST" action="{{ route('purchaser.atp.store') }}" x-ref="createForm">
 
                         @csrf
+                        <input type="hidden" name="save_action" value="draft">
 
-                        <div class="max-h-[70vh] space-y-6 overflow-y-auto p-6">
+                        <div class="max-h-[75vh] overflow-y-auto bg-gray-100 p-6">
 
+                            {{-- RIS selector sits above the paper preview --}}
+                            <div class="mx-auto mb-4 w-[210mm] max-w-full">
 
-                            {{-- RIS / Supplier --}}
-                            <div class="grid gap-4 lg:grid-cols-2">
+                                <label class="text-xs font-medium text-gray-500">Approved RIS</label>
 
-                                <div>
+                                <select
+                                    name="authority_purchase_ris_id"
+                                    required
+                                    x-on:change="applyRisPrefill($event.target.value)"
+                                    class="mt-1 h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm"
+                                >
+                                    <option value="">Select approved RIS</option>
 
-                                    <label class="text-xs font-medium text-gray-500">
-                                        Approved RIS
-                                    </label>
-
-                                    <select
-                                        name="authority_purchase_ris_id"
-                                        required
-                                        class="mt-1 h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
-                                    >
-
-                                        <option value="">
-                                            Select approved RIS
+                                    @foreach($eligibleRis as $ris)
+                                        <option
+                                            value="{{ $ris->ris_id }}"
+                                            {{ old('authority_purchase_ris_id', $selectedRisId ?? '') == $ris->ris_id ? 'selected' : '' }}
+                                        >
+                                            {{ $ris->ris_form_number ?? 'RIS-' . $ris->ris_id }}
+                                            @if($ris->equipment_name || $ris->report_unlisted_equipment_name)
+                                                · {{ $ris->equipment_name ?? $ris->report_unlisted_equipment_name }}
+                                            @elseif($ris->ris_manual_title)
+                                                · {{ $ris->ris_manual_title }}
+                                            @endif
                                         </option>
+                                    @endforeach
+                                </select>
 
-                                        @foreach($eligibleRis as $ris)
+                            </div>
 
-                                            <option
-                                                value="{{ $ris->ris_id }}"
-                                                {{ old(
-                                                    'authority_purchase_ris_id',
-                                                    $selectedRisId ?? ''
-                                                ) == $ris->ris_id ? 'selected' : '' }}
+                            {{-- ATP PAPER LAYOUT --}}
+                            <div class="mx-auto w-[210mm] max-w-full rounded-lg border border-black bg-white p-10 text-[13px] leading-tight shadow">
+
+                                {{-- HEADER --}}
+                                <div class="relative text-center">
+
+                                    <div class="text-lg font-bold">STI COLLEGE ORMOC, INC.</div>
+                                    <div class="text-xs">Centrum Mall, Aviles Street, Ormoc City</div>
+                                    <div class="mt-4 text-xl font-bold tracking-wide">AUTHORITY TO PURCHASE</div>
+
+                                    <div class="absolute right-0 top-0 text-left text-sm">
+
+                                        <div>
+                                            <strong>No.</strong>
+                                            <input
+                                                type="text"
+                                                readonly
+                                                placeholder="Auto Generated"
+                                                class="w-40 border-0 border-b border-black bg-transparent text-center"
                                             >
+                                        </div>
 
-                                                {{ $ris->ris_form_number
-                                                    ?? 'RIS-' . $ris->ris_id }}
+                                        <div class="mt-2">
+                                            <strong>Date</strong>
+                                            <input
+                                                type="date"
+                                                name="authority_purchase_date"
+                                                value="{{ old('authority_purchase_date', now()->format('Y-m-d')) }}"
+                                                class="border-0 border-b border-black bg-transparent"
+                                            >
+                                        </div>
 
-                                                @if(
-                                                    $ris->equipment_name
-                                                    || $ris->report_unlisted_equipment_name
-                                                )
-                                                    ·
-                                                    {{ $ris->equipment_name
-                                                        ?? $ris->report_unlisted_equipment_name }}
-                                                @elseif($ris->ris_manual_title)
-                                                    · {{ $ris->ris_manual_title }}
-                                                @endif
-
-                                            </option>
-
-                                        @endforeach
-
-                                    </select>
+                                    </div>
 
                                 </div>
 
+                                {{-- SUPPLIER --}}
+                                <div class="mt-10">
 
-                                <div>
-
-                                    <label class="text-xs font-medium text-gray-500">
-                                        Supplier
-                                    </label>
+                                    <strong>To:</strong>
 
                                     <select
                                         name="authority_purchase_supplier_id"
-                                        required
-                                        class="mt-1 h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
+                                        class="ml-2 w-[420px] border-0 border-b border-black bg-transparent"
                                     >
-
-                                        <option value="">
-                                            Select supplier
-                                        </option>
+                                        <option value="">Select Supplier</option>
 
                                         @foreach($suppliers as $supplier)
-
-                                            <option
-                                                value="{{ $supplier->supplier_id }}"
-                                                {{ old('authority_purchase_supplier_id') == $supplier->supplier_id ? 'selected' : '' }}
-                                            >
-
-                                                @if($supplier->supplier_store_type === 'Physical Store')
-
-                                                    {{ $supplier->company_name
-                                                        ?? 'Physical supplier #' . $supplier->supplier_id }}
-
-                                                @else
-
-                                                    {{ $supplier->shop_name
-                                                        ?? 'Online supplier #' . $supplier->supplier_id }}
-
-                                                @endif
-
+                                            <option value="{{ $supplier->supplier_id }}" {{ old('authority_purchase_supplier_id') == $supplier->supplier_id ? 'selected' : '' }}>
+                                                {{ $supplier->supplier_store_type === 'Physical Store'
+                                                    ? $supplier->company_name
+                                                    : $supplier->shop_name }}
                                             </option>
-
                                         @endforeach
-
                                     </select>
 
                                 </div>
 
-                            </div>
+                                <p class="mt-6">
+                                    Please deliver to bearer the following items chargeable to our account:
+                                </p>
 
+                                {{-- ITEMS TABLE --}}
+                                <table class="mt-5 w-full border-collapse border border-black text-sm">
 
-                            {{-- Basic ATP Information --}}
-                            <div class="grid gap-4 lg:grid-cols-3">
+                                    <thead>
+                                        <tr>
+                                            <th class="border border-black p-2">Quantity</th>
+                                            <th class="border border-black p-2">Unit</th>
+                                            <th class="border border-black p-2">Description</th>
+                                            <th class="border border-black p-2">Unit Price</th>
+                                            <th class="border border-black p-2">Amount</th>
+                                        </tr>
+                                    </thead>
 
-                                <div>
-
-                                    <label class="text-xs font-medium text-gray-500">
-                                        Purchase date
-                                    </label>
-
-                                    <input
-                                        type="date"
-                                        name="authority_purchase_date"
-                                        value="{{ old(
-                                            'authority_purchase_date',
-                                            now()->format('Y-m-d')
-                                        ) }}"
-                                        required
-                                        class="mt-1 h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
-                                    >
-
-                                </div>
-
-
-                                <div>
-
-                                    <label class="text-xs font-medium text-gray-500">
-                                        Received by
-                                    </label>
-
-                                    <input
-                                        type="text"
-                                        name="authority_purchase_received_by_name"
-                                        value="{{ old(
-                                            'authority_purchase_received_by_name'
-                                        ) }}"
-                                        required
-                                        placeholder="Receiver name"
-                                        class="mt-1 h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
-                                    >
-
-                                </div>
-
-
-                                <div>
-
-                                    <label class="text-xs font-medium text-gray-500">
-                                        Reference PO / PR
-                                    </label>
-
-                                    <input
-                                        type="text"
-                                        name="authority_purchase_reference_po_no"
-                                        value="{{ old(
-                                            'authority_purchase_reference_po_no'
-                                        ) }}"
-                                        placeholder="PO or PR number"
-                                        class="mt-1 h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
-                                    >
-
-                                </div>
-
-                            </div>
-
-
-                            {{-- ATP Items --}}
-                            <div>
-
-                                <div class="mb-2">
-
-                                    <h4 class="text-sm font-semibold text-slate-900">
-                                        ATP Items
-                                    </h4>
-
-                                    <p class="text-xs text-gray-500">
-                                        Enter the items included in this Authority to Purchase.
-                                    </p>
-
-                                </div>
-
-
-                                <div class="overflow-x-auto rounded-xl border border-gray-200">
-
-                                    <table class="w-full min-w-[750px] text-sm">
-
-                                        <thead class="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
-
+                                    <tbody>
+                                        @for($i = 0; $i < 8; $i++)
                                             <tr>
-                                                <th class="px-3 py-3 text-left">
-                                                    Description
-                                                </th>
-
-                                                <th class="w-28 px-3 py-3 text-left">
-                                                    Qty
-                                                </th>
-
-                                                <th class="w-36 px-3 py-3 text-left">
-                                                    Unit
-                                                </th>
-
-                                                <th class="w-44 px-3 py-3 text-left">
-                                                    Unit Price
-                                                </th>
+                                                <td class="border border-black p-1">
+                                                    <input type="number" name="items[{{ $i }}][quantity]" value="{{ old('items.' . $i . '.quantity') }}" min="1" class="w-full border-0 text-center">
+                                                </td>
+                                                <td class="border border-black p-1">
+                                                    <input type="text" name="items[{{ $i }}][unit]" value="{{ old('items.' . $i . '.unit') }}" class="w-full border-0 text-center">
+                                                </td>
+                                                <td class="border border-black p-1">
+                                                    <input type="text" name="items[{{ $i }}][description]" value="{{ old('items.' . $i . '.description') }}" class="w-full border-0">
+                                                </td>
+                                                <td class="border border-black p-1">
+                                                    <input type="number" step="0.01" name="items[{{ $i }}][unit_price]" value="{{ old('items.' . $i . '.unit_price') }}" min="0" class="w-full border-0 text-right">
+                                                </td>
+                                                <td class="border border-black p-1">
+                                                    <input readonly name="items[{{ $i }}][amount_display]" class="w-full border-0 bg-transparent text-right" placeholder="0.00">
+                                                </td>
                                             </tr>
+                                        @endfor
+                                    </tbody>
 
-                                        </thead>
+                                </table>
 
-                                        <tbody>
+                                {{-- BOTTOM SIGNATURES --}}
+                                <div class="mt-10 flex justify-between">
 
-                                            @for($itemIndex = 0; $itemIndex < 8; $itemIndex++)
+                                    <div class="w-72">
 
-                                                <tr>
+                                        <div class="font-semibold">RECEIVED BY:</div>
 
-                                                    <td class="border-t border-gray-200 p-2">
+                                        <input
+                                            type="text"
+                                            name="authority_purchase_received_by_name"
+                                            value="{{ old('authority_purchase_received_by_name') }}"
+                                            class="mt-8 w-full border-0 border-b border-black"
+                                        >
+                                        <div class="text-center text-xs">Signature over Printed Name</div>
 
-                                                        <input
-                                                            type="text"
-                                                            name="items[{{ $itemIndex }}][description]"
-                                                            value="{{ old(
-                                                                'items.' . $itemIndex . '.description'
-                                                            ) }}"
-                                                            class="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
-                                                        >
+                                        <input
+                                            type="text"
+                                            name="authority_purchase_reference_po_no"
+                                            value="{{ old('authority_purchase_reference_po_no') }}"
+                                            class="mt-6 w-full border-0 border-b border-black"
+                                        >
+                                        <div class="text-center text-xs">Reference P.O. No.</div>
 
-                                                    </td>
+                                    </div>
 
-                                                    <td class="border-t border-gray-200 p-2">
-
-                                                        <input
-                                                            type="number"
-                                                            name="items[{{ $itemIndex }}][quantity]"
-                                                            value="{{ old(
-                                                                'items.' . $itemIndex . '.quantity'
-                                                            ) }}"
-                                                            min="1"
-                                                            class="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
-                                                        >
-
-                                                    </td>
-
-                                                    <td class="border-t border-gray-200 p-2">
-
-                                                        <input
-                                                            type="text"
-                                                            name="items[{{ $itemIndex }}][unit]"
-                                                            value="{{ old(
-                                                                'items.' . $itemIndex . '.unit'
-                                                            ) }}"
-                                                            class="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
-                                                        >
-
-                                                    </td>
-
-                                                    <td class="border-t border-gray-200 p-2">
-
-                                                        <input
-                                                            type="number"
-                                                            name="items[{{ $itemIndex }}][unit_price]"
-                                                            value="{{ old(
-                                                                'items.' . $itemIndex . '.unit_price'
-                                                            ) }}"
-                                                            min="0"
-                                                            step="0.01"
-                                                            class="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
-                                                        >
-
-                                                    </td>
-
-                                                </tr>
-
-                                            @endfor
-
-                                        </tbody>
-
-                                    </table>
+                                    <div class="w-56 text-center">
+                                        <div>Authorized By</div>
+                                        <div class="mt-16 border-b border-black"></div>
+                                    </div>
 
                                 </div>
 
@@ -911,25 +723,13 @@
 
                         </div>
 
-
-                        {{-- Footer --}}
                         <div class="flex justify-end gap-2 border-t border-gray-200 px-6 py-4">
-
-                            <button
-                                type="button"
-                                @click="createOpen = false"
-                                class="h-10 rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700"
-                            >
+                            <button type="button" @click="createOpen = false" class="h-10 rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700">
                                 Cancel
                             </button>
-
-                            <button
-                                type="submit"
-                                class="h-10 rounded-lg bg-gray-900 px-5 text-sm font-medium text-white"
-                            >
+                            <button type="submit" class="h-10 rounded-lg bg-gray-900 px-5 text-sm font-medium text-white">
                                 Save Draft
                             </button>
-
                         </div>
 
                     </form>
@@ -945,539 +745,221 @@
 
 
     {{-- ========================================================= --}}
-    {{-- VIEW ATP MODALS --}}
-    {{-- One modal is generated for each ATP on the current page --}}
+    {{-- VIEW ATP MODALS (paper preview, same direction as RIS) --}}
     {{-- ========================================================= --}}
 
     @foreach($atps as $atp)
 
         @php
-            $items = $atpItems->get(
-                $atp->authority_purchase_id,
-                collect()
-            );
+            $items = $atpItems->get($atp->authority_purchase_id, collect());
+            $atpTotal = $items->sum('atp_amount');
         @endphp
 
+        <div x-show="viewOpen && selectedAtp === {{ $atp->authority_purchase_id }}" x-cloak class="fixed inset-0 z-50 overflow-y-auto">
 
-        <div
-            x-show="viewOpen && selectedAtp === {{ $atp->authority_purchase_id }}"
-            x-cloak
-            class="fixed inset-0 z-50 overflow-y-auto"
-        >
-
-            <div
-                class="fixed inset-0 bg-black/40"
-                @click="viewOpen = false"
-            ></div>
-
+            <div class="fixed inset-0 bg-black/40" @click="viewOpen = false"></div>
 
             <div class="relative flex min-h-full items-center justify-center p-4">
 
-                <div
-                    @click.stop
-                    class="relative w-full max-w-5xl rounded-2xl bg-white shadow-xl"
-                >
+                <div @click.stop class="relative w-full max-w-5xl rounded-2xl bg-white shadow-xl">
 
                     {{-- Header --}}
                     <div class="flex items-start justify-between border-b border-gray-200 px-6 py-5">
 
                         <div>
-
                             <div class="flex flex-wrap items-center gap-3">
-
                                 <h3 class="text-xl font-semibold text-slate-900">
-
-                                    {{ $atp->authority_purchase_form_number
-                                        ?? 'ATP #' . $atp->authority_purchase_id }}
-
+                                    {{ $atp->authority_purchase_form_number ?? 'ATP #' . $atp->authority_purchase_id }}
                                 </h3>
 
-
                                 @if($atp->authority_purchase_status === 'Approved')
-
-                                    <span class="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
-                                        Approved
-                                    </span>
-
+                                    <span class="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">Approved</span>
                                 @elseif($atp->authority_purchase_status === 'Rejected')
-
-                                    <span class="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">
-                                        Rejected
-                                    </span>
-
+                                    <span class="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">Rejected</span>
                                 @elseif($atp->authority_purchase_submitted_at)
-
-                                    <span class="rounded-full bg-gray-900 px-3 py-1 text-xs font-semibold text-white">
-                                        Submitted
-                                    </span>
-
+                                    <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">Submitted</span>
                                 @else
-
-                                    <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
-                                        Draft
-                                    </span>
-
+                                    <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">Draft</span>
                                 @endif
-
                             </div>
 
-
                             <p class="mt-1 text-sm text-gray-500">
-
-                                RIS:
-                                {{ $atp->ris_form_number
-                                    ?? 'RIS-' . $atp->authority_purchase_ris_id }}
-
+                                RIS: {{ $atp->ris_form_number ?? 'RIS-' . $atp->authority_purchase_ris_id }}
                             </p>
-
+                            @if($atp->authority_purchase_rejection_reason)
+                                <p class="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                                    {{ $atp->authority_purchase_status === 'Rejected' ? 'Rejection reason:' : 'Revision requested:' }}
+                                    {{ $atp->authority_purchase_rejection_reason }}
+                                </p>
+                            @endif
                         </div>
 
-
-                        <button
-                            type="button"
-                            @click="viewOpen = false"
-                            class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-                        >
+                        <button type="button" @click="viewOpen = false" class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700">
                             ✕
                         </button>
 
                     </div>
 
+                    {{-- ATP PAPER PREVIEW --}}
+                    <div class="max-h-[75vh] overflow-y-auto bg-gray-100 p-8">
 
-                    {{-- Body --}}
-                    <div class="max-h-[70vh] space-y-6 overflow-y-auto p-6">
+                        <div class="mx-auto w-[210mm] min-h-[297mm] bg-white p-10 shadow atp-print-sheet" id="atp-print-{{ $atp->authority_purchase_id }}">
 
+                            <div class="relative text-center">
 
-                        {{-- ATP / RIS Information --}}
-                        <div class="grid gap-6 lg:grid-cols-2">
+                                <h2 class="text-lg font-bold">STI COLLEGE ORMOC, INC.</h2>
+                                <p class="text-xs">Centrum Mall, Aviles Street, Ormoc City</p>
+                                <h1 class="mt-4 text-xl font-bold tracking-wide">AUTHORITY TO PURCHASE</h1>
 
-
-                            {{-- ATP Information --}}
-                            <section class="rounded-xl border border-gray-200 p-5">
-
-                                <h4 class="font-semibold text-slate-900">
-                                    ATP Information
-                                </h4>
-
-                                <dl class="mt-5 grid gap-4 sm:grid-cols-2">
-
+                                <div class="absolute right-0 top-0 text-left text-sm">
                                     <div>
-
-                                        <dt class="text-xs uppercase tracking-wide text-gray-500">
-                                            Purchase Date
-                                        </dt>
-
-                                        <dd class="mt-1 text-sm text-gray-700">
-
-                                            @if($atp->authority_purchase_date)
-
-                                                {{ \Carbon\Carbon::parse(
-                                                    $atp->authority_purchase_date
-                                                )->format('M d, Y') }}
-
-                                            @else
-                                                —
-                                            @endif
-
-                                        </dd>
-
+                                        <strong>No.</strong>
+                                        {{ $atp->authority_purchase_form_number }}
                                     </div>
-
-
-                                    <div>
-
-                                        <dt class="text-xs uppercase tracking-wide text-gray-500">
-                                            Supplier
-                                        </dt>
-
-                                        <dd class="mt-1 text-sm text-gray-700">
-
-                                            @if($atp->supplier_store_type === 'Physical Store')
-
-                                                {{ $atp->company_name
-                                                    ?? 'Physical supplier' }}
-
-                                            @else
-
-                                                {{ $atp->shop_name
-                                                    ?? 'Online supplier' }}
-
-                                            @endif
-
-                                        </dd>
-
+                                    <div class="mt-2">
+                                        <strong>Date</strong>
+                                        {{ $atp->authority_purchase_date ? \Carbon\Carbon::parse($atp->authority_purchase_date)->format('F d, Y') : '—' }}
                                     </div>
-
-
-                                    <div>
-
-                                        <dt class="text-xs uppercase tracking-wide text-gray-500">
-                                            Received By
-                                        </dt>
-
-                                        <dd class="mt-1 text-sm text-gray-700">
-
-                                            {{ $atp->authority_purchase_received_by_name
-                                                ?? '—' }}
-
-                                        </dd>
-
-                                    </div>
-
-
-                                    <div>
-
-                                        <dt class="text-xs uppercase tracking-wide text-gray-500">
-                                            Reference PO / PR
-                                        </dt>
-
-                                        <dd class="mt-1 text-sm text-gray-700">
-
-                                            {{ $atp->authority_purchase_reference_po_no
-                                                ?? '—' }}
-
-                                        </dd>
-
-                                    </div>
-
-
-                                    @if($atp->authority_purchase_submitted_at)
-
-                                        <div class="sm:col-span-2">
-
-                                            <dt class="text-xs uppercase tracking-wide text-gray-500">
-                                                Submitted
-                                            </dt>
-
-                                            <dd class="mt-1 text-sm text-gray-700">
-
-                                                {{ \Carbon\Carbon::parse(
-                                                    $atp->authority_purchase_submitted_at
-                                                )->format('M d, Y h:i A') }}
-
-                                            </dd>
-
-                                        </div>
-
-                                    @endif
-
-
-                                    @if($atp->authority_purchase_rejection_reason)
-
-                                        <div class="sm:col-span-2 rounded-lg bg-red-50 p-3">
-
-                                            <dt class="text-xs uppercase tracking-wide text-red-500">
-                                                Rejection Reason
-                                            </dt>
-
-                                            <dd class="mt-1 text-sm text-red-700">
-
-                                                {{ $atp->authority_purchase_rejection_reason }}
-
-                                            </dd>
-
-                                        </div>
-
-                                    @endif
-
-                                </dl>
-
-                            </section>
-
-
-                            {{-- RIS Summary --}}
-                            <section class="rounded-xl border border-gray-200 p-5">
-
-                                <h4 class="font-semibold text-slate-900">
-                                    RIS Summary
-                                </h4>
-
-                                <dl class="mt-5 grid gap-4">
-
-                                    <div>
-
-                                        <dt class="text-xs uppercase tracking-wide text-gray-500">
-                                            RIS
-                                        </dt>
-
-                                        <dd class="mt-1 text-sm text-gray-700">
-
-                                            {{ $atp->ris_form_number
-                                                ?? 'RIS-' . $atp->authority_purchase_ris_id }}
-
-                                        </dd>
-
-                                    </div>
-
-
-                                    <div>
-
-                                        <dt class="text-xs uppercase tracking-wide text-gray-500">
-                                            RIS Type
-                                        </dt>
-
-                                        <dd class="mt-1 text-sm text-gray-700">
-
-                                            {{ $atp->ris_request_type ?? '—' }}
-
-                                        </dd>
-
-                                    </div>
-
-
-                                    @if($atp->ris_manual_title)
-
-                                        <div>
-
-                                            <dt class="text-xs uppercase tracking-wide text-gray-500">
-                                                Title
-                                            </dt>
-
-                                            <dd class="mt-1 text-sm text-gray-700">
-
-                                                {{ $atp->ris_manual_title }}
-
-                                            </dd>
-
-                                        </div>
-
-                                    @endif
-
-
-                                    <div>
-
-                                        <dt class="text-xs uppercase tracking-wide text-gray-500">
-                                            Related Equipment
-                                        </dt>
-
-                                        <dd class="mt-1 text-sm text-gray-700">
-
-                                            {{ $atp->equipment_name
-                                                ?? $atp->report_unlisted_equipment_name
-                                                ?? '—' }}
-
-                                        </dd>
-
-                                    </div>
-
-
-                                    <div>
-
-                                        <dt class="text-xs uppercase tracking-wide text-gray-500">
-                                            Report #
-                                        </dt>
-
-                                        <dd class="mt-1 text-sm text-gray-700">
-
-                                            {{ $atp->report_id ?? '—' }}
-
-                                        </dd>
-
-                                    </div>
-
-                                </dl>
-
-                            </section>
-
-                        </div>
-
-
-                        {{-- ATP Items --}}
-                        <section>
-
-                            <h4 class="mb-3 font-semibold text-slate-900">
-                                ATP Items
-                            </h4>
-
-
-                            <div class="overflow-x-auto rounded-xl border border-gray-200">
-
-                                <table class="w-full min-w-[700px] text-sm">
-
-                                    <thead class="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
-
-                                        <tr>
-
-                                            <th class="px-3 py-3 text-left">
-                                                Description
-                                            </th>
-
-                                            <th class="px-3 py-3 text-right">
-                                                Qty
-                                            </th>
-
-                                            <th class="px-3 py-3 text-right">
-                                                Unit
-                                            </th>
-
-                                            <th class="px-3 py-3 text-right">
-                                                Unit Price
-                                            </th>
-
-                                            <th class="px-3 py-3 text-right">
-                                                Total
-                                            </th>
-
-                                        </tr>
-
-                                    </thead>
-
-                                    <tbody class="divide-y divide-gray-200">
-
-                                        @forelse($items as $item)
-
-                                            <tr>
-
-                                                <td class="px-3 py-3">
-                                                    {{ $item->atp_description ?? '—' }}
-                                                </td>
-
-                                                <td class="px-3 py-3 text-right">
-                                                    {{ $item->atp_quantity ?? '—' }}
-                                                </td>
-
-                                                <td class="px-3 py-3 text-right">
-                                                    {{ $item->atp_unit ?? '—' }}
-                                                </td>
-
-                                                <td class="px-3 py-3 text-right">
-
-                                                    {{ $item->atp_unit_price !== null
-                                                        ? number_format($item->atp_unit_price, 2)
-                                                        : '—' }}
-
-                                                </td>
-
-                                                <td class="px-3 py-3 text-right font-medium">
-
-                                                    {{ $item->atp_amount !== null
-                                                        ? number_format($item->atp_amount, 2)
-                                                        : '—' }}
-
-                                                </td>
-
-                                            </tr>
-
-                                        @empty
-
-                                            <tr>
-
-                                                <td
-                                                    colspan="5"
-                                                    class="px-3 py-6 text-center text-gray-500"
-                                                >
-                                                    No ATP line items added.
-                                                </td>
-
-                                            </tr>
-
-                                        @endforelse
-
-                                    </tbody>
-
-                                </table>
+                                </div>
 
                             </div>
 
-                        </section>
+                            <div class="mt-10">
+                                <strong>To:</strong>
+                                @if($atp->supplier_store_type == 'Physical Store')
+                                    {{ $atp->company_name }}
+                                @else
+                                    {{ $atp->shop_name }}
+                                @endif
+                            </div>
+
+                            <p class="mt-5">
+                                Please deliver to bearer the following items chargeable to our account.
+                            </p>
+
+                            <table class="mt-5 w-full border-collapse border border-black text-sm">
+
+                                <thead>
+                                    <tr>
+                                        <th class="border border-black p-2">Quantity</th>
+                                        <th class="border border-black p-2">Unit</th>
+                                        <th class="border border-black p-2">Description</th>
+                                        <th class="border border-black p-2">Unit Price</th>
+                                        <th class="border border-black p-2">Amount</th>
+                                    </tr>
+                                </thead>
+
+                                <tbody>
+
+                                    @forelse($items as $item)
+                                        <tr>
+                                            <td class="border border-black text-center">{{ $item->atp_quantity }}</td>
+                                            <td class="border border-black text-center">{{ $item->atp_unit }}</td>
+                                            <td class="border border-black px-2">{{ $item->atp_description }}</td>
+                                            <td class="border border-black px-2 text-right">{{ number_format($item->atp_unit_price, 2) }}</td>
+                                            <td class="border border-black px-2 text-right">{{ number_format($item->atp_amount, 2) }}</td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="5" class="border border-black p-4 text-center text-gray-500">
+                                                No ATP line items added.
+                                            </td>
+                                        </tr>
+                                    @endforelse
+
+                                    @if($items->isNotEmpty())
+                                        <tr>
+                                            <td colspan="4" class="border border-black pr-4 text-right font-bold">TOTAL</td>
+                                            <td class="border border-black px-2 text-right font-bold">{{ number_format($atpTotal, 2) }}</td>
+                                        </tr>
+                                    @endif
+
+                                </tbody>
+
+                            </table>
+
+                            <div class="mt-14 flex justify-between">
+
+                                <div class="w-72">
+
+                                    <div class="font-semibold">RECEIVED BY:</div>
+
+                                    <div class="mt-10 border-b border-black text-center">
+                                        {{ $atp->authority_purchase_received_by_name }}
+                                    </div>
+                                    <div class="text-center text-xs">Signature over Printed Name</div>
+
+                                    <div class="mt-8 border-b border-black text-center">
+                                        {{ $atp->authority_purchase_reference_po_no }}
+                                    </div>
+                                    <div class="text-center text-xs">Reference P.O. No.</div>
+
+                                </div>
+
+                                <div class="w-56 text-center">
+                                    <div>Authorized By</div>
+                                    <div class="mt-16 border-b border-black">
+                                        {{ $atp->authority_purchase_authorized_by_signature ?? '' }}
+                                    </div>
+                                </div>
+
+                            </div>
+
+                        </div>
 
                     </div>
 
-
                     {{-- Footer Actions --}}
-                    <div class="flex flex-wrap justify-between gap-3 border-t border-gray-200 px-6 py-4">
+                    <div class="flex justify-between border-t border-gray-200 px-6 py-4">
 
-                        <div class="flex flex-wrap gap-2">
-
+                        <div class="flex gap-2">
                             @if(
                                 !$archiveView
                                 && !$atp->authority_purchase_submitted_at
                                 && $atp->authority_purchase_status === 'Pending'
                             )
-
                                 <button
                                     type="button"
                                     @click="
                                         viewOpen = false;
                                         openEdit({{ $atp->authority_purchase_id }});
                                     "
-                                    class="h-10 rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700"
+                                    class="h-10 rounded-lg border border-gray-300 px-5 text-sm"
                                 >
-                                    Edit Draft
+                                    Edit ATP
                                 </button>
 
-
-                                <form
-                                    method="POST"
-                                    action="{{ route(
-                                        'purchaser.atp.submit',
-                                        $atp->authority_purchase_id
-                                    ) }}"
-                                >
-
+                                <form method="POST" action="{{ route('purchaser.atp.submit', $atp->authority_purchase_id) }}" onsubmit="return confirm('Submit this ATP for review?')">
                                     @csrf
-
-                                    <button
-                                        type="submit"
-                                        class="h-10 rounded-lg bg-gray-900 px-5 text-sm font-medium text-white"
-                                    >
-                                        Submit ATP
+                                    <button type="submit" class="h-10 rounded-lg bg-gray-900 px-5 text-sm font-medium text-white">
+                                        Submit to Review
                                     </button>
-
                                 </form>
-
                             @endif
-
-
-                            @if(
-                                !$archiveView
-                                && $atp->authority_purchase_status === 'Pending'
-                                && $atp->authority_purchase_submitted_at
-                            )
-
-                                <form
-                                    method="POST"
-                                    action="{{ route(
-                                        'purchaser.atp.approve',
-                                        $atp->authority_purchase_id
-                                    ) }}"
-                                >
-
-                                    @csrf
-
-                                    <button
-                                        type="submit"
-                                        class="h-10 rounded-lg bg-green-100 px-5 text-sm font-medium text-green-700"
-                                    >
-                                        Approve
-                                    </button>
-
-                                </form>
-
-
-                                <button
-                                    type="button"
-                                    @click="
-                                        viewOpen = false;
-                                        openReject({{ $atp->authority_purchase_id }});
-                                    "
-                                    class="h-10 rounded-lg border border-red-300 px-5 text-sm font-medium text-red-700"
-                                >
-                                    Reject
-                                </button>
-
-                            @endif
-
                         </div>
 
-
-                        <button
-                            type="button"
-                            @click="viewOpen = false"
-                            class="h-10 rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700"
-                        >
-                            Close
-                        </button>
+                        <div class="flex gap-2">
+                            @if(!$archiveView && $atp->authority_purchase_status === 'Approved')
+                                @if(!$atp->has_rfc)
+                                    <a
+                                        href="{{ route('purchaser.rfc.index', ['selected_atp' => $atp->authority_purchase_id]) }}"
+                                        class="h-10 inline-flex items-center rounded-lg bg-blue-600 px-5 text-sm font-medium text-white hover:bg-blue-700"
+                                    >
+                                        Create RFC
+                                    </a>
+                                @else
+                                    <span class="inline-flex h-10 items-center rounded-lg border border-green-200 bg-green-50 px-4 text-sm font-medium text-green-700">
+                                        RFC Created
+                                    </span>
+                                @endif
+                            @endif
+                            <button type="button" @click="printAtp({{ $atp->authority_purchase_id }})" class="h-10 rounded-lg bg-gray-900 px-5 text-sm text-white">
+                                Print
+                            </button>
+                            <button type="button" @click="viewOpen = false" class="h-10 rounded-lg border border-gray-300 px-5 text-sm">
+                                Close
+                            </button>
+                        </div>
 
                     </div>
 
@@ -1492,360 +974,192 @@
 
 
     {{-- ========================================================= --}}
-    {{-- EDIT ATP MODALS --}}
+    {{-- EDIT ATP MODALS (editable paper layout) --}}
     {{-- ========================================================= --}}
 
     @foreach($atps as $atp)
 
         @php
-            $editItems = $atpItems->get(
-                $atp->authority_purchase_id,
-                collect()
-            );
+            $editItems = $atpItems->get($atp->authority_purchase_id, collect());
         @endphp
 
+        @if(!$atp->authority_purchase_submitted_at && $atp->authority_purchase_status === 'Pending')
 
-        @if(
-            !$atp->authority_purchase_submitted_at
-            && $atp->authority_purchase_status === 'Pending'
-        )
+            <div x-show="editOpen && selectedAtp === {{ $atp->authority_purchase_id }}" x-cloak class="fixed inset-0 z-50 overflow-y-auto">
 
-            <div
-                x-show="editOpen && selectedAtp === {{ $atp->authority_purchase_id }}"
-                x-cloak
-                class="fixed inset-0 z-50 overflow-y-auto"
-            >
-
-                <div
-                    class="fixed inset-0 bg-black/40"
-                    @click="editOpen = false"
-                ></div>
-
+                <div class="fixed inset-0 bg-black/40" @click="editOpen = false"></div>
 
                 <div class="relative flex min-h-full items-center justify-center p-4">
 
-                    <div
-                        @click.stop
-                        class="relative w-full max-w-6xl rounded-2xl bg-white shadow-xl"
-                    >
+                    <div @click.stop class="relative w-full max-w-5xl rounded-2xl bg-white shadow-xl">
 
-                        {{-- Header --}}
                         <div class="flex items-start justify-between border-b border-gray-200 px-6 py-5">
-
                             <div>
-
-                                <h3 class="text-xl font-semibold text-slate-900">
-                                    Edit ATP Draft
-                                </h3>
-
+                                <h3 class="text-xl font-semibold text-slate-900">Edit ATP Draft</h3>
                                 <p class="mt-1 text-sm text-gray-500">
-
-                                    {{ $atp->authority_purchase_form_number
-                                        ?? 'ATP-' . $atp->authority_purchase_id }}
-
+                                    {{ $atp->authority_purchase_form_number ?? 'ATP-' . $atp->authority_purchase_id }}
                                 </p>
-
                             </div>
 
-
-                            <button
-                                type="button"
-                                @click="editOpen = false"
-                                class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-                            >
+                            <button type="button" @click="editOpen = false" class="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700">
                                 ✕
                             </button>
-
                         </div>
 
-
-                        <form
-                            method="POST"
-                            action="{{ route(
-                                'purchaser.atp.update',
-                                $atp->authority_purchase_id
-                            ) }}"
-                        >
+                        <form method="POST" action="{{ route('purchaser.atp.update', $atp->authority_purchase_id) }}">
 
                             @csrf
                             @method('PUT')
+                            <input type="hidden" name="save_action" value="save">
 
+                            <div class="max-h-[75vh] overflow-y-auto bg-gray-100 p-8">
 
-                            <div class="max-h-[70vh] space-y-6 overflow-y-auto p-6">
+                                <div class="mx-auto w-[210mm] min-h-[297mm] bg-white p-10 text-[13px] leading-tight shadow">
 
+                                    {{-- HEADER --}}
+                                    <div class="relative text-center">
 
-                                {{-- RIS / Supplier --}}
-                                <div class="grid gap-4 lg:grid-cols-2">
+                                        <div class="text-lg font-bold">STI COLLEGE ORMOC, INC.</div>
+                                        <div class="text-xs">Centrum Mall, Aviles Street, Ormoc City</div>
+                                        <div class="mt-4 text-xl font-bold tracking-wide">AUTHORITY TO PURCHASE</div>
 
-                                    <div>
+                                        <div class="absolute right-0 top-0 text-left text-sm">
 
-                                        <label class="text-xs font-medium text-gray-500">
-                                            Approved RIS
-                                        </label>
+                                            <div>
+                                                <strong>No.</strong>
+                                                {{ $atp->authority_purchase_form_number }}
+                                            </div>
 
-                                        <input
-                                            type="text"
-                                            disabled
-                                            value="{{ $atp->ris_form_number
-                                                ?? 'RIS-' . $atp->authority_purchase_ris_id }}"
-                                            class="mt-1 h-10 w-full rounded-lg border border-gray-300 bg-gray-100 px-3 text-sm text-gray-700"
-                                        >
+                                            <div class="mt-2">
+                                                <strong>Date</strong>
+                                                <input
+                                                    type="date"
+                                                    name="authority_purchase_date"
+                                                    value="{{ $atp->authority_purchase_date }}"
+                                                    class="border-0 border-b border-black bg-transparent"
+                                                >
+                                            </div>
+
+                                        </div>
 
                                     </div>
 
+                                    {{-- SUPPLIER --}}
+                                    <div class="mt-10">
 
-                                    <div>
-
-                                        <label class="text-xs font-medium text-gray-500">
-                                            Supplier
-                                        </label>
+                                        <strong>To:</strong>
 
                                         <select
                                             name="authority_purchase_supplier_id"
-                                            required
-                                            class="mt-1 h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
+                                            class="ml-2 w-[420px] border-0 border-b border-black bg-transparent"
                                         >
-
+                                            <option value="">Select Supplier</option>
                                             @foreach($suppliers as $supplier)
-
                                                 <option
                                                     value="{{ $supplier->supplier_id }}"
-                                                    {{ $supplier->supplier_id == $atp->authority_purchase_supplier_id
-                                                        ? 'selected'
-                                                        : '' }}
+                                                    {{ $supplier->supplier_id == $atp->authority_purchase_supplier_id ? 'selected' : '' }}
                                                 >
-
-                                                    @if($supplier->supplier_store_type === 'Physical Store')
-
-                                                        {{ $supplier->company_name
-                                                            ?? 'Physical supplier #' . $supplier->supplier_id }}
-
-                                                    @else
-
-                                                        {{ $supplier->shop_name
-                                                            ?? 'Online supplier #' . $supplier->supplier_id }}
-
-                                                    @endif
-
+                                                    {{ $supplier->supplier_store_type === 'Physical Store'
+                                                        ? $supplier->company_name
+                                                        : $supplier->shop_name }}
                                                 </option>
-
                                             @endforeach
-
                                         </select>
 
                                     </div>
 
-                                </div>
+                                    <p class="mt-6">
+                                        Please deliver to bearer the following items chargeable to our account:
+                                    </p>
 
+                                    {{-- ITEMS TABLE --}}
+                                    <table class="mt-5 w-full border-collapse border border-black text-sm">
 
-                                {{-- Basic Information --}}
-                                <div class="grid gap-4 lg:grid-cols-3">
+                                        <thead>
+                                            <tr>
+                                                <th class="border border-black p-2">Quantity</th>
+                                                <th class="border border-black p-2">Unit</th>
+                                                <th class="border border-black p-2">Description</th>
+                                                <th class="border border-black p-2">Unit Price</th>
+                                                <th class="border border-black p-2">Amount</th>
+                                            </tr>
+                                        </thead>
 
-                                    <div>
+                                        <tbody>
 
-                                        <label class="text-xs font-medium text-gray-500">
-                                            Purchase Date
-                                        </label>
-
-                                        <input
-                                            type="date"
-                                            name="authority_purchase_date"
-                                            value="{{ $atp->authority_purchase_date }}"
-                                            required
-                                            class="mt-1 h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
-                                        >
-
-                                    </div>
-
-
-                                    <div>
-
-                                        <label class="text-xs font-medium text-gray-500">
-                                            Received By
-                                        </label>
-
-                                        <input
-                                            type="text"
-                                            name="authority_purchase_received_by_name"
-                                            value="{{ $atp->authority_purchase_received_by_name }}"
-                                            required
-                                            class="mt-1 h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
-                                        >
-
-                                    </div>
-
-
-                                    <div>
-
-                                        <label class="text-xs font-medium text-gray-500">
-                                            Reference PO / PR
-                                        </label>
-
-                                        <input
-                                            type="text"
-                                            name="authority_purchase_reference_po_no"
-                                            value="{{ $atp->authority_purchase_reference_po_no }}"
-                                            class="mt-1 h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
-                                        >
-
-                                    </div>
-
-                                </div>
-
-
-                                {{-- Edit Items --}}
-                                <div>
-
-                                    <h4 class="mb-3 text-sm font-semibold text-slate-900">
-                                        ATP Items
-                                    </h4>
-
-
-                                    <div class="overflow-x-auto rounded-xl border border-gray-200">
-
-                                        <table class="w-full min-w-[750px] text-sm">
-
-                                            <thead class="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
-
+                                            @foreach($editItems as $itemIndex => $item)
                                                 <tr>
-
-                                                    <th class="px-3 py-3 text-left">
-                                                        Description
-                                                    </th>
-
-                                                    <th class="w-28 px-3 py-3 text-left">
-                                                        Qty
-                                                    </th>
-
-                                                    <th class="w-36 px-3 py-3 text-left">
-                                                        Unit
-                                                    </th>
-
-                                                    <th class="w-44 px-3 py-3 text-left">
-                                                        Unit Price
-                                                    </th>
-
+                                                    <td class="border border-black p-1">
+                                                        <input type="number" name="items[{{ $itemIndex }}][quantity]" value="{{ $item->atp_quantity }}" min="1" class="w-full border-0 text-center">
+                                                    </td>
+                                                    <td class="border border-black p-1">
+                                                        <input type="text" name="items[{{ $itemIndex }}][unit]" value="{{ $item->atp_unit }}" class="w-full border-0 text-center">
+                                                    </td>
+                                                    <td class="border border-black p-1">
+                                                        <input type="text" name="items[{{ $itemIndex }}][description]" value="{{ $item->atp_description }}" class="w-full border-0">
+                                                    </td>
+                                                    <td class="border border-black p-1">
+                                                        <input type="number" step="0.01" name="items[{{ $itemIndex }}][unit_price]" value="{{ $item->atp_unit_price }}" min="0" class="w-full border-0 text-right">
+                                                    </td>
+                                                    <td class="border border-black p-1">
+                                                        <input readonly class="w-full border-0 bg-transparent text-right" value="{{ number_format($item->atp_amount, 2) }}">
+                                                    </td>
                                                 </tr>
+                                            @endforeach
 
-                                            </thead>
+                                            @for($itemIndex = count($editItems); $itemIndex < max(8, count($editItems) + 1); $itemIndex++)
+                                                <tr>
+                                                    <td class="border border-black p-1">
+                                                        <input type="number" name="items[{{ $itemIndex }}][quantity]" min="1" class="w-full border-0 text-center">
+                                                    </td>
+                                                    <td class="border border-black p-1">
+                                                        <input type="text" name="items[{{ $itemIndex }}][unit]" class="w-full border-0 text-center">
+                                                    </td>
+                                                    <td class="border border-black p-1">
+                                                        <input type="text" name="items[{{ $itemIndex }}][description]" class="w-full border-0">
+                                                    </td>
+                                                    <td class="border border-black p-1">
+                                                        <input type="number" step="0.01" name="items[{{ $itemIndex }}][unit_price]" min="0" class="w-full border-0 text-right">
+                                                    </td>
+                                                    <td class="border border-black p-1">
+                                                        <input readonly class="w-full border-0 bg-transparent text-right" placeholder="0.00">
+                                                    </td>
+                                                </tr>
+                                            @endfor
 
-                                            <tbody>
+                                        </tbody>
 
-                                                @foreach($editItems as $itemIndex => $item)
+                                    </table>
 
-                                                    <tr>
+                                    {{-- BOTTOM SIGNATURES --}}
+                                    <div class="mt-10 flex justify-between">
 
-                                                        <td class="border-t border-gray-200 p-2">
+                                        <div class="w-72">
 
-                                                            <input
-                                                                type="text"
-                                                                name="items[{{ $itemIndex }}][description]"
-                                                                value="{{ $item->atp_description }}"
-                                                                class="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
-                                                            >
+                                            <div class="font-semibold">RECEIVED BY:</div>
 
-                                                        </td>
+                                            <input
+                                                type="text"
+                                                name="authority_purchase_received_by_name"
+                                                value="{{ $atp->authority_purchase_received_by_name }}"
+                                                class="mt-8 w-full border-0 border-b border-black"
+                                            >
+                                            <div class="text-center text-xs">Signature over Printed Name</div>
 
-                                                        <td class="border-t border-gray-200 p-2">
+                                            <input
+                                                type="text"
+                                                name="authority_purchase_reference_po_no"
+                                                value="{{ $atp->authority_purchase_reference_po_no }}"
+                                                class="mt-6 w-full border-0 border-b border-black"
+                                            >
+                                            <div class="text-center text-xs">Reference P.O. No.</div>
 
-                                                            <input
-                                                                type="number"
-                                                                name="items[{{ $itemIndex }}][quantity]"
-                                                                value="{{ $item->atp_quantity }}"
-                                                                min="1"
-                                                                class="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
-                                                            >
+                                        </div>
 
-                                                        </td>
-
-                                                        <td class="border-t border-gray-200 p-2">
-
-                                                            <input
-                                                                type="text"
-                                                                name="items[{{ $itemIndex }}][unit]"
-                                                                value="{{ $item->atp_unit }}"
-                                                                class="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
-                                                            >
-
-                                                        </td>
-
-                                                        <td class="border-t border-gray-200 p-2">
-
-                                                            <input
-                                                                type="number"
-                                                                name="items[{{ $itemIndex }}][unit_price]"
-                                                                value="{{ $item->atp_unit_price }}"
-                                                                min="0"
-                                                                step="0.01"
-                                                                class="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
-                                                            >
-
-                                                        </td>
-
-                                                    </tr>
-
-                                                @endforeach
-
-
-                                                {{-- Extra Empty Rows --}}
-                                                @for(
-                                                    $itemIndex = count($editItems);
-                                                    $itemIndex < max(8, count($editItems) + 1);
-                                                    $itemIndex++
-                                                )
-
-                                                    <tr>
-
-                                                        <td class="border-t border-gray-200 p-2">
-
-                                                            <input
-                                                                type="text"
-                                                                name="items[{{ $itemIndex }}][description]"
-                                                                class="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
-                                                            >
-
-                                                        </td>
-
-                                                        <td class="border-t border-gray-200 p-2">
-
-                                                            <input
-                                                                type="number"
-                                                                name="items[{{ $itemIndex }}][quantity]"
-                                                                min="1"
-                                                                class="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
-                                                            >
-
-                                                        </td>
-
-                                                        <td class="border-t border-gray-200 p-2">
-
-                                                            <input
-                                                                type="text"
-                                                                name="items[{{ $itemIndex }}][unit]"
-                                                                class="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
-                                                            >
-
-                                                        </td>
-
-                                                        <td class="border-t border-gray-200 p-2">
-
-                                                            <input
-                                                                type="number"
-                                                                name="items[{{ $itemIndex }}][unit_price]"
-                                                                min="0"
-                                                                step="0.01"
-                                                                class="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm"
-                                                            >
-
-                                                        </td>
-
-                                                    </tr>
-
-                                                @endfor
-
-                                            </tbody>
-
-                                        </table>
+                                        <div class="w-56 text-center">
+                                            <div>Authorized By</div>
+                                            <div class="mt-16 border-b border-black"></div>
+                                        </div>
 
                                     </div>
 
@@ -1853,132 +1167,24 @@
 
                             </div>
 
-
-                            {{-- Footer --}}
                             <div class="flex justify-end gap-2 border-t border-gray-200 px-6 py-4">
-
-                                <button
-                                    type="button"
-                                    @click="editOpen = false"
-                                    class="h-10 rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700"
-                                >
+                                <button type="button" @click="editOpen = false" class="h-10 rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700">
                                     Cancel
                                 </button>
-
                                 <button
                                     type="submit"
-                                    class="h-10 rounded-lg bg-gray-900 px-5 text-sm font-medium text-white"
+                                    onclick="this.form.querySelector('input[name=save_action]').value='save'"
+                                    class="h-10 rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700"
                                 >
                                     Update Draft
                                 </button>
-
-                            </div>
-
-                        </form>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-        @endif
-
-    @endforeach
-
-
-
-    {{-- ========================================================= --}}
-    {{-- REJECT ATP MODALS --}}
-    {{-- ========================================================= --}}
-
-    @foreach($atps as $atp)
-
-        @if(
-            $atp->authority_purchase_status === 'Pending'
-            && $atp->authority_purchase_submitted_at
-        )
-
-            <div
-                x-show="rejectOpen && selectedAtp === {{ $atp->authority_purchase_id }}"
-                x-cloak
-                class="fixed inset-0 z-[60] overflow-y-auto"
-            >
-
-                <div
-                    class="fixed inset-0 bg-black/40"
-                    @click="rejectOpen = false"
-                ></div>
-
-
-                <div class="relative flex min-h-full items-center justify-center p-4">
-
-                    <div
-                        @click.stop
-                        class="relative w-full max-w-lg rounded-2xl bg-white shadow-xl"
-                    >
-
-                        <form
-                            method="POST"
-                            action="{{ route(
-                                'purchaser.atp.reject',
-                                $atp->authority_purchase_id
-                            ) }}"
-                        >
-
-                            @csrf
-
-
-                            <div class="border-b border-gray-200 px-6 py-5">
-
-                                <h3 class="text-lg font-semibold text-slate-900">
-                                    Reject ATP
-                                </h3>
-
-                                <p class="mt-1 text-sm text-gray-500">
-
-                                    {{ $atp->authority_purchase_form_number
-                                        ?? 'ATP-' . $atp->authority_purchase_id }}
-
-                                </p>
-
-                            </div>
-
-
-                            <div class="p-6">
-
-                                <label class="text-xs font-medium text-gray-600">
-                                    Rejection Reason
-                                </label>
-
-                                <textarea
-                                    name="authority_purchase_rejection_reason"
-                                    rows="4"
-                                    required
-                                    placeholder="Explain why this ATP is being rejected"
-                                    class="mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                                ></textarea>
-
-                            </div>
-
-
-                            <div class="flex justify-end gap-2 border-t border-gray-200 px-6 py-4">
-
-                                <button
-                                    type="button"
-                                    @click="rejectOpen = false"
-                                    class="h-10 rounded-lg border border-gray-300 px-5 text-sm font-medium text-gray-700"
-                                >
-                                    Cancel
-                                </button>
-
                                 <button
                                     type="submit"
-                                    class="h-10 rounded-lg bg-red-600 px-5 text-sm font-medium text-white"
+                                    onclick="this.form.querySelector('input[name=save_action]').value='submit'"
+                                    class="h-10 rounded-lg bg-gray-900 px-5 text-sm font-medium text-white"
                                 >
-                                    Confirm Reject
+                                    Save & Submit
                                 </button>
-
                             </div>
 
                         </form>
@@ -1996,14 +1202,31 @@
 </div>
 
 
-{{-- ============================================================= --}}
-{{-- XCLOAK --}}
-{{-- Prevent Alpine modals flashing while page loads --}}
-{{-- ============================================================= --}}
-
 <style>
     [x-cloak] {
         display: none !important;
+    }
+
+    @media print {
+        body * {
+            visibility: hidden !important;
+        }
+
+        .atp-print-active,
+        .atp-print-active * {
+            visibility: visible !important;
+        }
+
+        .atp-print-active {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 210mm !important;
+            min-height: 297mm !important;
+            margin: 0 !important;
+            box-shadow: none !important;
+            background: #fff !important;
+        }
     }
 </style>
 

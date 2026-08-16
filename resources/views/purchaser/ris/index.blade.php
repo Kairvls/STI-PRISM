@@ -6,25 +6,79 @@
 
 @section("content")
 
+@php
+    $oldRisItems = old('ris_items', []);
+    $createItemsInit = [];
+    for ($i = 0; $i < 8; $i++) {
+        $createItemsInit[] = [
+            'name_description' => $oldRisItems[$i]['name_description'] ?? '',
+            'supplier_id' => (string) ($oldRisItems[$i]['supplier_id'] ?? ''),
+            'uom_id' => (string) ($oldRisItems[$i]['uom_id'] ?? ''),
+            'quantity_requested' => $oldRisItems[$i]['quantity_requested'] ?? '',
+            'quantity_issued' => $oldRisItems[$i]['quantity_issued'] ?? '',
+            'unit_cost' => $oldRisItems[$i]['unit_cost'] ?? '',
+        ];
+    }
+    // #region agent log
+    $__dbgJsOpen = \Illuminate\Support\Js::from(request('ris_id') ? 'ris-' . request('ris_id') : null)->toHtml();
+    $__dbgJsonItems = json_encode($createItemsInit);
+    $__dbgJsonDirective = json_encode($createItemsInit, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT);
+    $__dbgJsSel = \Illuminate\Support\Js::from((string) old('ris_procurement_request_id', request('replacement_request', '')))->toHtml();
+    file_put_contents(base_path('debug-73bc7d.log'), json_encode([
+        'sessionId' => '73bc7d',
+        'runId' => 'post-fix',
+        'hypothesisId' => 'A',
+        'location' => 'purchaser/ris/index.blade.php:createItems',
+        'message' => 'x-data helper quote encoding',
+        'data' => [
+            'jsOpenHasRawQuote' => str_contains($__dbgJsOpen, '"'),
+            'jsOpenSample' => substr($__dbgJsOpen, 0, 80),
+            'jsonHasRawQuote' => str_contains((string) $__dbgJsonItems, '"'),
+            'jsonSample' => substr((string) $__dbgJsonItems, 0, 80),
+            'jsonHexHasRawQuote' => str_contains((string) $__dbgJsonDirective, '"'),
+            'jsonHexSample' => substr((string) $__dbgJsonDirective, 0, 80),
+            'jsSelHasRawQuote' => str_contains($__dbgJsSel, '"'),
+            'jsSelSample' => substr($__dbgJsSel, 0, 80),
+            'createRisModal' => ($errors->any() || request()->filled('replacement_request')) ? 'true' : 'false',
+            'replacementCount' => count($availableReplacementRequests ?? []),
+            'replacementHasGt' => collect($availableReplacementRequests ?? [])->contains(function ($request) {
+                return str_contains((string) ($request->report_problem_description ?? ''), '>')
+                    || str_contains((string) ($request->report_replacement_notes ?? ''), '>')
+                    || str_contains((string) ($request->equipment_name ?? ''), '>');
+            }),
+            'replacementHasQuote' => collect($availableReplacementRequests ?? [])->contains(function ($request) {
+                return str_contains((string) ($request->report_problem_description ?? ''), '"')
+                    || str_contains((string) ($request->report_replacement_notes ?? ''), '"');
+            }),
+        ],
+        'timestamp' => (int) (microtime(true) * 1000),
+    ])."\n", FILE_APPEND);
+    $risPageBoot = [
+        'openModal' => request('ris_id') ? 'ris-' . request('ris_id') : null,
+        'createRisModal' => ($errors->any() || request()->filled('replacement_request')),
+        'createItems' => $createItemsInit,
+        'selectedReplacement' => (string) old('ris_procurement_request_id', request('replacement_request', '')),
+        'replacementRequests' => collect($availableReplacementRequests ?? [])->map(function ($request) {
+            return [
+                'id' => $request->procurement_request_id,
+                'report_id' => $request->report_id ?? null,
+                'equipment' => $request->equipment_name ?: ($request->report_unlisted_equipment_name ?: 'Unspecified equipment'),
+                'asset_tag' => $request->equipment_asset_tag ?? null,
+                'room' => $request->room_name ?? 'Unspecified room',
+                'problem' => $request->report_problem_description ?? '',
+                'reason' => $request->report_replacement_notes ?? '',
+            ];
+        })->values(),
+    ];
+    // #endregion
+@endphp
+
+<script type="application/json" id="ris-page-boot">@json($risPageBoot)</script>
+
 <div
     x-data="{
-        openModal: @js(request('ris_id') ? 'ris-' . request('ris_id') : null),
+        ...JSON.parse(document.getElementById('ris-page-boot').textContent),
         editRisModal: null,
-        createRisModal: {{ ($errors->any() || request()->filled('replacement_request')) ? 'true' : 'false' }},
-        selectedReplacement: @js((string) old('ris_procurement_request_id', request('replacement_request', ''))),
-        replacementRequests: @js(
-            collect($availableReplacementRequests ?? [])->map(function ($request) {
-                return [
-                    'id' => $request->procurement_request_id,
-                    'report_id' => $request->report_id ?? null,
-                    'equipment' => $request->equipment_name ?: ($request->report_unlisted_equipment_name ?: 'Unspecified equipment'),
-                    'asset_tag' => $request->equipment_asset_tag ?? null,
-                    'room' => $request->room_name ?? 'Unspecified room',
-                    'problem' => $request->report_problem_description ?? '',
-                    'reason' => $request->report_replacement_notes ?? '',
-                ];
-            })->values()
-        ),
         selectedReplacementData() {
             return this.replacementRequests.find(item => String(item.id) === String(this.selectedReplacement)) || null;
         },
@@ -36,6 +90,53 @@
             if (item.reason) purpose += '. Reason: ' + item.reason;
             else if (item.problem) purpose += '. Reason: ' + item.problem;
             return purpose;
+        },
+        risItemKey(name) {
+            return String(name || '').trim().toLowerCase();
+        },
+        risSplitInfo(items, index) {
+            const key = this.risItemKey(items[index]?.name_description);
+            if (!key) return null;
+
+            const groupIndexes = items
+                .map((item, i) => this.risItemKey(item.name_description) === key ? i : -1)
+                .filter((i) => i >= 0);
+
+            if (groupIndexes.length < 2) return null;
+
+            const first = items[groupIndexes[0]];
+            const asked = Number(first.quantity_requested) || 0;
+            const allocated = groupIndexes.reduce((sum, i) => sum + (Number(items[i].quantity_issued) || 0), 0);
+
+            return {
+                asked,
+                allocated,
+                remaining: asked - allocated,
+                isDuplicate: groupIndexes[0] !== index,
+                overflow: asked > 0 && allocated > asked,
+                label: String(first.name_description || '').trim()
+            };
+        },
+        risHasOverflow(items) {
+            return items.some((_, index) => this.risSplitInfo(items, index)?.overflow);
+        },
+        copySplitUom(items, index) {
+            const info = this.risSplitInfo(items, index);
+            if (!info || !info.isDuplicate || items[index].uom_id) return;
+
+            const key = this.risItemKey(items[index].name_description);
+            const first = items.find((item) => this.risItemKey(item.name_description) === key);
+            if (first?.uom_id) {
+                items[index].uom_id = first.uom_id;
+            }
+        },
+        init() {
+            this.$watch('selectedReplacement', () => {
+                const data = this.selectedReplacementData();
+                if (data && this.createItems[0]) {
+                    this.createItems[0].name_description = data.equipment;
+                }
+            });
         },
         recordsLoading: false,
         searchTimer: null,
@@ -89,7 +190,6 @@
             }
         }
     }"
-    x-cloak
 >
 
     @if(session('success'))
@@ -150,32 +250,113 @@
         </div>
     </div>
 
-    <div class="mb-6 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-        <div class="grid grid-cols-2 divide-gray-100 sm:grid-cols-3 lg:grid-cols-5 lg:divide-x">
-            <div class="px-5 py-5">
-                <p class="text-2xl font-semibold tracking-tight text-gray-950">{{ $risSummary['total'] }}</p>
-                <p class="mt-1 text-xs font-medium text-gray-500">Total RIS</p>
-            </div>
-            <div class="px-5 py-5">
-                <div class="flex items-center gap-2">
-                    <p class="text-2xl font-semibold tracking-tight text-gray-950">{{ $risSummary['draft'] }}</p>
-                    <span class="h-1.5 w-1.5 rounded-full bg-gray-400"></span>
+    <div class="mb-6 grid grid-cols-1 gap-4 md:grid-cols-5">
+
+        <a
+            href="{{ route('purchaser.ris.index') }}"
+            class="group rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:shadow-sm"
+        >
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <p class="text-sm font-medium text-gray-500">Total RIS</p>
+                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">
+                        {{ number_format($risSummary['total']) }}
+                    </p>
                 </div>
-                <p class="mt-1 text-xs font-medium text-gray-500">Draft</p>
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+                    <i data-lucide="files" class="h-5 w-5"></i>
+                </div>
             </div>
-            <div class="px-5 py-5">
-                <p class="text-2xl font-semibold tracking-tight text-gray-950">{{ $risSummary['submitted'] }}</p>
-                <p class="mt-1 text-xs font-medium text-gray-500">In Review</p>
+            <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
+                <span>All requisition and issue slips</span>
+                <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
             </div>
-            <div class="px-5 py-5">
-                <p class="text-2xl font-semibold tracking-tight text-gray-950">{{ $risSummary['approved'] }}</p>
-                <p class="mt-1 text-xs font-medium text-gray-500">Approved</p>
+        </a>
+
+        <a
+            href="{{ route('purchaser.ris.index', ['status' => 'Draft']) }}"
+            class="group rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:shadow-sm"
+        >
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <p class="text-sm font-medium text-gray-500">Draft</p>
+                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">
+                        {{ number_format($risSummary['draft']) }}
+                    </p>
+                </div>
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50 text-amber-700">
+                    <i data-lucide="file-pen-line" class="h-5 w-5"></i>
+                </div>
             </div>
-            <div class="px-5 py-5">
-                <p class="text-2xl font-semibold tracking-tight text-gray-950">{{ $risSummary['rejected'] }}</p>
-                <p class="mt-1 text-xs font-medium text-gray-500">Rejected</p>
+            <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
+                <span>Incomplete drafts awaiting submit</span>
+                <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
             </div>
-        </div>
+        </a>
+
+        <a
+            href="{{ route('purchaser.ris.index', ['status' => 'In Review']) }}"
+            class="group rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:shadow-sm"
+        >
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <p class="text-sm font-medium text-gray-500">In Review</p>
+                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">
+                        {{ number_format($risSummary['submitted']) }}
+                    </p>
+                </div>
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-700">
+                    <i data-lucide="clock-3" class="h-5 w-5"></i>
+                </div>
+            </div>
+            <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
+                <span>Submitted and under admin review</span>
+                <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
+            </div>
+        </a>
+
+        <a
+            href="{{ route('purchaser.ris.index', ['status' => 'Approved']) }}"
+            class="group rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:shadow-sm"
+        >
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <p class="text-sm font-medium text-gray-500">Approved</p>
+                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">
+                        {{ number_format($risSummary['approved']) }}
+                    </p>
+                </div>
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
+                    <i data-lucide="circle-check-big" class="h-5 w-5"></i>
+                </div>
+            </div>
+            <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
+                <span>Approved and ready for ATP</span>
+                <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
+            </div>
+        </a>
+
+        <a
+            href="{{ route('purchaser.ris.index', ['status' => 'Rejected']) }}"
+            class="group rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:shadow-sm"
+        >
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <p class="text-sm font-medium text-gray-500">Rejected</p>
+                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">
+                        {{ number_format($risSummary['rejected']) }}
+                    </p>
+                </div>
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-red-50 text-red-700">
+                    <i data-lucide="circle-x" class="h-5 w-5"></i>
+                </div>
+            </div>
+            <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
+                <span>Returned or declined RIS records</span>
+                <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
+            </div>
+        </a>
+
     </div>
 
     {{-- PRINT EMPTY RIS MODAL --}}
@@ -423,7 +604,9 @@
     </div>
 
     <style>
-
+        [x-cloak] {
+            display: none !important;
+        }
         /* Main physical RIS sheet */
         .ris-original-form {
             width: 100%;
@@ -649,6 +832,11 @@
             gap: 4px;
         }
 
+        .ris-edit-item-cell select.ris-cell-input {
+            height: 28px;
+            border-top: 1px solid #e5e7eb;
+        }
+
         .ris-remove-item {
             flex: 0 0 auto;
             width: 22px;
@@ -703,6 +891,26 @@
             padding: 4px;
             text-align: center;
             font-size: 11px;
+        }
+        .ris-signature-line {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ris-signature-line img {
+            max-width: 100%;
+            max-height: 38px;
+            object-fit: contain;
+            display: block;
+            margin: auto;
+        }
+
+        .ris-signature-line span {
+            display: block;
+            width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
     </style>
@@ -857,115 +1065,117 @@
                             <table class="w-full border-collapse border border-gray-800">
                                 <thead>
                                     <tr>
-                                        <th
-                                            rowspan="2"
-                                            class="w-[40%] border border-gray-800 px-3 py-2 text-center text-xs font-bold uppercase"
-                                        >
+                                        <th rowspan="2" class="w-[28%] border border-gray-800 px-3 py-2 text-center text-xs font-bold uppercase">
                                             Item
                                         </th>
-
-                                        <th
-                                            colspan="2"
-                                            class="border border-gray-800 px-3 py-2 text-center text-xs font-bold uppercase"
-                                        >
+                                        <th rowspan="2" class="w-[18%] border border-gray-800 px-3 py-2 text-center text-xs font-bold uppercase">
+                                            Supplier
+                                        </th>
+                                        <th colspan="2" class="border border-gray-800 px-3 py-2 text-center text-xs font-bold uppercase">
                                             Quantity
                                         </th>
-
-                                        <th
-                                            rowspan="2"
-                                            class="w-[17%] border border-gray-800 px-3 py-2 text-center text-xs font-bold uppercase"
-                                        >
+                                        <th rowspan="2" class="w-[14%] border border-gray-800 px-3 py-2 text-center text-xs font-bold uppercase">
                                             Unit Cost
                                         </th>
-
-                                        <th
-                                            rowspan="2"
-                                            class="w-[20%] border border-gray-800 px-3 py-2 text-center text-xs font-bold uppercase"
-                                        >
+                                        <th rowspan="2" class="w-[16%] border border-gray-800 px-3 py-2 text-center text-xs font-bold uppercase">
                                             Amount
                                         </th>
                                     </tr>
-
                                     <tr>
-                                        <th class="w-[11%] border border-gray-800 px-2 py-2 text-center text-[11px] font-bold uppercase">
+                                        <th class="w-[12%] border border-gray-800 px-2 py-2 text-center text-[11px] font-bold uppercase">
                                             Requested
                                         </th>
-
                                         <th class="w-[12%] border border-gray-800 px-2 py-2 text-center text-[11px] font-bold uppercase">
                                             Issued
                                         </th>
                                     </tr>
                                 </thead>
-
                                 <tbody>
-                                    @for($i = 0; $i < 8; $i++)
-                                        <tr>
-                                            {{-- ITEM --}}
-                                            <td class="border border-gray-800 p-1">
-                                                @if($i === 0)
-                                                    <input
-                                                        type="text"
-                                                        name="ris_items[{{ $i }}][name_description]"
-                                                        x-bind:value="selectedReplacementData() ? selectedReplacementData().equipment : @js(old('ris_items.0.name_description', ''))"
-                                                        class="w-full border-0 bg-transparent px-2 py-2 text-sm outline-none focus:ring-0"
-                                                    >
-                                                @else
-                                                    <input
-                                                        type="text"
-                                                        name="ris_items[{{ $i }}][name_description]"
-                                                        value="{{ old('ris_items.' . $i . '.name_description') }}"
-                                                        class="w-full border-0 bg-transparent px-2 py-2 text-sm outline-none focus:ring-0"
-                                                    >
-                                                @endif
+                                    <template x-for="(item, index) in createItems" :key="index">
+                                        <tr :class="risSplitInfo(createItems, index)?.overflow ? 'bg-red-50' : ''">
+                                            <td class="border border-gray-800 p-1 align-top">
+                                                <input
+                                                    type="text"
+                                                    x-model="item.name_description"
+                                                    x-bind:name="`ris_items[${index}][name_description]`"
+                                                    x-on:input="copySplitUom(createItems, index)"
+                                                    class="w-full border-0 bg-transparent px-2 py-2 text-sm outline-none focus:ring-0"
+                                                >
+                                                <select
+                                                    x-model="item.uom_id"
+                                                    x-bind:name="`ris_items[${index}][uom_id]`"
+                                                    class="mt-1 w-full border-0 border-t border-gray-200 bg-transparent px-2 py-1 text-xs text-gray-600 outline-none focus:ring-0"
+                                                >
+                                                    <option value="">Unit</option>
+                                                    @foreach(($uoms ?? collect()) as $uom)
+                                                        <option value="{{ $uom->uom_id }}">{{ $uom->uom_name }}</option>
+                                                    @endforeach
+                                                </select>
+                                                <p
+                                                    class="mt-1 px-2 text-[11px] leading-4"
+                                                    x-show="risSplitInfo(createItems, index)"
+                                                    x-cloak
+                                                    :class="risSplitInfo(createItems, index)?.overflow ? 'text-red-700' : 'text-amber-700'"
+                                                    x-text="(() => {
+                                                        const info = risSplitInfo(createItems, index);
+                                                        if (!info) return '';
+                                                        const prefix = info.isDuplicate ? ('Split of \"' + info.label + '\"') : ('Split across suppliers');
+                                                        return prefix + ' — ' + info.allocated + ' of ' + info.asked + ' allocated, ' + info.remaining + ' remaining';
+                                                    })()"
+                                                ></p>
                                             </td>
-
-                                            {{-- QUANTITY REQUESTED --}}
+                                            <td class="border border-gray-800 p-1 align-top">
+                                                <select
+                                                    x-model="item.supplier_id"
+                                                    x-bind:name="`ris_items[${index}][supplier_id]`"
+                                                    class="w-full border-0 bg-transparent px-1 py-2 text-xs outline-none focus:ring-0"
+                                                >
+                                                    <option value="">Select supplier</option>
+                                                    @foreach(($activeSuppliers ?? collect()) as $supplier)
+                                                        <option value="{{ $supplier->supplier_id }}">{{ $supplier->display_name }}</option>
+                                                    @endforeach
+                                                </select>
+                                            </td>
                                             <td class="border border-gray-800 p-1">
                                                 <input
                                                     type="number"
-                                                    name="ris_items[{{ $i }}][quantity_requested]"
-                                                    value="{{ old('ris_items.' . $i . '.quantity_requested') }}"
                                                     min="1"
+                                                    x-model="item.quantity_requested"
+                                                    x-bind:name="`ris_items[${index}][quantity_requested]`"
                                                     class="w-full border-0 bg-transparent px-1 py-2 text-center text-sm outline-none focus:ring-0"
                                                 >
                                             </td>
-
-                                            {{-- QUANTITY ISSUED --}}
                                             <td class="border border-gray-800 p-1">
                                                 <input
                                                     type="number"
-                                                    name="ris_items[{{ $i }}][quantity_issued]"
-                                                    value="{{ old('ris_items.' . $i . '.quantity_issued') }}"
                                                     min="0"
+                                                    x-model="item.quantity_issued"
+                                                    x-bind:name="`ris_items[${index}][quantity_issued]`"
                                                     class="w-full border-0 bg-transparent px-1 py-2 text-center text-sm outline-none focus:ring-0"
                                                 >
                                             </td>
-
-                                            {{-- UNIT COST --}}
                                             <td class="border border-gray-800 p-1">
                                                 <input
                                                     type="number"
-                                                    name="ris_items[{{ $i }}][unit_cost]"
-                                                    value="{{ old('ris_items.' . $i . '.unit_cost') }}"
                                                     min="0"
                                                     step="0.01"
+                                                    x-model="item.unit_cost"
+                                                    x-bind:name="`ris_items[${index}][unit_cost]`"
                                                     class="w-full border-0 bg-transparent px-2 py-2 text-right text-sm outline-none focus:ring-0"
                                                 >
                                             </td>
-
-                                            {{-- AMOUNT --}}
                                             <td class="border border-gray-800 p-1">
                                                 <input
                                                     type="text"
-                                                    name="ris_items[{{ $i }}][total_amount]"
-                                                    value="{{ old('ris_items.' . $i . '.total_amount', '0.00') }}"
                                                     readonly
                                                     tabindex="-1"
+                                                    x-bind:name="`ris_items[${index}][total_amount]`"
+                                                    x-bind:value="((Number(item.quantity_issued) || 0) * (Number(item.unit_cost) || 0)).toFixed(2)"
                                                     class="w-full cursor-not-allowed border-0 bg-gray-50 px-2 py-2 text-right text-sm text-gray-500 outline-none focus:ring-0"
                                                 >
                                             </td>
                                         </tr>
-                                    @endfor
+                                    </template>
                                 </tbody>
                             </table>
                         </div>
@@ -1053,7 +1263,11 @@
                     >
                         Cancel
                     </button>
-                    <button type="submit" class="rounded-lg bg-gray-900 px-5 py-2 text-sm font-medium text-white hover:bg-gray-800">
+                    <button
+                        type="submit"
+                        x-bind:disabled="risHasOverflow(createItems)"
+                        class="rounded-lg bg-gray-900 px-5 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
                         Save RIS
                     </button>
                 </div>
@@ -1102,7 +1316,7 @@
 
                     <select name="status" x-on:change="refreshRisRecords()" class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm text-gray-600 outline-none transition focus:border-gray-300 focus:bg-white">
                         <option value="">All statuses</option>
-                        @foreach(['Draft', 'Submitted', 'Under Review', 'Minor Revision', 'Resubmitted', 'Approved', 'Rejected'] as $status)
+                        @foreach(['Draft', 'In Review', 'Submitted', 'Under Review', 'Minor Revision', 'Resubmitted', 'Approved', 'Rejected'] as $status)
                             <option value="{{ $status }}" {{ request('status') === $status ? 'selected' : '' }}>{{ $status }}</option>
                         @endforeach
                     </select>
@@ -1170,12 +1384,51 @@
                             </td>
 
                             <td class="px-5 py-4">
-                                @if($ris->risAttachments->isNotEmpty())
-                                    <div class="inline-flex items-center gap-2 text-sm text-gray-600">
+                                @if($ris->risAttachments->count() === 1)
+                                    @php $attachment = $ris->risAttachments->first(); @endphp
+                                    <a
+                                        href="{{ route('purchaser.ris.attachments.download', $attachment->ris_attachment_id) }}"
+                                        class="inline-flex items-center gap-2 text-sm text-gray-600 transition hover:text-gray-900 hover:underline"
+                                        title="Download {{ $attachment->ris_attachment_original_name }}"
+                                    >
                                         <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m15.172 7-6.586 6.586a2 2 0 1 0 2.828 2.828L18 9.828a4 4 0 1 0-5.657-5.657L5.757 10.757a6 6 0 0 0 8.486 8.486L20 13.486" />
                                         </svg>
-                                        <span>{{ $ris->risAttachments->count() }} {{ $ris->risAttachments->count() === 1 ? 'file' : 'files' }}</span>
+                                        <span>1 file</span>
+                                    </a>
+                                @elseif($ris->risAttachments->isNotEmpty())
+                                    <div
+                                        class="relative"
+                                        x-data="{ openFiles: false }"
+                                        @click.outside="openFiles = false"
+                                    >
+                                        <button
+                                            type="button"
+                                            @click="openFiles = !openFiles"
+                                            class="inline-flex items-center gap-2 text-sm text-gray-600 transition hover:text-gray-900 hover:underline"
+                                        >
+                                            <svg class="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="m15.172 7-6.586 6.586a2 2 0 1 0 2.828 2.828L18 9.828a4 4 0 1 0-5.657-5.657L5.757 10.757a6 6 0 0 0 8.486 8.486L20 13.486" />
+                                            </svg>
+                                            <span>{{ $ris->risAttachments->count() }} files</span>
+                                        </button>
+
+                                        <div
+                                            x-show="openFiles"
+                                            x-cloak
+                                            x-transition
+                                            class="absolute left-0 z-20 mt-2 w-64 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-lg"
+                                        >
+                                            @foreach($ris->risAttachments as $attachment)
+                                                <a
+                                                    href="{{ route('purchaser.ris.attachments.download', $attachment->ris_attachment_id) }}"
+                                                    class="block truncate px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                                                    title="{{ $attachment->ris_attachment_original_name }}"
+                                                >
+                                                    {{ $attachment->ris_attachment_original_name }}
+                                                </a>
+                                            @endforeach
+                                        </div>
                                     </div>
                                 @else
                                     <span class="text-sm text-gray-400">No files</span>
@@ -1346,6 +1599,9 @@
                         </div>
 
                         <p class="mt-2 text-sm text-gray-500">Requisition and Issue Slip</p>
+                        @if(!empty($ris->supplier_display_name))
+                            <p class="mt-1 text-sm text-gray-500">Supplier: {{ $ris->supplier_display_name }}</p>
+                        @endif
                     </div>
 
                     <button
@@ -1389,7 +1645,7 @@
                         </div>
                     @endif
 
-                    {{{-- RIS DOCUMENT: SAME PHYSICAL DESIGN AS PRINT EMPTY RIS --}}}
+                    {{-- RIS DOCUMENT: SAME PHYSICAL DESIGN AS PRINT EMPTY RIS --}}
                     <div class="overflow-x-auto bg-gray-100 p-4 md:p-6">
                         <div class="ris-original-form mx-auto bg-white text-black">
                             <div class="ris-document-header">
@@ -1405,6 +1661,7 @@
                                 <thead>
                                     <tr>
                                         <th rowspan="2" class="ris-item-column">ITEM</th>
+                                        <th rowspan="2">SUPPLIER</th>
                                         <th colspan="2" class="ris-quantity-header">QUANTITY</th>
                                         <th rowspan="2" class="ris-unit-cost-column">UNIT COST</th>
                                         <th rowspan="2" class="ris-amount-column">AMOUNT</th>
@@ -1418,7 +1675,11 @@
                                 @for($row = 0; $row < 8; $row++)
                                     @php($item = $ris->risItems->get($row))
                                     <tr>
-                                        <td>{{ $item?->ris_item_name_description ?: ' ' }}</td>
+                                        <td>
+                                            {{ $item?->ris_item_name_description ?: ' ' }}
+                                            @if(!empty($item?->uom_name)) ({{ $item->uom_name }})@endif
+                                        </td>
+                                        <td>{{ $item?->supplier_display_name ?: ' ' }}</td>
                                         <td class="text-center">{{ $item?->ris_quantity_requested ?? ' ' }}</td>
                                         <td class="text-center">{{ $item?->ris_quantity_issued ?? ' ' }}</td>
                                         <td class="text-right">{{ $item && $item->ris_unit_cost !== null ? number_format((float) $item->ris_unit_cost, 2) : ' ' }}</td>
@@ -1445,7 +1706,29 @@
                                 ] as [$label, $signature, $date])
                                     <div class="ris-signature-column">
                                         <div class="ris-signature-label">{{ $label }}</div>
-                                        <div class="ris-signature-line ris-value-line">{{ $signature ?: ' ' }}</div>
+                                        <div class="ris-signature-line ris-value-line">
+
+                                            @if(!empty($signature))
+
+                                                @if(str_starts_with($signature, 'data:image'))
+
+                                                    <img
+                                                        src="{{ $signature }}"
+                                                        alt="Signature"
+                                                        class="max-h-10 max-w-full object-contain"
+                                                    >
+
+                                                @else
+
+                                                    <span class="block w-full truncate text-center">
+                                                        {{ $signature }}
+                                                    </span>
+
+                                                @endif
+
+                                            @endif
+
+                                        </div>
                                         <div class="ris-date-label">Date:</div>
                                         <div class="ris-date-line ris-value-line">
                                             {{ $date ? \Carbon\Carbon::parse($date)->format('M d, Y') : ' ' }}
@@ -1551,6 +1834,7 @@
                             >
                                 Edit RIS
                             </button>
+                            
                         @endif
 
                         {{-- SUBMIT DRAFT --}}
@@ -1628,6 +1912,7 @@
                                 <thead>
                                     <tr>
                                         <th rowspan="2" class="ris-item-column">ITEM</th>
+                                        <th rowspan="2">SUPPLIER</th>
                                         <th colspan="2" class="ris-quantity-header">QUANTITY</th>
                                         <th rowspan="2" class="ris-unit-cost-column">UNIT COST</th>
                                         <th rowspan="2" class="ris-amount-column">AMOUNT</th>
@@ -1641,7 +1926,11 @@
                                 @for($row = 0; $row < 8; $row++)
                                     @php($item = $ris->risItems->get($row))
                                     <tr>
-                                        <td>{{ $item?->ris_item_name_description ?: ' ' }}</td>
+                                        <td>
+                                            {{ $item?->ris_item_name_description ?: ' ' }}
+                                            @if(!empty($item?->uom_name)) ({{ $item->uom_name }})@endif
+                                        </td>
+                                        <td>{{ $item?->supplier_display_name ?: ' ' }}</td>
                                         <td class="text-center">{{ $item?->ris_quantity_requested ?? ' ' }}</td>
                                         <td class="text-center">{{ $item?->ris_quantity_issued ?? ' ' }}</td>
                                         <td class="text-right">{{ $item && $item->ris_unit_cost !== null ? number_format((float) $item->ris_unit_cost, 2) : ' ' }}</td>
@@ -1701,24 +1990,33 @@
         </div>
 
         @if(in_array($ris->ris_status, ['Draft', 'Minor Revision'], true))
+            {{-- EDIT RIS MODAL: parent owns editRisModal so Close/Cancel/Escape work correctly --}}
             <div
                 x-cloak
                 x-show="editRisModal === 'edit-ris-{{ $ris->ris_id }}'"
-                x-data="{
+                x-transition.opacity
+                x-on:click.self="editRisModal = null"
+                x-on:keydown.escape.window="editRisModal = null"
+                class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            >
+                <div
+                    x-data="{
                     editItems: [
                         @forelse($ris->risItems as $item)
                             {
                                 name_description: @js($item->ris_item_name_description ?? ''),
+                                supplier_id: @js((string) ($item->ris_item_supplier_id ?? '')),
+                                uom_id: @js((string) ($item->ris_item_uom_id ?? '')),
                                 quantity_requested: @js($item->ris_quantity_requested ?? 1),
                                 quantity_issued: @js($item->ris_quantity_issued ?? 0),
                                 unit_cost: @js($item->ris_unit_cost ?? 0)
                             }{{ !$loop->last ? ',' : '' }}
                         @empty
-                            { name_description: '', quantity_requested: 1, quantity_issued: 0, unit_cost: 0 }
+                            { name_description: '', supplier_id: '', uom_id: '', quantity_requested: 1, quantity_issued: 0, unit_cost: 0 }
                         @endforelse
                     ],
                     addEditItem() {
-                        this.editItems.push({ name_description: '', quantity_requested: 1, quantity_issued: 0, unit_cost: 0 });
+                        this.editItems.push({ name_description: '', supplier_id: '', uom_id: '', quantity_requested: 1, quantity_issued: 0, unit_cost: 0 });
                     },
                     removeEditItem(index) {
                         if (this.editItems.length > 1) { this.editItems.splice(index, 1); }
@@ -1727,11 +2025,6 @@
                         return (Number(item.quantity_issued) || 0) * (Number(item.unit_cost) || 0);
                     }
                 }"
-                x-on:keydown.escape.window="editRisModal = null"
-                class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-            >
-                <div
-                    x-on:click.self="editRisModal = null"
                     class="flex max-h-[95vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl"
                 >
                     {{-- EDIT MODAL HEADER --}}
@@ -1809,6 +2102,7 @@
                                         <thead>
                                             <tr>
                                                 <th rowspan="2" class="ris-item-column">ITEM</th>
+                                                <th rowspan="2">SUPPLIER</th>
                                                 <th colspan="2" class="ris-quantity-header">QUANTITY</th>
                                                 <th rowspan="2" class="ris-unit-cost-column">UNIT COST</th>
                                                 <th rowspan="2" class="ris-amount-column">AMOUNT</th>
@@ -1820,12 +2114,40 @@
                                         </thead>
                                         <tbody>
                                             <template x-for="(item, index) in editItems" :key="index">
-                                                <tr>
+                                                <tr :class="$root.risSplitInfo(editItems, index)?.overflow ? 'bg-red-50' : ''">
                                                     <td>
                                                         <div class="ris-edit-item-cell">
-                                                            <input type="text" x-model="item.name_description" x-bind:name="`ris_items[${index}][name_description]`" class="ris-cell-input">
+                                                            <div class="min-w-0 flex-1">
+                                                                <input type="text" x-model="item.name_description" x-on:input="$root.copySplitUom(editItems, index)" x-bind:name="`ris_items[${index}][name_description]`" class="ris-cell-input">
+                                                                <select x-model="item.uom_id" x-bind:name="`ris_items[${index}][uom_id]`" class="ris-cell-input text-xs text-gray-600">
+                                                                    <option value="">Unit</option>
+                                                                    @foreach(($uoms ?? collect()) as $uom)
+                                                                        <option value="{{ $uom->uom_id }}">{{ $uom->uom_name }}</option>
+                                                                    @endforeach
+                                                                </select>
+                                                                <p
+                                                                    class="mt-1 text-[11px] leading-4"
+                                                                    x-show="$root.risSplitInfo(editItems, index)"
+                                                                    x-cloak
+                                                                    :class="$root.risSplitInfo(editItems, index)?.overflow ? 'text-red-700' : 'text-amber-700'"
+                                                                    x-text="(() => {
+                                                                        const info = $root.risSplitInfo(editItems, index);
+                                                                        if (!info) return '';
+                                                                        const prefix = info.isDuplicate ? ('Split of \"' + info.label + '\"') : ('Split across suppliers');
+                                                                        return prefix + ' — ' + info.allocated + ' of ' + info.asked + ' allocated, ' + info.remaining + ' remaining';
+                                                                    })()"
+                                                                ></p>
+                                                            </div>
                                                             <button type="button" x-on:click="removeEditItem(index)" x-bind:disabled="editItems.length === 1" class="ris-remove-item" title="Remove item">×</button>
                                                         </div>
+                                                    </td>
+                                                    <td>
+                                                        <select x-model="item.supplier_id" x-bind:name="`ris_items[${index}][supplier_id]`" class="ris-cell-input text-xs">
+                                                            <option value="">Select supplier</option>
+                                                            @foreach(($activeSuppliers ?? collect()) as $supplier)
+                                                                <option value="{{ $supplier->supplier_id }}">{{ $supplier->display_name }}</option>
+                                                            @endforeach
+                                                        </select>
                                                     </td>
                                                     <td><input type="number" min="1" x-model="item.quantity_requested" x-bind:name="`ris_items[${index}][quantity_requested]`" class="ris-cell-input text-center"></td>
                                                     <td><input type="number" min="0" x-model="item.quantity_issued" x-bind:name="`ris_items[${index}][quantity_issued]`" class="ris-cell-input text-center"></td>
@@ -1932,15 +2254,17 @@
                             </button>
                             <button
                                 type="submit"
-                                class="rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100"
+                                x-bind:disabled="$root.risHasOverflow(editItems)"
+                                class="rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 Save Changes
                             </button>
                             @if($ris->ris_status === 'Draft')
                                 <button
                                     type="submit"
+                                    x-bind:disabled="$root.risHasOverflow(editItems)"
                                     onclick="this.form.querySelector('input[name=save_action]').value='submit'"
-                                    class="rounded-lg bg-gray-900 px-5 py-2 text-sm font-medium text-white hover:bg-gray-800"
+                                    class="rounded-lg bg-gray-900 px-5 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
                                     Save & Submit
                                 </button>
@@ -1948,8 +2272,9 @@
                             @if($ris->ris_status === 'Minor Revision')
                                 <button
                                     type="submit"
+                                    x-bind:disabled="$root.risHasOverflow(editItems)"
                                     onclick="this.form.querySelector('input[name=save_action]').value='resubmit'"
-                                    class="rounded-lg bg-gray-900 px-5 py-2 text-sm font-medium text-white hover:bg-gray-800"
+                                    class="rounded-lg bg-gray-900 px-5 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
                                     Save & Resubmit
                                 </button>
@@ -1966,6 +2291,15 @@
 
 
 <script>
+    // #region agent log
+    (function () {
+        const bodyText = (document.body && document.body.innerText) ? document.body.innerText.slice(0, 400) : '';
+        const leaked = bodyText.includes('replacementPurpose') || bodyText.includes('refreshRisRecords');
+        const xDataEl = document.querySelector('[x-data]');
+        const xDataLen = xDataEl ? (xDataEl.getAttribute('x-data') || '').length : 0;
+        fetch('http://127.0.0.1:7507/ingest/f066ae43-61c9-47d9-8059-9aeed89263ba',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'73bc7d'},body:JSON.stringify({sessionId:'73bc7d',runId:'post-fix',hypothesisId:'E',location:'purchaser/ris/index.blade.php:script',message:'DOM leak check',data:{leaked,xDataLen,xDataPrefix:(xDataEl ? (xDataEl.getAttribute('x-data')||'').slice(0,120) : null),bodyPrefix:bodyText.slice(0,180)},timestamp:Date.now()})}).catch(()=>{});
+    })();
+    // #endregion
     // =====================================================
     // CREATE RIS: CALCULATE AMOUNT AUTOMATICALLY
     // Amount = Quantity Issued x Unit Cost
@@ -1998,15 +2332,65 @@
 </script>
 
 <script>
+    // ============================================================
     // RIS PRINT
+    // Replace your OLD printRis() function with this whole script.
+    // ============================================================
+
     function printRis(elementId) {
 
+        // ========================================================
+        // FIND THE RIS DOCUMENT
+        // ========================================================
         const printElement = document.getElementById(elementId);
 
+        // #region agent log
+        fetch('http://127.0.0.1:7507/ingest/f066ae43-61c9-47d9-8059-9aeed89263ba',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'ae20eb'},body:JSON.stringify({sessionId:'ae20eb',runId:'pre-fix',hypothesisId:'A',location:'ris/index.blade.php:printRis',message:'printRis lookup',data:{elementId:elementId,found:!!printElement,htmlLength:printElement?(printElement.innerHTML||'').length:0,tag:printElement?printElement.tagName:null,className:printElement?printElement.className:null,matchingIds:Array.from(document.querySelectorAll('[id^="print-ris"], [id^="print-empty"]')).map(function(el){return el.id;})},timestamp:Date.now()})}).catch(function(){});
+        // #endregion
+
         if (!printElement) {
+            console.error('RIS print element not found:', elementId);
+            alert('Unable to find the RIS document to print.');
             return;
         }
 
+
+        // ========================================================
+        // CREATE A CLEAN COPY
+        // This prevents us from modifying the actual modal.
+        // ========================================================
+        const printableElement = printElement.cloneNode(true);
+
+
+        // ========================================================
+        // REMOVE THINGS THAT SHOULD NEVER APPEAR IN PRINT
+        // ========================================================
+        printableElement.querySelectorAll(
+            '.no-print, button, script'
+        ).forEach(function (element) {
+            element.remove();
+        });
+
+
+        // ========================================================
+        // CLEAN RIS VALUES
+        //
+        // This is important for your issue.
+        // We only keep visible text inside the printed RIS.
+        // ========================================================
+        printableElement.querySelectorAll('.ris-value-line').forEach(function (element) {
+
+            const cleanText = (element.textContent || '')
+                .replace(/\s+/g, ' ')
+                .trim();
+
+            element.textContent = cleanText;
+        });
+
+
+        // ========================================================
+        // OPEN PRINT WINDOW
+        // ========================================================
         const printWindow = window.open(
             '',
             '_blank',
@@ -2018,6 +2402,12 @@
             return;
         }
 
+
+        // ========================================================
+        // BUILD PRINT DOCUMENT
+        // ========================================================
+        printWindow.document.open();
+
         printWindow.document.write(`
             <!DOCTYPE html>
             <html>
@@ -2025,9 +2415,18 @@
 
                 <meta charset="UTF-8">
 
+                <meta
+                    name="viewport"
+                    content="width=device-width, initial-scale=1.0"
+                >
+
                 <title>Requisition and Issue Slip</title>
 
                 <style>
+
+                    /* ============================================
+                       PAGE
+                       ============================================ */
 
                     @page {
                         size: A4 landscape;
@@ -2043,17 +2442,27 @@
                         margin: 0;
                         padding: 0;
                         width: 100%;
-                        background: white;
-                        font-family: Arial, Helvetica, sans-serif;
-                        color: black;
+                        background: #ffffff;
+                        color: #000000;
+
+                        font-family:
+                            Arial,
+                            Helvetica,
+                            sans-serif;
                     }
 
                     body {
                         padding: 0;
                     }
 
+
+                    /* ============================================
+                       MAIN RIS FORM
+                       ============================================ */
+
                     .ris-original-form {
                         width: 100%;
+                        max-width: 100%;
 
                         margin: 0;
 
@@ -2070,11 +2479,20 @@
                             Helvetica,
                             sans-serif;
 
-                        color: #000;
+                        color: #000000;
+
+                        background: #ffffff;
 
                         page-break-inside: avoid;
                         break-inside: avoid;
+
+                        overflow: hidden;
                     }
+
+
+                    /* ============================================
+                       DOCUMENT HEADER
+                       ============================================ */
 
                     .ris-document-header {
                         position: relative;
@@ -2102,6 +2520,11 @@
                         font-weight: 700;
                     }
 
+
+                    /* ============================================
+                       RIS NUMBER
+                       ============================================ */
+
                     .ris-number-area {
                         position: absolute;
 
@@ -2119,16 +2542,44 @@
                         font-size: 10pt;
 
                         font-weight: 600;
+
+                        white-space: nowrap;
                     }
 
                     .ris-number-line {
-                        display: block;
+                        display: flex;
+
+                        align-items: flex-end;
+                        justify-content: center;
 
                         width: 42mm;
+                        min-height: 6mm;
+
+                        padding:
+                            0
+                            1.5mm
+                            1mm;
 
                         border-bottom:
                             0.3mm solid #1f2937;
+
+                        font-size: 8pt;
+
+                        line-height: 1.25;
+
+                        text-align: center;
+
+                        white-space: normal;
+
+                        overflow-wrap: anywhere;
+
+                        word-break: normal;
                     }
+
+
+                    /* ============================================
+                       RIS ITEMS TABLE
+                       ============================================ */
 
                     .ris-items-table {
                         width: 100%;
@@ -2162,6 +2613,25 @@
                         font-weight: 700;
                     }
 
+                    .ris-items-table tbody td {
+                        height: 10.5mm;
+
+                        padding:
+                            1mm
+                            2mm;
+
+                        vertical-align: middle;
+
+                        font-size: 8pt;
+
+                        overflow-wrap: anywhere;
+                    }
+
+
+                    /* ============================================
+                       TABLE COLUMN WIDTHS
+                       ============================================ */
+
                     .ris-item-column {
                         width: 40%;
                     }
@@ -2190,15 +2660,10 @@
                         width: 20%;
                     }
 
-                    .ris-items-table tbody td {
-                        height: 10.5mm;
 
-                        padding:
-                            1mm
-                            2mm;
-
-                        font-size: 8pt;
-                    }
+                    /* ============================================
+                       PURPOSE
+                       ============================================ */
 
                     .ris-purpose-area {
                         margin-top: 7mm;
@@ -2216,6 +2681,8 @@
                         align-items: flex-end;
 
                         margin-top: 6mm;
+
+                        width: 100%;
                     }
 
                     .ris-purpose-spacer {
@@ -2227,9 +2694,29 @@
                     .ris-purpose-line {
                         flex: 1;
 
+                        min-width: 0;
+
+                        min-height: 6mm;
+
+                        padding:
+                            0
+                            1.5mm
+                            1mm;
+
                         border-bottom:
                             0.3mm solid #1f2937;
+
+                        font-size: 8pt;
+
+                        line-height: 1.25;
+
+                        overflow-wrap: anywhere;
                     }
+
+
+                    /* ============================================
+                       SIGNATURE SECTION
+                       ============================================ */
 
                     .ris-signatures {
                         display: grid;
@@ -2248,6 +2735,8 @@
 
                     .ris-signature-column {
                         min-width: 0;
+
+                        overflow: hidden;
                     }
 
                     .ris-signature-label {
@@ -2255,11 +2744,43 @@
                     }
 
                     .ris-signature-line {
+                        display: flex;
+
+                        align-items: flex-end;
+
+                        justify-content: center;
+
+                        width: 100%;
+
                         height: 10mm;
+
+                        min-width: 0;
+
+                        padding:
+                            0
+                            1.5mm
+                            1mm;
 
                         border-bottom:
                             0.3mm solid #1f2937;
+
+                        font-size: 8pt;
+
+                        line-height: 1.25;
+
+                        text-align: center;
+
+                        overflow: hidden;
+
+                        overflow-wrap: anywhere;
+
+                        word-break: normal;
                     }
+
+
+                    /* ============================================
+                       SIGNATURE DATE
+                       ============================================ */
 
                     .ris-date-label {
                         margin-top: 3mm;
@@ -2268,40 +2789,56 @@
                     }
 
                     .ris-date-line {
+                        display: flex;
+
+                        align-items: flex-end;
+
+                        justify-content: center;
+
+                        width: 100%;
+
                         height: 6mm;
+
+                        min-width: 0;
+
+                        padding:
+                            0
+                            1.5mm
+                            1mm;
 
                         border-bottom:
                             0.3mm solid #1f2937;
-                    }
 
-                    table {
-                        width: 100%;
+                        font-size: 8pt;
 
-                        border-collapse: collapse;
-                    }
-
-                    th,
-                    td {
-                        border: 1px solid #000;
-
-                        padding: 5px;
-
-                        font-size: 10px;
-                    }
-
-                    h1 {
-                        margin: 0;
-
-                        font-size: 17px;
+                        line-height: 1.25;
 
                         text-align: center;
 
-                        text-transform: uppercase;
+                        overflow: hidden;
+
+                        overflow-wrap: anywhere;
                     }
 
-                    p {
-                        font-size: 10px;
+
+                    /* ============================================
+                       VALUE LINES
+                       ============================================ */
+
+                    .ris-value-line {
+                        min-width: 0;
+
+                        max-width: 100%;
+
+                        font-size: 8pt;
+
+                        line-height: 1.25;
                     }
+
+
+                    /* ============================================
+                       BASIC HELPERS
+                       ============================================ */
 
                     .text-center {
                         text-align: center;
@@ -2320,48 +2857,42 @@
                         text-transform: uppercase;
                     }
 
-                    .mb-6 {
-                        margin-bottom: 18px;
+
+                    /* ============================================
+                       NEVER PRINT THESE
+                       ============================================ */
+
+                    button,
+                    .no-print {
+                        display: none !important;
                     }
 
-                    .mt-1 {
-                        margin-top: 4px;
-                    }
 
-                    .mt-8 {
-                        margin-top: 24px;
-                    }
+                    /* ============================================
+                       PRINT
+                       ============================================ */
 
-                    .h-9 {
-                        height: 32px;
-                    }
+                    @media print {
 
-                    .h-20 {
-                        height: 65px;
-                    }
+                        html,
+                        body {
+                            width: 100%;
 
-                    .align-bottom {
-                        vertical-align: bottom;
-                    }
+                            margin: 0 !important;
 
-                    .ris-value-line {
-                        display: flex;
-                        align-items: flex-end;
-                        min-height: 6mm;
-                        padding: 0 1.5mm 1mm;
-                        font-size: 8pt;
-                        line-height: 1.25;
-                    }
+                            padding: 0 !important;
+                        }
 
-                    .ris-number-line.ris-value-line,
-                    .ris-signature-line.ris-value-line,
-                    .ris-date-line.ris-value-line {
-                        justify-content: center;
-                        text-align: center;
-                    }
+                        .ris-original-form {
+                            width: 100%;
 
-                    #print-empty-ris-content {
-                        page-break-after: avoid;
+                            margin: 0 !important;
+
+                            page-break-inside: avoid;
+
+                            break-inside: avoid;
+                        }
+
                     }
 
                 </style>
@@ -2370,7 +2901,7 @@
 
             <body>
 
-                ${printElement.outerHTML}
+                ${printableElement.outerHTML}
 
             </body>
 
@@ -2379,6 +2910,10 @@
 
         printWindow.document.close();
 
+
+        // ========================================================
+        // WAIT UNTIL THE NEW PRINT WINDOW IS READY
+        // ========================================================
         printWindow.onload = function () {
 
             printWindow.focus();

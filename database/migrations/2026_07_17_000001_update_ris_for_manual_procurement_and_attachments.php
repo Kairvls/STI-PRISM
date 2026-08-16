@@ -19,7 +19,7 @@ return new class extends Migration
             // =====================================================
 
             if (!Schema::hasColumn('requisition_issue_slip_table', 'ris_submitted_by')) {
-                $table->unsignedBigInteger('ris_submitted_by')
+                $table->bigInteger('ris_submitted_by')
                     ->nullable()
                     ->after('ris_requested_by_date');
             }
@@ -127,14 +127,14 @@ return new class extends Migration
 
         // Drop legacy foreign key if it exists so the column type can be corrected.
         try {
-            DB::statement('ALTER TABLE ris_attachments_table DROP FOREIGN KEY fk_ris_attachment_ris');
+            DB::statement('ALTER TABLE ris_attachments_table MODIFY ris_id BIGINT NULL');
         } catch (\Throwable $e) {
-            // Foreign key did not exist; continue.
+            // Column type already matches or cannot be changed; continue.
         }
 
         // Ensure ris_id column type matches the referenced signed BIGINT.
         try {
-            DB::statement('ALTER TABLE ris_attachments_table MODIFY ris_id BIGINT NULL');
+            DB::statement('ALTER TABLE ris_attachments_table MODIFY ris_attachment_uploaded_by BIGINT NULL');
         } catch (\Throwable $e) {
             // Column type already matches or cannot be changed; continue.
         }

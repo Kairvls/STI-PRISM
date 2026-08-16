@@ -737,6 +737,7 @@ class AdminController extends Controller
         ->distinct()
         ->count('requisition_issue_slip_table.ris_id');
 
+<<<<<<< Updated upstream
     $forwardedRis = $this->applyProcurementReviewStatusFilter(clone $baseQuery, 'forwarded')
         ->distinct()
         ->count('requisition_issue_slip_table.ris_id');
@@ -744,6 +745,21 @@ class AdminController extends Controller
     $allRis = $this->applyProcurementReviewStatusFilter(clone $baseQuery, 'all')
         ->distinct()
         ->count('requisition_issue_slip_table.ris_id');
+=======
+    $pendingRis = (clone $baseQuery)
+        ->whereIn(
+            'requisition_issue_slip_table.ris_status',
+            $this->adminReviewableStatuses()
+        )
+        ->count();
+
+    $amendRis = (clone $baseQuery)
+        ->where(
+            'requisition_issue_slip_table.ris_status',
+            'Minor Revision'
+        )
+        ->count();
+>>>>>>> Stashed changes
 
     $pendingRisAmount = (float) $this->applyProcurementReviewStatusFilter(clone $baseQuery, 'pending')
         ->sum('ris_items_sum.ris_calculated_total');
@@ -764,7 +780,70 @@ class AdminController extends Controller
     // STATUS FILTER
     // =====================================================
 
+<<<<<<< Updated upstream
     $this->applyProcurementReviewStatusFilter($query, $filter);
+=======
+    if ($filter === 'pending') {
+
+        $query->whereIn(
+            'requisition_issue_slip_table.ris_status',
+            $this->adminReviewableStatuses()
+        );
+
+    } elseif ($filter === 'approved') {
+
+        $query->where(
+            'requisition_issue_slip_table.ris_status',
+            'Approved'
+        )
+        ->whereNotNull(
+            'requisition_issue_slip_table.ris_approved_by_date'
+        )
+        ->where(function ($q) {
+            $q->whereNull('requisition_issue_slip_table.ris_approved_by_signature')
+              ->orWhere('requisition_issue_slip_table.ris_approved_by_signature', 'like', 'data:image%');
+        });
+
+    } elseif ($filter === 'direct_approved') {
+
+        $query->where(
+            'requisition_issue_slip_table.ris_status',
+            'Approved'
+        )
+        ->whereNotNull(
+            'requisition_issue_slip_table.ris_approved_by_date'
+        )
+        ->whereNotNull(
+            'requisition_issue_slip_table.ris_approved_by_signature'
+        )
+        ->where(
+            'requisition_issue_slip_table.ris_approved_by_signature',
+            'not like',
+            'data:image%'
+        );
+
+    } elseif ($filter === 'rejected') {
+
+        $query->where(
+            'requisition_issue_slip_table.ris_status',
+            'Minor Revision'
+        );
+
+    } else {
+
+        $query->whereIn(
+            'requisition_issue_slip_table.ris_status',
+            [
+                'Submitted',
+                'Under Review',
+                'Resubmitted',
+                'Minor Revision',
+                'Approved',
+                'Rejected',
+            ]
+        );
+    }
+>>>>>>> Stashed changes
 
 
     // =====================================================
@@ -822,7 +901,23 @@ class AdminController extends Controller
 
     $risRecords = $query
 
+<<<<<<< Updated upstream
         ->orderByDesc(DB::raw('COALESCE(requisition_issue_slip_table.ris_submitted_at, requisition_issue_slip_table.ris_requested_by_date, requisition_issue_slip_table.ris_created_at)'))
+=======
+        ->orderByRaw("
+            CASE
+                WHEN requisition_issue_slip_table.ris_status IN ('Submitted', 'Resubmitted', 'Under Review') THEN 0
+                WHEN requisition_issue_slip_table.ris_status = 'Minor Revision' THEN 1
+                WHEN requisition_issue_slip_table.ris_status = 'Approved' THEN 2
+                WHEN requisition_issue_slip_table.ris_status = 'Rejected' THEN 3
+                ELSE 4
+            END
+        ")
+
+        ->orderByDesc(
+            'requisition_issue_slip_table.ris_requested_by_date'
+        )
+>>>>>>> Stashed changes
 
         ->orderByDesc(
             'requisition_issue_slip_table.ris_id'
@@ -1213,6 +1308,7 @@ class AdminController extends Controller
                 'ris_released.released_ris_id'
             )
 
+<<<<<<< Updated upstream
             // Keep every identifiable RIS visible for logging,
             // including incomplete, forwarded, and already-decided forms.
             ->where(function ($q) {
@@ -1223,6 +1319,17 @@ class AdminController extends Controller
                     ->orWhereNotNull('requisition_issue_slip_table.ris_submitted_at')
                     ->orWhereNotNull('requisition_issue_slip_table.ris_created_at');
             });
+=======
+            // Only RIS forms that have been submitted
+            ->whereNotNull(
+                'requisition_issue_slip_table.ris_requested_by_date'
+            )
+
+            ->whereNotIn(
+                'requisition_issue_slip_table.ris_status',
+                array_merge(['Draft'], $this->adminReviewableStatuses())
+            );
+>>>>>>> Stashed changes
 
 
         // Card counts use the same scopes as the filter chips.
@@ -2128,6 +2235,7 @@ class AdminController extends Controller
 
     public function risApprovals(Request $request)
     {
+<<<<<<< Updated upstream
         // =====================================================
         // RIS APPROVALS - Full implementation matching
         // procurementReview() to provide all required variables
@@ -2185,6 +2293,12 @@ class AdminController extends Controller
                 'ris_items_names.ris_id'
             )
 
+=======
+        $risRecords = DB::table('requisition_issue_slip_table')
+            ->leftJoin('procurement_requests_table', 'requisition_issue_slip_table.ris_procurement_request_id', '=', 'procurement_requests_table.procurement_request_id')
+            ->leftJoin('reports_table', 'procurement_requests_table.procurement_request_report_id', '=', 'reports_table.report_id')
+            ->leftJoin('equipment_table', 'reports_table.report_equipment_id', '=', 'equipment_table.equipment_id')
+>>>>>>> Stashed changes
             ->select(
                 'requisition_issue_slip_table.*',
                 'procurement_requests_table.procurement_request_id',
@@ -2194,6 +2308,14 @@ class AdminController extends Controller
                 'ris_items_sum.ris_calculated_total',
                 'ris_items_names.ris_item_names'
             )
+<<<<<<< Updated upstream
+=======
+            ->whereIn('requisition_issue_slip_table.ris_status', $this->adminReviewableStatuses())
+            ->whereNotNull('requisition_issue_slip_table.ris_requested_by_date')
+            ->whereNull('requisition_issue_slip_table.ris_approved_by_date')
+            ->orderByDesc('requisition_issue_slip_table.ris_requested_by_date')
+            ->paginate(10);
+>>>>>>> Stashed changes
 
             // Include submitted + legacy/incomplete forms so old records stay visible for logging.
             ->where(function ($q) {
@@ -2359,9 +2481,17 @@ class AdminController extends Controller
         );
     }
 
+    public function startRisReview($risId)
+    {
+        $ris = DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $risId)
+            ->first();
 
+        abort_if(!$ris, 404);
 
+        $this->markRisUnderReview($ris);
 
+<<<<<<< Updated upstream
     // =====================================================
     // ADMIN RIS PRINT / PREVIEW
     // =====================================================
@@ -2914,6 +3044,14 @@ class AdminController extends Controller
     // =====================================================
     // ADDED RIS ADMIN APPROVAL: APPROVE RIS
     // =====================================================
+=======
+        if (request()->expectsJson() || request()->ajax()) {
+            return response()->json(['status' => 'Under Review']);
+        }
+
+        return back();
+    }
+>>>>>>> Stashed changes
 
     public function approveRis(Request $request, $risId)
     {
@@ -2925,6 +3063,7 @@ class AdminController extends Controller
 
             abort_if(!$ris, 404);
 
+<<<<<<< Updated upstream
             // New workflow: Submitted / Under Review / Resubmitted.
             // Legacy status: Pending.
             if (
@@ -2957,8 +3096,26 @@ class AdminController extends Controller
                     ->where('ris_id', $risId)
                     ->update($forwardUpdate);
             }
+=======
+            if (!$this->isAdminReviewable($ris->ris_status) || !$ris->ris_requested_by_date) {
+                return back()->with('error', 'Only submitted RIS records can be approved.');
+            }
 
-            // Log the approval activity
+            $this->markRisUnderReview($ris);
+
+            $adminName = Auth::user()->user_full_name ?? 'Admin';
+
+            DB::table('requisition_issue_slip_table')
+                ->where('ris_id', $risId)
+                ->update([
+                    'ris_status' => 'Approved',
+                    'ris_approved_by_signature' => $adminName,
+                    'ris_approved_by_date' => now()->toDateString(),
+                ]);
+>>>>>>> Stashed changes
+
+            $this->completeLinkedReplacementRequest($ris);
+
             try {
                 DB::table('approval_logs_table')->insert([
                     'approval_log_reference_type' => 'RIS',
@@ -3058,14 +3215,24 @@ class AdminController extends Controller
         // New workflow: Submitted / Under Review / Resubmitted.
         // Legacy status: Pending.
         if (
+<<<<<<< Updated upstream
             !in_array($ris->ris_status, ['Submitted', 'Under Review', 'Resubmitted', 'Pending'], true) ||
+=======
+            !$this->isAdminReviewable($ris->ris_status) ||
+>>>>>>> Stashed changes
             empty($ris->ris_requested_by_date)
         ) {
             return back()->with(
                 'error',
+<<<<<<< Updated upstream
                 'Only submitted pending RIS records can be admin approved.'
+=======
+                'Only submitted RIS records can be directly approved.'
+>>>>>>> Stashed changes
             );
         }
+
+        $this->markRisUnderReview($ris);
 
         // =====================================================
         // DIRECTLY APPROVE RIS
@@ -3084,6 +3251,8 @@ class AdminController extends Controller
                 'ris_approved_by_signature' => null,
                 'ris_approved_by_date' => null,
             ]);
+
+        $this->completeLinkedReplacementRequest($ris);
 
         // =====================================================
         // APPROVAL LOG
@@ -3113,7 +3282,7 @@ class AdminController extends Controller
         // =====================================================
 
         return redirect()
-            ->route('admin.procurement-review.ris', [
+            ->route('admin.procurement-review', [
                 'filter' => 'all'
             ])
             ->with(
@@ -3137,6 +3306,7 @@ public function rejectRis(Request $request, $risId)
 
             abort_if(!$ris, 404);
 
+<<<<<<< Updated upstream
             $validated = $request->validate([
                 'remarks' => ['required', 'string', 'min:3'],
             ]);
@@ -3192,14 +3362,47 @@ public function rejectRis(Request $request, $risId)
                     ]);
             }
 
+=======
+            if (!$this->isAdminReviewable($ris->ris_status) || !$ris->ris_requested_by_date) {
+                return back()->with('error', 'Only submitted RIS records can be returned for revision.');
+            }
+
+            $remarks = trim((string) $request->input('remarks', ''));
+            if ($remarks === '') {
+                return back()->with('error', 'Please provide amendment remarks to inform the Purchaser what needs to be revised.');
+            }
+
+            $this->markRisUnderReview($ris);
+
+            DB::table('requisition_issue_slip_table')
+                ->where('ris_id', $risId)
+                ->update([
+                    'ris_status' => 'Minor Revision',
+                    'ris_rejection_reason' => $remarks,
+                ]);
+
+            DB::table('ris_revision_notes_table')->insert([
+                'ris_id' => (int) $risId,
+                'ris_revision_requested_by' => Auth::id(),
+                'ris_revision_type' => 'Minor Revision',
+                'ris_revision_note' => $remarks,
+                'ris_revision_created_at' => now(),
+            ]);
+
+>>>>>>> Stashed changes
             try {
                 DB::table('approval_logs_table')->insert([
                     'approval_log_reference_type' => 'RIS',
                     'approval_log_reference_id' => (int) $risId,
                     'approval_log_level' => 'Admin',
                     'approval_log_approved_by' => Auth::id(),
+<<<<<<< Updated upstream
                     'approval_log_approval_status' => 'Rejected',
                     'approval_log_approval_remarks' => 'RIS returned to Purchaser for amendment (no signature): ' . $remarks,
+=======
+                    'approval_log_approval_status' => 'Minor Revision',
+                    'approval_log_approval_remarks' => $remarks,
+>>>>>>> Stashed changes
                     'approval_log_approved_at' => now(),
                 ]);
             } catch (\Throwable $e) {
@@ -3210,6 +3413,7 @@ public function rejectRis(Request $request, $risId)
         });
     }
 
+<<<<<<< Updated upstream
     // =====================================================
     // QUICK ACCESS MODAL CONTENT METHODS
     // =====================================================
@@ -3286,6 +3490,402 @@ public function rejectRis(Request $request, $risId)
         return view('admin.settings._quick-access', [
             'setting' => CampusSetupSetting::query()->first(),
         ]);
+=======
+    public function finalRejectRis(Request $request, $risId)
+    {
+        return DB::transaction(function () use ($request, $risId) {
+            $ris = DB::table('requisition_issue_slip_table')
+                ->where('ris_id', $risId)
+                ->lockForUpdate()
+                ->first();
+
+            abort_if(!$ris, 404);
+
+            if (!$this->isAdminReviewable($ris->ris_status) || !$ris->ris_requested_by_date) {
+                return back()->with('error', 'Only submitted RIS records can be rejected.');
+            }
+
+            $remarks = trim((string) $request->input('remarks', $request->input('rejection_reason', '')));
+
+            $this->markRisUnderReview($ris);
+
+            DB::table('requisition_issue_slip_table')
+                ->where('ris_id', $risId)
+                ->update([
+                    'ris_status' => 'Rejected',
+                    'ris_rejection_reason' => $remarks !== '' ? $remarks : 'Rejected by Admin.',
+                ]);
+
+            try {
+                DB::table('approval_logs_table')->insert([
+                    'approval_log_reference_type' => 'RIS',
+                    'approval_log_reference_id' => (int) $risId,
+                    'approval_log_level' => 'Admin',
+                    'approval_log_approved_by' => Auth::id(),
+                    'approval_log_approval_status' => 'Rejected',
+                    'approval_log_approval_remarks' => $remarks !== '' ? $remarks : 'Rejected by Admin.',
+                    'approval_log_approved_at' => now(),
+                ]);
+            } catch (\Throwable $e) {
+                // Ignore logging failures
+            }
+
+            return back()->with('success', 'RIS rejected.');
+        });
+    }
+
+    private function adminReviewableStatuses(): array
+    {
+        return ['Submitted', 'Resubmitted', 'Under Review'];
+    }
+
+    private function isAdminReviewable(?string $status): bool
+    {
+        return in_array($status, $this->adminReviewableStatuses(), true);
+    }
+
+    private function markRisUnderReview(object $ris): void
+    {
+        if (!in_array($ris->ris_status, ['Submitted', 'Resubmitted'], true)) {
+            return;
+        }
+
+        DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $ris->ris_id)
+            ->update([
+                'ris_status' => 'Under Review',
+            ]);
+
+        $ris->ris_status = 'Under Review';
+    }
+
+    private function completeLinkedReplacementRequest(object $ris): void
+    {
+        if (empty($ris->ris_procurement_request_id)) {
+            return;
+        }
+
+        DB::table('procurement_requests_table')
+            ->where('procurement_request_id', $ris->ris_procurement_request_id)
+            ->whereIn('procurement_request_status', ['Approved', 'Pending'])
+            ->update([
+                'procurement_request_status' => 'Completed',
+            ]);
+    }
+
+    public function requestCheck(Request $request)
+    {
+        $filter = $request->query('status', 'pending');
+
+        $query = RequestForCheckController::reviewBaseQuery()
+            ->where(function ($q) {
+                $q->whereNull('request_check_table.request_check_is_archived')
+                    ->orWhere('request_check_table.request_check_is_archived', 0);
+            });
+
+        if ($filter === 'pending') {
+            $query->where(function ($q) {
+                $q->where('request_check_table.request_check_status', 'Pending Admin Approval')
+                    ->orWhere(function ($inner) {
+                        $inner->where('request_check_table.request_check_status', 'Under Review')
+                            ->where('request_check_table.request_check_review_stage', 'admin');
+                    });
+            });
+        } elseif ($filter === 'approved') {
+            $query->where('request_check_table.request_check_status', 'Approved');
+        } elseif ($filter === 'rejected') {
+            $query->where('request_check_table.request_check_status', 'Rejected');
+        }
+
+        $rfcs = $query
+            ->orderByDesc('request_check_table.request_check_accounting_verified_at')
+            ->orderByDesc('request_check_table.request_check_id')
+            ->paginate(10)
+            ->withQueryString();
+
+        $rfcIds = $rfcs->getCollection()->pluck('request_check_id');
+        $attachments = $rfcIds->isEmpty()
+            ? collect()
+            : DB::table('request_check_attachments_table')
+                ->whereIn('request_check_id', $rfcIds)
+                ->get()
+                ->groupBy('request_check_id');
+
+        $counts = [
+            'pending' => RequestForCheckController::reviewBaseQuery()
+                ->where(function ($q) {
+                    $q->whereNull('request_check_is_archived')->orWhere('request_check_is_archived', 0);
+                })
+                ->where(function ($q) {
+                    $q->where('request_check_status', 'Pending Admin Approval')
+                        ->orWhere(function ($inner) {
+                            $inner->where('request_check_status', 'Under Review')
+                                ->where('request_check_review_stage', 'admin');
+                        });
+                })
+                ->count(),
+            'approved' => RequestForCheckController::reviewBaseQuery()
+                ->where(function ($q) {
+                    $q->whereNull('request_check_is_archived')->orWhere('request_check_is_archived', 0);
+                })
+                ->where('request_check_status', 'Approved')
+                ->count(),
+            'rejected' => RequestForCheckController::reviewBaseQuery()
+                ->where(function ($q) {
+                    $q->whereNull('request_check_is_archived')->orWhere('request_check_is_archived', 0);
+                })
+                ->where('request_check_status', 'Rejected')
+                ->count(),
+        ];
+
+        return view('admin.request-check.index', compact('rfcs', 'attachments', 'filter', 'counts'));
+    }
+
+    public function startRfcReview($id)
+    {
+        return DB::transaction(function () use ($id) {
+            $rfc = $this->lockAdminRfc($id);
+            if (!is_object($rfc)) {
+                return $rfc;
+            }
+
+            if ($rfc->request_check_status === 'Pending Admin Approval') {
+                DB::table('request_check_table')->where('request_check_id', $id)->update([
+                    'request_check_status' => 'Under Review',
+                    'request_check_review_stage' => 'admin',
+                    'request_check_updated_at' => now(),
+                ]);
+            }
+
+            if (request()->expectsJson() || request()->ajax()) {
+                return response()->json(['status' => 'Under Review']);
+            }
+
+            return back();
+        });
+    }
+
+    public function approveRfc($id)
+    {
+        return DB::transaction(function () use ($id) {
+            $rfc = $this->lockAdminRfc($id);
+            if (!is_object($rfc)) {
+                return $rfc;
+            }
+
+            $adminName = Auth::user()->user_full_name ?? 'Administrator';
+
+            DB::table('request_check_table')->where('request_check_id', $id)->update([
+                'request_check_status' => 'Approved',
+                'request_check_review_stage' => 'admin',
+                'request_check_approved_by_user_id' => Auth::id(),
+                'request_check_approved_at' => now(),
+                'request_check_approved_by_signature' => $adminName,
+                'request_check_approved_by_admin' => $adminName,
+                'request_check_rejection_reason' => null,
+                'request_check_updated_at' => now(),
+            ]);
+
+            return back()->with('success', 'Request for Check approved.');
+        });
+    }
+
+    public function rejectRfc(Request $request, $id)
+    {
+        $request->validate(['remarks' => ['required', 'string', 'max:5000']]);
+
+        return DB::transaction(function () use ($request, $id) {
+            $rfc = $this->lockAdminRfc($id);
+            if (!is_object($rfc)) {
+                return $rfc;
+            }
+
+            DB::table('request_check_table')->where('request_check_id', $id)->update([
+                'request_check_status' => 'Rejected',
+                'request_check_rejection_reason' => $request->input('remarks'),
+                'request_check_updated_at' => now(),
+            ]);
+
+            return back()->with('success', 'Request for Check rejected.');
+        });
+    }
+
+    public function reviseRfc(Request $request, $id)
+    {
+        $request->validate(['remarks' => ['required', 'string', 'max:5000']]);
+
+        return DB::transaction(function () use ($request, $id) {
+            $rfc = $this->lockAdminRfc($id);
+            if (!is_object($rfc)) {
+                return $rfc;
+            }
+
+            DB::table('request_check_table')->where('request_check_id', $id)->update([
+                'request_check_status' => 'Minor Revision',
+                'request_check_review_stage' => null,
+                'request_check_revision_notes' => $request->input('remarks'),
+                'request_check_updated_at' => now(),
+            ]);
+
+            return back()->with('success', 'Request for Check returned to Purchaser for revision.');
+        });
+    }
+
+    private function lockAdminRfc($id)
+    {
+        $rfc = DB::table('request_check_table')
+            ->where('request_check_id', $id)
+            ->lockForUpdate()
+            ->first();
+
+        if (!$rfc) {
+            return back()->with('error', 'Request for Check not found.');
+        }
+
+        if ((int) ($rfc->request_check_is_archived ?? 0) === 1) {
+            return back()->with('error', 'Archived Request for Check cannot be reviewed.');
+        }
+
+        $reviewable = $rfc->request_check_status === 'Pending Admin Approval'
+            || ($rfc->request_check_status === 'Under Review' && $rfc->request_check_review_stage === 'admin');
+
+        if (!$reviewable) {
+            return back()->with('error', 'Only Request for Check records pending Administrator approval can be reviewed.');
+        }
+
+        return $rfc;
+    }
+
+    public function liquidationReports(Request $request)
+    {
+        $filter = $request->query('status', 'pending');
+        $query = \App\Http\Controllers\LiquidationReportController::reviewBaseQuery()
+            ->where(function ($q) {
+                $q->whereNull('liquidation_reports_table.liquidation_report_is_archived')
+                    ->orWhere('liquidation_reports_table.liquidation_report_is_archived', 0);
+            });
+
+        if ($filter === 'pending') {
+            $query->where(function ($q) {
+                $q->where('liquidation_report_status', 'Pending Admin Approval')
+                    ->orWhere(function ($inner) {
+                        $inner->where('liquidation_report_status', 'Under Review')->where('liquidation_report_review_stage', 'admin');
+                    });
+            });
+        } elseif ($filter === 'approved') {
+            $query->where('liquidation_report_status', 'Approved');
+        } elseif ($filter === 'rejected') {
+            $query->where('liquidation_report_status', 'Rejected');
+        }
+
+        $reports = $query->orderByDesc('liquidation_report_id')->paginate(10)->withQueryString();
+        $ids = $reports->getCollection()->pluck('liquidation_report_id');
+        $items = $ids->isEmpty() ? collect() : DB::table('liquidation_report_items_table')->whereIn('liquidation_report_id', $ids)->orderBy('liquidation_item_id')->get()->groupBy('liquidation_report_id');
+
+        $counts = [
+            'pending' => \App\Http\Controllers\LiquidationReportController::reviewBaseQuery()->where(function ($q) {
+                $q->whereNull('liquidation_report_is_archived')->orWhere('liquidation_report_is_archived', 0);
+            })->where(function ($q) {
+                $q->where('liquidation_report_status', 'Pending Admin Approval')
+                    ->orWhere(function ($inner) {
+                        $inner->where('liquidation_report_status', 'Under Review')->where('liquidation_report_review_stage', 'admin');
+                    });
+            })->count(),
+            'approved' => \App\Http\Controllers\LiquidationReportController::reviewBaseQuery()->where(function ($q) {
+                $q->whereNull('liquidation_report_is_archived')->orWhere('liquidation_report_is_archived', 0);
+            })->where('liquidation_report_status', 'Approved')->count(),
+            'rejected' => \App\Http\Controllers\LiquidationReportController::reviewBaseQuery()->where(function ($q) {
+                $q->whereNull('liquidation_report_is_archived')->orWhere('liquidation_report_is_archived', 0);
+            })->where('liquidation_report_status', 'Rejected')->count(),
+        ];
+
+        return view('admin.liquidation-reports.index', compact('reports', 'items', 'filter', 'counts'));
+    }
+
+    public function startLiqReview($id)
+    {
+        return DB::transaction(function () use ($id) {
+            $liq = $this->lockAdminLiq($id);
+            if (!is_object($liq)) return $liq;
+            if ($liq->liquidation_report_status === 'Pending Admin Approval') {
+                DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->update([
+                    'liquidation_report_status' => 'Under Review',
+                    'liquidation_report_review_stage' => 'admin',
+                    'liquidation_report_updated_at' => now(),
+                ]);
+            }
+            if (request()->expectsJson() || request()->ajax()) {
+                return response()->json(['status' => 'Under Review']);
+            }
+            return back();
+        });
+    }
+
+    public function approveLiq($id)
+    {
+        return DB::transaction(function () use ($id) {
+            $liq = $this->lockAdminLiq($id);
+            if (!is_object($liq)) return $liq;
+            $name = Auth::user()->user_full_name ?? 'Administrator';
+            DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->update([
+                'liquidation_report_status' => 'Approved',
+                'liquidation_report_review_stage' => 'admin',
+                'liquidation_report_indorsed_by_supervisor' => $name,
+                'liquidation_report_indorsed_by_date' => now()->toDateString(),
+                'liquidation_report_recommending_approval' => $name,
+                'liquidation_report_updated_at' => now(),
+            ]);
+            return back()->with('success', 'Liquidation Report endorsed and approved.');
+        });
+    }
+
+    public function rejectLiq(Request $request, $id)
+    {
+        $request->validate(['remarks' => ['required', 'string', 'max:5000']]);
+        return DB::transaction(function () use ($request, $id) {
+            $liq = $this->lockAdminLiq($id);
+            if (!is_object($liq)) return $liq;
+            DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->update([
+                'liquidation_report_status' => 'Rejected',
+                'liquidation_report_rejection_reason' => $request->input('remarks'),
+                'liquidation_report_updated_at' => now(),
+            ]);
+            return back()->with('success', 'Liquidation Report rejected.');
+        });
+    }
+
+    public function reviseLiq(Request $request, $id)
+    {
+        $request->validate(['remarks' => ['required', 'string', 'max:5000']]);
+        return DB::transaction(function () use ($request, $id) {
+            $liq = $this->lockAdminLiq($id);
+            if (!is_object($liq)) return $liq;
+            DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->update([
+                'liquidation_report_status' => 'Minor Revision',
+                'liquidation_report_review_stage' => null,
+                'liquidation_report_revision_notes' => $request->input('remarks'),
+                'liquidation_report_updated_at' => now(),
+            ]);
+            return back()->with('success', 'Liquidation Report returned to Purchaser for revision.');
+        });
+    }
+
+    private function lockAdminLiq($id)
+    {
+        $liq = DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->lockForUpdate()->first();
+        if (!$liq) {
+            return back()->with('error', 'Liquidation Report not found.');
+        }
+        if ((int) ($liq->liquidation_report_is_archived ?? 0) === 1) {
+            return back()->with('error', 'Archived Liquidation Reports cannot be reviewed.');
+        }
+        $reviewable = $liq->liquidation_report_status === 'Pending Admin Approval'
+            || ($liq->liquidation_report_status === 'Under Review' && $liq->liquidation_report_review_stage === 'admin');
+        if (!$reviewable) {
+            return back()->with('error', 'Only Liquidation Reports pending Administrator approval can be reviewed.');
+        }
+        return $liq;
+>>>>>>> Stashed changes
     }
 }
 

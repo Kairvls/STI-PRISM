@@ -99,6 +99,7 @@
             <thead>
                 <tr>
                     <th rowspan="2" class="item-col">ITEM</th>
+                    <th rowspan="2">SUPPLIER</th>
                     <th colspan="2">QUANTITY</th>
                     <th rowspan="2" class="cost-col">UNIT COST</th>
                     <th rowspan="2" class="amount-col">AMOUNT</th>
@@ -112,9 +113,13 @@
                 @for($row = 0; $row < 10; $row++)
                     @php($item = $risItems[$row] ?? null)
                     <tr>
-                        <td>{{ $item->ris_item_name_description ?? '' }}</td>
-                        <td style="text-align: center;">{{ $item->ris_quantity_requested ?? '' }}</td>
-                        <td style="text-align: center;">{{ $item->ris_quantity_issued ?? '' }}</td>
+                        <td>
+                            {{ $item?->ris_item_name_description ?? '' }}
+                            @if(!empty($item?->uom_name)) ({{ $item->uom_name }})@endif
+                        </td>
+                        <td>{{ $item?->supplier_display_name ?? '' }}</td>
+                        <td style="text-align: center;">{{ $item?->ris_quantity_requested ?? '' }}</td>
+                        <td style="text-align: center;">{{ $item?->ris_quantity_issued ?? '' }}</td>
                         <td style="text-align: right;">{{ $item && $item->ris_unit_cost !== null ? number_format($item->ris_unit_cost, 2) : '' }}</td>
                         <td style="text-align: right;">{{ $item && $item->ris_total_amount !== null ? number_format($item->ris_total_amount, 2) : '' }}</td>
                     </tr>

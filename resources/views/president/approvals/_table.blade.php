@@ -57,6 +57,14 @@
                     View
                 </button>
 
+<<<<<<< Updated upstream
+=======
+                @php
+                    $awaitingPresident = $ris->ris_status === 'Approved'
+                        && !empty($ris->ris_approved_by_date)
+                        && (empty($ris->ris_approved_by_signature) || !str_starts_with((string) $ris->ris_approved_by_signature, 'data:image'));
+                @endphp
+>>>>>>> Stashed changes
                 @if ($awaitingPresident)
                 <button
                     type="button"

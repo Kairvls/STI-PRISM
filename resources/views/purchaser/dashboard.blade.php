@@ -325,6 +325,73 @@
 
     </div>
 
+    <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+
+        <a
+            href="{{ route('purchaser.atp.index', ['status' => 'Approved']) }}"
+            class="group rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:shadow-sm"
+        >
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <p class="text-sm font-medium text-gray-500">ATP ready for RFC</p>
+                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">
+                        {{ number_format($atpReadyForRfc) }}
+                    </p>
+                </div>
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-50 text-indigo-700">
+                    <i data-lucide="file-plus-2" class="h-5 w-5"></i>
+                </div>
+            </div>
+            <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
+                <span>Create Request for Check from approved ATP</span>
+                <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
+            </div>
+        </a>
+
+        <a
+            href="{{ route('purchaser.rfc.index', ['status' => 'Approved']) }}"
+            class="group rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:shadow-sm"
+        >
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <p class="text-sm font-medium text-gray-500">Funds ready for RR</p>
+                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">
+                        {{ number_format($rfcReadyForRr) }}
+                    </p>
+                </div>
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-sky-50 text-sky-700">
+                    <i data-lucide="banknote" class="h-5 w-5"></i>
+                </div>
+            </div>
+            <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
+                <span>Collect funds, then create Receiving Report</span>
+                <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
+            </div>
+        </a>
+
+        <a
+            href="{{ route('purchaser.rr.index', ['status' => 'Completed']) }}"
+            class="group rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:shadow-sm"
+        >
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <p class="text-sm font-medium text-gray-500">RR ready for liquidation</p>
+                    <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900">
+                        {{ number_format($rrReadyForLiq) }}
+                    </p>
+                </div>
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-50 text-violet-700">
+                    <i data-lucide="receipt" class="h-5 w-5"></i>
+                </div>
+            </div>
+            <div class="mt-5 flex items-center gap-1.5 text-xs font-medium text-gray-500">
+                <span>Create Liquidation from completed Receiving Report</span>
+                <i data-lucide="arrow-right" class="h-3.5 w-3.5 transition group-hover:translate-x-0.5"></i>
+            </div>
+        </a>
+
+    </div>
+
 
 
     {{-- ===================================================== --}}

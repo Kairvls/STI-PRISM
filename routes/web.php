@@ -10,12 +10,19 @@ use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\InfrastructureController;
 use App\Http\Controllers\QRController;
 use App\Http\Controllers\PurchaserController;
+use App\Http\Controllers\RequestForCheckController;
 use App\Http\Controllers\AuthorityToPurchaseController;
 use App\Http\Controllers\ReplacementRequestController;
 use App\Http\Controllers\PresidentController;
 use App\Http\Controllers\AccountingController;
 use App\Http\Controllers\ReceivingController;
+use App\Http\Controllers\ReceivingReportController;
+use App\Http\Controllers\LiquidationReportController;
 use App\Http\Controllers\MessageController;
+use App\Http\Controllers\BrandController;
+use App\Http\Controllers\UomController;
+use App\Http\Controllers\ItemCategoryController;
+use App\Http\Controllers\ItemSubCategoryController;
 
 /*
 |--------------------------------------------------------------------------
@@ -113,6 +120,39 @@ Route::middleware(['auth', 'admin'])
             '/procurement-review',
             [AdminController::class, 'procurementReview']
         )->name('procurement-review');
+
+        Route::get(
+            '/request-check',
+            [AdminController::class, 'requestCheck']
+        )->name('rfc.index');
+
+        Route::post(
+            '/request-check/{id}/start-review',
+            [AdminController::class, 'startRfcReview']
+        )->name('rfc.start-review');
+
+        Route::post(
+            '/request-check/{id}/approve',
+            [AdminController::class, 'approveRfc']
+        )->name('rfc.approve');
+
+        Route::post(
+            '/request-check/{id}/reject',
+            [AdminController::class, 'rejectRfc']
+        )->name('rfc.reject');
+
+        Route::post(
+            '/request-check/{id}/revise',
+            [AdminController::class, 'reviseRfc']
+        )->name('rfc.revise');
+
+        Route::get('/liquidation-reports', [AdminController::class, 'liquidationReports'])->name('liq.index');
+        Route::post('/liquidation-reports/{id}/start-review', [AdminController::class, 'startLiqReview'])->name('liq.start-review');
+        Route::post('/liquidation-reports/{id}/approve', [AdminController::class, 'approveLiq'])->name('liq.approve');
+        Route::post('/liquidation-reports/{id}/reject', [AdminController::class, 'rejectLiq'])->name('liq.reject');
+        Route::post('/liquidation-reports/{id}/revise', [AdminController::class, 'reviseLiq'])->name('liq.revise');
+        Route::get('/liquidation-reports/{id}/export-xlsx', [LiquidationReportController::class, 'exportExcel'])->name('liq.export-xlsx');
+        Route::get('/liquidation-reports/{id}/export-docx', [LiquidationReportController::class, 'exportWord'])->name('liq.export-docx');
 
         // ==========================================
         // DIGITAL SIGNATURES
@@ -303,7 +343,21 @@ Route::middleware(['auth', 'admin'])
             [AdminController::class, 'rejectRis']
         )->name('procurement-review.ris.reject');
 
+<<<<<<< Updated upstream
 Route::get(
+=======
+        Route::post(
+            '/procurement-review/ris/{ris}/review',
+            [AdminController::class, 'startRisReview']
+        )->name('procurement-review.ris.review');
+
+        Route::post(
+            '/procurement-review/ris/{ris}/final-reject',
+            [AdminController::class, 'finalRejectRis']
+        )->name('procurement-review.ris.final-reject');
+
+        Route::get(
+>>>>>>> Stashed changes
             '/procurement-review/ris/{ris}/print',
             [AdminController::class, 'printRis']
         )->name('procurement-review.ris.print');
@@ -389,6 +443,16 @@ Route::get(
         '/admin/procurement-review/ris/{risId}/reject',
         [AdminController::class, 'rejectRis']
     )->name('admin.procurement-review.ris.reject');
+
+    Route::post(
+        '/admin/procurement-review/ris/{risId}/review',
+        [AdminController::class, 'startRisReview']
+    )->name('admin.procurement-review.ris.review');
+
+    Route::post(
+        '/admin/procurement-review/ris/{risId}/final-reject',
+        [AdminController::class, 'finalRejectRis']
+    )->name('admin.procurement-review.ris.final-reject');
 
     // =====================================================
     // END ADDED RIS ADMIN APPROVAL ROUTES
@@ -1248,7 +1312,6 @@ Route::middleware([
     ->name('purchaser.')
     ->group(function () {
 
-
         // =====================================================
         // PURCHASER DASHBOARD
         // =====================================================
@@ -1256,8 +1319,7 @@ Route::middleware([
         Route::get(
             '/dashboard',
             [PurchaserController::class, 'dashboard']
-        )
-        ->name('dashboard');
+        )->name('dashboard');
 
 
         // =====================================================
@@ -1267,73 +1329,67 @@ Route::middleware([
         Route::get(
             '/procurement/replacement-requests',
             [ReplacementRequestController::class, 'index']
-        )
-        ->name('procurement.replacement-requests');
+        )->name('procurement.replacement-requests');
 
         Route::post(
             '/procurement/replacement-requests/{requestId}/approve',
             [ReplacementRequestController::class, 'approve']
-        )
-        ->name('procurement.replacement-requests.approve');
+        )->name('procurement.replacement-requests.approve');
 
         Route::post(
             '/procurement/replacement-requests/{requestId}/reject',
             [ReplacementRequestController::class, 'reject']
-        )
-        ->name('procurement.replacement-requests.reject');
+        )->name('procurement.replacement-requests.reject');
 
         Route::post(
             '/procurement/replacement-requests/{requestId}/archive',
             [ReplacementRequestController::class, 'archive']
-        )
-        ->name('procurement.replacement-requests.archive');
+        )->name('procurement.replacement-requests.archive');
 
         Route::post(
             '/procurement/replacement-requests/{requestId}/restore',
             [ReplacementRequestController::class, 'restore']
-        )
-        ->name('procurement.replacement-requests.restore');
+        )->name('procurement.replacement-requests.restore');
+
+
         // =====================================================
-        // ADDED RIS MODULE ROUTES
+        // RIS
+        // One route definition per RIS action
         // =====================================================
 
         Route::get(
             '/ris',
             [PurchaserController::class, 'risIndex']
-        )
-            ->name('ris.index');
+        )->name('ris.index');
 
         Route::post(
-                    '/ris',
-                    [PurchaserController::class, 'storeRis']
-                )
-                    ->name('ris.store');
+            '/ris',
+            [PurchaserController::class, 'storeRis']
+        )->name('ris.store');
 
-                // RIS MODULE: UPDATE DRAFT OR MINOR REVISION RIS
-                Route::put(
-                    '/ris/{risId}',
-                    [PurchaserController::class, 'updateRis']
-                )
-                    ->name('ris.update');
+        // RIS: supporting attachment download
+        // Keep this static route before /ris/{risId}
+        Route::get(
+            '/ris/attachments/{attachmentId}/download',
+            [PurchaserController::class, 'downloadRisAttachment']
+        )->name('ris.attachments.download');
+
+        // RIS: update Draft or Minor Revision
+        Route::put(
+            '/ris/{risId}',
+            [PurchaserController::class, 'updateRis']
+        )->name('ris.update');
 
         Route::post(
             '/ris/{risId}/submit',
             [PurchaserController::class, 'submitRis']
-        )
-            ->name('ris.submit');
-        // =====================================================
-        // ADDED RIS MODULE: SUPPORTING DOCUMENT DOWNLOAD ROUTE
-        // =====================================================
+        )->name('ris.submit');
 
         Route::get(
-            '/ris/attachments/{attachmentId}/download',
-            [PurchaserController::class, 'downloadRisAttachment']
-        )
-            ->name('ris.attachments.download');
+            '/ris/{risId}/print',
+            [PurchaserController::class, 'printRis']
+        )->name('ris.print');
 
-        // =====================================================
-        // END ADDED RIS MODULE ROUTES
-        // =====================================================
 
         // =====================================================
         // AUTHORITY TO PURCHASE
@@ -1342,68 +1398,148 @@ Route::middleware([
         Route::get(
             '/authority-to-purchase',
             [AuthorityToPurchaseController::class, 'index']
-        )
-            ->name('atp.index');
+        )->name('atp.index');
 
         Route::get(
             '/authority-to-purchase/create',
             [AuthorityToPurchaseController::class, 'create']
-        )
-            ->name('atp.create');
+        )->name('atp.create');
 
         Route::post(
             '/authority-to-purchase',
             [AuthorityToPurchaseController::class, 'store']
-        )
-            ->name('atp.store');
+        )->name('atp.store');
 
         Route::get(
             '/authority-to-purchase/{id}',
             [AuthorityToPurchaseController::class, 'show']
-        )
-            ->name('atp.show');
+        )->name('atp.show');
 
         Route::get(
             '/authority-to-purchase/{id}/edit',
             [AuthorityToPurchaseController::class, 'edit']
-        )
-            ->name('atp.edit');
+        )->name('atp.edit');
 
         Route::put(
             '/authority-to-purchase/{id}',
             [AuthorityToPurchaseController::class, 'update']
-        )
-            ->name('atp.update');
+        )->name('atp.update');
 
         Route::post(
             '/authority-to-purchase/{id}/submit',
             [AuthorityToPurchaseController::class, 'submit']
-        )
-            ->name('atp.submit');
+        )->name('atp.submit');
 
         Route::post(
             '/authority-to-purchase/{id}/approve',
             [AuthorityToPurchaseController::class, 'approve']
-        )
-            ->name('atp.approve');
+        )->name('atp.approve');
 
         Route::post(
             '/authority-to-purchase/{id}/reject',
             [AuthorityToPurchaseController::class, 'reject']
-        )
-            ->name('atp.reject');
+        )->name('atp.reject');
 
         Route::post(
             '/authority-to-purchase/{id}/archive',
             [AuthorityToPurchaseController::class, 'archive']
-        )
-            ->name('atp.archive');
+        )->name('atp.archive');
 
         Route::post(
             '/authority-to-purchase/{id}/restore',
             [AuthorityToPurchaseController::class, 'restore']
-        )
-            ->name('atp.restore');
+        )->name('atp.restore');
+
+
+        // =====================================================
+        // REQUEST FOR CHECK
+        // =====================================================
+
+        Route::get(
+            '/request-check',
+            [RequestForCheckController::class, 'index']
+        )->name('rfc.index');
+
+        Route::post(
+            '/request-check',
+            [RequestForCheckController::class, 'store']
+        )->name('rfc.store');
+
+        Route::put(
+            '/request-check/{id}',
+            [RequestForCheckController::class, 'update']
+        )->name('rfc.update');
+
+        Route::post(
+            '/request-check/{id}/submit',
+            [RequestForCheckController::class, 'submit']
+        )->name('rfc.submit');
+
+        Route::post(
+            '/request-check/{id}/archive',
+            [RequestForCheckController::class, 'archive']
+        )->name('rfc.archive');
+
+        Route::post(
+            '/request-check/{id}/restore',
+            [RequestForCheckController::class, 'restore']
+        )->name('rfc.restore');
+
+        Route::get(
+            '/request-check/{id}/attachments/{attachmentId}',
+            [RequestForCheckController::class, 'downloadAttachment']
+        )->name('rfc.attachment');
+
+
+        // =====================================================
+        // RECEIVING REPORTS
+        // =====================================================
+
+        Route::get(
+            '/receiving-reports',
+            [ReceivingReportController::class, 'index']
+        )->name('rr.index');
+
+        Route::post(
+            '/receiving-reports',
+            [ReceivingReportController::class, 'store']
+        )->name('rr.store');
+
+        Route::put(
+            '/receiving-reports/{id}',
+            [ReceivingReportController::class, 'update']
+        )->name('rr.update');
+
+        Route::post(
+            '/receiving-reports/{id}/submit',
+            [ReceivingReportController::class, 'submit']
+        )->name('rr.submit');
+
+        Route::post(
+            '/receiving-reports/{id}/archive',
+            [ReceivingReportController::class, 'archive']
+        )->name('rr.archive');
+
+        Route::post(
+            '/receiving-reports/{id}/restore',
+            [ReceivingReportController::class, 'restore']
+        )->name('rr.restore');
+
+
+        // =====================================================
+        // LIQUIDATION REPORTS
+        // =====================================================
+
+        Route::get('/liquidation-reports', [LiquidationReportController::class, 'index'])->name('liq.index');
+        Route::post('/liquidation-reports', [LiquidationReportController::class, 'store'])->name('liq.store');
+        Route::put('/liquidation-reports/{id}', [LiquidationReportController::class, 'update'])->name('liq.update');
+        Route::post('/liquidation-reports/{id}/submit', [LiquidationReportController::class, 'submit'])->name('liq.submit');
+        Route::post('/liquidation-reports/{id}/archive', [LiquidationReportController::class, 'archive'])->name('liq.archive');
+        Route::post('/liquidation-reports/{id}/restore', [LiquidationReportController::class, 'restore'])->name('liq.restore');
+        Route::get('/liquidation-reports/{id}/attachments/{attachmentId}', [LiquidationReportController::class, 'downloadAttachment'])->name('liq.attachment');
+        Route::get('/liquidation-reports/{id}/export-xlsx', [LiquidationReportController::class, 'exportExcel'])->name('liq.export-xlsx');
+        Route::get('/liquidation-reports/{id}/export-docx', [LiquidationReportController::class, 'exportWord'])->name('liq.export-docx');
+
 
         // =====================================================
         // SUPPLIERS
@@ -1412,133 +1548,110 @@ Route::middleware([
         Route::get(
             '/suppliers',
             [\App\Http\Controllers\SupplierController::class, 'index']
-        )
-        ->name('suppliers.index');
+        )->name('suppliers.index');
 
         Route::get(
             '/suppliers/create',
             [\App\Http\Controllers\SupplierController::class, 'create']
-        )
-        ->name('suppliers.create');
+        )->name('suppliers.create');
 
         Route::post(
             '/suppliers',
             [\App\Http\Controllers\SupplierController::class, 'store']
-        )
-        ->name('suppliers.store');
+        )->name('suppliers.store');
+
+        // Supplier: quick creation from another purchaser form/modal
+        Route::post(
+            '/suppliers/quick-store',
+            [\App\Http\Controllers\SupplierController::class, 'quickStore']
+        )->name('suppliers.quick-store');
+
+        Route::get(
+            '/suppliers/{supplier}',
+            [\App\Http\Controllers\SupplierController::class, 'show']
+        )->name('suppliers.show');
+
+        Route::get(
+            '/suppliers/{supplier}/edit',
+            [\App\Http\Controllers\SupplierController::class, 'edit']
+        )->name('suppliers.edit');
+
+        Route::put(
+            '/suppliers/{supplier}',
+            [\App\Http\Controllers\SupplierController::class, 'update']
+        )->name('suppliers.update');
+
+        Route::patch(
+            '/suppliers/{supplier}/activate',
+            [\App\Http\Controllers\SupplierController::class, 'activate']
+        )->name('suppliers.activate');
+
+        Route::patch(
+            '/suppliers/{supplier}/deactivate',
+            [\App\Http\Controllers\SupplierController::class, 'deactivate']
+        )->name('suppliers.deactivate');
 
 
         // =====================================================
-        // PURCHASER URGENT REPORT ROUTES
+        // FILE MAINTENANCE
         // =====================================================
+
+        Route::get('/brands', [BrandController::class, 'index'])->name('brands.index');
+        Route::post('/brands', [BrandController::class, 'store'])->name('brands.store');
+        Route::put('/brands/{brand}', [BrandController::class, 'update'])->name('brands.update');
+        Route::delete('/brands/{brand}', [BrandController::class, 'destroy'])->name('brands.destroy');
+
+        Route::get('/uom', [UomController::class, 'index'])->name('uom.index');
+        Route::post('/uom', [UomController::class, 'store'])->name('uom.store');
+        Route::put('/uom/{uom}', [UomController::class, 'update'])->name('uom.update');
+        Route::delete('/uom/{uom}', [UomController::class, 'destroy'])->name('uom.destroy');
+
+        Route::get('/categories', [ItemCategoryController::class, 'index'])->name('categories.index');
+        Route::post('/categories', [ItemCategoryController::class, 'store'])->name('categories.store');
+        Route::put('/categories/{category}', [ItemCategoryController::class, 'update'])->name('categories.update');
+        Route::delete('/categories/{category}', [ItemCategoryController::class, 'destroy'])->name('categories.destroy');
+
+        Route::get('/subcategories', [ItemSubCategoryController::class, 'index'])->name('subcategories.index');
+        Route::post('/subcategories', [ItemSubCategoryController::class, 'store'])->name('subcategories.store');
+        Route::put('/subcategories/{subcategory}', [ItemSubCategoryController::class, 'update'])->name('subcategories.update');
+        Route::delete('/subcategories/{subcategory}', [ItemSubCategoryController::class, 'destroy'])->name('subcategories.destroy');
 
 
         // =====================================================
-        // SHOW URGENT REPORTS
+        // PURCHASER URGENT REPORTS
         // =====================================================
 
         Route::get(
             '/reports/urgent',
             [PurchaserController::class, 'urgentReports']
-        )
-            ->name('reports.urgent');
-
-
-        // =====================================================
-        // ACCEPT URGENT REPORT
-        // =====================================================
+        )->name('reports.urgent');
 
         Route::post(
             '/reports/urgent/{reportId}/accept',
             [PurchaserController::class, 'acceptUrgentReport']
-        )
-            ->name('reports.urgent.accept');
-
-
-        // =====================================================
-        // RESOLVE URGENT REPORT
-        // =====================================================
+        )->name('reports.urgent.accept');
 
         Route::post(
             '/reports/urgent/{reportId}/resolve',
             [PurchaserController::class, 'resolveUrgentReport']
-        )
-            ->name('reports.urgent.resolve');
-
-
-        // =====================================================
-        // SEND URGENT REPORT FOR REPLACEMENT
-        // =====================================================
+        )->name('reports.urgent.resolve');
 
         Route::post(
             '/reports/urgent/{reportId}/replacement',
             [PurchaserController::class, 'replaceUrgentReport']
-        )
-            ->name('reports.urgent.replacement');
-
-
-        // =====================================================
-        // PURCHASER ARCHIVE URGENT REPORT
-        // =====================================================
+        )->name('reports.urgent.replacement');
 
         Route::post(
             '/reports/urgent/{reportId}/archive',
-            [
-                PurchaserController::class,
-                'archiveUrgentReport',
-            ]
-        )
-            ->name(
-                'reports.urgent.archive'
-            );
-
-
-        // =====================================================
-        // PURCHASER RESTORE URGENT REPORT
-        // =====================================================
+            [PurchaserController::class, 'archiveUrgentReport']
+        )->name('reports.urgent.archive');
 
         Route::post(
             '/reports/urgent/{reportId}/restore',
-            [
-                PurchaserController::class,
-                'restoreUrgentReport',
-            ]
-        )
-            ->name(
-                'reports.urgent.restore'
-            );
-
-        // =====================================================
-        // PURCHASER RIS ROUTES
-        // =====================================================
-
-        Route::get(
-            '/ris',
-            [PurchaserController::class, 'risIndex']
-        )
-            ->name('ris.index');
-
-        Route::post(
-            '/ris',
-            [PurchaserController::class, 'storeRis']
-        )
-            ->name('ris.store');
-
-        Route::post(
-            '/ris/{ris}/submit',
-            [PurchaserController::class, 'submitRis']
-        )
-            ->name('ris.submit');
-
-        Route::get(
-            '/ris/{ris}/print',
-            [PurchaserController::class, 'printRis']
-        )
-            ->name('ris.print');
+            [PurchaserController::class, 'restoreUrgentReport']
+        )->name('reports.urgent.restore');
 
     });
-
-
 
 
 
@@ -1682,12 +1795,52 @@ Route::middleware(['auth', 'accounting'])
         Route::get(
             '/request-check',
             [AccountingController::class, 'requestCheck']
-        );
+        )->name('accounting.rfc.index');
+
+        Route::post(
+            '/request-check/{id}/start-review',
+            [AccountingController::class, 'startRfcReview']
+        )->name('accounting.rfc.start-review');
+
+        Route::post(
+            '/request-check/{id}/verify',
+            [AccountingController::class, 'verifyRfc']
+        )->name('accounting.rfc.verify');
+
+        Route::post(
+            '/request-check/{id}/reject',
+            [AccountingController::class, 'rejectRfc']
+        )->name('accounting.rfc.reject');
+
+        Route::post(
+            '/request-check/{id}/revise',
+            [AccountingController::class, 'reviseRfc']
+        )->name('accounting.rfc.revise');
+
+        Route::post(
+            '/request-check/{id}/release-funds',
+            [AccountingController::class, 'releaseRfcFunds']
+        )->name('accounting.rfc.release-funds');
 
         Route::get(
             '/authority-to-purchase',
             [AccountingController::class, 'authorityToPurchase']
-        );
+        )->name('accounting.atp.index');
+
+        Route::post(
+            '/authority-to-purchase/{id}/approve',
+            [AccountingController::class, 'approveAtp']
+        )->name('accounting.atp.approve');
+
+        Route::post(
+            '/authority-to-purchase/{id}/reject',
+            [AccountingController::class, 'rejectAtp']
+        )->name('accounting.atp.reject');
+
+        Route::post(
+            '/authority-to-purchase/{id}/revise',
+            [AccountingController::class, 'reviseAtp']
+        )->name('accounting.atp.revise');
 
         Route::get(
             '/financial-records',
@@ -1697,7 +1850,14 @@ Route::middleware(['auth', 'accounting'])
         Route::get(
             '/liquidation-reports',
             [AccountingController::class, 'liquidationReports']
-        );
+        )->name('accounting.liq.index');
+
+        Route::post('/liquidation-reports/{id}/start-review', [AccountingController::class, 'startLiqReview'])->name('accounting.liq.start-review');
+        Route::post('/liquidation-reports/{id}/check', [AccountingController::class, 'checkLiq'])->name('accounting.liq.check');
+        Route::post('/liquidation-reports/{id}/reject', [AccountingController::class, 'rejectLiq'])->name('accounting.liq.reject');
+        Route::post('/liquidation-reports/{id}/revise', [AccountingController::class, 'reviseLiq'])->name('accounting.liq.revise');
+        Route::get('/liquidation-reports/{id}/export-xlsx', [LiquidationReportController::class, 'exportExcel'])->name('accounting.liq.export-xlsx');
+        Route::get('/liquidation-reports/{id}/export-docx', [LiquidationReportController::class, 'exportWord'])->name('accounting.liq.export-docx');
 
         Route::get(
             '/notifications',
@@ -1721,9 +1881,17 @@ Route::middleware(['auth', 'receiving'])
 
         Route::get('/dashboard', [ReceivingController::class, 'dashboard']);
 
+<<<<<<< Updated upstream
         Route::get('/quick-access/{section}', [ReceivingController::class, 'quickAccessContent']);
 
         Route::get('/reports', [ReceivingController::class, 'reports']);
+=======
+        Route::get('/reports', [ReceivingController::class, 'reports'])->name('receiving.rr.index');
+        Route::post('/reports/{id}/start-review', [ReceivingController::class, 'startRrReview'])->name('receiving.rr.start-review');
+        Route::post('/reports/{id}/second-count', [ReceivingController::class, 'secondCount'])->name('receiving.rr.second-count');
+        Route::post('/reports/{id}/return', [ReceivingController::class, 'returnRr'])->name('receiving.rr.return');
+        Route::post('/reports/{id}/revise', [ReceivingController::class, 'reviseRr'])->name('receiving.rr.revise');
+>>>>>>> Stashed changes
 
         Route::get('/delivered-items', [ReceivingController::class, 'deliveredItems']);
 
@@ -1930,12 +2098,9 @@ Route::post('/user/heartbeat', function () {
             'success' => false,
         ], 401);
     }
-
-
     // =============================================
     // UPDATE LAST ACTIVE TIME DIRECTLY
     // =============================================
-
     \Illuminate\Support\Facades\DB::table('users_table')
         ->where('user_id', auth()->user()->user_id)
         ->update([
@@ -1949,7 +2114,4 @@ Route::post('/user/heartbeat', function () {
     ]);
 
 })->middleware('auth');
-
-
-
 require __DIR__.'/auth.php';
