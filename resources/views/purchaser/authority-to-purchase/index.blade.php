@@ -328,11 +328,37 @@
             <option value="Rejected" {{ request('status') === 'Rejected' ? 'selected' : '' }}>Rejected</option>
         </select>
 
+<<<<<<< Updated upstream
         <select name="request_type" class="h-10 rounded-lg border border-gray-300 px-3 text-sm">
             <option value="">All RIS types</option>
             <option value="New Procurement" {{ request('request_type') === 'New Procurement' ? 'selected' : '' }}>New Procurement</option>
             <option value="Replacement" {{ request('request_type') === 'Replacement' ? 'selected' : '' }}>Replacement</option>
+=======
+        @if(\Illuminate\Support\Facades\Schema::hasColumn('requisition_issue_slip_table', 'ris_request_type'))
+        <select
+            name="request_type"
+            class="h-10 rounded-lg border border-gray-300 px-3 text-sm"
+        >
+            <option value="">
+                All RIS types
+            </option>
+
+            <option
+                value="New Procurement"
+                {{ request('request_type') === 'New Procurement' ? 'selected' : '' }}
+            >
+                New Procurement
+            </option>
+
+            <option
+                value="Replacement"
+                {{ request('request_type') === 'Replacement' ? 'selected' : '' }}
+            >
+                Replacement
+            </option>
+>>>>>>> Stashed changes
         </select>
+        @endif
 
         <div class="flex gap-2">
 
@@ -620,7 +646,26 @@
                                             >
                                         </div>
 
+<<<<<<< Updated upstream
                                     </div>
+=======
+                                                @if(
+                                                    $ris->equipment_name
+                                                    || $ris->report_unlisted_equipment_name
+                                                )
+                                                    ·
+                                                    {{ $ris->equipment_name
+                                                        ?? $ris->report_unlisted_equipment_name }}
+                                                @elseif(!empty($ris->ris_purpose_description))
+                                                    · {{ \Illuminate\Support\Str::limit($ris->ris_purpose_description, 40) }}
+                                                @endif
+
+                                            </option>
+
+                                        @endforeach
+
+                                    </select>
+>>>>>>> Stashed changes
 
                                 </div>
 
@@ -820,7 +865,260 @@
                                         <strong>Date</strong>
                                         {{ $atp->authority_purchase_date ? \Carbon\Carbon::parse($atp->authority_purchase_date)->format('F d, Y') : '—' }}
                                     </div>
+<<<<<<< Updated upstream
                                 </div>
+=======
+
+
+                                    <div>
+
+                                        <dt class="text-xs uppercase tracking-wide text-gray-500">
+                                            Received By
+                                        </dt>
+
+                                        <dd class="mt-1 text-sm text-gray-700">
+
+                                            {{ $atp->authority_purchase_received_by_name
+                                                ?? '—' }}
+
+                                        </dd>
+
+                                    </div>
+
+
+                                    <div>
+
+                                        <dt class="text-xs uppercase tracking-wide text-gray-500">
+                                            Reference PO / PR
+                                        </dt>
+
+                                        <dd class="mt-1 text-sm text-gray-700">
+
+                                            {{ $atp->authority_purchase_reference_po_no
+                                                ?? '—' }}
+
+                                        </dd>
+
+                                    </div>
+
+
+                                    @if($atp->authority_purchase_submitted_at)
+
+                                        <div class="sm:col-span-2">
+
+                                            <dt class="text-xs uppercase tracking-wide text-gray-500">
+                                                Submitted
+                                            </dt>
+
+                                            <dd class="mt-1 text-sm text-gray-700">
+
+                                                {{ \Carbon\Carbon::parse(
+                                                    $atp->authority_purchase_submitted_at
+                                                )->format('M d, Y h:i A') }}
+
+                                            </dd>
+
+                                        </div>
+
+                                    @endif
+
+
+                                    @if($atp->authority_purchase_rejection_reason)
+
+                                        <div class="sm:col-span-2 rounded-lg bg-red-50 p-3">
+
+                                            <dt class="text-xs uppercase tracking-wide text-red-500">
+                                                Rejection Reason
+                                            </dt>
+
+                                            <dd class="mt-1 text-sm text-red-700">
+
+                                                {{ $atp->authority_purchase_rejection_reason }}
+
+                                            </dd>
+
+                                        </div>
+
+                                    @endif
+
+                                </dl>
+
+                            </section>
+
+
+                            {{-- RIS Summary --}}
+                            <section class="rounded-xl border border-gray-200 p-5">
+
+                                <h4 class="font-semibold text-slate-900">
+                                    RIS Summary
+                                </h4>
+
+                                <dl class="mt-5 grid gap-4">
+
+                                    <div>
+
+                                        <dt class="text-xs uppercase tracking-wide text-gray-500">
+                                            RIS
+                                        </dt>
+
+                                        <dd class="mt-1 text-sm text-gray-700">
+
+                                            {{ $atp->ris_form_number
+                                                ?? 'RIS-' . $atp->authority_purchase_ris_id }}
+
+                                        </dd>
+
+                                    </div>
+
+
+                                    <div>
+
+                                        <dt class="text-xs uppercase tracking-wide text-gray-500">
+                                            Purpose
+                                        </dt>
+
+                                        <dd class="mt-1 text-sm text-gray-700">
+
+                                            {{ $atp->ris_purpose_description ?? '—' }}
+
+                                        </dd>
+
+                                    </div>
+
+
+                                    <div>
+
+                                        <dt class="text-xs uppercase tracking-wide text-gray-500">
+                                            Related Equipment
+                                        </dt>
+
+                                        <dd class="mt-1 text-sm text-gray-700">
+
+                                            {{ $atp->equipment_name
+                                                ?? $atp->report_unlisted_equipment_name
+                                                ?? '—' }}
+
+                                        </dd>
+
+                                    </div>
+
+
+                                    <div>
+
+                                        <dt class="text-xs uppercase tracking-wide text-gray-500">
+                                            Report #
+                                        </dt>
+
+                                        <dd class="mt-1 text-sm text-gray-700">
+
+                                            {{ $atp->report_id ?? '—' }}
+
+                                        </dd>
+
+                                    </div>
+
+                                </dl>
+
+                            </section>
+
+                        </div>
+
+
+                        {{-- ATP Items --}}
+                        <section>
+
+                            <h4 class="mb-3 font-semibold text-slate-900">
+                                ATP Items
+                            </h4>
+
+
+                            <div class="overflow-x-auto rounded-xl border border-gray-200">
+
+                                <table class="w-full min-w-[700px] text-sm">
+
+                                    <thead class="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+
+                                        <tr>
+
+                                            <th class="px-3 py-3 text-left">
+                                                Description
+                                            </th>
+
+                                            <th class="px-3 py-3 text-right">
+                                                Qty
+                                            </th>
+
+                                            <th class="px-3 py-3 text-right">
+                                                Unit
+                                            </th>
+
+                                            <th class="px-3 py-3 text-right">
+                                                Unit Price
+                                            </th>
+
+                                            <th class="px-3 py-3 text-right">
+                                                Total
+                                            </th>
+
+                                        </tr>
+
+                                    </thead>
+
+                                    <tbody class="divide-y divide-gray-200">
+
+                                        @forelse($items as $item)
+
+                                            <tr>
+
+                                                <td class="px-3 py-3">
+                                                    {{ $item->atp_description ?? '—' }}
+                                                </td>
+
+                                                <td class="px-3 py-3 text-right">
+                                                    {{ $item->atp_quantity ?? '—' }}
+                                                </td>
+
+                                                <td class="px-3 py-3 text-right">
+                                                    {{ $item->atp_unit ?? '—' }}
+                                                </td>
+
+                                                <td class="px-3 py-3 text-right">
+
+                                                    {{ $item->atp_unit_price !== null
+                                                        ? number_format($item->atp_unit_price, 2)
+                                                        : '—' }}
+
+                                                </td>
+
+                                                <td class="px-3 py-3 text-right font-medium">
+
+                                                    {{ $item->atp_amount !== null
+                                                        ? number_format($item->atp_amount, 2)
+                                                        : '—' }}
+
+                                                </td>
+
+                                            </tr>
+
+                                        @empty
+
+                                            <tr>
+
+                                                <td
+                                                    colspan="5"
+                                                    class="px-3 py-6 text-center text-gray-500"
+                                                >
+                                                    No ATP line items added.
+                                                </td>
+
+                                            </tr>
+
+                                        @endforelse
+
+                                    </tbody>
+
+                                </table>
+>>>>>>> Stashed changes
 
                             </div>
 

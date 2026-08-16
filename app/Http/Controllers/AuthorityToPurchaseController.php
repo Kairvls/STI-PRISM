@@ -5,7 +5,10 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+<<<<<<< Updated upstream
 use Illuminate\Validation\ValidationException;
+=======
+>>>>>>> Stashed changes
 
 class AuthorityToPurchaseController extends Controller
 {
@@ -59,8 +62,13 @@ class AuthorityToPurchaseController extends Controller
             ->select(
                 'authority_to_purchase_table.*',
                 'requisition_issue_slip_table.ris_form_number',
+<<<<<<< Updated upstream
                 'requisition_issue_slip_table.ris_request_type',
                 'requisition_issue_slip_table.ris_manual_title',
+=======
+                'requisition_issue_slip_table.ris_purpose_description',
+
+>>>>>>> Stashed changes
                 'procurement_requests_table.procurement_request_id',
                 'reports_table.report_id',
                 'reports_table.report_unlisted_equipment_name',
@@ -97,7 +105,17 @@ class AuthorityToPurchaseController extends Controller
             $this->applyStatusFilter($query, $request->status);
         }
 
+<<<<<<< Updated upstream
         if ($request->filled('request_type')) {
+=======
+
+        // ============================================================
+        // ATP INDEX: RIS Request Type Filter
+        // ============================================================
+
+        if ($request->filled('request_type') && Schema::hasColumn('requisition_issue_slip_table', 'ris_request_type')) {
+
+>>>>>>> Stashed changes
             $query->where(
                 'requisition_issue_slip_table.ris_request_type',
                 $request->request_type
@@ -142,7 +160,123 @@ class AuthorityToPurchaseController extends Controller
         $eligibleRis = $this->eligibleRisQuery()->get();
         $suppliers = $this->activeSuppliersQuery()->get();
 
+<<<<<<< Updated upstream
         $atpIds = $atps->getCollection()->pluck('authority_purchase_id');
+=======
+        // ============================================================
+        // CREATE ATP MODAL: Eligible Approved RIS
+        // ============================================================
+
+        $eligibleRis = DB::table('requisition_issue_slip_table')
+
+            ->leftJoin(
+                'procurement_requests_table',
+                'requisition_issue_slip_table.ris_procurement_request_id',
+                '=',
+                'procurement_requests_table.procurement_request_id'
+            )
+
+            ->leftJoin(
+                'reports_table',
+                'procurement_requests_table.procurement_request_report_id',
+                '=',
+                'reports_table.report_id'
+            )
+
+            ->leftJoin(
+                'equipment_table',
+                'reports_table.report_equipment_id',
+                '=',
+                'equipment_table.equipment_id'
+            )
+
+            ->where(function ($q) {
+                $this->applyAtpEligibleRisScope($q);
+            })
+
+            // Prevent creating another ATP for the same RIS
+            ->whereNotExists(function ($query) {
+
+                $query
+                    ->select(DB::raw(1))
+                    ->from('authority_to_purchase_table')
+                    ->whereColumn(
+                        'authority_to_purchase_table.authority_purchase_ris_id',
+                        'requisition_issue_slip_table.ris_id'
+                    );
+
+            })
+
+            ->select(
+                'requisition_issue_slip_table.ris_id',
+                'requisition_issue_slip_table.ris_form_number',
+                'requisition_issue_slip_table.ris_purpose_description',
+
+                'procurement_requests_table.procurement_request_id',
+
+                'equipment_table.equipment_name',
+
+                'reports_table.report_unlisted_equipment_name'
+            )
+
+            ->orderByDesc(
+                'requisition_issue_slip_table.ris_created_at'
+            )
+
+            ->get();
+
+
+        // ============================================================
+        // CREATE / EDIT ATP MODALS: Active Suppliers
+        // ============================================================
+
+        $suppliers = DB::table('suppliers_table')
+
+            ->leftJoin(
+                'physical_suppliers_table',
+                'suppliers_table.supplier_id',
+                '=',
+                'physical_suppliers_table.supplier_id'
+            )
+
+            ->leftJoin(
+                'online_suppliers_table',
+                'suppliers_table.supplier_id',
+                '=',
+                'online_suppliers_table.supplier_id'
+            )
+
+            ->select(
+                'suppliers_table.supplier_id',
+                'suppliers_table.supplier_store_type',
+                'suppliers_table.supplier_is_active',
+
+                'physical_suppliers_table.company_name',
+
+                'online_suppliers_table.shop_name'
+            )
+
+            ->where(
+                'suppliers_table.supplier_is_active',
+                1
+            )
+
+            ->orderBy(
+                'suppliers_table.supplier_id'
+            )
+
+            ->get();
+
+
+        // ============================================================
+        // VIEW / EDIT ATP MODALS: Load Items for Current ATP Page
+        // ============================================================
+
+        $atpIds = $atps
+            ->getCollection()
+            ->pluck('authority_purchase_id');
+
+>>>>>>> Stashed changes
 
         $atpItems = DB::table('authority_to_purchase_items_table')
             ->whereIn('authority_purchase_id', $atpIds)
@@ -192,9 +326,55 @@ class AuthorityToPurchaseController extends Controller
 
     public function create(Request $request)
     {
+<<<<<<< Updated upstream
         return redirect()->route('purchaser.atp.index', array_filter([
             'selected_ris' => $request->query('selected_ris'),
         ]));
+=======
+        $selectedRisId = $request->query('selected_ris');
+
+        $eligibleRis = DB::table('requisition_issue_slip_table')
+            ->leftJoin('procurement_requests_table', 'requisition_issue_slip_table.ris_procurement_request_id', '=', 'procurement_requests_table.procurement_request_id')
+            ->leftJoin('reports_table', 'procurement_requests_table.procurement_request_report_id', '=', 'reports_table.report_id')
+            ->leftJoin('equipment_table', 'reports_table.report_equipment_id', '=', 'equipment_table.equipment_id')
+            ->where(function ($q) {
+                $this->applyAtpEligibleRisScope($q);
+            })
+            ->whereNotExists(function ($query) {
+                $query->select(DB::raw(1))
+                    ->from('authority_to_purchase_table')
+                    ->whereColumn('authority_to_purchase_table.authority_purchase_ris_id', 'requisition_issue_slip_table.ris_id');
+            })
+            ->select(
+                'requisition_issue_slip_table.ris_id',
+                'requisition_issue_slip_table.ris_form_number',
+                'requisition_issue_slip_table.ris_purpose_description',
+                'procurement_requests_table.procurement_request_id',
+                'equipment_table.equipment_name',
+                'reports_table.report_unlisted_equipment_name'
+            )
+            ->orderByDesc('requisition_issue_slip_table.ris_created_at')
+            ->get();
+
+        $suppliers = DB::table('suppliers_table')
+            ->leftJoin('physical_suppliers_table', 'suppliers_table.supplier_id', '=', 'physical_suppliers_table.supplier_id')
+            ->leftJoin('online_suppliers_table', 'suppliers_table.supplier_id', '=', 'online_suppliers_table.supplier_id')
+            ->select(
+                'suppliers_table.supplier_id',
+                'suppliers_table.supplier_store_type',
+                'suppliers_table.supplier_is_active',
+                'physical_suppliers_table.company_name',
+                'online_suppliers_table.shop_name'
+            )
+            ->where('suppliers_table.supplier_is_active', 1)
+            ->orderBy('suppliers_table.supplier_id')
+            ->get();
+
+        return view(
+            'purchaser.authority-to-purchase.create',
+            compact('eligibleRis', 'suppliers', 'selectedRisId')
+        );
+>>>>>>> Stashed changes
     }
 
     public function store(Request $request)
@@ -719,8 +899,7 @@ class AuthorityToPurchaseController extends Controller
             ->select(
                 'authority_to_purchase_table.*',
                 'requisition_issue_slip_table.ris_form_number',
-                'requisition_issue_slip_table.ris_request_type',
-                'requisition_issue_slip_table.ris_manual_title',
+                'requisition_issue_slip_table.ris_purpose_description',
                 'procurement_requests_table.procurement_request_id',
                 'reports_table.report_id',
                 'equipment_table.equipment_name',
