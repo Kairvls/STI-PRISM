@@ -62,6 +62,7 @@ class AuthorityToPurchaseController extends Controller
                 'requisition_issue_slip_table.ris_form_number',
                 'requisition_issue_slip_table.ris_request_type',
                 'requisition_issue_slip_table.ris_manual_title',
+                'requisition_issue_slip_table.ris_purpose_description',
                 'procurement_requests_table.procurement_request_id',
                 'reports_table.report_id',
                 'reports_table.report_unlisted_equipment_name',
@@ -98,7 +99,7 @@ class AuthorityToPurchaseController extends Controller
             $this->applyStatusFilter($query, $request->status);
         }
 
-        if ($request->filled('request_type')) {
+        if ($request->filled('request_type') && Schema::hasColumn('requisition_issue_slip_table', 'ris_request_type')) {
             $query->where(
                 'requisition_issue_slip_table.ris_request_type',
                 $request->request_type
@@ -574,6 +575,7 @@ class AuthorityToPurchaseController extends Controller
                 'requisition_issue_slip_table.ris_form_number',
                 'requisition_issue_slip_table.ris_request_type',
                 'requisition_issue_slip_table.ris_manual_title',
+                'requisition_issue_slip_table.ris_purpose_description',
                 'requisition_issue_slip_table.ris_supplier_id',
                 'procurement_requests_table.procurement_request_id',
                 'equipment_table.equipment_name',
@@ -730,8 +732,7 @@ class AuthorityToPurchaseController extends Controller
             ->select(
                 'authority_to_purchase_table.*',
                 'requisition_issue_slip_table.ris_form_number',
-                'requisition_issue_slip_table.ris_request_type',
-                'requisition_issue_slip_table.ris_manual_title',
+                'requisition_issue_slip_table.ris_purpose_description',
                 'procurement_requests_table.procurement_request_id',
                 'reports_table.report_id',
                 'equipment_table.equipment_name',

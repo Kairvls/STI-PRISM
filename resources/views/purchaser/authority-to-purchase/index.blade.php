@@ -325,11 +325,13 @@
             <option value="Rejected" {{ request('status') === 'Rejected' ? 'selected' : '' }}>Rejected</option>
         </select>
 
+        @if(\Illuminate\Support\Facades\Schema::hasColumn('requisition_issue_slip_table', 'ris_request_type'))
         <select name="request_type" class="h-10 rounded-lg border border-gray-300 px-3 text-sm">
             <option value="">All RIS types</option>
             <option value="New Procurement" {{ request('request_type') === 'New Procurement' ? 'selected' : '' }}>New Procurement</option>
             <option value="Replacement" {{ request('request_type') === 'Replacement' ? 'selected' : '' }}>Replacement</option>
         </select>
+        @endif
 
         <div class="flex gap-2">
 
@@ -578,6 +580,8 @@
                                                 · {{ $ris->equipment_name ?? $ris->report_unlisted_equipment_name }}
                                             @elseif($ris->ris_manual_title)
                                                 · {{ $ris->ris_manual_title }}
+                                            @elseif(!empty($ris->ris_purpose_description))
+                                                · {{ \Illuminate\Support\Str::limit($ris->ris_purpose_description, 40) }}
                                             @endif
                                         </option>
                                     @endforeach
@@ -818,6 +822,7 @@
                                         {{ $atp->authority_purchase_date ? \Carbon\Carbon::parse($atp->authority_purchase_date)->format('F d, Y') : '—' }}
                                     </div>
                                 </div>
+
 
                             </div>
 

@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\View\View;
 use Barryvdh\DomPDF\Facade\Pdf;
 
@@ -109,50 +110,133 @@ class ReceivingController extends Controller
     public function reports(Request $request)
     {
         $filter = $request->query('status', 'queue');
+        $empty = $this->emptyRrPager($request);
 
-        $query = ReceivingReportController::reviewBaseQuery()
-            ->where(function ($q) {
-                $q->whereNull('receiving_reports_table.receiving_report_is_archived')
-                    ->orWhere('receiving_reports_table.receiving_report_is_archived', 0);
-            });
-
-        if ($filter === 'queue') {
-            $query->whereIn('receiving_reports_table.receiving_report_status', ['Submitted', 'Resubmitted', 'Under Review']);
-        } elseif ($filter === 'completed') {
-            $query->where('receiving_reports_table.receiving_report_status', 'Completed');
-        } elseif ($filter === 'returned') {
-            $query->where('receiving_reports_table.receiving_report_status', 'Returned');
+        if (!Schema::hasTable('receiving_reports_table')) {
+            return view('receiving-officer.receiving-reports.index', [
+                'reports' => $empty,
+                'items' => collect(),
+                'filter' => $filter,
+                'counts' => ['queue' => 0, 'completed' => 0, 'returned' => 0],
+            ]);
         }
 
-        $reports = $query
-            ->orderByDesc('receiving_reports_table.receiving_report_submitted_at')
-            ->orderByDesc('receiving_reports_table.receiving_report_id')
-            ->paginate(10)
-            ->withQueryString();
+        $query = $this->receivingReviewQuery();
+        $this->applyRrActiveScope($query);
+        $this->applyRrStatusFilter($query, $filter);
+
+        $sortColumn = 'receiving_reports_table.receiving_report_id';
+        foreach (['receiving_report_submitted_at', 'receiving_report_created_at', 'receiving_report_date'] as $column) {
+            if (Schema::hasColumn('receiving_reports_table', $column)) {
+                $sortColumn = 'receiving_reports_table.'.$column;
+                break;
+            }
+        }
+
+        try {
+            $reports = $query
+                ->orderByDesc($sortColumn)
+                ->orderByDesc('receiving_reports_table.receiving_report_id')
+                ->paginate(10)
+                ->withQueryString();
+        } catch (\Throwable $e) {
+            $reports = $empty;
+        }
 
         $ids = $reports->getCollection()->pluck('receiving_report_id');
-        $items = $ids->isEmpty()
-            ? collect()
-            : DB::table('receiving_report_items_table')
-                ->whereIn('receiving_report_id', $ids)
-                ->orderBy('receiving_report_item_id')
-                ->get()
-                ->groupBy('receiving_report_id');
-
-        $base = function () {
-            return ReceivingReportController::reviewBaseQuery()
-                ->where(function ($q) {
-                    $q->whereNull('receiving_report_is_archived')->orWhere('receiving_report_is_archived', 0);
-                });
-        };
+        $items = collect();
+        if ($ids->isNotEmpty() && Schema::hasTable('receiving_report_items_table')) {
+            $itemsQuery = DB::table('receiving_report_items_table')->whereIn('receiving_report_id', $ids);
+            if (Schema::hasColumn('receiving_report_items_table', 'receiving_report_item_id')) {
+                $itemsQuery->orderBy('receiving_report_item_id');
+            }
+            $items = $itemsQuery->get()->groupBy('receiving_report_id');
+        }
 
         $counts = [
-            'queue' => $base()->whereIn('receiving_report_status', ['Submitted', 'Resubmitted', 'Under Review'])->count(),
-            'completed' => $base()->where('receiving_report_status', 'Completed')->count(),
-            'returned' => $base()->where('receiving_report_status', 'Returned')->count(),
+            'queue' => $this->countReceivingReports('queue'),
+            'completed' => $this->countReceivingReports('completed'),
+            'returned' => $this->countReceivingReports('returned'),
         ];
 
         return view('receiving-officer.receiving-reports.index', compact('reports', 'items', 'filter', 'counts'));
+    }
+
+    private function emptyRrPager(Request $request): LengthAwarePaginator
+    {
+        return new LengthAwarePaginator([], 0, 10, max(1, (int) $request->query('page', 1)), [
+            'path' => $request->url(),
+            'query' => $request->query(),
+        ]);
+    }
+
+    private function receivingReviewQuery()
+    {
+        $query = DB::table('receiving_reports_table');
+
+        if (
+            Schema::hasColumn('receiving_reports_table', 'receiving_report_request_check_id')
+            && Schema::hasTable('request_check_table')
+        ) {
+            $query->leftJoin(
+                'request_check_table',
+                'receiving_reports_table.receiving_report_request_check_id',
+                '=',
+                'request_check_table.request_check_id'
+            );
+
+            $select = ['receiving_reports_table.*'];
+            foreach (['request_check_form_number', 'request_check_payee'] as $column) {
+                if (Schema::hasColumn('request_check_table', $column)) {
+                    $select[] = 'request_check_table.'.$column;
+                }
+            }
+            $query->select($select);
+        }
+
+        return $query;
+    }
+
+    private function applyRrActiveScope($query): void
+    {
+        if (!Schema::hasColumn('receiving_reports_table', 'receiving_report_is_archived')) {
+            return;
+        }
+
+        $query->where(function ($q) {
+            $q->whereNull('receiving_reports_table.receiving_report_is_archived')
+                ->orWhere('receiving_reports_table.receiving_report_is_archived', 0);
+        });
+    }
+
+    private function applyRrStatusFilter($query, string $filter): void
+    {
+        $statusCol = 'receiving_reports_table.receiving_report_status';
+
+        if ($filter === 'completed') {
+            $query->where($statusCol, 'Completed');
+            return;
+        }
+
+        if ($filter === 'returned') {
+            $query->where($statusCol, 'Returned');
+            return;
+        }
+
+        $query->whereIn($statusCol, ['Pending', 'Submitted', 'Resubmitted', 'Under Review']);
+    }
+
+    private function countReceivingReports(string $filter): int
+    {
+        $query = $this->receivingReviewQuery();
+        $this->applyRrActiveScope($query);
+        $this->applyRrStatusFilter($query, $filter);
+
+        try {
+            return (int) $query->count();
+        } catch (\Throwable $e) {
+            return 0;
+        }
     }
 
     public function startRrReview($id)
@@ -164,10 +248,10 @@ class ReceivingController extends Controller
             }
 
             if (in_array($rr->receiving_report_status, ['Submitted', 'Resubmitted'], true)) {
-                DB::table('receiving_reports_table')->where('receiving_report_id', $id)->update([
+                DB::table('receiving_reports_table')->where('receiving_report_id', $id)->update($this->onlyExisting('receiving_reports_table', [
                     'receiving_report_status' => 'Under Review',
                     'receiving_report_updated_at' => now(),
-                ]);
+                ]));
             }
 
             if (request()->expectsJson() || request()->ajax()) {
@@ -188,7 +272,7 @@ class ReceivingController extends Controller
 
             $name = Auth::user()->user_full_name ?? 'Receiving Officer';
 
-            DB::table('receiving_reports_table')->where('receiving_report_id', $id)->update([
+            DB::table('receiving_reports_table')->where('receiving_report_id', $id)->update($this->onlyExisting('receiving_reports_table', [
                 'receiving_report_status' => 'Completed',
                 'receiving_report_second_count_by' => $name,
                 'receiving_report_second_count_by_user_id' => Auth::id(),
@@ -196,7 +280,7 @@ class ReceivingController extends Controller
                 'receiving_report_second_count_signature' => $name,
                 'receiving_report_return_reason' => null,
                 'receiving_report_updated_at' => now(),
-            ]);
+            ]));
 
             return back()->with('success', 'Second Count confirmed. Items marked as received correctly.');
         });
@@ -212,11 +296,11 @@ class ReceivingController extends Controller
                 return $rr;
             }
 
-            DB::table('receiving_reports_table')->where('receiving_report_id', $id)->update([
+            DB::table('receiving_reports_table')->where('receiving_report_id', $id)->update($this->onlyExisting('receiving_reports_table', [
                 'receiving_report_status' => 'Returned',
                 'receiving_report_return_reason' => $request->input('remarks'),
                 'receiving_report_updated_at' => now(),
-            ]);
+            ]));
 
             return back()->with('success', 'Receiving Report returned. Items were not accepted.');
         });
@@ -1229,7 +1313,7 @@ class ReceivingController extends Controller
             return back()->with('error', 'Archived Receiving Reports cannot be reviewed.');
         }
 
-        if (!in_array($rr->receiving_report_status, ['Submitted', 'Resubmitted', 'Under Review'], true)) {
+        if (!in_array($rr->receiving_report_status, ['Pending', 'Submitted', 'Resubmitted', 'Under Review'], true)) {
             return back()->with('error', 'Only submitted Receiving Reports can be reviewed.');
         }
 
