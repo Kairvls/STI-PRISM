@@ -4,7 +4,7 @@
     {{-- HEADER --}}
     {{-- ====================================== --}}
 
-    <div class="sidebar-header p-5">
+    <div class="sidebar-header">
 
         <div class="logo-icon">
 
@@ -210,13 +210,14 @@
    SIDEBAR
 ====================================== */
     #sidebar {
-        width: 280px;
+        width: 260px !important;
         height: 100vh;
         background: #0d1120;
         color: white;
         display: flex;
         flex-direction: column;
         border-right: 1px solid rgba(255, 255, 255, 0.05);
+        flex-shrink: 0;
     }
 
     /* ======================================
@@ -229,7 +230,7 @@
     overflow-x: hidden;
 
     /* TOP | RIGHT | BOTTOM | LEFT */
-    padding: 20px 20px 20px 20px;
+    padding: 14px 16px 16px;
 }
     
 
@@ -253,29 +254,31 @@
     .sidebar-header {
         display: flex;
         align-items: center;
-        gap: 14px;
-        /*margin-bottom: 32px;*/
+        gap: 12px;
+        padding: 16px 16px 8px !important;
     }
     .logo-icon {
-        width: 50px;
-        height: 50px;
-        border-radius: 14px;
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
         background: linear-gradient(135deg, #8b5cf6, #6366f1);
         display: flex;
         align-items: center;
         justify-content: center;
+        flex-shrink: 0;
     }
     .logo-icon img {
         width: 100%;
         height: 100%;
-        border-radius: 14px;
+        border-radius: 12px;
     }
     .sidebar-header h2 {
-        font-size: 20px;
+        font-size: 17px;
         font-weight: 700;
+        line-height: 1.2;
     }
     .sidebar-header span {
-        font-size: 13px;
+        font-size: 12px;
         color: #94a3b8;
     }
 
@@ -289,9 +292,9 @@
         align-items: center;
         gap: 8px;
         padding: 0;
-        height: 38px;
-        margin-bottom: 18px;
-        font-size: 14px;
+        height: 34px;
+        margin-bottom: 12px;
+        font-size: 13px;
     }
     .sidebar-search i {
         width: 14px;
@@ -305,19 +308,19 @@
     .quick-actions {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
-        gap: 8px;
-        margin-bottom: 20px;
+        gap: 6px;
+        margin-bottom: 12px;
     }
     .quick-card {
-        height: 70px;
+        height: 56px;
         background: #111827;
         border: 1px solid rgba(255, 255, 255, 0.05);
-        border-radius: 12px;
+        border-radius: 10px;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 6px;
+        gap: 4px;
         text-decoration: none;
         color: #cbd5e1;
         transition: all 0.2s ease;
@@ -354,23 +357,23 @@
 ====================================== */
 
 .menu-title {
-    font-size: 11px;
+    font-size: 10px;
 
     font-weight: 700;
 
-    letter-spacing: 1.5px;
+    letter-spacing: 1.4px;
 
     color: #64748b;
 
-    margin-top: 28px;
+    margin-top: 16px;
 
-    margin-bottom: 10px;
+    margin-bottom: 6px;
 
 
     /*
     REMOVE THE EXTRA INDENTATION.
 
-    sidebar-content ALREADY PROVIDES 20px.
+    sidebar-content ALREADY PROVIDES padding.
     */
 
     padding-left: 0;
@@ -387,24 +390,19 @@
 .menu-item {
     position: relative;
 
-    height: 48px;
+    height: 40px;
 
     display: flex;
     align-items: center;
 
-    gap: 12px;
+    gap: 10px;
 
     /*
     IMPORTANT:
 
-    sidebar-content already has 20px padding.
+    sidebar-content already has padding.
 
-    DO NOT add another 14px horizontal padding.
-
-    This makes the menu icon align with:
-    PRISM logo
-    Search box
-    Quick Actions
+    DO NOT add another horizontal padding.
     */
 
     padding: 0;
@@ -415,11 +413,11 @@
 
     text-decoration: none;
 
-    font-size: 14px;
+    font-size: 13px;
 
     font-weight: 400;
 
-    margin-bottom: 2px;
+    margin-bottom: 1px;
 
     transition:
         color 0.2s ease,
@@ -505,7 +503,7 @@
     THIS MAKES IT TOUCH THE SIDEBAR EDGE.
     */
 
-    left: -20px;
+    left: -16px;
 
 
     top: 50%;
@@ -513,9 +511,9 @@
     transform: translateY(-50%);
 
 
-    width: 5px;
+    width: 4px;
 
-    height: 32px;
+    height: 26px;
 
 
     background: #fff200;
@@ -646,7 +644,7 @@
     // =====================================================
 
     const sidebarScrollKey =
-        "maintenanceSidebarScrollPosition";
+        "accountingSidebarScrollPosition";
 
 
     // =====================================================

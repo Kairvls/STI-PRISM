@@ -3,25 +3,31 @@
 @section('title', 'Accounting Reports')
 
 @section('content')
-<div class="fade-in">
-    <h1 class="text-2xl font-bold tracking-tight text-gray-900">Reports</h1>
-    <p class="mt-1 text-sm text-gray-500">Live counts from Accounting workflow tables.</p>
-</div>
-<div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-    @foreach ([
-        'ATP pending review' => $metrics['atp_pending'],
-        'Request Checks pending' => $metrics['rfc_pending'],
-        'Funds awaiting release' => $metrics['funds_awaiting'],
-        'Liquidations pending' => $metrics['liq_pending'],
-        'Approved ATP' => $metrics['atp_approved'],
-        'Approved Request Checks' => $metrics['rfc_approved'],
-        'Approved liquidations' => $metrics['liq_approved'],
-        'Items requiring revision' => $metrics['needs_revision'],
-    ] as $label => $value)
-        <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up">
-            <p class="text-xs font-medium text-gray-500">{{ $label }}</p>
-            <p class="mt-3 text-3xl font-bold text-gray-900">{{ $value }}</p>
+<div class="acc-page fade-in">
+    <div class="acc-page-header">
+        <div>
+            <p class="acc-page-kicker">Insights</p>
+            <h1 class="acc-page-title">Reports</h1>
+            <p class="acc-page-subtitle">Live counts from Accounting workflow tables.</p>
         </div>
-    @endforeach
+    </div>
+
+    <div class="acc-stat-grid">
+        @foreach ([
+            ['ATP pending review', $metrics['atp_pending'], 'warn'],
+            ['Request Checks pending', $metrics['rfc_pending'], 'warn'],
+            ['Funds awaiting release', $metrics['funds_awaiting'], 'ok'],
+            ['Liquidations pending', $metrics['liq_pending'], 'warn'],
+            ['Approved ATP', $metrics['atp_approved'], 'ok'],
+            ['Approved Request Checks', $metrics['rfc_approved'], 'ok'],
+            ['Approved liquidations', $metrics['liq_approved'], 'ok'],
+            ['Items requiring revision', $metrics['needs_revision'], 'info'],
+        ] as $i => [$label, $value, $tone])
+            <div class="acc-stat-card slide-up" style="animation-delay:{{ 0.04 * ($i + 1) }}s; padding-right: 0.9rem;">
+                <p class="acc-stat-label is-{{ $tone }}">{{ $label }}</p>
+                <p class="acc-stat-value">{{ $value }}</p>
+            </div>
+        @endforeach
+    </div>
 </div>
 @endsection

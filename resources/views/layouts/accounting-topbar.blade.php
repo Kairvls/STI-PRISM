@@ -20,7 +20,7 @@
             <input
                 type="search"
                 id="dashboard-search"
-                placeholder="Search accounts, roles, settings..."
+                placeholder="Search ATP, Request Checks, liquidations..."
                 autocomplete="off"
             />
 
@@ -179,7 +179,7 @@
 
                 <div class="border-t border-slate-100 px-3 py-2">
                     <a
-                        href="{{ url('/admin/notifications') }}"
+                        href="{{ url('/accounting/notifications') }}"
                         class="block w-full rounded-lg px-3 py-2 text-center text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
                     >
                         View all notifications
@@ -258,7 +258,7 @@
                 <!-- ===================================== -->
                 <div class="p-2">
                     <a
-                        href="{{ url('/admin/profile') }}"
+                        href="{{ url('/profile') }}"
                         class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
                     >
                         <i
@@ -267,18 +267,6 @@
                         ></i>
 
                         Profile settings
-                    </a>
-
-                    <a
-                        href="{{ url('/admin/security') }}"
-                        class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
-                    >
-                        <i
-                            data-lucide="shield-check"
-                            class="h-4 w-4 text-slate-400"
-                        ></i>
-
-                        Security settings
                     </a>
                 </div>
 
@@ -319,14 +307,14 @@
 
         .topbar{
 
-            height:82px;
+            height:64px;
 
             background:white;
 
             border-bottom:1px solid #E2E8F0;
 
             box-shadow:
-                0 2px 10px rgba(15,23,42,.03);
+                0 1px 4px rgba(15,23,42,.03);
 
             display:flex;
 
@@ -334,7 +322,7 @@
 
             justify-content:space-between;
 
-            padding:0 28px;
+            padding:0 20px;
 
             position:sticky;
 
@@ -356,21 +344,21 @@
     ====================================== */
 
     .dashboard-toolbar-search {
-        width: 320px;
-        height: 46px;
+        width: 300px;
+        height: 40px;
 
         display: flex;
         align-items: center;
 
-        gap: 12px;
+        gap: 10px;
 
-        padding: 0 12px 0 16px;
+        padding: 0 10px 0 14px;
 
         background: #ffffff;
 
         border: 1px solid #e2e8f0;
 
-        border-radius: 14px;
+        border-radius: 12px;
 
         color: #64748b;
     }
