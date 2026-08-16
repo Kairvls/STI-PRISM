@@ -225,7 +225,12 @@ class AdminController extends Controller
         // CALENDAR OF EVENTS — PROCUREMENT / RIS DATES
         // =====================================================
 
-        $calendarEvents = $this->adminProcurementCalendarEvents();
+        $calendarEvents = collect();
+        try {
+            $calendarEvents = $this->adminProcurementCalendarEvents();
+        } catch (\Throwable $e) {
+            $calendarEvents = collect();
+        }
         $calendarEventsByDate = [];
         foreach ($calendarEvents as $evt) {
             $dateKey = $evt->event_date ?? null;
@@ -703,27 +708,36 @@ class AdminController extends Controller
             'requisition_issue_slip_table.ris_id',
             '=',
             'ris_items_names.ris_id'
-        )
-        ->leftJoin($this->risReleasedJoin(), 'requisition_issue_slip_table.ris_id', '=', 'ris_released.released_ris_id')
+        );
 
-        ->select(
-            'requisition_issue_slip_table.*',
-            'procurement_requests_table.procurement_request_id',
-            'reports_table.report_id',
-            'reports_table.report_unlisted_equipment_name',
-            'equipment_table.equipment_name',
-            'ris_items_sum.ris_calculated_total',
-            'ris_items_names.ris_item_names',
-            'ris_released.released_ris_id'
-        )
+    $select = [
+        'requisition_issue_slip_table.*',
+        'procurement_requests_table.procurement_request_id',
+        'reports_table.report_id',
+        'reports_table.report_unlisted_equipment_name',
+        'equipment_table.equipment_name',
+        'ris_items_sum.ris_calculated_total',
+        'ris_items_names.ris_item_names',
+    ];
+    if (Schema::hasTable('approval_logs_table')) {
+        $baseQuery->leftJoin($this->risReleasedJoin(), 'requisition_issue_slip_table.ris_id', '=', 'ris_released.released_ris_id');
+        $select[] = 'ris_released.released_ris_id';
+    }
 
-        // Include submitted + legacy/incomplete forms so old records stay visible for logging.
-        ->where(function ($q) {
-            $q->whereNotNull('requisition_issue_slip_table.ris_requested_by_date')
-                ->orWhereNotNull('requisition_issue_slip_table.ris_form_number')
-                ->orWhereNotNull('requisition_issue_slip_table.ris_submitted_at')
-                ->orWhereNotNull('requisition_issue_slip_table.ris_approved_by_date');
-        });
+    $baseQuery->select($select)->where(function ($q) {
+        $added = false;
+        foreach (['ris_requested_by_date', 'ris_form_number', 'ris_submitted_at', 'ris_approved_by_date'] as $column) {
+            if (!Schema::hasColumn('requisition_issue_slip_table', $column)) {
+                continue;
+            }
+            $method = $added ? 'orWhereNotNull' : 'whereNotNull';
+            $q->{$method}('requisition_issue_slip_table.'.$column);
+            $added = true;
+        }
+        if (!$added) {
+            $q->whereNotNull('requisition_issue_slip_table.ris_id');
+        }
+    });
 
 
     // =====================================================
@@ -731,32 +745,13 @@ class AdminController extends Controller
     // These counts are NOT affected by the selected filter.
     // =====================================================
 
-    // New workflow statuses: Submitted / Under Review / Resubmitted.
-    // Legacy status: Pending.
-    $pendingRis = $this->applyProcurementReviewStatusFilter(clone $baseQuery, 'pending')
-        ->distinct()
-        ->count('requisition_issue_slip_table.ris_id');
-
-    $pendingRis = (clone $baseQuery)
-        ->whereIn(
-            'requisition_issue_slip_table.ris_status',
-            $this->adminReviewableStatuses()
-        )
-        ->count();
-
-    $amendRis = (clone $baseQuery)
-        ->where(
-            'requisition_issue_slip_table.ris_status',
-            'Minor Revision'
-        )
-        ->count();
-
-    $pendingRisAmount = (float) $this->applyProcurementReviewStatusFilter(clone $baseQuery, 'pending')
-        ->sum('ris_items_sum.ris_calculated_total');
-    $forwardedRisAmount = (float) $this->applyProcurementReviewStatusFilter(clone $baseQuery, 'forwarded')
-        ->sum('ris_items_sum.ris_calculated_total');
-    $allRisAmount = (float) $this->applyProcurementReviewStatusFilter(clone $baseQuery, 'all')
-        ->sum('ris_items_sum.ris_calculated_total');
+    $pendingRis = $this->countDistinctRis($this->applyProcurementReviewStatusFilter(clone $baseQuery, 'pending'));
+    $forwardedRis = $this->countDistinctRis($this->applyProcurementReviewStatusFilter(clone $baseQuery, 'forwarded'));
+    $allRis = $this->countDistinctRis($this->applyProcurementReviewStatusFilter(clone $baseQuery, 'all'));
+    $pendingRisAmount = $this->sumRisAmount($this->applyProcurementReviewStatusFilter(clone $baseQuery, 'pending'));
+    $forwardedRisAmount = $this->sumRisAmount($this->applyProcurementReviewStatusFilter(clone $baseQuery, 'forwarded'));
+    $allRisAmount = $this->sumRisAmount($this->applyProcurementReviewStatusFilter(clone $baseQuery, 'all'));
+    $amendRis = 0;
 
 
     // =====================================================
@@ -770,66 +765,7 @@ class AdminController extends Controller
     // STATUS FILTER
     // =====================================================
 
-    if ($filter === 'pending') {
-
-        $query->whereIn(
-            'requisition_issue_slip_table.ris_status',
-            $this->adminReviewableStatuses()
-        );
-
-    } elseif ($filter === 'approved') {
-
-        $query->where(
-            'requisition_issue_slip_table.ris_status',
-            'Approved'
-        )
-        ->whereNotNull(
-            'requisition_issue_slip_table.ris_approved_by_date'
-        )
-        ->where(function ($q) {
-            $q->whereNull('requisition_issue_slip_table.ris_approved_by_signature')
-              ->orWhere('requisition_issue_slip_table.ris_approved_by_signature', 'like', 'data:image%');
-        });
-
-    } elseif ($filter === 'direct_approved') {
-
-        $query->where(
-            'requisition_issue_slip_table.ris_status',
-            'Approved'
-        )
-        ->whereNotNull(
-            'requisition_issue_slip_table.ris_approved_by_date'
-        )
-        ->whereNotNull(
-            'requisition_issue_slip_table.ris_approved_by_signature'
-        )
-        ->where(
-            'requisition_issue_slip_table.ris_approved_by_signature',
-            'not like',
-            'data:image%'
-        );
-
-    } elseif ($filter === 'rejected') {
-
-        $query->where(
-            'requisition_issue_slip_table.ris_status',
-            'Minor Revision'
-        );
-
-    } else {
-
-        $query->whereIn(
-            'requisition_issue_slip_table.ris_status',
-            [
-                'Submitted',
-                'Under Review',
-                'Resubmitted',
-                'Minor Revision',
-                'Approved',
-                'Rejected',
-            ]
-        );
-    }
+    $this->applyProcurementReviewStatusFilter($query, $filter);
 
 
     // =====================================================
@@ -2204,24 +2140,7 @@ class AdminController extends Controller
 
     public function risApprovals(Request $request)
     {
-        $risRecords = DB::table('requisition_issue_slip_table')
-            ->leftJoin('procurement_requests_table', 'requisition_issue_slip_table.ris_procurement_request_id', '=', 'procurement_requests_table.procurement_request_id')
-            ->leftJoin('reports_table', 'procurement_requests_table.procurement_request_report_id', '=', 'reports_table.report_id')
-            ->leftJoin('equipment_table', 'reports_table.report_equipment_id', '=', 'equipment_table.equipment_id')
-            ->select(
-                'requisition_issue_slip_table.*',
-                'procurement_requests_table.procurement_request_id',
-                'reports_table.report_id',
-                'reports_table.report_unlisted_equipment_name',
-                'equipment_table.equipment_name'
-            )
-            ->whereIn('requisition_issue_slip_table.ris_status', $this->adminReviewableStatuses())
-            ->whereNotNull('requisition_issue_slip_table.ris_requested_by_date')
-            ->whereNull('requisition_issue_slip_table.ris_approved_by_date')
-            ->orderByDesc('requisition_issue_slip_table.ris_requested_by_date')
-            ->paginate(10);
-
-        return view('admin.procurement-review.index', compact('risRecords'));
+        return $this->procurementReview($request);
     }
 
     public function startRisReview($risId)
@@ -2239,6 +2158,52 @@ class AdminController extends Controller
         }
 
         return back();
+    }
+
+    public function printRis($risId)
+    {
+        $ris = DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $risId)
+            ->first();
+
+        abort_if(!$ris, 404, 'RIS not found.');
+
+        $risItems = collect();
+        if (Schema::hasTable('requisition_issue_slip_items_table')) {
+            $risItems = DB::table('requisition_issue_slip_items_table')
+                ->where('ris_id', $risId)
+                ->orderBy('ris_item_id')
+                ->get();
+        }
+        $risItems = $risItems->pad(8, null);
+
+        $presidentName = null;
+        if (
+            Schema::hasTable('approval_logs_table')
+            && !empty($ris->ris_approved_by_signature)
+            && str_starts_with((string) $ris->ris_approved_by_signature, 'data:image')
+        ) {
+            try {
+                $presidentApproval = DB::table('approval_logs_table')
+                    ->leftJoin('users_table', 'approval_logs_table.approval_log_approved_by', '=', 'users_table.user_id')
+                    ->where('approval_logs_table.approval_log_reference_type', 'RIS')
+                    ->where('approval_logs_table.approval_log_reference_id', (int) $risId)
+                    ->where('approval_logs_table.approval_log_level', 'President')
+                    ->where('approval_logs_table.approval_log_approval_status', 'Approved')
+                    ->select('users_table.user_full_name')
+                    ->first();
+
+                $presidentName = $presidentApproval->user_full_name ?? null;
+            } catch (\Throwable $e) {
+                $presidentName = null;
+            }
+        }
+
+        return view('admin.ris.print', [
+            'ris' => $ris,
+            'risItems' => $risItems,
+            'presidentName' => $presidentName,
+        ]);
     }
 
     public function approveRis(Request $request, $risId)
@@ -2580,69 +2545,118 @@ public function rejectRis(Request $request, $risId)
     public function requestCheck(Request $request)
     {
         $filter = $request->query('status', 'pending');
+        $empty = $this->emptyReportPager($request);
 
-        $query = RequestForCheckController::reviewBaseQuery()
-            ->where(function ($q) {
-                $q->whereNull('request_check_table.request_check_is_archived')
-                    ->orWhere('request_check_table.request_check_is_archived', 0);
-            });
+        if (!Schema::hasTable('request_check_table')) {
+            return view('admin.request-check.index', [
+                'rfcs' => $empty,
+                'attachments' => collect(),
+                'filter' => $filter,
+                'counts' => ['pending' => 0, 'approved' => 0, 'rejected' => 0],
+            ]);
+        }
+
+        $query = RequestForCheckController::reviewBaseQuery();
+        $this->applyRfcActiveScope($query);
 
         if ($filter === 'pending') {
-            $query->where(function ($q) {
-                $q->where('request_check_table.request_check_status', 'Pending Admin Approval')
-                    ->orWhere(function ($inner) {
-                        $inner->where('request_check_table.request_check_status', 'Under Review')
-                            ->where('request_check_table.request_check_review_stage', 'admin');
-                    });
-            });
+            $this->applyRfcPendingAdminScope($query);
         } elseif ($filter === 'approved') {
             $query->where('request_check_table.request_check_status', 'Approved');
         } elseif ($filter === 'rejected') {
             $query->where('request_check_table.request_check_status', 'Rejected');
         }
 
-        $rfcs = $query
-            ->orderByDesc('request_check_table.request_check_accounting_verified_at')
-            ->orderByDesc('request_check_table.request_check_id')
-            ->paginate(10)
-            ->withQueryString();
+        $sortColumn = 'request_check_table.request_check_id';
+        foreach ([
+            'request_check_accounting_verified_at',
+            'request_check_submitted_at',
+            'request_check_created_at',
+            'request_check_date',
+        ] as $column) {
+            if (Schema::hasColumn('request_check_table', $column)) {
+                $sortColumn = 'request_check_table.'.$column;
+                break;
+            }
+        }
+
+        try {
+            $rfcs = $query
+                ->orderByDesc($sortColumn)
+                ->orderByDesc('request_check_table.request_check_id')
+                ->paginate(10)
+                ->withQueryString();
+        } catch (\Throwable $e) {
+            $rfcs = $empty;
+        }
 
         $rfcIds = $rfcs->getCollection()->pluck('request_check_id');
-        $attachments = $rfcIds->isEmpty()
-            ? collect()
-            : DB::table('request_check_attachments_table')
+        $attachments = collect();
+        if ($rfcIds->isNotEmpty() && Schema::hasTable('request_check_attachments_table')) {
+            $attachments = DB::table('request_check_attachments_table')
                 ->whereIn('request_check_id', $rfcIds)
                 ->get()
                 ->groupBy('request_check_id');
+        }
 
         $counts = [
-            'pending' => RequestForCheckController::reviewBaseQuery()
-                ->where(function ($q) {
-                    $q->whereNull('request_check_is_archived')->orWhere('request_check_is_archived', 0);
-                })
-                ->where(function ($q) {
-                    $q->where('request_check_status', 'Pending Admin Approval')
-                        ->orWhere(function ($inner) {
-                            $inner->where('request_check_status', 'Under Review')
-                                ->where('request_check_review_stage', 'admin');
-                        });
-                })
-                ->count(),
-            'approved' => RequestForCheckController::reviewBaseQuery()
-                ->where(function ($q) {
-                    $q->whereNull('request_check_is_archived')->orWhere('request_check_is_archived', 0);
-                })
-                ->where('request_check_status', 'Approved')
-                ->count(),
-            'rejected' => RequestForCheckController::reviewBaseQuery()
-                ->where(function ($q) {
-                    $q->whereNull('request_check_is_archived')->orWhere('request_check_is_archived', 0);
-                })
-                ->where('request_check_status', 'Rejected')
-                ->count(),
+            'pending' => $this->countAdminRfcs('pending'),
+            'approved' => $this->countAdminRfcs('approved'),
+            'rejected' => $this->countAdminRfcs('rejected'),
         ];
 
         return view('admin.request-check.index', compact('rfcs', 'attachments', 'filter', 'counts'));
+    }
+
+    private function applyRfcActiveScope($query): void
+    {
+        if (!Schema::hasColumn('request_check_table', 'request_check_is_archived')) {
+            return;
+        }
+
+        $query->where(function ($q) {
+            $q->whereNull('request_check_table.request_check_is_archived')
+                ->orWhere('request_check_table.request_check_is_archived', 0);
+        });
+    }
+
+    private function applyRfcPendingAdminScope($query): void
+    {
+        $query->where(function ($q) {
+            $q->whereIn('request_check_table.request_check_status', [
+                'Pending',
+                'Submitted',
+                'Resubmitted',
+                'Pending Admin Approval',
+                'Under Review',
+            ]);
+
+            if (Schema::hasColumn('request_check_table', 'request_check_review_stage')) {
+                $q->orWhere(function ($inner) {
+                    $inner->where('request_check_table.request_check_status', 'Under Review')
+                        ->where('request_check_table.request_check_review_stage', 'admin');
+                });
+            }
+        });
+    }
+
+    private function countAdminRfcs(string $filter): int
+    {
+        try {
+            $query = RequestForCheckController::reviewBaseQuery();
+            $this->applyRfcActiveScope($query);
+            if ($filter === 'pending') {
+                $this->applyRfcPendingAdminScope($query);
+            } elseif ($filter === 'approved') {
+                $query->where('request_check_table.request_check_status', 'Approved');
+            } else {
+                $query->where('request_check_table.request_check_status', 'Rejected');
+            }
+
+            return (int) $query->count();
+        } catch (\Throwable $e) {
+            return 0;
+        }
     }
 
     public function startRfcReview($id)
@@ -2763,47 +2777,125 @@ public function rejectRis(Request $request, $risId)
     public function liquidationReports(Request $request)
     {
         $filter = $request->query('status', 'pending');
-        $query = \App\Http\Controllers\LiquidationReportController::reviewBaseQuery()
-            ->where(function ($q) {
-                $q->whereNull('liquidation_reports_table.liquidation_report_is_archived')
-                    ->orWhere('liquidation_reports_table.liquidation_report_is_archived', 0);
-            });
+        $empty = $this->emptyReportPager($request);
 
-        if ($filter === 'pending') {
-            $query->where(function ($q) {
-                $q->where('liquidation_report_status', 'Pending Admin Approval')
-                    ->orWhere(function ($inner) {
-                        $inner->where('liquidation_report_status', 'Under Review')->where('liquidation_report_review_stage', 'admin');
-                    });
-            });
-        } elseif ($filter === 'approved') {
-            $query->where('liquidation_report_status', 'Approved');
-        } elseif ($filter === 'rejected') {
-            $query->where('liquidation_report_status', 'Rejected');
+        if (!Schema::hasTable('liquidation_reports_table')) {
+            return view('admin.liquidation-reports.index', [
+                'reports' => $empty,
+                'items' => collect(),
+                'filter' => $filter,
+                'counts' => ['pending' => 0, 'approved' => 0, 'rejected' => 0],
+            ]);
         }
 
-        $reports = $query->orderByDesc('liquidation_report_id')->paginate(10)->withQueryString();
+        $query = $this->adminLiqBaseQuery();
+        $this->applyLiqActiveScope($query);
+        $this->applyLiqStatusFilter($query, $filter);
+
+        try {
+            $reports = $query
+                ->orderByDesc('liquidation_reports_table.liquidation_report_id')
+                ->paginate(10)
+                ->withQueryString();
+        } catch (\Throwable $e) {
+            $reports = $empty;
+        }
+
         $ids = $reports->getCollection()->pluck('liquidation_report_id');
-        $items = $ids->isEmpty() ? collect() : DB::table('liquidation_report_items_table')->whereIn('liquidation_report_id', $ids)->orderBy('liquidation_item_id')->get()->groupBy('liquidation_report_id');
+        $items = collect();
+        if ($ids->isNotEmpty() && Schema::hasTable('liquidation_report_items_table')) {
+            $itemsQuery = DB::table('liquidation_report_items_table')->whereIn('liquidation_report_id', $ids);
+            if (Schema::hasColumn('liquidation_report_items_table', 'liquidation_item_id')) {
+                $itemsQuery->orderBy('liquidation_item_id');
+            }
+            $items = $itemsQuery->get()->groupBy('liquidation_report_id');
+        }
 
         $counts = [
-            'pending' => \App\Http\Controllers\LiquidationReportController::reviewBaseQuery()->where(function ($q) {
-                $q->whereNull('liquidation_report_is_archived')->orWhere('liquidation_report_is_archived', 0);
-            })->where(function ($q) {
-                $q->where('liquidation_report_status', 'Pending Admin Approval')
-                    ->orWhere(function ($inner) {
-                        $inner->where('liquidation_report_status', 'Under Review')->where('liquidation_report_review_stage', 'admin');
-                    });
-            })->count(),
-            'approved' => \App\Http\Controllers\LiquidationReportController::reviewBaseQuery()->where(function ($q) {
-                $q->whereNull('liquidation_report_is_archived')->orWhere('liquidation_report_is_archived', 0);
-            })->where('liquidation_report_status', 'Approved')->count(),
-            'rejected' => \App\Http\Controllers\LiquidationReportController::reviewBaseQuery()->where(function ($q) {
-                $q->whereNull('liquidation_report_is_archived')->orWhere('liquidation_report_is_archived', 0);
-            })->where('liquidation_report_status', 'Rejected')->count(),
+            'pending' => $this->countAdminLiqs('pending'),
+            'approved' => $this->countAdminLiqs('approved'),
+            'rejected' => $this->countAdminLiqs('rejected'),
         ];
 
         return view('admin.liquidation-reports.index', compact('reports', 'items', 'filter', 'counts'));
+    }
+
+    private function adminLiqBaseQuery()
+    {
+        $query = DB::table('liquidation_reports_table');
+
+        if (
+            Schema::hasColumn('liquidation_reports_table', 'liquidation_report_receiving_report_id')
+            && Schema::hasTable('receiving_reports_table')
+        ) {
+            $query->leftJoin(
+                'receiving_reports_table',
+                'liquidation_reports_table.liquidation_report_receiving_report_id',
+                '=',
+                'receiving_reports_table.receiving_report_id'
+            );
+
+            $select = ['liquidation_reports_table.*'];
+            if (Schema::hasColumn('receiving_reports_table', 'receiving_report_form_number')) {
+                $select[] = 'receiving_reports_table.receiving_report_form_number';
+            }
+            $query->select($select);
+        }
+
+        return $query;
+    }
+
+    private function applyLiqActiveScope($query): void
+    {
+        if (!Schema::hasColumn('liquidation_reports_table', 'liquidation_report_is_archived')) {
+            return;
+        }
+
+        $query->where(function ($q) {
+            $q->whereNull('liquidation_reports_table.liquidation_report_is_archived')
+                ->orWhere('liquidation_reports_table.liquidation_report_is_archived', 0);
+        });
+    }
+
+    private function applyLiqStatusFilter($query, string $filter): void
+    {
+        $statusCol = 'liquidation_reports_table.liquidation_report_status';
+        $hasReviewStage = Schema::hasColumn('liquidation_reports_table', 'liquidation_report_review_stage');
+
+        if ($filter === 'approved') {
+            $query->where($statusCol, 'Approved');
+            return;
+        }
+
+        if ($filter === 'rejected') {
+            $query->where($statusCol, 'Rejected');
+            return;
+        }
+
+        $query->where(function ($q) use ($statusCol, $hasReviewStage) {
+            $q->whereIn($statusCol, ['Pending', 'Pending Admin Approval', 'Submitted', 'Resubmitted']);
+            if ($hasReviewStage) {
+                $q->orWhere(function ($inner) use ($statusCol) {
+                    $inner->where($statusCol, 'Under Review')
+                        ->where('liquidation_reports_table.liquidation_report_review_stage', 'admin');
+                });
+            } else {
+                $q->orWhere($statusCol, 'Under Review');
+            }
+        });
+    }
+
+    private function countAdminLiqs(string $filter): int
+    {
+        $query = $this->adminLiqBaseQuery();
+        $this->applyLiqActiveScope($query);
+        $this->applyLiqStatusFilter($query, $filter);
+
+        try {
+            return (int) $query->count();
+        } catch (\Throwable $e) {
+            return 0;
+        }
     }
 
     public function startLiqReview($id)
@@ -2874,6 +2966,287 @@ public function rejectRis(Request $request, $risId)
         });
     }
 
+    private function risColumn(string $column, string $table = 'requisition_issue_slip_table'): string
+    {
+        return $table === '' ? $column : $table . '.' . $column;
+    }
+
+    private function risReleasedJoin()
+    {
+        return DB::raw('(
+            SELECT DISTINCT approval_log_reference_id AS released_ris_id
+            FROM approval_logs_table
+            WHERE approval_log_reference_type = "RIS"
+              AND (
+                    approval_log_approval_remarks LIKE "%returned to Purchaser%"
+                 OR approval_log_approval_status = "Co-signed"
+                 OR approval_log_level IN ("Admin Return", "Admin Co-sign")
+              )
+        ) as ris_released');
+    }
+
+    private function risReleasedExistsCallback(string $risIdColumn)
+    {
+        return function ($sub) use ($risIdColumn) {
+            $sub->select(DB::raw(1))
+                ->from('approval_logs_table as log')
+                ->whereColumn('log.approval_log_reference_id', $risIdColumn)
+                ->where('log.approval_log_reference_type', 'RIS')
+                ->where(function ($released) {
+                    $released->where('log.approval_log_approval_remarks', 'like', '%returned to Purchaser%')
+                        ->orWhere('log.approval_log_approval_status', 'Co-signed')
+                        ->orWhereIn('log.approval_log_level', ['Admin Return', 'Admin Co-sign']);
+                });
+        };
+    }
+
+    private function countDistinctRis($query): int
+    {
+        try {
+            $clone = clone $query;
+            $clone->getQuery()->orders = null;
+            $clone->getQuery()->columns = null;
+            $clone->selectRaw('COUNT(DISTINCT requisition_issue_slip_table.ris_id) as ris_count');
+
+            return (int) $clone->value('ris_count');
+        } catch (\Throwable $e) {
+            return 0;
+        }
+    }
+
+    private function sumRisAmount($query): float
+    {
+        try {
+            $clone = clone $query;
+            $clone->getQuery()->orders = null;
+            $clone->getQuery()->columns = null;
+
+            return (float) $clone->sum('ris_items_sum.ris_calculated_total');
+        } catch (\Throwable $e) {
+            return 0.0;
+        }
+    }
+
+    private function applyProcurementReviewStatusFilter($query, string $filter)
+    {
+        if ($filter === 'pending') {
+            return $query->whereIn(
+                'requisition_issue_slip_table.ris_status',
+                ['Submitted', 'Under Review', 'Resubmitted', 'Pending']
+            );
+        }
+
+        if ($filter === 'forwarded') {
+            return $this->applyRisForwardedScope($query);
+        }
+
+        return $query->whereIn(
+            'requisition_issue_slip_table.ris_status',
+            [
+                'Draft',
+                'Submitted',
+                'Under Review',
+                'Resubmitted',
+                'Pending',
+                'Approved',
+                'Forwarded to President',
+                'Approved by the President',
+                'Directly Approved',
+                'Minor Revision',
+                'Rejected',
+                'Rejected by President',
+                'Rejected by the President',
+                'Archived',
+            ]
+        );
+    }
+
+    private function applyRisForwardedScope($query, string $table = 'requisition_issue_slip_table')
+    {
+        return $query->where($this->risColumn('ris_status', $table), 'Forwarded to President');
+    }
+
+    private function applyRisAdminApprovedScope($query, string $table = 'requisition_issue_slip_table')
+    {
+        return $query->where($this->risColumn('ris_status', $table), 'Directly Approved');
+    }
+
+    private function applyRisPresidentApprovedScope($query, string $table = 'requisition_issue_slip_table')
+    {
+        $sig = $this->risColumn('ris_approved_by_signature', $table);
+
+        return $query->where(function ($q) use ($table, $sig) {
+            $status = $this->risColumn('ris_status', $table);
+            $q->where($status, 'Approved by the President')
+                ->orWhere(function ($legacy) use ($status, $sig) {
+                    $legacy->where($status, 'Approved')
+                        ->whereNotNull($sig)
+                        ->where($sig, '!=', '');
+                });
+        });
+    }
+
+    private function applyRisPresidentRejectedScope($query, string $table = 'requisition_issue_slip_table')
+    {
+        return $query->whereIn($this->risColumn('ris_status', $table), [
+            'Rejected by the President',
+            'Rejected by President',
+        ]);
+    }
+
+    private function applyRisCosignedScope($query, string $table = 'requisition_issue_slip_table')
+    {
+        $id = $this->risColumn('ris_id', $table);
+        $issued = $this->risColumn('ris_issued_by_signature', $table);
+
+        return $this->applyRisPresidentApprovedScope($query, $table)
+            ->where(function ($signed) use ($issued, $id) {
+                $signed->where(function ($admin) use ($issued) {
+                    $admin->whereNotNull($issued)->where($issued, '!=', '');
+                })->orWhereExists($this->risReleasedExistsCallback($id));
+            });
+    }
+
+    private function applyRisAwaitingAdminActionScope($query, string $table = 'ris')
+    {
+        $id = $this->risColumn('ris_id', $table);
+        $issued = $this->risColumn('ris_issued_by_signature', $table);
+
+        return $this->applyRisPresidentApprovedScope($query, $table)
+            ->where(function ($unsigned) use ($issued) {
+                $unsigned->whereNull($issued)->orWhere($issued, '');
+            })
+            ->whereNotExists($this->risReleasedExistsCallback($id));
+    }
+
+    private function formatAdminRisStatusLabel(object $ris): string
+    {
+        if (in_array($ris->ris_status, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true)) {
+            return 'Pending';
+        }
+        if ($ris->ris_status === 'Directly Approved') {
+            return 'Admin Approved';
+        }
+        if (in_array($ris->ris_status, ['Rejected by President', 'Rejected by the President'], true)) {
+            return 'Rejected by the President';
+        }
+        if ($ris->ris_status === 'Approved by the President') {
+            return 'Approved by the President';
+        }
+        if ($ris->ris_status === 'Forwarded to President') {
+            return 'Forwarded to President';
+        }
+        if ($ris->ris_status === 'Approved') {
+            return !empty($ris->ris_approved_by_signature)
+                ? 'Approved by the President'
+                : 'Forwarded to President';
+        }
+        if (in_array($ris->ris_status, ['Minor Revision', 'Rejected'], true)) {
+            return 'Amend';
+        }
+
+        return (string) ($ris->ris_status ?? 'N/A');
+    }
+
+    private function parseFlexibleDate(?string $value): ?string
+    {
+        $value = trim((string) $value);
+        if ($value === '') {
+            return null;
+        }
+
+        foreach (['d/m/Y', 'j/n/Y', 'Y-m-d', 'd-m-Y', 'Y/m/d'] as $format) {
+            try {
+                $parsed = \Carbon\Carbon::createFromFormat($format, $value);
+                if ($parsed !== false) {
+                    return $parsed->format('Y-m-d');
+                }
+            } catch (\Throwable $e) {
+                // try next format
+            }
+        }
+
+        try {
+            return \Carbon\Carbon::parse($value)->format('Y-m-d');
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    private function downloadAdminRisTablePdf(string $title, $rows, string $filename)
+    {
+        $pdf = Pdf::loadView('admin.ris.table-export-pdf', [
+            'title' => $title,
+            'rows' => $rows,
+            'generatedAt' => now()->format('Y-m-d H:i'),
+        ])->setPaper('a4', 'landscape');
+
+        return $pdf->download($filename);
+    }
+
+    private function adminProcurementCalendarEvents()
+    {
+        $events = collect();
+        if (!Schema::hasTable('requisition_issue_slip_table')) {
+            return $events;
+        }
+
+        try {
+            $rows = DB::table('requisition_issue_slip_table')
+                ->select(
+                    'ris_id',
+                    'ris_form_number',
+                    'ris_status',
+                    'ris_submitted_at',
+                    'ris_requested_by_date',
+                    'ris_issued_by_date',
+                    'ris_approved_by_date'
+                )
+                ->orderByDesc('ris_id')
+                ->limit(250)
+                ->get();
+        } catch (\Throwable $e) {
+            return $events;
+        }
+
+        foreach ($rows as $ris) {
+            $ref = $ris->ris_form_number ?: ('RIS-'.$ris->ris_id);
+            $status = (string) ($ris->ris_status ?? '');
+            $this->pushCalendarEvent($events, $ris->ris_submitted_at ?? $ris->ris_requested_by_date, $ref.' · Submitted');
+            if (stripos($status, 'Forwarded') !== false) {
+                $this->pushCalendarEvent($events, $ris->ris_submitted_at ?? $ris->ris_requested_by_date, $ref.' · Forwarded to President');
+            }
+            $this->pushCalendarEvent($events, $ris->ris_approved_by_date, $ref.' · Approved by President');
+            $this->pushCalendarEvent($events, $ris->ris_issued_by_date, $ref.' · Issued by Admin');
+        }
+
+        return $events->sortBy('event_date')->values();
+    }
+
+    private function pushCalendarEvent($events, $rawDate, string $name): void
+    {
+        $date = $this->calendarEventDate($rawDate);
+        if (!$date) {
+            return;
+        }
+        $events->push((object) [
+            'event_date' => $date,
+            'event_name' => $name,
+        ]);
+    }
+
+    private function calendarEventDate($raw): ?string
+    {
+        if (empty($raw)) {
+            return null;
+        }
+        try {
+            return \Carbon\Carbon::parse($raw)->format('Y-m-d');
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
     private function lockAdminLiq($id)
     {
         $liq = DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->lockForUpdate()->first();
@@ -2889,6 +3262,111 @@ public function rejectRis(Request $request, $risId)
             return back()->with('error', 'Only Liquidation Reports pending Administrator approval can be reviewed.');
         }
         return $liq;
+    }
+
+    public function quickAccessProcurementContent(Request $request)
+    {
+        $request->merge([
+            'table_only' => true,
+            'filter' => $request->query('filter', 'all'),
+        ]);
+
+        try {
+            return $this->procurementReview($request);
+        } catch (\Throwable $e) {
+            return view('admin.procurement-review._quick-access', [
+                'risRecords' => $this->emptyReportPager($request),
+                'filter' => 'all',
+                'search' => '',
+            ]);
+        }
+    }
+
+    public function quickAccessSignRisContent(Request $request)
+    {
+        $request->merge(['table_only' => true]);
+
+        try {
+            return $this->signRis($request);
+        } catch (\Throwable $e) {
+            return view('admin.digital-signatures._sign-ris-quick-access', [
+                'signableRisRecords' => $this->emptyReportPager($request),
+                'filter' => 'for_cosign',
+                'search' => '',
+            ]);
+        }
+    }
+
+    public function quickAccessHistoryContent(Request $request)
+    {
+        $request->merge(['table_only' => true]);
+
+        try {
+            return $this->signatureHistory($request);
+        } catch (\Throwable $e) {
+            return view('admin.digital-signatures._signature-history-quick-access', [
+                'signatureHistory' => $this->emptyReportPager($request),
+                'search' => '',
+                'filter' => 'all',
+            ]);
+        }
+    }
+
+    public function quickAccessUsersContent(Request $request)
+    {
+        try {
+            $query = DB::table('users_table');
+            if (Schema::hasTable('roles_table') && Schema::hasColumn('users_table', 'user_role_id')) {
+                $query->leftJoin('roles_table', 'users_table.user_role_id', '=', 'roles_table.role_id');
+            }
+
+            $select = ['users_table.user_id'];
+            foreach (['user_employee_id', 'user_username', 'user_full_name'] as $column) {
+                if (Schema::hasColumn('users_table', $column)) {
+                    $select[] = 'users_table.'.$column;
+                }
+            }
+            if (Schema::hasTable('roles_table') && Schema::hasColumn('roles_table', 'role_name')) {
+                $select[] = 'roles_table.role_name';
+            }
+            if (Schema::hasColumn('users_table', 'last_active_at')) {
+                $select[] = 'users_table.last_active_at';
+            } else {
+                $select[] = DB::raw('NULL as last_active_at');
+            }
+
+            $users = $query->select($select)->orderBy('users_table.user_id')->paginate(15);
+        } catch (\Throwable $e) {
+            $users = $this->emptyReportPager($request);
+        }
+
+        return view('admin.users._quick-access', compact('users'));
+    }
+
+    public function quickAccessReportsContent(Request $request)
+    {
+        try {
+            return view('admin.reports._quick-access', [
+                'maintenance' => $this->maintenanceHistory($request)->getData(),
+                'receiving' => $this->receivingSummary($request)->getData(),
+                'approvals' => $this->approvalLogs($request)->getData(),
+                'access' => $this->userLoginLogs($request)->getData(),
+            ]);
+        } catch (\Throwable $e) {
+            return view('admin.reports._quick-access', [
+                'maintenance' => [],
+                'receiving' => [],
+                'approvals' => [],
+                'access' => [],
+            ]);
+        }
+    }
+
+    public function quickAccessSettingsContent()
+    {
+        return view('admin.settings._quick-access', [
+            'setting' => CampusSetupSetting::query()->first(),
+        ]);
     }
 }
 

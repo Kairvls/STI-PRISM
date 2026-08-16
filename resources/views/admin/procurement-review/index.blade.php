@@ -153,14 +153,14 @@
 
         .then(function (html) {
 
-            // Replace the entire content area.
             const contentContainer =
                 document.getElementById('risContentContainer');
 
             if (contentContainer) {
-
-                contentContainer.innerHTML = html;
-
+                const parsed = new DOMParser().parseFromString(html, 'text/html');
+                const partial = parsed.querySelector('#risContent')
+                    || parsed.querySelector('#risContentContainer');
+                contentContainer.innerHTML = partial ? partial.innerHTML : html;
             }
 
 

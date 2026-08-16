@@ -194,7 +194,7 @@
             <div class="signature-box">
                 <p>Received by:</p>
                 <div class="signature-line">{{ $ris->ris_received_by_signature }}</div>
-                <div class="date-row"><span>Date:</span><div class="signature-line">{{ $ris->ris_received_by_date }}</div></div>
+                <div class="date-row"><span>Date:</span><div class="signature-line">{{ $ris->ris_received_by_date ?? '' }}</div></div>
             </div>
         </section>
     </main>

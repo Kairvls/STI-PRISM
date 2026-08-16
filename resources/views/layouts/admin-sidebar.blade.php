@@ -163,7 +163,7 @@
         </div>
 
         <a
-            href="/admin/procurement-review/ris"
+            href="/admin/procurement-review"
             class="menu-item {{ request()->is('admin/procurement-review*') ? 'active' : '' }}"
         >
 
