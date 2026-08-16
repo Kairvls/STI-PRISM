@@ -1660,6 +1660,16 @@ Route::middleware([
             [PresidentController::class, 'viewRis']
         )
             ->name('ris.view');
+
+        Route::get(
+            '/ris/{ris}/details',
+            [PresidentController::class, 'risDetails']
+        )->name('ris.details');
+
+        Route::post(
+            '/ris/{ris}/send-to-admin',
+            [PresidentController::class, 'sendToAdmin']
+        )->name('ris.send-to-admin');
      
      });
 

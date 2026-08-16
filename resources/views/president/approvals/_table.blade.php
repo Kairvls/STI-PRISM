@@ -1,92 +1,36 @@
 @forelse ($pendingRis as $ris)
-    <tr class="border-b border-gray-100 approval-row transition-all duration-200">
-        <td class="px-2 py-4 text-sm font-medium text-gray-800">{{ $ris->ris_form_number ?? '—' }}</td>
-        <td class="px-2 py-4 text-sm text-gray-700 max-w-[200px] truncate" title="{{ $ris->ris_purpose_description ?? '' }}">
-            {{ $ris->ris_purpose_description ? Str::limit($ris->ris_purpose_description, 50) : '—' }}
-        </td>
-        <td class="px-2 py-4 text-sm text-gray-600">
-            @if ($ris->ris_created_at)
-                {{ \Carbon\Carbon::parse($ris->ris_created_at)->format('F j, Y') }}
-            @else
-                —
-            @endif
-        </td>
-        <td class="px-2 py-4">
-            @php
-                $presidentSig = trim((string) ($ris->ris_approved_by_signature ?? ''));
-                $rawStatus = (string) ($ris->ris_status ?? '');
-                $awaitingPresident = $presidentSig === ''
-                    && (
-                        $rawStatus === 'Forwarded to President'
-                        || $rawStatus === 'Approved'
-                        || ($rawStatus === 'Pending' && !empty($ris->ris_approved_by_date))
-                    );
-
-                if ($awaitingPresident) {
-                    $statusLabel = 'Pending';
-                } elseif (in_array($rawStatus, ['Approved by the President'], true) || ($rawStatus === 'Approved' && $presidentSig !== '')) {
-                    $statusLabel = 'Approved';
-                } elseif (in_array($rawStatus, ['Rejected by the President', 'Rejected by President', 'Rejected'], true)) {
-                    $statusLabel = 'Rejected';
-                } else {
-                    $statusLabel = $rawStatus !== '' ? $rawStatus : 'Pending';
-                }
-
-                $statusBadge = match ($statusLabel) {
-                    'Approved' => 'bg-emerald-50 text-emerald-700 border-emerald-200',
-                    'Rejected' => 'bg-rose-50 text-rose-700 border-rose-200',
-                    default => 'bg-amber-50 text-amber-700 border-amber-200',
-                };
-            @endphp
-            <span class="inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold border {{ $statusBadge }}">
-                {{ $statusLabel }}
-            </span>
-        </td>
-        <td class="px-2 py-4 text-sm text-center font-semibold text-gray-800">
-            ₱{{ number_format($ris->total_amount ?? 0, 2) }}
-        </td>
-        <td class="px-2 py-4">
-            <div class="flex items-center justify-center gap-2">
-                <button
-                    type="button"
-                    class="action-btn inline-flex h-9 items-center justify-center rounded-lg bg-white px-3 text-xs font-semibold text-slate-700 border border-gray-200 transition-all duration-200 hover:bg-gray-50 active:scale-95"
-                    title="View RIS form"
-                    onclick="openRisFormModal('{{ $ris->ris_id }}')"
-                >
-                    <i data-lucide="eye" class="h-4 w-4"></i>
-                    View
-                </button>
-
-                @if ($awaitingPresident)
-                <button
-                    type="button"
-                    class="action-btn inline-flex h-9 items-center justify-center rounded-lg bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 border border-emerald-200 transition-all duration-200 hover:bg-emerald-100 active:scale-95"
-                    onclick="openPresidentApproveModal('{{ $ris->ris_id }}')"
-                >
-                    Approve
-                </button>
-                <button
-                    type="button"
-                    class="action-btn inline-flex h-9 items-center justify-center rounded-lg bg-rose-50 px-3 text-xs font-semibold text-rose-700 border border-rose-200 transition-all duration-200 hover:bg-rose-100 active:scale-95"
-                    onclick="openDecisionModal('ris', '{{ $ris->ris_id }}', 'Rejected')"
-                >
-                    Reject
-                </button>
-                @endif
+    @php
+        $presidentSig = trim((string) ($ris->ris_approved_by_signature ?? ''));
+        $rawStatus = (string) ($ris->ris_status ?? '');
+        $awaitingPresident = $presidentSig === ''
+            && (
+                $rawStatus === 'Forwarded to President'
+                || $rawStatus === 'Approved'
+                || ($rawStatus === 'Pending' && !empty($ris->ris_approved_by_date))
+            );
+        $statusLabel = $awaitingPresident ? 'Pending' : 'Pending';
+        $submitted = $ris->ris_created_at
+            ? \Carbon\Carbon::parse($ris->ris_created_at)->format('M d, Y')
+            : '—';
+    @endphp
+    <article class="queue-item" data-ris-id="{{ $ris->ris_id }}" onclick="openRisReviewModal({{ $ris->ris_id }})">
+        <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2">
+                <h3 class="truncate text-sm font-semibold text-gray-900">{{ $ris->ris_form_number ?? 'RIS #' . $ris->ris_id }}</h3>
+                <span class="status-pill status-pending">{{ $statusLabel }}</span>
             </div>
-        </td>
-    </tr>
+            <p class="mt-0.5 truncate text-sm text-gray-700">{{ $ris->ris_requested_by_signature ?: '—' }}</p>
+            <p class="mt-0.5 line-clamp-1 text-xs text-gray-500">{{ $ris->ris_purpose_description ?: '—' }}</p>
+            <div class="mt-1.5 flex items-center gap-3 text-xs text-gray-500">
+                <span class="font-semibold text-gray-800">₱{{ number_format($ris->total_amount ?? 0, 2) }}</span>
+                <span>{{ $submitted }}</span>
+            </div>
+        </div>
+        <button type="button" class="review-btn" onclick="event.stopPropagation(); openRisReviewModal({{ $ris->ris_id }})">Review</button>
+    </article>
 @empty
-    <tr>
-        <td colspan="6" class="px-2 py-10 text-center fade-in">
-            <p class="text-sm font-semibold text-gray-800">No RIS records found</p>
-            <p class="mt-1 text-xs text-gray-500">
-                @if (request('search') || request('status'))
-                    No results match your search or filter criteria.
-                @else
-                    No forwarded RIS records available.
-                @endif
-            </p>
-        </td>
-    </tr>
+    <div class="empty-queue">
+        <p class="text-sm font-semibold text-gray-800">Nothing waiting for review</p>
+        <p class="mt-1 text-xs text-gray-500">Forwarded RIS documents will appear here.</p>
+    </div>
 @endforelse

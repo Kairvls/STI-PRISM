@@ -1,12 +1,12 @@
 @extends('layouts.president-layout')
 
-@section('title', 'RIS Status')
+@section('title', 'History')
 
 @section('content')
 
 <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between fade-in">
     <div>
-        <h1 class="text-2xl font-semibold tracking-tight text-gray-900">RIS Status</h1>
+        <h1 class="text-2xl font-semibold tracking-tight text-gray-900">History</h1>
         <p class="mt-1 text-sm leading-6 text-gray-500">
             View all RIS records marked as Approved, Rejected, or Pending.
         </p>
@@ -67,7 +67,7 @@
             </span>
         </div>
 
-        {{-- Filters inside RIS Status --}}
+        {{-- Filters --}}
         <div class="mt-4 flex flex-wrap items-center gap-3">
             {{-- Status Filter Buttons --}}
             <div class="flex items-center gap-2">
@@ -160,27 +160,9 @@
     </div>
 </div>
 
-{{-- ============================== --}}
-{{-- RIS VIEW MODAL --}}
-{{-- ============================== --}}
-<div id="risViewModal" class="fixed inset-0 z-50 hidden">
-    <div class="flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 backdroop-overlay" onclick="closeRisViewModal()">
-        <div class="relative flex items-center justify-center" onclick="event.stopPropagation()">
-            <div id="risViewContainer" class="relative">
-                <iframe id="risViewIframe" class="bg-white shadow-2xl" style="width: 11in; height: 8.5in; border: 1px solid #e5e7eb; transform-origin: center center;" src="about:blank"></iframe>
-            </div>
-            <div class="fixed top-4 right-4 z-10 flex items-center gap-2">
-                <button type="button" class="print-btn inline-flex h-9 items-center justify-center rounded-lg bg-white border border-gray-200 px-3 text-xs font-semibold text-gray-700 shadow-sm transition-all duration-200 hover:bg-gray-50 active:scale-95" onclick="printRis()" title="Print RIS">
-                    <i data-lucide="printer" class="h-4 w-4"></i>
-                    <span class="ml-1.5">Print</span>
-                </button>
-                <button type="button" class="flex h-9 w-9 items-center justify-center rounded-full bg-white border border-gray-200 text-slate-400 shadow-sm transition-all duration-200 hover:bg-slate-100 hover:text-slate-900 active:scale-90" onclick="closeRisViewModal()" aria-label="Close">
-                    <i data-lucide="x" class="h-4 w-4"></i>
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
+{{-- RIS VIEW MODAL — same fit-to-screen viewer as RIS Approvals --}}
+@include('president.partials.ris-readonly-modal')
+@include('president.partials.ris-fit-viewer')
 
 <style>
     @keyframes fadeIn {
@@ -304,67 +286,9 @@
 </style>
 
 <script>
-    function openRisViewModal(risId) {
-        const modal = document.getElementById('risViewModal');
-        const iframe = document.getElementById('risViewIframe');
-        if (!modal || !iframe) return;
-        iframe.src = `/president/ris/${risId}/view?ts=${Date.now()}`;
-        modal.classList.remove('hidden');
-        scaleRisToFit();
-    }
-
-    function closeRisViewModal() {
-        const modal = document.getElementById('risViewModal');
-        const iframe = document.getElementById('risViewIframe');
-        if (iframe) iframe.src = 'about:blank';
-        if (modal) modal.classList.add('hidden');
-    }
-
-    function scaleRisToFit() {
-        const iframe = document.getElementById('risViewIframe');
-        if (!iframe) return;
-
-        // Document dimensions in inches (landscape)
-        const docWidthInches = 11;
-        const docHeightInches = 8.5;
-        
-        // Convert to pixels (96 DPI)
-        const docWidthPx = docWidthInches * 96;
-        const docHeightPx = docHeightInches * 96;
-
-        // Calculate available viewport (with margins)
-        const viewportWidth = window.innerWidth - 64;
-        const viewportHeight = window.innerHeight - 64;
-
-        // Calculate scale to fit
-        const scaleX = viewportWidth / docWidthPx;
-        const scaleY = viewportHeight / docHeightPx;
-        const scale = Math.min(scaleX, scaleY, 1);
-
-        // Apply CSS transform to the iframe
-        iframe.style.transform = `scale(${scale})`;
-        iframe.style.width = docWidthPx + 'px';
-        iframe.style.height = docHeightPx + 'px';
-    }
-
-    window.addEventListener('resize', function() {
-        const modal = document.getElementById('risViewModal');
-        if (modal && !modal.classList.contains('hidden')) {
-            scaleRisToFit();
-        }
-    });
-
-    function printRis() {
-        const iframe = document.getElementById('risViewIframe');
-        if (!iframe || !iframe.contentWindow) return;
-        iframe.contentWindow.focus();
-        iframe.contentWindow.print();
-    }
-
-    // Close modal on Escape key
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
-            const risModal = document.getElementById('risViewModal');
+            const risModal = document.getElementById('historyRisModal');
             const remarksModal = document.getElementById('remarksModal');
             if (risModal && !risModal.classList.contains('hidden')) {
                 closeRisViewModal();

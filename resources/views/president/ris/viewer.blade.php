@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="{{ !empty($isScreenPreview) ? 'screen-preview' : '' }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -31,11 +31,37 @@
         .signatures { margin-top: 28px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; font-size: 14px; }
         .signature-box { position: relative; }
         .signature-box p { margin: 0 0 6px; }
-        .signature-line { border-bottom: 1px solid #111827; min-height: 20px; text-align: center; font-size: 12px; }
+        .signature-line { position: relative; border-bottom: 1px solid #111827; min-height: 20px; text-align: center; font-size: 12px; }
         .signature-name-wrapper { position: relative; display: inline-block; width: 100%; text-align: center; }
         .signature-name { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
         .signature-position { font-size: 10px; color: #4b5563; margin-top: 1px; }
-        .signature-image { max-height: 36px; width: auto; position: absolute; left: 50%; transform: translateX(-50%); bottom: 100%; margin-bottom: -8px; z-index: 10; }
+        .signature-name-wrapper .signature-image {
+            max-height: 36px;
+            width: auto;
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: 100%;
+            margin-bottom: -8px;
+            z-index: 10;
+        }
+        .signature-line .signature-image {
+            max-height: 32px;
+            max-width: 90%;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: 12px;
+            z-index: 10;
+            pointer-events: none;
+        }
+        .signature-line .signature-name {
+            display: block;
+            line-height: 20px;
+        }
         .date-row { margin-top: 12px; display: grid; grid-template-columns: 40px 1fr; gap: 6px; align-items: end; }
 
         .approval-watermark {
@@ -53,6 +79,24 @@
             white-space: nowrap;
             user-select: none;
         }
+
+        html.screen-preview,
+        html.screen-preview body {
+            overflow: hidden;
+            background: #fff;
+        }
+        html.screen-preview .ris-document {
+            width: 11in;
+            min-height: 0;
+            padding: 0.12in 0.28in 0.22in;
+        }
+        html.screen-preview .header {
+            margin-top: 6px;
+            margin-bottom: 8px;
+        }
+        html.screen-preview .signatures { margin-top: 16px; }
+        html.screen-preview .approval-watermark { animation: watermarkIn .6s ease both; }
+        @keyframes watermarkIn { from { opacity: 0; } to { opacity: 1; } }
 
         @media print {
             body { background: white; }
@@ -79,7 +123,7 @@
             $presidentSigned = trim((string) ($ris->ris_approved_by_signature ?? '')) !== '';
             $adminIssued = trim((string) ($ris->ris_issued_by_signature ?? '')) !== '';
         @endphp
-        @if ($presidentSigned && $adminIssued)
+        @if (!empty($isScreenPreview) ? $presidentSigned : ($presidentSigned && $adminIssued))
             <div class="approval-watermark">APPROVED</div>
         @endif
 
@@ -132,18 +176,14 @@
             </div>
             <div class="signature-box">
                 <p>Approved by:</p>
-                <div class="signature-line"></div>
-                <div class="signature-name-wrapper">
+                <div class="signature-line">
                     @if (!empty($ris->ris_approved_by_signature) && strpos($ris->ris_approved_by_signature, 'data:image') === 0)
-                        <div class="signature-name">{{ $presidentName ?? ($ris->ris_approved_by_name ?? 'President') }}</div>
-                        <div class="signature-position">President</div>
                         <img src="{{ $ris->ris_approved_by_signature }}" alt="Approved by signature" class="signature-image" />
+                        <span class="signature-name">{{ $presidentName ?? ($ris->ris_approved_by_name ?? 'President') }}</span>
                     @elseif (!empty(trim((string) ($ris->ris_approved_by_signature ?? ''))))
-                        <div class="signature-name">{{ $ris->ris_approved_by_signature }}</div>
-                        <div class="signature-position">President</div>
+                        <span class="signature-name">{{ $ris->ris_approved_by_signature }}</span>
                     @else
-                        <div class="signature-name">{{ $ris->ris_approved_by_name ?? '' }}</div>
-                        <div class="signature-position">{{ $ris->ris_approved_by_position ?? '' }}</div>
+                        <span class="signature-name">{{ $ris->ris_approved_by_name ?? '' }}</span>
                     @endif
                 </div>
                 <div class="date-row"><span>Date:</span><div class="signature-line">{{ $ris->ris_approved_by_date }}</div></div>
