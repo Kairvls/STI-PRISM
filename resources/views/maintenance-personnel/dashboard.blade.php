@@ -6836,7 +6836,8 @@
     @php
         $showDailyReminder =
             ($urgentReportsToday ?? 0) > 0
-            || ($overdueMaintenance ?? 0) > 0;
+            || ($overdueMaintenance ?? 0) > 0
+            || ($overdueBorrowings ?? 0) > 0;
     @endphp
 
     @if ($showDailyReminder)
@@ -6896,6 +6897,22 @@
                             </div>
                         </div>
                     @endif
+
+                    @if (($overdueBorrowings ?? 0) > 0)
+                        <div class="flex items-start gap-3 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
+                            <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-amber-600">
+                                <i data-lucide="clipboard-x" class="h-5 w-5"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-semibold text-amber-900">
+                                    {{ $overdueBorrowings }} overdue {{ \Illuminate\Support\Str::plural('borrow', $overdueBorrowings) }}
+                                </p>
+                                <p class="mt-0.5 text-xs text-amber-800/80">
+                                    Equipment was due back and has not been returned.
+                                </p>
+                            </div>
+                        </div>
+                    @endif
                 </div>
 
                 <div class="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 px-6 py-4">
@@ -6920,6 +6937,13 @@
                             class="rounded-xl bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700"
                         >
                             View schedules
+                        </a>
+                    @elseif (($overdueBorrowings ?? 0) > 0)
+                        <a
+                            href="{{ url('/maintenance/borrowing?status=Overdue') }}"
+                            class="rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700"
+                        >
+                            View overdue borrows
                         </a>
                     @endif
                 </div>

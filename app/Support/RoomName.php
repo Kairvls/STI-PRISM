@@ -38,6 +38,45 @@ class RoomName
         return $value;
     }
 
+    public static function duplicateGroupCount(iterable $names): int
+    {
+        $list = [];
+        foreach ($names as $name) {
+            $trimmed = trim((string) $name);
+            if ($trimmed !== '') {
+                $list[] = $trimmed;
+            }
+        }
+
+        $used = [];
+        $groups = 0;
+        $count = count($list);
+
+        for ($i = 0; $i < $count; $i++) {
+            if (isset($used[$i])) {
+                continue;
+            }
+
+            $size = 1;
+            for ($j = $i + 1; $j < $count; $j++) {
+                if (isset($used[$j])) {
+                    continue;
+                }
+                if (self::matches($list[$i], $list[$j])) {
+                    $used[$j] = true;
+                    $size++;
+                }
+            }
+
+            if ($size > 1) {
+                $used[$i] = true;
+                $groups++;
+            }
+        }
+
+        return $groups;
+    }
+
     public static function matches(string $left, string $right): bool
     {
         $a = self::canonical($left);

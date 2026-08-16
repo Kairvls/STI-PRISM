@@ -84,6 +84,16 @@ class MaintenanceController extends Controller
             ->where('borrowing_status', 'Borrowed')
             ->count();
 
+        DB::table('borrowing_records_table')
+            ->where('borrowing_status', 'Borrowed')
+            ->whereNotNull('borrowing_expected_return_date')
+            ->whereDate('borrowing_expected_return_date', '<', today())
+            ->update(['borrowing_status' => 'Overdue']);
+
+        $overdueBorrowings = DB::table('borrowing_records_table')
+            ->where('borrowing_status', 'Overdue')
+            ->count();
+
 
         $overdueMaintenance = DB::table('maintenance_schedules_table')
             ->where(function ($query) {
@@ -2334,6 +2344,8 @@ class MaintenanceController extends Controller
                 'underMaintenance',
 
                 'borrowedEquipment',
+
+                'overdueBorrowings',
 
                 'overdueMaintenance',
 
@@ -5214,9 +5226,18 @@ class MaintenanceController extends Controller
             )
             ->count();
 
+        $roomNames = DB::table('rooms_table')
+            ->when(
+                Schema::hasColumn('rooms_table', 'room_is_archived'),
+                fn ($q) => $q->where('room_is_archived', false)
+            )
+            ->pluck('room_name');
+
+        $duplicateRoomGroups = RoomName::duplicateGroupCount($roomNames);
+
         return view(
             'maintenance-personnel.rooms.index',
-            compact('rooms', 'buildings', 'floors', 'roomTypes', 'totalRooms', 'sort', 'dir')
+            compact('rooms', 'buildings', 'floors', 'roomTypes', 'totalRooms', 'duplicateRoomGroups', 'sort', 'dir')
         );
     }
 

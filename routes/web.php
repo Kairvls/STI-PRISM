@@ -2051,6 +2051,16 @@ Route::middleware(['auth'])
             [MessageController::class, 'uploadAttachment']
         )->name('upload');
 
+        Route::get(
+            '/conversations/{conversation}/messages/{message}/attachments/{attachment}/view',
+            [MessageController::class, 'viewAttachment']
+        )->name('attachment.view');
+
+        Route::get(
+            '/conversations/{conversation}/messages/{message}/attachments/{attachment}/download',
+            [MessageController::class, 'downloadAttachment']
+        )->name('attachment.download');
+
         Route::post(
             '/conversations/{conversation}/messages/{message}/delivered',
             [MessageController::class, 'markAsDelivered']

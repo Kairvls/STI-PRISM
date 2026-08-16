@@ -14,7 +14,7 @@
                 Borrowing Records
             </h1>
 
-            <p class="mt-1 text-slate-500">Monitor equipment inventory, condition, and operational status.</p>
+            <p class="mt-1 text-slate-500">Track borrowed equipment, due dates, and overdue returns.</p>
         </div>
 
         <button
@@ -27,6 +27,13 @@
             Borrow Equipment
         </button>
     </div>
+
+    @if (($overdueBorrowings ?? 0) > 0)
+        <div class="mt-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {{ $overdueBorrowings }} overdue {{ \Illuminate\Support\Str::plural('record', $overdueBorrowings) }}.
+            <a href="{{ url('/maintenance/borrowing?status=Overdue') }}" class="font-semibold underline">Show overdue only</a>
+        </div>
+    @endif
 
     <div
         class="mb-6 mt-6 overflow-hidden rounded-lg border-t border-b border-slate-300 bg-gray-100 shadow-sm"

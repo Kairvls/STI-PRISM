@@ -46,9 +46,9 @@ class MessageController extends Controller
             }
         )
         ->with([
-            'lastMessage:message_id,conversation_id,sender_id,reply_to_message_id,message_content,message_type,call_id,is_read,read_at,delivered_at,created_at',
+            'lastMessage:message_id,conversation_id,sender_id,reply_to_message_id,message_content,message_type,call_id,is_read,read_at,delivered_at,created_at,is_unsent',
             'lastMessage.call:call_id,caller_id,receiver_id,call_type,status,duration,answered_at',
-            'participants.user.role',
+            'participants.user',
         ])
 
         // =========================================
@@ -126,7 +126,7 @@ class MessageController extends Controller
         // =========================================
 
         $conversation->load([
-            'participants.user.role'
+            'participants.user'
         ]);
 
         return response()->json([
@@ -242,11 +242,22 @@ class MessageController extends Controller
                 $attachmentType =
                     $attachments[0]['type'] ?? '';
 
+                $attachmentExtension = strtolower(
+                    (string) ($attachments[0]['extension'] ?? '')
+                );
+
+                $imageExtensions = [
+                    'jpg',
+                    'jpeg',
+                    'png',
+                    'gif',
+                    'webp',
+                    'bmp',
+                ];
+
                 if (
-                    str_starts_with(
-                        $attachmentType,
-                        'image/'
-                    )
+                    str_starts_with($attachmentType, 'image/')
+                    || in_array($attachmentExtension, $imageExtensions, true)
                 ) {
 
                     $messageContent = '[attachment:image]';
@@ -330,9 +341,13 @@ class MessageController extends Controller
             'attachments',
         ]);
 
-        broadcast(
-            new MessageSent($message)
-        )->toOthers();
+        try {
+            broadcast(
+                new MessageSent($message)
+            )->toOthers();
+        } catch (\Throwable $e) {
+            report($e);
+        }
 
         $response = [
             'message' => 'Message sent successfully.',
@@ -878,7 +893,7 @@ class MessageController extends Controller
             ])
 
             ->orderByDesc('created_at')
-            ->paginate(20);
+            ->paginate(40);
 
 
         // =====================================================
@@ -908,7 +923,9 @@ class MessageController extends Controller
 
         $conversationEvents = collect();
 
-        if ($conversation->conversation_type === 'group') {
+        $page = max(1, (int) $request->get('page', 1));
+
+        if ($page === 1 && $conversation->conversation_type === 'group') {
 
             $conversationEvents =
                 DB::table('conversation_events as ce')
@@ -953,9 +970,11 @@ class MessageController extends Controller
                         'target.user_full_name as target_name',
                     ])
 
-                    ->orderBy(
+                    ->orderByDesc(
                         'ce.created_at'
                     )
+
+                    ->limit(40)
 
                     ->get()
 
@@ -1158,15 +1177,19 @@ class MessageController extends Controller
 
 
             // =============================================
-            // TELL OTHER USER MESSAGE WAS UNSENT
+            // TELL CHAT MEMBERS MESSAGE WAS UNSENT
             // =============================================
 
-            broadcast(
-                new MessageUpdated(
-                    $message,
-                    'unsent'
-                )
-            )->toOthers();
+            try {
+                broadcast(
+                    new MessageUpdated(
+                        $message,
+                        'unsent'
+                    )
+                );
+            } catch (\Throwable $e) {
+                report($e);
+            }
         }
 
         return response()->json([
@@ -2768,7 +2791,12 @@ class MessageController extends Controller
 
         $request->validate([
             'conversation_id' => ['required', 'integer', 'exists:conversations,conversation_id'],
-            'file' => ['required', 'file', 'max:25600'],
+            'file' => [
+                'required',
+                'file',
+                'max:25600',
+                'mimes:jpg,jpeg,png,gif,webp,bmp,txt,csv,pdf,doc,docx,xls,xlsx,ppt,pptx,odt,ods,odp,zip,rar,7z,rtf',
+            ],
         ]);
 
         $conversation = Conversation::findOrFail($request->input('conversation_id'));
@@ -2806,6 +2834,75 @@ class MessageController extends Controller
                 'extension' => $extension,
             ],
         ], 201);
+    }
+
+    public function viewAttachment(
+        Conversation $conversation,
+        Message $message,
+        MessageAttachment $attachment
+    ) {
+        $this->authorizeAttachmentAccess(
+            $conversation,
+            $message,
+            $attachment
+        );
+
+        return $this->streamAttachment($attachment, 'inline');
+    }
+
+    public function downloadAttachment(
+        Conversation $conversation,
+        Message $message,
+        MessageAttachment $attachment
+    ) {
+        $this->authorizeAttachmentAccess(
+            $conversation,
+            $message,
+            $attachment
+        );
+
+        return $this->streamAttachment($attachment, 'attachment');
+    }
+
+    private function authorizeAttachmentAccess(
+        Conversation $conversation,
+        Message $message,
+        MessageAttachment $attachment
+    ): void {
+        $this->authorizeConversation(
+            $conversation,
+            Auth::id()
+        );
+
+        if (
+            (int) $message->conversation_id !== (int) $conversation->conversation_id
+            || (int) $attachment->message_id !== (int) $message->message_id
+        ) {
+            abort(404);
+        }
+    }
+
+    private function streamAttachment(
+        MessageAttachment $attachment,
+        string $disposition
+    ) {
+        $path = ltrim((string) $attachment->attachment_path, '/');
+
+        if ($path === '' || ! Storage::disk('public')->exists($path)) {
+            abort(404, 'File not found.');
+        }
+
+        $name = $attachment->attachment_name ?: basename($path);
+        $mime = $attachment->attachment_type ?: Storage::disk('public')->mimeType($path);
+
+        return Storage::disk('public')->response(
+            $path,
+            $name,
+            [
+                'Content-Type' => $mime ?: 'application/octet-stream',
+                'Content-Disposition' => $disposition.'; filename="'.str_replace('"', '', $name).'"',
+            ]
+        );
     }
 
     // =====================================================

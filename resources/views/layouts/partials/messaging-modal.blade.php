@@ -10,9 +10,9 @@
 
 <div id="messagingModal" class="hidden" aria-hidden="true">
     {{-- Backdrop --}}
-    <div id="messagingModalBackdrop" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm opacity-0 transition-opacity duration-300 ease-out">
+    <div id="messagingModalBackdrop" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm opacity-0 transition-opacity duration-75">
         {{-- Modal Container --}}
-        <div id="messagingModalContainer" class="relative mx-4 w-full max-w-[1100px] h-[78vh] max-h-[660px] bg-white rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.25)] overflow-hidden scale-[0.95] opacity-0 transition-all duration-300 ease-out flex">
+        <div id="messagingModalContainer" class="relative mx-4 w-full max-w-[1100px] h-[78vh] max-h-[660px] bg-white rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.25)] overflow-hidden scale-[0.98] opacity-0 transition-all duration-75 flex">
 
             {{-- ===================================== --}}
             {{-- LEFT PANEL --}}
@@ -261,17 +261,16 @@
                         id="modalMessagesContainer"
                         class="
                             hidden
-                            flex
                             min-w-0
                             max-w-full
                             flex-1
-                            flex-col
                             overflow-x-hidden
                             overflow-y-auto
                             min-h-0
-                            gap-2.5
                             px-4
-                            py-3
+                            pt-3
+                            pb-8
+                            messaging-thread
                         "
                     >
                         {{-- Messages are inserted here by JavaScript --}}
@@ -310,43 +309,74 @@
                         </div>
 
                     </div>
-                {{-- ===================================================== --}}
-                {{-- SCROLL TO LATEST MESSAGE INDICATOR --}}
-                {{-- Shows after the user scrolls upward --}}
-                {{-- ===================================================== --}}
-                <button
-                    type="button"
-                    id="modalScrollToLatestButton"
-                    class="
-                        pointer-events-none
-                        absolute
-                        bottom-4
-                        left-1/2
-                        z-30
-                        flex
-                        h-11
-                        w-11
-                        -translate-x-1/2
-                        translate-y-2
-                        items-center
-                        justify-center
-                        rounded-full
-                        border
-                        border-gray-200
-                        bg-white
-                        text-gray-500
-                        opacity-0
-                        shadow-lg
-                        transition-all
-                        duration-200
-                        hover:bg-gray-50
-                        hover:text-gray-900
-                    "
-                    title="Jump to latest message"
-                    aria-label="Jump to latest message"
-                >
-                    <i data-lucide="arrow-down" class="h-5 w-5"></i>
-                </button>
+
+                    {{-- Loading overlay while the thread is fetched --}}
+                    <div
+                        id="modalThreadLoading"
+                        class="
+                            pointer-events-none
+                            absolute
+                            inset-0
+                            z-20
+                            hidden
+                            items-center
+                            justify-center
+                            bg-white
+                        "
+                        aria-hidden="true"
+                    >
+                        <div
+                            class="
+                                h-9
+                                w-9
+                                animate-spin
+                                rounded-full
+                                border-[3px]
+                                border-gray-200
+                                border-t-gray-800
+                            "
+                            role="status"
+                            aria-label="Loading messages"
+                        ></div>
+                    </div>
+
+                    {{-- ===================================================== --}}
+                    {{-- SCROLL TO LATEST MESSAGE INDICATOR --}}
+                    {{-- Shows after the user scrolls upward --}}
+                    {{-- ===================================================== --}}
+                    <button
+                        type="button"
+                        id="modalScrollToLatestButton"
+                        class="
+                            pointer-events-none
+                            absolute
+                            bottom-4
+                            left-1/2
+                            z-30
+                            flex
+                            h-11
+                            w-11
+                            -translate-x-1/2
+                            translate-y-2
+                            items-center
+                            justify-center
+                            rounded-full
+                            border
+                            border-gray-200
+                            bg-white
+                            text-gray-500
+                            opacity-0
+                            shadow-lg
+                            transition-all
+                            duration-200
+                            hover:bg-gray-50
+                            hover:text-gray-900
+                        "
+                        title="Jump to latest message"
+                        aria-label="Jump to latest message"
+                    >
+                        <i data-lucide="arrow-down" class="h-5 w-5"></i>
+                    </button>
 
                 </div>
 
@@ -434,6 +464,7 @@
                                 id="modalAttachmentInput"
                                 class="hidden"
                                 multiple
+                                accept="image/jpeg,image/png,image/gif,image/webp,.txt,.csv,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.zip"
                             />
 
 
@@ -540,26 +571,38 @@
                             </div>
 
 
-                            {{-- Send --}}
+                            {{-- Like when empty, Send when typing --}}
                             <button
-                                type="submit"
+                                type="button"
                                 id="modalSendButton"
+                                data-composer-mode="like"
                                 class="
                                     flex h-10 w-10 shrink-0
                                     items-center justify-center
                                     rounded-full
-                                    bg-gray-900
-                                    text-white
+                                    bg-transparent
+                                    text-[#0084FF]
                                     transition
-                                    hover:bg-gray-800
+                                    hover:bg-transparent
+                                    hover:opacity-80
                                     active:scale-95
-                                    disabled:cursor-not-allowed
-                                    disabled:opacity-50
                                 "
+                                title="Send a like"
+                                aria-label="Send a like"
                             >
+                                <svg
+                                    data-composer-action="like"
+                                    class="messenger-like-icon h-8 w-8"
+                                    viewBox="0 0 24 24"
+                                    fill="currentColor"
+                                    aria-hidden="true"
+                                >
+                                    <path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/>
+                                </svg>
                                 <i
+                                    data-composer-action="send"
                                     data-lucide="send"
-                                    class="h-4 w-4"
+                                    class="hidden h-4 w-4"
                                 ></i>
                             </button>
 
@@ -2464,11 +2507,20 @@
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
         const currentUserId = {{ auth()->id() }};
         let currentConversationId = null;
+        let conversationOpenToken = 0;
+        let messagesAbortController = null;
         let messagesPage = 1;
         let isLoadingMessages = false;
         let hasMoreMessages = true;
+        let threadSettled = false;
+        let bottomSnapTimers = [];
+        let stickThreadToBottom = true;
+        let ignoreProgrammaticScroll = false;
+        let threadScrollAnimation = null;
         let userSearchTimeout = null;
         let selectedAttachments = [];
+        let attachmentsUploading = 0;
+        let isSendingMessage = false;
         let replyingToMessage = null;
         let editingMessageRow = null;
         let activeRealtimeConversationId = null;
@@ -2619,9 +2671,16 @@
         // USER JUST LOADED PRISM
         // =====================================================
 
-        sendUserHeartbeat();
+        const runMessagingIdleWork = () => {
+            sendUserHeartbeat();
+            syncDeliveredMessages();
+        };
 
-        syncDeliveredMessages();
+        if (window.requestIdleCallback) {
+            requestIdleCallback(runMessagingIdleWork, { timeout: 2500 });
+        } else {
+            setTimeout(runMessagingIdleWork, 400);
+        }
 
         // =====================================================
         // USER'S INTERNET CONNECTION RETURNS
@@ -2653,6 +2712,11 @@
         // =====================================================
         setInterval(
             refreshConversationRelativeTimes,
+            60000
+        );
+
+        setInterval(
+            refreshMessageRelativeTimes,
             60000
         );
 
@@ -2963,6 +3027,10 @@
                 preview = 'Sent you attachments';
             }
 
+            if (isLikeStickerContent(preview) || isLikeStickerContent(msg.message_content)) {
+                preview = 'Sent a like';
+            }
+
             if (preview.length > 90) {
                 preview =
                     preview.substring(0, 90) + '...';
@@ -3176,7 +3244,7 @@
                     // conversation ordering
                     // =====================================================
 
-                    loadModalConversations();
+                    scheduleLoadModalConversations();
 
                     updateTopbarMessageBadge();
 
@@ -3191,10 +3259,14 @@
                 });
         }
 
-        function lucideCreateIcons() {
-            if (window.lucide) {
-                lucide.createIcons();
+        function lucideCreateIcons(root) {
+            if (!window.lucide) {
+                return;
             }
+
+            lucide.createIcons({
+                root: root || document.getElementById('messagingModal') || document
+            });
         }
 
         function getInitials(name) {
@@ -3602,6 +3674,16 @@
                 });
         }
 
+        function refreshMessageRelativeTimes() {
+            document
+                .querySelectorAll('.message-status-time')
+                .forEach(element => {
+                    element.textContent = formatMessageRelativeTime(
+                        element.dataset.createdAt
+                    );
+                });
+        }
+
 
         function formatMessageTime(dateString) {
             if (!dateString) return '';
@@ -3627,7 +3709,7 @@
             );
 
             if (diffSeconds < 60) {
-                return 'now';
+                return '';
             }
 
             const diffMinutes =
@@ -3715,7 +3797,7 @@
                     icon: 'file-text',
                     color: 'text-blue-600 bg-blue-50'
                 };
-            } else if (['xls', 'xlsx'].includes(ext)) {
+            } else if (['xls', 'xlsx', 'csv'].includes(ext)) {
                 return {
                     icon: 'file-spreadsheet',
                     color: 'text-emerald-600 bg-emerald-50'
@@ -5537,7 +5619,7 @@
                                             duration-200
                                             group-hover:scale-105
                                         "
-                                        loading="lazy"
+                                        loading="eager"
                                     >
                                 </button>
                             `;
@@ -6787,6 +6869,7 @@ if (!isGroup) {
             chatHeader?.classList.add('hidden');
             composer?.classList.add('hidden');
             chatEmpty?.classList.remove('hidden');
+            updateScrollToLatestButton();
 
             await loadModalConversations();
         }
@@ -9069,13 +9152,11 @@ if (!isGroup) {
             modal.setAttribute('aria-hidden', 'false');
             document.body.style.overflow = 'hidden';
 
-            requestAnimationFrame(() => {
-                backdrop.classList.remove('opacity-0');
-                container.classList.remove('scale-[0.95]', 'opacity-0');
-                container.classList.add('scale-100', 'opacity-100');
-            });
+            backdrop.classList.remove('opacity-0');
+            container.classList.remove('scale-[0.98]', 'scale-[0.95]', 'opacity-0');
+            container.classList.add('scale-100', 'opacity-100');
 
-            lucideCreateIcons();
+            lucideCreateIcons(modal);
             switchModalTab('conversations');
         };
 
@@ -9088,14 +9169,14 @@ if (!isGroup) {
 
             backdrop.classList.add('opacity-0');
             container.classList.remove('scale-100', 'opacity-100');
-            container.classList.add('scale-[0.95]', 'opacity-0');
+            container.classList.add('scale-[0.98]', 'opacity-0');
 
             setTimeout(() => {
                 modal.classList.add('hidden');
                 modal.setAttribute('aria-hidden', 'true');
                 document.body.style.overflow = '';
                 resetModalChat();
-            }, 300);
+            }, 80);
         };
 
 
@@ -9653,6 +9734,7 @@ if (!isGroup) {
             const typingIndicator = document.getElementById('modalTypingIndicator');
 
             if (chatEmpty) chatEmpty.classList.remove('hidden');
+            setThreadLoading(false);
             if (messagesContainer) {
 
                 messagesContainer.classList.add('hidden');
@@ -9691,6 +9773,8 @@ if (!isGroup) {
                 chatArea.classList.remove('hidden');
                 chatArea.classList.add('md:flex');
             }
+
+            updateScrollToLatestButton();
         }
 
         window.switchModalTab = function(tab) {
@@ -9706,6 +9790,9 @@ if (!isGroup) {
                 conversationsTab?.classList.remove('text-gray-500');
                 usersTab?.classList.remove('bg-white', 'text-gray-900', 'shadow-sm');
                 usersTab?.classList.add('text-gray-500');
+                if (conversationsCache) {
+                    renderModalConversations(conversationsCache);
+                }
                 loadModalConversations();
             } else {
                 conversationsSection?.classList.add('hidden');
@@ -9721,6 +9808,20 @@ if (!isGroup) {
         // =====================================================
         // LOAD CONVERSATIONS
         // =====================================================
+
+        let conversationsCache = null;
+        let conversationsReloadTimer = null;
+
+        function scheduleLoadModalConversations() {
+            if (conversationsReloadTimer) {
+                return;
+            }
+
+            conversationsReloadTimer = setTimeout(() => {
+                conversationsReloadTimer = null;
+                loadModalConversations();
+            }, 180);
+        }
 
         async function loadModalConversations() {
 
@@ -9755,22 +9856,7 @@ if (!isGroup) {
 
                 const result = await response.json();
 
-                // =========================================
-                // DEBUG
-                // Check what Laravel actually returned
-                // =========================================
-
-                console.log(
-                    'Conversations response:',
-                    result
-                );
-
-                // =========================================
-                // Laravel pagination object
-                //
-                // result.data = paginator
-                // result.data.data = conversations
-                // =========================================
+                conversationsCache = result.data;
 
                 renderModalConversations(
                     result.data
@@ -10103,6 +10189,11 @@ if (!isGroup) {
                             isGroup ? '' : name
                         );
                     }
+                    else if (lastMessage.is_unsent) {
+                        preview = lastMessageIsMine
+                            ? 'You unsent a message'
+                            : `${lastMessageSenderName} unsent a message`;
+                    }
                     else if (
                         !lastMessageIsMine &&
                         unreadCount > 1
@@ -10111,6 +10202,17 @@ if (!isGroup) {
                         preview =
                             `${unreadCount} new messages`;
 
+                    }
+
+
+                    else if (isLikeStickerContent(rawMessage)) {
+                        preview = lastMessageIsMine
+                            ? 'You sent a like'
+                            : (
+                                isGroup
+                                    ? `${lastMessageSenderName} sent a like`
+                                    : 'Sent a like'
+                            );
                     }
 
 
@@ -10218,6 +10320,19 @@ if (!isGroup) {
                         formatConversationRelativeTime(
                             lastMessage.created_at
                         );
+
+                    let previewHtml = escapeHtml(preview);
+                    if (isLikeStickerContent(rawMessage) && !lastMessage.is_unsent) {
+                        const likePrefix = lastMessageIsMine
+                            ? 'You:'
+                            : (isGroup ? `${lastMessageSenderName}:` : '');
+                        previewHtml = `
+                            <span class="inline-flex min-w-0 items-center gap-1">
+                                ${likePrefix ? `<span class="shrink-0">${escapeHtml(likePrefix)}</span>` : ''}
+                                ${messengerLikeIconHtml('h-3.5 w-3.5 shrink-0')}
+                            </span>
+                        `;
+                    }
 
 
                     // =====================================
@@ -10689,7 +10804,7 @@ if (!isGroup) {
                                                     escapeHtml(preview)
                                                 }"
                                             >
-                                                ${escapeHtml(preview)}
+                                                ${previewHtml}
                                             </p>
 
 
@@ -10893,6 +11008,9 @@ if (!isGroup) {
             messagesPage = 1;
 
             hasMoreMessages = true;
+            threadSettled = false;
+            stickThreadToBottom = true;
+            clearBottomSnapTimers();
 
 
             // =============================================
@@ -10951,6 +11069,8 @@ if (!isGroup) {
                 );
             }
 
+            setThreadLoading(true);
+
             if (chatHeader) {
                 chatHeader.classList.remove(
                     'hidden'
@@ -10961,6 +11081,7 @@ if (!isGroup) {
                 composer.classList.remove(
                     'hidden'
                 );
+                updateComposerActionButton();
             }
 
             if (chatArea) {
@@ -10975,33 +11096,75 @@ if (!isGroup) {
             }
 
 
+            if (messagesAbortController) {
+                messagesAbortController.abort();
+            }
+
+            messagesAbortController = new AbortController();
+            const openSignal = messagesAbortController.signal;
+            const openToken = ++conversationOpenToken;
+
+            const messagesPromise = loadModalMessages(
+                conversationId,
+                false,
+                openSignal
+            );
+
+            const cachedConversation = findCachedConversation(conversationId);
+
+            if (cachedConversation) {
+                currentConversationData = cachedConversation;
+                currentConversationType =
+                    cachedConversation.conversation_type === 'group'
+                        ? 'group'
+                        : 'direct';
+            }
+
+
             // =============================================
             // GET CONVERSATION
             // =============================================
 
-            const response =
-                await fetch(
-                    `/messages/conversations/${conversationId}`,
-                    {
-                        headers: {
-                            'Accept':
-                                'application/json'
-                        }
-                    }
-                );
+            let conversation = cachedConversation;
 
-            if (!response.ok) {
+            const conversationPromise = fetch(
+                `/messages/conversations/${conversationId}`,
+                {
+                    headers: {
+                        'Accept': 'application/json'
+                    },
+                    signal: openSignal
+                }
+            )
+                .then(response => response.ok ? response.json() : null)
+                .catch(error => {
+                    if (error.name === 'AbortError') {
+                        return null;
+                    }
+                    return null;
+                });
+
+            if (!conversation) {
+                const payload = await conversationPromise;
+                conversation = payload?.data || null;
+            } else {
+                conversationPromise.then(payload => {
+                    if (
+                        openToken !== conversationOpenToken ||
+                        !payload?.data
+                    ) {
+                        return;
+                    }
+                    currentConversationData = payload.data;
+                });
+            }
+
+            if (openToken !== conversationOpenToken) {
                 return;
             }
 
-
-            const data =
-                await response.json();
-
-            const conversation =
-                data.data;
-
             if (!conversation) {
+                await messagesPromise;
                 return;
             }
 
@@ -11339,26 +11502,21 @@ if (!isGroup) {
 
 
             // =============================================
-            // LOAD MESSAGES
+            // LOAD MESSAGES IN PARALLEL WITH HEADER
             // =============================================
 
-            await loadModalMessages(
-                conversationId
-            );
+            await messagesPromise;
 
+            if (openToken !== conversationOpenToken) {
+                return;
+            }
 
-            // =============================================
-            // START AT LATEST MESSAGE
-            // =============================================
+            threadSettled = true;
+            if (stickThreadToBottom) {
+                snapThreadToBottom();
+            }
 
-            await scrollOpenedConversationToBottom();
-
-
-            // =============================================
-            // MARK AS READ
-            // =============================================
-
-            await markConversationAsRead(
+            markConversationAsRead(
                 conversationId
             );
 
@@ -11619,13 +11777,14 @@ if (!isGroup) {
         function getMessageMoreMenuHtml(
             isOwn,
             isUnsent,
-            isPinned = false
+            isPinned = false,
+            canEdit = true
         ) {
-            const editItem = isOwn && !isUnsent ? `
+            const editItem = isOwn && !isUnsent && canEdit ? `
                 <button type="button" class="message-action-item message-edit-btn flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
                     <i data-lucide="pencil" class="h-4 w-4"></i><span>Edit</span>
                 </button>` : '';
-            const destructiveItem = isOwn ? `
+            const destructiveItem = (isOwn && !isUnsent) ? `
                 <button type="button" class="message-action-item message-unsend-btn flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50">
                     <i data-lucide="undo-2" class="h-4 w-4"></i><span>Unsend</span>
                 </button>` : `
@@ -11636,16 +11795,7 @@ if (!isGroup) {
                 <button type="button" class="message-action-item message-forward-btn flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50">
                     <i data-lucide="forward" class="h-4 w-4"></i><span>Forward</span>
                 </button>` : '';
-
-            return `
-                <div class="message-more relative">
-                    <button type="button" class="message-more-btn flex h-7 w-7 items-center justify-center rounded-full text-gray-400 opacity-0 transition group-hover:opacity-100 hover:bg-gray-100 hover:text-gray-700" title="More">
-                        <i data-lucide="more-vertical" class="h-4 w-4"></i>
-                    </button>
-                    <div class="message-more-menu absolute bottom-full ${isOwn ? 'left-0' : 'right-0'} z-50 mb-2 hidden min-w-[150px] overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-xl">
-                        ${destructiveItem}
-                        ${forwardItem}
-                        ${editItem}
+            const pinItem = !isUnsent ? `
                         <button
                             type="button"
                             class="message-action-item message-pin-btn flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
@@ -11658,7 +11808,18 @@ if (!isGroup) {
                             <span>
                                 ${isPinned ? 'Unpin' : 'Pin'}
                             </span>
-                        </button>
+                        </button>` : '';
+
+            return `
+                <div class="message-more relative">
+                    <button type="button" class="message-more-btn flex h-7 w-7 items-center justify-center rounded-full text-gray-400 opacity-0 transition group-hover:opacity-100 hover:bg-gray-100 hover:text-gray-700" title="More">
+                        <i data-lucide="more-vertical" class="h-4 w-4"></i>
+                    </button>
+                    <div class="message-more-menu absolute bottom-full ${isOwn ? 'left-0' : 'right-0'} z-50 mb-2 hidden min-w-[150px] overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-xl">
+                        ${destructiveItem}
+                        ${forwardItem}
+                        ${editItem}
+                        ${pinItem}
                     </div>
                 </div>`;
         }
@@ -11848,7 +12009,7 @@ if (!isGroup) {
             // =========================================
             const ownRows = Array.from(
                 container.querySelectorAll(
-                    '.message-row[data-message-own="1"][data-message-unsent="0"]'
+                    '.message-row[data-message-own="1"]'
                 )
             );
 
@@ -12056,6 +12217,121 @@ if (!isGroup) {
                 .filter(Boolean);
         }
 
+        function attachmentRecordId(attachment) {
+            return attachment?.message_attachment_id
+                || attachment?.attachment_id
+                || attachment?.id
+                || null;
+        }
+
+        function attachmentViewUrl(attachment) {
+            const id = attachmentRecordId(attachment);
+            const messageId = attachment?.message_id;
+            if (currentConversationId && messageId && id) {
+                return `/messages/conversations/${currentConversationId}/messages/${messageId}/attachments/${id}/view`;
+            }
+            return attachment?.url || '#';
+        }
+
+        function attachmentDownloadUrl(attachment) {
+            const id = attachmentRecordId(attachment);
+            const messageId = attachment?.message_id;
+            if (currentConversationId && messageId && id) {
+                return `/messages/conversations/${currentConversationId}/messages/${messageId}/attachments/${id}/download`;
+            }
+            return attachment?.url || '#';
+        }
+
+        function renderLargePersonAvatar(name, pictureUrl) {
+            const initials = escapeHtml(getInitials(name));
+            if (pictureUrl) {
+                return `
+                    <img
+                        src="${escapeHtml(pictureUrl)}"
+                        alt="${escapeHtml(name)}"
+                        class="mb-3 h-24 w-24 rounded-full object-cover"
+                    >
+                `;
+            }
+
+            return `
+                <div class="mb-3 flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-emerald-100 to-emerald-200 text-2xl font-semibold text-emerald-700">
+                    ${initials}
+                </div>
+            `;
+        }
+
+        function conversationThreadHasMessages(container = null) {
+            const root =
+                container ||
+                document.getElementById('modalMessagesContainer');
+
+            return Boolean(root?.querySelector('.message-row'));
+        }
+
+        function renderConversationFirstGlance(conversationEvents = [], hasMessages = null) {
+            if (currentConversationType === 'group') {
+                return renderGroupFirstGlance(conversationEvents);
+            }
+
+            const name =
+                currentConversationUser?.user_full_name ||
+                currentConversationUser?.name ||
+                currentConversationUserName ||
+                'Conversation';
+            const picture = getConversationInfoPictureUrl(
+                currentConversationUser || {}
+            );
+
+            const hasThread =
+                hasMessages === null
+                    ? conversationThreadHasMessages()
+                    : Boolean(hasMessages);
+
+            const subtitle = hasThread
+                ? `This conversation is between you and ${escapeHtml(name)}.`
+                : 'You can now message and call each other and see info like Active Status and when you\'ve read messages.';
+
+            return `
+                <div class="conversation-first-glance group-first-glance flex w-full shrink-0 flex-col items-center px-4 pb-8 pt-6 text-center">
+                    ${renderLargePersonAvatar(name, picture)}
+                    <h3 class="max-w-[90%] text-lg font-semibold text-gray-900">${escapeHtml(name)}</h3>
+                    <p class="mt-1 max-w-sm text-sm text-gray-500">
+                        ${subtitle}
+                    </p>
+                </div>
+            `;
+        }
+
+        function ensureConversationFirstGlance(container, conversationEvents = [], forceInsert = false, hasMessages = null) {
+            if (!container) return;
+
+            const threadHasMessages =
+                hasMessages === null
+                    ? conversationThreadHasMessages(container)
+                    : Boolean(hasMessages);
+
+            const html = renderConversationFirstGlance(
+                conversationEvents,
+                threadHasMessages
+            );
+            if (!html) return;
+
+            const existing = container.querySelector('.conversation-first-glance');
+            if (existing) {
+                existing.outerHTML = html;
+                lucideCreateIcons(container);
+                return;
+            }
+
+            if (!forceInsert && hasMoreMessages) {
+                return;
+            }
+
+            container.insertAdjacentHTML('afterbegin', html);
+            lucideCreateIcons(container);
+        }
+
         // =====================================================
         // GROUP FIRST GLANCE
         //
@@ -12157,20 +12433,25 @@ if (!isGroup) {
                 }
             }
 
-            const avatarItems = participants.slice(0, 3).map((participant, index) => {
-                const user = participant.user || {};
-                const name = user.user_full_name || user.name || 'User';
-                const picture = getConversationInfoPictureUrl(user);
-                const offset = index * 28;
+            const groupImage = normalizeConversationImageUrl(
+                currentConversationData?.conversation_image ||
+                currentConversationData?.conversation_image_url ||
+                ''
+            );
 
-                return picture
-                    ? `<img src="${escapeHtml(picture)}" alt="${escapeHtml(name)}" class="absolute h-14 w-14 rounded-full border-4 border-white object-cover" style="left:${offset}px;top:${index === 1 ? 0 : 16}px">`
-                    : `<div class="absolute flex h-14 w-14 items-center justify-center rounded-full border-4 border-white bg-gray-100 text-sm font-semibold text-gray-600" style="left:${offset}px;top:${index === 1 ? 0 : 16}px">${escapeHtml(getInitials(name))}</div>`;
-            }).join('');
+            const avatarHtml = groupImage
+                ? `
+                    <img
+                        src="${escapeHtml(groupImage)}"
+                        alt="${escapeHtml(groupName)}"
+                        class="mb-3 h-24 w-24 rounded-full object-cover"
+                    >
+                `
+                : `<div class="relative mb-3">${renderDefaultGroupAvatar(participants, 'large')}</div>`;
 
             return `
-                <div class="group-first-glance flex w-full shrink-0 flex-col items-center px-4 pb-8 pt-5 text-center">
-                    <div class="relative mb-3 h-[76px] w-[116px]">${avatarItems}</div>
+                <div class="conversation-first-glance group-first-glance flex w-full shrink-0 flex-col items-center px-4 pb-8 pt-5 text-center">
+                    ${avatarHtml}
                     <h3 class="max-w-[90%] text-lg font-semibold text-gray-900">${escapeHtml(groupName)}</h3>
                     <p class="mt-1 text-sm text-gray-500">${escapeHtml(creatorName)} created this group</p>
                     <div class="mt-5 flex items-start justify-center gap-8">
@@ -12273,6 +12554,9 @@ if (!isGroup) {
             currentConversationData = data.data;
             refreshConversationInfoProfile();
             refreshGroupConversationSidebar();
+            ensureConversationFirstGlance(
+                document.getElementById('modalMessagesContainer')
+            );
         }
 
         function appendRealtimeConversationActivity(event) {
@@ -12529,9 +12813,10 @@ if (!isGroup) {
                 ? msg.attachments
                 : (msg.attachment ? [msg.attachment] : []);
 
-            const attachments =
-                normalizeAttachments(rawAttachments);
             const isUnsent = Boolean(msg.is_unsent);
+            const attachments = isUnsent
+                ? []
+                : normalizeAttachments(rawAttachments);
             const isForwarded = Boolean(
                 msg.is_forwarded ||
                 msg.forwarded_from_message_id ||
@@ -12557,14 +12842,35 @@ if (!isGroup) {
                 attachmentMarkers.includes(content)
                     ? ''
                     : content;
-            const hasText = Boolean(displayContent.trim());
+            const isLikeSticker = isLikeStickerContent(displayContent) && attachments.length === 0;
+            const hasText = Boolean(displayContent.trim()) && !isLikeSticker;
             const hasAttachments = attachments.length > 0;
             const isPinned =
             msg.is_pinned === true ||
             msg.is_pinned === 1 ||
             msg.is_pinned === '1';
             const avatar = isOwn ? '' : getMessageAvatarHtml(msg, senderName);
-            const actions = `
+            const actions = isUnsent ? `
+                <div
+                    class="
+                        message-hover-actions
+                        flex
+                        shrink-0
+                        items-center
+                        gap-0.5
+                        opacity-0
+                        transition
+                        group-hover:opacity-100
+                    "
+                >
+                    ${getMessageMoreMenuHtml(
+                        isOwn,
+                        true,
+                        false,
+                        false
+                    )}
+                </div>
+            ` : `
                 <div
                     class="
                         message-hover-actions
@@ -12604,7 +12910,8 @@ if (!isGroup) {
                     ${getMessageMoreMenuHtml(
                         isOwn,
                         isUnsent,
-                        isPinned
+                        isPinned,
+                        hasText
                     )}
                 </div>
             `;
@@ -12790,7 +13097,9 @@ if (!isGroup) {
                                         title="${escapeHtml(fullTime)}"
                                     >
                                         <p class="text-sm italic">
-                                            This message was unsent
+                                            ${isOwn
+                                                ? 'You deleted a message'
+                                                : 'This message was unsent'}
                                         </p>
                                     </div>
                                 `
@@ -12799,7 +13108,28 @@ if (!isGroup) {
                                     <!-- TEXT MESSAGE -->
                                     <!-- ================================= -->
 
-                                    ${hasText
+                                    ${isLikeSticker
+                                        ? `
+                                            <div
+                                                class="
+                                                    message-bubble
+                                                    message-like-sticker
+                                                    relative
+                                                    z-10
+                                                    inline-flex
+                                                    w-fit
+                                                    items-center
+                                                    justify-center
+                                                    bg-transparent
+                                                    p-0
+                                                    ${isOwn ? 'self-end' : 'self-start'}
+                                                "
+                                                title="${escapeHtml(fullTime)}"
+                                            >
+                                                ${messengerLikeIconHtml('h-14 w-14')}
+                                            </div>
+                                        `
+                                        : hasText
                                         ? `
                                             <div
                                                 class="
@@ -12916,7 +13246,7 @@ if (!isGroup) {
                     <!-- SENT / DELIVERED / SEEN -->
                     <!-- ===================================== -->
 
-                    ${isOwn && !isUnsent
+                    ${isOwn
                         ? `
                             <div
                                 class="
@@ -13146,9 +13476,20 @@ if (!isGroup) {
                 messages.style.pointerEvents = '';
             }
             if (attachmentButton) attachmentButton.classList.remove('hidden');
+            updateComposerActionButton();
         }
 
         function startEditMessage(row) {
+            const content = String(row?.dataset.messageContent || '').trim();
+            const attachmentMarkers = [
+                '[attachment:image]',
+                '[attachment:file]',
+                '[attachment:multiple]'
+            ];
+            if (!content || attachmentMarkers.includes(content)) {
+                return;
+            }
+
             cancelReply();
             editingMessageRow = row;
 
@@ -13187,6 +13528,7 @@ if (!isGroup) {
 
             document.getElementById('modalCancelEdit').onclick = cancelMessageEdit;
             lucideCreateIcons();
+            updateComposerActionButton();
         }
 
         async function editMessageFromRow(row) {
@@ -13231,6 +13573,37 @@ if (!isGroup) {
             lucideCreateIcons();
             refreshMessageDateSeparators();
             return true;
+        }
+
+        function replaceThreadMessageRow(row, msg, isOwn) {
+            const holder = document.createElement('div');
+            holder.innerHTML = renderMessengerMessageRow(msg, isOwn).trim();
+            const next = holder.firstElementChild;
+            if (!next) return;
+            row.replaceWith(next);
+            lucideCreateIcons();
+            refreshMessageDateSeparators();
+            refreshSeenAvatar();
+            scheduleLoadModalConversations();
+        }
+
+        function messagePayloadFromRow(row, extra = {}) {
+            const isOwn = row.dataset.messageOwn === '1';
+            return {
+                message_id: row.dataset.messageId,
+                conversation_id: currentConversationId,
+                sender_id: isOwn ? currentUserId : row.dataset.messageSenderId,
+                sender: {
+                    user_id: isOwn ? currentUserId : row.dataset.messageSenderId,
+                    user_full_name: row.dataset.messageSender || (isOwn ? 'You' : 'Unknown')
+                },
+                message_content: row.dataset.messageContent || '',
+                created_at: row.dataset.messageCreatedAt || '',
+                is_unsent: row.dataset.messageUnsent === '1',
+                attachments: [],
+                reactions: [],
+                ...extra
+            };
         }
 
         function showUnsendChoiceDialog() {
@@ -13282,11 +13655,7 @@ if (!isGroup) {
             if (!choice) return;
 
             if (choice === 'you') {
-                const response = await fetch(`/messages/conversations/${currentConversationId}/messages/${row.dataset.messageId}/remove`, {
-                    method: 'DELETE',
-                    headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken }
-                });
-                if (response.ok) row.remove();
+                await removeMessageFromRow(row, true);
                 return;
             }
 
@@ -13296,30 +13665,37 @@ if (!isGroup) {
             });
             if (!response.ok) return;
 
-            row.dataset.messageUnsent = '1';
-            row.dataset.messageContent = '';
-            const bubble = row.querySelector('.message-bubble');
-            if (bubble) {
-                bubble.className = 'message-bubble relative w-fit max-w-full rounded-2xl border border-gray-300 bg-white text-gray-500 px-3.5 py-2';
-                bubble.innerHTML = '<p class="text-sm italic">This message was unsent</p>';
-            }
-            row.querySelectorAll('.message-reaction-picker, .message-reply-btn, .message-read-status').forEach(el => el.remove());
-            const menu = row.querySelector('.message-more-menu');
-            if (menu) menu.innerHTML = '<button type="button" class="message-action-item message-pin-btn flex w-full items-center gap-3 px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"><i data-lucide="pin" class="h-4 w-4"></i><span>Pin</span></button>';
-            lucideCreateIcons();
+            replaceThreadMessageRow(
+                row,
+                messagePayloadFromRow(row, {
+                    is_unsent: true,
+                    message_content: '',
+                    attachments: [],
+                    reactions: [],
+                    is_pinned: false,
+                    reply_to: null
+                }),
+                true
+            );
         }
 
-        async function removeMessageFromRow(row) {
-            const confirmed = await showMessageActionDialog({
-                title: 'Remove for you',
-                text: 'This will remove the message from your devices. Other chat members will still be able to see it.',
-                confirmText: 'Remove', danger: false
-            });
-            if (!confirmed) return;
+        async function removeMessageFromRow(row, skipConfirm = false) {
+            if (!skipConfirm) {
+                const confirmed = await showMessageActionDialog({
+                    title: 'Remove for you',
+                    text: 'This will remove the message from your devices. Other chat members will still be able to see it.',
+                    confirmText: 'Remove', danger: false
+                });
+                if (!confirmed) return;
+            }
             const response = await fetch(`/messages/conversations/${currentConversationId}/messages/${row.dataset.messageId}/remove`, {
                 method: 'DELETE', headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrfToken }
             });
-            if (response.ok) row.remove();
+            if (!response.ok) return;
+            row.remove();
+            refreshMessageDateSeparators();
+            refreshSeenAvatar();
+            scheduleLoadModalConversations();
         }
 
         // =====================================================
@@ -13425,74 +13801,40 @@ if (!isGroup) {
                     return;
                 }
 
+                const latestPin = messages[0];
+                const pinnedMessageId = String(latestPin.message_id || '');
+                const pinnedAt = latestPin.pinned_at || latestPin.created_at || '';
 
-                // =================================================
-                // CREATE THE PERSISTED PIN NOTICE
-                // =================================================
+                const pinnedRow = pinnedMessageId
+                    ? container.querySelector(
+                        `.message-row[data-message-id="${CSS.escape(pinnedMessageId)}"]`
+                    )
+                    : null;
 
-                const notice =
-                    document.createElement('div');
+                let afterRow = pinnedRow;
 
-
-                notice.className =
-                    'pin-system-notice flex justify-center py-3';
-
-
-                notice.innerHTML = `
-                    <div
-                        class="
-                            flex
-                            items-center
-                            gap-1.5
-                            text-xs
-                            text-gray-400
-                        "
-                    >
-                        <span>
-                            You pinned a message.
-                        </span>
-
-                        <button
-                            type="button"
-                            class="
-                                pinned-see-all
-                                font-semibold
-                                text-gray-900
-                                hover:underline
-                            "
-                        >
-                            See all
-                        </button>
-                    </div>
-                `;
-
-
-                // =================================================
-                // KEEP NOTICE ABOVE TYPING INDICATOR
-                // Typing indicator must remain the last item.
-                // =================================================
-
-                const typingIndicator =
-                    document.getElementById(
-                        'modalTypingIndicator'
+                if (!afterRow && pinnedAt) {
+                    const pinTime = new Date(pinnedAt).getTime();
+                    const rows = Array.from(
+                        container.querySelectorAll('.message-row[data-message-created-at]')
                     );
 
-
-                if (typingIndicator) {
-
-                    typingIndicator.before(
-                        notice
-                    );
-
-                } else {
-
-                    container.appendChild(
-                        notice
-                    );
+                    for (const row of rows) {
+                        const rowTime = new Date(row.dataset.messageCreatedAt || '').getTime();
+                        if (!Number.isNaN(rowTime) && rowTime <= pinTime) {
+                            afterRow = row;
+                        }
+                    }
                 }
 
+                if (!afterRow) {
+                    return;
+                }
 
-                lucideCreateIcons();
+                insertPinNoticeAfterRow(
+                    buildPinSystemNotice(true),
+                    afterRow
+                );
 
 
             } catch (error) {
@@ -14078,11 +14420,38 @@ if (!isGroup) {
 
         // =====================================================
         // PIN SYSTEM NOTICE
+        // In-thread system line, like Messenger. Newer messages
+        // continue below it instead of leaving it stuck at the end.
         // =====================================================
+
+        function buildPinSystemNotice(isPinned) {
+            const notice = document.createElement('div');
+            notice.className = 'pin-system-notice flex justify-center py-3';
+            notice.innerHTML = `
+                <div class="flex items-center gap-1.5 text-xs text-gray-400">
+                    <span>${isPinned ? 'You pinned a message.' : 'You unpinned a message.'}</span>
+                    <button
+                        type="button"
+                        class="pinned-see-all font-semibold text-gray-900 hover:underline"
+                    >
+                        See all
+                    </button>
+                </div>
+            `;
+            return notice;
+        }
+
+        function insertPinNoticeAfterRow(notice, row) {
+            if (!notice || !row || !row.parentNode) {
+                return;
+            }
+
+            row.after(notice);
+        }
 
         // =====================================================
         // MESSENGER STYLE PIN SYSTEM NOTICE
-        // Always goes at the BOTTOM of the conversation
+        // In-thread system line under the pinned message.
         // =====================================================
 
         function showPinSystemNotice(
@@ -14156,42 +14525,15 @@ if (!isGroup) {
 
 
             // =========================================
-            // ADD SYSTEM NOTICE TO BOTTOM
+            // ADD SYSTEM NOTICE UNDER THAT MESSAGE
             // =========================================
 
-            const notice =
-                document.createElement('div');
+            insertPinNoticeAfterRow(
+                buildPinSystemNotice(isPinned),
+                row
+            );
 
-            notice.className =
-                'pin-system-notice flex justify-center py-3';
-
-            notice.innerHTML = `
-                <div
-                    class="flex items-center gap-1.5 text-xs text-gray-400"
-                >
-                    <span>
-                        ${
-                            isPinned
-                                ? 'You pinned a message.'
-                                : 'You unpinned a message.'
-                        }
-                    </span>
-
-                    <button
-                        type="button"
-                        class="pinned-see-all font-semibold text-gray-900 hover:underline"
-                    >
-                        See all
-                    </button>
-                </div>
-            `;
-
-            container.appendChild(notice);
-
-            container.scrollTop =
-                container.scrollHeight;
-
-            lucideCreateIcons();
+            lucideCreateIcons(row || container);
         }
 
         // =====================================================
@@ -14376,10 +14718,41 @@ if (!isGroup) {
             showForwardMessageDialog(choices, row.dataset.messageId);
         }
 
-        async function loadModalMessages(conversationId, append = false) {
-            if (isLoadingMessages || !hasMoreMessages) return;
+        function findCachedConversation(conversationId) {
+            const page = conversationsCache?.data || conversationsCache;
+            const list = Array.isArray(page) ? page : [];
+
+            return list.find(item =>
+                Number(item.conversation_id) === Number(conversationId)
+            ) || null;
+        }
+
+        function setThreadLoading(visible) {
+            const loader = document.getElementById('modalThreadLoading');
+            if (!loader) return;
+
+            loader.classList.toggle('hidden', !visible);
+            loader.classList.toggle('flex', visible);
+            loader.setAttribute('aria-hidden', visible ? 'false' : 'true');
+        }
+
+        async function loadModalMessages(conversationId, append = false, signal = null) {
+            if (append && (isLoadingMessages || !hasMoreMessages)) {
+                return;
+            }
+
+            if (!append) {
+                isLoadingMessages = false;
+                hasMoreMessages = true;
+            }
+
+            if (isLoadingMessages) {
+                return;
+            }
+
             isLoadingMessages = true;
 
+            try {
             const container = document.getElementById('modalMessagesContainer');
             if (!append) {
 
@@ -14401,11 +14774,27 @@ if (!isGroup) {
                     });
             }
 
-            const response = await fetch(`/messages/conversations/${conversationId}/messages?page=${messagesPage}`, {
-                headers: {
-                    'Accept': 'application/json'
+            let response;
+
+            try {
+                response = await fetch(`/messages/conversations/${conversationId}/messages?page=${messagesPage}`, {
+                    headers: {
+                        'Accept': 'application/json'
+                    },
+                    signal: signal || undefined
+                });
+            } catch (error) {
+                isLoadingMessages = false;
+                if (error.name === 'AbortError') {
+                    return;
                 }
-            });
+                return;
+            }
+
+            if (Number(conversationId) !== Number(currentConversationId)) {
+                isLoadingMessages = false;
+                return;
+            }
             if (!response.ok) {
                 isLoadingMessages = false;
                 return;
@@ -14421,6 +14810,11 @@ if (!isGroup) {
                     ? data.conversation_events
                     : [];
 
+            hasMoreMessages = Boolean(messages.next_page_url) || (
+                Number(messages.current_page || 1) <
+                Number(messages.last_page || 1)
+            );
+
             // =====================================================
             // NO MESSAGES YET
             // KEEP TYPING INDICATOR ALIVE
@@ -14435,34 +14829,19 @@ if (!isGroup) {
                 const typingIndicator =
                     document.getElementById('modalTypingIndicator');
 
-                const emptyState =
-                    document.createElement('div');
-
-                emptyState.className =
-                    'message-empty-state text-center py-12';
-
-                emptyState.innerHTML = `
-                    <div class="inline-flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-400 mb-3">
-                        <i data-lucide="message-square" class="h-6 w-6"></i>
-                    </div>
-
-                    <p class="text-sm font-semibold text-gray-800">
-                        No messages yet
-                    </p>
-
-                    <p class="text-xs text-gray-500 mt-1">
-                        Send the first message below
-                    </p>
-                `;
-
-                container.appendChild(emptyState);
+                ensureConversationFirstGlance(
+                    container,
+                    conversationEvents,
+                    true,
+                    false
+                );
 
                 // Keep typing indicator last
                 if (typingIndicator) {
                     container.appendChild(typingIndicator);
                 }
 
-                lucideCreateIcons();
+                lucideCreateIcons(container);
 
                 isLoadingMessages = false;
 
@@ -14475,6 +14854,11 @@ if (!isGroup) {
             ) {
 
                 hasMoreMessages = false;
+                ensureConversationFirstGlance(
+                    container,
+                    conversationEvents,
+                    true
+                );
                 isLoadingMessages = false;
 
                 return;
@@ -14569,8 +14953,11 @@ if (!isGroup) {
             // =====================================================
 
             const firstGlanceHtml =
-                (!append && currentConversationType === 'group' && messages.data.length === 0)
-                    ? renderGroupFirstGlance(conversationEvents)
+                (!append && !hasMoreMessages)
+                    ? renderConversationFirstGlance(
+                        conversationEvents,
+                        conversationItems.some(item => item.item_type === 'message')
+                    )
                     : '';
 
             const html =
@@ -14618,10 +15005,23 @@ if (!isGroup) {
 
             if (append) {
 
-                container.insertAdjacentHTML(
-                    'afterbegin',
-                    html
-                );
+                const glance = container.querySelector('.conversation-first-glance');
+                if (glance) {
+                    glance.insertAdjacentHTML('afterend', html);
+                } else {
+                    container.insertAdjacentHTML(
+                        'afterbegin',
+                        html
+                    );
+                }
+
+                if (!hasMoreMessages) {
+                    ensureConversationFirstGlance(
+                        container,
+                        conversationEvents,
+                        true
+                    );
+                }
 
             } else {
 
@@ -14669,33 +15069,24 @@ if (!isGroup) {
 
             refreshMessageDateSeparators();
 
-            lucideCreateIcons();
+            lucideCreateIcons(container);
             refreshSeenAvatar();
-
-
-            // =====================================================
-            // RESTORE PERSISTED PIN NOTICE
-            // Only do this during the initial conversation load.
-            // Do NOT do this when loading older messages.
-            // =====================================================
-
-            if (!append) {
-
-                await restorePinSystemNotice();
-
-            }
-
-
-            // =====================================================
-            // KEEP TYPING INDICATOR AT THE VERY BOTTOM
-            // =====================================================
 
             moveTypingIndicatorAfterLastMessage();
 
-
-            scrollToBottom(false, !append);
+            if (!append) {
+                stickThreadToBottom = true;
+                await settleOpenedThread(container);
+                restorePinSystemNotice();
+            }
 
             isLoadingMessages = false;
+            } finally {
+                isLoadingMessages = false;
+                if (!append) {
+                    setThreadLoading(false);
+                }
+            }
         }
 
         // =====================================================
@@ -16557,6 +16948,7 @@ if (!isGroup) {
                     lucideCreateIcons();
                     refreshMessengerMessageGroups();
                     refreshLatestOutgoingStatus();
+                    ensureConversationFirstGlance(container, [], false, true);
 
 
                     // =========================================
@@ -16695,7 +17087,10 @@ if (!isGroup) {
                     if (!msg || Number(msg.conversation_id) !== Number(currentConversationId)) return;
 
                     const row = document.querySelector(`.message-row[data-message-id="${msg.message_id}"]`);
-                    if (!row) return;
+                    if (!row) {
+                        scheduleLoadModalConversations();
+                        return;
+                    }
 
                     const isOwn = Number(msg.sender_id) === Number(currentUserId);
                     const merged = {
@@ -16706,15 +17101,16 @@ if (!isGroup) {
                             user_id: msg.sender_id,
                             user_full_name: row.dataset.messageSender || (isOwn ? 'You' : 'Unknown')
                         },
-                        message_content: msg.message_content,
-                        created_at: row.dataset.messageCreatedAt,
+                        message_content: msg.is_unsent ? '' : msg.message_content,
+                        created_at: row.dataset.messageCreatedAt || msg.updated_at,
                         is_unsent: msg.is_unsent,
                         is_edited: msg.is_edited,
-                        reactions: []
+                        attachments: msg.is_unsent ? [] : undefined,
+                        reactions: [],
+                        reply_to: msg.is_unsent ? null : undefined
                     };
 
-                    row.outerHTML = renderMessengerMessageRow(merged, isOwn);
-                    lucideCreateIcons();
+                    replaceThreadMessageRow(row, merged, isOwn);
                 })
 
                 // =====================================================
@@ -17286,12 +17682,17 @@ if (!isGroup) {
                 return;
             }
 
+            const threadOpen =
+                Boolean(currentConversationId) &&
+                !container.classList.contains('hidden');
+
             const distanceFromBottom =
                 container.scrollHeight -
                 container.scrollTop -
                 container.clientHeight;
 
             const shouldShow =
+                threadOpen &&
                 distanceFromBottom > 120;
 
             button.classList.toggle('opacity-0', !shouldShow);
@@ -17313,10 +17714,8 @@ if (!isGroup) {
                 return;
             }
 
-            container.scrollTo({
-                top: container.scrollHeight,
-                behavior: 'smooth'
-            });
+            stickThreadToBottom = true;
+            animateThreadToBottom();
         }
 
 
@@ -17342,6 +17741,146 @@ if (!isGroup) {
         );
 
 
+        function cancelThreadScrollAnimation() {
+            if (threadScrollAnimation) {
+                cancelAnimationFrame(threadScrollAnimation);
+                threadScrollAnimation = null;
+            }
+        }
+
+        function clearBottomSnapTimers() {
+            bottomSnapTimers.forEach(id => clearTimeout(id));
+            bottomSnapTimers = [];
+            cancelThreadScrollAnimation();
+        }
+
+        function withProgrammaticScroll(fn) {
+            ignoreProgrammaticScroll = true;
+            fn();
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    ignoreProgrammaticScroll = false;
+                });
+            });
+        }
+
+        function snapThreadToBottom() {
+            const container = document.getElementById('modalMessagesContainer');
+            if (!container) {
+                return;
+            }
+
+            withProgrammaticScroll(() => {
+                container.scrollTop = container.scrollHeight;
+            });
+        }
+
+        async function settleOpenedThread(container) {
+            if (!container) {
+                return;
+            }
+
+            stickThreadToBottom = true;
+
+            const waitFrame = () => new Promise(resolve => requestAnimationFrame(resolve));
+
+            for (let i = 0; i < 12; i++) {
+                snapThreadToBottom();
+                if (container.clientHeight > 48) {
+                    break;
+                }
+                await waitFrame();
+            }
+
+            snapThreadToBottom();
+            setThreadLoading(false);
+            await waitFrame();
+            if (stickThreadToBottom) {
+                snapThreadToBottom();
+            }
+        }
+
+        function easeOutCubic(t) {
+            return 1 - Math.pow(1 - t, 3);
+        }
+
+        function animateThreadToBottom(duration = 360) {
+            const container = document.getElementById('modalMessagesContainer');
+            if (!container) {
+                return;
+            }
+
+            cancelThreadScrollAnimation();
+            ignoreProgrammaticScroll = true;
+
+            const maxScroll = () => Math.max(
+                0,
+                container.scrollHeight - container.clientHeight
+            );
+
+            const end = maxScroll();
+            if (end <= 8) {
+                container.scrollTop = end;
+                ignoreProgrammaticScroll = false;
+                return;
+            }
+
+            container.scrollTop = Math.max(0, end - 160);
+
+            const start = container.scrollTop;
+            const startedAt = performance.now();
+
+            const step = (now) => {
+                const target = maxScroll();
+                const progress = Math.min(1, (now - startedAt) / duration);
+                container.scrollTop =
+                    start + ((target - start) * easeOutCubic(progress));
+
+                if (progress < 1) {
+                    threadScrollAnimation = requestAnimationFrame(step);
+                    return;
+                }
+
+                container.scrollTop = maxScroll();
+                threadScrollAnimation = null;
+                requestAnimationFrame(() => {
+                    ignoreProgrammaticScroll = false;
+                });
+            };
+
+            threadScrollAnimation = requestAnimationFrame(step);
+        }
+
+        function forceScrollThreadToBottom(smooth = false) {
+            clearBottomSnapTimers();
+            if (smooth) {
+                animateThreadToBottom();
+                return;
+            }
+            snapThreadToBottom();
+        }
+
+        async function waitForThreadImages(container, timeoutMs = 800) {
+            if (!container) {
+                return;
+            }
+
+            const images = Array.from(container.querySelectorAll('img'))
+                .filter(image => !image.complete);
+
+            if (!images.length) {
+                return;
+            }
+
+            await Promise.race([
+                Promise.all(images.map(image => new Promise(resolve => {
+                    image.addEventListener('load', resolve, { once: true });
+                    image.addEventListener('error', resolve, { once: true });
+                }))),
+                new Promise(resolve => setTimeout(resolve, timeoutMs))
+            ]);
+        }
+
         function scrollToBottom(smooth = false, force = false) {
             const container = document.getElementById('modalMessagesContainer');
             if (!container) return;
@@ -17352,14 +17891,7 @@ if (!isGroup) {
                 return;
             }
 
-            if (smooth) {
-                container.scrollTo({
-                    top: container.scrollHeight,
-                    behavior: 'smooth'
-                });
-            } else {
-                container.scrollTop = container.scrollHeight;
-            }
+            container.scrollTop = container.scrollHeight;
         }
 
         async function scrollOpenedConversationToBottom() {
@@ -17447,8 +17979,88 @@ if (!isGroup) {
             }, 100);
         }
 
+        function isLikeStickerContent(text) {
+            return /^\u{1F44D}[\u{1F3FB}-\u{1F3FF}]?$/u.test(
+                String(text || '').trim()
+            );
+        }
+
+        function messengerLikeIconHtml(sizeClass = 'h-8 w-8') {
+            return `
+                <svg
+                    class="messenger-like-icon ${sizeClass}"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    aria-hidden="true"
+                >
+                    <path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/>
+                </svg>
+            `;
+        }
+
+        function composerHasSendableContent() {
+            const input = document.getElementById('modalMessageInput');
+            const text = (input?.value || '').trim();
+
+            return Boolean(text)
+                || selectedAttachments.length > 0
+                || attachmentsUploading > 0
+                || Boolean(editingMessageRow);
+        }
+
+        function updateComposerActionButton() {
+            const button = document.getElementById('modalSendButton');
+            if (!button) return;
+
+            const canSend = composerHasSendableContent();
+            const likeIcon = button.querySelector('[data-composer-action="like"]');
+            const sendIcon = button.querySelector('[data-composer-action="send"]');
+
+            button.dataset.composerMode = canSend ? 'send' : 'like';
+            button.type = canSend ? 'submit' : 'button';
+            button.title = canSend ? 'Send' : 'Send a like';
+            button.setAttribute('aria-label', canSend ? 'Send' : 'Send a like');
+            button.classList.toggle('bg-gray-900', canSend);
+            button.classList.toggle('text-white', canSend);
+            button.classList.toggle('hover:bg-gray-800', canSend);
+            button.classList.toggle('bg-transparent', !canSend);
+            button.classList.toggle('text-[#0084FF]', !canSend);
+            button.classList.toggle('hover:bg-transparent', !canSend);
+            button.classList.toggle('hover:opacity-80', !canSend);
+            button.classList.toggle('hover:bg-gray-100', false);
+            button.classList.toggle('text-gray-900', false);
+
+            likeIcon?.classList.toggle('hidden', canSend);
+            sendIcon?.classList.toggle('hidden', !canSend);
+
+            if (canSend) {
+                lucideCreateIcons(button);
+            }
+        }
+
+        async function sendLikeFromComposer() {
+            if (composerHasSendableContent() || !currentConversationId) {
+                return;
+            }
+
+            const input = document.getElementById('modalMessageInput');
+            if (input) {
+                input.value = '👍';
+            }
+
+            await sendModalMessage({
+                preventDefault() {},
+                stopPropagation() {}
+            });
+        }
+
         async function sendModalMessage(e) {
             e.preventDefault();
+            e.stopPropagation();
+
+            if (isSendingMessage) {
+                return;
+            }
 
             // =============================================
             // EDIT MODE: save the edited message instead
@@ -17461,11 +18073,38 @@ if (!isGroup) {
 
             const input = document.getElementById('modalMessageInput');
             const content = input?.value.trim();
-            if (!content && !selectedAttachments.length) return;
+
+            if (attachmentsUploading > 0) {
+                const started = Date.now();
+                while (attachmentsUploading > 0 && Date.now() - started < 12000) {
+                    await new Promise(resolve => setTimeout(resolve, 80));
+                }
+            }
+
+            const outgoingAttachments = selectedAttachments.slice().map(attachment => ({
+                name: attachment.name || attachment.attachment_name || 'Attachment',
+                path: attachment.path || attachment.attachment_path || '',
+                url: attachment.url || attachment.attachment_url || '',
+                type: attachment.type || attachment.attachment_type || '',
+                extension: attachment.extension || attachment.attachment_extension || '',
+                size: attachment.size ?? attachment.attachment_size ?? 0
+            }));
+            if (!content && !outgoingAttachments.length) return;
             if (!currentConversationId) return;
 
             const form = document.getElementById('modalMessageForm');
             if (!form) return;
+
+            isSendingMessage = true;
+
+            try {
+            if (input) {
+                input.value = '';
+                input.style.height = 'auto';
+                input.focus();
+            }
+
+            clearSelectedAttachments();
 
             const tempId = 'temp-' + Date.now();
             const time = new Date().toLocaleTimeString('en-US', {
@@ -17477,12 +18116,12 @@ if (!isGroup) {
 
             const attachmentPreview =
             getAttachmentsMessageHtml(
-                selectedAttachments,
+                outgoingAttachments,
                 time
             );
 
             const hasContent = Boolean(content);
-            const hasAttachments = selectedAttachments.length > 0;
+            const hasAttachments = outgoingAttachments.length > 0;
 
             const tempHtml = `
                 <div
@@ -17493,7 +18132,13 @@ if (!isGroup) {
                     <div class="max-w-[70%] opacity-70">
 
                         ${
-                            hasContent
+                            hasContent && isLikeStickerContent(content)
+                                ? `
+                                    <div class="ml-auto w-fit bg-transparent p-0">
+                                        ${messengerLikeIconHtml('h-14 w-14')}
+                                    </div>
+                                `
+                                : hasContent
                                 ? `
                                     <div
                                         class="
@@ -17566,7 +18211,7 @@ if (!isGroup) {
 
             moveTypingIndicatorAfterLastMessage();
 
-            scrollToBottom(true, true);
+            forceScrollThreadToBottom();
 
             const formData = new FormData();
 
@@ -17593,30 +18238,50 @@ if (!isGroup) {
             // ATTACHMENT
             // =====================================================
 
-            if (selectedAttachments.length) {
+            if (outgoingAttachments.length) {
                 formData.append(
                     'attachments',
-                    JSON.stringify(selectedAttachments)
+                    JSON.stringify(outgoingAttachments)
                 );
             }
 
-            const response = await fetch(`/messages/conversations/${currentConversationId}/send`, {
-                method: 'POST',
-                headers: {
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken
-                },
-                body: formData
-            });
+            let response;
+
+            try {
+                response = await fetch(`/messages/conversations/${currentConversationId}/send`, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken
+                    },
+                    body: formData
+                });
+            } catch (error) {
+                const temp = document.getElementById(tempId);
+                if (temp) temp.remove();
+                if (input && !input.value && content) {
+                    input.value = content;
+                    input.focus();
+                }
+                if (outgoingAttachments.length) {
+                    selectedAttachments = outgoingAttachments;
+                    renderSelectedAttachments();
+                }
+                return;
+            }
 
             if (response.ok) {
                 const data = await response.json();
-                const temp = document.getElementById(tempId);
-                if (temp) temp.remove();
 
-                const msg = data.data;
+                const msg = data.data || {};
+                if (!Array.isArray(msg.attachments) || !msg.attachments.length) {
+                    msg.attachments = outgoingAttachments;
+                }
+                if (!msg.created_at) {
+                    msg.created_at = new Date().toISOString();
+                }
                 const msgTime = formatMessageTime(msg.created_at);
-                const attachments = msg.attachments || selectedAttachments;
+                const attachments = msg.attachments || outgoingAttachments;
                 const isFirstMessage = container.querySelector('.text-center.py-12') !== null;
                 // =====================================================
                 // CREATE REAL SENT MESSAGE
@@ -17628,7 +18293,12 @@ if (!isGroup) {
                 // A successfully saved real message removes the group first glance.
                 removeGroupFirstGlance();
 
-                const realHtml = renderMessengerMessageRow(msg, true);
+                let realHtml = '';
+                try {
+                    realHtml = renderMessengerMessageRow(msg, true);
+                } catch (error) {
+                    realHtml = `<div class="flex justify-end">${getAttachmentsMessageHtml(attachments, msgTime, msg.message_id)}</div>`;
+                }
                 const emptyState =
                     container.querySelector(
                         '.message-empty-state, .text-center.py-12'
@@ -17638,29 +18308,32 @@ if (!isGroup) {
                     emptyState.remove();
                 }
 
-
-                // =====================================================
-                // INSERT SENT MESSAGE BEFORE TYPING INDICATOR
-                // =====================================================
-
-                const typingIndicator =
+                const typingIndicatorAfterSend =
                     document.getElementById(
                         'modalTypingIndicator'
                     );
 
-                if (typingIndicator) {
+                try {
+                    if (typingIndicatorAfterSend) {
+                        typingIndicatorAfterSend.insertAdjacentHTML(
+                            'beforebegin',
+                            realHtml
+                        );
+                    } else {
+                        container.insertAdjacentHTML(
+                            'beforeend',
+                            realHtml
+                        );
+                    }
 
-                    typingIndicator.insertAdjacentHTML(
-                        'beforebegin',
-                        realHtml
-                    );
-
-                } else {
-
-                    container.insertAdjacentHTML(
-                        'beforeend',
-                        realHtml
-                    );
+                    const temp = document.getElementById(tempId);
+                    if (temp) temp.remove();
+                } catch (error) {
+                    const tempKeep = document.getElementById(tempId);
+                    if (tempKeep) {
+                        const status = tempKeep.querySelector('[class*="text-[10px]"]');
+                        if (status) status.textContent = 'Sent';
+                    }
                 }
 
                 moveTypingIndicatorAfterLastMessage();
@@ -17671,32 +18344,46 @@ if (!isGroup) {
                 // =====================================================
 
                 refreshMessageDateSeparators();
-
-                scrollToBottom(true, true);
-
-                clearSelectedAttachments();
-
-                // =====================================================
-                // CLEAR REPLY AFTER SUCCESSFUL SEND
-                // =====================================================
+                lucideCreateIcons(container);
+                refreshSeenAvatar();
+                ensureConversationFirstGlance(container, [], false, true);
 
                 cancelReply();
 
-                input.value = '';
-                input.style.height = 'auto';
-                input.focus();
+                if (input) {
+                    input.value = '';
+                    input.style.height = 'auto';
+                    input.focus();
+                }
 
-                await loadModalConversations();
+                forceScrollThreadToBottom();
+                scheduleLoadModalConversations();
             } else {
                 const temp = document.getElementById(tempId);
                 if (temp) temp.remove();
+                if (input && !input.value && content) {
+                    input.value = content;
+                    input.focus();
+                }
+                if (outgoingAttachments.length) {
+                    selectedAttachments = outgoingAttachments;
+                    renderSelectedAttachments();
+                }
+            }
+            } finally {
+                isSendingMessage = false;
+                updateComposerActionButton();
             }
         }
 
         function getAttachmentsMessageHtml(attachments, time, messageId = null) {
 
             attachments =
-                normalizeAttachments(attachments);
+                normalizeAttachments(attachments)
+                    .map(item => ({
+                        ...item,
+                        message_id: item.message_id || messageId
+                    }));
 
             if (!attachments.length) {
                 return '';
@@ -17809,10 +18496,11 @@ if (!isGroup) {
                                         block
                                         h-auto
                                         max-h-[360px]
+                                        min-h-[180px]
                                         w-full
                                         object-contain
+                                        bg-gray-100
                                     "
-                                    loading="lazy"
                                 >
                             </button>
                         </div>
@@ -17891,7 +18579,7 @@ if (!isGroup) {
                                             w-full
                                             object-cover
                                         "
-                                        loading="lazy"
+                                        loading="eager"
                                     >
                                 </button>
                             `;
@@ -17986,7 +18674,7 @@ if (!isGroup) {
                                             w-full
                                             object-cover
                                         "
-                                        loading="lazy"
+                                        loading="eager"
                                     >
                                 </button>
                             `;
@@ -18084,7 +18772,7 @@ if (!isGroup) {
                                             w-full
                                             object-cover
                                         "
-                                        loading="lazy"
+                                        loading="eager"
                                     >
 
                                     ${
@@ -18259,9 +18947,29 @@ if (!isGroup) {
                 );
 
             const fileUrl =
-                attachment.url ||
-                attachment.attachment_url ||
-                '#';
+                attachmentViewUrl(attachment);
+
+            const downloadUrl =
+                attachmentDownloadUrl(attachment);
+
+            const ext = String(
+                attachment.extension ||
+                attachment.attachment_extension ||
+                (fileName.includes('.') ? fileName.split('.').pop() : '')
+            ).toLowerCase().replace(/^\./, '');
+
+            const openInline = [
+                'pdf',
+                'txt',
+                'csv',
+                'jpg',
+                'jpeg',
+                'png',
+                'gif',
+                'webp'
+            ].includes(ext);
+
+            const primaryUrl = openInline ? fileUrl : downloadUrl;
 
             // =====================================================
             // NON-IMAGE FILE CARD
@@ -18284,75 +18992,102 @@ if (!isGroup) {
                         cubic-bezier(0.4, 0, 0.2, 1)
                     "
                 >
-                    <a
-                        href="${escapeHtml(fileUrl)}"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        download="${escapeHtml(fileName)}"
+                    <div
                         class="
-                            group/file
                             flex
                             min-h-[72px]
-                            w-[190px]
+                            w-[220px]
                             max-w-full
                             items-center
-                            gap-3
+                            gap-2
                             rounded-[18px]
                             bg-[#4b4b4b]
                             px-3.5
                             py-3
-                            text-left
                             shadow-sm
-                            transition
-                            hover:bg-[#555555]
                         "
-                        title="${escapeHtml(fileName)}"
                     >
-                        <div
+                        <a
+                            href="${escapeHtml(primaryUrl)}"
+                            target="${openInline ? '_blank' : '_self'}"
+                            rel="noopener noreferrer"
+                            ${openInline ? '' : `download="${escapeHtml(fileName)}"`}
+                            class="
+                                group/file
+                                flex
+                                min-w-0
+                                flex-1
+                                items-center
+                                gap-3
+                                text-left
+                            "
+                            title="${escapeHtml(fileName)}"
+                        >
+                            <div
+                                class="
+                                    flex
+                                    h-11
+                                    w-11
+                                    shrink-0
+                                    items-center
+                                    justify-center
+                                    rounded-full
+                                    bg-white/[0.04]
+                                    text-gray-100
+                                "
+                            >
+                                <i
+                                    data-lucide="file-text"
+                                    class="h-5 w-5"
+                                ></i>
+                            </div>
+
+                            <div class="min-w-0 flex-1">
+                                <p
+                                    class="
+                                        truncate
+                                        text-[15px]
+                                        font-semibold
+                                        leading-5
+                                        text-white
+                                    "
+                                >
+                                    ${escapeHtml(fileName)}
+                                </p>
+
+                                <p
+                                    class="
+                                        mt-0.5
+                                        truncate
+                                        text-[13px]
+                                        leading-4
+                                        text-gray-300
+                                    "
+                                >
+                                    ${escapeHtml(fileSize)}
+                                </p>
+                            </div>
+                        </a>
+                        <a
+                            href="${escapeHtml(downloadUrl)}"
+                            download="${escapeHtml(fileName)}"
                             class="
                                 flex
-                                h-11
-                                w-11
+                                h-8
+                                w-8
                                 shrink-0
                                 items-center
                                 justify-center
                                 rounded-full
-                                bg-white/[0.04]
-                                text-gray-100
+                                text-gray-200
+                                hover:bg-white/10
+                                hover:text-white
                             "
+                            title="Download"
                         >
-                            <i
-                                data-lucide="file-text"
-                                class="h-5 w-5"
-                            ></i>
-                        </div>
-
-                        <div class="min-w-0 flex-1">
-                            <p
-                                class="
-                                    truncate
-                                    text-[15px]
-                                    font-semibold
-                                    leading-5
-                                    text-white
-                                "
-                            >
-                                ${escapeHtml(fileName)}
-                            </p>
-
-                            <p
-                                class="
-                                    mt-0.5
-                                    truncate
-                                    text-[13px]
-                                    leading-4
-                                    text-gray-300
-                                "
-                            >
-                                ${escapeHtml(fileSize)}
-                            </p>
-                        </div>
-                    </a>
+                            <i data-lucide="download" class="h-4 w-4"></i>
+                        </a>
+                    </div>
 
                     ${removeBtn}
                 </div>
@@ -18388,7 +19123,7 @@ if (!isGroup) {
                         alt="${name}"
                         class="block w-full h-auto rounded-xl ${opacity}"
                         style="max-height: 320px; object-fit: contain;"
-                        loading="lazy"
+                        loading="eager"
                         onload="this.classList.add('image-loaded'); document.getElementById('${uniqueId}-skeleton')?.remove()"
                         onerror="document.getElementById('${uniqueId}-skeleton')?.remove()"
                     />
@@ -19038,9 +19773,7 @@ if (!isGroup) {
                 );
             });
 
-            if (window.lucide) {
-                lucide.createIcons();
-            }
+            lucideCreateIcons(container || document.getElementById('messagingModal'));
         }
 
 
@@ -19103,7 +19836,9 @@ if (!isGroup) {
 
             if (downloadButton) {
                 downloadButton.href =
-                    image.url || '#';
+                    image.downloadUrl ||
+                    image.url ||
+                    '#';
 
                 downloadButton.download =
                     image.name || 'image';
@@ -19290,6 +20025,7 @@ if (!isGroup) {
                 document.getElementById('modalAttachmentItems');
 
             if (!preview || !items) {
+                updateComposerActionButton();
                 return;
             }
 
@@ -19303,6 +20039,7 @@ if (!isGroup) {
                 preview.classList.add('hidden');
 
                 items.innerHTML = '';
+                updateComposerActionButton();
 
                 return;
             }
@@ -19569,12 +20306,15 @@ if (!isGroup) {
 
 
             lucideCreateIcons();
+            updateComposerActionButton();
         }
 
         async function uploadModalAttachments(files) {
             if (!files?.length || !currentConversationId) return;
 
             const maxSize = 25 * 1024 * 1024;
+            attachmentsUploading += 1;
+            try {
             for (const file of files) {
                 if (file.size > maxSize) {
                     alert(`${file.name} must be less than 25MB.`);
@@ -19594,8 +20334,15 @@ if (!isGroup) {
                         },
                         body: formData
                     });
-                    const data = await response.json();
-                    if (!response.ok) throw new Error(data.message || `Failed to upload ${file.name}.`);
+                    const data = await response.json().catch(() => ({}));
+                    if (!response.ok) {
+                        const firstError = data.errors
+                            ? Object.values(data.errors).flat()[0]
+                            : null;
+                        throw new Error(
+                            firstError || data.message || `Failed to upload ${file.name}.`
+                        );
+                    }
                     selectedAttachments.push(data.data);
                     renderSelectedAttachments();
                 } catch (error) {
@@ -19605,6 +20352,10 @@ if (!isGroup) {
 
             const input = document.getElementById('modalAttachmentInput');
             if (input) input.value = '';
+            } finally {
+                attachmentsUploading = Math.max(0, attachmentsUploading - 1);
+                updateComposerActionButton();
+            }
         }
 
         async function loadModalUsers(search = '') {
@@ -20581,8 +21332,12 @@ if (!isGroup) {
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            lucideCreateIcons();
             updateTopbarMessageBadge();
+            if (window.requestIdleCallback) {
+                requestIdleCallback(() => loadModalConversations(), { timeout: 3000 });
+            } else {
+                setTimeout(loadModalConversations, 600);
+            }
 
             document
                 .getElementById(
@@ -21048,18 +21803,33 @@ if (!isGroup) {
                 messageForm.addEventListener('submit', sendModalMessage);
             }
 
+            const sendButton = document.getElementById('modalSendButton');
+            if (sendButton) {
+                sendButton.addEventListener('click', event => {
+                    if (sendButton.dataset.composerMode !== 'like') {
+                        return;
+                    }
+                    event.preventDefault();
+                    sendLikeFromComposer();
+                });
+            }
+
             const messageInput = document.getElementById('modalMessageInput');
             if (messageInput) {
                 messageInput.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
-                        messageForm?.dispatchEvent(new Event('submit'));
+                        if (!composerHasSendableContent()) {
+                            return;
+                        }
+                        sendModalMessage(e);
                     }
                 });
 
                 messageInput.addEventListener('input', () => {
                     messageInput.style.height = 'auto';
                     messageInput.style.height = Math.min(messageInput.scrollHeight, 120) + 'px';
+                    updateComposerActionButton();
                 });
             }
 
@@ -21381,14 +22151,46 @@ if (!isGroup) {
                     }
                 );
                 messagesContainer.addEventListener('scroll', () => {
-                    if (messagesContainer.scrollTop === 0 && hasMoreMessages && !isLoadingMessages) {
-                        const prevHeight = messagesContainer.scrollHeight;
-                        messagesPage++;
-                        loadModalMessages(currentConversationId, true).then(() => {
-                            messagesContainer.scrollTop = messagesContainer.scrollHeight - prevHeight;
-                        });
+                    if (ignoreProgrammaticScroll) {
+                        return;
                     }
-                });
+
+                    const distanceFromBottom =
+                        messagesContainer.scrollHeight -
+                        messagesContainer.scrollTop -
+                        messagesContainer.clientHeight;
+
+                    stickThreadToBottom = distanceFromBottom < 80;
+
+                    if (
+                        !threadSettled ||
+                        stickThreadToBottom ||
+                        messagesContainer.scrollTop > 8 ||
+                        !hasMoreMessages ||
+                        isLoadingMessages
+                    ) {
+                        return;
+                    }
+
+                    const prevHeight = messagesContainer.scrollHeight;
+                    messagesPage++;
+                    loadModalMessages(currentConversationId, true).then(() => {
+                        withProgrammaticScroll(() => {
+                            messagesContainer.scrollTop =
+                                messagesContainer.scrollHeight - prevHeight;
+                        });
+                    });
+                }, { passive: true });
+
+                messagesContainer.addEventListener('load', event => {
+                    if (
+                        event.target instanceof HTMLImageElement &&
+                        stickThreadToBottom &&
+                        !threadScrollAnimation
+                    ) {
+                        snapThreadToBottom();
+                    }
+                }, true);
             }
 
             const userSearch = document.getElementById('modalUserSearch');
@@ -21715,8 +22517,27 @@ if (!isGroup) {
        MESSAGING MODAL CONTAINER
     ====================================== */
 
+    #modalMessagesContainer:not(.hidden) {
+        display: block;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+        overflow-anchor: auto;
+        scrollbar-gutter: stable;
+    }
+
+    #modalMessagesContainer > * + * {
+        margin-top: 0.625rem;
+    }
+
+    #modalConversationsContainer,
+    #modalUsersContainer {
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+        contain: content;
+    }
+
     #messagingModalContainer {
-        will-change: transform, opacity;
+        will-change: auto;
     }
 
     /* ======================================
@@ -21724,17 +22545,7 @@ if (!isGroup) {
     ====================================== */
 
     #modalConversationsList .conversation-item {
-        transition: background-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
-        will-change: transform;
-    }
-
-    #modalConversationsList .conversation-item:hover {
-        transform: translateX(2px);
-        box-shadow: inset 2px 0 0 rgba(15, 23, 42, 0.06);
-    }
-
-    #modalConversationsList .conversation-item:active {
-        transform: scale(0.98);
+        transition: background-color 0.12s ease;
     }
 
     /* ======================================
@@ -21742,7 +22553,7 @@ if (!isGroup) {
     ====================================== */
 
     .conversation-delete-btn {
-        will-change: transform, opacity, color, background-color;
+        will-change: auto;
     }
 
     .conversation-delete-btn:active {
@@ -21754,15 +22565,7 @@ if (!isGroup) {
     ====================================== */
 
     .user-row {
-        will-change: transform, background-color;
-    }
-
-    .user-row:hover {
-        transform: translateX(2px);
-    }
-
-    .user-row:active {
-        transform: scale(0.98);
+        will-change: auto;
     }
 
     .user-row .ring-2 {
@@ -21777,26 +22580,8 @@ if (!isGroup) {
        MESSAGE BUBBLES
     ====================================== */
 
-    [style*="messageSlideIn"] {
-        will-change: transform, opacity;
-        animation: fadeInUp 0.3s cubic-bezier(0.4, 0, 0.2, 1) both;
-    }
-
-    .max-w-\[70\%\].rounded-2xl {
-        transition: box-shadow 0.2s ease, transform 0.15s ease;
-        will-change: transform;
-    }
-
-    .max-w-\[70\%\].rounded-2xl:hover {
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-    }
-
-    .bg-gray-900.text-white.max-w-\[70\%\].rounded-2xl:hover {
-        box-shadow: 0 2px 12px rgba(15, 23, 42, 0.15);
-    }
-
-    .bg-gray-100.text-gray-900.max-w-\[70\%\].rounded-2xl:hover {
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    #modalMessagesContainer [style*="messageSlideIn"] {
+        animation: fadeInUp 0.12s ease-out both;
     }
 
     /* ======================================
@@ -21821,9 +22606,10 @@ if (!isGroup) {
         color: #9CA3AF;
     }
 
-    #modalSendButton {
-        will-change: transform, opacity;
-        transition: background-color 0.2s ease, transform 0.15s ease, opacity 0.2s ease;
+    .messenger-like-icon {
+        color: #0084FF;
+        fill: currentColor;
+        stroke: none;
     }
 
     #modalSendButton:active:not(:disabled) {
@@ -21835,8 +22621,7 @@ if (!isGroup) {
     }
 
     #modalAttachmentButton {
-        will-change: transform;
-        transition: background-color 0.2s ease, color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+        transition: background-color 0.12s ease, color 0.12s ease;
     }
 
     #modalAttachmentButton:hover {
@@ -21945,7 +22730,7 @@ if (!isGroup) {
     }
 
     #modalMessagesContainer {
-        scroll-behavior: smooth;
+        scroll-behavior: auto;
     }
 
     #modalMessagesContainer::-webkit-scrollbar {
@@ -22045,17 +22830,8 @@ if (!isGroup) {
        CHAT HEADER APPEARANCE
     ====================================== */
 
-    #modalChatHeader:not(.hidden) {
-        animation: fadeIn 0.2s ease-out both;
-    }
-
-    /* ======================================
-       COMPOSER APPEARANCE
-    ====================================== */
-
-    #modalComposer:not(.hidden) {
-        animation: fadeInUp 0.25s ease-out both;
-    }
+    /* Chat header and composer stay static so opening a
+       conversation does not shrink the thread after scroll. */
 
     /* ======================================
        LOADING EMPTY STATE

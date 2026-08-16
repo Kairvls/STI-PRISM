@@ -38,6 +38,13 @@
         </div>
     </div>
 
+    @if (($duplicateRoomGroups ?? 0) > 0)
+        <p class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {{ $duplicateRoomGroups }} duplicate {{ \Illuminate\Support\Str::plural('room name', $duplicateRoomGroups) }} found.
+            Use Merge duplicates to keep one room and move its equipment.
+        </p>
+    @endif
+
     @if (session('success'))
         <p class="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{{ session('success') }}</p>
     @endif

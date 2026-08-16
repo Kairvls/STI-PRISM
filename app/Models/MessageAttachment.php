@@ -55,7 +55,15 @@ class MessageAttachment extends Model
 
     public function getUrlAttribute(): ?string
     {
-        return $this->attachment_url;
+        if (! empty($this->attachment_url)) {
+            return $this->attachment_url;
+        }
+
+        if (! empty($this->attachment_path)) {
+            return asset('storage/'.ltrim($this->attachment_path, '/'));
+        }
+
+        return null;
     }
 
     public function getTypeAttribute(): ?string

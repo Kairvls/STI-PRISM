@@ -10,7 +10,9 @@
                 Disposal Records
             </h1>
 
-            'Monitor equipment waiting for replacement, then mark it disposed when it actually leaves the campus.'
+            <p class="mt-1 text-slate-500">
+                Equipment here is waiting for replacement until you mark it disposed.
+            </p>
         </div>
 
         <button
