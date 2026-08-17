@@ -8,26 +8,27 @@
     .rf-input {
         width: 100%;
         background: #ffffff;
-        border: 1px solid rgba(41, 71, 240, 0.15);
-        border-radius: 14px;
+        border: 1px solid #eceff4;
+        border-radius: 16px;
         padding: 11px 14px;
         font-size: 14px;
-        color: #0f172a;
-        font-family: "Inter", sans-serif;
+        color: #1a1a2e;
+        font-family: "Plus Jakarta Sans", "Inter", sans-serif;
         outline: none;
         transition:
             border-color 0.2s,
-            background 0.2s;
+            background 0.2s,
+            box-shadow 0.2s;
         appearance: none;
         -webkit-appearance: none;
     }
     .rf-input::placeholder {
-        color: #4a5568;
+        color: #9aa1b5;
     }
     .rf-input:focus {
-        border-color: #2947f0;
-        background: rgba(255, 255, 255, 0.08);
-        box-shadow: 0 0 0 3px rgba(41, 71, 240, 0.1);
+        border-color: #0025cc;
+        background: #fff;
+        box-shadow: 0 0 0 4px rgba(0, 37, 204, 0.1);
     }
     .rf-input option {
         background: #f7f7f8;
@@ -36,12 +37,12 @@
 
     .details-textarea {
         background: #ffffff;
-        border: 1px solid rgba(41, 71, 240, 0.15);
+        border: 1px solid #eceff4;
     }
 
     .details-textarea:focus {
-        border-color: #2947f0;
-        box-shadow: 0 0 0 3px rgba(41, 71, 240, 0.1);
+        border-color: #0025cc;
+        box-shadow: 0 0 0 4px rgba(0, 37, 204, 0.1);
     }
 
     .rf-label {
@@ -70,6 +71,196 @@
         border-right: 5px solid transparent;
         border-top: 5px solid #8892a4;
         pointer-events: none;
+    }
+    .rf-select-wrap.rf-picker-ready::after {
+        display: none;
+    }
+
+    .rf-select-wrap.rf-picker-ready .rf-native-select {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .rf-picker-trigger {
+        width: 100%;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        background: #ffffff;
+        border: 1px solid rgba(41, 71, 240, 0.15);
+        border-radius: 14px;
+        padding: 0 14px;
+        font-size: 14px;
+        font-weight: 500;
+        color: #0f172a;
+        font-family: "Inter", sans-serif;
+        cursor: pointer;
+        text-align: left;
+    }
+
+    .rf-picker-trigger.is-placeholder {
+        color: #4a5568;
+    }
+
+    .rf-picker-trigger:disabled {
+        opacity: .55;
+        cursor: not-allowed;
+    }
+
+    .rf-picker-trigger svg {
+        width: 18px;
+        height: 18px;
+        color: #0025cc;
+        flex-shrink: 0;
+    }
+
+    .rf-picker-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 80;
+        display: none;
+        align-items: flex-end;
+        justify-content: center;
+        background: rgba(11, 18, 32, 0.7);
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+        padding: 12px;
+    }
+
+    .rf-picker-overlay.is-open {
+        display: flex;
+    }
+
+    .rf-picker-sheet {
+        width: min(100%, 480px);
+        max-height: min(78vh, 640px);
+        background: #fff;
+        border-radius: 24px 24px 18px 18px;
+        box-shadow: 0 28px 70px rgba(15, 23, 42, .22);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        font-family: "Plus Jakarta Sans", "Inter", sans-serif;
+    }
+
+    @media (min-width: 768px) {
+        .rf-picker-overlay {
+            align-items: center;
+        }
+        .rf-picker-sheet {
+            border-radius: 24px;
+        }
+    }
+
+    .rf-picker-head {
+        padding: 18px 18px 12px;
+        border-bottom: 1px solid #e8ecf4;
+    }
+
+    .rf-picker-kicker {
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: .16em;
+        text-transform: uppercase;
+        color: #0025cc;
+        margin-bottom: 4px;
+    }
+
+    .rf-picker-title {
+        font-size: 1.15rem;
+        font-weight: 800;
+        color: #1a1a2e;
+    }
+
+    .rf-picker-search {
+        margin: 14px 18px 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: #f3f6ff;
+        border: 1px solid #e8ecf4;
+        border-radius: 18px;
+        padding: 0 18px;
+        min-height: 64px;
+        height: 64px;
+    }
+
+    .rf-picker-search input {
+        width: 100%;
+        border: 0;
+        background: transparent;
+        outline: none;
+        font-size: 16px;
+        color: #1a1a2e;
+    }
+
+    .rf-picker-list {
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 8px 10px 16px;
+        min-height: 120px;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+    .rf-picker-list::-webkit-scrollbar {
+        width: 0;
+        height: 0;
+        display: none;
+        background: transparent;
+    }
+
+    .rf-picker-item {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        text-align: left;
+        background: transparent;
+        border: 0;
+        border-radius: 14px;
+        padding: 14px 12px;
+        cursor: pointer;
+        color: #1a1a2e;
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    .rf-picker-item:hover,
+    .rf-picker-item.is-active {
+        background: #f3f6ff;
+    }
+
+    .rf-picker-item.is-active {
+        color: #0025cc;
+    }
+
+    .rf-picker-check {
+        display: none;
+    }
+
+    .rf-picker-empty {
+        text-align: center;
+        color: #6b7280;
+        font-size: 13px;
+        padding: 28px 12px;
+    }
+
+    .rf-picker-close {
+        margin: 10px 18px 22px;
+        min-height: 56px;
+        height: 56px;
+        border: 0;
+        border-radius: 999px;
+        background: #0025cc;
+        color: #fff;
+        font-weight: 800;
+        font-size: 17px;
+        cursor: pointer;
     }
 
     /* ── REPORTER INFO BOX ── */
@@ -104,6 +295,59 @@
         border-color: rgba(239, 68, 68, 0.35);
         background: rgba(239, 68, 68, 0.07);
     }
+    .priority-title {
+        font-family: "Outfit", sans-serif;
+        font-weight: 700;
+        font-size: 0.9rem;
+        color: #f0f2f8;
+    }
+    .priority-card.p-non-urgent .priority-title {
+        color: #34d399;
+    }
+    .priority-card.p-urgent .priority-title {
+        color: #ef4444;
+    }
+    .priority-desc {
+        font-size: 0.73rem;
+        color: #b6b6b6;
+        margin-top: 3px;
+        line-height: 1.4;
+    }
+
+    .rf-submit-btn {
+        background: linear-gradient(135deg, #f0b429, #e8920a);
+        color: #080c18;
+        font-family: "Outfit", sans-serif;
+        font-size: 0.95rem;
+        border: 0;
+        cursor: pointer;
+    }
+    .rf-submit-btn:hover {
+        background: linear-gradient(135deg, #e8920a, #c67a05);
+    }
+
+    .rf-cancel-btn {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        color: #a7aab9;
+        font-size: 0.9rem;
+        cursor: pointer;
+    }
+    .rf-cancel-btn:hover {
+        background: rgba(255, 255, 255, 0.09);
+        color: #f0f2f8;
+    }
+
+    .rf-close-desktop {
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: #a7aab9;
+        cursor: pointer;
+    }
+    .rf-close-desktop:hover {
+        color: #f0f2f8;
+        background: rgba(255, 255, 255, 0.1);
+    }
 
     /* ── ISSUE TAG ── */
     .issue-btn {
@@ -119,6 +363,9 @@
         transition: all 0.2s ease;
         font-family: "Inter", sans-serif;
         cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
     }
 
     .issue-btn:hover {
@@ -134,6 +381,22 @@
         border: 1.5px solid #e8920a;
         color: #080c18;
         box-shadow: 0 4px 12px rgba(240, 180, 41, 0.3);
+    }
+
+    .issue-clear {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+        border-radius: 999px;
+        background: rgba(15, 23, 42, 0.14);
+        color: inherit;
+        font-size: 11px;
+        font-weight: 800;
+        line-height: 1;
+        cursor: pointer;
+        flex-shrink: 0;
     }
 
     .issue-action-btn {
@@ -265,13 +528,437 @@
         background: #94a3b8;
     }
 
-    /* ── MOBILE MODAL ALIGN ── */
-    @media (max-width: 640px) {
+    .issue-placeholder {
+        width: 100%;
+        min-height: 48px;
+        height: auto;
+        box-sizing: border-box;
+        border: 1.5px dashed rgba(98, 98, 100, 0.61);
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #6b6c6e;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1.4;
+        text-align: center;
+        padding: 10px 14px;
+        white-space: normal;
+    }
+
+    /* ── Premium landing match (web + mobile) ── */
+    #reportModal {
+        background: rgba(11, 18, 32, 0.7) !important;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+        overflow-y: auto;
+        overflow-x: hidden;
+        align-items: flex-start;
+        padding: 36px 28px !important;
+    }
+
+    #reportModal > div {
+        margin-top: auto;
+        margin-bottom: auto;
+        max-width: 1080px;
+    }
+
+    #reportModal .report-form-shell {
+        position: relative;
+        isolation: isolate;
+        overflow: hidden;
+        background:
+            radial-gradient(ellipse 70% 55% at 0% 0%, rgba(199, 216, 255, .42), transparent 58%),
+            #ffffff !important;
+        border: 1px solid rgba(255, 255, 255, .95) !important;
+        box-shadow:
+            0 32px 80px rgba(15, 23, 42, 0.14),
+            0 2px 0 rgba(255, 255, 255, .75) inset !important;
+        font-family: "Plus Jakarta Sans", sans-serif !important;
+        border-radius: 32px !important;
+    }
+
+    #reportModal .report-form-grid {
+        position: relative;
+        z-index: 1;
+        height: auto !important;
+        max-height: none !important;
+    }
+
+    #reportModal .report-form-scroll,
+    #reportModal .report-form-aside {
+        overflow: visible !important;
+        height: auto !important;
+        max-height: none !important;
+        scrollbar-gutter: auto !important;
+        scrollbar-width: none !important;
+        -ms-overflow-style: none !important;
+    }
+
+    #reportModal .report-form-scroll::-webkit-scrollbar,
+    #reportModal .report-form-aside::-webkit-scrollbar,
+    #reportModal #issueCarousel::-webkit-scrollbar {
+        width: 0 !important;
+        height: 0 !important;
+        display: none !important;
+    }
+
+    #reportModal .report-form-scroll {
+        background: transparent !important;
+        border-right: 0 !important;
+        padding: 36px 36px 32px !important;
+        min-width: 0;
+    }
+
+    .rf-kicker {
+        display: inline-flex;
+        align-items: center;
+        background: #fff200;
+        color: #1a1a2e;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        border-radius: 999px;
+        padding: 4px 9px;
+        margin-bottom: 8px;
+        box-shadow: 0 8px 18px rgba(255, 242, 0, .28);
+    }
+
+    .rf-header-icon {
+        width: 44px !important;
+        height: 44px !important;
+        border-radius: 14px !important;
+        background: #0025cc !important;
+        border: 0 !important;
+        color: #fff;
+        box-shadow: 0 8px 18px rgba(0, 37, 204, 0.22);
+    }
+
+    .rf-header-icon i,
+    .rf-header-icon svg {
+        color: #fff !important;
+        stroke: #fff;
+        width: 20px;
+        height: 20px;
+    }
+
+    #reportModal .report-form-scroll h2 {
+        font-family: "Plus Jakarta Sans", sans-serif !important;
+        font-size: 1.7rem !important;
+        color: #1a1a2e !important;
+        letter-spacing: -0.04em;
+        font-weight: 800 !important;
+    }
+
+    #reportModal .report-form-scroll h2 + p {
+        color: #6b7280 !important;
+        font-size: 0.9rem !important;
+    }
+
+    .rf-label {
+        color: #94a3b8;
+        font-weight: 700;
+        letter-spacing: .12em;
+    }
+
+    .rf-input,
+    .rf-picker-trigger {
+        height: 52px !important;
+        background: #ffffff;
+        border: 1px solid #eceff4;
+        border-radius: 16px;
+        font-family: "Plus Jakarta Sans", sans-serif;
+        color: #1a1a2e;
+        box-shadow: none;
+    }
+
+    .rf-input::placeholder,
+    .rf-picker-trigger.is-placeholder {
+        color: #9aa1b5;
+    }
+
+    .rf-input:focus,
+    .details-textarea:focus {
+        border-color: #0025cc;
+        background: #fff;
+        box-shadow: 0 0 0 4px rgba(0, 37, 204, 0.1);
+    }
+
+    #problemDescription {
+        min-height: 108px !important;
+        height: auto !important;
+        background: #ffffff;
+        border: 1px solid #eceff4;
+        border-radius: 16px;
+    }
+
+    .rf-select-wrap::after {
+        border-top-color: #0025cc;
+    }
+
+    .reporter-box {
+        background: #f3f6ff;
+        border: 0;
+    }
+
+    .issue-placeholder {
+        border: 1px solid #eceff4;
+        color: #94a3b8;
+        background: #ffffff;
+        font-weight: 500;
+        min-height: 52px;
+        flex-shrink: 0;
+    }
+
+    #reportModal #issueCarousel {
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        cursor: grab !important;
+        gap: 8px;
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+    .issue-btn {
+        flex-shrink: 0;
+        white-space: nowrap;
+        background: #f3f6ff;
+        border: 1px solid #e0e7ff;
+        color: #0025cc;
+        box-shadow: none;
+        transform: none !important;
+    }
+
+    .issue-btn:hover {
+        background: #eef2ff;
+        border-color: #c7d2fe;
+        color: #0025cc;
+        transform: none !important;
+        box-shadow: none;
+    }
+
+    .issue-btn.active {
+        background: #fff200;
+        border-color: transparent;
+        color: #1a1a2e;
+        box-shadow: 0 8px 18px rgba(255, 242, 0, .28);
+    }
+
+    .issue-action-btn.yellow,
+    .issue-action-btn.red {
+        background: #f4f5f7;
+        border: 1px solid #eceff1;
+        color: #9aa3b2;
+        box-shadow: none;
+        transform: none;
+    }
+
+    .issue-action-btn.yellow:hover,
+    .issue-action-btn.red:hover {
+        background: #eceef2;
+        border-color: #e6e8ec;
+        color: #6b7280;
+        box-shadow: none;
+        transform: none;
+    }
+
+    #clearIssueBtn {
+        display: none !important;
+    }
+
+    .report-form-aside {
+        background: linear-gradient(180deg, rgba(243, 246, 255, .9) 0%, #f8f9fd 100%) !important;
+        border-top: 1px solid #e8ecf4 !important;
+        padding: 28px 28px 32px !important;
+    }
+
+    .report-form-aside .rf-label {
+        color: #94a3b8 !important;
+    }
+
+    .priority-card {
+        background: #fff;
+        border: 1px solid #e8ecf4;
+        border-radius: 18px;
+        box-shadow: none;
+        padding: 14px 16px;
+    }
+
+    .priority-card:hover {
+        border-color: rgba(0, 37, 204, 0.16);
+        background: #fff;
+        box-shadow: 0 10px 24px rgba(0, 37, 204, 0.06);
+    }
+
+    .priority-card.p-non-urgent {
+        border-color: #0025cc;
+        background: #f3f6ff;
+        box-shadow: 0 0 0 4px rgba(0, 37, 204, 0.08);
+    }
+
+    .priority-card.p-urgent {
+        border-color: #fff200;
+        background: #fffce6;
+        box-shadow: 0 0 0 4px rgba(255, 242, 0, 0.18);
+    }
+
+    .priority-title {
+        font-family: "Plus Jakarta Sans", sans-serif;
+        color: #1a1a2e;
+    }
+
+    .priority-card.p-non-urgent .priority-title {
+        color: #0025cc;
+    }
+
+    .priority-card.p-urgent .priority-title {
+        color: #1a1a2e;
+    }
+
+    .priority-desc {
+        color: #6b7280;
+    }
+
+    .priority-card input {
+        accent-color: #0025cc;
+    }
+
+    .priority-card.p-urgent input {
+        accent-color: #ca8a04;
+    }
+
+    .upload-zone {
+        background: #fff;
+        border: 1.5px dashed #c8d4f5;
+        border-radius: 20px;
+        padding: 22px 16px;
+    }
+
+    .upload-zone:hover {
+        border-color: #0025cc;
+        background: #f3f6ff;
+    }
+
+    .upload-zone.uploaded {
+        border-style: solid;
+        border-color: #0025cc;
+        background: #f3f6ff;
+    }
+
+    .report-form-aside .upload-label {
+        color: #334155 !important;
+    }
+
+    .report-form-aside .upload-hint {
+        color: #9aa1b5 !important;
+    }
+
+    .rf-close-desktop,
+    .rf-close-mobile {
+        width: 36px !important;
+        height: 36px !important;
+        border-radius: 12px !important;
+        background: #fff !important;
+        border: 1px solid #e8ecf4 !important;
+        color: #6b7280 !important;
+    }
+
+    .rf-close-desktop:hover,
+    .rf-close-mobile:hover {
+        color: #1a1a2e !important;
+        background: #f3f6ff !important;
+        border-color: #dbe3ff !important;
+    }
+
+    .rf-submit-btn {
+        min-height: 52px;
+        background: #0025cc !important;
+        color: #fff !important;
+        font-family: "Plus Jakarta Sans", sans-serif !important;
+        font-weight: 600;
+        border-radius: 999px !important;
+        box-shadow: 0 12px 28px rgba(0, 37, 204, 0.18);
+    }
+
+    .rf-submit-btn:hover {
+        background: #001ca3 !important;
+        box-shadow: 0 16px 32px rgba(0, 37, 204, 0.28);
+    }
+
+    .rf-cancel-btn {
+        background: transparent !important;
+        border: 0 !important;
+        color: #6b7280 !important;
+        border-radius: 999px !important;
+        font-weight: 600;
+        min-height: 0;
+        padding-top: 8px !important;
+        padding-bottom: 4px !important;
+    }
+
+    .rf-cancel-btn:hover {
+        background: transparent !important;
+        color: #1a1a2e !important;
+    }
+
+    @media (min-width: 768px) {
+        #reportModal {
+            padding: 36px 28px !important;
+        }
+    }
+
+    @media (min-width: 1024px) {
+        .report-form-aside {
+            border-top: 0 !important;
+            border-left: 1px solid rgba(232, 236, 244, .9) !important;
+        }
+    }
+
+    @media (max-width: 767px) {
         #reportModal {
             align-items: flex-start;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
+            padding: 8px !important;
+        }
+
+        #reportModal .report-form-shell {
+            max-height: calc(100dvh - 16px);
+            overflow-y: auto !important;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            border-radius: 24px !important;
+        }
+
+        #reportModal .report-form-shell::-webkit-scrollbar {
+            width: 0;
+            display: none;
+        }
+
+        #reportModal .report-form-scroll {
+            overflow: visible !important;
+            max-height: none;
+            padding: 20px 18px 12px !important;
+        }
+
+        .report-form-aside {
+            padding: 16px 18px 22px !important;
+        }
+
+        #reportModal .report-form-scroll h2 {
+            font-size: 1.35rem !important;
         }
     }
 </style>
+
 
 <style>
     #issueCarousel {
@@ -415,7 +1102,7 @@
 
     <div class="mx-auto w-full max-w-6xl px-2">
         <div
-            class="overflow-hidden rounded-3xl"
+            class="report-form-shell overflow-hidden rounded-3xl"
             style="
                 background: #0d1120;
                 border: 1px solid rgba(255, 255, 255, 0.09);
@@ -425,11 +1112,9 @@
         >
             <div
                 class="
+                    report-form-grid
                     grid
                     grid-cols-1
-
-                    lg:h-[600px]
-                    lg:max-h-[calc(100vh-48px)]
                     lg:grid-cols-12
                 "
             >
@@ -447,15 +1132,12 @@
                         lg:h-full
                         lg:p-9
                     "
-                    style="
-                        border-right: 1px solid rgba(255, 255, 255, 0.07);
-                        scrollbar-gutter: stable;
-                    "
+                    style="border-right: 1px solid rgba(255, 255, 255, 0.07);"
                 >
                     {{-- HEADER --}}
-                    <div class="mb-7 flex items-center gap-4">
+                    <div class="rf-header mb-7 flex items-center gap-4">
                         <div
-                            class="w-13 h-13 flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl"
+                            class="rf-header-icon w-13 h-13 flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl"
                             style="
                                 background: rgba(54, 41, 240, 0.12);
                                 border: 1px solid rgba(41, 61, 240, 0.2);
@@ -469,6 +1151,7 @@
                         </div>
 
                         <div class="flex-1">
+                            <div class="rf-kicker">Campus report</div>
                             <h2
                                 style="
                                     font-family: &quot;Outfit&quot;, sans-serif;
@@ -493,12 +1176,7 @@
                         <button
                             type="button"
                             onclick="closeReportModal()"
-                            class="flex h-8 w-8 items-center justify-center rounded-lg lg:hidden"
-                            style="
-                                background: rgba(255, 255, 255, 0.06);
-                                border: 1px solid rgba(255, 255, 255, 0.1);
-                                color: #2947f0;
-                            "
+                            class="rf-close-mobile flex h-9 w-9 items-center justify-center rounded-xl lg:hidden"
                         >
                             <i data-lucide="x" class="h-4 w-4"></i>
                         </button>
@@ -631,7 +1309,9 @@
                                 <select
                                     name="report_room_id"
                                     id="roomSelect"
-                                    class="rf-input details-textarea"
+                                    class="rf-input details-textarea rf-native-select"
+                                    data-picker-title="Select location"
+                                    data-picker-search="Search rooms"
                                     style="
                                         height: 48px;
                                         padding-right: 36px;
@@ -683,7 +1363,9 @@
                                 <select
                                     name="report_equipment_id"
                                     id="equipmentSelect"
-                                    class="rf-input details-textarea"
+                                    class="rf-input details-textarea rf-native-select"
+                                    data-picker-title="Select equipment"
+                                    data-picker-search="Search equipment"
                                     style="
                                         height: 48px;
                                         padding-right: 36px;
@@ -749,8 +1431,9 @@
 
                                 <button
                                     type="button"
+                                    id="clearIssueBtn"
                                     onclick="clearSuggestedIssue()"
-                                    class="issue-action-btn red"
+                                    class="issue-action-btn red hidden"
                                 >
                                     <i data-lucide="x" class="h-4 w-4"> </i>
                                 </button>
@@ -763,18 +1446,7 @@
                         >
                             <div
                                 id="issuePlaceholder"
-                                style="
-                                    width: 100%;
-                                    height: 48px;
-                                    border: 1.5px dashed rgba(98, 98, 100, 0.61);
-                                    border-radius: 999px;
-                                    display: flex;
-                                    align-items: center;
-                                    justify-content: center;
-                                    color: #6b6c6e;
-                                    font-size: 12px;
-                                    font-weight: 600;
-                                "
+                                class="issue-placeholder"
                             >
                                 Select a location and choose or type equipment
                                 to see suggestions
@@ -882,6 +1554,7 @@
 
                 <div
                     class="
+                        report-form-aside
                         min-h-0
                         overflow-y-auto
 
@@ -906,21 +1579,7 @@
                         <button
                             type="button"
                             onclick="closeReportModal()"
-                            class="flex h-8 w-8 items-center justify-center rounded-lg transition"
-                            style="
-                                background: rgba(255, 255, 255, 0.06);
-                                border: 1px solid rgba(255, 255, 255, 0.1);
-                                color: #a7aab9;
-                            "
-                            onmouseover="
-                                this.style.color = '#f0f2f8';
-                                this.style.background = 'rgba(255,255,255,0.1)';
-                            "
-                            onmouseout="
-                                this.style.color = '#8892a4';
-                                this.style.background =
-                                    'rgba(255,255,255,0.06)';
-                            "
+                            class="rf-close-desktop flex h-8 w-8 items-center justify-center rounded-lg transition"
                         >
                             <i data-lucide="x" class="h-4 w-4"></i>
                         </button>
@@ -949,25 +1608,10 @@
                                 onchange="updatePriorityCards()"
                             />
                             <div>
-                                <div
-                                    style="
-                                        font-family:
-                                            &quot;Outfit&quot;, sans-serif;
-                                        font-weight: 700;
-                                        font-size: 0.9rem;
-                                        color: #34d399;
-                                    "
-                                >
+                                <div class="priority-title">
                                     Non-Urgent
                                 </div>
-                                <p
-                                    style="
-                                        font-size: 0.73rem;
-                                        color: #b6b6b6;
-                                        margin-top: 3px;
-                                        line-height: 1.4;
-                                    "
-                                >Minor issue or repair concern</p>
+                                <p class="priority-desc">Minor issue or repair concern</p>
                             </div>
                         </label>
 
@@ -982,25 +1626,10 @@
                                 onchange="updatePriorityCards()"
                             />
                             <div>
-                                <div
-                                    style="
-                                        font-family:
-                                            &quot;Outfit&quot;, sans-serif;
-                                        font-weight: 700;
-                                        font-size: 0.9rem;
-                                        color: #f0f2f8;
-                                    "
-                                >
+                                <div class="priority-title">
                                     Urgent
                                 </div>
-                                <p
-                                    style="
-                                        font-size: 0.73rem;
-                                        color: #b6b6b6;
-                                        margin-top: 3px;
-                                        line-height: 1.4;
-                                    "
-                                >Immediate maintenance required</p>
+                                <p class="priority-desc">Immediate maintenance required</p>
                             </div>
                         </label>
                     </div>
@@ -1026,6 +1655,7 @@
                             ></i>
                             <div
                                 id="uploadLabel"
+                                class="upload-label"
                                 style="
                                     color: #a7aab9;
                                     font-size: 0.8rem;
@@ -1068,6 +1698,7 @@
                                 </button>
                             </div>
                             <div
+                                class="upload-hint"
                                 style="
                                     color: #777777;
                                     font-size: 0.7rem;
@@ -1092,25 +1723,7 @@
                         <button
                             type="submit"
                             id="submitReportBtn"
-                            class="flex w-full items-center justify-center gap-2 rounded-2xl py-4 font-bold transition"
-                            style="
-                                background: linear-gradient(
-                                    135deg,
-                                    #f0b429,
-                                    #e8920a
-                                );
-                                color: #080c18;
-                                font-family: &quot;Outfit&quot;, sans-serif;
-                                font-size: 0.95rem;
-                            "
-                            onmouseover="
-                                this.style.background =
-                                    'linear-gradient(135deg, #e8920a, #c67a05)'
-                            "
-                            onmouseout="
-                                this.style.background =
-                                    'linear-gradient(135deg, #f0b429, #e8920a)'
-                            "
+                            class="rf-submit-btn flex w-full items-center justify-center gap-2 rounded-2xl py-4 font-bold transition"
                         >
                             <i data-lucide="send" class="h-4 w-4"></i>
                             Submit Report
@@ -1119,23 +1732,7 @@
                         <button
                             type="button"
                             onclick="closeReportModal()"
-                            class="w-full rounded-2xl py-4 font-semibold transition"
-                            style="
-                                background: rgba(255, 255, 255, 0.05);
-                                border: 1px solid rgba(255, 255, 255, 0.09);
-                                color: #a7aab9;
-                                font-size: 0.9rem;
-                            "
-                            onmouseover="
-                                this.style.background =
-                                    'rgba(255,255,255,0.09)';
-                                this.style.color = '#f0f2f8';
-                            "
-                            onmouseout="
-                                this.style.background =
-                                    'rgba(255,255,255,0.05)';
-                                this.style.color = '#8892a4';
-                            "
+                            class="rf-cancel-btn w-full rounded-2xl py-4 font-semibold transition"
                         >
                             Cancel
                         </button>
@@ -1145,6 +1742,21 @@
         </div>
     </div>
 </form>
+
+<div id="rfPickerOverlay" class="rf-picker-overlay">
+    <div class="rf-picker-sheet" role="dialog" aria-modal="true" aria-labelledby="rfPickerTitle">
+        <div class="rf-picker-head">
+            <div class="rf-picker-kicker">Choose an option</div>
+            <div class="rf-picker-title" id="rfPickerTitle">Select</div>
+        </div>
+        <div class="rf-picker-search">
+            <i data-lucide="search" class="h-4 w-4" style="color:#0025cc;"></i>
+            <input type="search" id="rfPickerSearch" placeholder="Search" autocomplete="off">
+        </div>
+        <div class="rf-picker-list" id="rfPickerList"></div>
+        <button type="button" class="rf-picker-close" id="rfPickerClose">Done</button>
+    </div>
+</div>
 
 <script>
     /* ── RE-RENDER ICONS ── */
@@ -1166,26 +1778,10 @@
 
         radios.forEach((r) => {
             if (r.value === "Non-Urgent") {
-                if (r.checked) {
-                    cardNon.classList.add("p-non-urgent");
-                    cardNon.querySelector("div div:first-child").style.color =
-                        "#34d399";
-                } else {
-                    cardNon.classList.remove("p-non-urgent");
-                    cardNon.querySelector("div div:first-child").style.color =
-                        "#f0f2f8";
-                }
+                cardNon.classList.toggle("p-non-urgent", r.checked);
             }
             if (r.value === "Urgent") {
-                if (r.checked) {
-                    cardUrg.classList.add("p-urgent");
-                    cardUrg.querySelector("div div:first-child").style.color =
-                        "#ef4444"; // Red text when checked
-                } else {
-                    cardUrg.classList.remove("p-urgent");
-                    cardUrg.querySelector("div div:first-child").style.color =
-                        "#f0f2f8"; // Reverts when unchecked
-                }
+                cardUrg.classList.toggle("p-urgent", r.checked);
             }
         });
     }
@@ -1618,19 +2214,7 @@ toggleRoomBtn.addEventListener('click', function () {
                     });
             } else {
                 issueCarousel.innerHTML = `
-                    <div id="issuePlaceholder"
-                        style="
-                            width:100%;
-                            height:48px;
-                            border:1.5px dashed rgba(98, 98, 100, 0.61);
-                            border-radius:999px;
-                            display:flex;
-                            align-items:center;
-                            justify-content:center;
-                            color:#6b6c6e;
-                            font-size:12px;
-                            font-weight:600;
-                        ">
+                    <div id="issuePlaceholder" class="issue-placeholder">
                         Select a location and choose or type equipment to see suggestions
                     </div>
                 `;
@@ -1644,19 +2228,7 @@ toggleRoomBtn.addEventListener('click', function () {
 
     function showIssuePlaceholder() {
         issueCarousel.innerHTML = `
-        <div id="issuePlaceholder"
-            style="
-                width:100%;
-                height:48px;
-                border:1.5px dashed rgba(98, 98, 100, 0.61);
-                border-radius:999px;
-                display:flex;
-                align-items:center;
-                justify-content:center;
-                color:#6b6c6e;
-                font-size:12px;
-                font-weight:600;
-            ">
+        <div id="issuePlaceholder" class="issue-placeholder">
             Select a location and choose or type equipment to see suggestions
         </div>
     `;
@@ -1739,10 +2311,50 @@ toggleRoomBtn.addEventListener('click', function () {
 
     // AUTO SUGGESTIOn
 
+    function getIssueLabel(btn) {
+        return Array.from(btn.childNodes)
+            .filter(function (node) {
+                return node.nodeType === Node.TEXT_NODE;
+            })
+            .map(function (node) {
+                return node.textContent.trim();
+            })
+            .join(" ")
+            .trim();
+    }
+
+    function syncIssueClearUi() {
+        document.querySelectorAll(".issue-clear").forEach(function (el) {
+            el.remove();
+        });
+
+        const active = document.querySelector(".issue-btn.active");
+        const clearBtn = document.getElementById("clearIssueBtn");
+
+        if (active) {
+            const x = document.createElement("span");
+            x.className = "issue-clear";
+            x.setAttribute("role", "button");
+            x.setAttribute("aria-label", "Clear suggested issue");
+            x.textContent = "×";
+            active.appendChild(x);
+            if (clearBtn) clearBtn.classList.remove("hidden");
+        } else if (clearBtn) {
+            clearBtn.classList.add("hidden");
+        }
+    }
+
     function bindIssueButtons() {
         document.querySelectorAll(".issue-btn").forEach((btn) => {
-            btn.addEventListener("click", function () {
-                const newIssue = this.innerText.trim();
+            btn.addEventListener("click", function (e) {
+                if (e.target.closest(".issue-clear")) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    clearSuggestedIssue();
+                    return;
+                }
+
+                const newIssue = getIssueLabel(this);
 
                 document
                     .querySelectorAll(".issue-btn")
@@ -1755,6 +2367,7 @@ toggleRoomBtn.addEventListener('click', function () {
                 selectedSuggestedIssue = newIssue;
 
                 document.getElementById("suggestedIssueInput").value = newIssue;
+                syncIssueClearUi();
             });
         });
     }
@@ -1800,6 +2413,8 @@ toggleRoomBtn.addEventListener('click', function () {
         document
             .querySelectorAll(".issue-btn")
             .forEach((btn) => btn.classList.remove("active"));
+
+        syncIssueClearUi();
     }
 
     // =====================================================
@@ -2032,6 +2647,132 @@ toggleRoomBtn.addEventListener('click', function () {
 
         submitReportBtn.style.cursor =
             locked ? "not-allowed" : "pointer";
+
+        document.querySelectorAll(".rf-picker-trigger").forEach(function (btn) {
+            const select = document.getElementById(btn.dataset.for);
+            btn.disabled = locked || !select || select.disabled;
+        });
+    }
+
+    function enhanceModernSelects() {
+        if (!window.matchMedia("(max-width: 767px)").matches) {
+            return;
+        }
+        const overlay = document.getElementById("rfPickerOverlay");
+        const titleEl = document.getElementById("rfPickerTitle");
+        const searchEl = document.getElementById("rfPickerSearch");
+        const listEl = document.getElementById("rfPickerList");
+        const closeEl = document.getElementById("rfPickerClose");
+        if (!overlay) return;
+
+        let activeSelect = null;
+
+        function placeholderText(select) {
+            const first = select.querySelector('option[value=""]');
+            return first ? first.textContent.trim() : "Select";
+        }
+
+        function selectedLabel(select) {
+            const option = select.options[select.selectedIndex];
+            if (!option || option.value === "") {
+                return placeholderText(select);
+            }
+            return option.textContent.trim();
+        }
+
+        function syncTrigger(select) {
+            const trigger = document.querySelector('.rf-picker-trigger[data-for="' + select.id + '"]');
+            if (!trigger) return;
+            const label = selectedLabel(select);
+            trigger.querySelector(".rf-picker-label").textContent = label;
+            trigger.classList.toggle("is-placeholder", !select.value);
+            trigger.disabled = select.disabled;
+        }
+
+        function closePicker() {
+            overlay.classList.remove("is-open");
+            overlay.hidden = true;
+            activeSelect = null;
+            searchEl.value = "";
+        }
+
+        function renderList(select, query) {
+            const q = (query || "").trim().toLowerCase();
+            const options = Array.from(select.options);
+            listEl.innerHTML = "";
+            let shown = 0;
+
+            options.forEach(function (option) {
+                if (option.value === "") return;
+                const text = option.textContent.trim();
+                if (q && !text.toLowerCase().includes(q)) return;
+                shown += 1;
+
+                const item = document.createElement("button");
+                item.type = "button";
+                item.className = "rf-picker-item" + (option.selected && option.value === select.value ? " is-active" : "");
+                item.innerHTML = '<span>' + text.replace(/</g, "&lt;") + '</span>';
+                item.addEventListener("click", function () {
+                    select.value = option.value;
+                    select.dispatchEvent(new Event("change", { bubbles: true }));
+                    syncTrigger(select);
+                    closePicker();
+                });
+                listEl.appendChild(item);
+            });
+
+            if (shown === 0) {
+                listEl.innerHTML = '<div class="rf-picker-empty">No matches. Try another search.</div>';
+            }
+
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function openPicker(select) {
+            if (select.disabled) return;
+            activeSelect = select;
+            titleEl.textContent = select.dataset.pickerTitle || placeholderText(select);
+            searchEl.placeholder = select.dataset.pickerSearch || "Search";
+            searchEl.value = "";
+            overlay.hidden = false;
+            overlay.classList.add("is-open");
+            renderList(select, "");
+            setTimeout(function () { searchEl.focus(); }, 50);
+        }
+
+        [document.getElementById("roomSelect"), document.getElementById("equipmentSelect")].forEach(function (select) {
+            if (!select) return;
+            const wrap = select.closest(".rf-select-wrap");
+            if (!wrap || wrap.querySelector(".rf-picker-trigger")) return;
+
+            wrap.classList.add("rf-picker-ready");
+            const trigger = document.createElement("button");
+            trigger.type = "button";
+            trigger.className = "rf-picker-trigger is-placeholder";
+            trigger.dataset.for = select.id;
+            trigger.innerHTML = '<span class="rf-picker-label"></span><i data-lucide="chevron-down"></i>';
+            wrap.appendChild(trigger);
+            syncTrigger(select);
+
+            trigger.addEventListener("click", function () {
+                openPicker(select);
+            });
+
+            new MutationObserver(function () {
+                syncTrigger(select);
+            }).observe(select, { childList: true, subtree: true, attributes: true });
+        });
+
+        searchEl.addEventListener("input", function () {
+            if (activeSelect) renderList(activeSelect, searchEl.value);
+        });
+
+        closeEl.addEventListener("click", closePicker);
+        overlay.addEventListener("click", function (e) {
+            if (e.target === overlay) closePicker();
+        });
+
+        if (window.lucide) lucide.createIcons();
     }
 
     /* ─────────────────────────────────────────────────────────
@@ -2051,6 +2792,8 @@ toggleRoomBtn.addEventListener('click', function () {
         const equipmentManualInput = document.getElementById(
             "equipmentManualInput",
         );
+
+        enhanceModernSelects();
 
         /*
     |--------------------------------------------------------------------------

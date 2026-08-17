@@ -2306,8 +2306,8 @@
                         <label for="type" class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Type</label>
                         <select id="type" name="type" class="{{ $reporterFieldClass }}">
                             <option value="">Select type</option>
-                            <option value="Full-Time">Full-Time</option>
-                            <option value="Part-Time">Part-Time</option>
+                            <option value="Faculty">Faculty</option>
+                            <option value="Staff">Staff</option>
                         </select>
                     </div>
                 </div>
@@ -2396,8 +2396,8 @@
                         <label for="editType" class="mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500">Type</label>
                         <select name="type" id="editType" class="{{ $reporterFieldClass }}">
                             <option value="">Select type</option>
-                            <option value="Full-Time">Full-Time</option>
-                            <option value="Part-Time">Part-Time</option>
+                            <option value="Faculty">Faculty</option>
+                            <option value="Staff">Staff</option>
                         </select>
                     </div>
                 </div>
@@ -2779,7 +2779,8 @@
             document.getElementById("editFirstName").value = first || "";
             document.getElementById("editMiddleName").value = middle || "";
             document.getElementById("editLastName").value = last || "";
-            document.getElementById("editType").value = type || "";
+            const typeMap = { 'Full-Time': 'Faculty', 'Part-Time': 'Staff' };
+            document.getElementById("editType").value = typeMap[type] || type || "";
             document.getElementById("editEmail").value = email || "";
             document.getElementById("editContact").value = contact || "";
 

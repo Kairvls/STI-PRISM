@@ -11675,7 +11675,7 @@ class MaintenanceController extends Controller
             'first_name' => 'required|string|max:100',
             'middle_name' => 'nullable|string|max:100',
             'last_name' => 'required|string|max:100',
-            'type' => 'nullable|string|max:50',
+            'type' => 'nullable|in:Faculty,Staff',
             'email' => 'nullable|email|max:255',
             'contact' => 'nullable|string|max:50',
         ]);
@@ -13434,7 +13434,7 @@ class MaintenanceController extends Controller
             'first_name' => 'required|string|max:100',
             'middle_name' => 'nullable|string|max:100',
             'last_name' => 'required|string|max:100',
-            'type' => 'nullable|string|max:50',
+            'type' => 'nullable|in:Faculty,Staff',
             'email' => 'nullable|email|max:255',
             'contact' => 'nullable|string|max:50',
         ]);
@@ -13489,8 +13489,8 @@ class MaintenanceController extends Controller
         $callback = function () {
             $handle = fopen('php://output', 'w');
             fputcsv($handle, array_values(ReporterImport::FIELDS));
-            fputcsv($handle, ['OMC0130F', 'John', 'Michael', 'Smith', 'Full-Time', 'john@company.com', "\t09171234567"]);
-            fputcsv($handle, ['', 'Sarah', '', 'Connor', 'Part-Time', 'sarah@company.com', "\t09179876543"]);
+            fputcsv($handle, ['OMC0130F', 'John', 'Michael', 'Smith', 'Faculty', 'john@company.com', "\t09171234567"]);
+            fputcsv($handle, ['', 'Sarah', '', 'Connor', 'Staff', 'sarah@company.com', "\t09179876543"]);
             fclose($handle);
         };
 

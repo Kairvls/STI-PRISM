@@ -28,14 +28,10 @@ use App\Http\Controllers\FileMaintenanceController;
 /*
 |--------------------------------------------------------------------------
 | LANDING PAGE
+| Served by ReporterController@index so rooms, equipment,
+| and live campus stats reach landing/index.blade.php
 |--------------------------------------------------------------------------
 */
-
-Route::get('/', function () {
-
-    return view('landing.index');
-
-});
 
 /*
 |--------------------------------------------------------------------------
@@ -678,6 +674,21 @@ Route::get(
     '/',
     [ReporterController::class, 'index']
 );
+
+Route::post(
+    '/register-reporter',
+    [ReporterController::class, 'startRegistration']
+)->middleware('throttle:20,5')->name('reporter.register.start');
+
+Route::get(
+    '/register-reporter/{token}',
+    [ReporterController::class, 'showRegistrationForm']
+)->name('reporter.register.form');
+
+Route::post(
+    '/register-reporter/{token}',
+    [ReporterController::class, 'completeRegistration']
+)->middleware('throttle:10,1')->name('reporter.register.complete');
 
 Route::get(
     '/submit-report',
