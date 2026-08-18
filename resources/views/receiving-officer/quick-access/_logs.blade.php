@@ -34,12 +34,12 @@
                         @php
                             $action = strtolower((string) $log->receiving_log_action);
                             $rowStatus = str_contains($action, 'return') ? 'returned' : (str_contains($action, 'accept') ? 'accepted' : 'all');
-                            $rowSearch = trim(implode(' ', [$log->receiving_log_action ?? '', $log->ris_form_number ?? '', $log->authority_purchase_form_number ?? '', $log->officer_name ?? '']));
+                            $rowSearch = trim(implode(' ', [$log->receiving_log_action ?? '', $log->receiving_report_form_number ?? '', $log->ris_form_number ?? '', $log->authority_purchase_form_number ?? '', $log->officer_name ?? '']));
                         @endphp
                         <tr data-ro-status="{{ $rowStatus }}" data-ro-search="{{ $rowSearch }}">
                             <td class="px-4 py-3 text-sm text-gray-500">{{ $log->receiving_log_created_at ? \Carbon\Carbon::parse($log->receiving_log_created_at)->format('M d, Y g:i A') : '—' }}</td>
                             <td class="px-4 py-3 text-sm font-semibold">{{ $log->receiving_log_action }}</td>
-                            <td class="px-4 py-3 text-sm">{{ $log->ris_form_number ?: ($log->authority_purchase_form_number ?: '—') }}</td>
+                            <td class="px-4 py-3 text-sm">{{ $log->receiving_report_form_number ?: ($log->ris_form_number ?: ($log->authority_purchase_form_number ?: '—')) }}</td>
                             <td class="px-4 py-3 text-sm">{{ $log->officer_name ?: 'Receiving Officer' }}</td>
                         </tr>
                     @empty

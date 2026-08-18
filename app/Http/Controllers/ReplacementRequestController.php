@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use App\Support\WorkflowNotifier;
 
 class ReplacementRequestController extends Controller
 {
@@ -117,6 +118,23 @@ class ReplacementRequestController extends Controller
                     'procurement_request_status' => 'Approved',
                 ]);
 
+            $equipmentName = DB::table('procurement_requests_table')
+                ->leftJoin('reports_table', 'procurement_requests_table.procurement_request_report_id', '=', 'reports_table.report_id')
+                ->leftJoin('equipment_table', 'reports_table.report_equipment_id', '=', 'equipment_table.equipment_id')
+                ->where('procurement_requests_table.procurement_request_id', $requestId)
+                ->selectRaw("COALESCE(equipment_table.equipment_name, reports_table.report_unlisted_equipment_name, CONCAT('Replacement request #', procurement_requests_table.procurement_request_id)) as equipment_name")
+                ->value('equipment_name');
+
+            WorkflowNotifier::toRole(
+                WorkflowNotifier::ROLE_PURCHASER,
+                'Replacement approved',
+                ($equipmentName ?: ('Replacement request #' . $requestId)) . ' is approved. Create an RIS to start purchasing.',
+                'replacement_approved',
+                'PROC',
+                $requestId,
+                '/purchaser/procurement/replacement-requests'
+            );
+
             DB::table('audit_logs_table')->insert([
                 'audit_log_user_id' => Auth::id(),
                 'audit_log_action' => 'Approved replacement request',
@@ -170,6 +188,16 @@ class ReplacementRequestController extends Controller
                 'audit_log_ip_address' => request()->ip(),
                 'audit_log_created_at' => now(),
             ]);
+
+            WorkflowNotifier::toRole(
+                WorkflowNotifier::ROLE_PURCHASER,
+                'Replacement rejected',
+                'Replacement request #' . $requestId . ' was rejected. Reason: ' . $validated['remarks'],
+                'replacement_rejected',
+                'PROC',
+                $requestId,
+                '/purchaser/procurement/replacement-requests'
+            );
 
             return back()->with('success', 'Replacement request rejected successfully.');
         });

@@ -13,9 +13,11 @@ class WorkflowNotifier
     public const ROLE_PRESIDENT = 'President';
     public const ROLE_ACCOUNTING = 'Accounting';
     public const ROLE_RECEIVING = 'Receiving Officer';
+    public const ROLE_MAINTENANCE = 'Maintenance Personnel';
 
     private const ROLE_IDS = [
         self::ROLE_ADMIN => 1,
+        self::ROLE_MAINTENANCE => 2,
         self::ROLE_PURCHASER => 3,
         self::ROLE_PRESIDENT => 4,
         self::ROLE_ACCOUNTING => 5,

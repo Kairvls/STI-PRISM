@@ -10,15 +10,6 @@ use App\Support\WorkflowNotifier;
 
 class RequestForCheckController extends Controller
 {
-    private const ACTIVE_STATUSES = [
-        'Draft',
-        'Submitted',
-        'Under Review',
-        'Minor Revision',
-        'Resubmitted',
-        'Pending Admin Approval',
-    ];
-
     private const EDITABLE_STATUSES = ['Draft', 'Minor Revision'];
 
     private const ARCHIVEABLE_STATUSES = ['Approved', 'Rejected'];
@@ -110,6 +101,7 @@ class RequestForCheckController extends Controller
             'atpPrefill' => $atpPrefill,
             'attachments' => $attachments,
             'selectedAtpId' => $request->query('selected_atp'),
+            'openCreate' => $request->boolean('create') || $request->filled('selected_atp'),
         ]);
     }
 
@@ -487,7 +479,7 @@ class RequestForCheckController extends Controller
                         'request_check_table.request_check_authority_purchase_id',
                         'authority_to_purchase_table.authority_purchase_id'
                     )
-                    ->whereIn('request_check_status', $this->rfcActiveStatuses());
+                    ->where('request_check_status', '!=', 'Rejected');
                 $this->applyUnarchivedRfcConstraint($q);
             })
             ->select(
@@ -615,7 +607,7 @@ class RequestForCheckController extends Controller
 
         $query = DB::table('request_check_table')
             ->where('request_check_authority_purchase_id', $atpId)
-            ->whereIn('request_check_status', $this->rfcActiveStatuses());
+            ->where('request_check_status', '!=', 'Rejected');
         $this->applyUnarchivedRfcConstraint($query);
 
         if ($ignoreId) {
@@ -762,14 +754,6 @@ class RequestForCheckController extends Controller
         }
 
         return $intended;
-    }
-
-    private function rfcActiveStatuses(): array
-    {
-        $wanted = array_merge(self::ACTIVE_STATUSES, ['Pending']);
-        $allowed = array_values(array_filter($wanted, fn ($status) => $this->rfcStatusAllowed($status)));
-
-        return $allowed !== [] ? $allowed : $wanted;
     }
 
     private function rfcEditableStatuses(): array

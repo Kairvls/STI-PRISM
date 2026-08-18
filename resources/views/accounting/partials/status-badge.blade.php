@@ -1,8 +1,11 @@
 @php
     $raw = (string) ($status ?? '—');
+    if (in_array($raw, ['Pending Admin Approval', 'For Admin'], true)) {
+        $raw = 'Waiting for Accounting';
+    }
     $label = $raw;
     $cls = 'bg-slate-100 text-slate-700 ring-slate-200';
-    if (in_array($raw, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true) || !empty($submitted)) {
+    if (in_array($raw, ['Pending', 'Submitted', 'Under Review', 'Resubmitted', 'Waiting for funds', 'Waiting for Accounting'], true) || !empty($submitted)) {
         if (in_array($raw, ['Approved', 'Completed', 'Released', 'Funds released'], true)) {
             // keep approved
         } elseif (!in_array($raw, ['Rejected', 'Minor Revision'], true)) {

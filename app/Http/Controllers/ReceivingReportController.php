@@ -131,6 +131,7 @@ class ReceivingReportController extends Controller
                 ]);
             }
             $this->linkRfc($validated['receiving_report_request_check_id'] ?? null, $id);
+            $this->attachRelatedDocuments($id, $validated['receiving_report_request_check_id'] ?? null);
 
             if (!$isDraft) {
                 $this->notifyReceiving($id);
@@ -187,6 +188,7 @@ class ReceivingReportController extends Controller
                 ]);
             }
             $this->linkRfc($rfcId, $id);
+            $this->attachRelatedDocuments($id, $rfcId);
 
             if (!$isDraft) {
                 $this->notifyReceiving($id);
@@ -223,6 +225,7 @@ class ReceivingReportController extends Controller
                 'receiving_report_updated_at' => now(),
             ]);
             $this->linkRfc($rr->receiving_report_request_check_id, $id);
+            $this->attachRelatedDocuments($id, $rr->receiving_report_request_check_id);
             $this->notifyReceiving($id);
 
             return back()->with('success', 'Receiving Report submitted to Receiving.');
@@ -593,6 +596,49 @@ class ReceivingReportController extends Controller
             (int) $id,
             '/receiving/reports'
         );
+    }
+
+    private function attachRelatedDocuments($rrId, $rfcId): void
+    {
+        if (!$rfcId) {
+            return;
+        }
+
+        $rfc = DB::table('request_check_table')
+            ->leftJoin(
+                'authority_to_purchase_table',
+                'request_check_table.request_check_authority_purchase_id',
+                '=',
+                'authority_to_purchase_table.authority_purchase_id'
+            )
+            ->where('request_check_table.request_check_id', $rfcId)
+            ->select(
+                'request_check_table.request_check_authority_purchase_id',
+                'authority_to_purchase_table.authority_purchase_ris_id'
+            )
+            ->first();
+
+        if (!$rfc) {
+            return;
+        }
+
+        $payload = [];
+        if (
+            Schema::hasColumn('receiving_reports_table', 'receiving_report_atp_id')
+            && !empty($rfc->request_check_authority_purchase_id)
+        ) {
+            $payload['receiving_report_atp_id'] = $rfc->request_check_authority_purchase_id;
+        }
+        if (
+            Schema::hasColumn('receiving_reports_table', 'receiving_report_ris_id')
+            && !empty($rfc->authority_purchase_ris_id)
+        ) {
+            $payload['receiving_report_ris_id'] = $rfc->authority_purchase_ris_id;
+        }
+
+        if ($payload !== []) {
+            DB::table('receiving_reports_table')->where('receiving_report_id', $rrId)->update($payload);
+        }
     }
 
     private function isEditable($rr): bool

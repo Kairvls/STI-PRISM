@@ -58,7 +58,7 @@
                 <thead class="border-b border-gray-200 bg-gray-50">
                     <tr>
                         <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Date</th>
-                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">RIS / ATP</th>
+                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">RR / RIS</th>
                         <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Items</th>
                         <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Supplier</th>
                         <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">OR / PO</th>
@@ -83,7 +83,7 @@
                         @endphp
                         <tr data-ro-status="{{ $rowStatus }}" data-ro-search="{{ $rowSearch }}">
                             <td class="px-5 py-4 text-sm text-gray-500">{{ $row->received_at ? \Carbon\Carbon::parse($row->received_at)->format('M d, Y') : '—' }}</td>
-                            <td class="px-5 py-4 text-sm font-semibold text-gray-900">{{ $row->ris_form_number ?: $row->authority_purchase_form_number }}</td>
+                            <td class="px-5 py-4 text-sm font-semibold text-gray-900">{{ $row->receiving_report_form_number ?: ($row->ris_form_number ?: $row->authority_purchase_form_number) }}</td>
                             <td class="px-5 py-4 text-sm text-gray-700">{{ $row->item_names ?: '—' }}</td>
                             <td class="px-5 py-4 text-sm text-gray-700">{{ $row->supplier_name }}</td>
                             <td class="px-5 py-4 text-sm text-gray-700">{{ $row->official_receipt ?: '—' }} / {{ $row->authority_purchase_reference_po_no ?: '—' }}</td>
@@ -107,7 +107,7 @@
                     @empty
                     @endforelse
                     <tr class="receiving-empty-row" @if($rows->count()) style="display:none" @endif>
-                        <td colspan="8" class="px-5 py-16 text-center text-sm text-gray-400">Waiting for Purchaser ATP to be approved and inspected. History appears after you accept or return a delivery.</td>
+                        <td colspan="8" class="px-5 py-16 text-center text-sm text-gray-400">Waiting for Purchaser to submit a Receiving Report. History appears after second count or a return.</td>
                     </tr>
                 </tbody>
             </table>

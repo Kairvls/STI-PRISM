@@ -1,7 +1,7 @@
 @php
     $editable = $editable ?? false;
     $rfc = $rfc ?? null;
-    $dateValue = old('request_check_date', $rfc->request_check_date ?? '');
+    $dateValue = old('request_check_date', $rfc->request_check_date ?? ($editable && !$rfc ? now()->toDateString() : ''));
     $payeeValue = old('request_check_payee', $rfc->request_check_payee ?? '');
     $amountValue = old('request_check_amount_figures', $rfc->request_check_amount_figures ?? '');
     $purposeValue = old('request_check_particulars_purpose', $rfc->request_check_particulars_purpose ?? '');
@@ -79,7 +79,9 @@
         </div>
         <div class="text-center">
             <div class="font-semibold">Approved by:</div>
-            <div class="mx-auto mt-10 w-64 border-b border-black pb-1 min-h-[1.75rem]">{{ $approvedBy }}</div>
+            <div class="mx-auto mt-10 w-64 border-b border-black pb-1 min-h-[1.75rem]">
+                @include('partials.drawn-signature', ['value' => $approvedBy])
+            </div>
             <div class="mt-1 font-medium">Administrator</div>
         </div>
     </div>

@@ -34,7 +34,7 @@
             <table class="w-full min-w-[1000px] text-left">
                 <thead class="border-b border-gray-200 bg-gray-50">
                     <tr>
-                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">RIS / ATP</th>
+                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">RR / RIS</th>
                         <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Items</th>
                         <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Qty</th>
                         <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Supplier</th>
@@ -57,7 +57,7 @@
                             ]));
                         @endphp
                         <tr data-ro-status="all" data-ro-search="{{ $rowSearch }}">
-                            <td class="px-5 py-4 text-sm font-semibold text-gray-900">{{ $row->ris_form_number ?: $row->authority_purchase_form_number }}</td>
+                            <td class="px-5 py-4 text-sm font-semibold text-gray-900">{{ $row->receiving_report_form_number ?: ($row->ris_form_number ?: $row->authority_purchase_form_number) }}</td>
                             <td class="px-5 py-4 text-sm text-gray-700">{{ $row->item_names ?: '—' }}</td>
                             <td class="px-5 py-4 text-sm text-gray-700">{{ (int) ($row->total_qty ?? 0) }}</td>
                             <td class="px-5 py-4 text-sm text-gray-700">{{ $row->supplier_name }}</td>
@@ -75,7 +75,7 @@
                     @empty
                     @endforelse
                     <tr class="receiving-empty-row" @if($rows->count()) style="display:none" @endif>
-                        <td colspan="7" class="px-5 py-16 text-center text-sm text-gray-400">Waiting for an accepted delivery. Inspect an approved ATP first, then accept it into inventory.</td>
+                        <td colspan="7" class="px-5 py-16 text-center text-sm text-gray-400">Waiting for an accepted delivery. Complete second count on a Receiving Report first.</td>
                     </tr>
                 </tbody>
             </table>

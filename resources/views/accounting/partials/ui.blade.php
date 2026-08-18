@@ -836,6 +836,32 @@
         }
         .acc-review-head { margin-bottom: 0.5rem; padding-bottom: 0.5rem; }
     }
+
+    @media print {
+        aside, nav, header, .acc-actions, .acc-back, .acc-side-stack, .acc-modal, .acc-page-subtitle {
+            display: none !important;
+        }
+        main.flex-1 {
+            padding: 0 !important;
+            background: #fff !important;
+        }
+        .acc-viewer {
+            height: auto !important;
+            max-height: none !important;
+            border: 0;
+            box-shadow: none;
+        }
+        .acc-viewer-stage {
+            overflow: visible !important;
+            height: auto !important;
+        }
+        .acc-viewer-fit {
+            transform: none !important;
+            width: auto !important;
+            height: auto !important;
+            margin: 0 !important;
+        }
+    }
 </style>
 
 <script>

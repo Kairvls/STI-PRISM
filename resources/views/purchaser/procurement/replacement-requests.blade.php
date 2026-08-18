@@ -300,7 +300,7 @@
                                         {{ $request->ris_status }}
                                     </span>
                                 @else
-                                    <span class="text-xs text-gray-400">Not created</span>
+                                    <span class="text-xs text-gray-400">{{ $canCreateRis ? 'Ready for RIS' : 'Not created' }}</span>
                                 @endif
                             </td>
 

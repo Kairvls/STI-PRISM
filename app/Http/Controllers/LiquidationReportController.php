@@ -60,6 +60,10 @@ class LiquidationReportController extends Controller
         $items = $this->itemsFor($reports->getCollection()->pluck('liquidation_report_id'));
         $attachments = $this->attachmentsFor($reports->getCollection()->pluck('liquidation_report_id'));
 
+        // #region agent log
+        file_put_contents(base_path('debug-fcd40d.log'), json_encode(['sessionId' => 'fcd40d', 'runId' => 'pre-fix', 'hypothesisId' => 'A', 'location' => 'LiquidationReportController.php:index', 'message' => 'purchaser liq index payload', 'data' => ['archiveView' => $archiveView, 'reportsCount' => $reports->count(), 'eligibleRrCount' => $eligibleRrs->count(), 'selectedRrId' => $request->query('selected_rr'), 'willRenderCreatePartial' => $eligibleRrs->isNotEmpty()], 'timestamp' => (int) round(microtime(true) * 1000)]) . "\n", FILE_APPEND);
+        // #endregion
+
         return view('purchaser.liquidation-reports.index', compact(
             'reports', 'archiveView', 'summary', 'eligibleRrs', 'rrPrefill', 'items', 'attachments'
         ) + ['selectedRrId' => $request->query('selected_rr')]);

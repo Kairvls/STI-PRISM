@@ -92,101 +92,6 @@
         </div>
 
 
-        {{-- ===================================================== --}}
-        {{-- QUICK ACTIONS --}}
-        {{-- ===================================================== --}}
-
-        <div class="quick-actions">
-
-
-            {{-- ================================================= --}}
-            {{-- REPLACEMENT REQUESTS --}}
-            {{-- ================================================= --}}
-
-            <a
-                href="{{ route('purchaser.procurement.replacement-requests') }}"
-
-                class="
-                    quick-card
-
-                    {{
-                        request()->routeIs(
-                            'purchaser.procurement.replacement-requests'
-                        )
-                            ? 'active'
-                            : ''
-                    }}
-                "
-            >
-
-                <i data-lucide="inbox"></i>
-
-                <span>
-                    Requests
-                </span>
-
-            </a>
-
-
-
-            {{-- ================================================= --}}
-            {{-- SUPPLIERS --}}
-            {{-- ================================================= --}}
-
-            <a
-                href="#"
-                class="quick-card"
-            >
-
-                <i data-lucide="truck"></i>
-
-                <span>
-                    Suppliers
-                </span>
-
-            </a>
-
-
-
-            {{-- ================================================= --}}
-            {{-- RECEIVING REPORTS --}}
-            {{-- ================================================= --}}
-
-            <a
-                href="#"
-                class="quick-card"
-            >
-
-                <i data-lucide="package-check"></i>
-
-                <span>
-                    Receiving
-                </span>
-
-            </a>
-
-
-
-            {{-- ================================================= --}}
-            {{-- NOTIFICATIONS --}}
-            {{-- ================================================= --}}
-
-            <a
-                href="#"
-                class="quick-card"
-            >
-
-                <i data-lucide="bell-ring"></i>
-
-                <span>
-                    Alerts
-                </span>
-
-            </a>
-
-        </div>
-
-
 
         {{-- ===================================================== --}}
         {{-- DASHBOARD SECTION --}}
@@ -326,7 +231,7 @@
             class="menu-item mt-1 {{ request()->routeIs('purchaser.file-maintenance.*') || request()->routeIs('purchaser.brands.*') || request()->routeIs('purchaser.uom.*') || request()->routeIs('purchaser.categories.*') || request()->routeIs('purchaser.subcategories.*') ? 'active' : '' }}"
         >
             <i data-lucide="database" class="h-5 w-5"></i>
-            <span>File Maintenance</span>
+            <span>Lookups</span>
         </a>
 
 
@@ -553,56 +458,6 @@
         width: 14px;
         height: 14px;
         color: #64748b;
-    }
-
-    /* ======================================
-   QUICK ACTIONS
-====================================== */
-    .quick-actions {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 8px;
-        margin-bottom: 20px;
-    }
-    .quick-card {
-        height: 70px;
-        background: #111827;
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        border-radius: 12px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-        text-decoration: none;
-        color: #cbd5e1;
-        transition: all 0.2s ease;
-    }
-    .quick-card:hover {
-        background: #182235;
-        border-color: #2563eb;
-        transform: translateY(-2px);
-    }
-    .quick-card i {
-        width: 16px;
-        height: 16px;
-        color: #60a5fa;
-        transition: all 0.2s ease;
-    }
-    .quick-card span {
-        font-size: 11px;
-        font-weight: 500;
-    }
-
-    /* NEW BLUE ACTIVE STATE STATE FOR QUICK ACTIONS */
-    .quick-card.active {
-        border: 1.5px solid #2563eb !important;
-        color: #cbd5e1;
-        font-weight: 600;
-        box-shadow: 0 0 12px rgba(37, 99, 235, 0.2);
-    }
-    .quick-card.active i {
-        color: #3b82f6;
     }
 
     /* ======================================

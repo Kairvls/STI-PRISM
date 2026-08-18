@@ -321,6 +321,7 @@
             <option value="">All statuses</option>
             <option value="Draft" {{ request('status') === 'Draft' ? 'selected' : '' }}>Draft</option>
             <option value="Submitted" {{ request('status') === 'Submitted' ? 'selected' : '' }}>Submitted</option>
+            <option value="Minor Revision" {{ request('status') === 'Minor Revision' ? 'selected' : '' }}>Minor Revision</option>
             <option value="Approved" {{ request('status') === 'Approved' ? 'selected' : '' }}>Approved</option>
             <option value="Rejected" {{ request('status') === 'Rejected' ? 'selected' : '' }}>Rejected</option>
         </select>
@@ -329,7 +330,7 @@
         <select name="request_type" class="h-10 rounded-lg border border-gray-300 px-3 text-sm">
             <option value="">All RIS types</option>
             <option value="New Procurement" {{ request('request_type') === 'New Procurement' ? 'selected' : '' }}>New Procurement</option>
-            <option value="Replacement" {{ request('request_type') === 'Replacement' ? 'selected' : '' }}>Replacement</option>
+            <option value="Replacement Procurement" {{ request('request_type') === 'Replacement Procurement' ? 'selected' : '' }}>Replacement Procurement</option>
         </select>
         @endif
 
@@ -407,15 +408,11 @@
                             </td>
 
                             <td class="px-4 py-4">
-                                @if($atp->authority_purchase_status === 'Approved')
-                                    <span class="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">Approved</span>
-                                @elseif($atp->authority_purchase_status === 'Rejected')
-                                    <span class="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">Rejected</span>
-                                @elseif($atp->authority_purchase_submitted_at)
-                                    <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">Submitted</span>
-                                @else
-                                    <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">Draft</span>
-                                @endif
+                                @include('accounting.partials.status-badge', [
+                                    'status' => \App\Support\RisWorkflow::atpStatusLabel($atp),
+                                    'submitted' => $atp->authority_purchase_submitted_at,
+                                    'revision' => $atp->authority_purchase_rejection_reason,
+                                ])
                             </td>
 
                             <td class="px-4 py-4">
@@ -476,7 +473,7 @@
                                             </button>
                                         </form>
 
-                                    @elseif(!$atp->authority_purchase_is_archived)
+                                    @elseif(!$atp->authority_purchase_is_archived && in_array($atp->authority_purchase_status, ['Approved', 'Rejected'], true))
 
                                         <form method="POST" action="{{ route('purchaser.atp.archive', $atp->authority_purchase_id) }}">
                                             @csrf
@@ -771,15 +768,11 @@
                                     {{ $atp->authority_purchase_form_number ?? 'ATP #' . $atp->authority_purchase_id }}
                                 </h3>
 
-                                @if($atp->authority_purchase_status === 'Approved')
-                                    <span class="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">Approved</span>
-                                @elseif($atp->authority_purchase_status === 'Rejected')
-                                    <span class="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">Rejected</span>
-                                @elseif($atp->authority_purchase_submitted_at)
-                                    <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">Submitted</span>
-                                @else
-                                    <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">Draft</span>
-                                @endif
+                                @include('accounting.partials.status-badge', [
+                                    'status' => \App\Support\RisWorkflow::atpStatusLabel($atp),
+                                    'submitted' => $atp->authority_purchase_submitted_at,
+                                    'revision' => $atp->authority_purchase_rejection_reason,
+                                ])
                             </div>
 
                             <p class="mt-1 text-sm text-gray-500">
@@ -898,8 +891,8 @@
 
                                 <div class="w-56 text-center">
                                     <div>Authorized By</div>
-                                    <div class="mt-16 border-b border-black">
-                                        {{ $atp->authority_purchase_authorized_by_signature ?? '' }}
+                                    <div class="mt-16 border-b border-black min-h-[3rem]">
+                                        @include('partials.drawn-signature', ['value' => $atp->authority_purchase_authorized_by_signature ?? ''])
                                     </div>
                                 </div>
 

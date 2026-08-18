@@ -107,6 +107,10 @@
                 <iframe id="risReviewIframe" title="RIS document" scrolling="no" src="about:blank"></iframe>
             </div>
         </div>
+        <div id="reviewAttachments" class="hidden border-t border-slate-200 bg-white px-4 py-3">
+            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Supporting documents</p>
+            <div id="reviewAttachmentsList" class="mt-2 space-y-1"></div>
+        </div>
         <div class="doc-actions">
             <button type="button" class="btn-ghost" onclick="closeRisReviewModal()">Close</button>
             <button type="button" class="btn-reject" onclick="openDecisionModal('ris', window.currentRisId, 'Rejected')">Reject</button>
@@ -306,6 +310,22 @@
                 document.getElementById('reviewRequester').textContent = data.requester_name || '—';
                 document.getElementById('reviewDateSubmitted').textContent = formatDate(data.created_at || data.requested_by_date);
                 document.getElementById('reviewAmount').textContent = formatMoney(data.total_amount);
+                const box = document.getElementById('reviewAttachments');
+                const list = document.getElementById('reviewAttachmentsList');
+                if (box && list) {
+                    list.innerHTML = '';
+                    const files = data.attachments || [];
+                    files.forEach(function (file) {
+                        const link = document.createElement('a');
+                        link.href = file.url;
+                        link.target = '_blank';
+                        link.rel = 'noopener';
+                        link.className = 'block truncate text-sm text-blue-600 hover:underline';
+                        link.textContent = file.name || 'Attachment';
+                        list.appendChild(link);
+                    });
+                    box.classList.toggle('hidden', files.length === 0);
+                }
             }).catch(() => {});
     };
     window.closeRisReviewModal = function () {

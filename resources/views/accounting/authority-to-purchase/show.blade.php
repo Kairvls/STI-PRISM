@@ -18,15 +18,28 @@
         </div>
         <div class="acc-actions">
             @if ($reviewable)
-                <form method="POST" action="/accounting/authority-to-purchase/{{ $atp->authority_purchase_id }}/approve" onsubmit="return confirm('Approve this ATP?');">
-                    @csrf
-                    <button class="acc-btn acc-btn-approve">Approve</button>
-                </form>
+                <button type="button" onclick="document.getElementById('approve-box').classList.toggle('hidden'); if (window.initSignaturePad) window.initSignaturePad('atpSignatureCanvas');" class="acc-btn acc-btn-approve">Approve</button>
                 <button type="button" onclick="document.getElementById('revise-box').classList.toggle('hidden')" class="acc-btn acc-btn-revise">Request revision</button>
             @endif
-            @include('accounting.partials.status-badge', ['status' => $atp->authority_purchase_status, 'submitted' => $atp->authority_purchase_submitted_at])
+            @include('accounting.partials.status-badge', ['status' => \App\Support\RisWorkflow::atpStatusLabel($atp), 'submitted' => $atp->authority_purchase_submitted_at, 'revision' => $atp->authority_purchase_rejection_reason])
+            <button type="button" class="acc-btn acc-btn-ghost" onclick="window.print()">Print</button>
         </div>
     </div>
+
+    <form id="approve-box" method="POST" action="/accounting/authority-to-purchase/{{ $atp->authority_purchase_id }}/approve" class="acc-modal hidden" onsubmit="return window.requireSignaturePad('atpSignatureCanvas', 'atpSignatureCanvasData', 'Please sign this ATP before approving.')">
+        @csrf
+        <h3>Sign to approve</h3>
+        @include('partials.signature-pad', [
+            'canvasId' => 'atpSignatureCanvas',
+            'label' => 'Accounting signature',
+            'hint' => 'Sign to authorize this Authority to Purchase.',
+            'requiredMessage' => 'Please sign this ATP before approving.',
+        ])
+        <div class="mt-2.5 flex justify-end gap-2">
+            <button type="button" onclick="document.getElementById('approve-box').classList.add('hidden')" class="acc-btn acc-btn-ghost">Cancel</button>
+            <button class="acc-btn acc-btn-approve">Approve</button>
+        </div>
+    </form>
 
     <form id="revise-box" method="POST" action="/accounting/authority-to-purchase/{{ $atp->authority_purchase_id }}/revise" class="acc-modal hidden">
         @csrf
@@ -89,7 +102,9 @@
                             </div>
                             <div>
                                 <p class="text-[10px] uppercase tracking-wide text-slate-400">Authorized by Accounting</p>
-                                <p class="mt-6 border-b border-slate-800 pb-1">{{ $atp->authority_purchase_authorized_by_signature ?? '' }}</p>
+                                <p class="mt-6 border-b border-slate-800 pb-1 min-h-[3rem]">
+                                    @include('partials.drawn-signature', ['value' => $atp->authority_purchase_authorized_by_signature ?? ''])
+                                </p>
                             </div>
                         </div>
                         @if ($atp->authority_purchase_rejection_reason)

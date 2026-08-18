@@ -173,28 +173,6 @@
 
         </a>
 
-        <a
-            href="{{ route('admin.rfc.index') }}"
-            class="menu-item {{ request()->routeIs('admin.rfc*') ? 'active' : '' }}"
-        >
-
-            <i data-lucide="banknote"></i>
-
-            <span>Request for Check</span>
-
-        </a>
-
-        <a
-            href="{{ route('admin.liq.index') }}"
-            class="menu-item {{ request()->routeIs('admin.liq*') ? 'active' : '' }}"
-        >
-
-            <i data-lucide="receipt-text"></i>
-
-            <span>Liquidation Reports</span>
-
-        </a>
-
         {{-- ====================================== --}}
         {{-- DIGITAL SIGNATURES --}}
         {{-- ====================================== --}}

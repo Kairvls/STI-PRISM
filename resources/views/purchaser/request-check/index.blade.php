@@ -9,11 +9,12 @@
 
 <div
     x-data="{
-        createOpen: {{ ($errors->any() && old('request_check_authority_purchase_id')) || !empty($selectedAtpId) ? 'true' : 'false' }},
+        createOpen: {{ ($errors->any() && old('request_check_authority_purchase_id')) || !empty($selectedAtpId) || !empty($openCreate) ? 'true' : 'false' }},
         viewOpen: false,
         editOpen: false,
         selectedRfc: null,
         atpPrefill: JSON.parse(document.getElementById('rfc-atp-prefill').textContent || '{}'),
+        today: '{{ now()->toDateString() }}',
 
         openView(id) {
             this.selectedRfc = id;
@@ -43,9 +44,11 @@
             const payee = form.querySelector('[name=request_check_payee]');
             const amount = form.querySelector('[name=request_check_amount_figures]');
             const purpose = form.querySelector('[name=request_check_particulars_purpose]');
+            const date = form.querySelector('[name=request_check_date]');
             if (payee && data.payee) payee.value = data.payee;
             if (amount && data.amount) amount.value = data.amount;
             if (purpose && data.purpose) purpose.value = data.purpose;
+            if (date && !date.value) date.value = this.today;
         },
 
         printRfc(id) {
@@ -274,20 +277,12 @@
                             <td class="px-4 py-4">
                                 @if($rfc->request_check_status === 'Approved')
                                     @if($rfc->funds_released)
-                                        <span class="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">Funds released</span>
+                                        @include('accounting.partials.status-badge', ['status' => 'Funds released'])
                                     @else
-                                        <span class="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">Waiting for funds</span>
+                                        @include('accounting.partials.status-badge', ['status' => 'Waiting for funds'])
                                     @endif
-                                @elseif($rfc->request_check_status === 'Rejected')
-                                    <span class="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">Rejected</span>
-                                @elseif($rfc->request_check_status === 'Draft')
-                                    <span class="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">Draft</span>
-                                @elseif($rfc->request_check_status === 'Minor Revision')
-                                    <span class="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">Minor Revision</span>
-                                @elseif($rfc->request_check_status === 'Pending Admin Approval')
-                                    <span class="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700">For Admin</span>
                                 @else
-                                    <span class="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">{{ $rfc->request_check_status }}</span>
+                                    @include('accounting.partials.status-badge', ['status' => $rfc->request_check_status])
                                 @endif
                             </td>
                             <td class="px-4 py-4">

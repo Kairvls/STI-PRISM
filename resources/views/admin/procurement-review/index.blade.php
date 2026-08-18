@@ -416,6 +416,10 @@
         iframe.src =
             `/admin/procurement-review/ris/${risId}/print?ts=${Date.now()}`;
 
+        if (window.fillRisPreviewAttachments) {
+            window.fillRisPreviewAttachments(risId);
+        }
+
         const csrfToken = document.querySelector('input[name="_token"]')?.value;
         if (csrfToken) {
             fetch(`/admin/procurement-review/ris/${risId}/review`, {
