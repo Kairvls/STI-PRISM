@@ -337,7 +337,8 @@
                                     <span class="table-ref-no">{{ $ris->ris_form_number ?? 'RIS-' . $ris->ris_id }}</span>
                                 </td>
                                 <td>
-                                    <span class="table-equip">{{ $ris->ris_item_names ?: ($ris->ris_manual_title ?: ($ris->equipment_name ?? $ris->report_unlisted_equipment_name ?? ($ris->ris_request_type === 'manual' ? 'Manual Procurement' : 'N/A'))) }}</span>
+                                    <span class="table-equip">{{ \App\Support\RisWorkflow::sourceLabel($ris) }}</span>
+                                    @include('admin.partials.ris-attachments', ['ris' => $ris])
                                 </td>
                                 <td>
                                     @include('admin.partials.ris-status-badge', ['ris' => $ris])
@@ -709,6 +710,7 @@
 @include('admin.partials.ris-preview-modal', ['zIndex' => '11000'])
 
 @include('admin.procurement-review._direct-approve-modal')
+@include('admin.digital-signatures._return-revision-modal')
 
 
 {{-- ===================================================== --}}
@@ -2789,6 +2791,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         iframe.src = '/admin/procurement-review/ris/' + risId + '/print?ts=' + Date.now();
+        if (window.fillRisPreviewAttachments) {
+            window.fillRisPreviewAttachments(risId);
+        }
         modal.classList.remove('hidden');
         modal.style.display = 'block';
         modal.style.zIndex = '11000';

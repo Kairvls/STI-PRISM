@@ -79,10 +79,14 @@
 
     <main class="ris-document">
         @php
-            $presidentSigned = trim((string) ($ris->ris_approved_by_signature ?? '')) !== '';
-            $adminIssued = trim((string) ($ris->ris_issued_by_signature ?? '')) !== '';
+            $issuedBy = trim((string) ($ris->ris_issued_by_signature ?? ''));
+            $presidentImage = trim((string) ($ris->ris_approved_by_signature ?? '')) !== ''
+                && str_starts_with((string) $ris->ris_approved_by_signature, 'data:image');
+            $fullyReleased = $issuedBy !== '' && (
+                ($ris->ris_status ?? '') === 'Directly Approved' || $presidentImage
+            );
         @endphp
-        @if ($presidentSigned && $adminIssued)
+        @if ($fullyReleased)
             <div class="approval-watermark">APPROVED</div>
         @endif
 
@@ -142,18 +146,10 @@
                 <p>Approved by:</p>
                 <div class="signature-line"></div>
                 <div class="signature-name-wrapper">
-                    {{-- 
-                        ris_approved_by_signature stores:
-                        - Admin's plain-text name (Direct Approved / Forwarded to President)
-                        - OR President's base64 image signature (after President signs)
-                    --}}
                     @if (!empty($ris->ris_approved_by_signature) && strpos($ris->ris_approved_by_signature, 'data:image') === 0)
                         <div class="signature-name">{{ $presidentName ?? 'President' }}</div>
                         <div class="signature-position">President</div>
                         <img src="{{ $ris->ris_approved_by_signature }}" alt="Approved by signature" class="signature-image" />
-                    @elseif (!empty($ris->ris_approved_by_signature) && ($ris->ris_status ?? '') !== 'Directly Approved')
-                        <div class="signature-name">{{ $ris->ris_approved_by_signature }}</div>
-                        <div class="signature-position">President</div>
                     @else
                         <div class="signature-name" style="color:#94a3b8;">—</div>
                     @endif
@@ -165,9 +161,7 @@
                 <div class="signature-line"></div>
                 <div class="signature-name-wrapper">
                     @php
-                        $isPresidentSigned = !empty($ris->ris_approved_by_signature) && strpos($ris->ris_approved_by_signature, 'data:image') === 0;
-                        $isDirectApproved = !empty($ris->ris_approved_by_signature) && strpos($ris->ris_approved_by_signature, 'data:image') !== 0;
-                        $isCoSigned = !empty($ris->ris_issued_by_signature);
+                        $isCoSigned = trim((string) ($ris->ris_issued_by_signature ?? '')) !== '';
                     @endphp
 
                     @if ($isCoSigned)

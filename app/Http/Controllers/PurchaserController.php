@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use App\Support\RisWorkflow;
 use App\Support\WorkflowNotifier;
 
 class PurchaserController extends Controller
@@ -42,15 +43,9 @@ class PurchaserController extends Controller
             ->count();
 
         // Count RIS ready for ATP
-        $risReadyForAtp = DB::table('requisition_issue_slip_table')
-            ->where(function ($q) {
-                $q->whereIn('ris_status', ['Approved', 'Directly Approved'])
-                    ->orWhere(function ($president) {
-                        $president->where('ris_status', 'Approved by the President')
-                            ->whereNotNull('ris_issued_by_signature')
-                            ->whereRaw('TRIM(ris_issued_by_signature) != ""');
-                    });
-            })
+        $risReadyForAtp = RisWorkflow::applyEligibleForAtpScope(
+            DB::table('requisition_issue_slip_table')
+        )
             ->whereNotExists(function ($query) {
                 $query->select(DB::raw(1))
                     ->from('authority_to_purchase_table')
@@ -568,6 +563,9 @@ class PurchaserController extends Controller
                 'requisition_issue_slip_table.ris_supplier_id',
                 'requisition_issue_slip_table.ris_requested_by_signature',
                 'requisition_issue_slip_table.ris_requested_by_date',
+                'requisition_issue_slip_table.ris_approved_by_signature',
+                'requisition_issue_slip_table.ris_issued_by_signature',
+                'requisition_issue_slip_table.ris_received_by_signature',
                 'requisition_issue_slip_table.ris_approved_by_date',
                 'requisition_issue_slip_table.ris_issued_by_date',
                 'requisition_issue_slip_table.ris_received_by_date',
@@ -679,61 +677,42 @@ class PurchaserController extends Controller
             $ris->risRevisions = $risRevisions->get($ris->ris_id, collect());
             $ris->has_atp = in_array($ris->ris_id, $risHasAtp);
             $ris->released_to_purchaser = in_array((int) $ris->ris_id, $releasedRisIds, true);
-            $issuedByPresent = (int) ($ris->has_issued_by_signature ?? 0) === 1;
-            $ris->can_create_atp = $ris->ris_status === 'Directly Approved'
-                || (in_array($ris->ris_status, ['Approved', 'Approved by the President'], true) && $ris->released_to_purchaser)
-                || ($ris->ris_status === 'Approved by the President' && $issuedByPresent);
+            $ris->can_create_atp = RisWorkflow::isEligibleForAtp($ris);
         }
 
         // Dashboard counts
         $risSummary = $this->risStatusSummary();
         $availableReplacementRequests = collect();
+        $replacementSourceError = null;
         if (!$request->ajax()) {
-        $availableReplacementRequests = DB::table('procurement_requests_table')
-            ->join(
-                'reports_table',
-                'procurement_requests_table.procurement_request_report_id',
-                '=',
-                'reports_table.report_id'
-            )
-            ->leftJoin(
-                'equipment_table',
-                'reports_table.report_equipment_id',
-                '=',
-                'equipment_table.equipment_id'
-            )
-            ->leftJoin(
-                'rooms_table',
-                'reports_table.report_room_id',
-                '=',
-                'rooms_table.room_id'
-            )
-            ->where(
-                'procurement_requests_table.procurement_request_status',
-                'Approved'
-            )
-            ->whereNotExists(function ($query) {
-                $query->select(DB::raw(1))
-                    ->from('requisition_issue_slip_table')
-                    ->whereColumn(
-                        'requisition_issue_slip_table.ris_procurement_request_id',
-                        'procurement_requests_table.procurement_request_id'
-                    );
-            })
-            ->select(
-                'procurement_requests_table.procurement_request_id',
-                'procurement_requests_table.procurement_request_status',
-                'reports_table.report_id',
-                'reports_table.report_problem_description',
-                'reports_table.report_replacement_notes',
-                'reports_table.report_unlisted_equipment_name',
-                'equipment_table.equipment_name',
-                'equipment_table.equipment_asset_tag',
-                'rooms_table.room_name'
-            )
-            ->orderByDesc('procurement_requests_table.procurement_request_created_at')
-            ->limit(50)
-            ->get();
+            $availableReplacementRequests = $this->availableReplacementRequests();
+            $requestedReplacementId = (int) $request->query('replacement_request', 0);
+            if ($requestedReplacementId > 0) {
+                $alreadyListed = $availableReplacementRequests->contains(
+                    'procurement_request_id',
+                    $requestedReplacementId
+                );
+                if (!$alreadyListed) {
+                    $requested = $this->replacementSourceQuery()
+                        ->where('procurement_requests_table.procurement_request_id', $requestedReplacementId)
+                        ->where('procurement_requests_table.procurement_request_status', 'Approved')
+                        ->whereNotExists(function ($query) {
+                            $query->select(DB::raw(1))
+                                ->from('requisition_issue_slip_table')
+                                ->whereColumn(
+                                    'requisition_issue_slip_table.ris_procurement_request_id',
+                                    'procurement_requests_table.procurement_request_id'
+                                );
+                        })
+                        ->first();
+
+                    if ($requested) {
+                        $availableReplacementRequests = $availableReplacementRequests->prepend($requested);
+                    } else {
+                        $replacementSourceError = $this->replacementRequestUnavailableMessage($requestedReplacementId);
+                    }
+                }
+            }
         }
 
         $isAjax = $request->ajax();
@@ -755,6 +734,7 @@ class PurchaserController extends Controller
             'itemsByRis',
             'risHasAtp',
             'availableReplacementRequests',
+            'replacementSourceError',
             'activeSuppliers',
             'uoms'
         ));
@@ -772,6 +752,8 @@ class PurchaserController extends Controller
         // =====================================================
         $saveAction = $request->input('save_action', 'draft');
         $isDraft = $saveAction === 'draft';
+
+        $this->prefillRisFromReplacement($request);
 
 
         // =====================================================
@@ -1092,64 +1074,55 @@ class PurchaserController extends Controller
             $requestedByDate
         ) {
 
-            $risId =
-                DB::table('requisition_issue_slip_table')
-                    ->insertGetId([
+            $source = $procurementRequestId
+                ? $this->replacementSourceForRis($procurementRequestId)
+                : null;
 
-                        'ris_procurement_request_id' =>
-                            $procurementRequestId,
+            $firstItem = $items->first();
+            $manualTitle = $source
+                ? RisWorkflow::equipmentLabel($source)
+                : trim((string) (($firstItem['name_description'] ?? '') ?: ($validated['ris_purpose_description'] ?? '')));
+            if ($manualTitle !== '') {
+                $manualTitle = mb_substr($manualTitle, 0, 255);
+            } else {
+                $manualTitle = null;
+            }
 
-                        'ris_form_number' =>
-                            $validated['ris_form_number'] ?? null,
+            $risPayload = [
+                'ris_procurement_request_id' => $procurementRequestId,
+                'ris_form_number' => $validated['ris_form_number'] ?? null,
+                'ris_supplier_id' => null,
+                'ris_purpose_description' => $validated['ris_purpose_description'] ?? null,
+                'ris_status' => $isDraft ? 'Draft' : 'Submitted',
+                'ris_requested_by_signature' => $validated['ris_requested_by'] ?? null,
+                'ris_requested_by_date' => $requestedByDate,
+                'ris_approved_by_signature' => null,
+                'ris_approved_by_date' => null,
+                'ris_issued_by_signature' => null,
+                'ris_issued_by_date' => null,
+                'ris_received_by_signature' => null,
+                'ris_received_by_date' => null,
+                'ris_submitted_by' => $isDraft ? null : Auth::id(),
+                'ris_submitted_at' => $isDraft ? null : now(),
+                'ris_created_at' => now(),
+                'ris_updated_at' => now(),
+            ];
 
-                        'ris_supplier_id' => null,
+            if (Schema::hasColumn('requisition_issue_slip_table', 'ris_request_type')) {
+                $risPayload['ris_request_type'] = RisWorkflow::requestType(
+                    $procurementRequestId ? (int) $procurementRequestId : null
+                );
+            }
 
-                        'ris_purpose_description' =>
-                            $validated['ris_purpose_description'] ?? null,
+            if (Schema::hasColumn('requisition_issue_slip_table', 'ris_manual_title')) {
+                $risPayload['ris_manual_title'] = $manualTitle;
+            }
 
-                        'ris_status' =>
-                            $isDraft
-                                ? 'Draft'
-                                : 'Submitted',
+            if (Schema::hasColumn('requisition_issue_slip_table', 'ris_created_by')) {
+                $risPayload['ris_created_by'] = Auth::id();
+            }
 
-                        // =========================================
-                        // REQUESTED BY
-                        // =========================================
-                        'ris_requested_by_signature' =>
-                            $validated['ris_requested_by'] ?? null,
-
-                        'ris_requested_by_date' =>
-                            $requestedByDate,
-
-                        // =========================================
-                        // APPROVED / ISSUED / RECEIVED
-                        // Purchaser cannot fill these during creation.
-                        // =========================================
-                        'ris_approved_by_signature' => null,
-                        'ris_approved_by_date' => null,
-
-                        'ris_issued_by_signature' => null,
-                        'ris_issued_by_date' => null,
-
-                        'ris_received_by_signature' => null,
-                        'ris_received_by_date' => null,
-
-                        // =========================================
-                        // SUBMISSION TRACKING
-                        // =========================================
-                        'ris_submitted_by' =>
-                            $isDraft
-                                ? null
-                                : Auth::id(),
-
-                        'ris_submitted_at' =>
-                            $isDraft
-                                ? null
-                                : now(),
-
-                        'ris_created_at' => now(),
-                        'ris_updated_at' => now(),
-                    ]);
+            $risId = DB::table('requisition_issue_slip_table')->insertGetId($risPayload);
 
 
             // =====================================================
@@ -1216,14 +1189,18 @@ class PurchaserController extends Controller
                 );
             }
 
+            $success = $isDraft
+                ? 'RIS saved as draft.'
+                : 'RIS submitted to Admin successfully.';
+            if ($procurementRequestId) {
+                $success = $isDraft
+                    ? 'RIS draft created from replacement request #' . $procurementRequestId . '.'
+                    : 'RIS from replacement request #' . $procurementRequestId . ' was submitted to Admin.';
+            }
+
             return redirect()
                 ->route('purchaser.ris.index')
-                ->with(
-                    'success',
-                    $isDraft
-                        ? 'RIS saved as draft.'
-                        : 'RIS submitted to Admin successfully.'
-                );
+                ->with('success', $success);
         });
     }
 
@@ -2254,5 +2231,121 @@ public function submitRis($risId)
         }
 
         return null;
+    }
+
+    private function availableReplacementRequests()
+    {
+        return $this->replacementSourceQuery()
+            ->where('procurement_requests_table.procurement_request_status', 'Approved')
+            ->whereNotExists(function ($query) {
+                $query->select(DB::raw(1))
+                    ->from('requisition_issue_slip_table')
+                    ->whereColumn(
+                        'requisition_issue_slip_table.ris_procurement_request_id',
+                        'procurement_requests_table.procurement_request_id'
+                    );
+            })
+            ->orderByDesc('procurement_requests_table.procurement_request_created_at')
+            ->limit(50)
+            ->get();
+    }
+
+    private function replacementSourceQuery()
+    {
+        return DB::table('procurement_requests_table')
+            ->join(
+                'reports_table',
+                'procurement_requests_table.procurement_request_report_id',
+                '=',
+                'reports_table.report_id'
+            )
+            ->leftJoin(
+                'equipment_table',
+                'reports_table.report_equipment_id',
+                '=',
+                'equipment_table.equipment_id'
+            )
+            ->leftJoin(
+                'rooms_table',
+                'reports_table.report_room_id',
+                '=',
+                'rooms_table.room_id'
+            )
+            ->select(
+                'procurement_requests_table.procurement_request_id',
+                'procurement_requests_table.procurement_request_status',
+                'reports_table.report_id',
+                'reports_table.report_problem_description',
+                'reports_table.report_replacement_notes',
+                'reports_table.report_unlisted_equipment_name',
+                'equipment_table.equipment_name',
+                'equipment_table.equipment_asset_tag',
+                'rooms_table.room_name'
+            );
+    }
+
+    private function replacementSourceForRis($procurementRequestId): ?object
+    {
+        if (!$procurementRequestId) {
+            return null;
+        }
+
+        return $this->replacementSourceQuery()
+            ->where('procurement_requests_table.procurement_request_id', $procurementRequestId)
+            ->first();
+    }
+
+    private function prefillRisFromReplacement(Request $request): void
+    {
+        $source = $this->replacementSourceForRis($request->input('ris_procurement_request_id'));
+        if (!$source) {
+            return;
+        }
+
+        if (!$request->filled('ris_purpose_description')) {
+            $request->merge([
+                'ris_purpose_description' => RisWorkflow::replacementPurpose($source),
+            ]);
+        }
+
+        $items = $request->input('ris_items', []);
+        $hasNamedItem = collect($items)->contains(
+            fn ($item) => is_array($item) && filled($item['name_description'] ?? null)
+        );
+        if ($hasNamedItem) {
+            return;
+        }
+
+        $first = is_array($items[0] ?? null) ? $items[0] : [];
+        $first['name_description'] = RisWorkflow::equipmentLabel($source);
+        if (!filled($first['quantity_requested'] ?? null)) {
+            $first['quantity_requested'] = 1;
+        }
+        $items[0] = $first;
+        $request->merge(['ris_items' => $items]);
+    }
+
+    private function replacementRequestUnavailableMessage(int $requestId): string
+    {
+        $row = DB::table('procurement_requests_table')
+            ->where('procurement_request_id', $requestId)
+            ->first();
+
+        if (!$row) {
+            return 'That replacement request was not found.';
+        }
+
+        if (($row->procurement_request_status ?? '') !== 'Approved') {
+            return 'Only approved replacement requests can start an RIS.';
+        }
+
+        $hasRis = DB::table('requisition_issue_slip_table')
+            ->where('ris_procurement_request_id', $requestId)
+            ->exists();
+        if ($hasRis) {
+            return 'This replacement request already has an RIS.';
+        }
+
+        return 'This replacement request is missing its maintenance report, so it cannot prefill an RIS.';
     }
 }

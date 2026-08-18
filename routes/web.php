@@ -356,6 +356,16 @@ Route::middleware(['auth', 'admin'])
         )->name('procurement-review.ris.print');
 
         Route::get(
+            '/ris/attachments/{attachmentId}/download',
+            [PurchaserController::class, 'downloadRisAttachment']
+        )->name('ris.attachments.download');
+
+        Route::get(
+            '/ris/{ris}/details',
+            [AdminController::class, 'risDetails']
+        )->name('ris.details');
+
+        Route::get(
             '/procurement-review/export-pdf',
             [AdminController::class, 'exportProcurementRisPdf']
         )->name('procurement-review.export-pdf');
@@ -1873,6 +1883,11 @@ Route::middleware([
         // PRESIDENT: PRINTABLE RIS FOR APPROVAL PREVIEW
         // =====================================================
         Route::get(
+            '/ris/attachments/{attachmentId}/download',
+            [PurchaserController::class, 'downloadRisAttachment']
+        )->name('ris.attachments.download');
+
+        Route::get(
             '/ris/{ris}/print',
             [PresidentController::class, 'viewRis']
         )
@@ -1980,10 +1995,6 @@ Route::middleware(['auth', 'receiving'])
         Route::get('/reports/{report}/print', [ReceivingController::class, 'printReport']);
 
         Route::get('/export-pdf', [ReceivingController::class, 'exportTablePdf']);
-
-        Route::post('/reports/{atp}/accept', [ReceivingController::class, 'accept']);
-
-        Route::post('/reports/{atp}/return', [ReceivingController::class, 'returnReport']);
 
     });
 

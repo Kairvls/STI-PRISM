@@ -324,7 +324,7 @@
     <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
 
         <a
-            href="{{ route('purchaser.atp.index', ['status' => 'Approved']) }}"
+            href="{{ route('purchaser.rfc.index', ['create' => 1]) }}"
             class="group rounded-xl border border-gray-200 bg-white p-5 transition hover:border-gray-300 hover:shadow-sm"
         >
             <div class="flex items-start justify-between gap-4">

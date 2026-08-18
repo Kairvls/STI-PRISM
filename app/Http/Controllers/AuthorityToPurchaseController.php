@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use App\Support\RisWorkflow;
 use App\Support\WorkflowNotifier;
 
 class AuthorityToPurchaseController extends Controller
@@ -99,16 +100,39 @@ class AuthorityToPurchaseController extends Controller
         }
 
         if ($request->filled('request_type') && Schema::hasColumn('requisition_issue_slip_table', 'ris_request_type')) {
+            $requestType = (string) $request->request_type;
+            if ($requestType === 'Replacement') {
+                $requestType = RisWorkflow::REQUEST_TYPE_REPLACEMENT;
+            } elseif (in_array($requestType, ['manual', 'Manual Procurement'], true)) {
+                $requestType = RisWorkflow::REQUEST_TYPE_NEW;
+            }
             $query->where(
                 'requisition_issue_slip_table.ris_request_type',
-                $request->request_type
+                $requestType
             );
         }
 
+        $spotlightQuery = clone $query;
         $atps = $query
-            ->orderByDesc('authority_to_purchase_table.authority_purchase_created_at')
+            ->orderByDesc('authority_to_purchase_table.authority_purchase_id')
             ->paginate(10)
             ->withQueryString();
+
+        $selectedRisId = $request->query('selected_ris');
+        $viewAtpId = $request->query('view_atp');
+        $editAtpId = $request->query('edit_atp');
+        $spotlightId = (int) ($editAtpId ?: $viewAtpId);
+        if (
+            $spotlightId
+            && !$atps->getCollection()->contains(fn ($row) => (int) $row->authority_purchase_id === $spotlightId)
+        ) {
+            $spotlight = $spotlightQuery
+                ->where('authority_to_purchase_table.authority_purchase_id', $spotlightId)
+                ->first();
+            if ($spotlight) {
+                $atps->setCollection($atps->getCollection()->prepend($spotlight));
+            }
+        }
 
         $atpSummary = $this->atpStatusSummary();
 
@@ -146,9 +170,6 @@ class AuthorityToPurchaseController extends Controller
             $atp->has_rfc = in_array((int) $atp->authority_purchase_id, $atpHasRfc, true);
         }
 
-        $selectedRisId = $request->query('selected_ris');
-        $viewAtpId = $request->query('view_atp');
-        $editAtpId = $request->query('edit_atp');
         $risPrefill = $this->buildRisPrefill($eligibleRis);
 
         return view(
@@ -305,6 +326,10 @@ class AuthorityToPurchaseController extends Controller
         $saveAction = $request->input('save_action', 'save');
         $isDraft = in_array($saveAction, ['save', 'draft'], true);
 
+        // #region agent log
+        file_put_contents(base_path('debug-e29960.log'), json_encode(['sessionId'=>'e29960','runId'=>'pre-fix','hypothesisId'=>'A','location'=>'AuthorityToPurchaseController.php:update:outer','message'=>'ATP loaded in outer update() scope','data'=>['id'=>$id,'atpDefined'=>isset($atp),'formNumber'=>$atp->authority_purchase_form_number ?? null,'status'=>$atp->authority_purchase_status ?? null,'saveAction'=>$saveAction,'isDraft'=>$isDraft],'timestamp'=>round(microtime(true)*1000)])."\n", FILE_APPEND | LOCK_EX);
+        // #endregion
+
         $validated = $request->validate([
             'save_action' => ['required', 'in:save,draft,submit'],
             'authority_purchase_supplier_id' => [
@@ -335,8 +360,12 @@ class AuthorityToPurchaseController extends Controller
             $this->assertSubmitReadyItems($items);
         }
 
-        return DB::transaction(function () use ($validated, $id, $items, $isDraft) {
+        return DB::transaction(function () use ($validated, $id, $items, $isDraft, $atp) {
             $now = now();
+            // #region agent log
+            $closureHasAtp = array_key_exists('atp', get_defined_vars());
+            file_put_contents(base_path('debug-e29960.log'), json_encode(['sessionId'=>'e29960','runId'=>'pre-fix','hypothesisId'=>'A','location'=>'AuthorityToPurchaseController.php:update:closure-entry','message'=>'Transaction closure defined vars','data'=>['id'=>$id,'isDraft'=>$isDraft,'closureHasAtp'=>$closureHasAtp,'useClauseVars'=>array_keys(get_defined_vars())],'timestamp'=>round(microtime(true)*1000)])."\n", FILE_APPEND | LOCK_EX);
+            // #endregion
 
             $payload = [
                 'authority_purchase_supplier_id' => $validated['authority_purchase_supplier_id'] ?? null,
@@ -360,7 +389,13 @@ class AuthorityToPurchaseController extends Controller
             $this->replaceAtpItems($id, $items);
 
             if (!$isDraft) {
+                // #region agent log
+                file_put_contents(base_path('debug-e29960.log'), json_encode(['sessionId'=>'e29960','runId'=>'pre-fix','hypothesisId'=>'C','location'=>'AuthorityToPurchaseController.php:update:before-notify','message'=>'Entering notify branch','data'=>['id'=>$id,'isDraft'=>$isDraft,'closureHasAtp'=>array_key_exists('atp', get_defined_vars())],'timestamp'=>round(microtime(true)*1000)])."\n", FILE_APPEND | LOCK_EX);
+                // #endregion
                 $this->notifyAccountingAtp($id, $atp->authority_purchase_form_number);
+                // #region agent log
+                file_put_contents(base_path('debug-e29960.log'), json_encode(['sessionId'=>'e29960','runId'=>'post-fix','hypothesisId'=>'A','location'=>'AuthorityToPurchaseController.php:update:after-notify','message'=>'Notify succeeded with captured $atp','data'=>['id'=>$id,'formNumber'=>$atp->authority_purchase_form_number ?? null,'closureHasAtp'=>array_key_exists('atp', get_defined_vars())],'timestamp'=>round(microtime(true)*1000)])."\n", FILE_APPEND | LOCK_EX);
+                // #endregion
             }
 
             $message = $isDraft
@@ -480,6 +515,10 @@ class AuthorityToPurchaseController extends Controller
             return back()->with('error', 'Authority to Purchase not found.');
         }
 
+        if (!in_array($atp->authority_purchase_status, ['Approved', 'Rejected'], true)) {
+            return back()->with('error', 'Only approved or rejected ATP records can be archived.');
+        }
+
         DB::table('authority_to_purchase_table')
             ->where('authority_purchase_id', $id)
             ->update([
@@ -534,7 +573,19 @@ class AuthorityToPurchaseController extends Controller
     {
         if ($status === 'Draft') {
             $query->where('authority_to_purchase_table.authority_purchase_status', 'Pending')
-                ->whereNull('authority_to_purchase_table.authority_purchase_submitted_at');
+                ->whereNull('authority_to_purchase_table.authority_purchase_submitted_at')
+                ->where(function ($q) {
+                    $q->whereNull('authority_to_purchase_table.authority_purchase_rejection_reason')
+                        ->orWhere('authority_to_purchase_table.authority_purchase_rejection_reason', '');
+                });
+            return;
+        }
+
+        if ($status === 'Minor Revision') {
+            $query->where('authority_to_purchase_table.authority_purchase_status', 'Pending')
+                ->whereNull('authority_to_purchase_table.authority_purchase_submitted_at')
+                ->whereNotNull('authority_to_purchase_table.authority_purchase_rejection_reason')
+                ->where('authority_to_purchase_table.authority_purchase_rejection_reason', '!=', '');
             return;
         }
 
@@ -856,35 +907,15 @@ class AuthorityToPurchaseController extends Controller
     }
 
     /**
-     * RIS statuses that may start an ATP after the current Admin/President workflow.
-     * Legacy `Approved` stays eligible so existing Purchaser records are unchanged.
+     * RIS statuses that may start an ATP after Admin/President release.
      */
     private function applyAtpEligibleRisScope($query)
     {
-        return $query->where(function ($q) {
-            $q->whereIn('requisition_issue_slip_table.ris_status', [
-                'Approved',
-                'Directly Approved',
-            ])->orWhere(function ($president) {
-                $president->where('requisition_issue_slip_table.ris_status', 'Approved by the President')
-                    ->whereNotNull('requisition_issue_slip_table.ris_issued_by_signature')
-                    ->whereRaw('TRIM(requisition_issue_slip_table.ris_issued_by_signature) != ""');
-            });
-        });
+        return RisWorkflow::applyEligibleForAtpScope($query);
     }
 
     private function risIsEligibleForAtp(object $ris): bool
     {
-        $status = (string) ($ris->ris_status ?? '');
-
-        if (in_array($status, ['Approved', 'Directly Approved'], true)) {
-            return true;
-        }
-
-        if ($status === 'Approved by the President') {
-            return trim((string) ($ris->ris_issued_by_signature ?? '')) !== '';
-        }
-
-        return false;
+        return RisWorkflow::isEligibleForAtp($ris);
     }
 }

@@ -1,6 +1,10 @@
 @php
     $risStatus = (string) ($ris->ris_status ?? '');
     $presidentSig = trim((string) ($ris->ris_approved_by_signature ?? ''));
+    $issuedBy = trim((string) ($ris->ris_issued_by_signature ?? ''));
+    $presidentImage = $presidentSig !== '' && str_starts_with($presidentSig, 'data:image');
+    $presidentApproved = $risStatus === 'Approved by the President'
+        || ($risStatus === 'Approved' && $presidentImage);
 
     if (in_array($risStatus, ['Pending', 'Submitted', 'Under Review', 'Resubmitted'], true)) {
         $risStatusLabel = 'Pending';
@@ -10,14 +14,18 @@
         $risStatusLabel = 'Admin Approved';
         $risStatusClass = 'border-sky-200 bg-sky-50 text-sky-700';
         $risStatusTitle = 'Approved by Admin and returned to Purchaser';
-    } elseif ($risStatus === 'Forwarded to President' || ($risStatus === 'Approved' && $presidentSig === '')) {
+    } elseif ($risStatus === 'Forwarded to President' || ($risStatus === 'Approved' && ($presidentSig === '' || !$presidentImage))) {
         $risStatusLabel = 'Forwarded to President';
         $risStatusClass = 'border-blue-200 bg-blue-50 text-blue-700';
         $risStatusTitle = 'Sent to the President for a decision';
-    } elseif ($risStatus === 'Approved by the President' || ($risStatus === 'Approved' && $presidentSig !== '')) {
+    } elseif ($presidentApproved && $issuedBy === '') {
+        $risStatusLabel = 'Awaiting Admin';
+        $risStatusClass = 'border-amber-200 bg-amber-50 text-amber-700';
+        $risStatusTitle = 'President approved. Admin must sign Issued by';
+    } elseif ($presidentApproved) {
         $risStatusLabel = 'Approved by the President';
         $risStatusClass = 'border-emerald-200 bg-emerald-50 text-emerald-700';
-        $risStatusTitle = 'Approved by the President';
+        $risStatusTitle = 'Approved by the President and signed by Admin';
     } elseif (in_array($risStatus, ['Rejected by the President', 'Rejected by President'], true)) {
         $risStatusLabel = 'Rejected by the President';
         $risStatusClass = 'border-rose-200 bg-rose-50 text-rose-700';

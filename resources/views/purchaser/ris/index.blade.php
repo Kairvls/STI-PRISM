@@ -23,6 +23,7 @@
         'openModal' => request('ris_id') ? 'ris-' . request('ris_id') : null,
         'createRisModal' => ($errors->any() || request()->filled('replacement_request')),
         'createItems' => $createItemsInit,
+        'purposeText' => (string) old('ris_purpose_description', ''),
         'selectedReplacement' => (string) old('ris_procurement_request_id', request('replacement_request', '')),
         'replacementRequests' => collect($availableReplacementRequests ?? [])->map(function ($request) {
             return [
@@ -55,6 +56,21 @@
             if (item.reason) purpose += '. Reason: ' + item.reason;
             else if (item.problem) purpose += '. Reason: ' + item.problem;
             return purpose;
+        },
+        applyReplacementPrefill(overwrite = false) {
+            const data = this.selectedReplacementData();
+            if (!data) return;
+
+            if (this.createItems[0] && (overwrite || !String(this.createItems[0].name_description || '').trim())) {
+                this.createItems[0].name_description = data.equipment;
+                if (!this.createItems[0].quantity_requested) {
+                    this.createItems[0].quantity_requested = 1;
+                }
+            }
+
+            if (overwrite || !String(this.purposeText || '').trim()) {
+                this.purposeText = this.replacementPurpose();
+            }
         },
         risItemKey(name) {
             return String(name || '').trim().toLowerCase();
@@ -96,11 +112,9 @@
             }
         },
         init() {
+            this.applyReplacementPrefill(false);
             this.$watch('selectedReplacement', () => {
-                const data = this.selectedReplacementData();
-                if (data && this.createItems[0]) {
-                    this.createItems[0].name_description = data.equipment;
-                }
+                this.applyReplacementPrefill(true);
             });
         },
         recordsLoading: false,
@@ -166,6 +180,12 @@
     @if(session('error'))
         <div class="pur-alert-error">
             {{ session('error') }}
+        </div>
+    @endif
+
+    @if(!empty($replacementSourceError))
+        <div class="pur-alert-error">
+            {{ $replacementSourceError }}
         </div>
     @endif
 
@@ -922,6 +942,7 @@
 
                     <p class="mt-2 text-xs text-gray-500">
                         Select an approved replacement request, or leave this blank for a manual RIS.
+                        Creating from a replacement starts the purchasing chain for that request.
                     </p>
                 </div>
 
@@ -1145,7 +1166,7 @@
                                 <textarea
                                     name="ris_purpose_description"
                                     rows="2"
-                                    x-bind:value="selectedReplacementData() ? replacementPurpose() : @js(old('ris_purpose_description', ''))"
+                                    x-model="purposeText"
                                     class="flex-1 resize-none border-0 border-b border-gray-800 bg-transparent px-2 py-2 text-sm outline-none focus:ring-0"
                                 ></textarea>
                             </div>
@@ -1393,50 +1414,7 @@
                             </td>
 
                             <td class="px-5 py-4">
-                                @php
-                                    $issuedBy = (int) ($ris->has_issued_by_signature ?? 0) === 1 ? 'signed' : '';
-                                    $presidentSig = (int) ($ris->has_approved_by_signature ?? 0) === 1 ? 'signed' : '';
-                                    $awaitingAdmin = in_array($ris->ris_status, ['Approved', 'Approved by the President'], true)
-                                        && $presidentSig !== ''
-                                        && $issuedBy === '';
-
-                                    $statusClass = $awaitingAdmin
-                                        ? 'bg-amber-50 text-amber-700'
-                                        : match($ris->ris_status) {
-                                            'Draft' => 'bg-gray-100 text-gray-700',
-                                            'Submitted' => 'bg-blue-50 text-blue-700',
-                                            'Under Review' => 'bg-amber-50 text-amber-700',
-                                            'Minor Revision' => 'bg-yellow-50 text-amber-600',
-                                            'Resubmitted' => 'bg-indigo-50 text-indigo-700',
-                                            'Approved' => 'bg-green-50 text-green-700',
-                                            'Forwarded to President' => 'bg-blue-50 text-blue-700',
-                                            'Approved by the President' => 'bg-green-50 text-green-700',
-                                            'Directly Approved' => 'bg-sky-50 text-sky-700',
-                                            'Rejected' => 'bg-red-50 text-red-700',
-                                            'Rejected by President' => 'bg-red-50 text-red-700',
-                                            'Rejected by the President' => 'bg-red-50 text-red-700',
-                                            default => 'bg-gray-100 text-gray-600',
-                                        };
-
-                                    if ($ris->ris_status === 'Directly Approved') {
-                                        $statusLabel = 'Admin Approved';
-                                    } elseif (in_array($ris->ris_status, ['Rejected by President', 'Rejected by the President'], true)) {
-                                        $statusLabel = 'Rejected by the President';
-                                    } elseif ($ris->ris_status === 'Forwarded to President' || ($ris->ris_status === 'Approved' && $presidentSig === '')) {
-                                        $statusLabel = 'Forwarded to President';
-                                    } elseif ($awaitingAdmin) {
-                                        $statusLabel = 'Awaiting Admin';
-                                    } elseif (in_array($ris->ris_status, ['Approved', 'Approved by the President'], true) && $presidentSig !== '' && $issuedBy !== '') {
-                                        $statusLabel = 'Approved by the President';
-                                    } elseif ($ris->ris_status === 'Approved by the President') {
-                                        $statusLabel = 'Approved by the President';
-                                    } else {
-                                        $statusLabel = $ris->ris_status;
-                                    }
-                                @endphp
-                                <span class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium {{ $statusClass }}">
-                                    {{ $statusLabel }}
-                                </span>
+                                @include('admin.partials.ris-status-badge', ['ris' => $ris])
                             </td>
 
                             <td class="whitespace-nowrap px-5 py-4">
@@ -1508,51 +1486,7 @@
                                 {{ $ris->ris_form_number ?: 'Draft RIS' }}
                             </h3>
 
-                            @php
-                                $issuedBy = (int) ($ris->has_issued_by_signature ?? 0) === 1 ? 'signed' : '';
-                                $presidentSig = (int) ($ris->has_approved_by_signature ?? 0) === 1 ? 'signed' : '';
-                                $awaitingAdmin = in_array($ris->ris_status, ['Approved', 'Approved by the President'], true)
-                                    && $presidentSig !== ''
-                                    && $issuedBy === '';
-
-                                $statusClasses = $awaitingAdmin
-                                    ? 'border-amber-200 bg-amber-50 text-amber-700'
-                                    : match($ris->ris_status) {
-                                        'Draft' => 'border-gray-200 bg-gray-100 text-gray-700',
-                                        'Submitted' => 'border-blue-200 bg-blue-50 text-blue-700',
-                                        'Under Review' => 'border-amber-200 bg-amber-50 text-amber-700',
-                                        'Minor Revision' => 'border-yellow-300 bg-yellow-50 text-amber-600',
-                                        'Resubmitted' => 'border-indigo-200 bg-indigo-50 text-indigo-700',
-                                        'Approved' => 'border-green-200 bg-green-50 text-green-700',
-                                        'Forwarded to President' => 'border-blue-200 bg-blue-50 text-blue-700',
-                                        'Approved by the President' => 'border-green-200 bg-green-50 text-green-700',
-                                        'Directly Approved' => 'border-sky-200 bg-sky-50 text-sky-700',
-                                        'Rejected' => 'border-red-200 bg-red-50 text-red-700',
-                                        'Rejected by President' => 'border-red-200 bg-red-50 text-red-700',
-                                        'Rejected by the President' => 'border-red-200 bg-red-50 text-red-700',
-                                        default => 'border-gray-200 bg-gray-100 text-gray-700',
-                                    };
-
-                                if ($ris->ris_status === 'Directly Approved') {
-                                    $statusLabel = 'Admin Approved';
-                                } elseif (in_array($ris->ris_status, ['Rejected by President', 'Rejected by the President'], true)) {
-                                    $statusLabel = 'Rejected by the President';
-                                } elseif ($ris->ris_status === 'Forwarded to President' || ($ris->ris_status === 'Approved' && $presidentSig === '')) {
-                                    $statusLabel = 'Forwarded to President';
-                                } elseif ($awaitingAdmin) {
-                                    $statusLabel = 'Awaiting Admin';
-                                } elseif (in_array($ris->ris_status, ['Approved', 'Approved by the President'], true) && $presidentSig !== '' && $issuedBy !== '') {
-                                    $statusLabel = 'Approved by the President';
-                                } elseif ($ris->ris_status === 'Approved by the President') {
-                                    $statusLabel = 'Approved by the President';
-                                } else {
-                                    $statusLabel = $ris->ris_status;
-                                }
-                            @endphp
-
-                            <span class="rounded-full border px-3 py-1 text-xs font-medium {{ $statusClasses }}">
-                                {{ $statusLabel }}
-                            </span>
+                            @include('admin.partials.ris-status-badge', ['ris' => $ris])
                         </div>
 
                         <p class="mt-2 text-sm text-gray-500">Requisition and Issue Slip</p>
@@ -1822,6 +1756,18 @@
                                     ATP Created
                                 </span>
                             @endif
+                        @elseif(in_array($ris->ris_status, ['Submitted', 'Under Review', 'Resubmitted'], true))
+                            <span class="inline-flex items-center rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700">
+                                Waiting for Admin review
+                            </span>
+                        @elseif($ris->ris_status === 'Forwarded to President' || ($ris->ris_status === 'Approved' && trim((string) ($ris->ris_approved_by_signature ?? '')) === ''))
+                            <span class="inline-flex items-center rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700">
+                                Waiting for President
+                            </span>
+                        @elseif(in_array($ris->ris_status, ['Approved by the President', 'Approved'], true) && trim((string) ($ris->ris_issued_by_signature ?? '')) === '')
+                            <span class="inline-flex items-center rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700">
+                                Waiting for Admin Issued by
+                            </span>
                         @endif
                     </div>
                 </div>

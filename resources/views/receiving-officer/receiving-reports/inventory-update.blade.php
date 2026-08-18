@@ -52,7 +52,7 @@
                     @empty
                     @endforelse
                     <tr class="receiving-empty-row" @if($items->count()) style="display:none" @endif>
-                        <td colspan="3" class="px-5 py-16 text-center text-sm text-gray-400">Waiting for an accepted delivery. Inventory lines appear after you accept an approved ATP.</td>
+                        <td colspan="3" class="px-5 py-16 text-center text-sm text-gray-400">Waiting for an accepted delivery. Inventory lines appear after second count on a Receiving Report.</td>
                     </tr>
                 </tbody>
             </table>

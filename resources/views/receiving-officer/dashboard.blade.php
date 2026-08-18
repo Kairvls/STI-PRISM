@@ -91,7 +91,7 @@
     <div class="ro-dash-header">
         <div>
             <h1 class="admin-page-title">Dashboard</h1>
-            <p class="admin-page-subtitle">Inspect deliveries, accept complete items into inventory, or return mismatches.</p>
+            <p class="admin-page-subtitle">Second-count submitted Receiving Reports, then return mismatches to Purchaser.</p>
         </div>
         <span class="ro-date">
             <i data-lucide="calendar" class="h-4 w-4"></i>
@@ -169,8 +169,8 @@
                     <div class="ro-alert-left">
                         <div class="ro-alert-icon" style="background:#10b981;"><i data-lucide="check-circle-2"></i></div>
                         <div>
-                            <p class="ro-alert-title">No deliveries waiting</p>
-                            <p class="ro-alert-desc">Waiting for Purchaser ATP to be approved. Those records appear here for inspection.</p>
+                            <p class="ro-alert-title">No Receiving Reports waiting</p>
+                            <p class="ro-alert-desc">Waiting for Purchaser to submit a Receiving Report after Accounting releases funds.</p>
                         </div>
                     </div>
                 </div>
@@ -215,8 +215,8 @@
             <div class="ro-panel" data-ro-table data-ro-default-filter="pending">
                 <div class="ro-panel-h" style="flex-wrap:wrap; gap:12px;">
                     <div>
-                        <p class="ro-panel-title">Pending deliveries</p>
-                        <p class="ro-panel-sub">Approved ATP waiting for physical validation</p>
+                        <p class="ro-panel-title">Pending Receiving Reports</p>
+                        <p class="ro-panel-sub">Submitted reports waiting for second count</p>
                     </div>
                     <div class="flex items-center gap-2">
                         <span class="receiving-total-count rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">{{ $pendingRows->count() }} total</span>
@@ -234,7 +234,7 @@
                             ['filter' => 'all', 'label' => 'All'],
                         ],
                     ])
-                    @include('layouts.partials.receiving-filters', ['searchId' => 'dashPendingSearch', 'placeholder' => 'Search RIS, ATP, supplier...'])
+                    @include('layouts.partials.receiving-filters', ['searchId' => 'dashPendingSearch', 'placeholder' => 'Search RR, RIS, supplier...'])
                 </div>
                 <div class="overflow-x-auto">
                     <table class="ro-table">
@@ -253,10 +253,10 @@
                                 @php
                                     $previewRisId = $row->ris_id ?? $row->authority_purchase_ris_id ?? null;
                                     $rowStatus = ($row->receiving_report_status ?? null) === 'Returned' ? 'returned' : 'pending';
-                                    $rowSearch = trim(implode(' ', [$row->ris_form_number ?? '', $row->authority_purchase_form_number ?? '', $row->item_names ?? '', $row->supplier_name ?? '']));
+                                    $rowSearch = trim(implode(' ', [$row->receiving_report_form_number ?? '', $row->ris_form_number ?? '', $row->authority_purchase_form_number ?? '', $row->item_names ?? '', $row->supplier_name ?? '']));
                                 @endphp
                                 <tr data-ro-status="{{ $rowStatus }}" data-ro-search="{{ $rowSearch }}">
-                                    <td><span class="ro-ref">{{ $row->ris_form_number ?: ($row->authority_purchase_form_number ?: 'ATP-'.$row->authority_purchase_id) }}</span></td>
+                                    <td><span class="ro-ref">{{ $row->receiving_report_form_number ?: ($row->ris_form_number ?: ($row->authority_purchase_form_number ?: 'RR-'.$row->receiving_report_id)) }}</span></td>
                                     <td>{{ \Illuminate\Support\Str::limit($row->item_names ?: '—', 40) }}</td>
                                     <td>{{ $row->supplier_name }}</td>
                                     <td>₱{{ number_format((float) ($row->total_amount ?? 0), 2) }}</td>
@@ -270,14 +270,14 @@
                                     <td>
                                         <div class="flex items-center gap-2">
                                             @include('layouts.partials.receiving-ris-eye', ['risId' => $previewRisId])
-                                            <a class="ro-link" href="/receiving/reports?atp={{ $row->authority_purchase_id }}">Inspect</a>
+                                            <a class="ro-link" href="{{ route('receiving.rr.index', ['status' => 'queue']) }}">Inspect</a>
                                         </div>
                                     </td>
                                 </tr>
                             @empty
                             @endforelse
                                 <tr class="receiving-empty-row" @if($pendingRows->count()) style="display:none" @endif>
-                                    <td colspan="6" class="ro-empty">Waiting for Purchaser ATP to be approved. Nothing is ready to inspect yet.</td>
+                                    <td colspan="6" class="ro-empty">Waiting for Purchaser to submit a Receiving Report. Nothing is ready for second count yet.</td>
                                 </tr>
                         </tbody>
                     </table>
@@ -289,7 +289,7 @@
                 <div class="ro-panel-h" style="flex-wrap:wrap; gap:12px;">
                     <div>
                         <p class="ro-panel-title">Recently accepted</p>
-                        <p class="ro-panel-sub">Items already received into inventory</p>
+                        <p class="ro-panel-sub">Items accepted after second count</p>
                     </div>
                     <div class="flex items-center gap-2">
                         <span class="receiving-total-count rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700">{{ $acceptedRows->count() }} total</span>
@@ -316,10 +316,10 @@
                             @forelse($acceptedRows as $row)
                                 @php
                                     $previewRisId = $row->ris_id ?? $row->authority_purchase_ris_id ?? null;
-                                    $rowSearch = trim(implode(' ', [$row->ris_form_number ?? '', $row->authority_purchase_form_number ?? '', $row->item_names ?? '', $row->supplier_name ?? '', $row->official_receipt ?? '', $row->officer_name ?? '']));
+                                    $rowSearch = trim(implode(' ', [$row->receiving_report_form_number ?? '', $row->ris_form_number ?? '', $row->authority_purchase_form_number ?? '', $row->item_names ?? '', $row->supplier_name ?? '', $row->official_receipt ?? '', $row->officer_name ?? '']));
                                 @endphp
                                 <tr data-ro-status="all" data-ro-search="{{ $rowSearch }}">
-                                    <td><span class="ro-ref">{{ $row->ris_form_number ?: $row->authority_purchase_form_number }}</span></td>
+                                    <td><span class="ro-ref">{{ $row->receiving_report_form_number ?: ($row->ris_form_number ?: $row->authority_purchase_form_number) }}</span></td>
                                     <td>{{ \Illuminate\Support\Str::limit($row->item_names ?: '—', 40) }}</td>
                                     <td>{{ $row->supplier_name }}</td>
                                     <td>{{ $row->official_receipt ?: '—' }}</td>
@@ -439,7 +439,7 @@
                     <div class="ro-act">
                         <div class="ro-icon ro-icon-rose" style="width:32px;height:32px;border-radius:8px;"><i data-lucide="undo-2"></i></div>
                         <div>
-                            <p class="text-xs font-semibold text-slate-800">{{ $row->ris_form_number ?: $row->authority_purchase_form_number }}</p>
+                            <p class="text-xs font-semibold text-slate-800">{{ $row->receiving_report_form_number ?: ($row->ris_form_number ?: $row->authority_purchase_form_number) }}</p>
                             <p class="text-[11px] text-slate-500">{{ \Illuminate\Support\Str::limit($row->item_names ?: $row->supplier_name, 42) }}</p>
                         </div>
                     </div>
@@ -484,7 +484,7 @@
                         </div>
                         <div>
                             <p class="text-xs font-semibold text-slate-800">{{ $log->receiving_log_action }}</p>
-                            <p class="text-[11px] text-slate-500">{{ $log->ris_form_number ?: ($log->authority_purchase_form_number ?: 'ATP') }} · {{ $log->officer_name ?: 'Receiving Officer' }}</p>
+                            <p class="text-[11px] text-slate-500">{{ $log->receiving_report_form_number ?? $log->ris_form_number ?: ($log->authority_purchase_form_number ?: 'RR') }} · {{ $log->officer_name ?: 'Receiving Officer' }}</p>
                             <p class="text-[11px] text-slate-400">{{ \Carbon\Carbon::parse($log->receiving_log_created_at)->format('M d, Y g:i A') }}</p>
                         </div>
                     </div>

@@ -35,7 +35,7 @@
                 <thead class="border-b border-gray-200 bg-gray-50">
                     <tr>
                         <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">OR</th>
-                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">RIS / ATP</th>
+                        <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">RR / RIS</th>
                         <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Supplier</th>
                         <th class="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Date</th>
                     </tr>
@@ -52,7 +52,7 @@
                         @endphp
                         <tr data-ro-status="all" data-ro-search="{{ $rowSearch }}">
                             <td class="px-5 py-4 text-sm font-semibold text-gray-900">{{ $row->official_receipt }}</td>
-                            <td class="px-5 py-4 text-sm text-gray-700">{{ $row->ris_form_number ?: $row->authority_purchase_form_number }}</td>
+                            <td class="px-5 py-4 text-sm text-gray-700">{{ $row->receiving_report_form_number ?: ($row->ris_form_number ?: $row->authority_purchase_form_number) }}</td>
                             <td class="px-5 py-4 text-sm text-gray-700">{{ $row->supplier_name }}</td>
                             <td class="px-5 py-4 text-sm text-gray-500">{{ $row->received_at ? \Carbon\Carbon::parse($row->received_at)->format('M d, Y') : '—' }}</td>
                         </tr>

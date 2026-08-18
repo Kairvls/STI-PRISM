@@ -117,13 +117,12 @@
                         title="Items / Equipment included in this RIS"
                     >
 
-                        {{ $ris->ris_item_names
-                            ?: ($ris->ris_manual_title
-                                ?: ($ris->equipment_name
-                                    ?? $ris->report_unlisted_equipment_name
-                                    ?? ($ris->ris_request_type === 'manual' ? 'Manual Procurement' : 'Unknown Equipment'))) }}
-
+                        {{ \App\Support\RisWorkflow::sourceLabel($ris) }}
+                        @if(!empty($ris->ris_request_type))
+                            <div class="mt-1 text-xs text-gray-400">{{ \App\Support\RisWorkflow::requestTypeLabel($ris) }}</div>
+                        @endif
                     </div>
+                    @include('admin.partials.ris-attachments', ['ris' => $ris])
 
                 </td>
 

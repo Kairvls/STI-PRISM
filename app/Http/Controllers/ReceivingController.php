@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -12,31 +11,16 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\View\View;
 use Barryvdh\DomPDF\Facade\Pdf;
 use App\Support\WorkflowNotifier;
+use App\Support\RisWorkflow;
 
 class ReceivingController extends Controller
 {
     private ?string $queryError = null;
 
-    public const CHECKLIST = [
-        'Quantity of items',
-        'Product Model',
-        'Brand',
-        'Specifications',
-        'Item Condition',
-        'Physical Damage Inspection',
-        'Serial Number',
-        'Warranty Information',
-        'Total Price',
-        'Purchase Order Match',
-        'Supplier Information',
-        'Delivered Item Completeness',
-    ];
-
     public function dashboard(): View
     {
-        $this->ensurePendingReceivingReports();
-
         $pendingRows = $this->pendingRows();
+        $queueRows = $pendingRows->filter(fn ($row) => ($row->receiving_report_status ?? '') !== 'Returned')->values();
         $acceptedRows = $this->acceptedRows();
         $returnedRows = $this->returnedRows();
         $logs = $this->logRows(20);
@@ -60,8 +44,8 @@ class ReceivingController extends Controller
         }
 
         return view('receiving-officer.dashboard', $this->withQueryError([
-            'pendingCount' => $pendingRows->count(),
-            'pendingAmount' => (float) $pendingRows->sum(fn ($row) => (float) ($row->total_amount ?? 0)),
+            'pendingCount' => $queueRows->count(),
+            'pendingAmount' => (float) $queueRows->sum(fn ($row) => (float) ($row->total_amount ?? 0)),
             'acceptedCount' => $acceptedRows->count(),
             'acceptedMonth' => $acceptedRows->filter(function ($row) {
                 return !empty($row->received_at) && \Carbon\Carbon::parse($row->received_at)->isCurrentMonth();
@@ -110,10 +94,6 @@ class ReceivingController extends Controller
 
         abort_unless(isset($views[$section]), 404);
 
-        if (in_array($section, ['pending', 'history'], true)) {
-            $this->ensurePendingReceivingReports();
-        }
-
         $data = match ($section) {
             'pending' => ['rows' => $this->pendingRows()->take(40)],
             'delivered' => ['rows' => $this->acceptedRows()->take(40)],
@@ -143,6 +123,7 @@ class ReceivingController extends Controller
         $query = $this->receivingReviewQuery();
         $this->applyRrActiveScope($query);
         $this->applyRrStatusFilter($query, $filter);
+        $this->applyRrSearch($query, $request);
 
         $sortColumn = 'receiving_reports_table.receiving_report_id';
         foreach (['receiving_report_submitted_at', 'receiving_report_created_at', 'receiving_report_date'] as $column) {
@@ -245,6 +226,45 @@ class ReceivingController extends Controller
         $query->whereIn($statusCol, ['Pending', 'Submitted', 'Resubmitted', 'Under Review']);
     }
 
+    private function applyRrSearch($query, Request $request): void
+    {
+        $search = trim((string) $request->query('search', ''));
+        if ($search === '') {
+            return;
+        }
+
+        $like = '%'.$search.'%';
+        $query->where(function ($q) use ($like) {
+            if (Schema::hasColumn('receiving_reports_table', 'receiving_report_form_number')) {
+                $q->orWhere('receiving_reports_table.receiving_report_form_number', 'like', $like);
+            }
+            if (Schema::hasColumn('receiving_reports_table', 'receiving_report_received_from')) {
+                $q->orWhere('receiving_reports_table.receiving_report_received_from', 'like', $like);
+            }
+            if (
+                Schema::hasColumn('receiving_reports_table', 'receiving_report_request_check_id')
+                && Schema::hasTable('request_check_table')
+                && Schema::hasColumn('request_check_table', 'request_check_form_number')
+            ) {
+                $q->orWhere('request_check_table.request_check_form_number', 'like', $like);
+            }
+        });
+    }
+
+    private function receivingReference(object $row): string
+    {
+        foreach (['receiving_report_form_number', 'ris_form_number', 'authority_purchase_form_number'] as $field) {
+            $value = trim((string) ($row->{$field} ?? ''));
+            if ($value !== '') {
+                return $value;
+            }
+        }
+
+        $id = $row->receiving_report_id ?? $row->authority_purchase_id ?? null;
+
+        return $id ? 'RR-'.$id : '—';
+    }
+
     private function countReceivingReports(string $filter): int
     {
         $query = $this->receivingReviewQuery();
@@ -281,29 +301,41 @@ class ReceivingController extends Controller
         });
     }
 
-    public function secondCount($id)
+    public function secondCount(Request $request, $id)
     {
-        return DB::transaction(function () use ($id) {
+        return DB::transaction(function () use ($request, $id) {
             $rr = $this->lockQueueRr($id);
             if (!is_object($rr)) {
                 return $rr;
             }
 
             $name = Auth::user()->user_full_name ?? 'Receiving Officer';
+            $signature = RisWorkflow::drawnOrName($request->input('signature_data'), $name);
 
             DB::table('receiving_reports_table')->where('receiving_report_id', $id)->update($this->onlyExisting('receiving_reports_table', [
                 'receiving_report_status' => 'Completed',
                 'receiving_report_second_count_by' => $name,
                 'receiving_report_second_count_by_user_id' => Auth::id(),
                 'receiving_report_second_count_at' => now(),
-                'receiving_report_second_count_signature' => $name,
+                'receiving_report_second_count_signature' => $signature,
                 'receiving_report_return_reason' => null,
                 'receiving_report_updated_at' => now(),
             ]));
 
+            $rr = DB::table('receiving_reports_table')->where('receiving_report_id', $id)->first() ?? $rr;
+            $this->fillRisReceivedBy($rr, $name);
+            $this->stockFromReceivingReport($rr, now(), Auth::id());
+            $this->writeLog(
+                (int) $rr->receiving_report_id,
+                !empty($rr->receiving_report_atp_id) ? (int) $rr->receiving_report_atp_id : null,
+                'Second count completed',
+                'Items accepted. Inventory updated.',
+                Auth::id()
+            );
+
             $this->notifyPurchaserRr($rr, 'Receiving completed', 'Items were accepted. You may create a Liquidation Report.', 'rr_completed');
 
-            return back()->with('success', 'Second Count confirmed. Items marked as received correctly.');
+            return back()->with('success', 'Second Count confirmed. Inventory updated. Purchaser may create a Liquidation Report.');
         });
     }
 
@@ -324,6 +356,13 @@ class ReceivingController extends Controller
             ]));
 
             $this->notifyPurchaserRr($rr, 'Receiving returned', $request->input('remarks'), 'rr_returned');
+            $this->writeLog(
+                (int) $rr->receiving_report_id,
+                !empty($rr->receiving_report_atp_id) ? (int) $rr->receiving_report_atp_id : null,
+                'Returned for correction',
+                $request->input('remarks'),
+                Auth::id()
+            );
 
             return back()->with('success', 'Receiving Report returned. Items were not accepted.');
         });
@@ -346,187 +385,16 @@ class ReceivingController extends Controller
             ]);
 
             $this->notifyPurchaserRr($rr, 'Receiving revision required', $request->input('remarks'), 'rr_revision');
+            $this->writeLog(
+                (int) $rr->receiving_report_id,
+                !empty($rr->receiving_report_atp_id) ? (int) $rr->receiving_report_atp_id : null,
+                'Returned for revision',
+                $request->input('remarks'),
+                Auth::id()
+            );
 
             return back()->with('success', 'Receiving Report returned to Purchaser for revision.');
         });
-    }
-
-    public function accept(Request $request, int $atpId): RedirectResponse
-    {
-        $checked = $request->input('checklist', []);
-        if (!is_array($checked) || count($checked) < count(self::CHECKLIST)) {
-            return back()->with('error', 'Complete the physical validation checklist before accepting.');
-        }
-
-        $atp = $this->approvedAtp($atpId);
-        if (!$atp) {
-            return back()->with('error', 'This delivery is not ready for receiving.');
-        }
-
-        $existing = $this->reportForAtp($atpId);
-        if ($existing && in_array($existing->receiving_report_status, ['Accepted', 'Completed'], true)) {
-            return back()->with('error', 'This delivery has already been accepted.');
-        }
-
-        $request->validate([
-            'official_receipt' => ['required', 'string', 'min:3', 'max:80'],
-            'goods_match' => ['required', 'accepted'],
-        ]);
-
-        $atpItems = $this->atpItems((int) $atp->authority_purchase_id);
-        $lineItems = $existing
-            ? $this->reportLineItems((object) [
-                'receiving_report_id' => $existing->receiving_report_id,
-                'authority_purchase_id' => $atp->authority_purchase_id,
-            ])
-            : $atpItems;
-        $receivedQty = $request->input('received_qty', []);
-        if (!is_array($receivedQty)) {
-            $receivedQty = [];
-        }
-
-        foreach ($lineItems as $item) {
-            $itemId = (int) ($item->atp_item_id ?? 0);
-            $expected = (int) ($item->atp_quantity ?? 0);
-            $received = (int) ($receivedQty[$itemId] ?? $receivedQty[(string) $itemId] ?? -1);
-            if ($received !== $expected) {
-                return back()->withInput()->with(
-                    'error',
-                    'Delivered quantity does not match the receiving report. Return the delivery for correction if the goods do not match.'
-                );
-            }
-        }
-
-        $officerId = Auth::id();
-        $officerName = Auth::user()->user_full_name ?? 'Receiving Officer';
-        $receipt = trim((string) $request->input('official_receipt', ''));
-        $procurementRequestId = $this->procurementRequestIdForAtp($atp);
-
-        $reportId = DB::transaction(function () use ($atp, $existing, $checked, $officerId, $officerName, $receipt, $procurementRequestId, $atpItems) {
-            $now = now();
-            $payload = $this->onlyExisting('receiving_reports_table', [
-                'receiving_report_atp_id' => $atp->authority_purchase_id,
-                'receiving_report_ris_id' => $atp->authority_purchase_ris_id,
-                'receiving_report_supplier_id' => $atp->authority_purchase_supplier_id,
-                'receiving_report_procurement_request_id' => $procurementRequestId,
-                'receiving_report_status' => 'Completed',
-                'receiving_report_invoice_no' => $receipt !== '' ? $receipt : null,
-                'receiving_report_remarks' => null,
-                'receiving_report_checklist' => json_encode(array_values($checked)),
-                'receiving_report_officer_id' => $officerId,
-                'receiving_report_received_by_signature' => $officerName,
-                'receiving_report_date' => $now->toDateString(),
-                'receiving_report_delivery_date' => $now->toDateString(),
-                'receiving_report_accepted_at' => $now,
-                'receiving_report_returned_at' => null,
-                'receiving_report_updated_at' => $now,
-            ]);
-
-            if ($existing) {
-                DB::table('receiving_reports_table')->where('receiving_report_id', $existing->receiving_report_id)->update($payload);
-                $reportId = (int) $existing->receiving_report_id;
-                if (Schema::hasTable('receiving_report_items_table')) {
-                    DB::table('receiving_report_items_table')->where('receiving_report_id', $reportId)->delete();
-                }
-            } else {
-                $payload = $this->onlyExisting('receiving_reports_table', array_merge($payload, [
-                    'receiving_report_created_at' => $now,
-                ]));
-                $reportId = (int) DB::table('receiving_reports_table')->insertGetId($payload);
-            }
-
-            if (Schema::hasColumn('receiving_reports_table', 'receiving_report_form_number')) {
-                $current = DB::table('receiving_reports_table')->where('receiving_report_id', $reportId)->first();
-                if ($current && empty($current->receiving_report_form_number)) {
-                    DB::table('receiving_reports_table')->where('receiving_report_id', $reportId)->update([
-                        'receiving_report_form_number' => 'RR-' . $now->format('Y') . '-' . str_pad((string) $reportId, 5, '0', STR_PAD_LEFT),
-                    ]);
-                }
-            }
-
-            foreach ($atpItems as $item) {
-                $equipmentId = $this->insertEquipment($atp, $item, $now);
-                if (Schema::hasTable('receiving_report_items_table')) {
-                    DB::table('receiving_report_items_table')->insert($this->onlyExisting('receiving_report_items_table', [
-                        'receiving_report_id' => $reportId,
-                        'receiving_report_item_article' => $item->atp_description,
-                        'receiving_report_item_quantity' => $item->atp_quantity,
-                        'receiving_report_item_unit' => $item->atp_unit,
-                        'receiving_report_item_unit_price' => $item->atp_unit_price ?? null,
-                        'receiving_report_item_amount' => $item->atp_amount,
-                        'receiving_report_item_equipment_id' => $equipmentId,
-                    ]));
-                }
-            }
-
-            if ($atp->authority_purchase_ris_id && Schema::hasColumn('requisition_issue_slip_table', 'ris_received_by_signature')) {
-                DB::table('requisition_issue_slip_table')
-                    ->where('ris_id', $atp->authority_purchase_ris_id)
-                    ->where(function ($q) {
-                        $q->whereNull('ris_received_by_signature')->orWhere('ris_received_by_signature', '');
-                    })
-                    ->update([
-                        'ris_received_by_signature' => $officerName,
-                        'ris_received_by_date' => $now->toDateString(),
-                    ]);
-            }
-
-            $this->writeLog($reportId, (int) $atp->authority_purchase_id, 'Receiving report saved', 'Items complete. Inventory updated.', $officerId);
-            $this->writeLog($reportId, (int) $atp->authority_purchase_id, 'Physical validation passed', 'Checklist completed.', $officerId);
-            $this->writeLog($reportId, (int) $atp->authority_purchase_id, 'Inventory updated', 'Stock records created from accepted delivery.', $officerId);
-
-            return $reportId;
-        });
-
-        return redirect('/receiving/reports/'.$reportId.'/print')->with('success', 'Goods verified and accepted. Inventory updated. Purchaser can proceed to liquidation.');
-    }
-
-    public function returnReport(Request $request, int $atpId): RedirectResponse
-    {
-        $request->validate(['remarks' => ['required', 'string', 'min:8']]);
-
-        $atp = $this->approvedAtp($atpId);
-        if (!$atp) {
-            return back()->with('error', 'This delivery is not ready for receiving.');
-        }
-
-        $existing = $this->reportForAtp($atpId);
-        if ($existing && in_array($existing->receiving_report_status, ['Accepted', 'Completed'], true)) {
-            return back()->with('error', 'Accepted deliveries cannot be returned from this screen.');
-        }
-
-        $officerId = Auth::id();
-        $now = now();
-        $remarks = trim($request->input('remarks'));
-        $procurementRequestId = $this->procurementRequestIdForAtp($atp);
-
-        if ($existing) {
-            DB::table('receiving_reports_table')->where('receiving_report_id', $existing->receiving_report_id)->update($this->onlyExisting('receiving_reports_table', [
-                'receiving_report_status' => 'Returned',
-                'receiving_report_remarks' => $remarks,
-                'receiving_report_officer_id' => $officerId,
-                'receiving_report_returned_at' => $now,
-                'receiving_report_updated_at' => $now,
-            ]));
-            $reportId = (int) $existing->receiving_report_id;
-        } else {
-            $reportId = (int) DB::table('receiving_reports_table')->insertGetId($this->onlyExisting('receiving_reports_table', [
-                'receiving_report_atp_id' => $atp->authority_purchase_id,
-                'receiving_report_ris_id' => $atp->authority_purchase_ris_id,
-                'receiving_report_supplier_id' => $atp->authority_purchase_supplier_id,
-                'receiving_report_procurement_request_id' => $procurementRequestId,
-                'receiving_report_status' => 'Returned',
-                'receiving_report_remarks' => $remarks,
-                'receiving_report_officer_id' => $officerId,
-                'receiving_report_returned_at' => $now,
-                'receiving_report_created_at' => $now,
-                'receiving_report_updated_at' => $now,
-            ]));
-        }
-
-        $this->writeLog($reportId, (int) $atp->authority_purchase_id, 'Returned for correction', $remarks, $officerId);
-
-        return redirect('/receiving/reports')->with('success', 'Delivery returned for correction.');
     }
 
     public function deliveredItems(Request $request): View
@@ -645,16 +513,12 @@ class ReceivingController extends Controller
             $section = 'reports';
         }
 
-        if (in_array($section, ['reports', 'history'], true)) {
-            $this->ensurePendingReceivingReports();
-        }
-
         $pack = match ($section) {
             'reports' => $this->receivingExportPack(
                 'Pending Receiving Reports',
                 ['Receiving Report', 'Items', 'Supplier', 'Status', 'Value'],
                 $this->pendingRows()->map(fn ($row) => [
-                    $row->receiving_report_form_number ?: ($row->ris_form_number ?: ($row->authority_purchase_form_number ?: 'ATP-'.$row->authority_purchase_id)),
+                    $this->receivingReference($row),
                     $row->item_names ?: '—',
                     $row->supplier_name ?: '—',
                     (($row->receiving_report_status ?? null) === 'Returned') ? 'Returned' : 'Pending',
@@ -664,10 +528,10 @@ class ReceivingController extends Controller
             ),
             'history' => $this->receivingExportPack(
                 'Delivery History',
-                ['Date', 'RIS / ATP', 'Supplier', 'Result', 'Officer'],
+                ['Date', 'RR / RIS', 'Supplier', 'Result', 'Officer'],
                 $this->acceptedRows()->merge($this->returnedRows())->sortByDesc(fn ($row) => $row->received_at ?? $row->authority_purchase_id)->values()->map(fn ($row) => [
                     !empty($row->received_at) ? \Carbon\Carbon::parse($row->received_at)->format('Y-m-d') : '—',
-                    $row->ris_form_number ?: ($row->authority_purchase_form_number ?: '—'),
+                    $this->receivingReference($row),
                     $row->supplier_name ?: '—',
                     in_array($row->receiving_report_status, ['Accepted', 'Completed'], true) ? 'Accepted' : 'Returned',
                     $row->officer_name ?: '—',
@@ -676,9 +540,9 @@ class ReceivingController extends Controller
             ),
             'delivered' => $this->receivingExportPack(
                 'Delivered Items',
-                ['RIS / ATP', 'Items', 'Supplier', 'Received', 'Officer'],
+                ['RR / RIS', 'Items', 'Supplier', 'Received', 'Officer'],
                 $this->acceptedRows()->map(fn ($row) => [
-                    $row->ris_form_number ?: ($row->authority_purchase_form_number ?: '—'),
+                    $this->receivingReference($row),
                     $row->item_names ?: '—',
                     $row->supplier_name ?: '—',
                     !empty($row->received_at) ? \Carbon\Carbon::parse($row->received_at)->format('Y-m-d') : '—',
@@ -692,7 +556,7 @@ class ReceivingController extends Controller
                 $this->logRows(500)->map(fn ($log) => [
                     !empty($log->receiving_log_created_at) ? \Carbon\Carbon::parse($log->receiving_log_created_at)->format('Y-m-d H:i') : '—',
                     $log->receiving_log_action ?: '—',
-                    $log->ris_form_number ?: ($log->authority_purchase_form_number ?: '—'),
+                    $this->receivingReference($log),
                     $log->officer_name ?: 'Receiving Officer',
                     $log->receiving_log_remarks ?: '—',
                 ]),
@@ -712,10 +576,10 @@ class ReceivingController extends Controller
             ),
             'receipts' => $this->receivingExportPack(
                 'Official Receipts',
-                ['OR', 'RIS / ATP', 'Supplier', 'Date'],
+                ['OR', 'RR / RIS', 'Supplier', 'Date'],
                 $this->acceptedRows()->filter(fn ($row) => !empty($row->official_receipt))->values()->map(fn ($row) => [
                     $row->official_receipt,
-                    $row->ris_form_number ?: ($row->authority_purchase_form_number ?: '—'),
+                    $this->receivingReference($row),
                     $row->supplier_name ?: '—',
                     !empty($row->received_at) ? \Carbon\Carbon::parse($row->received_at)->format('Y-m-d') : '—',
                 ]),
@@ -757,16 +621,16 @@ class ReceivingController extends Controller
     {
         $events = collect();
         foreach ($pendingRows as $row) {
-            $ref = $row->receiving_report_form_number ?: ($row->ris_form_number ?: ($row->authority_purchase_form_number ?: 'ATP-'.$row->authority_purchase_id));
+            $ref = $this->receivingReference($row);
             $label = (($row->receiving_report_status ?? null) === 'Returned') ? 'Returned for correction' : 'Pending inspection';
             $this->pushReceivingCalendarEvent($events, $row->receiving_report_created_at ?? $row->authority_purchase_date ?? null, $ref.' · '.$label);
         }
         foreach ($acceptedRows as $row) {
-            $ref = $row->receiving_report_form_number ?: ($row->ris_form_number ?: ($row->authority_purchase_form_number ?: 'ATP-'.$row->authority_purchase_id));
+            $ref = $this->receivingReference($row);
             $this->pushReceivingCalendarEvent($events, $row->received_at ?? $row->receiving_report_date ?? null, $ref.' · Accepted');
         }
         foreach ($returnedRows as $row) {
-            $ref = $row->receiving_report_form_number ?: ($row->ris_form_number ?: ($row->authority_purchase_form_number ?: 'ATP-'.$row->authority_purchase_id));
+            $ref = $this->receivingReference($row);
             $this->pushReceivingCalendarEvent($events, $row->received_at ?? $row->receiving_report_date ?? $row->receiving_report_created_at ?? null, $ref.' · Returned');
         }
 
@@ -789,125 +653,155 @@ class ReceivingController extends Controller
         ]);
     }
 
-    private function deliveryBaseQuery()
+    private function reportBaseQuery()
     {
-        $itemsSub = Schema::hasTable('authority_to_purchase_items_table')
-            ? DB::table('authority_to_purchase_items_table')
+        $itemsSub = Schema::hasTable('receiving_report_items_table')
+            ? DB::table('receiving_report_items_table')
                 ->select(
-                    'authority_purchase_id',
-                    DB::raw('GROUP_CONCAT(atp_description SEPARATOR ", ") as item_names'),
-                    DB::raw('SUM(atp_quantity) as total_qty'),
-                    DB::raw('SUM(atp_amount) as total_amount')
+                    'receiving_report_id',
+                    DB::raw('GROUP_CONCAT(receiving_report_item_article SEPARATOR ", ") as item_names'),
+                    DB::raw('SUM(receiving_report_item_quantity) as total_qty'),
+                    DB::raw('SUM(receiving_report_item_amount) as total_amount')
                 )
-                ->groupBy('authority_purchase_id')
+                ->groupBy('receiving_report_id')
             : null;
 
-        $query = DB::table('authority_to_purchase_table')
-            ->leftJoin('requisition_issue_slip_table', 'requisition_issue_slip_table.ris_id', '=', 'authority_to_purchase_table.authority_purchase_ris_id')
-            ->leftJoin('physical_suppliers_table', 'physical_suppliers_table.supplier_id', '=', 'authority_to_purchase_table.authority_purchase_supplier_id')
-            ->leftJoin('online_suppliers_table', 'online_suppliers_table.supplier_id', '=', 'authority_to_purchase_table.authority_purchase_supplier_id');
+        $query = DB::table('receiving_reports_table');
+
+        if (Schema::hasTable('authority_to_purchase_table') && Schema::hasColumn('receiving_reports_table', 'receiving_report_atp_id')) {
+            $query->leftJoin(
+                'authority_to_purchase_table',
+                'authority_to_purchase_table.authority_purchase_id',
+                '=',
+                'receiving_reports_table.receiving_report_atp_id'
+            );
+        }
+
+        if (Schema::hasTable('requisition_issue_slip_table')) {
+            if (Schema::hasColumn('receiving_reports_table', 'receiving_report_ris_id')) {
+                $query->leftJoin(
+                    'requisition_issue_slip_table',
+                    'requisition_issue_slip_table.ris_id',
+                    '=',
+                    'receiving_reports_table.receiving_report_ris_id'
+                );
+            } elseif (Schema::hasTable('authority_to_purchase_table')) {
+                $query->leftJoin(
+                    'requisition_issue_slip_table',
+                    'requisition_issue_slip_table.ris_id',
+                    '=',
+                    'authority_to_purchase_table.authority_purchase_ris_id'
+                );
+            }
+        }
+
+        if (Schema::hasColumn('receiving_reports_table', 'receiving_report_supplier_id')) {
+            if (Schema::hasTable('physical_suppliers_table')) {
+                $query->leftJoin('physical_suppliers_table', 'physical_suppliers_table.supplier_id', '=', 'receiving_reports_table.receiving_report_supplier_id');
+            }
+            if (Schema::hasTable('online_suppliers_table')) {
+                $query->leftJoin('online_suppliers_table', 'online_suppliers_table.supplier_id', '=', 'receiving_reports_table.receiving_report_supplier_id');
+            }
+        } elseif (Schema::hasTable('authority_to_purchase_table')) {
+            if (Schema::hasTable('physical_suppliers_table')) {
+                $query->leftJoin('physical_suppliers_table', 'physical_suppliers_table.supplier_id', '=', 'authority_to_purchase_table.authority_purchase_supplier_id');
+            }
+            if (Schema::hasTable('online_suppliers_table')) {
+                $query->leftJoin('online_suppliers_table', 'online_suppliers_table.supplier_id', '=', 'authority_to_purchase_table.authority_purchase_supplier_id');
+            }
+        }
 
         if ($itemsSub) {
-            $query->leftJoinSub($itemsSub, 'atp_items', function ($join) {
-                $join->on('atp_items.authority_purchase_id', '=', 'authority_to_purchase_table.authority_purchase_id');
+            $query->leftJoinSub($itemsSub, 'rr_items', function ($join) {
+                $join->on('rr_items.receiving_report_id', '=', 'receiving_reports_table.receiving_report_id');
             });
         }
 
-        if (Schema::hasTable('receiving_reports_table')) {
-            if (Schema::hasColumn('receiving_reports_table', 'receiving_report_atp_id')) {
-                $query->leftJoin('receiving_reports_table', 'receiving_reports_table.receiving_report_atp_id', '=', 'authority_to_purchase_table.authority_purchase_id');
-            } elseif (Schema::hasColumn('receiving_reports_table', 'receiving_report_procurement_request_id')) {
-                $query->leftJoin('receiving_reports_table', 'receiving_reports_table.receiving_report_procurement_request_id', '=', 'requisition_issue_slip_table.ris_procurement_request_id');
-            }
-
-            if (Schema::hasColumn('receiving_reports_table', 'receiving_report_officer_id') && Schema::hasTable('users_table')) {
-                $query->leftJoin('users_table', 'users_table.user_id', '=', 'receiving_reports_table.receiving_report_officer_id');
-            }
-        }
-
-        if (Schema::hasColumn('authority_to_purchase_table', 'authority_purchase_is_archived')) {
+        if (Schema::hasColumn('receiving_reports_table', 'receiving_report_is_archived')) {
             $query->where(function ($q) {
-                $q->whereNull('authority_to_purchase_table.authority_purchase_is_archived')
-                    ->orWhere('authority_to_purchase_table.authority_purchase_is_archived', 0);
+                $q->whereNull('receiving_reports_table.receiving_report_is_archived')
+                    ->orWhere('receiving_reports_table.receiving_report_is_archived', 0);
             });
         }
 
         $select = [
-            'authority_to_purchase_table.authority_purchase_id',
-            'authority_to_purchase_table.authority_purchase_form_number',
-            'authority_to_purchase_table.authority_purchase_reference_po_no',
-            'authority_to_purchase_table.authority_purchase_status',
-            'authority_to_purchase_table.authority_purchase_date',
-            'authority_to_purchase_table.authority_purchase_ris_id',
-            'authority_to_purchase_table.authority_purchase_supplier_id',
-            'requisition_issue_slip_table.ris_id',
-            'requisition_issue_slip_table.ris_form_number',
-            DB::raw("COALESCE(physical_suppliers_table.company_name, online_suppliers_table.shop_name, 'Unnamed supplier') as supplier_name"),
+            'receiving_reports_table.receiving_report_id',
+            'receiving_reports_table.receiving_report_status',
         ];
 
+        $select[] = Schema::hasColumn('receiving_reports_table', 'receiving_report_form_number')
+            ? 'receiving_reports_table.receiving_report_form_number'
+            : DB::raw('NULL as receiving_report_form_number');
+
+        if (Schema::hasTable('authority_to_purchase_table')) {
+            $select[] = 'authority_to_purchase_table.authority_purchase_id';
+            $select[] = 'authority_to_purchase_table.authority_purchase_form_number';
+            $select[] = 'authority_to_purchase_table.authority_purchase_ris_id';
+        } else {
+            $select[] = DB::raw('NULL as authority_purchase_id');
+            $select[] = DB::raw('NULL as authority_purchase_form_number');
+            $select[] = DB::raw('NULL as authority_purchase_ris_id');
+        }
+
+        if (Schema::hasTable('requisition_issue_slip_table')) {
+            $select[] = 'requisition_issue_slip_table.ris_id';
+            $select[] = 'requisition_issue_slip_table.ris_form_number';
+        } else {
+            $select[] = DB::raw('NULL as ris_id');
+            $select[] = DB::raw('NULL as ris_form_number');
+        }
+
+        $supplierParts = ["'Unnamed supplier'"];
+        if (Schema::hasColumn('receiving_reports_table', 'receiving_report_received_from')) {
+            array_unshift($supplierParts, 'receiving_reports_table.receiving_report_received_from');
+        }
+        if (Schema::hasTable('online_suppliers_table')) {
+            array_unshift($supplierParts, 'online_suppliers_table.shop_name');
+        }
+        if (Schema::hasTable('physical_suppliers_table')) {
+            array_unshift($supplierParts, 'physical_suppliers_table.company_name');
+        }
+        $select[] = DB::raw('COALESCE('.implode(', ', $supplierParts).') as supplier_name');
+
         if ($itemsSub) {
-            $select[] = 'atp_items.item_names';
-            $select[] = 'atp_items.total_qty';
-            $select[] = 'atp_items.total_amount';
+            $select[] = 'rr_items.item_names';
+            $select[] = 'rr_items.total_qty';
+            $select[] = 'rr_items.total_amount';
         } else {
             $select[] = DB::raw('NULL as item_names');
             $select[] = DB::raw('NULL as total_qty');
             $select[] = DB::raw('0 as total_amount');
         }
 
-        if (Schema::hasTable('receiving_reports_table')) {
-            $select[] = 'receiving_reports_table.receiving_report_id';
-            $select[] = 'receiving_reports_table.receiving_report_status';
-            if (Schema::hasColumn('receiving_reports_table', 'receiving_report_form_number')) {
-                $select[] = 'receiving_reports_table.receiving_report_form_number';
-            } else {
-                $select[] = DB::raw('NULL as receiving_report_form_number');
-            }
-            if (Schema::hasColumn('receiving_reports_table', 'receiving_report_invoice_no')) {
-                $select[] = DB::raw('receiving_reports_table.receiving_report_invoice_no as official_receipt');
-            } else {
-                $select[] = DB::raw('NULL as official_receipt');
-            }
-            if (Schema::hasColumn('receiving_reports_table', 'receiving_report_remarks')) {
-                $select[] = 'receiving_reports_table.receiving_report_remarks';
-            } else {
-                $select[] = DB::raw('NULL as receiving_report_remarks');
-            }
-            if (Schema::hasColumn('receiving_reports_table', 'receiving_report_accepted_at')) {
-                $select[] = DB::raw('receiving_reports_table.receiving_report_accepted_at as received_at');
-            } elseif (Schema::hasColumn('receiving_reports_table', 'receiving_report_date')) {
-                $select[] = DB::raw('receiving_reports_table.receiving_report_date as received_at');
-            } else {
-                $select[] = DB::raw('receiving_reports_table.receiving_report_created_at as received_at');
-            }
-            if (Schema::hasColumn('receiving_reports_table', 'receiving_report_checklist')) {
-                $select[] = 'receiving_reports_table.receiving_report_checklist';
-            } else {
-                $select[] = DB::raw('NULL as receiving_report_checklist');
-            }
-            if (Schema::hasColumn('receiving_reports_table', 'receiving_report_received_by_signature')) {
-                $select[] = DB::raw('receiving_reports_table.receiving_report_received_by_signature as officer_signature');
-            } else {
-                $select[] = DB::raw('NULL as officer_signature');
-            }
-            $officerNameParts = [];
-            if (Schema::hasTable('users_table') && Schema::hasColumn('receiving_reports_table', 'receiving_report_officer_id')) {
-                $officerNameParts[] = 'users_table.user_full_name';
-            }
-            if (Schema::hasColumn('receiving_reports_table', 'receiving_report_received_by_signature')) {
-                $officerNameParts[] = 'receiving_reports_table.receiving_report_received_by_signature';
-            }
-            $select[] = DB::raw(($officerNameParts ? 'COALESCE('.implode(', ', $officerNameParts).', ' : '')."'Receiving Officer'".($officerNameParts ? ')' : '').' as officer_name');
+        if (Schema::hasColumn('receiving_reports_table', 'receiving_report_invoice_no')) {
+            $select[] = DB::raw('receiving_reports_table.receiving_report_invoice_no as official_receipt');
         } else {
-            $select[] = DB::raw('NULL as receiving_report_id');
-            $select[] = DB::raw('NULL as receiving_report_form_number');
-            $select[] = DB::raw('NULL as receiving_report_status');
             $select[] = DB::raw('NULL as official_receipt');
-            $select[] = DB::raw('NULL as receiving_report_remarks');
-            $select[] = DB::raw('NULL as received_at');
-            $select[] = DB::raw('NULL as receiving_report_checklist');
-            $select[] = DB::raw('NULL as officer_signature');
-            $select[] = DB::raw("NULL as officer_name");
+        }
+
+        if (Schema::hasColumn('receiving_reports_table', 'receiving_report_second_count_at')) {
+            $select[] = DB::raw('receiving_reports_table.receiving_report_second_count_at as received_at');
+        } elseif (Schema::hasColumn('receiving_reports_table', 'receiving_report_accepted_at')) {
+            $select[] = DB::raw('receiving_reports_table.receiving_report_accepted_at as received_at');
+        } elseif (Schema::hasColumn('receiving_reports_table', 'receiving_report_date')) {
+            $select[] = DB::raw('receiving_reports_table.receiving_report_date as received_at');
+        } else {
+            $select[] = DB::raw('receiving_reports_table.receiving_report_created_at as received_at');
+        }
+
+        if (Schema::hasColumn('receiving_reports_table', 'receiving_report_second_count_by')) {
+            $select[] = DB::raw('receiving_reports_table.receiving_report_second_count_by as officer_name');
+        } elseif (Schema::hasColumn('receiving_reports_table', 'receiving_report_received_by_signature')) {
+            $select[] = DB::raw('receiving_reports_table.receiving_report_received_by_signature as officer_name');
+        } else {
+            $select[] = DB::raw("'Receiving Officer' as officer_name");
+        }
+
+        if (Schema::hasColumn('receiving_reports_table', 'receiving_report_created_at')) {
+            $select[] = 'receiving_reports_table.receiving_report_created_at';
+        }
+        if (Schema::hasColumn('receiving_reports_table', 'receiving_report_date')) {
+            $select[] = 'receiving_reports_table.receiving_report_date';
         }
 
         return $query->select($select);
@@ -915,22 +809,21 @@ class ReceivingController extends Controller
 
     private function pendingRows()
     {
-        if (!Schema::hasTable('authority_to_purchase_table')) {
+        if (!Schema::hasTable('receiving_reports_table')) {
             return collect();
         }
 
         return $this->safeQuery(function () {
-            $query = $this->deliveryBaseQuery()
-                ->where('authority_to_purchase_table.authority_purchase_status', 'Approved');
-
-            if (Schema::hasTable('receiving_reports_table')) {
-                $query->where(function ($q) {
-                    $q->whereNull('receiving_reports_table.receiving_report_id')
-                        ->orWhereIn('receiving_reports_table.receiving_report_status', ['Pending', 'Returned']);
-                });
-            }
-
-            return $query->orderByDesc('authority_to_purchase_table.authority_purchase_id')->get();
+            return $this->reportBaseQuery()
+                ->whereIn('receiving_reports_table.receiving_report_status', [
+                    'Pending',
+                    'Submitted',
+                    'Resubmitted',
+                    'Under Review',
+                    'Returned',
+                ])
+                ->orderByDesc('receiving_reports_table.receiving_report_id')
+                ->get();
         });
     }
 
@@ -941,7 +834,7 @@ class ReceivingController extends Controller
         }
 
         return $this->safeQuery(function () {
-            return $this->deliveryBaseQuery()
+            return $this->reportBaseQuery()
                 ->whereIn('receiving_reports_table.receiving_report_status', ['Accepted', 'Completed'])
                 ->orderByDesc('receiving_reports_table.receiving_report_id')
                 ->get();
@@ -955,7 +848,7 @@ class ReceivingController extends Controller
         }
 
         return $this->safeQuery(function () {
-            return $this->deliveryBaseQuery()
+            return $this->reportBaseQuery()
                 ->where('receiving_reports_table.receiving_report_status', 'Returned')
                 ->orderByDesc('receiving_reports_table.receiving_report_id')
                 ->get();
@@ -971,11 +864,13 @@ class ReceivingController extends Controller
         return $this->safeQuery(function () use ($limit) {
             return DB::table('receiving_logs_table')
                 ->leftJoin('users_table', 'users_table.user_id', '=', 'receiving_logs_table.receiving_log_officer_id')
+                ->leftJoin('receiving_reports_table', 'receiving_reports_table.receiving_report_id', '=', 'receiving_logs_table.receiving_report_id')
                 ->leftJoin('authority_to_purchase_table', 'authority_to_purchase_table.authority_purchase_id', '=', 'receiving_logs_table.receiving_log_atp_id')
                 ->leftJoin('requisition_issue_slip_table', 'requisition_issue_slip_table.ris_id', '=', 'authority_to_purchase_table.authority_purchase_ris_id')
                 ->select(
                     'receiving_logs_table.*',
                     'users_table.user_full_name as officer_name',
+                    'receiving_reports_table.receiving_report_form_number',
                     'authority_to_purchase_table.authority_purchase_form_number',
                     'requisition_issue_slip_table.ris_form_number'
                 )
@@ -1061,165 +956,101 @@ class ReceivingController extends Controller
             ->get();
     }
 
-    private function reportLineItems($row)
+    private function stockFromReceivingReport(object $rr, $now, $officerId): void
     {
-        if (!empty($row->receiving_report_id) && Schema::hasTable('receiving_report_items_table')) {
-            $items = DB::table('receiving_report_items_table')
-                ->where('receiving_report_id', $row->receiving_report_id)
-                ->orderBy('receiving_report_item_id')
-                ->get();
-
-            if ($items->isNotEmpty()) {
-                return $items->map(function ($item) {
-                    $item->atp_item_id = $item->receiving_report_item_id;
-                    $item->atp_description = $item->receiving_report_item_article;
-                    $item->atp_quantity = $item->receiving_report_item_quantity;
-                    $item->atp_unit = $item->receiving_report_item_unit ?? '';
-                    $item->atp_amount = $item->receiving_report_item_amount ?? 0;
-                    $item->atp_unit_price = $item->receiving_report_item_unit_price ?? null;
-
-                    return $item;
-                });
-            }
-        }
-
-        return !empty($row->authority_purchase_id)
-            ? $this->atpItems((int) $row->authority_purchase_id)
-            : collect();
-    }
-
-    private function ensurePendingReceivingReports(): void
-    {
-        if (!Schema::hasTable('receiving_reports_table') || !Schema::hasTable('authority_to_purchase_table')) {
+        if (!Schema::hasTable('receiving_report_items_table')) {
             return;
         }
 
-        try {
-            $approved = DB::table('authority_to_purchase_table')
-                ->where('authority_purchase_status', 'Approved')
-                ->get();
-        } catch (\Throwable $e) {
+        $items = DB::table('receiving_report_items_table')
+            ->where('receiving_report_id', $rr->receiving_report_id)
+            ->orderBy('receiving_report_item_id')
+            ->get();
+
+        if ($items->isEmpty()) {
             return;
         }
 
-        foreach ($approved as $atp) {
-            if ($this->reportForAtp((int) $atp->authority_purchase_id)) {
+        $atp = null;
+        if (!empty($rr->receiving_report_atp_id) && Schema::hasTable('authority_to_purchase_table')) {
+            $atp = DB::table('authority_to_purchase_table')
+                ->where('authority_purchase_id', $rr->receiving_report_atp_id)
+                ->first();
+        }
+
+        $source = (object) [
+            'receiving_report_supplier_id' => $rr->receiving_report_supplier_id ?? null,
+            'receiving_report_date' => $rr->receiving_report_date ?? $rr->receiving_report_delivery_date ?? null,
+            'authority_purchase_supplier_id' => $atp->authority_purchase_supplier_id ?? $rr->receiving_report_supplier_id ?? null,
+            'authority_purchase_date' => $atp->authority_purchase_date ?? $rr->receiving_report_date ?? null,
+            'equipment_room_id' => $this->replacementRoomId($rr, $atp),
+        ];
+
+        $created = 0;
+        foreach ($items as $item) {
+            if (
+                Schema::hasColumn('receiving_report_items_table', 'receiving_report_item_equipment_id')
+                && !empty($item->receiving_report_item_equipment_id)
+            ) {
                 continue;
             }
 
-            $procurementRequestId = $this->procurementRequestIdForAtp($atp);
-            $now = now();
-            $payload = $this->onlyExisting('receiving_reports_table', [
-                'receiving_report_atp_id' => $atp->authority_purchase_id,
-                'receiving_report_ris_id' => $atp->authority_purchase_ris_id ?? null,
-                'receiving_report_supplier_id' => $atp->authority_purchase_supplier_id ?? null,
-                'receiving_report_procurement_request_id' => $procurementRequestId,
-                'receiving_report_status' => 'Pending',
-                'receiving_report_date' => $now->toDateString(),
-                'receiving_report_created_at' => $now,
-                'receiving_report_updated_at' => $now,
-            ]);
-
-            if ($payload === []) {
+            $equipmentId = $this->insertEquipment($source, $item, $now);
+            if (!$equipmentId) {
                 continue;
             }
 
-            try {
-                $reportId = (int) DB::table('receiving_reports_table')->insertGetId($payload);
-            } catch (\Throwable $e) {
-                continue;
+            if (Schema::hasColumn('receiving_report_items_table', 'receiving_report_item_equipment_id')) {
+                DB::table('receiving_report_items_table')
+                    ->where('receiving_report_item_id', $item->receiving_report_item_id)
+                    ->update(['receiving_report_item_equipment_id' => $equipmentId]);
             }
 
-            if (Schema::hasColumn('receiving_reports_table', 'receiving_report_form_number')) {
-                DB::table('receiving_reports_table')
-                    ->where('receiving_report_id', $reportId)
-                    ->update([
-                        'receiving_report_form_number' => 'RR-' . $now->format('Y') . '-' . str_pad((string) $reportId, 5, '0', STR_PAD_LEFT),
-                    ]);
-            }
+            $created++;
+        }
 
-            if (Schema::hasTable('receiving_report_items_table')) {
-                foreach ($this->atpItems((int) $atp->authority_purchase_id) as $item) {
-                    try {
-                        DB::table('receiving_report_items_table')->insert($this->onlyExisting('receiving_report_items_table', [
-                            'receiving_report_id' => $reportId,
-                            'receiving_report_item_article' => $item->atp_description,
-                            'receiving_report_item_quantity' => $item->atp_quantity,
-                            'receiving_report_item_unit' => $item->atp_unit,
-                            'receiving_report_item_unit_price' => $item->atp_unit_price ?? null,
-                            'receiving_report_item_amount' => $item->atp_amount,
-                        ]));
-                    } catch (\Throwable $e) {
-                        // Keep the report even if a line item cannot be copied yet.
-                    }
-                }
-            }
-
-            $this->writeLog($reportId, (int) $atp->authority_purchase_id, 'Receiving report opened', 'Pending receiving report created from approved ATP.', Auth::id());
+        if ($created > 0) {
+            $this->writeLog(
+                (int) $rr->receiving_report_id,
+                !empty($rr->receiving_report_atp_id) ? (int) $rr->receiving_report_atp_id : null,
+                'Inventory updated',
+                'Stock records created from second count.',
+                $officerId
+            );
+            $this->notifyMaintenanceUntaggedStock($rr, $created);
         }
     }
 
-    private function approvedAtp(int $atpId)
-    {
-        return DB::table('authority_to_purchase_table')
-            ->where('authority_purchase_id', $atpId)
-            ->where('authority_purchase_status', 'Approved')
-            ->first();
-    }
-
-    private function reportForAtp(int $atpId)
-    {
-        if (!Schema::hasTable('receiving_reports_table')) {
-            return null;
-        }
-
-        if (Schema::hasColumn('receiving_reports_table', 'receiving_report_atp_id')) {
-            return DB::table('receiving_reports_table')->where('receiving_report_atp_id', $atpId)->first();
-        }
-
-        $atp = DB::table('authority_to_purchase_table')->where('authority_purchase_id', $atpId)->first();
-        $procurementRequestId = $this->procurementRequestIdForAtp($atp);
-        if (!$procurementRequestId || !Schema::hasColumn('receiving_reports_table', 'receiving_report_procurement_request_id')) {
-            return null;
-        }
-
-        return DB::table('receiving_reports_table')
-            ->where('receiving_report_procurement_request_id', $procurementRequestId)
-            ->orderByDesc('receiving_report_id')
-            ->first();
-    }
-
-    private function procurementRequestIdForAtp($atp): ?int
-    {
-        if (!$atp || empty($atp->authority_purchase_ris_id)) {
-            return null;
-        }
-
-        $ris = DB::table('requisition_issue_slip_table')->where('ris_id', $atp->authority_purchase_ris_id)->first();
-
-        return $ris && !empty($ris->ris_procurement_request_id) ? (int) $ris->ris_procurement_request_id : null;
-    }
-
-    private function insertEquipment($atp, $item, $now): ?int
+    private function insertEquipment($source, $item, $now): ?int
     {
         if (!Schema::hasTable('equipment_table')) {
             return null;
         }
 
         $equipment = [
-            'equipment_name' => $item->atp_description ?: 'Received item',
-            'equipment_quantity' => (int) ($item->atp_quantity ?: 1),
+            'equipment_name' => $item->receiving_report_item_article
+                ?? $item->atp_description
+                ?? 'Received item',
+            'equipment_quantity' => (int) ($item->receiving_report_item_quantity ?? $item->atp_quantity ?? 1),
         ];
         foreach ([
-            'equipment_supplier_id' => $atp->authority_purchase_supplier_id,
+            'equipment_supplier_id' => $source->receiving_report_supplier_id
+                ?? $source->authority_purchase_supplier_id
+                ?? null,
             'equipment_tracking_mode' => 'Bulk',
             'equipment_condition_status' => 'Good',
             'equipment_inventory_status' => 'Active',
-            'equipment_purchase_date' => $atp->authority_purchase_date,
-            'equipment_purchase_cost' => $item->atp_amount,
+            'equipment_purchase_date' => $source->receiving_report_date
+                ?? $source->authority_purchase_date
+                ?? $now->toDateString(),
+            'equipment_purchase_cost' => $item->receiving_report_item_amount ?? $item->atp_amount ?? null,
             'equipment_acquired_date' => $now->toDateString(),
+            'equipment_room_id' => $source->equipment_room_id ?? null,
             'equipment_created_at' => $now,
         ] as $column => $value) {
+            if ($column === 'equipment_room_id' && empty($value)) {
+                continue;
+            }
             if (Schema::hasColumn('equipment_table', $column)) {
                 $equipment[$column] = $value;
             }
@@ -1237,7 +1068,7 @@ class ReceivingController extends Controller
         return collect($payload)->filter(fn ($value, $column) => Schema::hasColumn($table, $column))->all();
     }
 
-    private function writeLog(?int $reportId, int $atpId, string $action, ?string $remarks, $officerId): void
+    private function writeLog(?int $reportId, ?int $atpId, string $action, ?string $remarks, $officerId): void
     {
         if (!Schema::hasTable('receiving_logs_table')) {
             return;
@@ -1323,6 +1154,46 @@ class ReceivingController extends Controller
         })->values();
     }
 
+    private function fillRisReceivedBy(object $rr, string $officerName): void
+    {
+        if (!Schema::hasColumn('requisition_issue_slip_table', 'ris_received_by_signature')) {
+            return;
+        }
+
+        $risId = (int) ($rr->receiving_report_ris_id ?? 0);
+        if ($risId < 1 && !empty($rr->receiving_report_request_check_id)) {
+            $linked = DB::table('request_check_table')
+                ->leftJoin(
+                    'authority_to_purchase_table',
+                    'request_check_table.request_check_authority_purchase_id',
+                    '=',
+                    'authority_to_purchase_table.authority_purchase_id'
+                )
+                ->where('request_check_table.request_check_id', $rr->receiving_report_request_check_id)
+                ->select('authority_to_purchase_table.authority_purchase_ris_id')
+                ->first();
+            $risId = (int) ($linked->authority_purchase_ris_id ?? 0);
+        }
+
+        if ($risId < 1) {
+            return;
+        }
+
+        $payload = [
+            'ris_received_by_signature' => $officerName,
+        ];
+        if (Schema::hasColumn('requisition_issue_slip_table', 'ris_received_by_date')) {
+            $payload['ris_received_by_date'] = now()->toDateString();
+        }
+
+        DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $risId)
+            ->where(function ($q) {
+                $q->whereNull('ris_received_by_signature')->orWhere('ris_received_by_signature', '');
+            })
+            ->update($payload);
+    }
+
     private function lockQueueRr($id)
     {
         $rr = DB::table('receiving_reports_table')
@@ -1357,6 +1228,68 @@ class ReceivingController extends Controller
             'RR',
             (int) $rr->receiving_report_id,
             '/purchaser/receiving-reports'
+        );
+    }
+
+    private function replacementRoomId(object $rr, $atp): ?int
+    {
+        if (!Schema::hasTable('reports_table') || !Schema::hasColumn('reports_table', 'report_room_id')) {
+            return null;
+        }
+
+        $risId = $rr->receiving_report_ris_id ?? null;
+        if (!$risId && $atp && !empty($atp->authority_purchase_ris_id)) {
+            $risId = $atp->authority_purchase_ris_id;
+        }
+        if (!$risId && !empty($rr->receiving_report_atp_id) && Schema::hasTable('authority_to_purchase_table')) {
+            $risId = DB::table('authority_to_purchase_table')
+                ->where('authority_purchase_id', $rr->receiving_report_atp_id)
+                ->value('authority_purchase_ris_id');
+        }
+        if (!$risId || !Schema::hasTable('requisition_issue_slip_table')) {
+            return null;
+        }
+
+        $procurementRequestId = DB::table('requisition_issue_slip_table')
+            ->where('ris_id', $risId)
+            ->value('ris_procurement_request_id');
+        if (!$procurementRequestId || !Schema::hasTable('procurement_requests_table')) {
+            return null;
+        }
+
+        $reportId = DB::table('procurement_requests_table')
+            ->where('procurement_request_id', $procurementRequestId)
+            ->value('procurement_request_report_id');
+        if (!$reportId) {
+            return null;
+        }
+
+        $roomId = DB::table('reports_table')->where('report_id', $reportId)->value('report_room_id');
+        if (!$roomId) {
+            return null;
+        }
+
+        if (Schema::hasTable('rooms_table') && Schema::hasColumn('rooms_table', 'room_id')) {
+            $exists = DB::table('rooms_table')->where('room_id', $roomId)->exists();
+            if (!$exists) {
+                return null;
+            }
+        }
+
+        return (int) $roomId;
+    }
+
+    private function notifyMaintenanceUntaggedStock(object $rr, int $created): void
+    {
+        $ref = $rr->receiving_report_form_number ?? ('RR #' . $rr->receiving_report_id);
+        WorkflowNotifier::toRole(
+            WorkflowNotifier::ROLE_MAINTENANCE,
+            'New stock ready to place and tag',
+            $ref . ' added ' . $created . ' inventory ' . ($created === 1 ? 'item' : 'items') . '. Assign a room if needed, then generate QR codes and asset tags.',
+            'rr_stock_created',
+            'RR',
+            (int) $rr->receiving_report_id,
+            '/maintenance/equipment/qr-tools'
         );
     }
 }

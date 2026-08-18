@@ -37,7 +37,7 @@
                             $rowSearch = trim(implode(' ', [$row->receiving_report_form_number ?? '', $row->ris_form_number ?? '', $row->authority_purchase_form_number ?? '', $row->item_names ?? '', $row->supplier_name ?? '']));
                         @endphp
                         <tr data-ro-status="{{ $rowStatus }}" data-ro-search="{{ $rowSearch }}">
-                            <td class="px-4 py-3 text-sm font-semibold">{{ $row->receiving_report_form_number ?: ($row->ris_form_number ?: ($row->authority_purchase_form_number ?: 'ATP-'.$row->authority_purchase_id)) }}</td>
+                            <td class="px-4 py-3 text-sm font-semibold">{{ $row->receiving_report_form_number ?: ($row->ris_form_number ?: ($row->authority_purchase_form_number ?: 'RR-'.($row->receiving_report_id ?? $row->authority_purchase_id))) }}</td>
                             <td class="px-4 py-3 text-sm">{{ \Illuminate\Support\Str::limit($row->item_names ?: '—', 48) }}</td>
                             <td class="px-4 py-3 text-sm">{{ $row->supplier_name }}</td>
                             <td class="px-4 py-3 text-sm">₱{{ number_format((float) ($row->total_amount ?? 0), 2) }}</td>

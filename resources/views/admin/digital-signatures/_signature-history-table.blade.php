@@ -117,13 +117,12 @@
                         title="Items / Equipment included in this RIS"
                     >
 
-                        {{ $history->ris_item_names
-                            ?: ($history->ris_manual_title
-                                ?: ($history->equipment_name
-                                    ?? $history->report_unlisted_equipment_name
-                                    ?? (($history->ris_request_type ?? null) === 'manual' ? 'Manual Procurement' : 'Unknown Equipment'))) }}
-
+                        {{ \App\Support\RisWorkflow::sourceLabel($history) }}
+                        @if(!empty($history->ris_request_type))
+                            <div class="mt-1 text-xs text-gray-400">{{ \App\Support\RisWorkflow::requestTypeLabel($history) }}</div>
+                        @endif
                     </div>
+                    @include('admin.partials.ris-attachments', ['ris' => $history])
 
                 </td>
 

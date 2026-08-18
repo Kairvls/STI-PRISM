@@ -4,6 +4,9 @@
     $rows = ($rows ?? collect())->values();
     $oldItems = old('items');
     $fmt = fn ($v) => $v === null || $v === '' ? '' : number_format((float) $v, 2);
+    // #region agent log
+    file_put_contents(base_path('debug-fcd40d.log'), json_encode(['sessionId' => 'fcd40d', 'runId' => 'pre-fix', 'hypothesisId' => 'A', 'location' => 'liquidation-report-paper.blade.php:top', 'message' => 'partial rendered', 'data' => ['liqIsNull' => $liq === null, 'liqType' => is_object($liq) ? get_class($liq) : gettype($liq), 'editable' => (bool) $editable, 'liqId' => is_object($liq) ? ($liq->liquidation_report_id ?? null) : null, 'printId' => $printId ?? null, 'url' => request()->path()], 'timestamp' => (int) round(microtime(true) * 1000)]) . "\n", FILE_APPEND);
+    // #endregion
 @endphp
 
 <div @if(!empty($printId)) id="{{ $printId }}" @endif class="liq-print-sheet mx-auto w-[297mm] max-w-full bg-white p-8 text-[12px] text-black shadow {{ $printClass ?? '' }}">
@@ -102,21 +105,33 @@
             @else
                 <div class="mt-6 border-b border-black pb-1">{{ $liq->liquidation_report_submitted_by_signature ?? '' }}</div>
             @endif
-            <div class="mt-1 text-xs">{{ $liq->liquidation_report_submitted_by_date ? \Carbon\Carbon::parse($liq->liquidation_report_submitted_by_date)->format('m/d/Y') : '' }}</div>
+            {{-- #region agent log --}}
+            @php
+                file_put_contents(base_path('debug-fcd40d.log'), json_encode(['sessionId' => 'fcd40d', 'runId' => 'pre-fix', 'hypothesisId' => 'C', 'location' => 'liquidation-report-paper.blade.php:submitted_by_date', 'message' => 'about to read submitted_by_date', 'data' => ['liqIsNull' => $liq === null, 'submittedByDate' => is_object($liq) ? ($liq->liquidation_report_submitted_by_date ?? null) : null, 'usesUnsafeTernary' => true], 'timestamp' => (int) round(microtime(true) * 1000)]) . "\n", FILE_APPEND);
+            @endphp
+            {{-- #endregion --}}
+            <div class="mt-1 text-xs">{{ $liq?->liquidation_report_submitted_by_date ? \Carbon\Carbon::parse($liq->liquidation_report_submitted_by_date)->format('m/d/Y') : '' }}</div>
         </div>
         <div>
             <div class="font-semibold">Checked By:</div>
-            <div class="mt-6 border-b border-black pb-1 min-h-[1.4rem]">{{ $liq->liquidation_report_checked_by_accountant ?? '' }}</div>
-            <div class="mt-1 text-xs">{{ $liq->liquidation_report_checked_by_date ? \Carbon\Carbon::parse($liq->liquidation_report_checked_by_date)->format('m/d/Y') : '' }}</div>
+            <div class="mt-6 border-b border-black pb-1 min-h-[1.4rem]">
+                @include('partials.drawn-signature', ['value' => $liq->liquidation_report_checked_by_accountant ?? ''])
+            </div>
+            <div class="mt-1 text-xs">{{ $liq?->liquidation_report_checked_by_date ? \Carbon\Carbon::parse($liq->liquidation_report_checked_by_date)->format('m/d/Y') : '' }}</div>
         </div>
         <div>
             <div class="font-semibold">Indorsed By:</div>
             <div class="mt-6 border-b border-black pb-1 min-h-[1.4rem]">{{ $liq->liquidation_report_indorsed_by_supervisor ?? '' }}</div>
-            <div class="mt-1 text-xs">{{ $liq->liquidation_report_indorsed_by_date ? \Carbon\Carbon::parse($liq->liquidation_report_indorsed_by_date)->format('m/d/Y') : '' }}</div>
+            <div class="mt-1 text-xs">{{ $liq?->liquidation_report_indorsed_by_date ? \Carbon\Carbon::parse($liq->liquidation_report_indorsed_by_date)->format('m/d/Y') : '' }}</div>
         </div>
         <div>
             <div class="font-semibold">Recommending Approval:</div>
             <div class="mt-6 border-b border-black pb-1 min-h-[1.4rem]">{{ $liq->liquidation_report_recommending_approval ?? '' }}</div>
         </div>
+        {{-- #region agent log --}}
+        @php
+            file_put_contents(base_path('debug-fcd40d.log'), json_encode(['sessionId' => 'fcd40d', 'runId' => 'post-fix', 'hypothesisId' => 'C', 'location' => 'liquidation-report-paper.blade.php:after-dates', 'message' => 'passed signature date fields', 'data' => ['liqIsNull' => $liq === null, 'editable' => (bool) $editable], 'timestamp' => (int) round(microtime(true) * 1000)]) . "\n", FILE_APPEND);
+        @endphp
+        {{-- #endregion --}}
     </div>
 </div>

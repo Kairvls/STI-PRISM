@@ -130,6 +130,24 @@ class PurchaserModuleIntegrationTest extends TestCase
     /**
      * Test AuthorityToPurchaseController has all required methods
      */
+    public function test_workflow_controllers_have_required_methods()
+    {
+        $this->assertTrue(method_exists(\App\Http\Controllers\AdminController::class, 'approveRis'));
+        $this->assertTrue(method_exists(\App\Http\Controllers\AdminController::class, 'directApproveRis'));
+        $this->assertTrue(method_exists(\App\Http\Controllers\AdminController::class, 'decideRis'));
+        $this->assertTrue(method_exists(\App\Http\Controllers\AdminController::class, 'returnRisForRevision'));
+        $this->assertTrue(method_exists(\App\Http\Controllers\PresidentController::class, 'decideRis'));
+        $this->assertTrue(method_exists(\App\Http\Controllers\AccountingController::class, 'approveAtp'));
+        $this->assertTrue(method_exists(\App\Http\Controllers\AccountingController::class, 'approveRequestCheck'));
+        $this->assertTrue(method_exists(\App\Http\Controllers\AccountingController::class, 'releaseFunds'));
+        $this->assertTrue(method_exists(\App\Http\Controllers\AccountingController::class, 'approveLiquidation'));
+        $this->assertTrue(method_exists(\App\Http\Controllers\ReceivingController::class, 'secondCount'));
+        $this->assertTrue(class_exists(\App\Support\RisWorkflow::class));
+    }
+
+    /**
+     * Test AuthorityToPurchaseController has all required methods
+     */
     public function test_atp_controller_has_required_methods()
     {
         $controller = app('App\Http\Controllers\AuthorityToPurchaseController');
@@ -410,6 +428,93 @@ class PurchaserModuleIntegrationTest extends TestCase
             ])
             ->assertSessionHas('error');
 
+        \Illuminate\Support\Facades\DB::table('authority_to_purchase_table')->where('authority_purchase_id', $atpId)->delete();
+    }
+
+    public function test_rfc_can_bind_approved_atp_without_existing_rfc()
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('authority_to_purchase_table')
+            || !\Illuminate\Support\Facades\Schema::hasTable('request_check_table')) {
+            $this->markTestSkipped('Procurement tables are not available in this environment.');
+        }
+
+        $user = new \App\Models\User();
+        $user->user_id = 99005;
+        $user->user_role_id = 3;
+        $user->user_full_name = 'Test Purchaser';
+
+        $atpId = \Illuminate\Support\Facades\DB::table('authority_to_purchase_table')->insertGetId([
+            'authority_purchase_status' => 'Approved',
+            'authority_purchase_is_archived' => 0,
+            'authority_purchase_created_at' => now(),
+            'authority_purchase_updated_at' => now(),
+        ]);
+
+        $this->actingAs($user)
+            ->from(route('purchaser.rfc.index'))
+            ->post(route('purchaser.rfc.store'), [
+                'save_action' => 'submit',
+                'request_check_authority_purchase_id' => $atpId,
+                'request_check_date' => now()->toDateString(),
+                'request_check_payee' => 'Test Payee',
+                'request_check_amount_figures' => 100,
+                'request_check_particulars_purpose' => 'Test purpose',
+                'request_check_requested_by' => 'Test Purchaser',
+            ])
+            ->assertSessionHasNoErrors()
+            ->assertSessionHas('success');
+
+        $this->assertTrue(
+            \Illuminate\Support\Facades\DB::table('request_check_table')
+                ->where('request_check_authority_purchase_id', $atpId)
+                ->exists()
+        );
+
+        \Illuminate\Support\Facades\DB::table('request_check_table')->where('request_check_authority_purchase_id', $atpId)->delete();
+        \Illuminate\Support\Facades\DB::table('authority_to_purchase_table')->where('authority_purchase_id', $atpId)->delete();
+    }
+
+    public function test_rfc_cannot_bind_atp_that_already_has_rfc()
+    {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('authority_to_purchase_table')
+            || !\Illuminate\Support\Facades\Schema::hasTable('request_check_table')) {
+            $this->markTestSkipped('Procurement tables are not available in this environment.');
+        }
+
+        $user = new \App\Models\User();
+        $user->user_id = 99006;
+        $user->user_role_id = 3;
+        $user->user_full_name = 'Test Purchaser';
+
+        $atpId = \Illuminate\Support\Facades\DB::table('authority_to_purchase_table')->insertGetId([
+            'authority_purchase_status' => 'Approved',
+            'authority_purchase_is_archived' => 0,
+            'authority_purchase_created_at' => now(),
+            'authority_purchase_updated_at' => now(),
+        ]);
+
+        \Illuminate\Support\Facades\DB::table('request_check_table')->insert([
+            'request_check_authority_purchase_id' => $atpId,
+            'request_check_status' => 'Approved',
+            'request_check_is_archived' => 0,
+            'request_check_created_at' => now(),
+            'request_check_updated_at' => now(),
+        ]);
+
+        $this->actingAs($user)
+            ->from(route('purchaser.rfc.index'))
+            ->post(route('purchaser.rfc.store'), [
+                'save_action' => 'submit',
+                'request_check_authority_purchase_id' => $atpId,
+                'request_check_date' => now()->toDateString(),
+                'request_check_payee' => 'Test Payee',
+                'request_check_amount_figures' => 100,
+                'request_check_particulars_purpose' => 'Test purpose',
+                'request_check_requested_by' => 'Test Purchaser',
+            ])
+            ->assertSessionHas('error');
+
+        \Illuminate\Support\Facades\DB::table('request_check_table')->where('request_check_authority_purchase_id', $atpId)->delete();
         \Illuminate\Support\Facades\DB::table('authority_to_purchase_table')->where('authority_purchase_id', $atpId)->delete();
     }
 

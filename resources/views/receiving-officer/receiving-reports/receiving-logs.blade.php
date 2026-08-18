@@ -73,6 +73,7 @@
                                 $log->receiving_log_action ?? '',
                                 $log->receiving_log_remarks ?? '',
                                 $log->officer_name ?? '',
+                                $log->receiving_report_form_number ?? '',
                                 $log->ris_form_number ?? '',
                                 $log->authority_purchase_form_number ?? '',
                             ]));
@@ -80,14 +81,14 @@
                         <tr data-ro-status="{{ $rowStatus }}" data-ro-search="{{ $rowSearch }}">
                             <td class="px-5 py-4 text-sm text-gray-500">{{ \Carbon\Carbon::parse($log->receiving_log_created_at)->format('M d, Y g:i A') }}</td>
                             <td class="px-5 py-4 text-sm font-semibold text-gray-900">{{ $log->receiving_log_action }}</td>
-                            <td class="px-5 py-4 text-sm text-gray-700">{{ $log->ris_form_number ?: ($log->authority_purchase_form_number ?: '—') }}</td>
+                            <td class="px-5 py-4 text-sm text-gray-700">{{ $log->receiving_report_form_number ?: ($log->ris_form_number ?: ($log->authority_purchase_form_number ?: '—')) }}</td>
                             <td class="px-5 py-4 text-sm text-gray-700">{{ $log->officer_name ?: 'Receiving Officer' }}</td>
                             <td class="px-5 py-4 text-sm text-gray-500">{{ $log->receiving_log_remarks }}</td>
                         </tr>
                     @empty
                     @endforelse
                     <tr class="receiving-empty-row" @if($logs->count()) style="display:none" @endif>
-                        <td colspan="5" class="px-5 py-16 text-center text-sm text-gray-400">Waiting for the first inspection. Logs appear after you accept or return an approved ATP.</td>
+                        <td colspan="5" class="px-5 py-16 text-center text-sm text-gray-400">Waiting for the first inspection. Logs appear after second count or a return on a Receiving Report.</td>
                     </tr>
                 </tbody>
             </table>

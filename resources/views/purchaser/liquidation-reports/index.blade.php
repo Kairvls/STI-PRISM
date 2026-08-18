@@ -101,7 +101,7 @@
                         <td class="px-4 py-4 text-gray-600">{{ $liq->receiving_report_form_number ?? '—' }}</td>
                         <td class="px-4 py-4 text-gray-600">{{ $liq->liquidation_report_employee_name ?: '—' }}</td>
                         <td class="px-4 py-4">{{ $liq->liquidation_report_amount_advance !== null ? '₱'.number_format((float)$liq->liquidation_report_amount_advance,2) : '—' }}</td>
-                        <td class="px-4 py-4">{{ $liq->liquidation_report_status }}</td>
+                        <td class="px-4 py-4">@include('accounting.partials.status-badge', ['status' => $liq->liquidation_report_status])</td>
                         <td class="px-4 py-4">
                             <div class="flex flex-wrap gap-2">
                                 <button type="button" @click="openView({{ $liq->liquidation_report_id }})" class="rounded-lg border px-3 py-2 text-xs">View</button>
@@ -151,6 +151,11 @@
                                     @endforeach
                                 </select>
                             </div>
+                            {{-- #region agent log --}}
+                            @php
+                                file_put_contents(base_path('debug-fcd40d.log'), json_encode(['sessionId' => 'fcd40d', 'runId' => 'pre-fix', 'hypothesisId' => 'A', 'location' => 'purchaser/liquidation-reports/index.blade.php:create', 'message' => 'including create paper with null liq', 'data' => ['eligibleRrCount' => $eligibleRrs->count(), 'explicitLiqNull' => true, 'createOpenHint' => ($errors->any() && old('liquidation_report_receiving_report_id')) || !empty($selectedRrId)], 'timestamp' => (int) round(microtime(true) * 1000)]) . "\n", FILE_APPEND);
+                            @endphp
+                            {{-- #endregion --}}
                             @include('partials.liquidation-report-paper', ['editable' => true, 'liq' => null, 'rows' => collect()])
                             <div class="mx-auto mt-3 w-[297mm] max-w-full rounded bg-white p-3 text-sm">
                                 <label>Supporting documents (PDF, JPG, PNG · 5MB)</label>
@@ -172,6 +177,9 @@
             $liqItems = $items->get($liq->liquidation_report_id, collect())->values();
             $liqFiles = $attachments->get($liq->liquidation_report_id, collect());
             $canEdit = in_array($liq->liquidation_report_status, ['Draft','Minor Revision'], true) && !$archiveView;
+            // #region agent log
+            file_put_contents(base_path('debug-fcd40d.log'), json_encode(['sessionId' => 'fcd40d', 'runId' => 'pre-fix', 'hypothesisId' => 'B', 'location' => 'purchaser/liquidation-reports/index.blade.php:foreach', 'message' => 'existing report include context', 'data' => ['liqIsNull' => $liq === null, 'liqId' => is_object($liq) ? ($liq->liquidation_report_id ?? null) : null, 'status' => is_object($liq) ? ($liq->liquidation_report_status ?? null) : null, 'canEdit' => $canEdit], 'timestamp' => (int) round(microtime(true) * 1000)]) . "\n", FILE_APPEND);
+            // #endregion
         @endphp
         <div x-show="viewOpen && selectedLiq === {{ $liq->liquidation_report_id }}" x-cloak class="fixed inset-0 z-50 overflow-y-auto">
             <div class="fixed inset-0 bg-black/40" @click="viewOpen=false"></div>

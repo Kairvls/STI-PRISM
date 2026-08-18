@@ -24,7 +24,7 @@
                 <thead class="border-b bg-gray-50">
                     <tr>
                         <th class="px-4 py-2 text-xs font-semibold uppercase text-gray-500">Date</th>
-                        <th class="px-4 py-2 text-xs font-semibold uppercase text-gray-500">RIS / ATP</th>
+                        <th class="px-4 py-2 text-xs font-semibold uppercase text-gray-500">RR / RIS</th>
                         <th class="px-4 py-2 text-xs font-semibold uppercase text-gray-500">Supplier</th>
                         <th class="px-4 py-2 text-xs font-semibold uppercase text-gray-500">Result</th>
                         <th class="px-4 py-2 text-xs font-semibold uppercase text-gray-500">Officer</th>
@@ -38,7 +38,7 @@
                         @endphp
                         <tr data-ro-status="{{ $rowStatus }}" data-ro-search="{{ $rowSearch }}">
                             <td class="px-4 py-3 text-sm text-gray-500">{{ $row->received_at ? \Carbon\Carbon::parse($row->received_at)->format('M d, Y') : '—' }}</td>
-                            <td class="px-4 py-3 text-sm font-semibold">{{ $row->ris_form_number ?: $row->authority_purchase_form_number }}</td>
+                            <td class="px-4 py-3 text-sm font-semibold">{{ $row->receiving_report_form_number ?: ($row->ris_form_number ?: $row->authority_purchase_form_number) }}</td>
                             <td class="px-4 py-3 text-sm">{{ $row->supplier_name }}</td>
                             <td class="px-4 py-3 text-sm">{{ $rowStatus === 'accepted' ? 'Accepted' : 'Returned' }}</td>
                             <td class="px-4 py-3 text-sm">{{ $row->officer_name ?: 'Receiving Officer' }}</td>

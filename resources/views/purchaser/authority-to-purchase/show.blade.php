@@ -33,17 +33,11 @@
                     <h3 class="text-lg font-semibold text-slate-900">ATP Information</h3>
                     <p class="text-sm text-slate-500">Details and current status.</p>
                 </div>
-                <span class="rounded-full px-3 py-1 text-xs font-semibold {{ $atp->authority_purchase_status === 'Approved' ? 'bg-emerald-100 text-emerald-700' : ($atp->authority_purchase_status === 'Rejected' ? 'bg-red-100 text-red-700' : ($atp->authority_purchase_submitted_at ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700')) }}">
-                    @if($atp->authority_purchase_status === 'Approved')
-                        Approved
-                    @elseif($atp->authority_purchase_status === 'Rejected')
-                        Rejected
-                    @elseif($atp->authority_purchase_submitted_at)
-                        Submitted
-                    @else
-                        Draft
-                    @endif
-                </span>
+                @include('accounting.partials.status-badge', [
+                    'status' => \App\Support\RisWorkflow::atpStatusLabel($atp),
+                    'submitted' => $atp->authority_purchase_submitted_at,
+                    'revision' => $atp->authority_purchase_rejection_reason,
+                ])
             </div>
 
             <dl class="grid gap-4 sm:grid-cols-2">
@@ -75,8 +69,10 @@
                 </div>
                 @if($atp->authority_purchase_rejection_reason)
                     <div class="sm:col-span-2">
-                        <dt class="text-xs uppercase tracking-wide text-red-500">Rejection reason</dt>
-                        <dd class="mt-1 text-sm text-red-700">{{ $atp->authority_purchase_rejection_reason }}</dd>
+                        <dt class="text-xs uppercase tracking-wide {{ $atp->authority_purchase_status === 'Rejected' ? 'text-red-500' : 'text-amber-600' }}">
+                            {{ $atp->authority_purchase_status === 'Rejected' ? 'Rejection reason' : 'Revision requested' }}
+                        </dt>
+                        <dd class="mt-1 text-sm {{ $atp->authority_purchase_status === 'Rejected' ? 'text-red-700' : 'text-amber-800' }}">{{ $atp->authority_purchase_rejection_reason }}</dd>
                     </div>
                 @endif
             </dl>
@@ -150,36 +146,24 @@
         @endif
 
         @if($atp->authority_purchase_status === 'Pending' && $atp->authority_purchase_submitted_at)
-            <form method="POST" action="{{ route('purchaser.atp.approve', $atp->authority_purchase_id) }}" class="inline-block">
-                @csrf
-                <button type="submit" class="h-10 rounded-lg bg-emerald-100 px-5 text-sm font-medium text-emerald-700">Approve</button>
-            </form>
-            <button onclick="document.getElementById('reject-reason').classList.toggle('hidden')" class="h-10 rounded-lg border border-red-300 px-5 text-sm font-medium text-red-700">Reject</button>
+            <p class="text-sm text-gray-500">Waiting for Accounting to approve or request a revision.</p>
         @endif
 
-        @if(!$atp->authority_purchase_is_archived)
+        @if($atp->authority_purchase_status === 'Approved' && !$atp->authority_purchase_is_archived)
+            <a href="{{ route('purchaser.rfc.index', ['selected_atp' => $atp->authority_purchase_id]) }}" class="h-10 inline-flex items-center rounded-lg bg-blue-600 px-5 text-sm font-medium text-white hover:bg-blue-700">Create RFC</a>
+        @endif
+
+        @if(!$atp->authority_purchase_is_archived && in_array($atp->authority_purchase_status, ['Approved', 'Rejected'], true))
             <form method="POST" action="{{ route('purchaser.atp.archive', $atp->authority_purchase_id) }}" class="inline-block">
                 @csrf
                 <button type="submit" class="h-10 rounded-lg bg-gray-100 px-5 text-sm font-medium text-gray-700">Archive</button>
             </form>
-        @else
+        @elseif($atp->authority_purchase_is_archived)
             <form method="POST" action="{{ route('purchaser.atp.restore', $atp->authority_purchase_id) }}" class="inline-block">
                 @csrf
                 <button type="submit" class="h-10 rounded-lg bg-blue-50 px-5 text-sm font-medium text-blue-600">Restore</button>
             </form>
         @endif
-    </div>
-
-    <div id="reject-reason" class="hidden rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
-        <form method="POST" action="{{ route('purchaser.atp.reject', $atp->authority_purchase_id) }}">
-            @csrf
-            <label class="text-xs font-medium text-red-700">Rejection reason</label>
-            <textarea name="authority_purchase_rejection_reason" rows="3" class="mt-2 w-full rounded-lg border border-red-300 px-3 py-2 text-sm"></textarea>
-            <div class="mt-4 flex justify-end gap-2">
-                <button type="button" onclick="document.getElementById('reject-reason').classList.add('hidden')" class="h-10 rounded-lg border border-red-300 px-5 text-sm font-medium text-red-700">Cancel</button>
-                <button type="submit" class="h-10 rounded-lg bg-red-600 px-5 text-sm font-medium text-white">Confirm Reject</button>
-            </div>
-        </form>
     </div>
 </div>
 

@@ -71,13 +71,18 @@
 
                 @php
                     $isPresidentRejected = in_array($ris->ris_status ?? '', ['Rejected by President', 'Rejected by the President'], true);
-                    $isReleased = !empty($ris->released_ris_id);
                     $alreadyIssued = trim((string) ($ris->ris_issued_by_signature ?? '')) !== ''
                         || !empty($ris->ris_issued_by_date);
-                    $awaitingSign = !$isReleased
-                        && !$isPresidentRejected
+                    $approvedBySig = trim((string) ($ris->ris_approved_by_signature ?? ''));
+                    $presidentApprovedStatus = in_array($ris->ris_status ?? '', ['Approved by the President', 'Approved'], true)
+                        && $approvedBySig !== ''
+                        && (
+                            ($ris->ris_status ?? '') === 'Approved by the President'
+                            || str_starts_with($approvedBySig, 'data:image')
+                        );
+                    $awaitingSign = !$isPresidentRejected
                         && !$alreadyIssued
-                        && trim((string) ($ris->ris_approved_by_signature ?? '')) !== '';
+                        && $presidentApprovedStatus;
                 @endphp
 
 
@@ -128,13 +133,12 @@
                         title="Items / Equipment included in this RIS"
                     >
 
-                        {{ $ris->ris_item_names
-                            ?: ($ris->ris_manual_title
-                                ?: ($ris->equipment_name
-                                    ?? $ris->report_unlisted_equipment_name
-                                    ?? (($ris->ris_request_type ?? null) === 'manual' ? 'Manual Procurement' : 'Unknown Equipment'))) }}
-
+                        {{ \App\Support\RisWorkflow::sourceLabel($ris) }}
+                        @if(!empty($ris->ris_request_type))
+                            <div class="mt-1 text-xs text-gray-400">{{ \App\Support\RisWorkflow::requestTypeLabel($ris) }}</div>
+                        @endif
                     </div>
+                    @include('admin.partials.ris-attachments', ['ris' => $ris])
 
                 </td>
 
@@ -224,6 +228,22 @@
                             >
                                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536M4 20h4.586a1 1 0 00.707-.293l9.414-9.414a2 2 0 000-2.828l-3.172-3.172a2 2 0 00-2.828 0L4.293 14.707A1 1 0 004 15.414V20z"></path>
+                                </svg>
+                            </button>
+
+                        @endif
+
+                        @if($isPresidentRejected)
+
+                            <button
+                                type="button"
+                                onclick="openReturnRevisionModal('{{ $ris->ris_id }}')"
+                                title="Return this President-rejected RIS to Purchaser for Minor Revision"
+                                aria-label="Return for revision"
+                                class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-700 transition hover:border-amber-300 hover:bg-amber-100"
+                            >
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
                                 </svg>
                             </button>
 

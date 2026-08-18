@@ -14,7 +14,7 @@
             <table class="w-full min-w-[900px] text-left">
                 <thead class="border-b bg-gray-50">
                     <tr>
-                        <th class="px-4 py-2 text-xs font-semibold uppercase text-gray-500">RIS / ATP</th>
+                        <th class="px-4 py-2 text-xs font-semibold uppercase text-gray-500">RR / RIS</th>
                         <th class="px-4 py-2 text-xs font-semibold uppercase text-gray-500">Items</th>
                         <th class="px-4 py-2 text-xs font-semibold uppercase text-gray-500">Supplier</th>
                         <th class="px-4 py-2 text-xs font-semibold uppercase text-gray-500">Received</th>
@@ -27,7 +27,7 @@
                             $rowSearch = trim(implode(' ', [$row->ris_form_number ?? '', $row->authority_purchase_form_number ?? '', $row->item_names ?? '', $row->supplier_name ?? '', $row->officer_name ?? '']));
                         @endphp
                         <tr data-ro-status="all" data-ro-search="{{ $rowSearch }}">
-                            <td class="px-4 py-3 text-sm font-semibold">{{ $row->ris_form_number ?: $row->authority_purchase_form_number }}</td>
+                            <td class="px-4 py-3 text-sm font-semibold">{{ $row->receiving_report_form_number ?: ($row->ris_form_number ?: $row->authority_purchase_form_number) }}</td>
                             <td class="px-4 py-3 text-sm">{{ \Illuminate\Support\Str::limit($row->item_names ?: '—', 48) }}</td>
                             <td class="px-4 py-3 text-sm">{{ $row->supplier_name }}</td>
                             <td class="px-4 py-3 text-sm text-gray-500">{{ $row->received_at ? \Carbon\Carbon::parse($row->received_at)->format('M d, Y') : '—' }}</td>

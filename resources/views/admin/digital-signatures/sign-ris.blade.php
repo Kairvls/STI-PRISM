@@ -75,6 +75,7 @@
 
 
     @include('admin.procurement-review._direct-approve-modal')
+    @include('admin.digital-signatures._return-revision-modal')
 
 </div>
 
@@ -371,6 +372,10 @@
         iframe.src =
             `/admin/procurement-review/ris/${risId}/print?ts=${Date.now()}`;
 
+        if (window.fillRisPreviewAttachments) {
+            window.fillRisPreviewAttachments(risId);
+        }
+
         modal.classList.remove('hidden');
         modal.style.display = 'block';
 
@@ -475,6 +480,9 @@
                 closeSignRisPreviewModal();
                 if (typeof window.closeDirectApproveModal === 'function') {
                     window.closeDirectApproveModal();
+                }
+                if (typeof window.closeReturnRevisionModal === 'function') {
+                    window.closeReturnRevisionModal();
                 }
             }
         }

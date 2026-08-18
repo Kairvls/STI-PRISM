@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use App\Support\WorkflowNotifier;
+use App\Support\RisWorkflow;
 
 class AccountingController extends Controller
 {
@@ -193,9 +194,9 @@ class AccountingController extends Controller
         return view('accounting.authority-to-purchase.show', compact('atp', 'items', 'chain', 'history', 'reviewable'));
     }
 
-    public function approveAtp($id)
+    public function approveAtp(Request $request, $id)
     {
-        return DB::transaction(function () use ($id) {
+        return DB::transaction(function () use ($request, $id) {
         $atp = $this->lockAtp($id);
         abort_if(!$atp, 404);
 
@@ -203,9 +204,10 @@ class AccountingController extends Controller
             return back()->with('error', 'Only submitted ATP records can be approved.');
         }
 
+        $name = Auth::user()->user_full_name ?? Auth::user()->name ?? 'Accounting';
         DB::table('authority_to_purchase_table')->where('authority_purchase_id', $id)->update([
             'authority_purchase_status' => 'Approved',
-            'authority_purchase_authorized_by_signature' => Auth::user()->user_full_name ?? Auth::user()->name,
+            'authority_purchase_authorized_by_signature' => RisWorkflow::drawnOrName($request->input('signature_data'), $name),
             'authority_purchase_rejection_reason' => null,
             'authority_purchase_updated_at' => now(),
         ]);
@@ -218,7 +220,7 @@ class AccountingController extends Controller
             'atp_approved',
             'ATP',
             (int) $id,
-            '/purchaser/authority-to-purchase'
+            '/purchaser/request-check?selected_atp=' . (int) $id
         );
 
         return redirect('/accounting/authority-to-purchase/' . $id)->with('success', 'ATP approved. Purchaser has been notified.');
@@ -332,7 +334,7 @@ class AccountingController extends Controller
         return view('accounting.request-check.show', compact('rfc', 'attachments', 'chain', 'history', 'reviewable', 'releasable'));
     }
 
-    public function approveRequestCheck($id)
+    public function approveRequestCheck(Request $request, $id)
     {
         $rfc = $this->lockRfc($id);
         abort_if(!$rfc, 404);
@@ -341,7 +343,8 @@ class AccountingController extends Controller
             return back()->with('error', 'This Request Check is not awaiting Accounting review.');
         }
 
-        $name = Auth::user()->user_full_name ?? Auth::user()->name;
+        $name = Auth::user()->user_full_name ?? Auth::user()->name ?? 'Accounting';
+        $signature = RisWorkflow::drawnOrName($request->input('signature_data'), $name);
         $this->rfcUpdate($id, [
             'request_check_status' => 'Approved',
             'request_check_review_stage' => 'accounting',
@@ -349,8 +352,8 @@ class AccountingController extends Controller
             'request_check_accounting_verified_at' => now(),
             'request_check_approved_by_user_id' => Auth::id(),
             'request_check_approved_at' => now(),
-            'request_check_approved_by_signature' => $name,
-            'request_check_approved_by_admin' => $name,
+            'request_check_approved_by_signature' => $signature,
+            'request_check_approved_by_admin' => $signature,
             'request_check_updated_at' => now(),
         ]);
 
@@ -358,7 +361,7 @@ class AccountingController extends Controller
         $this->notifyPurchaser(
             $rfc->request_check_submitted_by ?? $rfc->request_check_requested_by_user_id,
             'Request Check approved',
-            ($rfc->request_check_form_number ?: ('RFC #' . $id)) . ' was approved. Funds will be prepared for collection.',
+            ($rfc->request_check_form_number ?: ('RFC #' . $id)) . ' was approved. Wait for Accounting to release funds, then create a Receiving Report.',
             'rfc_approved',
             'RFC',
             (int) $id,
@@ -386,7 +389,7 @@ class AccountingController extends Controller
             'request_check_updated_at' => now(),
         ]);
 
-        $this->log('RFC', (int) $id, 'Rejected', $validated['remarks']);
+        $this->log('RFC', (int) $id, 'Minor Revision', $validated['remarks']);
         $this->notifyPurchaser(
             $rfc->request_check_submitted_by ?? $rfc->request_check_requested_by_user_id,
             'Request Check revision required',
@@ -429,11 +432,11 @@ class AccountingController extends Controller
         $this->notifyPurchaser(
             $rfc->request_check_submitted_by ?? $rfc->request_check_requested_by_user_id,
             'Funds ready for collection',
-            ($rfc->request_check_form_number ?: ('RFC #' . $id)) . ' — ' . $amount . ' is ready for personal collection.',
+            ($rfc->request_check_form_number ?: ('RFC #' . $id)) . ' — ' . $amount . ' is ready for personal collection. You may create a Receiving Report.',
             'rfc_funds_released',
             'RFC',
             (int) $id,
-            '/purchaser/request-check'
+            '/purchaser/receiving-reports'
         );
 
         return redirect('/accounting/request-check/' . $id)->with('success', 'Funds marked as ready for collection. Purchaser notified.');
@@ -534,7 +537,7 @@ class AccountingController extends Controller
         return view('accounting.liquidation-reports.show', compact('liq', 'rows', 'attachments', 'chain', 'history', 'reviewable'));
     }
 
-    public function approveLiquidation($id)
+    public function approveLiquidation(Request $request, $id)
     {
         $liq = $this->lockLiq($id);
         abort_if(!$liq, 404);
@@ -543,16 +546,17 @@ class AccountingController extends Controller
             return back()->with('error', 'This liquidation report is not awaiting Accounting review.');
         }
 
-        $name = Auth::user()->user_full_name ?? Auth::user()->name;
+        $name = Auth::user()->user_full_name ?? Auth::user()->name ?? 'Accounting';
         $this->liqUpdate($id, [
             'liquidation_report_status' => 'Approved',
             'liquidation_report_review_stage' => 'completed',
-            'liquidation_report_checked_by_accountant' => $name,
+            'liquidation_report_checked_by_accountant' => RisWorkflow::drawnOrName($request->input('signature_data'), $name),
             'liquidation_report_checked_by_date' => now()->toDateString(),
             'liquidation_report_updated_at' => now(),
         ]);
 
         $this->log('LIQ', (int) $id, 'Approved', 'Liquidation approved. Transaction completed.');
+        $this->completeLinkedProcurementRequest($liq);
         $this->notifyPurchaser(
             $liq->liquidation_report_submitted_by,
             'Liquidation report approved',
@@ -1172,5 +1176,66 @@ class AccountingController extends Controller
     private function lockLiq($id)
     {
         return DB::table('liquidation_reports_table')->where('liquidation_report_id', $id)->lockForUpdate()->first();
+    }
+
+    private function completeLinkedProcurementRequest(object $liq): void
+    {
+        if (!Schema::hasTable('procurement_requests_table')) {
+            return;
+        }
+
+        $procurementId = (int) ($liq->liquidation_report_procurement_request_id ?? 0);
+
+        if ($procurementId < 1 && !empty($liq->liquidation_report_receiving_report_id) && Schema::hasTable('receiving_reports_table')) {
+            $rr = DB::table('receiving_reports_table')
+                ->where('receiving_report_id', $liq->liquidation_report_receiving_report_id)
+                ->first();
+
+            $procurementId = (int) ($rr->receiving_report_procurement_request_id ?? 0);
+
+            if ($procurementId < 1 && !empty($rr->receiving_report_ris_id) && Schema::hasTable('requisition_issue_slip_table')) {
+                $procurementId = (int) DB::table('requisition_issue_slip_table')
+                    ->where('ris_id', $rr->receiving_report_ris_id)
+                    ->value('ris_procurement_request_id');
+            }
+
+            if (
+                $procurementId < 1
+                && !empty($rr->receiving_report_request_check_id)
+                && Schema::hasTable('request_check_table')
+                && Schema::hasTable('authority_to_purchase_table')
+                && Schema::hasTable('requisition_issue_slip_table')
+            ) {
+                $linked = DB::table('request_check_table')
+                    ->leftJoin(
+                        'authority_to_purchase_table',
+                        'request_check_table.request_check_authority_purchase_id',
+                        '=',
+                        'authority_to_purchase_table.authority_purchase_id'
+                    )
+                    ->leftJoin(
+                        'requisition_issue_slip_table',
+                        'authority_to_purchase_table.authority_purchase_ris_id',
+                        '=',
+                        'requisition_issue_slip_table.ris_id'
+                    )
+                    ->where('request_check_table.request_check_id', $rr->receiving_report_request_check_id)
+                    ->select('requisition_issue_slip_table.ris_procurement_request_id')
+                    ->first();
+
+                $procurementId = (int) ($linked->ris_procurement_request_id ?? 0);
+            }
+        }
+
+        if ($procurementId < 1) {
+            return;
+        }
+
+        DB::table('procurement_requests_table')
+            ->where('procurement_request_id', $procurementId)
+            ->whereIn('procurement_request_status', ['Approved', 'Pending'])
+            ->update([
+                'procurement_request_status' => 'Completed',
+            ]);
     }
 }

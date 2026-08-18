@@ -14,10 +14,7 @@
         </div>
         <div class="acc-actions">
             @if ($reviewable)
-                <form method="POST" action="/accounting/request-check/{{ $rfc->request_check_id }}/approve" onsubmit="return confirm('Approve this Request Check?');">
-                    @csrf
-                    <button class="acc-btn acc-btn-approve">Approve</button>
-                </form>
+                <button type="button" onclick="document.getElementById('approve-box').classList.toggle('hidden'); if (window.initSignaturePad) window.initSignaturePad('rfcSignatureCanvas');" class="acc-btn acc-btn-approve">Approve</button>
                 <button type="button" onclick="document.getElementById('revise-box').classList.toggle('hidden')" class="acc-btn acc-btn-revise">Request revision</button>
             @endif
             @if ($releasable)
@@ -27,8 +24,24 @@
                 </form>
             @endif
             @include('accounting.partials.status-badge', ['status' => !empty($rfc->request_check_funds_released_at) ? 'Released' : $rfc->request_check_status])
+            <button type="button" class="acc-btn acc-btn-ghost" onclick="window.print()">Print</button>
         </div>
     </div>
+
+    <form id="approve-box" method="POST" action="/accounting/request-check/{{ $rfc->request_check_id }}/approve" class="acc-modal hidden" onsubmit="return window.requireSignaturePad('rfcSignatureCanvas', 'rfcSignatureCanvasData', 'Please sign this Request Check before approving.')">
+        @csrf
+        <h3>Sign to approve</h3>
+        @include('partials.signature-pad', [
+            'canvasId' => 'rfcSignatureCanvas',
+            'label' => 'Accounting signature',
+            'hint' => 'Sign to approve this Request for Check.',
+            'requiredMessage' => 'Please sign this Request Check before approving.',
+        ])
+        <div class="mt-2.5 flex justify-end gap-2">
+            <button type="button" onclick="document.getElementById('approve-box').classList.add('hidden')" class="acc-btn acc-btn-ghost">Cancel</button>
+            <button class="acc-btn acc-btn-approve">Approve</button>
+        </div>
+    </form>
 
     <form id="revise-box" method="POST" action="/accounting/request-check/{{ $rfc->request_check_id }}/revise" class="acc-modal hidden">
         @csrf

@@ -8,9 +8,21 @@
         reviseOpen: false,
         returnOpen: false,
         remarksRr: null,
+        signOpen: false,
+        signRr: null,
         openView(id) { this.selectedRr = id; this.viewOpen = true; },
-        openRevise(id) { this.remarksRr = id; this.reviseOpen = true; this.returnOpen = false; },
-        openReturn(id) { this.remarksRr = id; this.returnOpen = true; this.reviseOpen = false; },
+        openRevise(id) { this.remarksRr = id; this.reviseOpen = true; this.returnOpen = false; this.signOpen = false; },
+        openReturn(id) { this.remarksRr = id; this.returnOpen = true; this.reviseOpen = false; this.signOpen = false; },
+        openSign(id) {
+            this.signRr = id;
+            this.signOpen = true;
+            this.reviseOpen = false;
+            this.returnOpen = false;
+            this.$nextTick(() => {
+                if (window.clearSignaturePad) window.clearSignaturePad('rrSignatureCanvas', 'rrSignatureCanvasData');
+                if (window.initSignaturePad) window.initSignaturePad('rrSignatureCanvas');
+            });
+        },
         printRr(id) {
             document.querySelectorAll('.rr-print-sheet').forEach(function (sheet) {
                 sheet.classList.remove('rr-print-active');
@@ -52,6 +64,19 @@
         </a>
     </div>
 
+    <form method="GET" action="{{ route('receiving.rr.index') }}" class="flex flex-wrap gap-2">
+        <input type="hidden" name="status" value="{{ $filter }}">
+        <input
+            type="text"
+            name="search"
+            value="{{ request('search') }}"
+            placeholder="Search RR, RFC, or received from"
+            class="h-10 min-w-[240px] flex-1 rounded-lg border border-gray-300 px-3 text-sm"
+        >
+        <button type="submit" class="h-10 rounded-lg bg-slate-900 px-4 text-sm font-medium text-white">Search</button>
+        <a href="{{ route('receiving.rr.index', ['status' => $filter]) }}" class="inline-flex h-10 items-center rounded-lg border border-gray-300 px-4 text-sm text-gray-700">Reset</a>
+    </form>
+
     <div class="overflow-hidden rounded-xl border bg-white">
         <table class="w-full min-w-[900px] text-sm">
             <thead class="border-b bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
@@ -70,16 +95,13 @@
                         <td class="px-4 py-4 font-medium">{{ $rr->receiving_report_form_number }}</td>
                         <td class="px-4 py-4 text-gray-600">{{ $rr->request_check_form_number ?? '—' }}</td>
                         <td class="px-4 py-4 text-gray-600">{{ $rr->receiving_report_received_from ?? '—' }}</td>
-                        <td class="px-4 py-4">{{ $rr->receiving_report_status }}</td>
+                        <td class="px-4 py-4">@include('accounting.partials.status-badge', ['status' => $rr->receiving_report_status])</td>
                         <td class="px-4 py-4">
                             <div class="flex flex-wrap gap-2">
                                 <button type="button" @click="openView({{ $rr->receiving_report_id }}); fetch('{{ route('receiving.rr.start-review', $rr->receiving_report_id) }}', {method:'POST', headers:{'X-CSRF-TOKEN':'{{ csrf_token() }}','Accept':'application/json'}})" class="rounded-lg border px-3 py-2 text-xs">View</button>
                                 <button type="button" @click="printRr({{ $rr->receiving_report_id }})" class="rounded-lg border px-3 py-2 text-xs">Print</button>
                                 @if($reviewable)
-                                    <form method="POST" action="{{ route('receiving.rr.second-count', $rr->receiving_report_id) }}">
-                                        @csrf
-                                        <button type="submit" onclick="return confirm('Confirm Second Count? Items arrived correctly?')" class="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700">Second Count</button>
-                                    </form>
+                                    <button type="button" @click="openSign({{ $rr->receiving_report_id }})" class="rounded-lg bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700">Second Count</button>
                                     <button type="button" @click="openRevise({{ $rr->receiving_report_id }})" class="rounded-lg border border-amber-300 px-3 py-2 text-xs text-amber-700">Revise</button>
                                     <button type="button" @click="openReturn({{ $rr->receiving_report_id }})" class="rounded-lg border border-red-300 px-3 py-2 text-xs text-red-700">Return</button>
                                 @endif
@@ -114,6 +136,32 @@
             </div>
         </div>
     @endforeach
+
+    <div x-show="signOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <form
+            method="POST"
+            :action="'/receiving/reports/' + signRr + '/second-count'"
+            @click.stop
+            class="w-full max-w-lg rounded-2xl bg-white p-6"
+            onsubmit="return window.requireSignaturePad('rrSignatureCanvas', 'rrSignatureCanvasData', 'Please sign before confirming Second Count.')"
+        >
+            @csrf
+            <h3 class="text-lg font-semibold">Confirm Second Count</h3>
+            <p class="mt-1 text-sm text-gray-500">Sign to confirm the delivered items match this Receiving Report.</p>
+            <div class="mt-4">
+                @include('partials.signature-pad', [
+                    'canvasId' => 'rrSignatureCanvas',
+                    'label' => 'Receiving Officer signature',
+                    'hint' => 'Sign to complete Second Count.',
+                    'requiredMessage' => 'Please sign before confirming Second Count.',
+                ])
+            </div>
+            <div class="mt-4 flex justify-end gap-2">
+                <button type="button" @click="signOpen = false" class="rounded-lg border px-4 py-2 text-sm">Cancel</button>
+                <button type="submit" class="rounded-lg bg-emerald-600 px-4 py-2 text-sm text-white">Confirm</button>
+            </div>
+        </form>
+    </div>
 
     <div x-show="reviseOpen" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
         <form method="POST" :action="'/receiving/reports/' + remarksRr + '/revise'" @click.stop class="w-full max-w-lg rounded-2xl bg-white p-6">

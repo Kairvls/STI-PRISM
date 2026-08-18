@@ -134,7 +134,9 @@
     <div class="mt-16 grid grid-cols-2 gap-16">
         <div class="text-center">
             <div class="font-semibold">Second Count:</div>
-            <div class="mx-auto mt-10 w-56 border-b border-black pb-1 min-h-[1.5rem]">{{ $secondCount }}</div>
+            <div class="mx-auto mt-10 w-56 border-b border-black pb-1 min-h-[1.5rem]">
+                @include('partials.drawn-signature', ['value' => $secondCount])
+            </div>
         </div>
         <div class="text-center">
             <div class="font-semibold">Received by:</div>

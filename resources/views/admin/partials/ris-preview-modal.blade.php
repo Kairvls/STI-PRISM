@@ -38,6 +38,10 @@
                     src="about:blank"
                     title="RIS Form Preview"
                 ></iframe>
+                <div id="{{ $modalId }}-attachments" class="mx-auto mt-4 hidden max-w-5xl rounded-lg border border-gray-200 bg-white px-4 py-3">
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Supporting documents</p>
+                    <div class="mt-2 space-y-1" data-attachment-list></div>
+                </div>
             </div>
 
             <div class="flex justify-end gap-3 border-t border-gray-200 bg-gray-50 px-6 py-4">
@@ -59,3 +63,31 @@
         </div>
     </div>
 </div>
+<script>
+    window.fillRisPreviewAttachments = function (risId, modalId) {
+        const box = document.getElementById((modalId || 'risPreviewModal') + '-attachments');
+        if (!box) return;
+        const list = box.querySelector('[data-attachment-list]');
+        box.classList.add('hidden');
+        if (list) list.innerHTML = '';
+        fetch('/admin/ris/' + risId + '/details', {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        })
+            .then(function (res) { return res.ok ? res.json() : { attachments: [] }; })
+            .then(function (data) {
+                const files = data.attachments || [];
+                if (!files.length || !list) return;
+                files.forEach(function (file) {
+                    const link = document.createElement('a');
+                    link.href = file.url;
+                    link.target = '_blank';
+                    link.rel = 'noopener';
+                    link.className = 'block truncate text-sm text-blue-600 hover:underline';
+                    link.textContent = file.name || 'Attachment';
+                    list.appendChild(link);
+                });
+                box.classList.remove('hidden');
+            })
+            .catch(function () {});
+    };
+</script>
