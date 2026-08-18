@@ -5,6 +5,18 @@
     <div class="mb-4 flex flex-wrap items-center justify-end gap-2">
         @if (!$historyReporter)
             <div class="flex flex-wrap items-center gap-2">
+                <a
+                    href="/maintenance/reporters/approvals"
+                    class="inline-flex items-center justify-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-3 text-sm font-semibold text-amber-800 transition hover:bg-amber-100"
+                >
+                    <i data-lucide="user-check" class="h-4 w-4"></i>
+                    Approvals
+                    @if (($pendingReporterApprovals ?? 0) > 0)
+                        <span class="inline-flex min-w-[20px] items-center justify-center rounded-full bg-amber-500 px-1.5 text-[11px] font-bold text-white">
+                            {{ $pendingReporterApprovals }}
+                        </span>
+                    @endif
+                </a>
                 <button
                     type="button"
                     onclick="openImportModal()"
@@ -32,6 +44,13 @@
     </div>
 
     @if (!$historyReporter)
+
+    @if (($pendingReporterApprovals ?? 0) > 0)
+        <div class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            {{ $pendingReporterApprovals }} reporter {{ \Illuminate\Support\Str::plural('application', $pendingReporterApprovals) }} waiting for confirmation.
+            <a href="{{ url('/maintenance/reporters/approvals') }}" class="font-semibold underline">Review approvals</a>
+        </div>
+    @endif
 
     {{-- ===================================================== --}}
     {{-- REPORTER DASHBOARD CARDS --}}

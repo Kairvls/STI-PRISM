@@ -556,6 +556,11 @@
                                     $report->report_submitted_at,
                                 )->format("M d, Y h:i A")
                             }}
+                            @if (!empty($report->report_preferred_action_date))
+                                <p class="mt-1 text-[11px] text-sky-700">
+                                    Preferred: {{ \Carbon\Carbon::parse($report->report_preferred_action_date)->format("M d, Y") }}
+                                </p>
+                            @endif
                         </td>
                         <td class="px-5 py-4">
                             <div
@@ -904,6 +909,14 @@
                                     {{ \Carbon\Carbon::parse($report->report_submitted_at)->format("M d, Y h:i A") }}
                                 </span>
                             </div>
+                            @if (!empty($report->report_preferred_action_date))
+                                <div class="flex items-center justify-between gap-4 border-b border-slate-100 px-4 py-3">
+                                    <span class="text-sm text-slate-500">Preferred date</span>
+                                    <span class="text-right text-sm font-medium text-slate-800">
+                                        {{ \Carbon\Carbon::parse($report->report_preferred_action_date)->format("M d, Y") }}
+                                    </span>
+                                </div>
+                            @endif
                             <div class="px-4 py-3">
                                 <p class="text-sm text-slate-500">What happened</p>
                                 <p class="mt-1.5 whitespace-pre-wrap text-sm leading-6 text-slate-800">

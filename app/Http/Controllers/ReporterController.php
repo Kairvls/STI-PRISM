@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Support\ReportGrouping;
+use App\Support\ReporterApprovals;
 use App\Support\ReporterImport;
 use App\Support\SuggestedIssues;
 use Illuminate\Http\Request;
@@ -273,6 +274,123 @@ class ReporterController extends Controller
             ];
         });
 
+        $currentMonth = now()->copy()->startOfMonth();
+        $monthStart = $currentMonth->copy()->startOfDay();
+        $monthEnd = $currentMonth->copy()->endOfMonth()->endOfDay();
+        $daysInMonth = (int) $currentMonth->daysInMonth;
+
+        $monthlyDayCounts = collect();
+        if ($reportsQuery) {
+            $monthlyDayCounts = (clone $reportsQuery)
+                ->selectRaw('DAY(report_submitted_at) as day_num, COUNT(*) as total')
+                ->whereBetween('report_submitted_at', [$monthStart, $monthEnd])
+                ->when(
+                    Schema::hasColumn('reports_table', 'report_is_archived'),
+                    fn ($query) => $query->where('report_is_archived', false)
+                )
+                ->groupBy(DB::raw('DAY(report_submitted_at)'))
+                ->pluck('total', 'day_num');
+        }
+
+        $monthlyReportDays = collect();
+        $monthlyReportMax = 1;
+        for (
+            $cursor = $monthStart->copy();
+            $cursor->month === $currentMonth->month && $cursor->year === $currentMonth->year;
+            $cursor->addDay()
+        ) {
+            $day = (int) $cursor->day;
+            $count = (int) ($monthlyDayCounts[$day] ?? 0);
+            $monthlyReportMax = max($monthlyReportMax, $count);
+            $monthlyReportDays->push((object) [
+                'day' => $day,
+                'count' => $count,
+                'date' => $cursor->toDateString(),
+            ]);
+        }
+
+        $monthlyReportDays = $monthlyReportDays->map(function ($item) use ($monthlyReportMax) {
+            $item->height = $item->count > 0
+                ? max(10, (int) round(($item->count / $monthlyReportMax) * 100))
+                : 6;
+            $item->isPeak = $item->count === $monthlyReportMax && $item->count > 0;
+            return $item;
+        });
+
+        $monthlyReportTotal = (int) $monthlyReportDays->sum('count');
+        $monthlyReportLabel = now()->format('F Y');
+
+        $yearStart = now()->copy()->startOfYear()->startOfDay();
+        $yearEnd = now()->copy()->endOfYear()->endOfDay();
+        $yearlyReportTotal = 0;
+        if ($reportsQuery) {
+            $yearlyReportTotal = (int) (clone $reportsQuery)
+                ->whereBetween('report_submitted_at', [$yearStart, $yearEnd])
+                ->when(
+                    Schema::hasColumn('reports_table', 'report_is_archived'),
+                    fn ($query) => $query->where('report_is_archived', false)
+                )
+                ->count();
+        }
+        $yearlyReportYear = (int) now()->year;
+
+        $monthlyStatusCounts = [
+            'Pending' => 0,
+            'Processing' => 0,
+            'Resolved' => 0,
+        ];
+        if ($reportsQuery) {
+            $statusRows = (clone $reportsQuery)
+                ->selectRaw('report_current_status as status, COUNT(*) as total')
+                ->whereBetween('report_submitted_at', [$monthStart, $monthEnd])
+                ->when(
+                    Schema::hasColumn('reports_table', 'report_is_archived'),
+                    fn ($query) => $query->where('report_is_archived', false)
+                )
+                ->groupBy('report_current_status')
+                ->pluck('total', 'status');
+
+            foreach ($monthlyStatusCounts as $status => $_) {
+                $monthlyStatusCounts[$status] = (int) ($statusRows[$status] ?? 0);
+            }
+        }
+
+        $campusBuildings = $rooms
+            ->groupBy(fn ($room) => $room->building_name ?: 'Campus Building')
+            ->map(function ($buildingRooms, $buildingName) {
+                $floors = $buildingRooms
+                    ->groupBy(fn ($room) => (int) ($room->floor_level ?: 1))
+                    ->sortKeys()
+                    ->map(function ($floorRooms, $level) {
+                        return (object) [
+                            'level' => (int) $level,
+                            'rooms' => $floorRooms->count(),
+                        ];
+                    })
+                    ->values();
+
+                return (object) [
+                    'name' => $buildingName,
+                    'floors' => $floors,
+                    'room_count' => $buildingRooms->count(),
+                    'floor_count' => $floors->count(),
+                ];
+            })
+            ->values();
+
+        if ($campusBuildings->isEmpty()) {
+            $campusBuildings = collect([(object) [
+                'name' => 'STI College Ormoc',
+                'floors' => collect([
+                    (object) ['level' => 1, 'rooms' => 8],
+                    (object) ['level' => 2, 'rooms' => 8],
+                    (object) ['level' => 3, 'rooms' => 6],
+                ]),
+                'room_count' => 22,
+                'floor_count' => 3,
+            ]]);
+        }
+
         return view('landing.index', compact(
             'rooms',
             'equipment',
@@ -291,7 +409,15 @@ class ReporterController extends Controller
             'totalEquipment',
             'qrTaggedCount',
             'buildings',
-            'upcomingSchedules'
+            'upcomingSchedules',
+            'monthlyReportDays',
+            'monthlyReportTotal',
+            'monthlyReportLabel',
+            'daysInMonth',
+            'monthlyStatusCounts',
+            'campusBuildings',
+            'yearlyReportTotal',
+            'yearlyReportYear'
         ));
     }
 
@@ -332,6 +458,9 @@ class ReporterController extends Controller
             'report_urgency_level' =>
                 'required|in:Urgent,Non-Urgent',
 
+            'report_preferred_action_date' =>
+                ReportGrouping::preferredActionDateRules(),
+
             'report_uploaded_image' =>
                 'nullable|image|mimes:jpg,jpeg,png,webp|max:10240'
 
@@ -365,6 +494,24 @@ class ReporterController extends Controller
 
         /*
         |--------------------------------------------------------------------------
+        | SUGGESTED ISSUE OR ADDITIONAL DETAILS REQUIRED
+        |--------------------------------------------------------------------------
+        */
+
+        if (
+            empty(trim((string) $request->report_suggested_issue))
+            && empty(trim((string) $request->report_problem_description))
+        ) {
+            return back()
+                ->with(
+                    'error',
+                    'Please select a suggested issue or provide additional details.'
+                )
+                ->withInput();
+        }
+
+        /*
+        |--------------------------------------------------------------------------
         | CHECK REPORTER EXISTENCE
         |--------------------------------------------------------------------------
         */
@@ -388,6 +535,16 @@ class ReporterController extends Controller
         */
 
         if (!$reporter) {
+            $pending = ReporterApprovals::pendingByEmployeeId(
+                (string) $request->report_reporter_employee_id
+            );
+
+            if ($pending) {
+                return back()->with(
+                    'error',
+                    'Your reporter application is still waiting for maintenance approval. You can submit reports after they confirm you are faculty or staff.'
+                );
+            }
 
             return back()->with(
 
@@ -397,6 +554,13 @@ class ReporterController extends Controller
 
             );
 
+        }
+
+        if (strtolower((string) $reporter->reporter_status) !== 'active') {
+            return back()->with(
+                'error',
+                'This reporter account is inactive and cannot submit maintenance reports.'
+            );
         }
 
         /*
@@ -527,6 +691,10 @@ class ReporterController extends Controller
                 ReportGrouping::mergeIntoOpenReport($openReport, [
                     'reporter_id' => $request->report_reporter_employee_id,
                     'urgency' => $request->report_urgency_level,
+                    'preferred_action_date' => ReportGrouping::resolvePreferredActionDate(
+                        $request->report_urgency_level,
+                        $request->report_preferred_action_date
+                    ),
                     'issue' => $request->report_suggested_issue
                         ?: $request->report_problem_description,
                 ]);
@@ -654,6 +822,13 @@ class ReporterController extends Controller
             $insertData['report_related_count'] = 1;
         }
 
+        if (ReportGrouping::hasPreferredActionDateColumn()) {
+            $insertData['report_preferred_action_date'] = ReportGrouping::resolvePreferredActionDate(
+                $request->report_urgency_level,
+                $request->report_preferred_action_date
+            );
+        }
+
         DB::table('reports_table')->insert($insertData);
 
         /*
@@ -719,6 +894,14 @@ class ReporterController extends Controller
         // =====================================================
 
         if (!$reporter) {
+            $pending = ReporterApprovals::pendingByEmployeeId((string) $employeeId);
+
+            if ($pending) {
+                return response()->json([
+                    'reporter_full_name' => $pending->full_name,
+                    'reporter_status' => 'Pending Approval',
+                ]);
+            }
 
             return response()->json(null);
 
@@ -834,6 +1017,20 @@ class ReporterController extends Controller
                 : back()->with('success', $message)->with('success_title', 'Already registered');
         }
 
+        $pending = ReporterApprovals::pendingByEmail($email);
+
+        if ($pending) {
+            $message = 'This email already has an application waiting for maintenance approval. You can submit reports after they confirm you are faculty or staff.';
+            $payload = $this->withRegistrationLock([
+                'message' => $message,
+                'pending_approval' => true,
+            ], $justLocked, $retryAfter);
+
+            return $request->expectsJson()
+                ? response()->json($payload)
+                : back()->with('success', $message)->with('success_title', 'Waiting for approval');
+        }
+
         $plainToken = Str::random(64);
         $tokenHash = hash('sha256', $plainToken);
 
@@ -942,38 +1139,48 @@ class ReporterController extends Controller
                 ->with('success_title', 'Already registered');
         }
 
+        if (! ReporterApprovals::hasTable()) {
+            return back()->withErrors(['employee_id' => 'Reporter approval is not available yet. Please try again after setup.'])->withInput();
+        }
+
+        $pendingEmail = ReporterApprovals::pendingByEmail($invite->email);
+
+        if ($pendingEmail) {
+            return redirect('/')->with('success', 'Your application is already waiting for maintenance approval. You can submit reports after they confirm you are faculty or staff.')
+                ->with('success_title', 'Waiting for approval');
+        }
+
+        $pendingEmployeeId = ReporterApprovals::pendingByEmployeeId($employeeId);
+
+        if ($pendingEmployeeId) {
+            return back()->withErrors(['employee_id' => 'That employee ID already has an application waiting for approval.'])->withInput();
+        }
+
         $first = trim($request->first_name);
         $middle = trim((string) $request->middle_name);
         $last = trim($request->last_name);
 
-        $payload = [
-            'reporter_employee_id' => $employeeId,
-            'reporter_full_name' => ReporterImport::composeFullName($first, $middle, $last),
-            'reporter_email_address' => $invite->email,
-            'reporter_contact_number' => $request->contact,
-            'reporter_status' => 'Active',
-            'reporter_created_at' => now(),
-        ];
-
-        if (ReporterImport::hasNameColumns()) {
-            $payload['reporter_first_name'] = $first;
-            $payload['reporter_middle_name'] = $middle !== '' ? $middle : null;
-            $payload['reporter_last_name'] = $last;
-        }
-
-        if (ReporterImport::hasTypeColumn()) {
-            $payload['reporter_employment_type'] = $request->type;
-        }
-
-        DB::table('reporters_table')->insert($payload);
+        ReporterApprovals::query()->insert([
+            'employee_id' => $employeeId,
+            'first_name' => $first,
+            'middle_name' => $middle !== '' ? $middle : null,
+            'last_name' => $last,
+            'full_name' => ReporterImport::composeFullName($first, $middle, $last),
+            'email' => $invite->email,
+            'contact' => $request->contact,
+            'employment_type' => $request->type,
+            'status' => ReporterApprovals::STATUS_PENDING,
+            'invite_id' => $invite->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
 
         DB::table('reporter_registration_invites')
             ->where('id', $invite->id)
             ->update(['completed_at' => now()]);
 
-        return redirect('/')->with('success', 'Your details are saved. You can now submit a maintenance report with your employee ID. This is not a system account.')
-            ->with('success_title', 'You can report now')
-            ->with('open_report', true);
+        return redirect('/')->with('success', 'Your application was sent to maintenance personnel. You can submit reports with your employee ID after they confirm you are faculty or staff.')
+            ->with('success_title', 'Waiting for approval');
     }
 
     protected function findValidInvite(string $token)

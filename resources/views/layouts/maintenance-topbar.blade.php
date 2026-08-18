@@ -12,6 +12,7 @@
                 request()->is('maintenance/reports/today') => ["Today's Reports", 'Reports submitted today.'],
                 request()->is('maintenance/reports*') => ['Reports', 'View and manage maintenance reports.'],
                 request()->is('maintenance/notifications*') => ['Alerts', 'Recent activity requiring your attention.'],
+                request()->is('maintenance/reporters/approvals*') => ['Reporters Approval', 'Confirm faculty and staff applications before they can report.'],
                 request()->is('maintenance/reporters*') => ['Reporters', 'People who submit maintenance reports.'],
                 request()->is('maintenance/infrastructure*') => ['Buildings Layout', 'Campus buildings and floor layouts.'],
                 request()->is('maintenance/rooms*') => ['Rooms', 'Rooms and assigned equipment.'],

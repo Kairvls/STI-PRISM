@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Support\ReportGrouping;
+use App\Support\ReporterApprovals;
 use App\Support\ReporterImport;
 use App\Support\RoomCategories;
 use App\Support\RoomName;
@@ -125,23 +126,81 @@ class MaintenanceController extends Controller
 
 
         // =====================================================
-        // URGENT REPORTS SUBMITTED TODAY
-        // Used by the once-per-day login reminder modal
+        // MARK OPEN REPORTS AS OVERDUE
+        // Submitted before today and still Pending / Processing
         // =====================================================
 
-        $urgentReportsToday = DB::table('reports_table')
+        $closedReportStatuses = [
+            'Resolved',
+            'Rejected',
+            'For Replacement',
+        ];
+
+        DB::table('reports_table')
+            ->whereIn('report_current_status', $closedReportStatuses)
+            ->where('report_is_overdue', true)
+            ->update(['report_is_overdue' => false]);
+
+        DB::table('reports_table')
             ->where('report_urgency_level', 'Urgent')
-            ->whereDate('report_submitted_at', today())
+            ->whereIn('report_current_status', ['Pending', 'Processing'])
             ->where('report_is_archived', false)
-            ->whereNotIn(
-                'report_current_status',
-                [
-                    'Resolved',
-                    'Rejected',
-                    'For Replacement',
-                ]
-            )
+            ->whereDate('report_submitted_at', '<', today())
+            ->where('report_is_overdue', false)
+            ->update(['report_is_overdue' => true]);
+
+        DB::table('reports_table')
+            ->where('report_urgency_level', 'Non-Urgent')
+            ->whereIn('report_current_status', ['Pending', 'Processing'])
+            ->where('report_is_overdue', true)
+            ->update(['report_is_overdue' => false]);
+
+        ReportGrouping::applyNonUrgentReminderWindow(
+            DB::table('reports_table')
+                ->where('report_urgency_level', 'Non-Urgent')
+                ->whereIn('report_current_status', ['Pending', 'Processing'])
+                ->where('report_is_archived', false)
+                ->where('report_is_overdue', false)
+        )->update(['report_is_overdue' => true]);
+
+
+        // =====================================================
+        // DAILY REMINDER COUNTS
+        // Urgent: pending or overdue
+        // Non-urgent: remind from preferred date, or after 5 days if none
+        // =====================================================
+
+        $urgentReportsNeedingAction = DB::table('reports_table')
+            ->where('report_urgency_level', 'Urgent')
+            ->where('report_is_archived', false)
+            ->where(function ($query) {
+                $query
+                    ->where('report_current_status', 'Pending')
+                    ->orWhere(function ($overdue) {
+                        $overdue
+                            ->whereIn(
+                                'report_current_status',
+                                ['Pending', 'Processing']
+                            )
+                            ->where(function ($due) {
+                                $due
+                                    ->where('report_is_overdue', true)
+                                    ->orWhereDate(
+                                        'report_submitted_at',
+                                        '<',
+                                        today()
+                                    );
+                            });
+                    });
+            })
             ->count();
+
+        $nonUrgentReportsNeedingAction = ReportGrouping::applyNonUrgentReminderWindow(
+            DB::table('reports_table')
+                ->where('report_urgency_level', 'Non-Urgent')
+                ->where('report_is_archived', false)
+                ->where('report_current_status', 'Pending')
+        )->count();
 
 
         // =====================================================
@@ -2336,7 +2395,9 @@ class MaintenanceController extends Controller
 
                 'pendingReportsToday',
 
-                'urgentReportsToday',
+                'urgentReportsNeedingAction',
+
+                'nonUrgentReportsNeedingAction',
 
                 'urgentReports',
 
@@ -10886,6 +10947,8 @@ class MaintenanceController extends Controller
         // RETURN ALL REPORTER DASHBOARD VARIABLES
         // =====================================================
 
+        $pendingReporterApprovals = ReporterApprovals::pendingCount();
+
         return compact(
             'totalReporters',
             'reportersWithEmail',
@@ -10895,7 +10958,8 @@ class MaintenanceController extends Controller
             'reporterMonthlyPercentage',
             'emailCoveragePercentage',
             'contactCoveragePercentage',
-            'reporterMonthlyTrend'
+            'reporterMonthlyTrend',
+            'pendingReporterApprovals'
         );
     }
 
@@ -11416,6 +11480,7 @@ class MaintenanceController extends Controller
                 'report_suggested_issue' => 'nullable|string|max:255',
                 'report_problem_description' => 'nullable|string',
                 'report_urgency_level' => 'required|in:Urgent,Non-Urgent',
+                'report_preferred_action_date' => ReportGrouping::preferredActionDateRules(),
                 'report_uploaded_image' => 'nullable|image|max:5120',
             ]);
 
@@ -11480,6 +11545,18 @@ class MaintenanceController extends Controller
                     ->withInput();
             }
 
+            if (
+                !$request->filled('report_suggested_issue')
+                && !$request->filled('report_problem_description')
+            ) {
+                return back()
+                    ->withErrors([
+                        'report_suggested_issue'
+                            => 'Please select a suggested issue or provide additional details.',
+                    ])
+                    ->withInput();
+            }
+
 
             // =====================================================
             // UPLOAD REPORT IMAGE
@@ -11521,6 +11598,10 @@ class MaintenanceController extends Controller
                     ReportGrouping::mergeIntoOpenReport($openReport, [
                         'reporter_id' => $reporter->reporter_employee_id,
                         'urgency' => $request->report_urgency_level,
+                        'preferred_action_date' => ReportGrouping::resolvePreferredActionDate(
+                            $request->report_urgency_level,
+                            $request->report_preferred_action_date
+                        ),
                         'issue' => $request->report_suggested_issue
                             ?: $request->report_problem_description,
                     ]);
@@ -11538,8 +11619,7 @@ class MaintenanceController extends Controller
             // THIS GIVES US THE NEW REPORT ID
             // =====================================================
 
-            $reportId = DB::table('reports_table')
-                ->insertGetId([
+            $reportPayload = [
 
                     'report_reporter_employee_id'
                         => $reporter->reporter_employee_id,
@@ -11580,7 +11660,17 @@ class MaintenanceController extends Controller
                     'report_updated_at'
                         => now(),
 
-                ], 'report_id');
+            ];
+
+            if (ReportGrouping::hasPreferredActionDateColumn()) {
+                $reportPayload['report_preferred_action_date'] = ReportGrouping::resolvePreferredActionDate(
+                    $request->report_urgency_level,
+                    $request->report_preferred_action_date
+                );
+            }
+
+            $reportId = DB::table('reports_table')
+                ->insertGetId($reportPayload, 'report_id');
 
 
             // =====================================================
@@ -11732,6 +11822,212 @@ class MaintenanceController extends Controller
             'success',
             'Reporter deleted successfully.'
         );
+    }
+
+
+    // =====================================================
+    // REPORTER APPROVALS
+    // APPLICATIONS WAITING TO BE CONFIRMED AS FACULTY / STAFF
+    // =====================================================
+
+    public function reporterApprovals(Request $request)
+    {
+        $status = $request->get('status', 'pending');
+        $allowedStatuses = [
+            'pending',
+            'approved',
+            'rejected',
+        ];
+
+        if (! in_array($status, $allowedStatuses, true)) {
+            $status = 'pending';
+        }
+
+        $applications = null;
+        $pendingCount = 0;
+        $approvedThisMonth = 0;
+        $rejectedThisMonth = 0;
+        $totalApplications = 0;
+
+        if (ReporterApprovals::hasTable()) {
+            $query = ReporterApprovals::query()
+                ->leftJoin(
+                    'users_table',
+                    'users_table.user_id',
+                    '=',
+                    'reporter_approval_requests.reviewed_by'
+                )
+                ->select(
+                    'reporter_approval_requests.*',
+                    'users_table.user_full_name as reviewed_by_name'
+                );
+
+            if ($request->filled('search')) {
+                $search = trim($request->search);
+
+                $query->where(function ($q) use ($search) {
+                    $q->where('reporter_approval_requests.employee_id', 'LIKE', '%'.$search.'%')
+                        ->orWhere('reporter_approval_requests.full_name', 'LIKE', '%'.$search.'%')
+                        ->orWhere('reporter_approval_requests.email', 'LIKE', '%'.$search.'%')
+                        ->orWhere('reporter_approval_requests.contact', 'LIKE', '%'.$search.'%');
+                });
+            }
+
+            $query->where('reporter_approval_requests.status', $status);
+
+            $applications = $query
+                ->orderByDesc('reporter_approval_requests.created_at')
+                ->paginate(10, ['*'], 'page')
+                ->withQueryString();
+
+            $pendingCount = ReporterApprovals::pendingCount();
+            $approvedThisMonth = ReporterApprovals::query()
+                ->where('status', ReporterApprovals::STATUS_APPROVED)
+                ->whereBetween('reviewed_at', [now()->copy()->startOfMonth(), now()->copy()->endOfMonth()])
+                ->count();
+            $rejectedThisMonth = ReporterApprovals::query()
+                ->where('status', ReporterApprovals::STATUS_REJECTED)
+                ->whereBetween('reviewed_at', [now()->copy()->startOfMonth(), now()->copy()->endOfMonth()])
+                ->count();
+            $totalApplications = ReporterApprovals::query()->count();
+        } else {
+            $applications = new \Illuminate\Pagination\LengthAwarePaginator(
+                [],
+                0,
+                10,
+                1,
+                ['path' => $request->url(), 'query' => $request->query()]
+            );
+        }
+
+        return view('maintenance-personnel.reporters.approvals', [
+            'applications' => $applications,
+            'status' => $status,
+            'pendingCount' => $pendingCount,
+            'approvedThisMonth' => $approvedThisMonth,
+            'rejectedThisMonth' => $rejectedThisMonth,
+            'totalApplications' => $totalApplications,
+        ]);
+    }
+
+    public function approveReporterApplication(Request $request, $id)
+    {
+        $request->validate([
+            'type' => 'required|in:Faculty,Staff',
+        ]);
+
+        if (! ReporterApprovals::hasTable()) {
+            return back()->with('error', 'Reporter approval is not available yet.');
+        }
+
+        $application = ReporterApprovals::query()
+            ->where('id', $id)
+            ->first();
+
+        if (! $application) {
+            return back()->with('error', 'Application not found.');
+        }
+
+        if ($application->status !== ReporterApprovals::STATUS_PENDING) {
+            return back()->with('error', 'This application was already reviewed.');
+        }
+
+        $employeeId = trim($application->employee_id);
+
+        $idTaken = DB::table('reporters_table')
+            ->where('reporter_employee_id', $employeeId)
+            ->exists();
+
+        if ($idTaken) {
+            return back()->with('error', 'That employee ID is already in the reporters list.');
+        }
+
+        $emailTaken = DB::table('reporters_table')
+            ->whereRaw('LOWER(reporter_email_address) = ?', [strtolower($application->email)])
+            ->exists();
+
+        if ($emailTaken) {
+            return back()->with('error', 'That email is already in the reporters list.');
+        }
+
+        $type = trim($request->type);
+        $first = trim($application->first_name);
+        $middle = trim((string) $application->middle_name);
+        $last = trim($application->last_name);
+
+        $payload = [
+            'reporter_employee_id' => $employeeId,
+            'reporter_full_name' => ReporterImport::composeFullName($first, $middle, $last),
+            'reporter_email_address' => $application->email,
+            'reporter_contact_number' => $application->contact,
+            'reporter_status' => 'Active',
+            'reporter_created_at' => now(),
+        ];
+
+        if (ReporterImport::hasNameColumns()) {
+            $payload['reporter_first_name'] = $first;
+            $payload['reporter_middle_name'] = $middle !== '' ? $middle : null;
+            $payload['reporter_last_name'] = $last;
+        }
+
+        if (ReporterImport::hasTypeColumn()) {
+            $payload['reporter_employment_type'] = $type;
+        }
+
+        DB::transaction(function () use ($payload, $id, $type) {
+            DB::table('reporters_table')->insert($payload);
+
+            ReporterApprovals::query()
+                ->where('id', $id)
+                ->update([
+                    'employment_type' => $type,
+                    'status' => ReporterApprovals::STATUS_APPROVED,
+                    'reviewed_by' => Auth::id(),
+                    'reviewed_at' => now(),
+                    'updated_at' => now(),
+                ]);
+        });
+
+        return redirect('/maintenance/reporters/approvals')
+            ->with('success', $payload['reporter_full_name'].' was confirmed and added to the reporters list.');
+    }
+
+    public function rejectReporterApplication(Request $request, $id)
+    {
+        $request->validate([
+            'reason' => 'nullable|string|max:500',
+        ]);
+
+        if (! ReporterApprovals::hasTable()) {
+            return back()->with('error', 'Reporter approval is not available yet.');
+        }
+
+        $application = ReporterApprovals::query()
+            ->where('id', $id)
+            ->first();
+
+        if (! $application) {
+            return back()->with('error', 'Application not found.');
+        }
+
+        if ($application->status !== ReporterApprovals::STATUS_PENDING) {
+            return back()->with('error', 'This application was already reviewed.');
+        }
+
+        $reason = trim((string) $request->reason);
+
+        ReporterApprovals::query()
+            ->where('id', $id)
+            ->update([
+                'status' => ReporterApprovals::STATUS_REJECTED,
+                'rejection_reason' => $reason !== '' ? $reason : null,
+                'reviewed_by' => Auth::id(),
+                'reviewed_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+        return redirect('/maintenance/reporters/approvals?status=rejected')
+            ->with('success', $application->full_name.' was declined and was not added to the reporters list.');
     }
 
 
@@ -13449,6 +13745,10 @@ class MaintenanceController extends Controller
             return back()->with('error', 'That employee ID is already registered.');
         }
 
+        if (ReporterApprovals::pendingByEmployeeId($employeeId)) {
+            return back()->with('error', 'That employee ID already has an application waiting for approval.');
+        }
+
         $first = trim($request->first_name);
         $middle = trim((string) $request->middle_name);
         $last = trim($request->last_name);
@@ -13600,6 +13900,24 @@ class MaintenanceController extends Controller
             ->filter()
             ->map(fn ($email) => strtolower((string) $email))
             ->all();
+
+        if (ReporterApprovals::hasTable()) {
+            $pendingIds = ReporterApprovals::query()
+                ->where('status', ReporterApprovals::STATUS_PENDING)
+                ->pluck('employee_id')
+                ->filter()
+                ->map(fn ($id) => strtoupper((string) $id))
+                ->all();
+            $pendingEmails = ReporterApprovals::query()
+                ->where('status', ReporterApprovals::STATUS_PENDING)
+                ->pluck('email')
+                ->filter()
+                ->map(fn ($email) => strtolower((string) $email))
+                ->all();
+
+            $existingIds = array_values(array_unique(array_merge($existingIds, $pendingIds)));
+            $existingEmails = array_values(array_unique(array_merge($existingEmails, $pendingEmails)));
+        }
 
         $generated = ReporterImport::nextEmployeeIds(count($body));
         $created = 0;

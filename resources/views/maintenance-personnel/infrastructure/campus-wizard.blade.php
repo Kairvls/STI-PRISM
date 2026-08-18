@@ -478,7 +478,7 @@
                                                 </label>
 
                                                 <label class="text-[11px] font-semibold uppercase tracking-wider text-black">
-                                                    Room Category
+                                                    Room Type
                                                     <select
                                                         x-model="room.type"
                                                         class="mt-1 w-full rounded-xl border cursor-pointer border-slate-200 p-2 text-sm font-normal focus:border-[#005EA6] focus:ring-1 focus:ring-blue-100"
@@ -619,7 +619,7 @@
                                                 ></span>
                                             </label>
                                             <label class="text-[11px] font-semibold uppercase tracking-wider text-black">
-                                                Room Category
+                                                Room Type
                                                 <select
                                                     x-model="room.type"
                                                     :name="`floors[${fi}][rooms][${ri}][type]`"

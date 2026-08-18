@@ -117,6 +117,14 @@
         height: 18px;
         color: #0025cc;
         flex-shrink: 0;
+        transition: transform 0.2s ease;
+    }
+
+    .rf-picker-label {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        min-width: 0;
     }
 
     .rf-picker-overlay {
@@ -263,6 +271,106 @@
         cursor: pointer;
     }
 
+    .rf-picker-trigger.is-open {
+        border-color: #0025cc;
+        box-shadow: 0 0 0 4px rgba(0, 37, 204, 0.1);
+    }
+
+    .rf-picker-trigger.is-open svg {
+        transform: rotate(180deg);
+        transition: transform 0.2s ease;
+    }
+
+    .rf-picker-trigger svg {
+        transition: transform 0.2s ease;
+    }
+
+    .rf-dropdown-menu {
+        position: fixed;
+        z-index: 90;
+        display: none;
+        box-sizing: border-box;
+        background: #fff;
+        border: 1px solid #e8ecf4;
+        border-radius: 16px;
+        box-shadow: 0 18px 48px rgba(15, 23, 42, 0.16);
+        overflow: hidden;
+        padding: 6px;
+        font-family: "Plus Jakarta Sans", "Inter", sans-serif;
+    }
+
+    .rf-dropdown-menu.is-open {
+        display: block;
+    }
+
+    .rf-dropdown-list {
+        max-height: calc(44px * 5);
+        overflow-y: auto;
+        overflow-x: hidden;
+        scroll-behavior: smooth;
+        overscroll-behavior: contain;
+        scrollbar-width: thin;
+        scrollbar-color: #c7d2fe #f8fafc;
+    }
+
+    .rf-dropdown-list::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .rf-dropdown-list::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .rf-dropdown-list::-webkit-scrollbar-thumb {
+        background: #c7d2fe;
+        border-radius: 999px;
+        border: 2px solid #fff;
+    }
+
+    .rf-dropdown-item {
+        width: 100%;
+        min-height: 44px;
+        height: 44px;
+        display: flex;
+        align-items: center;
+        text-align: left;
+        background: transparent;
+        border: 0;
+        border-radius: 12px;
+        padding: 0 12px;
+        cursor: pointer;
+        color: #1a1a2e;
+        font-size: 13.5px;
+        font-weight: 600;
+        line-height: 1.3;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .rf-dropdown-item:hover {
+        background: #f3f6ff;
+        color: #0025cc;
+    }
+
+    .rf-dropdown-item.is-active {
+        background: #0025cc;
+        color: #fff;
+    }
+
+    .rf-dropdown-item.is-active:hover {
+        background: #001ca3;
+        color: #fff;
+    }
+
+    .rf-dropdown-empty {
+        text-align: center;
+        color: #6b7280;
+        font-size: 13px;
+        padding: 16px 12px;
+    }
+
     /* ── REPORTER INFO BOX ── */
     .reporter-box {
         background: rgba(41, 71, 240, 0.05);
@@ -312,6 +420,21 @@
         color: #b6b6b6;
         margin-top: 3px;
         line-height: 1.4;
+    }
+
+    input[type="date"].rf-date-input {
+        appearance: auto;
+        -webkit-appearance: auto;
+        color-scheme: light;
+        min-height: 52px;
+        cursor: pointer;
+    }
+
+    .rf-preferred-hint {
+        font-size: 0.72rem;
+        color: #9aa1b5;
+        line-height: 1.45;
+        margin-top: 8px;
     }
 
     .rf-submit-btn {
@@ -552,22 +675,37 @@
         background: rgba(11, 18, 32, 0.7) !important;
         backdrop-filter: none;
         -webkit-backdrop-filter: none;
-        overflow-y: auto;
-        overflow-x: hidden;
-        align-items: flex-start;
-        padding: 36px 28px !important;
+        overflow: hidden !important;
+        align-items: center;
+        padding: 24px !important;
     }
 
     #reportModal > div {
-        margin-top: auto;
-        margin-bottom: auto;
         max-width: 1080px;
+        max-height: 100%;
+        min-height: 0;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    #reportForm,
+    #reportModal .report-form-frame {
+        max-height: 100%;
+        min-height: 0;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
     }
 
     #reportModal .report-form-shell {
         position: relative;
         isolation: isolate;
         overflow: hidden;
+        max-height: 100%;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
         background:
             radial-gradient(ellipse 70% 55% at 0% 0%, rgba(199, 216, 255, .42), transparent 58%),
             #ffffff !important;
@@ -582,22 +720,10 @@
     #reportModal .report-form-grid {
         position: relative;
         z-index: 1;
-        height: auto !important;
-        max-height: none !important;
+        min-height: 0;
+        flex: 1 1 auto;
     }
 
-    #reportModal .report-form-scroll,
-    #reportModal .report-form-aside {
-        overflow: visible !important;
-        height: auto !important;
-        max-height: none !important;
-        scrollbar-gutter: auto !important;
-        scrollbar-width: none !important;
-        -ms-overflow-style: none !important;
-    }
-
-    #reportModal .report-form-scroll::-webkit-scrollbar,
-    #reportModal .report-form-aside::-webkit-scrollbar,
     #reportModal #issueCarousel::-webkit-scrollbar {
         width: 0 !important;
         height: 0 !important;
@@ -605,9 +731,39 @@
     }
 
     #reportModal .report-form-scroll {
+        scrollbar-width: thin;
+        scrollbar-color: #cbd5e1 transparent;
+        scrollbar-gutter: auto;
+    }
+
+    #reportModal .report-form-aside-body {
+        scrollbar-width: thin;
+        scrollbar-color: #cbd5e1 transparent;
+        scrollbar-gutter: auto;
+    }
+
+    #reportModal .report-form-scroll::-webkit-scrollbar,
+    #reportModal .report-form-aside-body::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    #reportModal .report-form-scroll::-webkit-scrollbar-track,
+    #reportModal .report-form-aside-body::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    #reportModal .report-form-scroll::-webkit-scrollbar-thumb,
+    #reportModal .report-form-aside-body::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 999px;
+        border: 2px solid transparent;
+        background-clip: padding-box;
+    }
+
+    #reportModal .report-form-scroll {
         background: transparent !important;
         border-right: 0 !important;
-        padding: 36px 36px 32px !important;
+        padding: 32px 28px !important;
         min-width: 0;
     }
 
@@ -680,7 +836,9 @@
     }
 
     .rf-input:focus,
-    .details-textarea:focus {
+    .details-textarea:focus,
+    .rf-picker-trigger:focus,
+    .rf-picker-trigger.is-open {
         border-color: #0025cc;
         background: #fff;
         box-shadow: 0 0 0 4px rgba(0, 37, 204, 0.1);
@@ -692,6 +850,7 @@
         background: #ffffff;
         border: 1px solid #eceff4;
         border-radius: 16px;
+        box-sizing: border-box;
     }
 
     .rf-select-wrap::after {
@@ -775,7 +934,7 @@
     .report-form-aside {
         background: linear-gradient(180deg, rgba(243, 246, 255, .9) 0%, #f8f9fd 100%) !important;
         border-top: 1px solid #e8ecf4 !important;
-        padding: 28px 28px 32px !important;
+        padding: 32px 28px !important;
     }
 
     .report-form-aside .rf-label {
@@ -823,6 +982,10 @@
 
     .priority-desc {
         color: #6b7280;
+    }
+
+    .rf-preferred-hint {
+        color: #9aa1b5 !important;
     }
 
     .priority-card input {
@@ -909,7 +1072,7 @@
 
     @media (min-width: 768px) {
         #reportModal {
-            padding: 36px 28px !important;
+            padding: 24px 28px !important;
         }
     }
 
@@ -918,39 +1081,141 @@
             border-top: 0 !important;
             border-left: 1px solid rgba(232, 236, 244, .9) !important;
         }
+
+        #reportModal .report-form-shell,
+        #reportModal .report-form-grid {
+            max-height: calc(100dvh - 48px);
+        }
+
+        #reportModal .report-form-grid {
+            height: auto !important;
+            align-items: stretch;
+            grid-template-rows: minmax(0, 1fr);
+        }
+
+        #reportModal .report-form-scroll {
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            min-height: 0 !important;
+            height: auto !important;
+            max-height: calc(100dvh - 48px) !important;
+            display: flex !important;
+            flex-direction: column;
+            align-self: stretch;
+            overscroll-behavior: contain;
+            padding: 32px 28px 0 !important;
+        }
+
+        #reportModal .report-form-scroll > :not(.rf-details-block) {
+            flex-shrink: 0;
+        }
+
+        #reportModal .rf-details-block {
+            flex: 1 1 auto;
+            min-height: 140px;
+            display: flex;
+            flex-direction: column;
+            padding-bottom: 32px;
+            box-sizing: border-box;
+        }
+
+        #reportModal .rf-details-field {
+            flex: 1 1 auto;
+            min-height: 140px;
+            position: relative;
+            display: flex;
+        }
+
+        #reportModal #problemDescription {
+            flex: 1 1 auto;
+            width: 100%;
+            min-height: 140px !important;
+            height: auto !important;
+            resize: none !important;
+        }
+
+        #reportModal .report-form-aside {
+            overflow: hidden !important;
+            min-height: 0 !important;
+            height: auto !important;
+            max-height: calc(100dvh - 48px) !important;
+            align-self: stretch;
+            padding: 32px 0 20px !important;
+        }
+
+        #reportModal .report-form-aside-head,
+        #reportModal .report-form-aside-actions {
+            padding-left: 28px;
+            padding-right: 28px;
+        }
+
+        #reportModal .report-form-aside-body {
+            overflow-y: auto;
+            overflow-x: hidden;
+            min-height: 0;
+            flex: 1 1 auto;
+            overscroll-behavior: contain;
+            padding: 0 28px 8px;
+            scrollbar-gutter: auto;
+        }
+
+        #reportModal .report-form-aside-actions {
+            flex-shrink: 0;
+        }
+    }
+
+    @media (max-width: 1023px) {
+        #reportModal .report-form-shell {
+            overflow-y: auto !important;
+            max-height: calc(100dvh - 16px);
+            overscroll-behavior: contain;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        #reportModal .report-form-scroll,
+        #reportModal .report-form-aside,
+        #reportModal .report-form-aside-body {
+            overflow: visible !important;
+            height: auto !important;
+            max-height: none !important;
+        }
     }
 
     @media (max-width: 767px) {
         #reportModal {
-            align-items: flex-start;
-            overflow-y: auto;
-            -webkit-overflow-scrolling: touch;
-            overscroll-behavior: contain;
+            align-items: stretch;
+            overflow: hidden !important;
             padding: 8px !important;
         }
 
-        #reportModal .report-form-shell {
-            max-height: calc(100dvh - 16px);
-            overflow-y: auto !important;
-            -webkit-overflow-scrolling: touch;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-            border-radius: 24px !important;
+        #reportModal > div,
+        #reportForm,
+        #reportModal .report-form-frame {
+            max-height: 100%;
+            height: 100%;
         }
 
-        #reportModal .report-form-shell::-webkit-scrollbar {
-            width: 0;
-            display: none;
+        #reportModal .report-form-shell {
+            max-height: 100%;
+            height: 100%;
+            overflow-y: auto !important;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
+            scrollbar-width: thin;
+            border-radius: 24px !important;
         }
 
         #reportModal .report-form-scroll {
             overflow: visible !important;
             max-height: none;
+            height: auto !important;
             padding: 20px 18px 12px !important;
         }
 
         .report-form-aside {
             padding: 16px 18px 22px !important;
+            overflow: visible !important;
+            height: auto !important;
         }
 
         #reportModal .report-form-scroll h2 {
@@ -1100,7 +1365,7 @@
 >
     @csrf
 
-    <div class="mx-auto w-full max-w-6xl px-2">
+    <div class="report-form-frame mx-auto w-full max-w-6xl px-2">
         <div
             class="report-form-shell overflow-hidden rounded-3xl"
             style="
@@ -1292,6 +1557,32 @@
                         </div>
                     </div>
 
+                    <div
+                        id="pendingReporterBox"
+                        class="mb-5 hidden rounded-2xl border border-amber-200 bg-amber-50 p-4"
+                    >
+                        <div class="flex items-start gap-3">
+                            <div
+                                class="flex h-10 w-10 shrink-0 items-center
+                                    justify-center rounded-xl
+                                    bg-amber-100 text-amber-700"
+                            >
+                                <i data-lucide="hourglass" class="h-5 w-5"></i>
+                            </div>
+                            <div class="min-w-0">
+                                <p class="text-sm font-bold text-amber-900">
+                                    Waiting for approval
+                                </p>
+                                <p class="mt-1 text-sm leading-5 text-amber-800">
+                                    This employee ID has an application waiting for maintenance confirmation.
+                                </p>
+                                <p class="mt-2 text-xs text-amber-700">
+                                    You can submit reports after they confirm you are faculty or staff.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
                     {{-- LOCATION + EQUIPMENT --}}
                     <div class="mb-5 grid grid-cols-1 gap-5 md:grid-cols-2">
                         {{-- LOCATION --}}
@@ -1462,7 +1753,7 @@
                                 margin-top: -12px;
                                 margin-bottom: 22px;
                             "
-                        >Please select a suggested issue.</p>
+                        >Please select a suggested issue or provide additional details.</p>
 
                         <input
                             type="hidden"
@@ -1472,7 +1763,7 @@
                     </div>
 
                     <!-- PROBLEM DESCRIPTION WRAPPER -->
-                    <div style="margin-top: 4px">
+                    <div class="rf-details-block" style="margin-top: 4px">
                         <div
                             class="mb-2 flex items-center justify-between gap-4"
                         >
@@ -1484,21 +1775,21 @@
                             </label>
 
                             <span class="text-xs text-slate-400">
-                                Optional
+                                Optional if a suggested issue is selected
                             </span>
                         </div>
 
                         
 
-                        <div style="position: relative">
+                        <div class="rf-details-field" style="position: relative">
                             <textarea
                                 id="problemDescription"
                                 name="report_problem_description"
                                 rows="4"
-                                placeholder="[Optional] - Provide specific details or context about the issue here..."
+                                placeholder="Provide specific details or context about the issue here..."
                                 class="rf-input details-textarea"
                                 style="
-                                    resize: vertical;
+                                    resize: none;
                                     min-height: 140px;
                                     padding: 16px 40px 16px 16px;
                                     line-height: 1.6;
@@ -1543,6 +1834,16 @@
                                 </button>
                             </div>
                         </div>
+
+                        <p
+                            id="detailsError"
+                            class="hidden"
+                            style="
+                                color: red;
+                                font-size: 14px;
+                                margin-top: 8px;
+                            "
+                        >Please select a suggested issue or provide additional details.</p>
                     </div>
                 </div>
                 {{-- This is the single, correct closing tag for the LEFT PANEL grid column --}}
@@ -1571,11 +1872,10 @@
                     style="
                         background: rgba(255, 255, 255, 0.015);
                         border-top: 1px solid rgba(255, 255, 255, 0.07);
-                        scrollbar-gutter: stable;
                     "
                 >
-                                    {{-- CLOSE (desktop) --}}
-                    <div class="hidden justify-end lg:flex">
+                    {{-- CLOSE (desktop) --}}
+                    <div class="report-form-aside-head hidden justify-end lg:flex">
                         <button
                             type="button"
                             onclick="closeReportModal()"
@@ -1585,6 +1885,7 @@
                         </button>
                     </div>
 
+                    <div class="report-form-aside-body flex min-h-0 flex-col gap-6">
                     {{-- PRIORITY LEVEL --}}
                     <div>
                         <label
@@ -1602,7 +1903,7 @@
                                 type="radio"
                                 name="report_urgency_level"
                                 value="Non-Urgent"
-                                checked
+                                {{ old('report_urgency_level', 'Non-Urgent') === 'Non-Urgent' ? 'checked' : '' }}
                                 class="mt-1 flex-shrink-0"
                                 style="accent-color: #34d399"
                                 onchange="updatePriorityCards()"
@@ -1621,6 +1922,7 @@
                                 type="radio"
                                 name="report_urgency_level"
                                 value="Urgent"
+                                {{ old('report_urgency_level') === 'Urgent' ? 'checked' : '' }}
                                 class="mt-1 flex-shrink-0"
                                 style="accent-color: #ef4444"
                                 onchange="updatePriorityCards()"
@@ -1632,6 +1934,39 @@
                                 <p class="priority-desc">Immediate maintenance required</p>
                             </div>
                         </label>
+                    </div>
+
+                    {{-- PREFERRED DATE (NON-URGENT ONLY) --}}
+                    @php
+                        $showPreferredDate = old('report_urgency_level', 'Non-Urgent') !== 'Urgent';
+                    @endphp
+                    <div
+                        id="preferredDateWrap"
+                        class="{{ $showPreferredDate ? '' : 'hidden' }}"
+                    >
+                        <div class="mb-2 flex items-center justify-between gap-4">
+                            <label
+                                for="preferredActionDateInput"
+                                class="rf-label"
+                                style="margin-bottom: 0; color: white"
+                            >Preferred date</label>
+                            <span class="text-xs text-slate-400">Optional</span>
+                        </div>
+                        <input
+                            type="date"
+                            id="preferredActionDateInput"
+                            name="report_preferred_action_date"
+                            value="{{ old('report_preferred_action_date') }}"
+                            min="{{ today()->toDateString() }}"
+                            {{ $showPreferredDate ? '' : 'disabled' }}
+                            class="rf-input rf-date-input"
+                        />
+                        <p class="rf-preferred-hint">
+                            Request a day for maintenance to look at this. If you skip this, they will be reminded after 5 days.
+                        </p>
+                        @error('report_preferred_action_date')
+                            <p class="mt-2 text-xs font-semibold text-red-500">{{ $message }}</p>
+                        @enderror
                     </div>
 
                     {{-- UPLOAD PROOF --}}
@@ -1717,9 +2052,10 @@
                             />
                         </label>
                     </div>
+                    </div>
 
                     {{-- ACTIONS --}}
-                    <div class="mt-auto flex flex-col gap-2 pt-2">
+                    <div class="report-form-aside-actions mt-auto flex flex-col gap-2 pt-2">
                         <button
                             type="submit"
                             id="submitReportBtn"
@@ -1758,6 +2094,10 @@
     </div>
 </div>
 
+<div id="rfDropdownMenu" class="rf-dropdown-menu" hidden>
+    <div class="rf-dropdown-list" id="rfDropdownList"></div>
+</div>
+
 <script>
     /* ── RE-RENDER ICONS ── */
     let reporterVerified = false;
@@ -1775,18 +2115,55 @@
         );
         const cardNon = document.getElementById("card-non-urgent");
         const cardUrg = document.getElementById("card-urgent");
+        const preferredWrap = document.getElementById("preferredDateWrap");
+        const preferredInput = document.getElementById(
+            "preferredActionDateInput",
+        );
+        let isNonUrgent = false;
 
         radios.forEach((r) => {
             if (r.value === "Non-Urgent") {
                 cardNon.classList.toggle("p-non-urgent", r.checked);
+                if (r.checked) {
+                    isNonUrgent = true;
+                }
             }
             if (r.value === "Urgent") {
                 cardUrg.classList.toggle("p-urgent", r.checked);
             }
         });
+
+        if (preferredWrap) {
+            preferredWrap.classList.toggle("hidden", !isNonUrgent);
+        }
+
+        if (preferredInput) {
+            preferredInput.disabled = !isNonUrgent;
+            if (!isNonUrgent) {
+                preferredInput.value = "";
+            }
+        }
     }
 
     updatePriorityCards();
+
+    function hideIssueOrDetailsErrors() {
+        const issueError = document.getElementById("issueError");
+        const detailsError = document.getElementById("detailsError");
+        const details = document.getElementById("problemDescription");
+
+        if (issueError) {
+            issueError.classList.add("hidden");
+        }
+
+        if (detailsError) {
+            detailsError.classList.add("hidden");
+        }
+
+        if (details) {
+            details.style.borderColor = "";
+        }
+    }
 
     /* ─────────────────────────────────────────────────────────
    SUGGESTED ISSUE AUTO-FILL
@@ -1799,7 +2176,13 @@
         "clearDescriptionWrapper",
     );
 
-    descriptionTextarea.addEventListener("input", updateClearButtonVisibility);
+    descriptionTextarea.addEventListener("input", function () {
+        updateClearButtonVisibility();
+
+        if (this.value.trim() !== "") {
+            hideIssueOrDetailsErrors();
+        }
+    });
 
     /*
 |--------------------------------------------------------------------------
@@ -2142,7 +2525,7 @@ toggleRoomBtn.addEventListener('click', function () {
     toggleEquipmentBtn.addEventListener("click", function () {
         document.getElementById("equipmentError").classList.add("hidden");
 
-        equipmentSelect.style.borderColor = "";
+        setSelectTriggerBorder(equipmentSelect, "");
 
         equipmentManualInput.style.borderColor = "";
 
@@ -2362,7 +2745,7 @@ toggleRoomBtn.addEventListener('click', function () {
 
                 this.classList.add("active");
 
-                document.getElementById("issueError").classList.add("hidden");
+                hideIssueOrDetailsErrors();
 
                 selectedSuggestedIssue = newIssue;
 
@@ -2466,6 +2849,9 @@ toggleRoomBtn.addEventListener('click', function () {
                 'input[name="report_urgency_level"]'
             );
 
+        const preferredActionDateInput =
+            document.getElementById("preferredActionDateInput");
+
 
         // =====================================================
         // PROOF IMAGE
@@ -2530,6 +2916,16 @@ toggleRoomBtn.addEventListener('click', function () {
             radio.disabled = locked;
 
         });
+
+        if (preferredActionDateInput) {
+            const nonUrgentSelected = Array.from(priorityRadios).some(
+                function (radio) {
+                    return radio.value === "Non-Urgent" && radio.checked;
+                }
+            );
+
+            preferredActionDateInput.disabled = locked || !nonUrgentSelected;
+        }
 
 
         // =====================================================
@@ -2654,18 +3050,34 @@ toggleRoomBtn.addEventListener('click', function () {
         });
     }
 
-    function enhanceModernSelects() {
-        if (!window.matchMedia("(max-width: 767px)").matches) {
-            return;
+    function setSelectTriggerBorder(select, color) {
+        if (!select) return;
+        select.style.borderColor = color || "";
+        const trigger = document.querySelector(
+            '.rf-picker-trigger[data-for="' + select.id + '"]',
+        );
+        if (trigger) {
+            trigger.style.borderColor = color || "";
         }
+    }
+
+    function enhanceModernSelects() {
         const overlay = document.getElementById("rfPickerOverlay");
         const titleEl = document.getElementById("rfPickerTitle");
         const searchEl = document.getElementById("rfPickerSearch");
         const listEl = document.getElementById("rfPickerList");
         const closeEl = document.getElementById("rfPickerClose");
-        if (!overlay) return;
+        const dropdownMenu = document.getElementById("rfDropdownMenu");
+        const dropdownList = document.getElementById("rfDropdownList");
+        if (!overlay || !dropdownMenu || !dropdownList) return;
 
+        const ITEM_HEIGHT = 44;
+        const VISIBLE_ITEMS = 5;
         let activeSelect = null;
+
+        function isMobilePicker() {
+            return window.matchMedia("(max-width: 767px)").matches;
+        }
 
         function placeholderText(select) {
             const first = select.querySelector('option[value=""]');
@@ -2680,8 +3092,12 @@ toggleRoomBtn.addEventListener('click', function () {
             return option.textContent.trim();
         }
 
+        function triggerFor(select) {
+            return document.querySelector('.rf-picker-trigger[data-for="' + select.id + '"]');
+        }
+
         function syncTrigger(select) {
-            const trigger = document.querySelector('.rf-picker-trigger[data-for="' + select.id + '"]');
+            const trigger = triggerFor(select);
             if (!trigger) return;
             const label = selectedLabel(select);
             trigger.querySelector(".rf-picker-label").textContent = label;
@@ -2689,55 +3105,153 @@ toggleRoomBtn.addEventListener('click', function () {
             trigger.disabled = select.disabled;
         }
 
-        function closePicker() {
-            overlay.classList.remove("is-open");
-            overlay.hidden = true;
-            activeSelect = null;
-            searchEl.value = "";
+        function setTriggerOpen(select, open) {
+            const trigger = select ? triggerFor(select) : null;
+            if (trigger) {
+                trigger.classList.toggle("is-open", open);
+                trigger.setAttribute("aria-expanded", open ? "true" : "false");
+            }
         }
 
-        function renderList(select, query) {
+        function closeDropdown() {
+            dropdownMenu.classList.remove("is-open");
+            dropdownMenu.hidden = true;
+            dropdownList.innerHTML = "";
+            setTriggerOpen(activeSelect, false);
+        }
+
+        function closeSheet() {
+            overlay.classList.remove("is-open");
+            overlay.hidden = true;
+            if (searchEl) searchEl.value = "";
+        }
+
+        function closePicker() {
+            closeDropdown();
+            closeSheet();
+            activeSelect = null;
+        }
+
+        function optionList(select, query) {
             const q = (query || "").trim().toLowerCase();
-            const options = Array.from(select.options);
+            return Array.from(select.options).filter(function (option) {
+                if (option.value === "") return false;
+                const text = option.textContent.trim();
+                return !q || text.toLowerCase().includes(q);
+            });
+        }
+
+        function bindOptionClick(item, select, option, closeAfter) {
+            item.addEventListener("click", function () {
+                select.value = option.value;
+                select.dispatchEvent(new Event("change", { bubbles: true }));
+                syncTrigger(select);
+                if (closeAfter) closePicker();
+            });
+        }
+
+        function renderSheetList(select, query) {
+            const options = optionList(select, query);
             listEl.innerHTML = "";
-            let shown = 0;
 
             options.forEach(function (option) {
-                if (option.value === "") return;
                 const text = option.textContent.trim();
-                if (q && !text.toLowerCase().includes(q)) return;
-                shown += 1;
-
                 const item = document.createElement("button");
                 item.type = "button";
-                item.className = "rf-picker-item" + (option.selected && option.value === select.value ? " is-active" : "");
-                item.innerHTML = '<span>' + text.replace(/</g, "&lt;") + '</span>';
-                item.addEventListener("click", function () {
-                    select.value = option.value;
-                    select.dispatchEvent(new Event("change", { bubbles: true }));
-                    syncTrigger(select);
-                    closePicker();
-                });
+                item.className = "rf-picker-item" + (option.value === select.value ? " is-active" : "");
+                item.innerHTML = "<span>" + text.replace(/</g, "&lt;") + "</span>";
+                bindOptionClick(item, select, option, true);
                 listEl.appendChild(item);
             });
 
-            if (shown === 0) {
+            if (options.length === 0) {
                 listEl.innerHTML = '<div class="rf-picker-empty">No matches. Try another search.</div>';
             }
 
             if (window.lucide) lucide.createIcons();
         }
 
-        function openPicker(select) {
-            if (select.disabled) return;
+        function renderDropdownList(select) {
+            const options = optionList(select, "");
+            dropdownList.innerHTML = "";
+
+            options.forEach(function (option) {
+                const text = option.textContent.trim();
+                const item = document.createElement("button");
+                item.type = "button";
+                item.className = "rf-dropdown-item" + (option.value === select.value ? " is-active" : "");
+                item.textContent = text;
+                item.title = text;
+                bindOptionClick(item, select, option, true);
+                dropdownList.appendChild(item);
+            });
+
+            if (options.length === 0) {
+                dropdownList.innerHTML = '<div class="rf-dropdown-empty">No options available.</div>';
+            }
+        }
+
+        function positionDropdown(trigger) {
+            const rect = trigger.getBoundingClientRect();
+            const maxHeight = ITEM_HEIGHT * VISIBLE_ITEMS;
+            const spaceBelow = window.innerHeight - rect.bottom - 10;
+            const spaceAbove = rect.top - 10;
+            const openUp = spaceBelow < Math.min(maxHeight, ITEM_HEIGHT * 3) && spaceAbove > spaceBelow;
+            const available = Math.max(ITEM_HEIGHT, openUp ? spaceAbove : spaceBelow);
+
+            dropdownMenu.style.width = rect.width + "px";
+            dropdownMenu.style.left = Math.max(8, rect.left) + "px";
+            dropdownList.style.maxHeight = Math.min(maxHeight, available) + "px";
+
+            if (openUp) {
+                dropdownMenu.style.top = "auto";
+                dropdownMenu.style.bottom = (window.innerHeight - rect.top + 6) + "px";
+            } else {
+                dropdownMenu.style.bottom = "auto";
+                dropdownMenu.style.top = (rect.bottom + 6) + "px";
+            }
+        }
+
+        function openSheet(select) {
             activeSelect = select;
             titleEl.textContent = select.dataset.pickerTitle || placeholderText(select);
             searchEl.placeholder = select.dataset.pickerSearch || "Search";
             searchEl.value = "";
             overlay.hidden = false;
             overlay.classList.add("is-open");
-            renderList(select, "");
+            renderSheetList(select, "");
             setTimeout(function () { searchEl.focus(); }, 50);
+        }
+
+        function openDropdown(select) {
+            const trigger = triggerFor(select);
+            if (!trigger) return;
+            activeSelect = select;
+            setTriggerOpen(select, true);
+            renderDropdownList(select);
+            dropdownMenu.hidden = false;
+            dropdownMenu.classList.add("is-open");
+            positionDropdown(trigger);
+
+            const active = dropdownList.querySelector(".is-active");
+            if (active) {
+                active.scrollIntoView({ block: "nearest", behavior: "smooth" });
+            }
+        }
+
+        function openPicker(select) {
+            if (select.disabled) return;
+            const alreadyOpen = activeSelect === select && (
+                dropdownMenu.classList.contains("is-open") || overlay.classList.contains("is-open")
+            );
+            closePicker();
+            if (alreadyOpen) return;
+
+            if (isMobilePicker()) {
+                openSheet(select);
+            } else {
+                openDropdown(select);
+            }
         }
 
         [document.getElementById("roomSelect"), document.getElementById("equipmentSelect")].forEach(function (select) {
@@ -2750,26 +3264,49 @@ toggleRoomBtn.addEventListener('click', function () {
             trigger.type = "button";
             trigger.className = "rf-picker-trigger is-placeholder";
             trigger.dataset.for = select.id;
+            trigger.setAttribute("aria-haspopup", "listbox");
+            trigger.setAttribute("aria-expanded", "false");
             trigger.innerHTML = '<span class="rf-picker-label"></span><i data-lucide="chevron-down"></i>';
             wrap.appendChild(trigger);
             syncTrigger(select);
 
-            trigger.addEventListener("click", function () {
+            trigger.addEventListener("click", function (e) {
+                e.stopPropagation();
                 openPicker(select);
             });
 
             new MutationObserver(function () {
                 syncTrigger(select);
+                if (activeSelect === select && dropdownMenu.classList.contains("is-open")) {
+                    renderDropdownList(select);
+                    positionDropdown(trigger);
+                }
             }).observe(select, { childList: true, subtree: true, attributes: true });
         });
 
         searchEl.addEventListener("input", function () {
-            if (activeSelect) renderList(activeSelect, searchEl.value);
+            if (activeSelect) renderSheetList(activeSelect, searchEl.value);
         });
 
         closeEl.addEventListener("click", closePicker);
         overlay.addEventListener("click", function (e) {
             if (e.target === overlay) closePicker();
+        });
+
+        document.addEventListener("click", function (e) {
+            if (!dropdownMenu.classList.contains("is-open")) return;
+            if (dropdownMenu.contains(e.target)) return;
+            if (e.target.closest(".rf-picker-trigger")) return;
+            closePicker();
+        });
+
+        document.addEventListener("keydown", function (e) {
+            if (e.key === "Escape") closePicker();
+        });
+
+        window.addEventListener("resize", closePicker);
+        document.querySelectorAll(".report-form-scroll, .report-form-aside-body").forEach(function (scroller) {
+            scroller.addEventListener("scroll", closePicker, { passive: true });
         });
 
         if (window.lucide) lucide.createIcons();
@@ -2812,7 +3349,7 @@ toggleRoomBtn.addEventListener('click', function () {
     |--------------------------------------------------------------------------
     */
         roomSelect.addEventListener("change", function () {
-            this.style.borderColor = "";
+            setSelectTriggerBorder(this, "");
 
             document.getElementById("locationError").classList.add("hidden");
         });
@@ -2823,7 +3360,7 @@ toggleRoomBtn.addEventListener('click', function () {
     |--------------------------------------------------------------------------
     */
         equipSelect.addEventListener("change", function () {
-            this.style.borderColor = "";
+            setSelectTriggerBorder(this, "");
 
             document.getElementById("equipmentError").classList.add("hidden");
         });
@@ -2850,7 +3387,7 @@ toggleRoomBtn.addEventListener('click', function () {
     */
         document.addEventListener("click", function (e) {
             if (e.target.classList.contains("issue-btn")) {
-                document.getElementById("issueError").classList.add("hidden");
+                hideIssueOrDetailsErrors();
             }
         });
 
@@ -2861,6 +3398,9 @@ toggleRoomBtn.addEventListener('click', function () {
 
         const inactiveReporterBox =
             document.getElementById("inactiveReporterBox");
+
+        const pendingReporterBox =
+            document.getElementById("pendingReporterBox");
 
         const submitReportBtn =
             document.getElementById("submitReportBtn");
@@ -2885,6 +3425,10 @@ toggleRoomBtn.addEventListener('click', function () {
             reporterBox.classList.add("hidden");
 
             inactiveReporterBox.classList.add("hidden");
+
+            if (pendingReporterBox) {
+                pendingReporterBox.classList.add("hidden");
+            }
 
             employeeError.style.display = "none";
 
@@ -2933,6 +3477,10 @@ toggleRoomBtn.addEventListener('click', function () {
 
                         inactiveReporterBox.classList.add("hidden");
 
+                        if (pendingReporterBox) {
+                            pendingReporterBox.classList.add("hidden");
+                        }
+
                         employeeError.innerText =
                             "Employee ID not recognized.";
 
@@ -2947,6 +3495,21 @@ toggleRoomBtn.addEventListener('click', function () {
                     }
 
 
+                    if (data.reporter_status === "Pending Approval") {
+                        reporterVerified = false;
+                        reporterBox.classList.add("hidden");
+                        inactiveReporterBox.classList.add("hidden");
+                        if (pendingReporterBox) {
+                            pendingReporterBox.classList.remove("hidden");
+                        }
+                        employeeError.style.display = "none";
+                        setReportFormLocked(true);
+                        if (typeof lucide !== "undefined") {
+                            lucide.createIcons();
+                        }
+                        return;
+                    }
+
                     // =====================================================
                     // REPORTER IS INACTIVE
                     // THIS IS THE ONLY STATE THAT LOCKS THE FORM
@@ -2959,6 +3522,10 @@ toggleRoomBtn.addEventListener('click', function () {
                         reporterBox.classList.add("hidden");
 
                         inactiveReporterBox.classList.remove("hidden");
+
+                        if (pendingReporterBox) {
+                            pendingReporterBox.classList.add("hidden");
+                        }
 
                         employeeError.style.display = "none";
 
@@ -2988,6 +3555,10 @@ toggleRoomBtn.addEventListener('click', function () {
                     reporterBox.classList.remove("hidden");
 
                     inactiveReporterBox.classList.add("hidden");
+
+                    if (pendingReporterBox) {
+                        pendingReporterBox.classList.add("hidden");
+                    }
 
                     employeeError.style.display = "none";
 
@@ -3040,6 +3611,10 @@ toggleRoomBtn.addEventListener('click', function () {
 
                     inactiveReporterBox.classList.add("hidden");
 
+                    if (pendingReporterBox) {
+                        pendingReporterBox.classList.add("hidden");
+                    }
+
                     employeeError.innerText =
                         "Unable to verify Employee ID.";
 
@@ -3059,7 +3634,7 @@ toggleRoomBtn.addEventListener('click', function () {
 
             clearSuggestedIssue();
 
-            document.getElementById("issueError").classList.add("hidden");
+            hideIssueOrDetailsErrors();
 
             lastSelectedEquipment = "";
 
@@ -3178,6 +3753,10 @@ toggleRoomBtn.addEventListener('click', function () {
                 .getElementById("suggestedIssueInput")
                 .value.trim();
 
+            const additionalDetails = document
+                .getElementById("problemDescription")
+                .value.trim();
+
             /*
         |--------------------------------------------------------------------------
         | RESET ALL ERRORS
@@ -3187,7 +3766,7 @@ toggleRoomBtn.addEventListener('click', function () {
 
             document.getElementById("equipmentError").classList.add("hidden");
 
-            document.getElementById("issueError").classList.add("hidden");
+            hideIssueOrDetailsErrors();
 
             employeeError.style.display = "none";
 
@@ -3196,9 +3775,9 @@ toggleRoomBtn.addEventListener('click', function () {
         | RESET BORDERS
         |--------------------------------------------------------------------------
         */
-            roomSelect.style.borderColor = "";
+            setSelectTriggerBorder(roomSelect, "");
 
-            equipmentSelect.style.borderColor = "";
+            setSelectTriggerBorder(equipmentSelect, "");
 
             if (equipmentManualInput) {
                 equipmentManualInput.style.borderColor = "";
@@ -3216,7 +3795,7 @@ toggleRoomBtn.addEventListener('click', function () {
                     .getElementById("locationError")
                     .classList.remove("hidden");
 
-                roomSelect.style.borderColor = "#dc2626";
+                setSelectTriggerBorder(roomSelect, "#dc2626");
 
                 roomSelect.focus();
 
@@ -3235,7 +3814,7 @@ toggleRoomBtn.addEventListener('click', function () {
                     .getElementById("equipmentError")
                     .classList.remove("hidden");
 
-                equipmentSelect.style.borderColor = "#dc2626";
+                setSelectTriggerBorder(equipmentSelect, "#dc2626");
 
                 equipmentSelect.focus();
 
@@ -3265,13 +3844,25 @@ toggleRoomBtn.addEventListener('click', function () {
 
             /*
         |--------------------------------------------------------------------------
-        | STEP 4 : SUGGESTED ISSUE REQUIRED
+        | STEP 4 : SUGGESTED ISSUE OR ADDITIONAL DETAILS REQUIRED
         |--------------------------------------------------------------------------
         */
-            if (selectedIssue === "") {
+            if (selectedIssue === "" && additionalDetails === "") {
                 document
                     .getElementById("issueError")
                     .classList.remove("hidden");
+
+                const detailsError = document.getElementById("detailsError");
+                const detailsInput = document.getElementById("problemDescription");
+
+                if (detailsError) {
+                    detailsError.classList.remove("hidden");
+                }
+
+                if (detailsInput) {
+                    detailsInput.style.borderColor = "#dc2626";
+                    detailsInput.focus();
+                }
 
                 e.preventDefault();
 
@@ -3284,6 +3875,12 @@ toggleRoomBtn.addEventListener('click', function () {
         |--------------------------------------------------------------------------
         */
             if (!reporterVerified) {
+                if (pendingReporterBox && !pendingReporterBox.classList.contains("hidden")) {
+                    pendingReporterBox.scrollIntoView({ behavior: "smooth", block: "center" });
+                    e.preventDefault();
+                    return;
+                }
+
                 employeeError.innerText = "Employee ID not recognized.";
 
                 employeeError.style.display = "block";

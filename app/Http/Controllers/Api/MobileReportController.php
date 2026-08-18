@@ -183,6 +183,8 @@ class MobileReportController extends Controller
 
             'priority' => 'required|in:Urgent,Non-Urgent',
 
+            'preferred_action_date' => ReportGrouping::preferredActionDateRules(),
+
             'photo' => 'nullable|image|mimes:jpg,jpeg,png|max:5120',
 
         ]);
@@ -358,6 +360,10 @@ class MobileReportController extends Controller
                 ReportGrouping::mergeIntoOpenReport($openReport, [
                     'reporter_id' => $request->employee_id,
                     'urgency' => $request->priority,
+                    'preferred_action_date' => ReportGrouping::resolvePreferredActionDate(
+                        $request->priority,
+                        $request->preferred_action_date
+                    ),
                     'issue' => $issueName ?: trim((string) $request->description),
                 ]);
 
@@ -401,6 +407,13 @@ class MobileReportController extends Controller
 
         if (Schema::hasColumn('reports_table', 'report_related_count')) {
             $reportPayload['report_related_count'] = 1;
+        }
+
+        if (ReportGrouping::hasPreferredActionDateColumn()) {
+            $reportPayload['report_preferred_action_date'] = ReportGrouping::resolvePreferredActionDate(
+                $request->priority,
+                $request->preferred_action_date
+            );
         }
 
         $reportId = DB::table('reports_table')->insertGetId($reportPayload);

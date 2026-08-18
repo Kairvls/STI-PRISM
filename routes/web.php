@@ -675,6 +675,16 @@ Route::get(
     [ReporterController::class, 'index']
 );
 
+Route::view(
+    '/reporter-faq',
+    'landing.faq'
+)->name('reporter.faq');
+
+Route::view(
+    '/campus-helpdesk',
+    'landing.helpdesk'
+)->name('reporter.helpdesk');
+
 Route::post(
     '/register-reporter',
     [ReporterController::class, 'startRegistration']
@@ -1256,6 +1266,21 @@ Route::get(
     '/maintenance/reporters',
     [MaintenanceController::class, 'reporters']
 );
+
+Route::get(
+    '/maintenance/reporters/approvals',
+    [MaintenanceController::class, 'reporterApprovals']
+)->name('maintenance.reporters.approvals');
+
+Route::post(
+    '/maintenance/reporters/approvals/{id}/approve',
+    [MaintenanceController::class, 'approveReporterApplication']
+)->name('maintenance.reporters.approvals.approve');
+
+Route::post(
+    '/maintenance/reporters/approvals/{id}/reject',
+    [MaintenanceController::class, 'rejectReporterApplication']
+)->name('maintenance.reporters.approvals.reject');
 
 Route::post(
     '/maintenance/reporters/store',

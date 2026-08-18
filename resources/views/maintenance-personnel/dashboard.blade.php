@@ -33,6 +33,11 @@
                     overflow-x: hidden;
                 }
 
+                body.mp-layout main {
+                    -webkit-overflow-scrolling: touch;
+                    overscroll-behavior-y: contain;
+                }
+
                 /* ── MAIN LAYOUT ─────────────────────────────────────── */
 
                 /* ── STAT CARD ───────────────────────────────────────── */
@@ -3841,13 +3846,12 @@
         }
 
         .maintenance-hero-primary {
-            background: #111827;
-            color: white;
-            border: 1px solid #111827;
+            background: #F5F5F5;
+            color: black;
         }
 
         .maintenance-hero-primary:hover {
-            background: #000000;
+            background: #EDEDED;
         }
 
         .maintenance-hero-secondary {
@@ -3973,7 +3977,7 @@
 
 
         /* =====================================================
-        VIEW BUILDING BUTTON
+        FULL SCREEN BUTTON
         ===================================================== */
 
         .dashboard-building-action {
@@ -3996,10 +4000,16 @@
 
             color: #334155;
 
+            font-family: inherit;
             font-size: 11px;
             font-weight: 600;
 
             text-decoration: none;
+
+            cursor: pointer;
+
+            appearance: none;
+            -webkit-appearance: none;
 
             transition: 0.2s ease;
         }
@@ -4060,12 +4070,24 @@
 
             overflow: hidden;
 
-            /* Exterior: black studio — white clay shell pops */
-            background: #020617;
+            /* Exterior: dark ice-blue studio behind the holographic shell */
+            background:
+                radial-gradient(
+                    ellipse 70% 55% at 50% 48%,
+                    #0c3d55 0%,
+                    #072536 42%,
+                    #020d18 100%
+                );
         }
 
         #building3DViewport.is-interior-view {
-            background: #020617;
+            background:
+                radial-gradient(
+                    ellipse 70% 55% at 50% 48%,
+                    #0c3d55 0%,
+                    #072536 42%,
+                    #020d18 100%
+                );
         }
 
 
@@ -4155,13 +4177,13 @@
 
             padding: 10px 16px;
 
-            border: 1px solid rgba(59, 130, 246, 0.35);
+            border: 1px solid rgba(103, 232, 249, 0.35);
 
             border-radius: 999px;
 
-            background: rgba(255, 255, 255, 0.92);
+            background: rgba(2, 11, 20, 0.82);
 
-            color: #0f172a;
+            color: #e6faff;
 
             font-size: 13px;
             font-weight: 700;
@@ -4172,8 +4194,8 @@
             -webkit-backdrop-filter: blur(10px);
 
             box-shadow:
-                0 10px 28px rgba(15, 23, 42, 0.18),
-                0 0 0 1px rgba(148, 163, 184, 0.25);
+                0 10px 28px rgba(0, 0, 0, 0.28),
+                0 0 18px rgba(34, 211, 238, 0.08);
 
             transform: translate(-50%, -115%);
 
@@ -4188,13 +4210,13 @@
         }
 
         .building-enter-btn:hover {
-            background: #ffffff;
+            background: rgba(8, 47, 73, 0.92);
 
-            border-color: rgba(37, 99, 235, 0.55);
+            border-color: rgba(103, 232, 249, 0.7);
 
             box-shadow:
-                0 14px 32px rgba(15, 23, 42, 0.22),
-                0 0 0 1px rgba(59, 130, 246, 0.25);
+                0 14px 32px rgba(0, 0, 0, 0.32),
+                0 0 22px rgba(34, 211, 238, 0.16);
 
             transform: translate(-50%, calc(-115% - 3px));
         }
@@ -4202,7 +4224,7 @@
         .building-enter-btn i {
             width: 16px;
             height: 16px;
-            color: #2563eb;
+            color: #67e8f9;
         }
 
         /* Small pointer so it feels attached to the roof */
@@ -4213,11 +4235,11 @@
             bottom: -7px;
             width: 12px;
             height: 12px;
-            background: rgba(255, 255, 255, 0.92);
-            border-right: 1px solid rgba(59, 130, 246, 0.35);
-            border-bottom: 1px solid rgba(59, 130, 246, 0.35);
+            background: rgba(2, 11, 20, 0.82);
+            border-right: 1px solid rgba(103, 232, 249, 0.35);
+            border-bottom: 1px solid rgba(103, 232, 249, 0.35);
             transform: translateX(-50%) rotate(45deg);
-            box-shadow: 2px 2px 6px rgba(15, 23, 42, 0.08);
+            box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.18);
         }
 
 
@@ -4447,6 +4469,106 @@
 
         }
 
+
+        /* =====================================================
+        BUILDING OVERVIEW FULL SCREEN
+        Header stays out of fullscreen. Exit control lives on the 3D view.
+        ===================================================== */
+
+        .dashboard-building-view.is-building-fullscreen {
+            width: 100%;
+            height: 100%;
+            max-height: 100vh;
+            max-height: 100dvh;
+
+            overflow: hidden;
+        }
+
+        .dashboard-building-view.is-building-fullscreen.is-pseudo-fullscreen {
+            position: fixed;
+            inset: 0;
+            z-index: 99999;
+
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
+        }
+
+        .dashboard-building-view.is-building-fullscreen #building3DViewport {
+            height: 100% !important;
+            min-height: 0;
+        }
+
+        .building-exit-fullscreen-btn {
+            display: none;
+
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            z-index: 60;
+
+            width: 42px;
+            height: 42px;
+
+            align-items: center;
+            justify-content: center;
+
+            padding: 0;
+
+            border: 1px solid rgba(103, 232, 249, 0.35);
+            border-radius: 12px;
+
+            background: rgba(2, 11, 20, 0.82);
+
+            color: #e6faff;
+
+            cursor: pointer;
+
+            box-shadow:
+                0 10px 24px rgba(0, 0, 0, 0.28),
+                0 0 16px rgba(34, 211, 238, 0.08);
+
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+
+            transition:
+                background 0.2s ease,
+                border-color 0.2s ease,
+                transform 0.2s ease,
+                box-shadow 0.2s ease;
+        }
+
+        .dashboard-building-view.is-building-fullscreen .building-exit-fullscreen-btn {
+            display: inline-flex;
+            height: 42px;
+        }
+
+        .dashboard-building-view.is-building-fullscreen .building-back-overview-btn {
+            top: 16px;
+            right: 66px;
+            z-index: 60;
+            height: 42px;
+            padding-top: 0;
+            padding-bottom: 0;
+            box-sizing: border-box;
+        }
+
+        .building-exit-fullscreen-btn:hover {
+            background: rgba(8, 47, 73, 0.92);
+            border-color: rgba(103, 232, 249, 0.7);
+            transform: translateY(-1px);
+            box-shadow:
+                0 14px 28px rgba(0, 0, 0, 0.32),
+                0 0 20px rgba(34, 211, 238, 0.14);
+        }
+
+        .building-exit-fullscreen-btn svg,
+        .building-exit-fullscreen-btn i {
+            width: 18px;
+            height: 18px;
+            color: #67e8f9;
+        }
+
         /* =====================================================
         PHASE 7.7
         3D ROOM HOVER TOOLTIP
@@ -4610,6 +4732,18 @@
             opacity: 1;
             visibility: visible;
             transform: translateX(0);
+        }
+
+        .building-room-details-panel.is-anchored {
+            right: auto;
+            left: 0;
+            top: 0;
+            transform: none;
+            z-index: 55;
+        }
+
+        .building-room-details-panel.is-anchored.visible {
+            transform: none;
         }
 
 
@@ -4976,13 +5110,13 @@
         {{-- FULL WIDTH ABOVE MAIN GRID --}}
         {{-- ===================================================== --}}
 
-        <div class="dashboard-toolbar flex w-full items-center gap-4">
+        <!--<div class="dashboard-toolbar flex w-full items-center gap-4">
             {{-- ===================================================== --}}
             {{-- SEARCH --}}
             {{-- TAKES ALL REMAINING WIDTH --}}
             {{-- ===================================================== --}}
 
-            <!--<div class="mb-1 flex items-center gap-2 text-sm text-gray-500">
+            <div class="mb-1 flex items-center gap-2 text-sm text-gray-500">
                 <span>Maintenance</span>
 
                 <i data-lucide="chevron-right" class="h-4 w-4"></i>
@@ -4994,7 +5128,7 @@
                         )
                     }}
                 </span>
-            </div>-->
+            </div>
 
             {{-- ===================================================== --}}
             {{-- QUICK ACTIONS --}}
@@ -5068,7 +5202,7 @@
                     <span>Borrowing</span>
                 </button>
             </div>
-        </div>
+        </div>-->
 
         {{-- ===================================================== --}}
         {{-- MAIN DASHBOARD GRID --}}
@@ -5090,235 +5224,7 @@
                 {{-- ADD THIS AFTER dashboard-bottom-charts --}}
                 {{-- ===================================================== --}}
 
-                <section class="dashboard-building-section">
-                    {{-- HEADER --}}
-                    <div class="dashboard-building-header">
-                        <div>
-                            <p class="dashboard-building-eyebrow">INFRASTRUCTURE OVERVIEW</p>
-
-                            <h2 class="dashboard-building-title">
-                                Building Rooms
-                            </h2>
-
-                            <p class="dashboard-building-subtitle">Interactive overview of rooms, equipment, and maintenance status.</p>
-                        </div>
-
-                        <a href="#" class="dashboard-building-action">
-                            <i data-lucide="maximize-2"></i>
-                            <span>View Building</span>
-                        </a>
-                    </div>
-
-                    {{-- 3D BUILDING VIEW --}}
-                    {{-- ===================================================== --}}
-                    {{-- PHASE 1: INTERACTIVE 3D BUILDING VIEWPORT --}}
-                    {{-- ===================================================== --}}
-
-                    <div class="dashboard-building-view">
-                        {{-- THREE.JS WILL RENDER THE 3D SCENE HERE --}}
-                        <div id="building3DViewport"></div>
-
-                        {{-- ===================================================== --}}
-                        {{-- ENTER BUILDING BUTTON --}}
-                        {{-- Opens the interior without clicking the 3D shell --}}
-                        {{-- ===================================================== --}}
-
-                        <button
-                            type="button"
-                            id="enterBuildingBtn"
-                            class="building-enter-btn"
-                        >
-                            <i data-lucide="door-open" class="h-4 w-4"></i>
-
-                            <span class="text-xs">Enter Building</span>
-                        </button>
-
-                        {{-- ===================================================== --}}
-                        {{-- PHASE 7.8: COMPACT ROOM DETAILS PANEL --}}
-                        {{-- ===================================================== --}}
-
-                        <div
-                            id="buildingRoomDetailsPanel"
-                            class="building-room-details-panel"
-                        >
-                            {{-- HEADER --}}
-                            <div class="building-room-details-header">
-                                <div>
-                                    <span class="building-room-details-eyebrow">
-                                        SELECTED ROOM
-                                    </span>
-
-                                    <h3 id="buildingRoomDetailsName">Room</h3>
-                                </div>
-
-                                <button
-                                    type="button"
-                                    id="buildingRoomDetailsClose"
-                                    class="building-room-details-close"
-                                    aria-label="Close room details"
-                                >
-                                    <i data-lucide="x"></i>
-                                </button>
-                            </div>
-
-                            {{-- ROOM INFORMATION --}}
-                            <div class="building-room-details-info">
-                                <div class="building-room-details-row">
-                                    <span>Floor</span>
-
-                                    <strong id="buildingRoomDetailsFloor">
-                                        Unknown
-                                    </strong>
-                                </div>
-
-                                <div class="building-room-details-row">
-                                    <span>Status</span>
-
-                                    <strong id="buildingRoomDetailsStatus">
-                                        Available
-                                    </strong>
-                                </div>
-                            </div>
-
-                            {{-- MAINTENANCE SUMMARY --}}
-                            <div class="building-room-details-stats">
-                                <div class="building-room-details-stat">
-                                    <span>Active Reports</span>
-
-                                    <strong
-                                        id="buildingRoomDetailsActiveReports"
-                                    >
-                                        0
-                                    </strong>
-                                </div>
-
-                                <div class="building-room-details-stat">
-                                    <span>Urgent Reports</span>
-
-                                    <strong
-                                        id="buildingRoomDetailsUrgentReports"
-                                    >
-                                        0
-                                    </strong>
-                                </div>
-
-                                <div class="building-room-details-stat">
-                                    <span>Maintenance</span>
-
-                                    <strong id="buildingRoomDetailsMaintenance">
-                                        0
-                                    </strong>
-                                </div>
-                            </div>
-
-                            {{-- ACTION --}}
-                            <button
-                                type="button"
-                                id="buildingRoomDetailsView"
-                                class="building-room-details-view"
-                            >
-                                View Room
-
-                                <i data-lucide="arrow-right"></i>
-                            </button>
-                        </div>
-
-                        {{-- ===================================================== --}}
-                        {{-- PHASE 7.7: ROOM HOVER TOOLTIP --}}
-                        {{-- ===================================================== --}}
-
-                        <div
-                            id="buildingRoomTooltip"
-                            class="building-room-tooltip"
-                        >
-                            <div class="building-room-tooltip-header">
-                                <span
-                                    id="buildingRoomTooltipDot"
-                                    class="building-room-tooltip-dot"
-                                ></span>
-
-                                <span class="building-room-tooltip-eyebrow">
-                                    ROOM
-                                </span>
-                            </div>
-
-                            <div
-                                id="buildingRoomTooltipName"
-                                class="building-room-tooltip-name"
-                            >
-                                Room
-                            </div>
-
-                            <div class="building-room-tooltip-details">
-                                <span id="buildingRoomTooltipFloor">
-                                    Floor
-                                </span>
-
-                                <span class="building-room-tooltip-separator">
-                                    •
-                                </span>
-
-                                <span id="buildingRoomTooltipStatus">
-                                    Available
-                                </span>
-                            </div>
-                        </div>
-
-                        {{-- FLOATING LABEL --}}
-                        <!--<div class="dashboard-building-badge">
-                            <span class="dashboard-building-badge-dot"></span>
-
-                            Interactive Building Overview
-                        </div>-->
-
-                        {{-- ===================================================== --}}
-                        {{-- PHASE 7.4: FLOOR FILTER CONTROLS --}}
-                        {{-- ===================================================== --}}
-
-                        <div
-                            id="buildingFloorFilters"
-                            class="building-floor-filters"
-                            style="display: none"
-                        >
-                            <button
-                                type="button"
-                                class="building-floor-filter active"
-                                data-floor-filter="all"
-                            >
-                                All Floors
-                            </button>
-
-                            <div
-                                id="buildingFloorFilterButtons"
-                                class="building-floor-filter-dynamic"
-                            ></div>
-                        </div>
-
-                        <button
-                            type="button"
-                            id="backToBuildingOverview"
-                            style="display: none"
-                            class="building-back-overview-btn"
-                        >
-                             <i data-lucide="chevrons-left" class="h-4 w-4"></i>
-                            
-                            <span class="text-xs">Return</span>
-                        </button>
-
-                        {{-- 3D CONTROLS (reset icon hidden; use hold + R) --}}
-                        <div class="building-3d-controls" style="display: none" aria-hidden="true">
-                            <button
-                                type="button"
-                                id="buildingReset"
-                                class="building-3d-control"
-                                data-tooltip="Reset View"
-                                tabindex="-1"
-                            >
-                                <i data-lucide="rotate-ccw"></i>
-                            </button>
-                        </div>
-                    </div>
-                </section>
+                
 
                 <div class="dashboard-overview-row">
                     {{-- ===================================================== --}}
@@ -5943,6 +5849,44 @@
                     </section>
                 </div>
 
+                {{-- ===================================================== --}}
+                {{-- MAINTENANCE SCHEDULE WORKLOAD --}}
+                {{-- ===================================================== --}}
+
+                <section class="dashboard-analytics-card">
+                    <div class="dashboard-analytics-header">
+                        <div>
+                            <h2 class="dashboard-analytics-title">
+                                Maintenance Schedule Workload
+                            </h2>
+
+                            <p class="dashboard-analytics-subtitle">Scheduled maintenance workload for the next 30 days</p>
+                        </div>
+
+                        {{-- ================================================= --}}
+                        {{-- TOTAL SCHEDULED MAINTENANCE --}}
+                        {{-- ================================================= --}}
+
+                        <div class="activity-chart-total">
+                            {{
+                                array_sum(
+                                    $maintenanceWorkloadData,
+                                )
+                            }}
+
+                            <span> scheduled tasks </span>
+                        </div>
+                    </div>
+
+                    {{-- ===================================================== --}}
+                    {{-- CHART --}}
+                    {{-- ===================================================== --}}
+
+                    <div class="dashboard-report-activity-chart">
+                        <canvas id="maintenanceWorkloadChart"></canvas>
+                    </div>
+                </section>
+
                 
 
                 {{-- ===================================================== --}}
@@ -6016,41 +5960,250 @@
 
                 
 
-                {{-- ===================================================== --}}
-                {{-- MAINTENANCE SCHEDULE WORKLOAD --}}
-                {{-- ===================================================== --}}
+                
 
-                <section class="dashboard-analytics-card">
-                    <div class="dashboard-analytics-header">
+                <section id="dashboardBuildingSection" class="dashboard-building-section">
+                    {{-- HEADER --}}
+                    <div class="dashboard-building-header">
                         <div>
-                            <h2 class="dashboard-analytics-title">
-                                Maintenance Schedule Workload
+                            <p class="dashboard-building-eyebrow">INFRASTRUCTURE OVERVIEW</p>
+
+                            <h2 class="dashboard-building-title">
+                                Building Rooms
                             </h2>
 
-                            <p class="dashboard-analytics-subtitle">Scheduled maintenance workload for the next 30 days</p>
+                            <p class="dashboard-building-subtitle">Interactive overview of rooms, equipment, and maintenance status.</p>
                         </div>
 
-                        {{-- ================================================= --}}
-                        {{-- TOTAL SCHEDULED MAINTENANCE --}}
-                        {{-- ================================================= --}}
-
-                        <div class="activity-chart-total">
-                            {{
-                                array_sum(
-                                    $maintenanceWorkloadData,
-                                )
-                            }}
-
-                            <span> scheduled tasks </span>
-                        </div>
+                        <button
+                            type="button"
+                            id="buildingFullscreenBtn"
+                            class="dashboard-building-action"
+                            aria-label="Enter full screen"
+                            aria-pressed="false"
+                        >
+                            <i data-lucide="maximize-2"></i>
+                            <span>Full Screen</span>
+                        </button>
                     </div>
 
+                    {{-- 3D BUILDING VIEW --}}
                     {{-- ===================================================== --}}
-                    {{-- CHART --}}
+                    {{-- PHASE 1: INTERACTIVE 3D BUILDING VIEWPORT --}}
                     {{-- ===================================================== --}}
 
-                    <div class="dashboard-report-activity-chart">
-                        <canvas id="maintenanceWorkloadChart"></canvas>
+                    <div id="dashboardBuildingView" class="dashboard-building-view">
+                        {{-- THREE.JS WILL RENDER THE 3D SCENE HERE --}}
+                        <div id="building3DViewport"></div>
+
+                        <button
+                            type="button"
+                            id="buildingExitFullscreenBtn"
+                            class="building-exit-fullscreen-btn"
+                            aria-label="Exit full screen"
+                        >
+                            <i data-lucide="minimize-2"></i>
+                        </button>
+
+                        {{-- ===================================================== --}}
+                        {{-- ENTER BUILDING BUTTON --}}
+                        {{-- Opens the interior without clicking the 3D shell --}}
+                        {{-- ===================================================== --}}
+
+                        <button
+                            type="button"
+                            id="enterBuildingBtn"
+                            class="building-enter-btn"
+                        >
+                            <i data-lucide="door-open" class="h-4 w-4"></i>
+
+                            <span class="text-xs">Enter Building</span>
+                        </button>
+
+                        {{-- ===================================================== --}}
+                        {{-- PHASE 7.8: COMPACT ROOM DETAILS PANEL --}}
+                        {{-- ===================================================== --}}
+
+                        <div
+                            id="buildingRoomDetailsPanel"
+                            class="building-room-details-panel"
+                        >
+                            {{-- HEADER --}}
+                            <div class="building-room-details-header">
+                                <div>
+                                    <span class="building-room-details-eyebrow">
+                                        SELECTED ROOM
+                                    </span>
+
+                                    <h3 id="buildingRoomDetailsName">Room</h3>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    id="buildingRoomDetailsClose"
+                                    class="building-room-details-close"
+                                    aria-label="Close room details"
+                                >
+                                    <i data-lucide="x"></i>
+                                </button>
+                            </div>
+
+                            {{-- ROOM INFORMATION --}}
+                            <div class="building-room-details-info">
+                                <div class="building-room-details-row">
+                                    <span>Floor</span>
+
+                                    <strong id="buildingRoomDetailsFloor">
+                                        Unknown
+                                    </strong>
+                                </div>
+
+                                <div class="building-room-details-row">
+                                    <span>Status</span>
+
+                                    <strong id="buildingRoomDetailsStatus">
+                                        No Active Reports
+                                    </strong>
+                                </div>
+                            </div>
+
+                            {{-- MAINTENANCE SUMMARY --}}
+                            <div class="building-room-details-stats">
+                                <div class="building-room-details-stat">
+                                    <span>Active Reports</span>
+
+                                    <strong
+                                        id="buildingRoomDetailsActiveReports"
+                                    >
+                                        0
+                                    </strong>
+                                </div>
+
+                                <div class="building-room-details-stat">
+                                    <span>Urgent Reports</span>
+
+                                    <strong
+                                        id="buildingRoomDetailsUrgentReports"
+                                    >
+                                        0
+                                    </strong>
+                                </div>
+
+                                <div class="building-room-details-stat">
+                                    <span>Maintenance</span>
+
+                                    <strong id="buildingRoomDetailsMaintenance">
+                                        0
+                                    </strong>
+                                </div>
+                            </div>
+
+                            {{-- ACTION --}}
+                            <button
+                                type="button"
+                                id="buildingRoomDetailsView"
+                                class="building-room-details-view"
+                            >
+                                View Room
+
+                                <i data-lucide="arrow-right"></i>
+                            </button>
+                        </div>
+
+                        {{-- ===================================================== --}}
+                        {{-- PHASE 7.7: ROOM HOVER TOOLTIP --}}
+                        {{-- ===================================================== --}}
+
+                        <div
+                            id="buildingRoomTooltip"
+                            class="building-room-tooltip"
+                        >
+                            <div class="building-room-tooltip-header">
+                                <span
+                                    id="buildingRoomTooltipDot"
+                                    class="building-room-tooltip-dot"
+                                ></span>
+
+                                <span class="building-room-tooltip-eyebrow">
+                                    ROOM
+                                </span>
+                            </div>
+
+                            <div
+                                id="buildingRoomTooltipName"
+                                class="building-room-tooltip-name"
+                            >
+                                Room
+                            </div>
+
+                            <div class="building-room-tooltip-details">
+                                <span id="buildingRoomTooltipFloor">
+                                    Floor
+                                </span>
+
+                                <span class="building-room-tooltip-separator">
+                                    •
+                                </span>
+
+                                <span id="buildingRoomTooltipStatus">
+                                    Available
+                                </span>
+                            </div>
+                        </div>
+
+                        {{-- FLOATING LABEL --}}
+                        <!--<div class="dashboard-building-badge">
+                            <span class="dashboard-building-badge-dot"></span>
+
+                            Interactive Building Overview
+                        </div>-->
+
+                        {{-- ===================================================== --}}
+                        {{-- PHASE 7.4: FLOOR FILTER CONTROLS --}}
+                        {{-- ===================================================== --}}
+
+                        <div
+                            id="buildingFloorFilters"
+                            class="building-floor-filters"
+                            style="display: none"
+                        >
+                            <button
+                                type="button"
+                                class="building-floor-filter active"
+                                data-floor-filter="all"
+                            >
+                                All Floors
+                            </button>
+
+                            <div
+                                id="buildingFloorFilterButtons"
+                                class="building-floor-filter-dynamic"
+                            ></div>
+                        </div>
+
+                        <button
+                            type="button"
+                            id="backToBuildingOverview"
+                            style="display: none"
+                            class="building-back-overview-btn"
+                        >
+                             <i data-lucide="chevrons-left" class="h-4 w-4"></i>
+                            
+                            <span class="text-xs">Go back</span>
+                        </button>
+
+                        {{-- 3D CONTROLS (reset icon hidden; use hold + R) --}}
+                        <div class="building-3d-controls" style="display: none" aria-hidden="true">
+                            <button
+                                type="button"
+                                id="buildingReset"
+                                class="building-3d-control"
+                                data-tooltip="Reset View"
+                                tabindex="-1"
+                            >
+                                <i data-lucide="rotate-ccw"></i>
+                            </button>
+                        </div>
                     </div>
                 </section>
             </main>
@@ -6060,6 +6213,80 @@
             {{-- ===================================================== --}}
 
             <aside class="maintenance-dashboard-sidebar">
+
+            {{-- ===================================================== --}}
+            {{-- QUICK ACTIONS --}}
+            {{-- ===================================================== --}}
+
+            <div
+                class="dashboard-toolbar-actions ml-auto flex items-center gap-2"
+            >
+                {{-- ===================================================== --}}
+                {{-- ADD EQUIPMENT --}}
+                {{-- ===================================================== --}}
+
+                {{-- ===================================================== --}}
+                {{-- ADD EQUIPMENT --}}
+                {{-- ===================================================== --}}
+
+                <button type="button" class="button" onclick="openAddEquipmentModal()">
+                    <span class="fold"></span>
+
+                    <div class="points_wrapper">
+                        <i class="point"></i>
+                        <i class="point"></i>
+                        <i class="point"></i>
+                        <i class="point"></i>
+                        <i class="point"></i>
+                        <i class="point"></i>
+                        <i class="point"></i>
+                        <i class="point"></i>
+                        <i class="point"></i>
+                        <i class="point"></i>
+                    </div>
+
+                    <span class="inner"
+                        ><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-patch-plus" viewBox="0 0 16 16">
+                        <path fill-rule="evenodd" d="M8 5.5a.5.5 0 0 1 .5.5v1.5H10a.5.5 0 0 1 0 1H8.5V10a.5.5 0 0 1-1 0V8.5H6a.5.5 0 0 1 0-1h1.5V6a.5.5 0 0 1 .5-.5"/>
+                        <path d="m10.273 2.513-.921-.944.715-.698.622.637.89-.011a2.89 2.89 0 0 1 2.924 2.924l-.01.89.636.622a2.89 2.89 0 0 1 0 4.134l-.637.622.011.89a2.89 2.89 0 0 1-2.924 2.924l-.89-.01-.622.636a2.89 2.89 0 0 1-4.134 0l-.622-.637-.89.011a2.89 2.89 0 0 1-2.924-2.924l.01-.89-.636-.622a2.89 2.89 0 0 1 0-4.134l.637-.622-.011-.89a2.89 2.89 0 0 1 2.924-2.924l.89.01.622-.636a2.89 2.89 0 0 1 4.134 0l-.715.698a1.89 1.89 0 0 0-2.704 0l-.92.944-1.32-.016a1.89 1.89 0 0 0-1.911 1.912l.016 1.318-.944.921a1.89 1.89 0 0 0 0 2.704l.944.92-.016 1.32a1.89 1.89 0 0 0 1.912 1.911l1.318-.016.921.944a1.89 1.89 0 0 0 2.704 0l.92-.944 1.32.016a1.89 1.89 0 0 0 1.911-1.912l-.016-1.318.944-.921a1.89 1.89 0 0 0 0-2.704l-.944-.92.016-1.32a1.89 1.89 0 0 0-1.912-1.911z"/>
+                        </svg>Equipment</span
+                    >
+                </button>
+
+                {{-- ===================================================== --}}
+                {{-- ADD SCHEDULE --}}
+                {{-- ===================================================== --}}
+
+                <button
+                    type="button"
+                    class="dashboard-quick-action"
+                    onclick="openScheduleModal()"
+                >
+                    <span class="dashboard-quick-action-icon">
+                        <i data-lucide="calendar-plus" class="h-4 w-4"></i>
+                    </span>
+
+                    <span>Schedule</span>
+                </button>
+
+
+                {{-- ===================================================== --}}
+                {{-- ADD BORROWING --}}
+                {{-- ===================================================== --}}
+
+                <button
+                    type="button"
+                    class="dashboard-quick-action"
+                    onclick="openBorrowModal()"
+                >
+                    <span class="dashboard-quick-action-icon">
+                        <i data-lucide="clipboard-plus" class="h-4 w-4"></i>
+                    </span>
+
+                    <span>Borrowing</span>
+                </button>
+            </div>
+
                 {{-- ===================================================== --}}
                 {{-- MAINTENANCE CALENDAR --}}
                 {{-- ADD THIS ABOVE THE EXISTING ACTIVITY CARD --}}
@@ -6817,13 +7044,14 @@
 
     @php
         $showDailyReminder =
-            ($urgentReportsToday ?? 0) > 0
+            ($urgentReportsNeedingAction ?? 0) > 0
+            || ($nonUrgentReportsNeedingAction ?? 0) > 0
             || ($overdueMaintenance ?? 0) > 0
             || ($overdueBorrowings ?? 0) > 0;
     @endphp
 
     @if ($showDailyReminder)
-        {{-- Daily login reminder: urgent reports today + overdue schedules --}}
+        {{-- Daily login reminder: un-actioned/overdue reports + overdue schedules --}}
         <div
             id="dailyPriorityReminderModal"
             class="fixed inset-0 z-[70] hidden items-center justify-center bg-[#0b1220]/70 p-4"
@@ -6831,7 +7059,7 @@
             aria-modal="true"
             aria-labelledby="dailyPriorityReminderTitle"
         >
-            <div class="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.22)]">
+            <div class="flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.22)]">
                 <div class="border-b border-slate-100 px-6 pb-4 pt-6">
                     <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-rose-500">
                         Daily reminder
@@ -6847,21 +7075,43 @@
                     </p>
                 </div>
 
-                <div class="space-y-3 px-6 py-5">
-                    @if (($urgentReportsToday ?? 0) > 0)
-                        <div class="flex items-start gap-3 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3">
+                <div class="space-y-3 overflow-y-auto px-6 py-5">
+                    @if (($urgentReportsNeedingAction ?? 0) > 0)
+                        <a
+                            href="{{ url('/maintenance/reports/urgent') }}"
+                            class="flex items-start gap-3 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 transition hover:border-rose-200 hover:bg-rose-100/80"
+                        >
                             <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-rose-600">
                                 <i data-lucide="triangle-alert" class="h-5 w-5"></i>
                             </div>
                             <div>
                                 <p class="text-sm font-semibold text-rose-900">
-                                    {{ $urgentReportsToday }} urgent {{ \Illuminate\Support\Str::plural('report', $urgentReportsToday) }} today
+                                    {{ $urgentReportsNeedingAction }} urgent {{ \Illuminate\Support\Str::plural('report', $urgentReportsNeedingAction) }} need action
                                 </p>
                                 <p class="mt-0.5 text-xs text-rose-700/80">
-                                    New urgent reports submitted today still need action.
+                                    Overdue or still pending — not yet actioned by maintenance.
                                 </p>
                             </div>
-                        </div>
+                        </a>
+                    @endif
+
+                    @if (($nonUrgentReportsNeedingAction ?? 0) > 0)
+                        <a
+                            href="{{ url('/maintenance/reports/incoming?urgency=Non-Urgent') }}"
+                            class="flex items-start gap-3 rounded-xl border border-sky-100 bg-sky-50 px-4 py-3 transition hover:border-sky-200 hover:bg-sky-100/80"
+                        >
+                            <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-sky-600">
+                                <i data-lucide="clipboard-list" class="h-5 w-5"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-semibold text-sky-900">
+                                    {{ $nonUrgentReportsNeedingAction }} non-urgent {{ \Illuminate\Support\Str::plural('report', $nonUrgentReportsNeedingAction) }} need action
+                                </p>
+                                <p class="mt-0.5 text-xs text-sky-700/80">
+                                    Pending for 5 days or more, or the requested date has arrived.
+                                </p>
+                            </div>
+                        </a>
                     @endif
 
                     @if (($overdueMaintenance ?? 0) > 0)
@@ -6906,12 +7156,19 @@
                         Remind me tomorrow
                     </button>
 
-                    @if (($urgentReportsToday ?? 0) > 0)
+                    @if (($urgentReportsNeedingAction ?? 0) > 0)
                         <a
                             href="{{ url('/maintenance/reports/urgent') }}"
                             class="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700"
                         >
                             View urgent reports
+                        </a>
+                    @elseif (($nonUrgentReportsNeedingAction ?? 0) > 0)
+                        <a
+                            href="{{ url('/maintenance/reports/incoming?urgency=Non-Urgent') }}"
+                            class="rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700"
+                        >
+                            View non-urgent reports
                         </a>
                     @elseif (($overdueMaintenance ?? 0) > 0)
                         <a
@@ -10566,7 +10823,41 @@ document.addEventListener(
 
             const exteriorCloudSkyTexture = createSoftCloudSkyTexture();
 
-            scene.background = new THREE.Color(0x020617);
+            function createIceBlueBackdropTexture() {
+                const size = 1024;
+                const canvas = document.createElement("canvas");
+                canvas.width = size;
+                canvas.height = size;
+                const ctx = canvas.getContext("2d");
+
+                ctx.fillStyle = "#020d18";
+                ctx.fillRect(0, 0, size, size);
+
+                const glow = ctx.createRadialGradient(
+                    size * 0.5,
+                    size * 0.48,
+                    size * 0.04,
+                    size * 0.5,
+                    size * 0.5,
+                    size * 0.72,
+                );
+                glow.addColorStop(0, "#12506a");
+                glow.addColorStop(0.22, "#0c3d55");
+                glow.addColorStop(0.52, "#072536");
+                glow.addColorStop(1, "#020d18");
+                ctx.fillStyle = glow;
+                ctx.fillRect(0, 0, size, size);
+
+                const texture = new THREE.CanvasTexture(canvas);
+                texture.colorSpace = THREE.SRGBColorSpace;
+                texture.needsUpdate = true;
+                return texture;
+            }
+
+            const iceBlueBackdropTexture = createIceBlueBackdropTexture();
+            const ICE_BLUE_BACKDROP_FOG = 0x020d18;
+
+            scene.background = iceBlueBackdropTexture;
 
             const exteriorSkyDome = new THREE.Mesh(
                 new THREE.SphereGeometry(220, 48, 28),
@@ -10579,11 +10870,11 @@ document.addEventListener(
             );
             exteriorSkyDome.renderOrder = -2000;
             exteriorSkyDome.frustumCulled = false;
-            exteriorSkyDome.visible = false; // black studio — no sky dome
+            exteriorSkyDome.visible = false; // holographic dark studio
             scene.add(exteriorSkyDome);
 
-            // Soft falloff into black
-            scene.fog = new THREE.Fog(0x020617, 90, 220);
+            // Soft falloff into the same dark ice-blue
+            scene.fog = new THREE.Fog(ICE_BLUE_BACKDROP_FOG, 32, 78);
 
             // =====================================================
             // CAMERA
@@ -10639,15 +10930,14 @@ document.addEventListener(
 
             // =====================================================
             // HOLOGRAPHIC CYAN BLOOM
-            // Off for exterior clay look; enabled inside building
             // =====================================================
 
             const bloomPass = new UnrealBloomPass(
                 new THREE.Vector2(container.clientWidth, container.clientHeight),
 
-                0.0, // Strength — exterior starts with no bloom
-                0.3, // Radius
-                0.55, // Threshold
+                0.22,
+                0.28,
+                0.48,
             );
 
             composer.addPass(bloomPass);
@@ -10682,30 +10972,26 @@ document.addEventListener(
 
             // =====================================================
             // LIGHTING
-            // Soft high-key studio light for white clay shell
+            // Cyan holographic fill — the shell is the light source
             // =====================================================
 
-            // Hemisphere: cool sky + soft ground bounce (blue clay look)
-            const ambientLight = new THREE.HemisphereLight(0xffffff, 0x1e293b, 0.85);
+            const ambientLight = new THREE.HemisphereLight(0x38bdf8, 0x020617, 0.28);
 
             scene.add(ambientLight);
 
-            // Soft fill from above
-            const topLight = new THREE.PointLight(0xffffff, 2.4, 120);
+            const topLight = new THREE.PointLight(0x22d3ee, 0.45, 120);
 
             topLight.position.set(0, 24, 0);
 
             scene.add(topLight);
 
-            // Soft bounce fill under/around the shell
-            const groundLight = new THREE.PointLight(0xcbd5e1, 1.0, 90);
+            const groundLight = new THREE.PointLight(0x67e8f9, 0.7, 90);
 
             groundLight.position.set(-4, 1.2, 4);
 
             scene.add(groundLight);
 
-            // Key light — white clay pops on black
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 2.7);
+            const directionalLight = new THREE.DirectionalLight(0x7dd3fc, 0.35);
 
             directionalLight.position.set(16, 20, 8);
 
@@ -10730,30 +11016,17 @@ document.addEventListener(
 
             function createBlueprintTexture() {
                 const size = 1024;
-                const canvas = document.createElement('canvas');
+                const canvas = document.createElement("canvas");
                 canvas.width = size;
                 canvas.height = size;
-                const ctx = canvas.getContext('2d');
+                const ctx = canvas.getContext("2d");
 
-                // Paper base — slightly cooler so white shell lifts off ground
-                ctx.fillStyle = '#d9e6f2';
+                ctx.fillStyle = "#000000";
                 ctx.fillRect(0, 0, size, size);
 
-                // Soft vignette sheets
-                ctx.fillStyle = 'rgba(180, 208, 232, 0.28)';
-                for (let i = 0; i < 5; i++) {
-                    const x = 40 + (i % 3) * 280;
-                    const y = 50 + Math.floor(i / 3) * 420;
-                    ctx.fillRect(x, y, 300, 380);
-                    ctx.strokeStyle = 'rgba(96, 140, 180, 0.35)';
-                    ctx.lineWidth = 2;
-                    ctx.strokeRect(x, y, 300, 380);
-                }
-
-                // Blueprint grid
-                ctx.strokeStyle = 'rgba(90, 140, 190, 0.28)';
+                ctx.strokeStyle = "rgba(34, 211, 238, 0.16)";
                 ctx.lineWidth = 1;
-                for (let i = 0; i <= size; i += 32) {
+                for (let i = 0; i <= size; i += 24) {
                     ctx.beginPath();
                     ctx.moveTo(i, 0);
                     ctx.lineTo(i, size);
@@ -10764,10 +11037,9 @@ document.addEventListener(
                     ctx.stroke();
                 }
 
-                // Stronger major grid
-                ctx.strokeStyle = 'rgba(70, 120, 170, 0.4)';
-                ctx.lineWidth = 1.5;
-                for (let i = 0; i <= size; i += 128) {
+                ctx.strokeStyle = "rgba(103, 232, 249, 0.28)";
+                ctx.lineWidth = 1.4;
+                for (let i = 0; i <= size; i += 96) {
                     ctx.beginPath();
                     ctx.moveTo(i, 0);
                     ctx.lineTo(i, size);
@@ -10778,46 +11050,41 @@ document.addEventListener(
                     ctx.stroke();
                 }
 
-                // Fake floor-plan rooms
                 const rooms = [
-                    [80, 90, 160, 110], [260, 90, 120, 110], [400, 90, 140, 70],
-                    [80, 220, 100, 140], [200, 220, 180, 90], [400, 180, 120, 160],
-                    [560, 120, 150, 100], [560, 240, 150, 120], [740, 120, 160, 240],
-                    [80, 520, 200, 130], [300, 520, 160, 130], [480, 520, 220, 90],
-                    [720, 500, 180, 160], [120, 700, 240, 140], [400, 680, 180, 160],
+                    [70, 80, 170, 120], [270, 80, 130, 90], [430, 80, 150, 70],
+                    [70, 230, 110, 150], [200, 230, 190, 90], [420, 180, 130, 170],
+                    [580, 110, 150, 100], [580, 240, 150, 120], [760, 110, 160, 250],
+                    [80, 520, 200, 130], [310, 520, 160, 130], [500, 510, 220, 90],
+                    [740, 500, 180, 160], [120, 700, 240, 140], [400, 680, 180, 160],
                     [620, 700, 220, 120],
                 ];
 
-                rooms.forEach(([x, y, w, h], idx) => {
-                    ctx.fillStyle = idx % 2 === 0 ? 'rgba(170, 205, 230, 0.22)' : 'rgba(150, 190, 220, 0.16)';
-                    ctx.fillRect(x, y, w, h);
-                    ctx.strokeStyle = 'rgba(55, 105, 155, 0.65)';
-                    ctx.lineWidth = 2;
+                rooms.forEach(([x, y, w, h]) => {
+                    ctx.strokeStyle = "rgba(125, 249, 255, 0.38)";
+                    ctx.lineWidth = 1.6;
                     ctx.strokeRect(x, y, w, h);
 
-                    // Dimension ticks
-                    ctx.strokeStyle = 'rgba(55, 105, 155, 0.45)';
+                    ctx.strokeStyle = "rgba(34, 211, 238, 0.18)";
                     ctx.lineWidth = 1;
                     ctx.beginPath();
-                    ctx.moveTo(x, y - 8);
-                    ctx.lineTo(x + w, y - 8);
+                    ctx.moveTo(x, y - 7);
+                    ctx.lineTo(x + w, y - 7);
                     ctx.stroke();
                 });
 
-                // Annotation-like dots/lines
-                ctx.fillStyle = 'rgba(50, 100, 150, 0.5)';
-                for (let i = 0; i < 40; i++) {
+                ctx.fillStyle = "rgba(165, 243, 252, 0.55)";
+                for (let i = 0; i < 90; i++) {
                     const x = (i * 97) % size;
                     const y = (i * 173) % size;
                     ctx.beginPath();
-                    ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+                    ctx.arc(x, y, i % 7 === 0 ? 2.1 : 1.1, 0, Math.PI * 2);
                     ctx.fill();
                 }
 
                 const texture = new THREE.CanvasTexture(canvas);
                 texture.wrapS = THREE.RepeatWrapping;
                 texture.wrapT = THREE.RepeatWrapping;
-                texture.repeat.set(2.5, 2.5);
+                texture.repeat.set(2.2, 2.2);
                 texture.anisotropy = 8;
                 texture.colorSpace = THREE.SRGBColorSpace;
                 return texture;
@@ -10825,59 +11092,48 @@ document.addEventListener(
 
             const blueprintTexture = createBlueprintTexture();
 
+            const darkGround = new THREE.Mesh(
+                new THREE.PlaneGeometry(120, 120),
+                new THREE.MeshBasicMaterial({
+                    color: 0x03060c,
+                    side: THREE.DoubleSide,
+                }),
+            );
+            darkGround.rotation.x = -Math.PI / 2;
+            darkGround.position.y = -0.045;
+            scene.add(darkGround);
+
             const floor = new THREE.Mesh(
                 new THREE.PlaneGeometry(100, 100),
-
-                new THREE.MeshStandardMaterial({
+                new THREE.MeshBasicMaterial({
                     map: blueprintTexture,
                     color: 0xffffff,
-                    roughness: 0.96,
-                    metalness: 0,
+                    transparent: true,
+                    opacity: 0.9,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false,
+                    toneMapped: false,
                     side: THREE.DoubleSide,
                 }),
             );
 
             floor.rotation.x = -Math.PI / 2;
-
             floor.position.y = -0.02;
-
             floor.receiveShadow = true;
-
             scene.add(floor);
 
-            // Soft blue contact shadow under the shell
-            const groundShadow = new THREE.Mesh(
-                new THREE.CircleGeometry(18, 64),
-                new THREE.MeshBasicMaterial({
-                    color: 0x5b7fa3,
-                    transparent: true,
-                    opacity: 0.22,
-                    depthWrite: false,
-                }),
-            );
-
-            groundShadow.rotation.x = -Math.PI / 2;
-            groundShadow.position.y = 0.005;
-            groundShadow.scale.set(1.45, 0.92, 1);
-            scene.add(groundShadow);
-
-            // Keep a very light grid for orbit sense; blueprint carries the look
             const grid = new THREE.GridHelper(
                 100,
-
-                40,
-
-                0x7eb0d8,
-
-                0xa8c8e4,
+                50,
+                0x22d3ee,
+                0x0e3a48,
             );
 
-            grid.position.y = 0.012;
-
+            grid.position.y = 0.014;
             grid.material.transparent = true;
-
-            grid.material.opacity = 0.22;
-
+            grid.material.opacity = 0.18;
+            grid.material.blending = THREE.AdditiveBlending;
+            grid.material.depthWrite = false;
             scene.add(grid);
 
             // =====================================================
@@ -10930,7 +11186,8 @@ document.addEventListener(
 
             // =====================================================
             // SCENE THEME
-            // exterior + interior = same white clay studio
+            // Ground, fog, and background stay the same.
+            // Only the exterior shell type changes.
             // =====================================================
 
             function applyBuildingSceneTheme(mode) {
@@ -10938,54 +11195,50 @@ document.addEventListener(
 
                 container.classList.toggle("is-interior-view", !isExterior);
 
-                // Uniform black studio for shell and floors
-                scene.background = new THREE.Color(0x020617);
-                scene.fog = new THREE.Fog(0x020617, 90, 220);
+                scene.background = iceBlueBackdropTexture;
+                scene.fog = new THREE.Fog(ICE_BLUE_BACKDROP_FOG, 32, 78);
 
                 if (typeof exteriorSkyDome !== "undefined" && exteriorSkyDome) {
                     exteriorSkyDome.visible = false;
                 }
 
-                bloomPass.strength = 0;
+                bloomPass.strength = isExterior ? 0.22 : 0.12;
+                bloomPass.radius = 0.28;
+                bloomPass.threshold = isExterior ? 0.48 : 0.55;
 
-                // Soft fill so white clay reads clean on black
-                ambientLight.color.set(0xffffff);
+                ambientLight.color.set(0x38bdf8);
                 if (ambientLight.groundColor) {
-                    ambientLight.groundColor.set(0x1e293b);
+                    ambientLight.groundColor.set(0x020617);
                 }
-                ambientLight.intensity = 0.85;
+                ambientLight.intensity = isExterior ? 0.28 : 0.55;
 
-                topLight.color.set(0xffffff);
-                topLight.intensity = 2.4;
+                topLight.color.set(0x22d3ee);
+                topLight.intensity = isExterior ? 0.45 : 1.2;
 
-                groundLight.color.set(0xcbd5e1);
-                groundLight.intensity = 1.0;
+                groundLight.color.set(0x67e8f9);
+                groundLight.intensity = isExterior ? 0.7 : 0.9;
 
-                directionalLight.color.set(0xffffff);
-                directionalLight.intensity = 2.7;
+                directionalLight.color.set(0x7dd3fc);
+                directionalLight.intensity = isExterior ? 0.35 : 1.1;
 
                 if (floor.material) {
                     floor.material.color.set(0xffffff);
-                    floor.material.opacity = 1;
-                    floor.material.transparent = false;
+                    floor.material.opacity = 0.9;
+                    floor.material.transparent = true;
                     if (floor.material.map) {
                         floor.material.map = blueprintTexture;
                         floor.material.needsUpdate = true;
                     }
                 }
 
-                if (typeof groundShadow !== "undefined" && groundShadow) {
-                    groundShadow.visible = true;
-                }
-
                 if (grid.material) {
-                    grid.material.opacity = 0.22;
+                    grid.material.opacity = 0.18;
                     if (grid.material.color) {
-                        grid.material.color.set(0x64748b);
+                        grid.material.color.set(0x22d3ee);
                     }
                 }
 
-                renderer.toneMappingExposure = 1.05;
+                renderer.toneMappingExposure = isExterior ? 0.98 : 1.05;
             }
 
             applyBuildingSceneTheme("exterior");
@@ -11003,58 +11256,99 @@ document.addEventListener(
             exteriorBuilding.visible = true;
 
             // =====================================================
-            // EXTERIOR HOLOGRAPHIC GLASS MATERIAL
-            // BRIGHTER CYAN FOR BLOOM
+            // EXTERIOR BLUEPRINT SHELL
+            // Transparent cyan volume + glowing layout lines
             // =====================================================
 
-            // =====================================================
-            // EXTERIOR BUILDING SHELL MATERIAL
-            // RESTORED DARKER APPEARANCE
-            // =====================================================
+            const EXTERIOR_SHELL_OPACITY = 0.11;
+            const EXTERIOR_EDGE_OPACITY = 0.82;
+            const EXTERIOR_GRID_OPACITY = 0.28;
 
-            // =====================================================
-            // EXTERIOR MATERIAL
-            // Pure white clay shell (shadows from lighting only)
-            // =====================================================
+            function tagShellMaterial(material, opacity) {
+                material.transparent = true;
+                material.opacity = opacity;
+                material.userData.shellOpacity = opacity;
+                return material;
+            }
 
-            const exteriorMaterial = new THREE.MeshPhysicalMaterial({
-                color: 0xffffff,
+            function shellGridDivisions(size) {
+                if (size < 0.35) {
+                    return 1;
+                }
 
-                emissive: 0xffffff,
+                return Math.max(1, Math.min(12, Math.round(size * 1.15)));
+            }
 
-                emissiveIntensity: 0.06,
+            function createShellSpeckleTexture() {
+                const size = 256;
+                const canvas = document.createElement("canvas");
+                canvas.width = size;
+                canvas.height = size;
+                const ctx = canvas.getContext("2d");
+
+                ctx.fillStyle = "rgba(56, 150, 190, 0.12)";
+                ctx.fillRect(0, 0, size, size);
+
+                for (let i = 0; i < 700; i++) {
+                    const alpha = 0.08 + Math.random() * 0.22;
+                    ctx.fillStyle = `rgba(126, 200, 230, ${alpha})`;
+                    ctx.fillRect(
+                        Math.random() * size,
+                        Math.random() * size,
+                        Math.random() > 0.85 ? 2 : 1,
+                        1,
+                    );
+                }
+
+                const texture = new THREE.CanvasTexture(canvas);
+                texture.wrapS = THREE.RepeatWrapping;
+                texture.wrapT = THREE.RepeatWrapping;
+                texture.anisotropy = 4;
+                texture.colorSpace = THREE.SRGBColorSpace;
+                return texture;
+            }
+
+            const shellSpeckleTexture = createShellSpeckleTexture();
+
+            const exteriorMaterial = new THREE.MeshBasicMaterial({
+                color: 0x4aa8d0,
+
+                map: shellSpeckleTexture,
 
                 transparent: true,
 
-                opacity: 1,
-
-                roughness: 0.58,
-
-                metalness: 0.0,
-
-                clearcoat: 0.12,
-
-                clearcoatRoughness: 0.55,
-
-                sheen: 1,
-
-                sheenRoughness: 0.75,
-
-                sheenColor: new THREE.Color(0xffffff),
+                opacity: EXTERIOR_SHELL_OPACITY,
 
                 side: THREE.DoubleSide,
 
-                depthWrite: true,
+                depthWrite: false,
             });
 
-            // Very light seams — keep form without graying the shell
+            tagShellMaterial(exteriorMaterial, EXTERIOR_SHELL_OPACITY);
+
             const exteriorEdgeMaterial = new THREE.LineBasicMaterial({
-                color: 0xe2e8f0,
+                color: 0x7ec8ea,
 
                 transparent: true,
 
-                opacity: 0.28,
+                opacity: EXTERIOR_EDGE_OPACITY,
+
+                depthWrite: false,
             });
+
+            tagShellMaterial(exteriorEdgeMaterial, EXTERIOR_EDGE_OPACITY);
+
+            const exteriorGridMaterial = new THREE.LineBasicMaterial({
+                color: 0x5eb4d6,
+
+                transparent: true,
+
+                opacity: EXTERIOR_GRID_OPACITY,
+
+                depthWrite: false,
+            });
+
+            tagShellMaterial(exteriorGridMaterial, EXTERIOR_GRID_OPACITY);
 
             // =====================================================
             // PHASE 8.1
@@ -11064,23 +11358,52 @@ document.addEventListener(
             function createExteriorSection(width, height, depth, x, y, z) {
                 const geometry = new THREE.BoxGeometry(width, height, depth);
 
-                // Main transparent building section
-                const mesh = new THREE.Mesh(geometry, exteriorMaterial.clone());
+                const material = tagShellMaterial(
+                    exteriorMaterial.clone(),
+                    EXTERIOR_SHELL_OPACITY,
+                );
+
+                if (material.map) {
+                    material.map = shellSpeckleTexture.clone();
+                    material.map.wrapS = THREE.RepeatWrapping;
+                    material.map.wrapT = THREE.RepeatWrapping;
+                    material.map.repeat.set(
+                        Math.max(width, depth) * 0.8,
+                        Math.max(height, 0.6) * 0.8,
+                    );
+                    material.map.needsUpdate = true;
+                }
+
+                const mesh = new THREE.Mesh(geometry, material);
 
                 mesh.position.set(x, y, z);
 
-                mesh.castShadow = true;
-                mesh.receiveShadow = true;
-
-                // Cyan wireframe outline
-                const edges = new THREE.EdgesGeometry(geometry);
+                mesh.castShadow = false;
+                mesh.receiveShadow = false;
 
                 const outline = new THREE.LineSegments(
-                    edges,
-                    exteriorEdgeMaterial.clone(),
+                    new THREE.EdgesGeometry(geometry),
+                    tagShellMaterial(exteriorEdgeMaterial.clone(), EXTERIOR_EDGE_OPACITY),
                 );
-
+                outline.renderOrder = 2;
                 mesh.add(outline);
+
+                const dividedGeometry = new THREE.BoxGeometry(
+                    width,
+                    height,
+                    depth,
+                    shellGridDivisions(width),
+                    shellGridDivisions(height),
+                    shellGridDivisions(depth),
+                );
+                const innerGrid = new THREE.LineSegments(
+                    new THREE.WireframeGeometry(dividedGeometry),
+                    tagShellMaterial(exteriorGridMaterial.clone(), EXTERIOR_GRID_OPACITY),
+                );
+                innerGrid.renderOrder = 1;
+                innerGrid.userData.isBuildingExterior = true;
+                mesh.add(innerGrid);
+                dividedGeometry.dispose();
 
                 exteriorBuilding.add(mesh);
 
@@ -11121,46 +11444,18 @@ document.addEventListener(
                 const straightHeight = Math.max(height - curveRadius, height * 0.45);
 
                 // =================================================
-                // ARCH MATERIAL — white clay (matches shell)
+                // ARCH MATERIAL — same blueprint shell as the building
                 // =================================================
 
-                const archMaterial = new THREE.MeshPhysicalMaterial({
-                    color: 0xffffff,
+                const archMaterial = tagShellMaterial(
+                    exteriorMaterial.clone(),
+                    EXTERIOR_SHELL_OPACITY,
+                );
 
-                    emissive: 0xffffff,
-
-                    emissiveIntensity: 0.06,
-
-                    roughness: 0.58,
-
-                    metalness: 0.0,
-
-                    clearcoat: 0.12,
-
-                    clearcoatRoughness: 0.55,
-
-                    sheen: 1,
-
-                    sheenRoughness: 0.75,
-
-                    sheenColor: new THREE.Color(0xffffff),
-
-                    transparent: true,
-
-                    opacity: 1,
-
-                    side: THREE.DoubleSide,
-
-                    depthWrite: true,
-                });
-
-                const archEdgeMaterial = new THREE.LineBasicMaterial({
-                    color: 0xe2e8f0,
-
-                    transparent: true,
-
-                    opacity: 0.28,
-                });
+                const archEdgeMaterial = tagShellMaterial(
+                    exteriorEdgeMaterial.clone(),
+                    EXTERIOR_EDGE_OPACITY,
+                );
 
                 // =================================================
                 // LEFT VERTICAL COLUMN
@@ -11188,6 +11483,9 @@ document.addEventListener(
                     0,
                 );
 
+                leftColumn.castShadow = true;
+                leftColumn.receiveShadow = true;
+
                 archGroup.add(leftColumn);
 
                 // =================================================
@@ -11203,6 +11501,22 @@ document.addEventListener(
                 leftColumnEdges.position.copy(leftColumn.position);
 
                 archGroup.add(leftColumnEdges);
+
+                const leftColumnGrid = new THREE.LineSegments(
+                    new THREE.WireframeGeometry(
+                        new THREE.BoxGeometry(
+                            columnWidth,
+                            straightHeight,
+                            depth,
+                            shellGridDivisions(columnWidth),
+                            shellGridDivisions(straightHeight),
+                            shellGridDivisions(depth),
+                        ),
+                    ),
+                    tagShellMaterial(exteriorGridMaterial.clone(), EXTERIOR_GRID_OPACITY),
+                );
+                leftColumnGrid.position.copy(leftColumn.position);
+                archGroup.add(leftColumnGrid);
 
                 // =================================================
                 // RIGHT VERTICAL COLUMN
@@ -11245,6 +11559,22 @@ document.addEventListener(
                 rightColumnEdges.position.copy(rightColumn.position);
 
                 archGroup.add(rightColumnEdges);
+
+                const rightColumnGrid = new THREE.LineSegments(
+                    new THREE.WireframeGeometry(
+                        new THREE.BoxGeometry(
+                            columnWidth,
+                            straightHeight,
+                            depth,
+                            shellGridDivisions(columnWidth),
+                            shellGridDivisions(straightHeight),
+                            shellGridDivisions(depth),
+                        ),
+                    ),
+                    tagShellMaterial(exteriorGridMaterial.clone(), EXTERIOR_GRID_OPACITY),
+                );
+                rightColumnGrid.position.copy(rightColumn.position);
+                archGroup.add(rightColumnGrid);
 
                 // =================================================
                 // CURVED TOP
@@ -11391,15 +11721,67 @@ document.addEventListener(
                 room.scale.set(1, 1, 1);
             }
 
+            function getRoomReportCounts(room) {
+                const data = room?.userData || room || {};
+
+                return {
+                    urgent: Number(data.urgentReportCount || 0),
+                    active: Number(data.activeReportCount || 0),
+                    maintenance: Number(data.maintenanceEquipmentCount || 0),
+                };
+            }
+
+            function getRoomStatusTone(room) {
+                const { urgent, active, maintenance } = getRoomReportCounts(room);
+
+                if (urgent > 0) {
+                    return {
+                        hex: 0xef4444,
+                        css: "#ef4444",
+                        glow: "rgba(239, 68, 68, 0.9)",
+                        selectedIntensity: 1.2,
+                        hoverIntensity: 0.55,
+                    };
+                }
+
+                if (active > 0) {
+                    return {
+                        hex: 0xf59e0b,
+                        css: "#f59e0b",
+                        glow: "rgba(245, 158, 11, 0.9)",
+                        selectedIntensity: 1.1,
+                        hoverIntensity: 0.5,
+                    };
+                }
+
+                if (maintenance > 0) {
+                    return {
+                        hex: 0x38bdf8,
+                        css: "#38bdf8",
+                        glow: "rgba(56, 189, 248, 0.9)",
+                        selectedIntensity: 1.05,
+                        hoverIntensity: 0.48,
+                    };
+                }
+
+                return {
+                    hex: 0x4ade80,
+                    css: "#4ade80",
+                    glow: "rgba(74, 222, 128, 0.85)",
+                    selectedIntensity: 0.95,
+                    hoverIntensity: 0.4,
+                };
+            }
+
             function applyRoomHoverVisual(room) {
                 if (!room || room === selectedRoom) {
                     return;
                 }
 
-                // Soft slate hover — matches clay studio
-                room.material.emissive.setHex(0x94a3b8);
+                const tone = getRoomStatusTone(room);
 
-                room.material.emissiveIntensity = 0.35;
+                room.material.emissive.setHex(tone.hex);
+                room.material.emissiveIntensity = tone.hoverIntensity;
             }
 
             function applyRoomSelectedVisual(room) {
@@ -11407,10 +11789,10 @@ document.addEventListener(
                     return;
                 }
 
-                // Strong selected highlight
-                room.material.emissive.setHex(0xfacc15);
+                const tone = getRoomStatusTone(room);
 
-                room.material.emissiveIntensity = 1;
+                room.material.emissive.setHex(tone.hex);
+                room.material.emissiveIntensity = tone.selectedIntensity;
 
                 // Slightly enlarge selected room
                 room.scale.set(1.05, 1.05, 1.05);
@@ -11484,23 +11866,28 @@ document.addEventListener(
             // FORMAT ROOM STATUS FOR TOOLTIP
             // =====================================================
 
-            function formatRoomStatus(status) {
-                switch (status) {
-                    case "critical":
-                        return "Critical";
+            function formatRoomStatus(room) {
+                const { urgent, active, maintenance } = getRoomReportCounts(room);
 
-                    case "needs-repair":
-                        return "Needs Repair";
-
-                    case "maintenance":
-                        return "Maintenance";
-
-                    case "available":
-                        return "Available";
-
-                    default:
-                        return "Available";
+                if (urgent > 0) {
+                    return urgent === 1
+                        ? "1 Urgent Report"
+                        : `${urgent} Urgent Reports`;
                 }
+
+                if (active > 0) {
+                    return active === 1
+                        ? "1 Open Report"
+                        : `${active} Open Reports`;
+                }
+
+                if (maintenance > 0) {
+                    return maintenance === 1
+                        ? "1 Item in Maintenance"
+                        : `${maintenance} Items in Maintenance`;
+                }
+
+                return "No Active Reports";
             }
 
             // =====================================================
@@ -11521,30 +11908,16 @@ document.addEventListener(
 
                 roomTooltipFloor.textContent = room.userData.floorName || "Floor";
 
-                roomTooltipStatus.textContent = formatRoomStatus(
-                    room.userData.roomStatus,
-                );
+                roomTooltipStatus.textContent = formatRoomStatus(room);
 
                 // =================================================
                 // STATUS DOT COLOR
                 // =================================================
 
-                if (room.userData.roomStatus === "critical") {
-                    roomTooltipDot.style.background = "#ef4444";
+                const tooltipTone = getRoomStatusTone(room);
 
-                    roomTooltipDot.style.boxShadow = "0 0 8px rgba(239, 68, 68, 0.9)";
-                } else if (
-                    room.userData.roomStatus === "needs-repair" ||
-                    room.userData.roomStatus === "maintenance"
-                ) {
-                    roomTooltipDot.style.background = "#f59e0b";
-
-                    roomTooltipDot.style.boxShadow = "0 0 8px rgba(245, 158, 11, 0.9)";
-                } else {
-                    roomTooltipDot.style.background = "#94a3b8";
-
-                    roomTooltipDot.style.boxShadow = "0 0 8px rgba(148, 163, 184, 0.7)";
-                }
+                roomTooltipDot.style.background = tooltipTone.css;
+                roomTooltipDot.style.boxShadow = `0 0 8px ${tooltipTone.glow}`;
 
                 // =================================================
                 // POSITION TOOLTIP
@@ -11598,7 +11971,8 @@ document.addEventListener(
 
                 roomDetailsFloor.textContent = room.floorName || "Unknown";
 
-                roomDetailsStatus.textContent = formatRoomStatus(room.roomStatus);
+                roomDetailsStatus.textContent = formatRoomStatus(room);
+                roomDetailsStatus.style.color = getRoomStatusTone(room).css;
 
                 // =============================================
                 // UPDATE MAINTENANCE COUNTS
@@ -11622,6 +11996,174 @@ document.addEventListener(
                 // =============================================
 
                 roomDetailsPanel.classList.add("visible");
+                updateRoomDetailsPanelPosition();
+            }
+
+            const roomFocusSize = new THREE.Vector3();
+            const roomFocusCenter = new THREE.Vector3();
+            const roomPanelLocal = new THREE.Vector3();
+            const roomPanelProjected = new THREE.Vector3();
+            const roomPanelCorners = [
+                new THREE.Vector3(),
+                new THREE.Vector3(),
+                new THREE.Vector3(),
+                new THREE.Vector3(),
+                new THREE.Vector3(),
+                new THREE.Vector3(),
+                new THREE.Vector3(),
+                new THREE.Vector3(),
+            ];
+
+            function clearRoomDetailsPanelAnchor() {
+                if (!roomDetailsPanel) {
+                    return;
+                }
+
+                roomDetailsPanel.classList.remove("is-anchored");
+                roomDetailsPanel.style.left = "";
+                roomDetailsPanel.style.top = "";
+            }
+
+            function getSelectedRoomScreenRect(canvasRect, hostRect) {
+                if (!selectedRoom?.geometry) {
+                    return null;
+                }
+
+                selectedRoom.updateWorldMatrix(true, false);
+                selectedRoom.geometry.computeBoundingBox();
+
+                const min = selectedRoom.geometry.boundingBox.min;
+                const max = selectedRoom.geometry.boundingBox.max;
+
+                roomPanelCorners[0].set(min.x, min.y, min.z);
+                roomPanelCorners[1].set(min.x, min.y, max.z);
+                roomPanelCorners[2].set(min.x, max.y, min.z);
+                roomPanelCorners[3].set(min.x, max.y, max.z);
+                roomPanelCorners[4].set(max.x, min.y, min.z);
+                roomPanelCorners[5].set(max.x, min.y, max.z);
+                roomPanelCorners[6].set(max.x, max.y, min.z);
+                roomPanelCorners[7].set(max.x, max.y, max.z);
+
+                let left = Infinity;
+                let top = Infinity;
+                let right = -Infinity;
+                let bottom = -Infinity;
+
+                roomPanelCorners.forEach((corner) => {
+                    roomPanelLocal.copy(corner).applyMatrix4(selectedRoom.matrixWorld);
+                    roomPanelProjected.copy(roomPanelLocal).project(camera);
+
+                    const x =
+                        (roomPanelProjected.x * 0.5 + 0.5) * canvasRect.width +
+                        (canvasRect.left - hostRect.left);
+                    const y =
+                        (-roomPanelProjected.y * 0.5 + 0.5) * canvasRect.height +
+                        (canvasRect.top - hostRect.top);
+
+                    left = Math.min(left, x);
+                    right = Math.max(right, x);
+                    top = Math.min(top, y);
+                    bottom = Math.max(bottom, y);
+                });
+
+                return { left, top, right, bottom };
+            }
+
+            function updateRoomDetailsPanelPosition() {
+                if (!roomDetailsPanel) {
+                    return;
+                }
+
+                const isOpen =
+                    roomDetailsPanel.classList.contains("visible") && selectedRoom;
+
+                if (!isOpen) {
+                    clearRoomDetailsPanelAnchor();
+                    return;
+                }
+
+                const host = roomDetailsPanel.offsetParent;
+
+                if (!host) {
+                    return;
+                }
+
+                const hostRect = host.getBoundingClientRect();
+                const canvasRect = renderer.domElement.getBoundingClientRect();
+                const roomRect = getSelectedRoomScreenRect(canvasRect, hostRect);
+
+                if (!roomRect) {
+                    return;
+                }
+
+                const panelWidth = roomDetailsPanel.offsetWidth || 280;
+                const panelHeight = roomDetailsPanel.offsetHeight || 300;
+                const width = host.clientWidth;
+                const height = host.clientHeight;
+                const margin = 16;
+                const topSafe = 64;
+                const gap = 20;
+
+                const spaceRight = width - margin - roomRect.right;
+                const spaceLeft = roomRect.left - margin;
+                const roomMidY = (roomRect.top + roomRect.bottom) / 2;
+
+                let left;
+                let top = roomMidY - panelHeight / 2;
+
+                if (spaceRight >= panelWidth + gap) {
+                    left = roomRect.right + gap;
+                } else if (spaceLeft >= panelWidth + gap) {
+                    left = roomRect.left - panelWidth - gap;
+                } else if (spaceRight >= spaceLeft) {
+                    left = Math.min(
+                        roomRect.right + gap,
+                        width - panelWidth - margin,
+                    );
+                } else {
+                    left = Math.max(roomRect.left - panelWidth - gap, margin);
+                }
+
+                left = Math.min(
+                    Math.max(left, margin),
+                    Math.max(margin, width - panelWidth - margin),
+                );
+                top = Math.min(
+                    Math.max(top, topSafe),
+                    Math.max(topSafe, height - panelHeight - margin),
+                );
+
+                const overlapsRoom = (panelLeft, panelTop) => {
+                    const panelRight = panelLeft + panelWidth;
+                    const panelBottom = panelTop + panelHeight;
+
+                    return !(
+                        panelRight < roomRect.left ||
+                        panelLeft > roomRect.right ||
+                        panelBottom < roomRect.top ||
+                        panelTop > roomRect.bottom
+                    );
+                };
+
+                if (overlapsRoom(left, top)) {
+                    if (height - margin - roomRect.bottom >= panelHeight + gap) {
+                        top = roomRect.bottom + gap;
+                        left = Math.min(
+                            Math.max(roomRect.left, margin),
+                            width - panelWidth - margin,
+                        );
+                    } else if (roomRect.top - topSafe >= panelHeight + gap) {
+                        top = roomRect.top - panelHeight - gap;
+                        left = Math.min(
+                            Math.max(roomRect.left, margin),
+                            width - panelWidth - margin,
+                        );
+                    }
+                }
+
+                roomDetailsPanel.classList.add("is-anchored");
+                roomDetailsPanel.style.left = `${left}px`;
+                roomDetailsPanel.style.top = `${top}px`;
             }
 
             // =====================================================
@@ -11635,23 +12177,23 @@ document.addEventListener(
             // =====================================================
 
             const roomMaterials = {
-                // NORMAL ROOM — white clay (matches shell)
+                // NO ACTIVE REPORTS
                 normal: new THREE.MeshPhysicalMaterial({
-                    color: 0xffffff,
+                    color: 0xbbf7d0,
 
-                    emissive: 0xffffff,
+                    emissive: 0x4ade80,
 
-                    emissiveIntensity: 0.04,
+                    emissiveIntensity: 0.32,
 
                     transparent: true,
 
-                    opacity: 0.72,
+                    opacity: 0.78,
 
-                    roughness: 0.58,
+                    roughness: 0.5,
 
                     metalness: 0.0,
 
-                    clearcoat: 0.1,
+                    clearcoat: 0.08,
 
                     clearcoatRoughness: 0.55,
 
@@ -11660,17 +12202,17 @@ document.addEventListener(
                     depthWrite: true,
                 }),
 
-                // MAINTENANCE / ACTIVE REPORT
+                // OPEN REPORTS
                 warning: new THREE.MeshPhysicalMaterial({
-                    color: 0xfef3c7,
+                    color: 0xfde68a,
 
                     emissive: 0xf59e0b,
 
-                    emissiveIntensity: 0.22,
+                    emissiveIntensity: 0.34,
 
                     transparent: true,
 
-                    opacity: 0.78,
+                    opacity: 0.8,
 
                     roughness: 0.5,
 
@@ -11681,13 +12223,34 @@ document.addEventListener(
                     depthWrite: true,
                 }),
 
-                // URGENT / CRITICAL
+                // URGENT REPORTS
                 urgent: new THREE.MeshPhysicalMaterial({
-                    color: 0xfee2e2,
+                    color: 0xfecaca,
 
                     emissive: 0xef4444,
 
-                    emissiveIntensity: 0.28,
+                    emissiveIntensity: 0.36,
+
+                    transparent: true,
+
+                    opacity: 0.82,
+
+                    roughness: 0.5,
+
+                    metalness: 0.0,
+
+                    side: THREE.DoubleSide,
+
+                    depthWrite: true,
+                }),
+
+                // EQUIPMENT IN MAINTENANCE
+                maintenance: new THREE.MeshPhysicalMaterial({
+                    color: 0xbae6fd,
+
+                    emissive: 0x38bdf8,
+
+                    emissiveIntensity: 0.34,
 
                     transparent: true,
 
@@ -12076,24 +12639,8 @@ document.addEventListener(
                     floorDepth + 1,
                 );
 
-                const slabMaterial = new THREE.MeshPhysicalMaterial({
-                    color: 0xffffff,
-
-                    emissive: 0xffffff,
-
-                    emissiveIntensity: 0.05,
-
-                    transparent: true,
-
-                    opacity: 0.92,
-
-                    roughness: 0.58,
-
-                    metalness: 0.0,
-
-                    clearcoat: 0.1,
-
-                    clearcoatRoughness: 0.55,
+                const slabMaterial = new THREE.MeshBasicMaterial({
+                    color: 0x03060c,
 
                     side: THREE.DoubleSide,
 
@@ -12108,6 +12655,30 @@ document.addEventListener(
 
                 floorGroup.add(floorSlab);
 
+                const slabGridMap = blueprintTexture.clone();
+                slabGridMap.wrapS = THREE.RepeatWrapping;
+                slabGridMap.wrapT = THREE.RepeatWrapping;
+                slabGridMap.repeat.set(1.15, 1.15);
+                slabGridMap.needsUpdate = true;
+
+                const slabGrid = new THREE.Mesh(
+                    new THREE.PlaneGeometry(floorWidth + 1, floorDepth + 1),
+                    new THREE.MeshBasicMaterial({
+                        map: slabGridMap,
+                        color: 0xffffff,
+                        transparent: true,
+                        opacity: 0.9,
+                        blending: THREE.AdditiveBlending,
+                        depthWrite: false,
+                        toneMapped: false,
+                        side: THREE.DoubleSide,
+                    }),
+                );
+
+                slabGrid.rotation.x = -Math.PI / 2;
+                slabGrid.position.set(0, floorY + 0.062, 0);
+                floorGroup.add(slabGrid);
+
                 // =================================================
                 // PHASE 7.1
                 // CREATE CYAN FLOOR PERIMETER
@@ -12116,11 +12687,11 @@ document.addEventListener(
                 const slabEdges = new THREE.EdgesGeometry(slabGeometry);
 
                 const slabEdgeMaterial = new THREE.LineBasicMaterial({
-                    color: 0xe2e8f0,
+                    color: 0x22d3ee,
 
                     transparent: true,
 
-                    opacity: 0.35,
+                    opacity: 0.42,
                 });
 
                 const slabOutline = new THREE.LineSegments(slabEdges, slabEdgeMaterial);
@@ -12233,27 +12804,29 @@ document.addEventListener(
                     // critical     = active urgent report
                     // =============================================
 
+                    // =============================================
+                    // ROOM COLOR FROM REPORT COUNTS
+                    //
+                    // green  = no active reports
+                    // amber  = open reports
+                    // red    = urgent reports
+                    // sky    = equipment in maintenance
+                    // =============================================
+
+                    const urgentCount = Number(roomData.urgentReportCount || 0);
+                    const activeCount = Number(roomData.activeReportCount || 0);
+                    const maintenanceCount = Number(
+                        roomData.maintenanceEquipmentCount || 0,
+                    );
+
                     let room3DStatus = "normal";
 
-                    // =============================================
-                    // ACTIVE REPORT
-                    // OR EQUIPMENT UNDER MAINTENANCE
-                    // =============================================
-
-                    if (
-                        roomData.status === "needs-repair" ||
-                        roomData.status === "maintenance"
-                    ) {
-                        room3DStatus = "warning";
-                    }
-
-                    // =============================================
-                    // ACTIVE URGENT REPORT
-                    // HIGHEST PRIORITY
-                    // =============================================
-
-                    if (roomData.status === "critical") {
+                    if (urgentCount > 0) {
                         room3DStatus = "urgent";
+                    } else if (activeCount > 0) {
+                        room3DStatus = "warning";
+                    } else if (maintenanceCount > 0) {
+                        room3DStatus = "maintenance";
                     }
 
                     // =============================================
@@ -14505,44 +15078,38 @@ document.addEventListener(
                     return;
                 }
 
-                // =================================================
-                // GET OBJECT BOUNDS
-                // =================================================
+                object.updateMatrixWorld(true);
 
-                const bounds = new THREE.Box3().setFromObject(object);
+                const isRoom = object.userData?.type === "room";
+                let size;
+                let center;
 
-                if (bounds.isEmpty()) {
-                    return;
+                if (isRoom && object.geometry) {
+                    object.geometry.computeBoundingBox();
+                    size = object.geometry.boundingBox
+                        .getSize(roomFocusSize)
+                        .multiply(object.scale);
+                    center = object.getWorldPosition(roomFocusCenter);
+                } else {
+                    const bounds = new THREE.Box3().setFromObject(object);
+
+                    if (bounds.isEmpty()) {
+                        return;
+                    }
+
+                    size = bounds.getSize(roomFocusSize);
+                    center = bounds.getCenter(roomFocusCenter);
                 }
 
-                const size = bounds.getSize(new THREE.Vector3());
-
-                const center = bounds.getCenter(new THREE.Vector3());
-
-                // =================================================
-                // CALCULATE CAMERA DISTANCE
-                // =================================================
-
-                const maxDimension = Math.max(size.x, size.y, size.z);
-
-                const distance = Math.max(maxDimension * 1.8, 10);
-
-                // =================================================
-                // CALCULATE TARGET CAMERA POSITION
-                // =================================================
+                const distance = isRoom
+                    ? Math.max(Math.max(size.x, size.y, size.z, 1.4) * 3.5, 7.4)
+                    : Math.max(size.x, size.y, size.z, 8) * 1.75;
 
                 const targetPosition = new THREE.Vector3(
-                    center.x + distance,
-
-                    center.y + distance * 0.75,
-
-                    center.z + distance,
+                    center.x - distance * 0.55,
+                    center.y + distance * 0.42,
+                    center.z - distance * 1.35,
                 );
-
-                // =================================================
-                // PHASE 7.6
-                // START SMOOTH CAMERA TRANSITION
-                // =================================================
 
                 cameraTransition = {
                     startPosition: camera.position.clone(),
@@ -14903,7 +15470,57 @@ document.addEventListener(
                 };
             }
 
+            function shortestCameraAngleDelta(from, to) {
+                let delta = to - from;
 
+                while (delta > Math.PI) {
+                    delta -= Math.PI * 2;
+                }
+
+                while (delta < -Math.PI) {
+                    delta += Math.PI * 2;
+                }
+
+                return delta;
+            }
+
+            function startOrbitCameraTransition(endPosition, endTarget, duration) {
+                const startPosition = camera.position.clone();
+                const startTarget = controls.target.clone();
+                const pivot = startTarget.clone().lerp(endTarget, 0.5);
+
+                const startSpherical = new THREE.Spherical().setFromVector3(
+                    startPosition.clone().sub(pivot),
+                );
+                const endSpherical = new THREE.Spherical().setFromVector3(
+                    endPosition.clone().sub(pivot),
+                );
+                const deltaTheta = shortestCameraAngleDelta(
+                    startSpherical.theta,
+                    endSpherical.theta,
+                );
+
+                controls.enableDamping = false;
+
+                cameraTransition = {
+                    mode: "orbit",
+                    startPosition,
+                    endPosition: endPosition.clone(),
+                    startTarget,
+                    endTarget: endTarget.clone(),
+                    pivot,
+                    startRadius: Math.max(startSpherical.radius, 0.01),
+                    startPhi: startSpherical.phi,
+                    startTheta: startSpherical.theta,
+                    endRadius: Math.max(endSpherical.radius, 0.01),
+                    endPhi: endSpherical.phi,
+                    endTheta: startSpherical.theta + deltaTheta,
+                    lift: Math.abs(deltaTheta) > Math.PI * 0.4,
+                    offset: new THREE.Vector3(),
+                    startTime: performance.now(),
+                    duration,
+                };
+            }
 
             function enterInteriorMode() {
 
@@ -14954,22 +15571,15 @@ document.addEventListener(
 
                 // =================================================
                 // START EXTERIOR -> INTERIOR CAMERA TRANSITION
+                // Orbit over the building instead of lerping
+                // through it (that looked like a camera flip).
                 // =================================================
 
-                cameraTransition = {
-
-                    startPosition: camera.position.clone(),
-
-                    endPosition: interiorView.position.clone(),
-
-                    startTarget: controls.target.clone(),
-
-                    endTarget: interiorView.target.clone(),
-
-                    startTime: performance.now(),
-
-                    duration: 900,
-                };
+                startOrbitCameraTransition(
+                    interiorView.position,
+                    interiorView.target,
+                    1100,
+                );
 
 
                 // =================================================
@@ -15004,28 +15614,28 @@ document.addEventListener(
 
                         materials.forEach((material) => {
 
-                            // Exterior clay surfaces
+                            // Exterior blueprint surfaces
                             if (material.isMeshPhysicalMaterial || material.isMeshBasicMaterial) {
 
                                 material.transparent = true;
 
                                 material.opacity =
                                     THREE.MathUtils.lerp(
-                                        1,
+                                        material.userData.shellOpacity ?? 1,
                                         0,
                                         progress
                                     );
                             }
 
 
-                            // Soft edge lines
+                            // Blueprint edge and grid lines
                             if (material.isLineBasicMaterial) {
 
                                 material.transparent = true;
 
                                 material.opacity =
                                     THREE.MathUtils.lerp(
-                                        0.28,
+                                        material.userData.shellOpacity ?? EXTERIOR_EDGE_OPACITY,
                                         0,
                                         progress
                                     );
@@ -15101,6 +15711,8 @@ document.addEventListener(
                         interiorView.target
                     );
 
+                    controls.enableDamping = true;
+
                     controls.update();
 
 
@@ -15114,7 +15726,7 @@ document.addEventListener(
 
                     renderer.domElement.style.cursor = "grab";
 
-                }, 950);
+                }, 1120);
             }
 
             // =====================================================
@@ -15312,31 +15924,15 @@ document.addEventListener(
                 // =================================================
                 // CAMERA TRANSITION
                 //
-                // CURRENT INTERIOR POSITION
-                //          ↓
-                // DEFAULT EXTERIOR POSITION
+                // Orbit over the building so the camera does not
+                // pass through the model and flip.
                 // =================================================
 
-                cameraTransition = {
-
-                    startPosition:
-                        camera.position.clone(),
-
-                    endPosition:
-                        exteriorView.position.clone(),
-
-                    startTarget:
-                        controls.target.clone(),
-
-                    endTarget:
-                        exteriorView.target.clone(),
-
-                    startTime:
-                        performance.now(),
-
-                    duration: 1000,
-
-                };
+                startOrbitCameraTransition(
+                    exteriorView.position,
+                    exteriorView.target,
+                    1100,
+                );
 
 
                 // =================================================
@@ -15389,7 +15985,7 @@ document.addEventListener(
                                 material.opacity =
                                     THREE.MathUtils.lerp(
                                         0,
-                                        1,
+                                        material.userData.shellOpacity ?? 1,
                                         progress
                                     );
 
@@ -15397,7 +15993,7 @@ document.addEventListener(
 
 
                             // =====================================
-                            // SOFT EDGE LINES
+                            // BLUEPRINT EDGE LINES
                             // =====================================
 
                             if (material.isLineBasicMaterial) {
@@ -15405,7 +16001,7 @@ document.addEventListener(
                                 material.opacity =
                                     THREE.MathUtils.lerp(
                                         0,
-                                        0.28,
+                                        material.userData.shellOpacity ?? EXTERIOR_EDGE_OPACITY,
                                         progress
                                     );
 
@@ -15494,6 +16090,9 @@ document.addEventListener(
                     );
 
 
+                    controls.enableDamping = true;
+
+
                     controls.update();
 
 
@@ -15516,7 +16115,7 @@ document.addEventListener(
                         "grab";
 
 
-                }, 1050);
+                }, 1120);
             }
 
             
@@ -16082,25 +16681,58 @@ document.addEventListener(
                             ? 2 * progress * progress
                             : 1 - Math.pow(-2 * progress + 2, 2) / 2;
 
-                    // =================================================
-                    // MOVE CAMERA SMOOTHLY
-                    // =================================================
+                    if (cameraTransition.mode === "orbit") {
+                        const liftMix = cameraTransition.lift
+                            ? Math.sin(easedProgress * Math.PI)
+                            : 0;
+                        const theta = THREE.MathUtils.lerp(
+                            cameraTransition.startTheta,
+                            cameraTransition.endTheta,
+                            easedProgress,
+                        );
+                        const phi = THREE.MathUtils.lerp(
+                            THREE.MathUtils.lerp(
+                                cameraTransition.startPhi,
+                                cameraTransition.endPhi,
+                                easedProgress,
+                            ),
+                            0.42,
+                            liftMix * 0.88,
+                        );
+                        const radius =
+                            THREE.MathUtils.lerp(
+                                cameraTransition.startRadius,
+                                cameraTransition.endRadius,
+                                easedProgress,
+                            ) * (1 + liftMix * 0.28);
 
-                    camera.position.lerpVectors(
-                        cameraTransition.startPosition,
-                        cameraTransition.endPosition,
-                        easedProgress,
-                    );
+                        cameraTransition.offset.setFromSphericalCoords(
+                            radius,
+                            phi,
+                            theta,
+                        );
+                        camera.position
+                            .copy(cameraTransition.pivot)
+                            .add(cameraTransition.offset);
 
-                    // =================================================
-                    // MOVE CAMERA TARGET SMOOTHLY
-                    // =================================================
+                        controls.target.lerpVectors(
+                            cameraTransition.startTarget,
+                            cameraTransition.endTarget,
+                            easedProgress,
+                        );
+                    } else {
+                        camera.position.lerpVectors(
+                            cameraTransition.startPosition,
+                            cameraTransition.endPosition,
+                            easedProgress,
+                        );
 
-                    controls.target.lerpVectors(
-                        cameraTransition.startTarget,
-                        cameraTransition.endTarget,
-                        easedProgress,
-                    );
+                        controls.target.lerpVectors(
+                            cameraTransition.startTarget,
+                            cameraTransition.endTarget,
+                            easedProgress,
+                        );
+                    }
 
                     // =================================================
                     // END TRANSITION
@@ -16114,6 +16746,7 @@ document.addEventListener(
                 controls.update();
 
                 updateEnterBuildingButtonPosition();
+                updateRoomDetailsPanelPosition();
 
                 composer.render();
             }
@@ -18907,6 +19540,135 @@ document.addEventListener(
         lucide.createIcons();
 
         // =====================================================
+        // BUILDING OVERVIEW FULL SCREEN
+        // =====================================================
+
+        (function initBuildingFullscreen() {
+            const view = document.getElementById("dashboardBuildingView");
+            const enterButton = document.getElementById("buildingFullscreenBtn");
+            const exitButton = document.getElementById("buildingExitFullscreenBtn");
+
+            if (!view || !enterButton || !exitButton) {
+                return;
+            }
+
+            function getFullscreenElement() {
+                return (
+                    document.fullscreenElement ||
+                    document.webkitFullscreenElement ||
+                    document.mozFullScreenElement ||
+                    document.msFullscreenElement ||
+                    null
+                );
+            }
+
+            function isBuildingFullscreen() {
+                return (
+                    getFullscreenElement() === view ||
+                    view.classList.contains("is-pseudo-fullscreen")
+                );
+            }
+
+            function enterPseudoFullscreen() {
+                view.classList.add("is-pseudo-fullscreen");
+                document.body.style.overflow = "hidden";
+                syncBuildingFullscreenUi();
+            }
+
+            function syncBuildingFullscreenUi() {
+                const active = isBuildingFullscreen();
+
+                view.classList.toggle("is-building-fullscreen", active);
+                enterButton.setAttribute("aria-pressed", active ? "true" : "false");
+
+                if (window.lucide && typeof lucide.createIcons === "function") {
+                    lucide.createIcons({ root: exitButton });
+                }
+            }
+
+            function enterBuildingFullscreen() {
+                const request =
+                    view.requestFullscreen ||
+                    view.webkitRequestFullscreen ||
+                    view.mozRequestFullScreen ||
+                    view.msRequestFullscreen;
+
+                if (!request) {
+                    enterPseudoFullscreen();
+                    return;
+                }
+
+                const result = request.call(view);
+
+                if (result && typeof result.catch === "function") {
+                    result.catch(() => {
+                        enterPseudoFullscreen();
+                    });
+                }
+            }
+
+            function exitBuildingFullscreen() {
+                const activeElement = getFullscreenElement();
+
+                if (activeElement) {
+                    if (document.exitFullscreen) {
+                        return document.exitFullscreen();
+                    }
+
+                    if (document.webkitExitFullscreen) {
+                        return document.webkitExitFullscreen();
+                    }
+
+                    if (document.mozCancelFullScreen) {
+                        return document.mozCancelFullScreen();
+                    }
+
+                    if (document.msExitFullscreen) {
+                        return document.msExitFullscreen();
+                    }
+                }
+
+                view.classList.remove("is-pseudo-fullscreen");
+                document.body.style.overflow = "";
+                syncBuildingFullscreenUi();
+            }
+
+            enterButton.addEventListener("click", () => {
+                if (isBuildingFullscreen()) {
+                    exitBuildingFullscreen();
+                    return;
+                }
+
+                enterBuildingFullscreen();
+            });
+
+            exitButton.addEventListener("click", () => {
+                exitBuildingFullscreen();
+            });
+
+            [
+                "fullscreenchange",
+                "webkitfullscreenchange",
+                "mozfullscreenchange",
+                "MSFullscreenChange",
+            ].forEach((eventName) => {
+                document.addEventListener(eventName, syncBuildingFullscreenUi);
+            });
+
+            document.addEventListener("keydown", (event) => {
+                if (event.key !== "Escape") {
+                    return;
+                }
+
+                if (!view.classList.contains("is-pseudo-fullscreen")) {
+                    return;
+                }
+
+                exitBuildingFullscreen();
+            });
+        })();
+
+        // =====================================================
         // CLOCK
         // =====================================================
 
@@ -19297,7 +20059,7 @@ document.addEventListener(
             }
 
             const storageKey =
-                "maintenanceDailyReminder:{{ Auth::id() }}";
+                "maintenanceDailyReminder:v2:{{ Auth::id() }}";
             const todayKey = new Date().toISOString().slice(0, 10);
 
             if (localStorage.getItem(storageKey) === todayKey) {
@@ -19331,6 +20093,143 @@ document.addEventListener(
                 }
             });
         });
+    </script>
+
+    <script>
+        (function initMaintenanceDashboardSmoothScroll() {
+            const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+            const scroller = document.querySelector("body.mp-layout main");
+
+            if (!scroller || reduceMotion.matches) {
+                return;
+            }
+
+            let current = scroller.scrollTop;
+            let target = scroller.scrollTop;
+            let rafId = 0;
+            const ease = 0.18;
+
+            function getDelta(event) {
+                let delta = event.deltaY;
+
+                if (event.deltaMode === 1) {
+                    delta *= 16;
+                } else if (event.deltaMode === 2) {
+                    delta *= scroller.clientHeight;
+                }
+
+                return delta;
+            }
+
+            function isVerticallyScrollable(element) {
+                const style = window.getComputedStyle(element);
+                const overflowY = style.overflowY;
+                const canOverflow =
+                    overflowY === "auto" ||
+                    overflowY === "scroll" ||
+                    overflowY === "overlay";
+
+                return canOverflow && element.scrollHeight > element.clientHeight + 1;
+            }
+
+            function shouldIgnore(event) {
+                if (event.defaultPrevented || event.ctrlKey) {
+                    return true;
+                }
+
+                if (Math.abs(event.deltaY) < Math.abs(event.deltaX)) {
+                    return true;
+                }
+
+                const origin =
+                    event.target && event.target.nodeType === 1
+                        ? event.target
+                        : event.target && event.target.parentElement;
+
+                if (
+                    origin &&
+                    origin.closest &&
+                    origin.closest(
+                        "#building3DViewport, .swal2-container, [role='dialog']"
+                    )
+                ) {
+                    return true;
+                }
+
+                let node = origin;
+
+                while (node && node !== scroller) {
+                    if (isVerticallyScrollable(node)) {
+                        const scrollingUp = event.deltaY < 0;
+                        const atTop = node.scrollTop <= 0;
+                        const atBottom =
+                            node.scrollTop + node.clientHeight >=
+                            node.scrollHeight - 1;
+
+                        if (!(scrollingUp && atTop) && !(!scrollingUp && atBottom)) {
+                            return true;
+                        }
+                    }
+
+                    node = node.parentElement;
+                }
+
+                return false;
+            }
+
+            function tick() {
+                current += (target - current) * ease;
+
+                if (Math.abs(target - current) < 0.4) {
+                    current = target;
+                    scroller.scrollTop = current;
+                    rafId = 0;
+                    return;
+                }
+
+                scroller.scrollTop = current;
+                rafId = requestAnimationFrame(tick);
+            }
+
+            scroller.addEventListener(
+                "wheel",
+                function (event) {
+                    if (shouldIgnore(event)) {
+                        current = scroller.scrollTop;
+                        target = scroller.scrollTop;
+                        return;
+                    }
+
+                    event.preventDefault();
+
+                    const maxScroll = Math.max(
+                        0,
+                        scroller.scrollHeight - scroller.clientHeight
+                    );
+
+                    target = Math.max(0, Math.min(maxScroll, target + getDelta(event)));
+
+                    if (!rafId) {
+                        current = scroller.scrollTop;
+                        rafId = requestAnimationFrame(tick);
+                    }
+                },
+                { passive: false }
+            );
+
+            scroller.addEventListener(
+                "scroll",
+                function () {
+                    if (rafId) {
+                        return;
+                    }
+
+                    current = scroller.scrollTop;
+                    target = scroller.scrollTop;
+                },
+                { passive: true }
+            );
+        })();
     </script>
 
     @include('layouts.partials.equipment-category-detect')

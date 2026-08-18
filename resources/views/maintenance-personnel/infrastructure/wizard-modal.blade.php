@@ -714,6 +714,22 @@
                                             "Maintenance Needed" => "#F59E0B",
                                             default => "#10B981",
                                         };
+                                        $labelOrientation = (int) $room->room_height > (int) $room->room_width
+                                            ? "vertical"
+                                            : "horizontal";
+                                        $roomColor = $room->room_color ?: "#60A5FA";
+                                        $labelTextColor = "#0f172a";
+                                        $hex = ltrim((string) $roomColor, "#");
+                                        if (strlen($hex) === 3) {
+                                            $hex = $hex[0].$hex[0].$hex[1].$hex[1].$hex[2].$hex[2];
+                                        }
+                                        if (strlen($hex) === 6 && ctype_xdigit($hex)) {
+                                            $r = hexdec(substr($hex, 0, 2));
+                                            $g = hexdec(substr($hex, 2, 2));
+                                            $b = hexdec(substr($hex, 4, 2));
+                                            $yiq = ($r * 299 + $g * 587 + $b * 114) / 1000;
+                                            $labelTextColor = $yiq >= 150 ? "#0f172a" : "#ffffff";
+                                        }
                                     @endphp
                                     <!--ring-[#5B6682]/40-->
                                     <button
@@ -723,6 +739,7 @@
                                         class="room-block room-card group absolute overflow-visible z-10 rounded-xl border-2 p-3 text-left shadow-[0_14px_22px_rgba(15,23,42,.18)] transition duration-200 hover:z-20 hover:-translate-y-1 hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-[#07319C] {{ $room->room_status === 'Critical' ? 'critical-room' : '' }}"
                                         :class="{'cursor-move ring-2 ring-[#07319C] rounded-lg': editMode, 'ring-2 ring-[#07319C]': selectedRoom === {{ $room->room_id }}}"
                                         data-size="large"
+                                        data-label-orientation="{{ $labelOrientation }}"
                                         data-id="{{ $room->room_id }}"
                                         data-floor="{{ $floor->floor_id }}"
                                         data-x="{{ $room->room_x }}"
@@ -735,7 +752,7 @@
                                         data-color="{{ $room->room_color ?: '#60A5FA' }}"
                                         data-assets="{{ $room->equipment->sum("equipment_quantity") }}"
                                         data-active-reports="{{ $room->monitoring["active_reports"] }}"
-                                        style="left:{{ $room->room_x }}px;top:{{ $room->room_y }}px;width:{{ $room->room_width }}px;height:{{ $room->room_height }}px;background:{{ $room->room_color ?: '#60A5FA' }};--room-depth:{{ $room->room_color ?: '#60A5FA' }};transform:rotate({{ data_get($room->room_metadata, 'rotation', 0) }}deg);transform-origin:center center;"
+                                        style="left:{{ $room->room_x }}px;top:{{ $room->room_y }}px;width:{{ $room->room_width }}px;height:{{ $room->room_height }}px;background:{{ $room->room_color ?: '#60A5FA' }};--room-depth:{{ $room->room_color ?: '#60A5FA' }};--room-label-color:{{ $labelTextColor }};transform:rotate({{ data_get($room->room_metadata, 'rotation', 0) }}deg);transform-origin:center center;"
                                     >
                                         <span
                                             class="relative z-10 flex h-full flex-col justify-between"
@@ -820,9 +837,9 @@
                                             @pointerdown.stop.prevent="beginRoomRotation($event)"
                                             role="button"
                                             tabindex="0"
-                                            data-tooltip="Rotate selected room"
-                                            :class="isRotating ? 'cursor-grabbing rotate-handle-cursor' : 'cursor-grab rotate-handle-cursor'"
-                                            class="absolute left-1/2 bottom-[-52px] z-40 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-lg transition hover:bg-slate-100"
+                                            aria-label="Rotate selected room"
+                                            class="rotate-handle-cursor absolute left-1/2 z-40 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-lg transition hover:bg-slate-100"
+                                            :class="rotateHandleSide === 'top' ? 'top-[-52px]' : 'bottom-[-52px]'"
                                             :style="{ transform: 'translateX(-50%) rotate(' + (-selectedRoomControl.rotation) + 'deg)' }"
                                         >
                                             <span x-show="!isRotating" class="flex items-center justify-center">
@@ -882,9 +899,8 @@
                                                     @pointerdown.stop.prevent="beginEquipmentRotation($event)"
                                                     role="button"
                                                     tabindex="0"
-                                                    data-tooltip="Rotate selected equipment"
-                                                    :class="equipmentIsRotating ? 'cursor-grabbing rotate-equipment-handle-cursor' : 'cursor-grab rotate-equipment-handle-cursor'"
-                                                    class="absolute left-1/2 bottom-[-52px] z-40 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-lg transition hover:bg-slate-100"
+                                                    aria-label="Rotate selected equipment"
+                                                    class="rotate-equipment-handle-cursor absolute left-1/2 bottom-[-52px] z-40 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-lg transition hover:bg-slate-100"
                                                     :style="{ transform: 'translateX(-50%) rotate(' + (-selectedEquipmentControl.rotation) + 'deg)' }"
                                                 >
                                                     <span x-show="!equipmentIsRotating" class="flex items-center justify-center">
@@ -1253,16 +1269,16 @@
                                                 });
                                             }
                                         "
-                                        class="absolute -bottom-12 left-1/2 z-40 -translate-x-1/2 pointer-events-auto"
+                                        class="equipment-rotate-gimbal pointer-events-none absolute left-1/2 top-1/2 z-40"
+                                        :style="equipmentRotateGimbalStyle(item)"
                                     >
 
                                         <button
                                             type="button"
                                             @pointerdown.stop.prevent="beginEquipmentRotation($event)"
-                                            :class="equipmentIsRotating
-                                                ? 'cursor-grabbing rotate-equipment-handle-cursor'
-                                                : 'cursor-grab rotate-equipment-handle-cursor'"
-                                            class="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-lg transition hover:bg-slate-100"
+                                            aria-label="Rotate selected equipment"
+                                            class="rotate-equipment-handle-cursor pointer-events-auto absolute left-1/2 flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-lg transition hover:bg-slate-100"
+                                            :style="equipmentRotateHandleStyle(item)"
                                         >
 
                                             <template x-if="!equipmentIsRotating">
@@ -1661,13 +1677,11 @@
             background-size: 24px 24px;
         }
         .rotate-handle-cursor,
-        .rotate-equipment-handle-cursor {
-            cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M6 14a8 8 0 0 1 10.6-7.6M22 14a8 8 0 0 0-10.6 7.6' stroke='%23004E8C' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3Cpath d='M22 8v4h-4' stroke='%23004E8C' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3Cpath d='M6 20v-4h4' stroke='%23004E8C' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") 14 14, grab;
-        }
         .rotate-active-cursor,
         body.rotate-active-cursor,
+        .rotate-equipment-handle-cursor,
         body.equipment-rotate-active-cursor {
-            cursor: grabbing;
+            cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='4.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.4 11.4a7.6 7.6 0 0 1 13.6 3.4'/%3E%3Cpath d='M22.6 20.6a7.6 7.6 0 0 1-13.6-3.4'/%3E%3Cpath d='M22.8 8.4v5.4h-5.4'/%3E%3Cpath d='M9.2 23.6v-5.4h5.4'/%3E%3C/g%3E%3Cg fill='none' stroke='%230F172A' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.4 11.4a7.6 7.6 0 0 1 13.6 3.4'/%3E%3Cpath d='M22.6 20.6a7.6 7.6 0 0 1-13.6-3.4'/%3E%3Cpath d='M22.8 8.4v5.4h-5.4'/%3E%3Cpath d='M9.2 23.6v-5.4h5.4'/%3E%3C/g%3E%3Ccircle cx='16' cy='16' r='2.1' fill='%230F172A' stroke='%23ffffff' stroke-width='1.4'/%3E%3C/svg%3E") 16 16, crosshair !important;
         }
         .room-search-highlight {
             animation: roomSearchPulse 1.2s ease-in-out 3;
@@ -1711,7 +1725,7 @@
 
             font-weight: 700;
 
-            color: #0f172a;
+            color: var(--room-label-color, #0f172a);
 
             white-space: nowrap;
 
@@ -1723,7 +1737,27 @@
 
             pointer-events: none;
 
-            transition: 0.2s;
+            transition: font-size 0.15s ease;
+        }
+
+        .room-block[data-label-orientation="vertical"] {
+            padding-left: 2px;
+            padding-right: 2px;
+        }
+
+        .room-block[data-label-orientation="vertical"] .room-name {
+            width: auto;
+            max-width: 100%;
+            height: 100%;
+            max-height: 100%;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            line-height: 1.05;
+        }
+
+        .room-block[data-label-orientation="vertical"] .room-status {
+            right: 1px;
+            top: 1px;
         }
 
         /* ---------- LARGE ---------- */
@@ -1811,6 +1845,7 @@
                     equipmentRotationDrag: null,
                     equipmentRotationDisplayAngle: 0,
                     equipmentRotationHandleOffset: 90,
+                    equipmentRotateHandleSide: "bottom",
                     roomSearch: "",
                     zoomInput: "100",
                     roomRotationInput: 0,
@@ -1838,6 +1873,7 @@
                     rotationDragAngle: 0,
                     rotationDisplayAngle: 0,
                     rotationHandleOffset: 90,
+                    rotateHandleSide: "bottom",
                     roomCatalog: @js ($roomCatalog),
 
                     workstationLayout: {
@@ -2111,6 +2147,10 @@
                             }
                         });
 
+                        this.$watch("editMode", () => {
+                            this.$nextTick(() => this.updateRotateHandlePlacement());
+                        });
+
                         this.$watch("roomPaintColor", (value) => {
                             if (!this.editMode || !this.roomPaintMode || !this.selectedRoom) {
                                 return;
@@ -2131,30 +2171,7 @@
                             });
 
                             document.querySelectorAll(".room-block").forEach((room) => {
-                                const w = parseInt(room.dataset.width);
-
-                                const h = parseInt(room.dataset.height);
-
-                                let size = "large";
-
-                                if (w < 50 || h < 40) {
-                                    size = "tiny";
-                                } else if (w < 90 || h < 60) {
-                                    size = "small";
-                                } else if (w < 140 || h < 80) {
-                                    size = "medium";
-                                }
-
-                                room.dataset.size = size;
-                                const roomName = room.querySelector(".room-name");
-
-                                if (roomName) {
-                                    roomName.textContent = this.abbreviateRoom(
-                                        roomName.dataset.fullName,
-
-                                        size,
-                                    );
-                                }
+                                this.syncRoomLabel(room);
                             });
 
                             document.addEventListener(
@@ -2215,6 +2232,7 @@
                         this.blueprint.zoom = newZoom;
 
                         this.zoomInput = Math.round(newZoom * 100);
+                        this.$nextTick(() => this.updateRotateHandlePlacement());
                     },
                     applyZoomInput() {
                         const value = parseFloat(String(this.zoomInput).replace("%", ""));
@@ -2242,6 +2260,7 @@
                         this.blueprint.zoom = value / 100;
 
                         this.zoomInput = Math.round(value);
+                        this.$nextTick(() => this.updateRotateHandlePlacement());
                     },
                     handleBlueprintWheel(event) {
                         if (!this.spacePressed) {
@@ -2312,7 +2331,7 @@
 
                         this.isRotating = true;
                         this.rotationDragAngle = this.getSelectedRoomRotation();
-                        document.body.classList.add("cursor-grabbing", "rotate-active-cursor");
+                        document.body.classList.add("rotate-active-cursor");
 
                         event.currentTarget.setPointerCapture?.(event.pointerId);
                     },
@@ -2381,6 +2400,7 @@
                                 height: 0,
                                 rotation: 0,
                             };
+                            this.rotateHandleSide = "bottom";
                             return;
                         }
 
@@ -2407,6 +2427,66 @@
                             rotation: rawRotation,
                         };
                         this.rotationDisplayAngle = this.formatRotationDisplay(rawRotation);
+                        this.updateRotateHandlePlacement();
+                    },
+                    updateRotateHandlePlacement() {
+                        if (this.isRotating || !this.editMode || !this.selectedRoom) {
+                            return;
+                        }
+
+                        const room = document.querySelector(
+                            `.room-block[data-id="${this.selectedRoom}"]`,
+                        );
+                        const viewport = this.$refs.blueprintViewport;
+                        const canvas = this.$refs.blueprintCanvas;
+
+                        if (!room || !viewport) {
+                            this.rotateHandleSide = "bottom";
+                            return;
+                        }
+
+                        const zoom = this.blueprint?.zoom || 1;
+                        const padding = 8;
+                        const handleRadius = 20 * zoom;
+                        const handleOutset = 32 * zoom;
+                        const height = Number(room.dataset.height || room.offsetHeight || 0);
+                        const offsetFromCenter = (height / 2) * zoom + handleOutset;
+
+                        const roomRect = room.getBoundingClientRect();
+                        const viewportRect = viewport.getBoundingClientRect();
+                        const canvasRect = canvas?.getBoundingClientRect() || viewportRect;
+                        const clipTop = Math.max(viewportRect.top, canvasRect.top) + padding;
+                        const clipBottom = Math.min(viewportRect.bottom, canvasRect.bottom) - padding;
+                        const cy = roomRect.top + roomRect.height / 2;
+                        const theta = (Number(room.dataset.rotation || 0) * Math.PI) / 180;
+                        const cos = Math.cos(theta);
+
+                        const projectY = (localY) => cy + localY * cos;
+                        const bottomY = projectY(offsetFromCenter);
+                        const topY = projectY(-offsetFromCenter);
+                        const bottomFits =
+                            bottomY + handleRadius <= clipBottom &&
+                            bottomY - handleRadius >= clipTop;
+                        const topFits =
+                            topY + handleRadius <= clipBottom &&
+                            topY - handleRadius >= clipTop;
+
+                        if (bottomFits) {
+                            this.rotateHandleSide = "bottom";
+                            return;
+                        }
+
+                        if (topFits) {
+                            this.rotateHandleSide = "top";
+                            return;
+                        }
+
+                        const overflow = (y) =>
+                            Math.max(0, y + handleRadius - clipBottom) +
+                            Math.max(0, clipTop - (y - handleRadius));
+
+                        this.rotateHandleSide =
+                            overflow(topY) < overflow(bottomY) ? "top" : "bottom";
                     },
                     applySelectedRoomRotation() {
                         if (!this.editMode || !this.selectedRoom) {
@@ -2446,11 +2526,13 @@
                             };
                             this.equipmentIsRotating = false;
                             document.body.classList.remove("equipment-rotate-active-cursor");
+                            this.equipmentRotateHandleSide = "bottom";
                             return;
                         }
 
                         this.$nextTick(() => {
                             this.syncSelectedEquipmentControl();
+                            this.updateEquipmentRotateHandlePlacement();
                         });
                     },
                     handleEquipmentPointerDown(event, equipmentId) {
@@ -2690,7 +2772,7 @@
                         }
 
                         if (this.selectedEquipmentId === Number(node.dataset.equipmentId)) {
-                            this.syncSelectedEquipmentControl();
+                            this.updateEquipmentRotateHandlePlacement(node);
                         }
                     },
                     endEquipmentAction(event) {
@@ -2735,6 +2817,7 @@
                         this.syncEquipmentZone(node);
                         this.layoutDirty = true;
                         this.equipmentPendingDrag = null;
+                        this.syncSelectedEquipmentControl();
                     },
                     getSelectedEquipmentRotation() {
                         if (!this.selectedEquipmentId) return 0;
@@ -2744,6 +2827,104 @@
                         );
 
                         return item ? Number(item.dataset.rotation || 0) : 0;
+                    },
+                    equipmentRotateGimbalStyle(item) {
+                        const rotation = Number(item?.rotation || 0);
+
+                        return `transform:translate(-50%,-50%) rotate(${-rotation}deg)`;
+                    },
+                    equipmentRotateHandleStyle(item) {
+                        return this.buildEquipmentRotateHandleStyle(
+                            item,
+                            this.equipmentRotateHandleSide || "bottom",
+                        );
+                    },
+                    buildEquipmentRotateHandleStyle(item, side = "bottom") {
+                        const rotation = Number(item?.rotation || 0);
+                        const width = Number(item.width || 120);
+                        const height = Number(item.height || 96);
+                        const rad = (rotation * Math.PI) / 180;
+                        const aabbWidth =
+                            Math.abs(width * Math.cos(rad)) +
+                            Math.abs(height * Math.sin(rad));
+                        const aabbHeight =
+                            Math.abs(width * Math.sin(rad)) +
+                            Math.abs(height * Math.cos(rad));
+                        const handleSize = 40;
+                        const offsetX = aabbWidth / 2 + 22;
+                        const offsetY = aabbHeight / 2 + 22;
+
+                        if (side === "top") {
+                            return `left:0;top:${-(offsetY + handleSize)}px;transform:translateX(-50%)`;
+                        }
+
+                        if (side === "right") {
+                            return `left:${offsetX}px;top:0;transform:translateY(-50%)`;
+                        }
+
+                        if (side === "left") {
+                            return `left:${-(offsetX + handleSize)}px;top:0;transform:translateY(-50%)`;
+                        }
+
+                        return `left:0;top:${offsetY}px;transform:translateX(-50%)`;
+                    },
+                    updateEquipmentRotateHandlePlacement(node = null) {
+                        if (this.equipmentIsRotating || !this.roomLayout?.edit || !this.selectedEquipmentId) {
+                            return;
+                        }
+
+                        const itemNode =
+                            node ||
+                            document.querySelector(
+                                `.room-equipment-node[data-equipment-id="${this.selectedEquipmentId}"]`,
+                            );
+                        const canvas = this.$refs.roomInteriorCanvas;
+
+                        if (!itemNode || !canvas) {
+                            this.equipmentRotateHandleSide = "bottom";
+                            return;
+                        }
+
+                        const padding = 8;
+                        const handleReserve = 62;
+                        const nodeRect = itemNode.getBoundingClientRect();
+                        const canvasRect = canvas.getBoundingClientRect();
+                        const clip = {
+                            top: canvasRect.top + padding,
+                            right: canvasRect.right - padding,
+                            bottom: canvasRect.bottom - padding,
+                            left: canvasRect.left + padding,
+                        };
+                        const space = {
+                            bottom: clip.bottom - nodeRect.bottom,
+                            top: nodeRect.top - clip.top,
+                            right: clip.right - nodeRect.right,
+                            left: nodeRect.left - clip.left,
+                        };
+                        const order = ["bottom", "top", "right", "left"];
+                        const fitting = order.find((side) => space[side] >= handleReserve);
+                        const side =
+                            fitting ||
+                            order.reduce((best, current) =>
+                                space[current] > space[best] ? current : best,
+                            );
+                        const handle = itemNode.querySelector(".rotate-equipment-handle-cursor");
+                        const style = this.buildEquipmentRotateHandleStyle(
+                            {
+                                width: itemNode.dataset.width,
+                                height: itemNode.dataset.height,
+                                rotation: itemNode.dataset.rotation,
+                            },
+                            side,
+                        );
+
+                        if (handle) {
+                            handle.setAttribute("style", style);
+                        }
+
+                        if (!this.equipmentAction) {
+                            this.equipmentRotateHandleSide = side;
+                        }
                     },
                     syncSelectedEquipmentControl() {
                         if (!this.selectedEquipmentId) {
@@ -2774,6 +2955,7 @@
                             rotation: Number(item.dataset.rotation || 0),
                         };
                         this.equipmentRotationDisplayAngle = this.formatRotationDisplay(Number(item.dataset.rotation || 0));
+                        this.updateEquipmentRotateHandlePlacement();
                     },
                     setSelectedEquipmentRotation(rotation) {
                         const item = document.querySelector(
@@ -2819,7 +3001,7 @@
 
                         this.equipmentIsRotating = true;
                         this.equipmentRotationDisplayAngle = this.formatRotationDisplay(this.getSelectedEquipmentRotation());
-                        document.body.classList.add("cursor-grabbing", "equipment-rotate-active-cursor");
+                        document.body.classList.add("equipment-rotate-active-cursor");
 
                         event.currentTarget.setPointerCapture?.(event.pointerId);
                     },
@@ -2866,6 +3048,7 @@
                         this.equipmentIsRotating = false;
                         document.body.classList.remove("cursor-grabbing", "equipment-rotate-active-cursor");
                         this.layoutDirty = true;
+                        this.$nextTick(() => this.updateEquipmentRotateHandlePlacement());
                     },
                     startBlueprintPan(event) {
                         // Only left mouse
@@ -2891,6 +3074,7 @@
                             this.blueprint.originX + event.clientX - this.blueprint.startX;
                         this.blueprint.panY =
                             this.blueprint.originY + event.clientY - this.blueprint.startY;
+                        this.$nextTick(() => this.updateRotateHandlePlacement());
                     },
                     endBlueprintPan() {
                         this.blueprint.isPanning = false;
@@ -2967,6 +3151,7 @@
 
                         this.blueprint.panY =
                             padding.top + (availableHeight - scaledHeight) / 2;
+                        this.$nextTick(() => this.updateRotateHandlePlacement());
                     },
                     async toggleFullscreen(){
 
@@ -3090,6 +3275,8 @@
 
                             room.style.transformOrigin = "center center";
 
+                            this.syncRoomLabel(room);
+
                         });
 
                         this.layoutDirty = false;
@@ -3190,6 +3377,7 @@
                             node.dataset.color = resolvedColor;
                             node.style.background = resolvedColor;
                             node.style.setProperty("--room-depth", resolvedColor);
+                            this.applyRoomLabelContrast(node);
                         }
 
                         if (this.selectedRoom === normalizedRoomId) {
@@ -3944,7 +4132,7 @@
                                     }),
                                     interact.modifiers.restrictSize({
                                         min: {
-                                            width: 80,
+                                            width: 20,
                                             height: 80,
                                         },
                                         max: { width: 600, height: 450 },
@@ -3965,28 +4153,6 @@
                                         y = Math.max(0, y);
                                         const width = Math.round(event.rect.width);
                                         const height = Math.round(event.rect.height);
-                                        /* ---------- Responsive Room Layout ---------- */
-
-                                        let size = "large";
-
-                                        if (width < 50 || height < 40) {
-                                            size = "tiny";
-                                        } else if (width < 90 || height < 60) {
-                                            size = "small";
-                                        } else if (width < 140 || height < 80) {
-                                            size = "medium";
-                                        }
-
-                                        el.dataset.size = size;
-                                        const roomName = el.querySelector(".room-name");
-
-                                        if (roomName) {
-                                            roomName.textContent = this.abbreviateRoom(
-                                                roomName.dataset.fullName,
-
-                                                size,
-                                            );
-                                        }
                                         Object.assign(el.style, {
                                             width: width + "px",
                                             height: height + "px",
@@ -3999,6 +4165,7 @@
                                             width,
                                             height,
                                         });
+                                        this.syncRoomLabel(el);
 
                                         if (this.selectedRoom === Number(el.dataset.id)) {
                                             this.syncSelectedRoomControl();
@@ -4419,10 +4586,7 @@
                             const roomNameNode = node.querySelector("[data-room-name]");
                             if (roomNameNode) {
                                 roomNameNode.dataset.fullName = updates.name;
-                                roomNameNode.textContent = this.abbreviateRoom(
-                                    updates.name,
-                                    node.dataset.size || "large",
-                                );
+                                this.syncRoomLabel(node);
                             }
 
                             if (this.roomLayout.open && this.roomLayout.id === normalizedRoomId) {
@@ -4447,6 +4611,7 @@
                             node.dataset.color = updates.color;
                             node.style.background = updates.color;
                             node.style.setProperty("--room-depth", updates.color);
+                            this.applyRoomLabelContrast(node);
                         }
 
                         if (typeof updates.status === "string") {
@@ -4728,6 +4893,92 @@
                             return "💻";
                         return "📦";
                     },
+                    applyRoomLabelContrast(el) {
+                        if (!el) {
+                            return;
+                        }
+
+                        const color = el.dataset.color || el.style.backgroundColor || "#60A5FA";
+                        el.style.setProperty("--room-label-color", this.getContrastingTextColor(color));
+                    },
+                    getContrastingTextColor(color) {
+                        const rgb = this.parseCssColor(color);
+
+                        if (!rgb) {
+                            return "#0f172a";
+                        }
+
+                        const yiq = (rgb.r * 299 + rgb.g * 587 + rgb.b * 114) / 1000;
+
+                        return yiq >= 150 ? "#0f172a" : "#ffffff";
+                    },
+                    parseCssColor(color) {
+                        if (!color) {
+                            return null;
+                        }
+
+                        const value = String(color).trim();
+                        const hex = value.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+
+                        if (hex) {
+                            let digits = hex[1];
+
+                            if (digits.length === 3) {
+                                digits = digits.split("").map((part) => part + part).join("");
+                            }
+
+                            return {
+                                r: parseInt(digits.slice(0, 2), 16),
+                                g: parseInt(digits.slice(2, 4), 16),
+                                b: parseInt(digits.slice(4, 6), 16),
+                            };
+                        }
+
+                        const rgb = value.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+
+                        if (!rgb) {
+                            return null;
+                        }
+
+                        return {
+                            r: Number(rgb[1]),
+                            g: Number(rgb[2]),
+                            b: Number(rgb[3]),
+                        };
+                    },
+                    syncRoomLabel(el) {
+                        if (!el) {
+                            return;
+                        }
+
+                        const width = Number(el.dataset.width) || el.offsetWidth || 0;
+                        const height = Number(el.dataset.height) || el.offsetHeight || 0;
+                        const vertical = height > width;
+                        const longAxis = vertical ? height : width;
+
+                        let size = "large";
+
+                        if (longAxis < 50) {
+                            size = "tiny";
+                        } else if (longAxis < 90) {
+                            size = "small";
+                        } else if (longAxis < 140) {
+                            size = "medium";
+                        }
+
+                        el.dataset.size = size;
+                        el.dataset.labelOrientation = vertical ? "vertical" : "horizontal";
+                        this.applyRoomLabelContrast(el);
+
+                        const roomName = el.querySelector(".room-name, [data-room-name]");
+
+                        if (roomName) {
+                            roomName.textContent = this.abbreviateRoom(
+                                roomName.dataset.fullName || el.dataset.name || "",
+                                size,
+                            );
+                        }
+                    },
                     abbreviateRoom(name, size) {
                         if (!name) return "";
 
@@ -4788,7 +5039,10 @@
                             if (node) {
                                 node.dataset.name = name;
                                 const label = node.querySelector("[data-room-name]");
-                                if (label) label.textContent = name;
+                                if (label) {
+                                    label.dataset.fullName = name;
+                                }
+                                this.syncRoomLabel(node);
                             }
                             this.roomManager.originalName = name;
                             this.toast = "Room renamed";

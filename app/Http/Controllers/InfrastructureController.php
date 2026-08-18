@@ -670,7 +670,7 @@ class InfrastructureController extends Controller
             'rooms.*.id' => ['required', 'integer'],
             'rooms.*.x' => ['required', 'integer', 'min:0', 'max:1800'],
             'rooms.*.y' => ['required', 'integer', 'min:0', 'max:900'],
-            'rooms.*.width' => ['required','integer','min:80','max:600'],
+            'rooms.*.width' => ['required','integer','min:20','max:600'],
             'rooms.*.height' => ['required', 'integer','min:80','max:450'],
             'rooms.*.rotation' => ['required', 'integer', 'min:0', 'max:360'],
             'rooms.*.color' => ['nullable', 'string', 'max:32'],
@@ -684,7 +684,7 @@ class InfrastructureController extends Controller
 
             'equipment.*.zone' => ['nullable', 'string', 'max:100'],
 
-            'equipment.*.width' => ['required','integer','min:50','max:220'],
+            'equipment.*.width' => ['required','integer','min:20','max:220'],
 
             'equipment.*.height' => ['required','integer','min:80','max:220'],
 

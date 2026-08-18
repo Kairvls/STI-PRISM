@@ -98,6 +98,7 @@
 
             step = 1;
         "
+        @keydown.window="handleLayoutUndoHotkey($event)"
         @pointermove.window="trackRoomRotation($event); trackEquipmentRotation($event); trackEquipmentAction($event)"
         @pointerup.window="endRoomRotation($event); endEquipmentRotation($event); endEquipmentAction($event)"
         class="flex min-h-0 w-full flex-1 flex-col overflow-hidden"
@@ -397,10 +398,11 @@
         <!-- Replace this whole class -->
         <!-- =============================== -->
 
-        <div class="flex min-h-0 w-full flex-1 flex-col gap-6 overflow-hidden xl:flex-row xl:items-start">
+        <div class="flex min-h-0 w-full flex-1 flex-col gap-6 overflow-hidden xl:flex-row xl:items-stretch">
+            <div class="flex min-h-0 min-w-0 flex-1 flex-col gap-6 xl:h-[calc(100vh-160px)] xl:max-h-[900px] xl:min-h-[700px]">
             <section
                 x-ref="blueprintWorkspace"
-                class="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-xl"
+                class="relative flex min-h-0 min-w-0 flex-[1.65] flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-xl"
             >
                 <!-- ========================================================= -->
                 <!-- TOP TOOLBAR -->
@@ -525,6 +527,28 @@
 
                                     </button>
 
+                                </div>
+
+                                <!-- ==================== -->
+                                <!-- Undo Layout Change -->
+                                <!-- ==================== -->
+                                <div
+                                    x-show="editMode"
+                                    x-transition
+                                    class="border-b border-slate-200"
+                                >
+                                    <button
+                                        type="button"
+                                        @click="undoLayoutChange()"
+                                        :disabled="!layoutUndoStack.length"
+                                        :data-tooltip="layoutUndoStack.length ? 'Undo grouped changes (Ctrl+Z)' : 'Nothing to undo'"
+                                        :class="layoutUndoStack.length
+                                            ? 'hover:bg-slate-100 text-slate-700'
+                                            : 'cursor-not-allowed text-slate-300'"
+                                        class="flex h-12 w-full items-center justify-center transition"
+                                    >
+                                        <i data-lucide="undo-2" class="h-4 w-4"></i>
+                                    </button>
                                 </div>
 
                                 <!-- ==================== -->
@@ -834,15 +858,32 @@
                                             "Maintenance Needed" => "#F59E0B",
                                             default => "#10B981",
                                         };
+                                        $labelOrientation = (int) $room->room_height > (int) $room->room_width
+                                            ? "vertical"
+                                            : "horizontal";
+                                        $roomColor = $room->room_color ?: "#60A5FA";
+                                        $labelTextColor = "#0f172a";
+                                        $hex = ltrim((string) $roomColor, "#");
+                                        if (strlen($hex) === 3) {
+                                            $hex = $hex[0].$hex[0].$hex[1].$hex[1].$hex[2].$hex[2];
+                                        }
+                                        if (strlen($hex) === 6 && ctype_xdigit($hex)) {
+                                            $r = hexdec(substr($hex, 0, 2));
+                                            $g = hexdec(substr($hex, 2, 2));
+                                            $b = hexdec(substr($hex, 4, 2));
+                                            $yiq = ($r * 299 + $g * 587 + $b * 114) / 1000;
+                                            $labelTextColor = $yiq >= 150 ? "#0f172a" : "#ffffff";
+                                        }
                                     @endphp
                                     <!--ring-[#5B6682]/40-->
                                     <button
                                         type="button"
                                         @click.stop="if (editMode && roomPaintMode) { selectRoomForPaint({{ $room->room_id }}); return; } if(!editMode) selectedRoom={{ $room->room_id }}"
                                         
-                                        class="room-block room-card group absolute overflow-visible z-10 rounded-xl border-2 p-3 text-left shadow-[0_14px_22px_rgba(15,23,42,.18)] transition duration-200 hover:z-20 hover:-translate-y-1 hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-[#07319C] {{ $room->room_status === 'Critical' ? 'critical-room' : '' }}"
+                                        class="room-block room-card group absolute overflow-visible z-10 rounded-xl border-2 p-3 text-left shadow-[0_14px_22px_rgba(15,23,42,.18)] transition-[box-shadow,filter] duration-200 hover:z-20 hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-[#07319C] {{ $room->room_status === 'Critical' ? 'critical-room' : '' }}"
                                         :class="{'cursor-move ring-2 ring-[#07319C] rounded-lg': editMode, 'ring-2 ring-[#07319C]': selectedRoom === {{ $room->room_id }}}"
                                         data-size="large"
+                                        data-label-orientation="{{ $labelOrientation }}"
                                         data-id="{{ $room->room_id }}"
                                         data-floor="{{ $floor->floor_id }}"
                                         data-x="{{ $room->room_x }}"
@@ -855,7 +896,7 @@
                                         data-color="{{ $room->room_color ?: '#60A5FA' }}"
                                         data-assets="{{ $room->equipment->sum("equipment_quantity") }}"
                                         data-active-reports="{{ $room->monitoring["active_reports"] }}"
-                                        style="left:{{ $room->room_x }}px;top:{{ $room->room_y }}px;width:{{ $room->room_width }}px;height:{{ $room->room_height }}px;background:{{ $room->room_color ?: '#60A5FA' }};--room-depth:{{ $room->room_color ?: '#60A5FA' }};transform:rotate({{ data_get($room->room_metadata, 'rotation', 0) }}deg);transform-origin:center center;"
+                                        style="left:{{ $room->room_x }}px;top:{{ $room->room_y }}px;width:{{ $room->room_width }}px;height:{{ $room->room_height }}px;background:{{ $room->room_color ?: '#60A5FA' }};--room-depth:{{ $room->room_color ?: '#60A5FA' }};--room-label-color:{{ $labelTextColor }};transform:rotate({{ data_get($room->room_metadata, 'rotation', 0) }}deg);transform-origin:center center;"
                                     >
                                         <span
                                             class="relative z-10 flex h-full flex-col justify-between"
@@ -940,9 +981,9 @@
                                             @pointerdown.stop.prevent="beginRoomRotation($event)"
                                             role="button"
                                             tabindex="0"
-                                            data-tooltip="Rotate selected room"
-                                            :class="isRotating ? 'cursor-grabbing rotate-handle-cursor' : 'cursor-grab rotate-handle-cursor'"
-                                            class="absolute left-1/2 bottom-[-52px] z-40 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-lg transition hover:bg-slate-100"
+                                            aria-label="Rotate selected room"
+                                            class="rotate-handle-cursor absolute left-1/2 z-40 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-lg transition hover:bg-slate-100"
+                                            :class="rotateHandleSide === 'top' ? 'top-[-52px]' : 'bottom-[-52px]'"
                                             :style="{ transform: 'translateX(-50%) rotate(' + (-selectedRoomControl.rotation) + 'deg)' }"
                                         >
                                             <span x-show="!isRotating" class="flex items-center justify-center">
@@ -1002,9 +1043,8 @@
                                                     @pointerdown.stop.prevent="beginEquipmentRotation($event)"
                                                     role="button"
                                                     tabindex="0"
-                                                    data-tooltip="Rotate selected equipment"
-                                                    :class="equipmentIsRotating ? 'cursor-grabbing rotate-equipment-handle-cursor' : 'cursor-grab rotate-equipment-handle-cursor'"
-                                                    class="absolute left-1/2 bottom-[-52px] z-40 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-lg transition hover:bg-slate-100"
+                                                    aria-label="Rotate selected equipment"
+                                                    class="rotate-equipment-handle-cursor absolute left-1/2 bottom-[-52px] z-40 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-lg transition hover:bg-slate-100"
                                                     :style="{ transform: 'translateX(-50%) rotate(' + (-selectedEquipmentControl.rotation) + 'deg)' }"
                                                 >
                                                     <span x-show="!equipmentIsRotating" class="flex items-center justify-center">
@@ -1022,6 +1062,9 @@
                     </div>
                 </div>
             </section>
+
+            @include ("maintenance-personnel.infrastructure.floor-insights")
+            </div>
 
             @include ("maintenance-personnel.infrastructure.monitor-drawer")
         </div>
@@ -1247,7 +1290,7 @@
                             :key="item.id"
                         >
                             <div
-                                class="room-equipment-node absolute z-20 flex min-w-[86px] items-center gap-2 overflow-visible rounded-2xl border-2 border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 shadow-md hover:border-[#07319C]"
+                                class="room-equipment-node absolute z-20 flex min-w-0 items-center gap-2 overflow-visible rounded-2xl border-2 border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 shadow-md hover:border-[#07319C]"
                                 :class="{
                                     'ring-2 ring-[#07319C]/80 cursor-move':
                                         roomLayout.edit &&
@@ -1268,6 +1311,7 @@
                                 :data-width="item.width || 120"
                                 :data-height="item.height || 96"
                                 :data-rotation="item.rotation || 0"
+                                :data-label-orientation="(item.height || 96) > (item.width || 120) ? 'vertical' : 'horizontal'"
                                 @pointerdown.stop="handleEquipmentPointerDown($event, item.id)"
                                 :style="`
                                     left:${item.x}%;
@@ -1275,33 +1319,35 @@
                                     width:${item.width || 120}px;
                                     height:${item.height || 96}px;
                                     touch-action:none;
-                                    transform:translate(-50%,-50%) rotate(${item.rotation || 0}deg);
+                                    transform:translate(-50%,-50%) rotate(${(equipmentIsRotating && selectedEquipmentId === item.id && equipmentLiveRotation != null) ? equipmentLiveRotation : (item.rotation || 0)}deg);
                                     transform-origin:center center;
                                     will-change:left,top,transform;
                                 `"
                             >
-                                <!-- Equipment Icon -->
                                 <span
-                                    class="text-lg"
-                                    x-text="equipmentIcon(item.name)"
-                                ></span>
-
-                                <!-- Equipment Details -->
-                                <div class="flex flex-col leading-tight">
+                                    class="equipment-label relative z-10 flex h-full w-full min-w-0 items-center gap-2 overflow-hidden"
+                                >
                                     <span
-                                        class="max-w-[130px] truncate"
-                                        x-text="item.name"
+                                        class="equipment-icon shrink-0 text-lg"
+                                        x-text="equipmentIcon(item.name)"
                                     ></span>
 
-                                    <span
-                                        class="max-w-[130px] truncate text-[10px] font-semibold text-slate-400"
-                                        x-text="
-                                            item.location ||
-                                            item.placement_zone ||
-                                            'No location'
-                                        "
-                                    ></span>
-                                </div>
+                                    <span class="equipment-copy flex min-w-0 flex-col leading-tight">
+                                        <span
+                                            class="equipment-name truncate"
+                                            x-text="item.name"
+                                        ></span>
+
+                                        <span
+                                            class="equipment-meta truncate text-[10px] font-semibold text-slate-400"
+                                            x-text="
+                                                item.location ||
+                                                item.placement_zone ||
+                                                'No location'
+                                            "
+                                        ></span>
+                                    </span>
+                                </span>
 
                                 <!-- Resize Handles -->
                                 <template x-if="roomLayout.edit && selectedEquipmentId === item.id">
@@ -1364,48 +1410,37 @@
                                 <template x-if="roomLayout.edit && selectedEquipmentId === item.id">
 
                                     <div
-                                        x-effect="
-                                            if (roomLayout.edit && selectedEquipmentId === item.id) {
-                                                $nextTick(() => {
-                                                    if (window.lucide) {
-                                                        lucide.createIcons();
-                                                    }
-                                                });
-                                            }
-                                        "
-                                        class="absolute -bottom-12 left-1/2 z-40 -translate-x-1/2 pointer-events-auto"
+                                        class="equipment-rotate-gimbal pointer-events-none absolute left-1/2 top-1/2 z-40"
+                                        :style="equipmentRotateGimbalStyle(item)"
                                     >
 
                                         <button
                                             type="button"
-                                            @pointerdown.stop.prevent="beginEquipmentRotation($event)"
-                                            :class="equipmentIsRotating
-                                                ? 'cursor-grabbing rotate-equipment-handle-cursor'
-                                                : 'cursor-grab rotate-equipment-handle-cursor'"
-                                            class="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-lg transition hover:bg-slate-100"
+                                            @pointerdown.stop.prevent="beginEquipmentRotation($event, item.id)"
+                                            aria-label="Rotate selected equipment"
+                                            class="rotate-equipment-handle-cursor pointer-events-auto absolute left-1/2 flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-lg transition hover:bg-slate-100"
+                                            :style="equipmentRotateHandleStyle(item)"
                                         >
 
-                                            <template x-if="!equipmentIsRotating">
-                                                <span
-                                                    x-init="$nextTick(() => window.lucide?.createIcons())"
-                                                    class="flex items-center justify-center"
-                                                >
-                                                    <i
-                                                        data-lucide="refresh-cw"
-                                                        class="h-4 w-4"
-                                                    ></i>
-                                                </span>
-                                            </template>
+                                            <span
+                                                x-show="!equipmentIsRotating"
+                                                x-init="$nextTick(() => window.lucide?.createIcons())"
+                                                class="flex items-center justify-center"
+                                            >
+                                                <i
+                                                    data-lucide="refresh-cw"
+                                                    class="h-4 w-4"
+                                                ></i>
+                                            </span>
 
-                                            <template x-if="equipmentIsRotating">
+                                            <span
+                                                x-show="equipmentIsRotating"
+                                                class="flex items-center justify-center text-sm font-black leading-none text-slate-900"
+                                            >
                                                 <span
-                                                    class="flex items-center justify-center text-sm font-black leading-none text-slate-900"
-                                                >
-                                                    <span
-                                                        x-text="Math.round(equipmentRotationDisplayAngle) + '°'"
-                                                    ></span>
-                                                </span>
-                                            </template>
+                                                    x-text="Math.round(equipmentRotationDisplayAngle) + '°'"
+                                                ></span>
+                                            </span>
 
                                         </button>
 
@@ -1908,6 +1943,35 @@
         .room-equipment-node:hover {
             box-shadow: 0 18px 34px rgba(15, 23, 42, 0.18);
         }
+        .room-equipment-node[data-label-orientation="vertical"] {
+            padding-left: 2px;
+            padding-right: 2px;
+        }
+        .room-equipment-node[data-label-orientation="vertical"] .equipment-label {
+            flex-direction: column;
+            justify-content: center;
+            gap: 0.25rem;
+        }
+        .room-equipment-node[data-label-orientation="vertical"] .equipment-copy {
+            align-items: center;
+            width: auto;
+            max-width: 100%;
+            height: 100%;
+            max-height: 100%;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            overflow: hidden;
+        }
+        .room-equipment-node[data-label-orientation="vertical"] .equipment-name,
+        .room-equipment-node[data-label-orientation="vertical"] .equipment-meta {
+            max-width: none;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .room-equipment-node.is-compact .equipment-icon {
+            display: none;
+        }
         .resize-grip {
             touch-action: none;
             pointer-events: auto;
@@ -1923,13 +1987,11 @@
             background-size: 24px 24px;
         }
         .rotate-handle-cursor,
-        .rotate-equipment-handle-cursor {
-            cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 28 28'%3E%3Cpath d='M6 14a8 8 0 0 1 10.6-7.6M22 14a8 8 0 0 0-10.6 7.6' stroke='%23004E8C' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3Cpath d='M22 8v4h-4' stroke='%23004E8C' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3Cpath d='M6 20v-4h4' stroke='%23004E8C' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") 14 14, grab;
-        }
         .rotate-active-cursor,
         body.rotate-active-cursor,
+        .rotate-equipment-handle-cursor,
         body.equipment-rotate-active-cursor {
-            cursor: grabbing;
+            cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cg fill='none' stroke='%23ffffff' stroke-width='4.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.4 11.4a7.6 7.6 0 0 1 13.6 3.4'/%3E%3Cpath d='M22.6 20.6a7.6 7.6 0 0 1-13.6-3.4'/%3E%3Cpath d='M22.8 8.4v5.4h-5.4'/%3E%3Cpath d='M9.2 23.6v-5.4h5.4'/%3E%3C/g%3E%3Cg fill='none' stroke='%230F172A' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.4 11.4a7.6 7.6 0 0 1 13.6 3.4'/%3E%3Cpath d='M22.6 20.6a7.6 7.6 0 0 1-13.6-3.4'/%3E%3Cpath d='M22.8 8.4v5.4h-5.4'/%3E%3Cpath d='M9.2 23.6v-5.4h5.4'/%3E%3C/g%3E%3Ccircle cx='16' cy='16' r='2.1' fill='%230F172A' stroke='%23ffffff' stroke-width='1.4'/%3E%3C/svg%3E") 16 16, crosshair !important;
         }
         .room-search-highlight {
             animation: roomSearchPulse 1.2s ease-in-out 3;
@@ -1973,7 +2035,7 @@
 
             font-weight: 700;
 
-            color: #0f172a;
+            color: var(--room-label-color, #0f172a);
 
             white-space: nowrap;
 
@@ -1985,7 +2047,27 @@
 
             pointer-events: none;
 
-            transition: 0.2s;
+            transition: font-size 0.15s ease;
+        }
+
+        .room-block[data-label-orientation="vertical"] {
+            padding-left: 2px;
+            padding-right: 2px;
+        }
+
+        .room-block[data-label-orientation="vertical"] .room-name {
+            width: auto;
+            max-width: 100%;
+            height: 100%;
+            max-height: 100%;
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            line-height: 1.05;
+        }
+
+        .room-block[data-label-orientation="vertical"] .room-status {
+            right: 1px;
+            top: 1px;
         }
 
         /* ---------- LARGE ---------- */
@@ -2010,6 +2092,26 @@
 
         .room-block[data-size="tiny"] .room-name {
             font-size: 9px;
+        }
+
+        .room-block {
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+            backface-visibility: hidden;
+        }
+
+        .room-block.is-dragging,
+        .room-block.is-resizing {
+            transition: none !important;
+            z-index: 80 !important;
+            will-change: transform, width, height, left, top;
+        }
+
+        .room-block.is-dragging {
+            cursor: grabbing !important;
+            box-shadow: 0 22px 40px rgba(15, 23, 42, 0.28);
+            filter: brightness(1.03);
         }
 
 
@@ -2057,9 +2159,16 @@
                     saveSuccess:false,
 
                     layoutDirty:false,
+                    originalBlueprintLayout: [],
+                    layoutUndoStack: [],
+                    layoutUndoLastAt: 0,
+                    layoutUndoOpenedGroup: false,
+                    roomDrag: null,
+                    roomResize: null,
                     equipmentFallbackBound: false,
                     equipmentDrag: null,
                     equipmentAction: null,
+                    equipmentActionRaf: 0,
                     equipmentPendingDrag: null,
                     selectedEquipmentId: null,
                     selectedEquipmentControl: {
@@ -2070,9 +2179,11 @@
                         rotation: 0,
                     },
                     equipmentIsRotating: false,
+                    equipmentLiveRotation: null,
                     equipmentRotationDrag: null,
                     equipmentRotationDisplayAngle: 0,
                     equipmentRotationHandleOffset: 90,
+                    equipmentRotateHandleSide: "bottom",
                     roomSearch: "",
                     zoomInput: "100",
                     roomRotationInput: 0,
@@ -2100,6 +2211,7 @@
                     rotationDragAngle: 0,
                     rotationDisplayAngle: 0,
                     rotationHandleOffset: 90,
+                    rotateHandleSide: "bottom",
                     roomCatalog: @js ($roomCatalog),
 
                     workstationLayout: {
@@ -2260,6 +2372,257 @@
                             "No floor selected"
                         );
                     },
+                    get floorRooms() {
+                        return (this.roomCatalog || []).filter(
+                            (room) => Number(room.floor_id) === Number(this.activeFloor)
+                        );
+                    },
+                    roomStatusTone(status) {
+                        const value = String(status || "Normal");
+
+                        if (value === "Critical") {
+                            return "critical";
+                        }
+
+                        if (value === "Maintenance Needed") {
+                            return "maintenance";
+                        }
+
+                        return "normal";
+                    },
+                    get floorStats() {
+                        const rooms = this.floorRooms;
+
+                        return {
+                            rooms: rooms.length,
+                            attention: rooms.filter(
+                                (room) => this.roomStatusTone(room.status) !== "normal"
+                            ).length,
+                            reports: rooms.reduce(
+                                (sum, room) =>
+                                    sum + Number(room.monitoring?.active_reports || 0),
+                                0,
+                            ),
+                            todayReports: rooms.reduce(
+                                (sum, room) =>
+                                    sum + Number(room.monitoring?.today_reports || 0),
+                                0,
+                            ),
+                            equipment: rooms.reduce((sum, room) => {
+                                const monitored = Number(
+                                    room.monitoring?.equipment_count || 0,
+                                );
+
+                                if (monitored > 0) {
+                                    return sum + monitored;
+                                }
+
+                                return (
+                                    sum +
+                                    (Array.isArray(room.equipment)
+                                        ? room.equipment.length
+                                        : 0)
+                                );
+                            }, 0),
+                            damaged: rooms.reduce(
+                                (sum, room) =>
+                                    sum +
+                                    Number(room.monitoring?.equipment_damaged || 0),
+                                0,
+                            ),
+                        };
+                    },
+                    get attentionRooms() {
+                        return this.floorRooms
+                            .map((room) => ({
+                                ...room,
+                                reports: Number(
+                                    room.monitoring?.active_reports || 0,
+                                ),
+                                damaged: Number(
+                                    room.monitoring?.equipment_damaged || 0,
+                                ),
+                                tone: this.roomStatusTone(room.status),
+                            }))
+                            .filter(
+                                (room) =>
+                                    room.tone !== "normal" ||
+                                    room.reports > 0 ||
+                                    room.damaged > 0,
+                            )
+                            .sort((a, b) => {
+                                const rank = {
+                                    critical: 0,
+                                    maintenance: 1,
+                                    normal: 2,
+                                };
+
+                                return (
+                                    rank[a.tone] - rank[b.tone] ||
+                                    b.reports - a.reports
+                                );
+                            })
+                            ;
+                    },
+                    get upcomingSchedules() {
+                        const items = [];
+
+                        this.floorRooms.forEach((room) => {
+                            (room.monitoring?.schedules || []).forEach(
+                                (schedule) => {
+                                    items.push({
+                                        roomId: room.id,
+                                        roomName: room.name,
+                                        title:
+                                            schedule.maintenance_schedule_title ||
+                                            "Maintenance",
+                                        equipment:
+                                            schedule.equipment_name || "Equipment",
+                                        date: schedule.maintenance_schedule_next_date,
+                                        status:
+                                            schedule.maintenance_schedule_status ||
+                                            "Scheduled",
+                                    });
+                                },
+                            );
+                        });
+
+                        return items
+                            .sort(
+                                (a, b) =>
+                                    new Date(a.date || 0) - new Date(b.date || 0),
+                            );
+                    },
+                    get floorHotIssues() {
+                        const counts = new Map();
+
+                        this.floorRooms.forEach((room) => {
+                            (room.monitoring?.frequent_problems || []).forEach(
+                                (problem) => {
+                                    const label = String(
+                                        problem.report_problem_description || "",
+                                    ).trim();
+
+                                    if (!label) {
+                                        return;
+                                    }
+
+                                    counts.set(
+                                        label,
+                                        (counts.get(label) || 0) +
+                                            Number(problem.occurrences || 0),
+                                    );
+                                },
+                            );
+                        });
+
+                        return Array.from(counts.entries())
+                            .map(([label, count]) => ({ label, count }))
+                            .sort((a, b) => b.count - a.count)
+                            .slice(0, 4);
+                    },
+                    formatInsightDate(value) {
+                        if (!value) {
+                            return "No date";
+                        }
+
+                        const date = new Date(value);
+
+                        if (Number.isNaN(date.getTime())) {
+                            return String(value);
+                        }
+
+                        return date.toLocaleDateString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                        });
+                    },
+                    scheduleIsOverdue(value) {
+                        if (!value) {
+                            return false;
+                        }
+
+                        const date = new Date(value);
+
+                        if (Number.isNaN(date.getTime())) {
+                            return false;
+                        }
+
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        date.setHours(0, 0, 0, 0);
+
+                        return date < today;
+                    },
+                    focusInsightRoom(roomId) {
+                        this.selectedRoom = Number(roomId);
+
+                        this.$nextTick(() => {
+                            this.$refs.blueprintWorkspace?.scrollIntoView({
+                                behavior: "smooth",
+                                block: "start",
+                            });
+
+                            if (window.lucide) {
+                                lucide.createIcons();
+                            }
+                        });
+                    },
+                    selectPriorityRoom(floorId = null) {
+                        const targetFloor = Number(floorId || this.activeFloor);
+                        const rooms = (this.roomCatalog || []).filter(
+                            (room) => Number(room.floor_id) === targetFloor,
+                        );
+
+                        if (!rooms.length) {
+                            this.selectedRoom = null;
+                            return;
+                        }
+
+                        const todayTotal = rooms.reduce(
+                            (sum, room) =>
+                                sum + Number(room.monitoring?.today_reports || 0),
+                            0,
+                        );
+                        const metric =
+                            todayTotal > 0 ? "today_reports" : "week_reports";
+
+                        const ranked = [...rooms].sort((a, b) => {
+                            const aMetric = Number(
+                                a.monitoring?.[metric] || 0,
+                            );
+                            const bMetric = Number(
+                                b.monitoring?.[metric] || 0,
+                            );
+
+                            if (bMetric !== aMetric) {
+                                return bMetric - aMetric;
+                            }
+
+                            const aActive = Number(
+                                a.monitoring?.active_reports || 0,
+                            );
+                            const bActive = Number(
+                                b.monitoring?.active_reports || 0,
+                            );
+
+                            if (bActive !== aActive) {
+                                return bActive - aActive;
+                            }
+
+                            return String(a.name || "").localeCompare(
+                                String(b.name || ""),
+                            );
+                        });
+
+                        this.selectedRoom = Number(ranked[0].id);
+
+                        this.$nextTick(() => {
+                            if (window.lucide) {
+                                lucide.createIcons();
+                            }
+                        });
+                    },
                     get activeWizardFloor() {
                         return this.form.floors[this.wizardFloorIndex] || null;
                     },
@@ -2373,6 +2736,10 @@
                             }
                         });
 
+                        this.$watch("editMode", () => {
+                            this.$nextTick(() => this.updateRotateHandlePlacement());
+                        });
+
                         this.$watch("roomPaintColor", (value) => {
                             if (!this.editMode || !this.roomPaintMode || !this.selectedRoom) {
                                 return;
@@ -2413,30 +2780,7 @@
                             });
 
                             document.querySelectorAll(".room-block").forEach((room) => {
-                                const w = parseInt(room.dataset.width);
-
-                                const h = parseInt(room.dataset.height);
-
-                                let size = "large";
-
-                                if (w < 50 || h < 40) {
-                                    size = "tiny";
-                                } else if (w < 90 || h < 60) {
-                                    size = "small";
-                                } else if (w < 140 || h < 80) {
-                                    size = "medium";
-                                }
-
-                                room.dataset.size = size;
-                                const roomName = room.querySelector(".room-name");
-
-                                if (roomName) {
-                                    roomName.textContent = this.abbreviateRoom(
-                                        roomName.dataset.fullName,
-
-                                        size,
-                                    );
-                                }
+                                this.syncRoomLabel(room);
                             });
 
                             document.addEventListener(
@@ -2475,54 +2819,26 @@
                         const dashboardRoomId =
                             urlParams.get('room');
 
-                        // =====================================================
-                        // AUTOMATICALLY OPEN ROOM INSPECTOR
-                        // =====================================================
-
                         if (dashboardRoomId) {
+                            const roomId = Number(dashboardRoomId);
+                            const dashboardRoom = (this.roomCatalog || []).find(
+                                (room) => Number(room.id) === roomId,
+                            );
 
-                            const roomId =
-                                Number(dashboardRoomId);
-
-                            // ==============================================
-                            // MAKE SURE THE ROOM EXISTS
-                            // ==============================================
-
-                            const roomExists =
-                                this.rooms.some(
-                                    room =>
-                                        Number(room.room_id) === roomId
-                                );
-
-                            if (roomExists) {
-
-                                // ==========================================
-                                // OPEN EXISTING ROOM INSPECTOR
-                                // selectedRoom uses the room ID
-                                // ==========================================
-
-                                this.selectedRoom =
-                                    roomId;
-
-                                console.log(
-                                    'Room Inspector opened from Dashboard:',
-                                    roomId
-                                );
-
+                            if (dashboardRoom) {
+                                this.activeFloor = Number(dashboardRoom.floor_id);
+                                this.selectedRoom = roomId;
                             } else {
-
-                                console.error(
-                                    'Dashboard room ID was not found:',
-                                    roomId
-                                );
-
+                                this.selectPriorityRoom();
                             }
+                        } else {
+                            this.selectPriorityRoom();
                         }
                     },
                     selectFloor(id) {
                         this.activeFloor = id;
-                        this.selectedRoom = null;
                         this.closeRoomManager();
+                        this.selectPriorityRoom(id);
                     },
                     zoomBlueprint(delta) {
                         const oldZoom = this.blueprint.zoom;
@@ -2554,6 +2870,7 @@
                         this.blueprint.zoom = newZoom;
 
                         this.zoomInput = Math.round(newZoom * 100);
+                        this.$nextTick(() => this.updateRotateHandlePlacement());
                     },
                     applyZoomInput() {
                         const value = parseFloat(String(this.zoomInput).replace("%", ""));
@@ -2581,6 +2898,7 @@
                         this.blueprint.zoom = value / 100;
 
                         this.zoomInput = Math.round(value);
+                        this.$nextTick(() => this.updateRotateHandlePlacement());
                     },
                     handleBlueprintWheel(event) {
                         if (!this.spacePressed) {
@@ -2651,7 +2969,8 @@
 
                         this.isRotating = true;
                         this.rotationDragAngle = this.getSelectedRoomRotation();
-                        document.body.classList.add("cursor-grabbing", "rotate-active-cursor");
+                        this.captureLayoutUndo();
+                        document.body.classList.add("rotate-active-cursor");
 
                         event.currentTarget.setPointerCapture?.(event.pointerId);
                     },
@@ -2700,6 +3019,7 @@
                         this.rotationDrag = null;
                         this.isRotating = false;
                         document.body.classList.remove("cursor-grabbing", "rotate-active-cursor");
+                        this.dropLayoutUndoIfUnchanged();
                         this.layoutDirty = true;
                     },
                     rotateSelectedRoom(delta) {
@@ -2707,9 +3027,11 @@
                             return;
                         }
 
+                        this.captureLayoutUndo();
                         const current = this.getSelectedRoomRotation();
                         this.setSelectedRoomRotation(current + delta);
                         this.syncSelectedRoomControl();
+                        this.dropLayoutUndoIfUnchanged();
                     },
                     syncSelectedRoomControl() {
                         if (!this.selectedRoom) {
@@ -2720,6 +3042,7 @@
                                 height: 0,
                                 rotation: 0,
                             };
+                            this.rotateHandleSide = "bottom";
                             return;
                         }
 
@@ -2746,6 +3069,66 @@
                             rotation: rawRotation,
                         };
                         this.rotationDisplayAngle = this.formatRotationDisplay(rawRotation);
+                        this.updateRotateHandlePlacement();
+                    },
+                    updateRotateHandlePlacement() {
+                        if (this.isRotating || !this.editMode || !this.selectedRoom) {
+                            return;
+                        }
+
+                        const room = document.querySelector(
+                            `.room-block[data-id="${this.selectedRoom}"]`,
+                        );
+                        const viewport = this.$refs.blueprintViewport;
+                        const canvas = this.$refs.blueprintCanvas;
+
+                        if (!room || !viewport) {
+                            this.rotateHandleSide = "bottom";
+                            return;
+                        }
+
+                        const zoom = this.blueprint?.zoom || 1;
+                        const padding = 8;
+                        const handleRadius = 20 * zoom;
+                        const handleOutset = 32 * zoom;
+                        const height = Number(room.dataset.height || room.offsetHeight || 0);
+                        const offsetFromCenter = (height / 2) * zoom + handleOutset;
+
+                        const roomRect = room.getBoundingClientRect();
+                        const viewportRect = viewport.getBoundingClientRect();
+                        const canvasRect = canvas?.getBoundingClientRect() || viewportRect;
+                        const clipTop = Math.max(viewportRect.top, canvasRect.top) + padding;
+                        const clipBottom = Math.min(viewportRect.bottom, canvasRect.bottom) - padding;
+                        const cy = roomRect.top + roomRect.height / 2;
+                        const theta = (Number(room.dataset.rotation || 0) * Math.PI) / 180;
+                        const cos = Math.cos(theta);
+
+                        const projectY = (localY) => cy + localY * cos;
+                        const bottomY = projectY(offsetFromCenter);
+                        const topY = projectY(-offsetFromCenter);
+                        const bottomFits =
+                            bottomY + handleRadius <= clipBottom &&
+                            bottomY - handleRadius >= clipTop;
+                        const topFits =
+                            topY + handleRadius <= clipBottom &&
+                            topY - handleRadius >= clipTop;
+
+                        if (bottomFits) {
+                            this.rotateHandleSide = "bottom";
+                            return;
+                        }
+
+                        if (topFits) {
+                            this.rotateHandleSide = "top";
+                            return;
+                        }
+
+                        const overflow = (y) =>
+                            Math.max(0, y + handleRadius - clipBottom) +
+                            Math.max(0, clipTop - (y - handleRadius));
+
+                        this.rotateHandleSide =
+                            overflow(topY) < overflow(bottomY) ? "top" : "bottom";
                     },
                     applySelectedRoomRotation() {
                         if (!this.editMode || !this.selectedRoom) {
@@ -2785,11 +3168,13 @@
                             };
                             this.equipmentIsRotating = false;
                             document.body.classList.remove("equipment-rotate-active-cursor");
+                            this.equipmentRotateHandleSide = "bottom";
                             return;
                         }
 
                         this.$nextTick(() => {
                             this.syncSelectedEquipmentControl();
+                            this.updateEquipmentRotateHandlePlacement();
                         });
                     },
                     handleEquipmentPointerDown(event, equipmentId) {
@@ -2817,7 +3202,7 @@
 
                         if (rotateHandle) {
 
-                            this.beginEquipmentRotation(event);
+                            this.beginEquipmentRotation(event, equipmentId);
 
                             return;
 
@@ -2855,13 +3240,10 @@
                         
                         const parentRect = node.parentElement.getBoundingClientRect();
                         
-                        const rect = node.getBoundingClientRect();
-
-                        const centerX =
-                            rect.left - parentRect.left + rect.width / 2;
-
-                        const centerY =
-                            rect.top - parentRect.top + rect.height / 2;
+                        const currentX = parseFloat(node.dataset.x || 50);
+                        const currentY = parseFloat(node.dataset.y || 50);
+                        const centerX = (currentX / 100) * parentRect.width;
+                        const centerY = (currentY / 100) * parentRect.height;
 
                         node.classList.add("dragging");
                         node.setPointerCapture?.(event.pointerId);
@@ -2875,6 +3257,7 @@
                             startY: event.clientY,
                             startCenterX: centerX,
                             startCenterY: centerY,
+                            latestEvent: event,
                         };
                     },
                     beginEquipmentResize(event, node, handle) {
@@ -2909,10 +3292,115 @@
                             rotationRad,
                             cos,
                             sin,
+                            latestEvent: event,
                         };
                     },
+                    syncEquipmentLabel(node, width, height) {
+                        if (!node) {
+                            return;
+                        }
+
+                        const w = Number(width ?? node.dataset.width ?? 120);
+                        const h = Number(height ?? node.dataset.height ?? 96);
+
+                        node.dataset.labelOrientation = h > w ? "vertical" : "horizontal";
+                        node.classList.toggle("is-compact", w < 40);
+                    },
+                    applyEquipmentActionFrame() {
+                        this.equipmentActionRaf = 0;
+                        const action = this.equipmentAction;
+
+                        if (!action || !this.roomLayout.edit) {
+                            return;
+                        }
+
+                        const event = action.latestEvent;
+
+                        if (!event) {
+                            return;
+                        }
+
+                        const node = action.node;
+                        const rect = action.parentRect;
+                        const dx = event.clientX - action.startX;
+                        const dy = event.clientY - action.startY;
+
+                        if (action.type === "drag") {
+                            let x = action.startCenterX + dx;
+                            let y = action.startCenterY + dy;
+                            const halfW = Math.max(10, (Number(node.dataset.width) || 120) / 2);
+                            const halfH = Math.max(10, (Number(node.dataset.height) || 96) / 2);
+
+                            x = Math.min(rect.width - halfW, Math.max(halfW, x));
+                            y = Math.min(rect.height - halfH, Math.max(halfH, y));
+
+                            node.style.left = x + "px";
+                            node.style.top = y + "px";
+                            node.dataset.x = Math.round((x / rect.width) * 100);
+                            node.dataset.y = Math.round((y / rect.height) * 100);
+                        }
+
+                        if (action.type === "resize") {
+                            const MIN_WIDTH = 20;
+                            const MAX_WIDTH = 220;
+                            const MIN_HEIGHT = 80;
+                            const MAX_HEIGHT = 220;
+                            const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+                            const localDx = dx * action.cos + dy * action.sin;
+                            const localDy = -dx * action.sin + dy * action.cos;
+                            let width = action.startWidth;
+                            let height = action.startHeight;
+                            let shiftLocalX = 0;
+                            let shiftLocalY = 0;
+
+                            if (action.handleX === "left") {
+                                width = clamp(action.startWidth - localDx, MIN_WIDTH, MAX_WIDTH);
+                                shiftLocalX = (action.startWidth - width) / 2;
+                            } else if (action.handleX === "right") {
+                                width = clamp(action.startWidth + localDx, MIN_WIDTH, MAX_WIDTH);
+                                shiftLocalX = (width - action.startWidth) / 2;
+                            }
+
+                            if (action.handleY === "top") {
+                                height = clamp(action.startHeight - localDy, MIN_HEIGHT, MAX_HEIGHT);
+                                shiftLocalY = (action.startHeight - height) / 2;
+                            } else if (action.handleY === "bottom") {
+                                height = clamp(action.startHeight + localDy, MIN_HEIGHT, MAX_HEIGHT);
+                                shiftLocalY = (height - action.startHeight) / 2;
+                            }
+
+                            const shiftWorldX = shiftLocalX * action.cos - shiftLocalY * action.sin;
+                            const shiftWorldY = shiftLocalX * action.sin + shiftLocalY * action.cos;
+                            let centerX = action.startCenterX + shiftWorldX;
+                            let centerY = action.startCenterY + shiftWorldY;
+
+                            centerX = Math.min(rect.width - width / 2, Math.max(width / 2, centerX));
+                            centerY = Math.min(rect.height - height / 2, Math.max(height / 2, centerY));
+
+                            node.style.width = width + "px";
+                            node.style.height = height + "px";
+                            node.style.left = centerX + "px";
+                            node.style.top = centerY + "px";
+                            node.dataset.width = Math.round(width);
+                            node.dataset.height = Math.round(height);
+                            node.dataset.x = Math.round((centerX / rect.width) * 100);
+                            node.dataset.y = Math.round((centerY / rect.height) * 100);
+                            this.syncEquipmentLabel(node, width, height);
+                        }
+
+                        this.updateEquipmentRotateHandlePlacement(node);
+                    },
                     trackEquipmentAction(event) {
+                        if (this.equipmentIsRotating) {
+                            return;
+                        }
+
                         if (this.equipmentPendingDrag && !this.equipmentAction) {
+
+                            if (this.equipmentIsRotating) {
+                                this.equipmentPendingDrag = null;
+                                return;
+                            }
 
                             if (event.pointerId !== this.equipmentPendingDrag.pointerId) {
                                 return;
@@ -2944,93 +3432,15 @@
 
                         }
 
-                        const action = this.equipmentAction;
-                        const node = action.node;
-                        const rect = action.parentRect;
-                        const dx = event.clientX - action.startX;
-                        const dy = event.clientY - action.startY;
+                        this.equipmentAction.latestEvent = event;
 
-                        if (action.type === "drag") {
-                            let x = action.startCenterX + dx;
-                            let y = action.startCenterY + dy;
-
-                            x = Math.min(rect.width - 12, Math.max(12, x));
-                            y = Math.min(rect.height - 12, Math.max(12, y));
-
-                            node.style.left = x + "px";
-                            node.style.top = y + "px";
-                            node.dataset.x = Math.round((x / rect.width) * 100);
-                            node.dataset.y = Math.round((y / rect.height) * 100);
+                        if (this.equipmentActionRaf) {
+                            return;
                         }
 
-                        if (action.type === "resize") {
-                            const MIN_WIDTH = 50;
-                            const MAX_WIDTH = 220;
-
-                            const MIN_HEIGHT = 80;
-                            const MAX_HEIGHT = 220;
-                            let width = action.startWidth;
-                            let height = action.startHeight;
-                            let centerX = action.startCenterX;
-                            let centerY = action.startCenterY;
-
-                            const localDx = dx * action.cos + dy * action.sin;
-                            const localDy = -dx * action.sin + dy * action.cos;
-                            let shiftLocalX = 0;
-                            let shiftLocalY = 0;
-
-                            if (action.handleX === "left") {
-                                width = Math.min(
-                                    MAX_WIDTH,
-                                    Math.max(MIN_WIDTH, action.startWidth - localDx)
-                                );
-                                shiftLocalX = localDx / 2;
-                            } else if (action.handleX === "right") {
-                                width = Math.min(
-                                    MAX_WIDTH,
-                                    Math.max(MIN_WIDTH, action.startWidth + localDx)
-                                );
-                                shiftLocalX = localDx / 2;
-                            }
-
-                            if (action.handleY === "top") {
-                                height = Math.min(
-                                    MAX_HEIGHT,
-                                    Math.max(MIN_HEIGHT, action.startHeight - localDy)
-                                );
-                                shiftLocalY = localDy / 2;
-                            } else if (action.handleY === "bottom") {
-                                height = Math.min(
-                                    MAX_HEIGHT,
-                                    Math.max(MIN_HEIGHT, action.startHeight + localDy)
-                                );
-                                shiftLocalY = localDy / 2;
-                            }
-
-                            
-
-                            const shiftWorldX = shiftLocalX * action.cos - shiftLocalY * action.sin;
-                            const shiftWorldY = shiftLocalX * action.sin + shiftLocalY * action.cos;
-
-                            centerX = action.startCenterX + shiftWorldX;
-                            centerY = action.startCenterY + shiftWorldY;
-
-                            centerX = Math.min(rect.width - width / 2, Math.max(width / 2, centerX));
-                            centerY = Math.min(rect.height - height / 2, Math.max(height / 2, centerY));
-
-                            node.style.width = width + "px";
-                            node.style.height = height + "px";
-                            node.style.left = centerX + "px";
-                            node.style.top = centerY + "px";
-                            node.dataset.width = width;
-                            node.dataset.height = height;
-                            node.dataset.x = Math.round((centerX / rect.width) * 100);
-                            node.dataset.y = Math.round((centerY / rect.height) * 100);
-                        }
-
-                        if (this.selectedEquipmentId === Number(node.dataset.equipmentId)) {
-                            this.syncSelectedEquipmentControl();
-                        }
+                        this.equipmentActionRaf = requestAnimationFrame(() => {
+                            this.applyEquipmentActionFrame();
+                        });
                     },
                     endEquipmentAction(event) {
                         if (this.equipmentPendingDrag) {
@@ -3038,6 +3448,12 @@
                         }
                         if (!this.equipmentAction) return;
                         if (event.pointerId !== this.equipmentAction.pointerId) return;
+
+                        if (this.equipmentActionRaf) {
+                            cancelAnimationFrame(this.equipmentActionRaf);
+                            this.equipmentActionRaf = 0;
+                            this.applyEquipmentActionFrame();
+                        }
 
                         const node = this.equipmentAction.node;
                         const rect = node.parentElement.getBoundingClientRect();
@@ -3048,10 +3464,10 @@
 
                         node.dataset.x = Math.min(96, Math.max(4, percentX));
                         node.dataset.y = Math.min(96, Math.max(4, percentY));
-                        node.dataset.width = parseInt(node.style.width);
-                        node.dataset.height = parseInt(node.style.height);
+                        node.dataset.width = parseInt(node.style.width || node.dataset.width || 120, 10);
+                        node.dataset.height = parseInt(node.style.height || node.dataset.height || 96, 10);
+                        this.syncEquipmentLabel(node);
 
-                        // ADD HERE
                         const item = this.roomLayout.equipment.find(
                             equipment => equipment.id === Number(node.dataset.equipmentId)
                         );
@@ -3074,15 +3490,283 @@
                         this.syncEquipmentZone(node);
                         this.layoutDirty = true;
                         this.equipmentPendingDrag = null;
+                        this.syncSelectedEquipmentControl();
                     },
                     getSelectedEquipmentRotation() {
                         if (!this.selectedEquipmentId) return 0;
+
+                        if (
+                            this.equipmentIsRotating &&
+                            this.equipmentLiveRotation != null
+                        ) {
+                            return this.equipmentLiveRotation;
+                        }
 
                         const item = document.querySelector(
                             `.room-equipment-node[data-equipment-id="${this.selectedEquipmentId}"]`,
                         );
 
                         return item ? Number(item.dataset.rotation || 0) : 0;
+                    },
+                    liveEquipmentRotation(item) {
+                        if (
+                            this.equipmentIsRotating &&
+                            this.selectedEquipmentId === item.id &&
+                            this.equipmentLiveRotation != null
+                        ) {
+                            return this.equipmentLiveRotation;
+                        }
+
+                        return Number(item.rotation || 0);
+                    },
+                    equipmentRotateGimbalStyle(item) {
+                        const rotation = this.liveEquipmentRotation(item);
+
+                        return `transform:translate(-50%,-50%) rotate(${-rotation}deg)`;
+                    },
+                    equipmentRotateHandleStyle(item) {
+                        return this.buildEquipmentRotateHandleStyle(
+                            item,
+                            this.equipmentRotateHandleSide || "bottom",
+                        );
+                    },
+                    buildEquipmentRotateHandleStyle(item, side = "bottom") {
+                        const rotation = this.liveEquipmentRotation
+                            ? this.liveEquipmentRotation(item)
+                            : Number(item?.rotation || 0);
+                        const width = Number(item.width || 120);
+                        const height = Number(item.height || 96);
+                        const rad = (rotation * Math.PI) / 180;
+                        const aabbWidth =
+                            Math.abs(width * Math.cos(rad)) +
+                            Math.abs(height * Math.sin(rad));
+                        const aabbHeight =
+                            Math.abs(width * Math.sin(rad)) +
+                            Math.abs(height * Math.cos(rad));
+                        const handleSize = 40;
+                        const offsetX = aabbWidth / 2 + 22;
+                        const offsetY = aabbHeight / 2 + 22;
+
+                        if (side === "top") {
+                            return `left:0;top:${-(offsetY + handleSize)}px;transform:translateX(-50%)`;
+                        }
+
+                        if (side === "right") {
+                            return `left:${offsetX}px;top:0;transform:translateY(-50%)`;
+                        }
+
+                        if (side === "left") {
+                            return `left:${-(offsetX + handleSize)}px;top:0;transform:translateY(-50%)`;
+                        }
+
+                        return `left:0;top:${offsetY}px;transform:translateX(-50%)`;
+                    },
+                    updateEquipmentRotateHandlePlacement(node = null) {
+                        if (this.equipmentIsRotating || !this.roomLayout?.edit || !this.selectedEquipmentId) {
+                            return;
+                        }
+
+                        const itemNode =
+                            node ||
+                            document.querySelector(
+                                `.room-equipment-node[data-equipment-id="${this.selectedEquipmentId}"]`,
+                            );
+                        const canvas = this.$refs.roomInteriorCanvas;
+
+                        if (!itemNode || !canvas) {
+                            this.equipmentRotateHandleSide = "bottom";
+                            return;
+                        }
+
+                        const padding = 8;
+                        const handleReserve = 62;
+                        const nodeRect = itemNode.getBoundingClientRect();
+                        const canvasRect = canvas.getBoundingClientRect();
+                        const clip = {
+                            top: canvasRect.top + padding,
+                            right: canvasRect.right - padding,
+                            bottom: canvasRect.bottom - padding,
+                            left: canvasRect.left + padding,
+                        };
+                        const space = {
+                            bottom: clip.bottom - nodeRect.bottom,
+                            top: nodeRect.top - clip.top,
+                            right: clip.right - nodeRect.right,
+                            left: nodeRect.left - clip.left,
+                        };
+                        const order = ["bottom", "top", "right", "left"];
+                        const fitting = order.find((side) => space[side] >= handleReserve);
+                        const side =
+                            fitting ||
+                            order.reduce((best, current) =>
+                                space[current] > space[best] ? current : best,
+                            );
+                        const handle = itemNode.querySelector(".rotate-equipment-handle-cursor");
+                        const style = this.buildEquipmentRotateHandleStyle(
+                            {
+                                width: itemNode.dataset.width,
+                                height: itemNode.dataset.height,
+                                rotation: itemNode.dataset.rotation,
+                            },
+                            side,
+                        );
+
+                        if (handle) {
+                            handle.setAttribute("style", style);
+                        }
+
+                        if (!this.equipmentAction) {
+                            this.equipmentRotateHandleSide = side;
+                        }
+                    },
+                    getEquipmentCenterClient(node) {
+                        const parent = node?.parentElement;
+
+                        if (!parent) {
+                            const rect = node.getBoundingClientRect();
+
+                            return {
+                                x: rect.left + rect.width / 2,
+                                y: rect.top + rect.height / 2,
+                            };
+                        }
+
+                        const parentRect = parent.getBoundingClientRect();
+                        const xPct = (parseFloat(node.dataset.x) || 50) / 100;
+                        const yPct = (parseFloat(node.dataset.y) || 50) / 100;
+
+                        return {
+                            x: parentRect.left + parentRect.width * xPct,
+                            y: parentRect.top + parentRect.height * yPct,
+                        };
+                    },
+                    applyEquipmentRotationVisual(node, rotation) {
+                        node.dataset.rotation = rotation;
+                        node.style.transform = `translate(-50%,-50%) rotate(${rotation}deg)`;
+                    },
+                    setSelectedEquipmentRotation(rotation) {
+                        const item = document.querySelector(
+                            `.room-equipment-node[data-equipment-id="${this.selectedEquipmentId}"]`,
+                        );
+                        if (!item) return;
+
+                        const value = rotation;
+                        this.applyEquipmentRotationVisual(item, value);
+
+                        if (!this.equipmentIsRotating) {
+                            const equipment = this.roomLayout.equipment.find(
+                                equipment => equipment.id === Number(item.dataset.equipmentId)
+                            );
+
+                            if (equipment) {
+                                equipment.rotation = value;
+                            }
+
+                            this.layoutDirty = true;
+                        }
+
+                        this.equipmentLiveRotation = value;
+                        this.equipmentRotationDisplayAngle = this.formatRotationDisplay(value);
+                        this.selectedEquipmentControl.rotation = value;
+                    },
+                    beginEquipmentRotation(event, equipmentId = null) {
+                        if (!this.roomLayout.edit) return;
+
+                        if (equipmentId) {
+                            this.selectEquipment(equipmentId);
+                        }
+
+                        if (!this.selectedEquipmentId) return;
+
+                        const item = document.querySelector(
+                            `.room-equipment-node[data-equipment-id="${this.selectedEquipmentId}"]`,
+                        );
+                        if (!item) return;
+
+                        this.equipmentPendingDrag = null;
+
+                        if (this.equipmentAction) {
+                            this.endEquipmentAction(event);
+                        }
+
+                        const center = this.getEquipmentCenterClient(item);
+                        const startRotation = Number(item.dataset.rotation || 0);
+                        const startMouseAngle =
+                            Math.atan2(event.clientY - center.y, event.clientX - center.x) *
+                            (180 / Math.PI);
+
+                        this.equipmentRotationDrag = {
+                            node: item,
+                            pointerId: event.pointerId,
+                            startRotation,
+                            startMouseAngle,
+                            handleElement: event.currentTarget,
+                        };
+
+                        this.equipmentIsRotating = true;
+                        this.equipmentLiveRotation = startRotation;
+                        this.equipmentRotationDisplayAngle = this.formatRotationDisplay(startRotation);
+                        document.body.classList.add("equipment-rotate-active-cursor");
+
+                        event.currentTarget.setPointerCapture?.(event.pointerId);
+                    },
+                    trackEquipmentRotation(event) {
+                        if (!this.equipmentRotationDrag || event.pointerId !== this.equipmentRotationDrag.pointerId) {
+                            return;
+                        }
+
+                        const { node, startRotation, startMouseAngle } = this.equipmentRotationDrag;
+                        const center = this.getEquipmentCenterClient(node);
+                        const mouseAngle =
+                            Math.atan2(event.clientY - center.y, event.clientX - center.x) *
+                            (180 / Math.PI);
+                        let delta = mouseAngle - startMouseAngle;
+
+                        if (delta > 180) {
+                            delta -= 360;
+                        } else if (delta < -180) {
+                            delta += 360;
+                        }
+
+                        this.setSelectedEquipmentRotation(startRotation + delta);
+                    },
+                    endEquipmentRotation(event) {
+                        if (!this.equipmentRotationDrag || event.pointerId !== this.equipmentRotationDrag.pointerId) {
+                            return;
+                        }
+
+                        const item = this.equipmentRotationDrag.node || document.querySelector(
+                            `.room-equipment-node[data-equipment-id="${this.selectedEquipmentId}"]`,
+                        );
+                        if (item) {
+                            const finalRotation = this.normalizeRotation(
+                                Number(item.dataset.rotation || 0),
+                            );
+                            this.applyEquipmentRotationVisual(item, finalRotation);
+
+                            const equipment = this.roomLayout.equipment.find(
+                                entry => entry.id === Number(item.dataset.equipmentId)
+                            );
+
+                            if (equipment) {
+                                equipment.rotation = finalRotation;
+                            }
+
+                            this.equipmentLiveRotation = finalRotation;
+                            this.equipmentRotationDisplayAngle = this.formatRotationDisplay(finalRotation);
+                            this.selectedEquipmentControl.rotation = finalRotation;
+                        }
+
+                        this.equipmentRotationDrag.handleElement?.releasePointerCapture?.(event.pointerId);
+                        this.equipmentRotationDrag = null;
+                        this.equipmentIsRotating = false;
+                        this.equipmentLiveRotation = null;
+                        document.body.classList.remove("cursor-grabbing", "equipment-rotate-active-cursor");
+                        this.layoutDirty = true;
+                        this.$nextTick(() => {
+                            if (window.lucide) lucide.createIcons();
+                            this.updateEquipmentRotateHandlePlacement();
+                        });
                     },
                     syncSelectedEquipmentControl() {
                         if (!this.selectedEquipmentId) {
@@ -3113,98 +3797,7 @@
                             rotation: Number(item.dataset.rotation || 0),
                         };
                         this.equipmentRotationDisplayAngle = this.formatRotationDisplay(Number(item.dataset.rotation || 0));
-                    },
-                    setSelectedEquipmentRotation(rotation) {
-                        const item = document.querySelector(
-                            `.room-equipment-node[data-equipment-id="${this.selectedEquipmentId}"]`,
-                        );
-                        if (!item) return;
-
-                        const value = rotation;
-                        item.dataset.rotation = value;
-                        const equipment = this.roomLayout.equipment.find(
-                            equipment => equipment.id === Number(item.dataset.equipmentId)
-                        );
-
-                        if (equipment) {
-                            equipment.rotation = value;
-                        }
-                        item.style.transform = `translate(-50%,-50%) rotate(${value}deg)`;
-
-                        this.equipmentRotationDisplayAngle = this.formatRotationDisplay(value);
-                        this.selectedEquipmentControl.rotation = value;
-                        this.layoutDirty = true;
-                    },
-                    beginEquipmentRotation(event) {
-                        if (!this.roomLayout.edit || !this.selectedEquipmentId) return;
-
-                        const item = document.querySelector(
-                            `.room-equipment-node[data-equipment-id="${this.selectedEquipmentId}"]`,
-                        );
-                        if (!item) return;
-
-                        const rect = item.getBoundingClientRect();
-                        const centerX = rect.left + rect.width / 2;
-                        const centerY = rect.top + rect.height / 2;
-                        const lastMouseAngle = Math.atan2(event.clientY - centerY, event.clientX - centerX) * (180 / Math.PI);
-
-                        this.equipmentRotationDrag = {
-                            centerX,
-                            centerY,
-                            pointerId: event.pointerId,
-                            lastMouseAngle,
-                            handleElement: event.currentTarget,
-                        };
-
-                        this.equipmentIsRotating = true;
-                        this.equipmentRotationDisplayAngle = this.formatRotationDisplay(this.getSelectedEquipmentRotation());
-                        document.body.classList.add("cursor-grabbing", "equipment-rotate-active-cursor");
-
-                        event.currentTarget.setPointerCapture?.(event.pointerId);
-                    },
-                    trackEquipmentRotation(event) {
-                        if (!this.equipmentRotationDrag || event.pointerId !== this.equipmentRotationDrag.pointerId) {
-                            return;
-                        }
-
-                        const { centerX, centerY } = this.equipmentRotationDrag;
-                        const newMouseAngle = Math.atan2(event.clientY - centerY, event.clientX - centerX) * (180 / Math.PI);
-                        let delta = newMouseAngle - this.equipmentRotationDrag.lastMouseAngle;
-
-                        if (delta > 180) {
-                            delta -= 360;
-                        } else if (delta < -180) {
-                            delta += 360;
-                        }
-
-                        const currentRotation = this.getSelectedEquipmentRotation();
-                        const degrees = currentRotation + delta;
-
-                        this.equipmentRotationDrag.lastMouseAngle = newMouseAngle;
-                        this.setSelectedEquipmentRotation(degrees);
-                    },
-                    endEquipmentRotation(event) {
-                        if (!this.equipmentRotationDrag || event.pointerId !== this.equipmentRotationDrag.pointerId) {
-                            return;
-                        }
-
-                        const item = document.querySelector(
-                            `.room-equipment-node[data-equipment-id="${this.selectedEquipmentId}"]`,
-                        );
-                        if (item) {
-                            const finalRotation = Number(item.dataset.rotation || 0);
-                            const normalized = this.normalizeRotation(finalRotation);
-                            item.dataset.rotation = normalized;
-                            item.style.transform = `translate(-50%,-50%) rotate(${normalized}deg)`;
-                            this.equipmentRotationDisplayAngle = this.formatRotationDisplay(normalized);
-                            this.selectedEquipmentControl.rotation = normalized;
-                        }
-
-                        this.equipmentRotationDrag.handleElement?.releasePointerCapture?.(event.pointerId);
-                        this.equipmentRotationDrag = null;
-                        this.equipmentIsRotating = false;
-                        document.body.classList.remove("cursor-grabbing", "equipment-rotate-active-cursor");
-                        this.layoutDirty = true;
+                        this.updateEquipmentRotateHandlePlacement();
                     },
                     startBlueprintPan(event) {
                         // Only left mouse
@@ -3230,6 +3823,7 @@
                             this.blueprint.originX + event.clientX - this.blueprint.startX;
                         this.blueprint.panY =
                             this.blueprint.originY + event.clientY - this.blueprint.startY;
+                        this.$nextTick(() => this.updateRotateHandlePlacement());
                     },
                     endBlueprintPan() {
                         this.blueprint.isPanning = false;
@@ -3344,6 +3938,8 @@
                                 (availableHeight - scaledHeight) / 2;
 
                         });
+
+                        this.$nextTick(() => this.updateRotateHandlePlacement());
 
                     },
                     async toggleFullscreen(){
@@ -3462,29 +4058,14 @@
 
                         if(!this.editMode){
 
-                            this.originalBlueprintLayout = [
-
-                                ...document.querySelectorAll(".room-block")
-
-                            ].map(room=>({
-
-                                id:+room.dataset.id,
-
-                                x:+room.dataset.x,
-
-                                y:+room.dataset.y,
-
-                                width:+room.dataset.width,
-
-                                height:+room.dataset.height,
-
-                                rotation:+room.dataset.rotation || 0,
-
-                                color:room.dataset.color || room.style.background || '#60A5FA'
-
-                            }));
+                            this.originalBlueprintLayout = this.snapshotLayoutRooms();
+                            this.clearLayoutUndoStack();
 
                             this.editMode = true;
+
+                            this.$nextTick(() => {
+                                if (window.lucide) lucide.createIcons();
+                            });
 
                             return;
 
@@ -3507,49 +4088,181 @@
                         this.editMode = false;
 
                         this.roomPaintMode = false;
+                        this.clearLayoutUndoStack();
 
+                    },
+                    snapshotLayoutRooms() {
+                        return [...document.querySelectorAll(".room-block")].map((room) => ({
+                            id: Number(room.dataset.id),
+                            x: Number(room.dataset.x) || 0,
+                            y: Number(room.dataset.y) || 0,
+                            width: Number(room.dataset.width) || 0,
+                            height: Number(room.dataset.height) || 0,
+                            rotation: Number(room.dataset.rotation || 0),
+                            color: room.dataset.color || room.style.background || "#60A5FA",
+                        }));
+                    },
+                    layoutSnapshotsEqual(left = [], right = []) {
+                        if (left.length !== right.length) {
+                            return false;
+                        }
+
+                        const serialize = (rooms) =>
+                            JSON.stringify(
+                                [...rooms]
+                                    .map((room) => ({
+                                        id: Number(room.id),
+                                        x: Number(room.x) || 0,
+                                        y: Number(room.y) || 0,
+                                        width: Number(room.width) || 0,
+                                        height: Number(room.height) || 0,
+                                        rotation: Number(room.rotation || 0),
+                                        color: String(room.color || "").toLowerCase(),
+                                    }))
+                                    .sort((a, b) => a.id - b.id),
+                            );
+
+                        return serialize(left) === serialize(right);
+                    },
+                    captureLayoutUndo() {
+                        if (!this.editMode) {
+                            return;
+                        }
+
+                        const now = Date.now();
+                        const withinGroup =
+                            this.layoutUndoStack.length > 0 &&
+                            this.layoutUndoLastAt > 0 &&
+                            now - this.layoutUndoLastAt < 3000;
+
+                        if (withinGroup) {
+                            this.layoutUndoOpenedGroup = false;
+                            return;
+                        }
+
+                        this.layoutUndoStack = [
+                            ...this.layoutUndoStack.slice(-39),
+                            this.snapshotLayoutRooms(),
+                        ];
+                        this.layoutUndoOpenedGroup = true;
+                    },
+                    dropLayoutUndoIfUnchanged() {
+                        const last = this.layoutUndoStack[this.layoutUndoStack.length - 1];
+
+                        if (!last) {
+                            this.layoutUndoOpenedGroup = false;
+                            return;
+                        }
+
+                        if (
+                            this.layoutUndoOpenedGroup &&
+                            this.layoutSnapshotsEqual(last, this.snapshotLayoutRooms())
+                        ) {
+                            this.layoutUndoStack = this.layoutUndoStack.slice(0, -1);
+                            this.layoutUndoOpenedGroup = false;
+                            return;
+                        }
+
+                        this.layoutUndoLastAt = Date.now();
+                        this.layoutUndoOpenedGroup = false;
+                    },
+                    clearLayoutUndoStack() {
+                        this.layoutUndoStack = [];
+                        this.layoutUndoLastAt = 0;
+                        this.layoutUndoOpenedGroup = false;
+                    },
+                    applyLayoutSnapshot(snapshot = []) {
+                        snapshot.forEach((original) => {
+                            const room = document.querySelector(
+                                `.room-block[data-id="${original.id}"]`,
+                            );
+
+                            if (!room) {
+                                return;
+                            }
+
+                            room.dataset.x = original.x;
+                            room.dataset.y = original.y;
+                            room.dataset.width = original.width;
+                            room.dataset.height = original.height;
+                            room.dataset.rotation = original.rotation || 0;
+                            room.dataset.color = original.color;
+                            room.style.left = original.x + "px";
+                            room.style.top = original.y + "px";
+                            room.style.width = original.width + "px";
+                            room.style.height = original.height + "px";
+                            room.style.background = original.color;
+                            room.style.setProperty("--room-depth", original.color);
+                            room.style.transform = `rotate(${original.rotation || 0}deg)`;
+                            room.style.transformOrigin = "center center";
+                            this.syncRoomLabel(room);
+
+                            const catalogRoom = this.roomCatalog.find(
+                                (item) => item.id === original.id,
+                            );
+
+                            if (catalogRoom) {
+                                catalogRoom.color = original.color;
+                                catalogRoom.x = original.x;
+                                catalogRoom.y = original.y;
+                                catalogRoom.width = original.width;
+                                catalogRoom.height = original.height;
+                            }
+                        });
+
+                        this.syncSelectedRoomControl();
+                    },
+                    syncLayoutDirtyFromOriginal() {
+                        this.layoutDirty = !this.layoutSnapshotsEqual(
+                            this.snapshotLayoutRooms(),
+                            this.originalBlueprintLayout || [],
+                        );
+                    },
+                    undoLayoutChange() {
+                        if (!this.editMode || !this.layoutUndoStack.length) {
+                            return;
+                        }
+
+                        if (this.roomDrag) {
+                            this.commitRoomDrag();
+                        }
+
+                        if (this.roomResize) {
+                            this.commitRoomResize();
+                        }
+
+                        const stack = [...this.layoutUndoStack];
+                        const snapshot = stack.pop();
+                        this.layoutUndoStack = stack;
+                        this.applyLayoutSnapshot(snapshot);
+                        this.syncLayoutDirtyFromOriginal();
+                        this.layoutUndoLastAt = 0;
+                        this.layoutUndoOpenedGroup = false;
+                    },
+                    handleLayoutUndoHotkey(event) {
+                        const key = String(event.key || "").toLowerCase();
+
+                        if (key !== "z" || !(event.ctrlKey || event.metaKey) || event.shiftKey) {
+                            return;
+                        }
+
+                        const target = event.target;
+                        const tag = (target?.tagName || "").toLowerCase();
+                        const isTypingContext =
+                            target?.isContentEditable ||
+                            ["input", "textarea", "select"].includes(tag);
+
+                        if (!this.editMode || isTypingContext) {
+                            return;
+                        }
+
+                        event.preventDefault();
+                        this.undoLayoutChange();
                     },
                     discardBlueprintChanges(){
 
-                        this.originalBlueprintLayout.forEach(original=>{
-
-                            const room = document.querySelector(
-
-                                `.room-block[data-id="${original.id}"]`
-
-                            );
-
-                            if(!room) return;
-
-                            room.dataset.x = original.x;
-
-                            room.dataset.y = original.y;
-
-                            room.dataset.width = original.width;
-
-                            room.dataset.height = original.height;
-
-                            room.dataset.rotation = original.rotation || 0;
-
-                            room.style.left = original.x + "px";
-
-                            room.style.top = original.y + "px";
-
-                            room.style.width = original.width + "px";
-
-                            room.style.height = original.height + "px";
-
-                            room.style.background = original.color;
-
-                            room.style.setProperty("--room-depth", original.color);
-
-                            room.dataset.color = original.color;
-
-                            room.style.transform = `rotate(${room.dataset.rotation}deg)`;
-
-                            room.style.transformOrigin = "center center";
-
-                        });
+                        this.applyLayoutSnapshot(this.originalBlueprintLayout);
+                        this.clearLayoutUndoStack();
 
                         this.layoutDirty = false;
 
@@ -3642,19 +4355,30 @@
                         }
 
                         const resolvedColor = color || this.defaultRoomColor(room.type);
+                        const node = document.querySelector(`.room-block[data-id="${normalizedRoomId}"]`);
+
+                        if (
+                            room.color === resolvedColor &&
+                            (!node || node.dataset.color === resolvedColor)
+                        ) {
+                            return;
+                        }
+
+                        this.captureLayoutUndo();
                         room.color = resolvedColor;
 
-                        const node = document.querySelector(`.room-block[data-id="${normalizedRoomId}"]`);
                         if (node) {
                             node.dataset.color = resolvedColor;
                             node.style.background = resolvedColor;
                             node.style.setProperty("--room-depth", resolvedColor);
+                            this.applyRoomLabelContrast(node);
                         }
 
                         if (this.selectedRoom === normalizedRoomId) {
                             this.roomPaintColor = resolvedColor;
                         }
 
+                        this.dropLayoutUndoIfUnchanged();
                         this.layoutDirty = true;
                     },
                     resetSelectedRoomColor() {
@@ -4341,17 +5065,254 @@
                         return item;
                     },
                     
+                    getLayoutZoom() {
+                        const zoom = Number(this.blueprint?.zoom);
+
+                        return Number.isFinite(zoom) && zoom > 0.01 ? zoom : 1;
+                    },
+                    getCanvasPointer(event, canvasRect = null, zoom = null) {
+                        const canvas = this.$refs.blueprintCanvas;
+                        const rect = canvasRect || canvas?.getBoundingClientRect();
+                        const scale = zoom || this.getLayoutZoom();
+                        const clientX = event.client?.x ?? event.clientX ?? 0;
+                        const clientY = event.client?.y ?? event.clientY ?? 0;
+
+                        if (!rect) {
+                            return { x: 0, y: 0 };
+                        }
+
+                        return {
+                            x: (clientX - rect.left) / scale,
+                            y: (clientY - rect.top) / scale,
+                        };
+                    },
+                    clampRoomPosition(el, x, y) {
+                        const parent = el.parentElement;
+                        const width = Number(el.dataset.width) || el.offsetWidth || 0;
+                        const height = Number(el.dataset.height) || el.offsetHeight || 0;
+                        const maxX = Math.max(
+                            0,
+                            (parent?.clientWidth || this.blueprint?.width || width) - width,
+                        );
+                        const maxY = Math.max(
+                            0,
+                            (parent?.clientHeight || this.blueprint?.height || height) - height,
+                        );
+
+                        return {
+                            x: Math.min(Math.max(0, x), maxX),
+                            y: Math.min(Math.max(0, y), maxY),
+                        };
+                    },
+                    computeRoomResize(state, pointer) {
+                        const dx = pointer.x - state.pointer.x;
+                        const dy = pointer.y - state.pointer.y;
+                        const edges = state.edges;
+                        const minW = 20;
+                        const minH = 80;
+                        const maxW = 600;
+                        const maxH = 450;
+                        const right = state.startX + state.startWidth;
+                        const bottom = state.startY + state.startHeight;
+
+                        let x = state.startX;
+                        let y = state.startY;
+                        let width = state.startWidth;
+                        let height = state.startHeight;
+
+                        if (edges.left) {
+                            x = state.startX + dx;
+                            width = state.startWidth - dx;
+                        } else if (edges.right) {
+                            width = state.startWidth + dx;
+                        }
+
+                        if (edges.top) {
+                            y = state.startY + dy;
+                            height = state.startHeight - dy;
+                        } else if (edges.bottom) {
+                            height = state.startHeight + dy;
+                        }
+
+                        if (width < minW) {
+                            width = minW;
+                            if (edges.left) x = right - width;
+                        } else if (width > maxW) {
+                            width = maxW;
+                            if (edges.left) x = right - width;
+                        }
+
+                        if (height < minH) {
+                            height = minH;
+                            if (edges.top) y = bottom - height;
+                        } else if (height > maxH) {
+                            height = maxH;
+                            if (edges.top) y = bottom - height;
+                        }
+
+                        const parent = state.el.parentElement;
+                        const parentW = parent?.clientWidth || this.blueprint?.width || width;
+                        const parentH = parent?.clientHeight || this.blueprint?.height || height;
+
+                        if (x < 0) {
+                            if (edges.left) width += x;
+                            x = 0;
+                        }
+
+                        if (y < 0) {
+                            if (edges.top) height += y;
+                            y = 0;
+                        }
+
+                        if (x + width > parentW) {
+                            if (edges.left) {
+                                x = parentW - width;
+                            } else {
+                                width = parentW - x;
+                            }
+                        }
+
+                        if (y + height > parentH) {
+                            if (edges.top) {
+                                y = parentH - height;
+                            } else {
+                                height = parentH - y;
+                            }
+                        }
+
+                        width = Math.max(minW, Math.min(maxW, width));
+                        height = Math.max(minH, Math.min(maxH, height));
+                        x = Math.max(0, Math.min(x, parentW - width));
+                        y = Math.max(0, Math.min(y, parentH - height));
+
+                        return { x, y, width, height };
+                    },
+                    applyRoomResizeVisual(el, rect) {
+                        const x = Math.round(rect.x);
+                        const y = Math.round(rect.y);
+                        const width = Math.round(rect.width);
+                        const height = Math.round(rect.height);
+
+                        Object.assign(el.style, {
+                            left: x + "px",
+                            top: y + "px",
+                            width: width + "px",
+                            height: height + "px",
+                        });
+                        Object.assign(el.dataset, {
+                            x,
+                            y,
+                            width,
+                            height,
+                        });
+                        this.syncRoomLabel(el);
+                        if (this.selectedRoom === Number(el.dataset.id)) {
+                            this.updateRotateHandlePlacement();
+                        }
+                    },
+                    commitRoomResize() {
+                        const state = this.roomResize;
+
+                        if (!state) {
+                            return;
+                        }
+
+                        if (state.raf) {
+                            cancelAnimationFrame(state.raf);
+                            state.raf = 0;
+                        }
+
+                        if (state.latestPointer) {
+                            this.applyRoomResizeVisual(
+                                state.el,
+                                this.computeRoomResize(state, state.latestPointer),
+                            );
+                        }
+
+                        state.el.classList.remove("is-resizing");
+                        this.roomResize = null;
+                        this.dropLayoutUndoIfUnchanged();
+                        this.layoutDirty = true;
+
+                        if (this.selectedRoom === Number(state.el.dataset.id)) {
+                            this.syncSelectedRoomControl();
+                        }
+                    },
+                    applyRoomDragVisual(el, x, y) {
+                        const originX = Number(el.dataset.x) || 0;
+                        const originY = Number(el.dataset.y) || 0;
+                        const rotation = Number(el.dataset.rotation || 0);
+
+                        el.style.transform = `translate3d(${x - originX}px, ${y - originY}px, 0) rotate(${rotation}deg)`;
+                    },
+                    queueRoomDragFrame() {
+                        if (!this.roomDrag || this.roomDrag.raf) {
+                            return;
+                        }
+
+                        this.roomDrag.raf = requestAnimationFrame(() => {
+                            this.flushRoomDrag();
+                        });
+                    },
+                    flushRoomDrag() {
+                        const drag = this.roomDrag;
+
+                        if (!drag) {
+                            return;
+                        }
+
+                        drag.raf = 0;
+
+                        const next = this.clampRoomPosition(drag.el, drag.x, drag.y);
+
+                        drag.x = next.x;
+                        drag.y = next.y;
+                        this.applyRoomDragVisual(drag.el, next.x, next.y);
+                        if (this.selectedRoom === Number(drag.el.dataset.id)) {
+                            this.updateRotateHandlePlacement();
+                        }
+                    },
+                    commitRoomDrag() {
+                        const drag = this.roomDrag;
+
+                        if (!drag) {
+                            return;
+                        }
+
+                        if (drag.raf) {
+                            cancelAnimationFrame(drag.raf);
+                            drag.raf = 0;
+                        }
+
+                        this.flushRoomDrag();
+
+                        const el = drag.el;
+                        const x = Math.round(drag.x);
+                        const y = Math.round(drag.y);
+                        const rotation = Number(el.dataset.rotation || 0);
+
+                        el.dataset.x = x;
+                        el.dataset.y = y;
+                        el.style.left = x + "px";
+                        el.style.top = y + "px";
+                        el.style.transform = `rotate(${rotation}deg)`;
+                        el.style.willChange = "";
+                        el.classList.remove("is-dragging");
+
+                        this.roomDrag = null;
+                        this.dropLayoutUndoIfUnchanged();
+                        this.layoutDirty = true;
+
+                        if (this.selectedRoom === Number(el.dataset.id)) {
+                            this.syncSelectedRoomControl();
+                        }
+                    },
                     bindDragging() {
                         if (!window.interact) {
                             console.warn("Interact.js not loaded.");
                             return;
                         }
                         interact(".room-block")
-                            /*.on("tap", (event) => {
-                                if (!this.editMode) return;
-                                event.preventDefault();
-                                this.openRoomManager(event.currentTarget);
-                            })*/
                             .on("tap", (event) => {
 
                                 if (!this.editMode) return;
@@ -4371,178 +5332,150 @@
                             })
                             .draggable({
                                 inertia: false,
-                                modifiers: [
-                                    interact.modifiers.snap({
-                                        targets: [interact.snappers.grid({ x: 20, y: 20 })],
-                                        range: Infinity,
-                                    }),
-                                    interact.modifiers.restrictRect({
-                                        restriction: "parent",
-                                        endOnly: true,
-                                    }),
-                                ],
+                                styleCursor: false,
+                                ignoreFrom: ".rotate-handle-cursor",
                                 listeners: {
-                                    move: (event) => {
-                                        if (!this.editMode || this.roomPaintMode) return;
-                                        const el = event.target;
-                                        const x = Math.max(
-                                            0,
-                                            (parseInt(el.dataset.x) || 0) + event.dx,
-                                        );
-                                        const y = Math.max(
-                                            0,
-                                            (parseInt(el.dataset.y) || 0) + event.dy,
-                                        );
-                                        el.style.left = x + "px";
-                                        el.style.top = y + "px";
-                                        el.dataset.x = Math.round(x);
-                                        el.dataset.y = Math.round(y);
-                                    },
-                                    end:()=>{
-
-                                        if(!this.editMode || this.roomPaintMode){
-
+                                    start: (event) => {
+                                        if (!this.editMode || this.roomPaintMode || this.roomResize) {
+                                            event.interaction?.stop?.();
                                             return;
-
                                         }
 
-                                        this.layoutDirty = true;
+                                        const el = event.target.closest?.(".room-block") || event.target;
+                                        const originX = parseFloat(el.dataset.x) || 0;
+                                        const originY = parseFloat(el.dataset.y) || 0;
+                                        const zoom = this.getLayoutZoom();
+                                        const canvasRect = this.$refs.blueprintCanvas?.getBoundingClientRect();
+                                        const pointer = this.getCanvasPointer(event, canvasRect, zoom);
 
+                                        if (this.roomDrag?.raf) {
+                                            cancelAnimationFrame(this.roomDrag.raf);
+                                        }
+
+                                        el.classList.add("is-dragging");
+                                        el.style.willChange = "transform";
+                                        this.selectedRoom = Number(el.dataset.id);
+                                        this.captureLayoutUndo();
+                                        this.roomDrag = {
+                                            el,
+                                            x: originX,
+                                            y: originY,
+                                            grabX: pointer.x - originX,
+                                            grabY: pointer.y - originY,
+                                            canvasRect,
+                                            zoom,
+                                            raf: 0,
+                                        };
+                                        this.applyRoomDragVisual(el, originX, originY);
+                                    },
+                                    move: (event) => {
+                                        if (!this.roomDrag) {
+                                            return;
+                                        }
+
+                                        const pointer = this.getCanvasPointer(
+                                            event,
+                                            this.roomDrag.canvasRect,
+                                            this.roomDrag.zoom,
+                                        );
+
+                                        this.roomDrag.x = pointer.x - this.roomDrag.grabX;
+                                        this.roomDrag.y = pointer.y - this.roomDrag.grabY;
+                                        this.queueRoomDragFrame();
+                                    },
+                                    end: () => {
+                                        this.commitRoomDrag();
                                     },
                                 },
                             })
                             .resizable({
                                 edges: { left: true, right: true, bottom: true, top: true },
-                                margin: 12,
-                                modifiers: [
-                                    interact.modifiers.snapSize({
-                                        targets: [interact.snappers.grid({ x: 20, y: 20 })],
-                                    }),
-                                    interact.modifiers.restrictSize({
-                                        min: {
-                                            width: 80,
-                                            height: 80,
-                                        },
-                                        max: { width: 600, height: 450 },
-                                    }),
-                                    interact.modifiers.restrictEdges({ outer: "parent" }),
-                                ],
+                                margin: 16,
+                                inertia: false,
                                 listeners: {
+                                    start: (event) => {
+                                        if (!this.editMode || this.roomPaintMode) {
+                                            event.interaction?.stop?.();
+                                            return;
+                                        }
+
+                                        if (this.roomDrag) {
+                                            this.commitRoomDrag();
+                                        }
+
+                                        const el = event.target.closest?.(".room-block") || event.target;
+                                        const zoom = this.getLayoutZoom();
+                                        const canvasRect = this.$refs.blueprintCanvas?.getBoundingClientRect();
+
+                                        el.classList.add("is-resizing");
+                                        this.selectedRoom = Number(el.dataset.id);
+                                        this.captureLayoutUndo();
+                                        this.roomResize = {
+                                            el,
+                                            startX: parseFloat(el.dataset.x) || 0,
+                                            startY: parseFloat(el.dataset.y) || 0,
+                                            startWidth: parseFloat(el.dataset.width) || el.offsetWidth,
+                                            startHeight: parseFloat(el.dataset.height) || el.offsetHeight,
+                                            edges: {
+                                                left: !!event.edges.left,
+                                                right: !!event.edges.right,
+                                                top: !!event.edges.top,
+                                                bottom: !!event.edges.bottom,
+                                            },
+                                            pointer: this.getCanvasPointer(event, canvasRect, zoom),
+                                            latestPointer: null,
+                                            canvasRect,
+                                            zoom,
+                                            raf: 0,
+                                        };
+                                    },
                                     move: (event) => {
-                                        if (!this.editMode || this.roomPaintMode) return;
-                                        const el = event.target;
-                                        let x =
-                                            (parseInt(el.dataset.x) || 0) +
-                                            event.deltaRect.left;
-                                        let y =
-                                            (parseInt(el.dataset.y) || 0) +
-                                            event.deltaRect.top;
-                                        x = Math.max(0, x);
-                                        y = Math.max(0, y);
-                                        const width = Math.round(event.rect.width);
-                                        const height = Math.round(event.rect.height);
-                                        /* ---------- Responsive Room Layout ---------- */
-
-                                        let size = "large";
-
-                                        if (width < 50 || height < 40) {
-                                            size = "tiny";
-                                        } else if (width < 90 || height < 60) {
-                                            size = "small";
-                                        } else if (width < 140 || height < 80) {
-                                            size = "medium";
+                                        if (!this.roomResize) {
+                                            return;
                                         }
 
-                                        el.dataset.size = size;
-                                        const roomName = el.querySelector(".room-name");
+                                        this.roomResize.latestPointer = this.getCanvasPointer(
+                                            event,
+                                            this.roomResize.canvasRect,
+                                            this.roomResize.zoom,
+                                        );
 
-                                        if (roomName) {
-                                            roomName.textContent = this.abbreviateRoom(
-                                                roomName.dataset.fullName,
+                                        if (this.roomResize.raf) {
+                                            return;
+                                        }
 
-                                                size,
+                                        this.roomResize.raf = requestAnimationFrame(() => {
+                                            const state = this.roomResize;
+
+                                            if (!state) {
+                                                return;
+                                            }
+
+                                            state.raf = 0;
+                                            this.applyRoomResizeVisual(
+                                                state.el,
+                                                this.computeRoomResize(
+                                                    state,
+                                                    state.latestPointer || state.pointer,
+                                                ),
                                             );
-                                        }
-                                        Object.assign(el.style, {
-                                            width: width + "px",
-                                            height: height + "px",
-                                            left: x + "px",
-                                            top: y + "px",
                                         });
-                                        Object.assign(el.dataset, {
-                                            x: Math.round(x),
-                                            y: Math.round(y),
-                                            width,
-                                            height,
-                                        });
-
-                                        if (this.selectedRoom === Number(el.dataset.id)) {
-                                            this.syncSelectedRoomControl();
-                                        }
                                     },
                                     end: () => {
-
-                                        if (!this.editMode || this.roomPaintMode) return;
-
-                                        this.layoutDirty = true;
-
-                                    },
-                                },
-                            })
-                            .draggable({
-                                inertia: false,
-                                modifiers: [
-                                    interact.modifiers.snap({
-                                        targets: [interact.snappers.grid({ x: 20, y: 20 })],
-                                        range: Infinity,
-                                    }),
-                                    interact.modifiers.restrictRect({
-                                        restriction: "parent",
-                                        endOnly: true,
-                                    }),
-                                ],
-                                listeners: {
-                                    move: (event) => {
-                                        if (!this.editMode || this.roomPaintMode) return;
-                                        const el = event.target;
-                                        const x = Math.max(
-                                            0,
-                                            (parseInt(el.dataset.x) || 0) + event.dx,
-                                        );
-                                        const y = Math.max(
-                                            0,
-                                            (parseInt(el.dataset.y) || 0) + event.dy,
-                                        );
-                                        el.style.left = x + "px";
-                                        el.style.top = y + "px";
-                                        el.dataset.x = Math.round(x);
-                                        el.dataset.y = Math.round(y);
-
-                                        if (this.selectedRoom === Number(el.dataset.id)) {
-                                            this.syncSelectedRoomControl();
-                                        }
-                                    },
-                                    end:()=>{
-
-                                        if(!this.editMode || this.roomPaintMode){
-
-                                            return;
-
-                                        }
-
-                                        this.layoutDirty = true;
-
+                                        this.commitRoomResize();
                                     },
                                 },
                             });
-
-
                     },
                     bindEquipmentFallback() {
                         if (this.equipmentFallbackBound) return;
                         this.equipmentFallbackBound = true;
 
                         document.addEventListener("pointerdown", (event) => {
+
+                            if (event.defaultPrevented || this.equipmentAction || this.equipmentPendingDrag) {
+                                return;
+                            }
 
                             const node = event.target.closest(".room-equipment-node");
 
@@ -4744,6 +5677,7 @@
                             if (manual) {
 
                                 this.layoutDirty = false;
+                                this.clearLayoutUndoStack();
                                 // Exit room editing mode
                                 this.roomLayout.edit = false;
 
@@ -4895,10 +5829,7 @@
                             const roomNameNode = node.querySelector("[data-room-name]");
                             if (roomNameNode) {
                                 roomNameNode.dataset.fullName = updates.name;
-                                roomNameNode.textContent = this.abbreviateRoom(
-                                    updates.name,
-                                    node.dataset.size || "large",
-                                );
+                                this.syncRoomLabel(node);
                             }
 
                             if (this.roomLayout.open && this.roomLayout.id === normalizedRoomId) {
@@ -4923,6 +5854,7 @@
                             node.dataset.color = updates.color;
                             node.style.background = updates.color;
                             node.style.setProperty("--room-depth", updates.color);
+                            this.applyRoomLabelContrast(node);
                         }
 
                         if (typeof updates.status === "string") {
@@ -5204,6 +6136,92 @@
                             return "💻";
                         return "📦";
                     },
+                    applyRoomLabelContrast(el) {
+                        if (!el) {
+                            return;
+                        }
+
+                        const color = el.dataset.color || el.style.backgroundColor || "#60A5FA";
+                        el.style.setProperty("--room-label-color", this.getContrastingTextColor(color));
+                    },
+                    getContrastingTextColor(color) {
+                        const rgb = this.parseCssColor(color);
+
+                        if (!rgb) {
+                            return "#0f172a";
+                        }
+
+                        const yiq = (rgb.r * 299 + rgb.g * 587 + rgb.b * 114) / 1000;
+
+                        return yiq >= 150 ? "#0f172a" : "#ffffff";
+                    },
+                    parseCssColor(color) {
+                        if (!color) {
+                            return null;
+                        }
+
+                        const value = String(color).trim();
+                        const hex = value.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+
+                        if (hex) {
+                            let digits = hex[1];
+
+                            if (digits.length === 3) {
+                                digits = digits.split("").map((part) => part + part).join("");
+                            }
+
+                            return {
+                                r: parseInt(digits.slice(0, 2), 16),
+                                g: parseInt(digits.slice(2, 4), 16),
+                                b: parseInt(digits.slice(4, 6), 16),
+                            };
+                        }
+
+                        const rgb = value.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+
+                        if (!rgb) {
+                            return null;
+                        }
+
+                        return {
+                            r: Number(rgb[1]),
+                            g: Number(rgb[2]),
+                            b: Number(rgb[3]),
+                        };
+                    },
+                    syncRoomLabel(el) {
+                        if (!el) {
+                            return;
+                        }
+
+                        const width = Number(el.dataset.width) || el.offsetWidth || 0;
+                        const height = Number(el.dataset.height) || el.offsetHeight || 0;
+                        const vertical = height > width;
+                        const longAxis = vertical ? height : width;
+
+                        let size = "large";
+
+                        if (longAxis < 50) {
+                            size = "tiny";
+                        } else if (longAxis < 90) {
+                            size = "small";
+                        } else if (longAxis < 140) {
+                            size = "medium";
+                        }
+
+                        el.dataset.size = size;
+                        el.dataset.labelOrientation = vertical ? "vertical" : "horizontal";
+                        this.applyRoomLabelContrast(el);
+
+                        const roomName = el.querySelector(".room-name, [data-room-name]");
+
+                        if (roomName) {
+                            roomName.textContent = this.abbreviateRoom(
+                                roomName.dataset.fullName || el.dataset.name || "",
+                                size,
+                            );
+                        }
+                    },
                     abbreviateRoom(name, size) {
                         if (!name) return "";
 
@@ -5264,7 +6282,10 @@
                             if (node) {
                                 node.dataset.name = name;
                                 const label = node.querySelector("[data-room-name]");
-                                if (label) label.textContent = name;
+                                if (label) {
+                                    label.dataset.fullName = name;
+                                }
+                                this.syncRoomLabel(node);
                             }
                             this.roomManager.originalName = name;
                             this.toast = "Room renamed";
