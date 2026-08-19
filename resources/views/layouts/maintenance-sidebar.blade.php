@@ -164,7 +164,7 @@
             class="menu-item {{ request()->is('maintenance/infrastructure*') ? 'active' : '' }}"
         >
             <i class="h-5 w-5" data-lucide="building-2"></i>
-            <span>Buildings Layout</span>
+            <span>Building Layout</span>
         </a>
         <a
             href="/maintenance/rooms"

@@ -3,31 +3,59 @@
     class="flex h-auto min-h-0 w-full shrink-0 flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-xl xl:h-[700px] xl:w-[420px]"
 >-->
 <aside
-    class="flex h-auto min-h-0 w-full shrink-0 flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-xl xl:h-[calc(100vh-160px)] xl:max-h-[900px] xl:min-h-[700px] xl:w-[22vw] xl:min-w-[360px] xl:max-w-[460px]"
+    data-monitor-drawer
+    class="flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-xl xl:h-[calc(100vh-14rem-20px)] xl:min-h-[550px] xl:max-h-[620px]"
 >
-    <!-- Selected room container -->
-    <div x-show="selectedRoom === null" class="flex h-full flex-col">
-        <div class="bg-slate-950 p-7 text-white">
-            <div
-                class="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#005EA6]"
-            >
-                <i data-lucide="panel-right-open" class="h-6 w-6"></i>
+    <!-- Empty state: no room selected — Insight Builder style -->
+    <div x-show="selectedRoom === null" class="flex h-full min-h-0 flex-col overflow-hidden">
+
+        {{-- Panel header --}}
+        <div class="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 py-4">
+            <div class="min-w-0">
+                <p class="text-[10px] font-extrabold uppercase tracking-[.18em] text-slate-400">Room Inspector</p>
+                <h2 class="mt-0.5 text-base font-black text-slate-950">Insight Builder</h2>
             </div>
-            <h2 class="mt-5 text-xl font-extrabold">Room intelligence</h2>
-            <p class="mt-2 text-sm leading-6 text-slate-400">Select a room block to open its live monitoring workspace.</p>
+            <button
+                class="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
+                disabled
+            >
+                <i data-lucide="bookmark" class="h-3.5 w-3.5"></i>
+                Save View
+            </button>
         </div>
-        <div class="flex flex-1 items-center justify-center p-8">
+
+        {{-- Icon tab bar (disabled/ghost) --}}
+        <div class="flex shrink-0 items-center border-b border-slate-100 px-4 py-2 gap-1">
+            @foreach ([['icon'=>'layout-dashboard','label'=>'Overview'],['icon'=>'box','label'=>'Assets'],['icon'=>'bar-chart-2','label'=>'Analytics'],['icon'=>'calendar','label'=>'Schedule']] as $t)
+            <div class="flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-2 text-slate-300">
+                <i data-lucide="{{ $t['icon'] }}" class="h-4 w-4"></i>
+                <span class="text-[9px] font-semibold">{{ $t['label'] }}</span>
+            </div>
+            @endforeach
+        </div>
+
+        {{-- Empty prompt body --}}
+        <div class="drawer-scroll flex min-h-0 flex-1 flex-col items-center justify-center gap-4 overflow-y-auto bg-[#F8FAFC] p-8">
+            <div class="flex h-20 w-20 items-center justify-center rounded-2xl border border-blue-100 bg-white shadow-sm">
+                <i data-lucide="mouse-pointer-click" class="h-8 w-8 text-[#005EA6]/40"></i>
+            </div>
             <div class="text-center">
-                <div
-                    class="mx-auto flex h-28 w-28 items-center justify-center rounded-full bg-slate-50 ring-1 ring-slate-100"
-                >
-                    <i
-                        data-lucide="mouse-pointer-click"
-                        class="h-10 w-10 text-slate-300"
-                    ></i>
+                <p class="text-sm font-bold text-slate-700">Select a room on the map</p>
+                <p class="mt-1.5 text-xs leading-5 text-slate-400">Assets, ticket trends, recurring issues, and maintenance schedules will load here.</p>
+            </div>
+
+            {{-- Ghost metric rows --}}
+            <div class="w-full space-y-2 pt-2">
+                @foreach (range(1,3) as $_)
+                <div class="flex items-center gap-3 rounded-xl border border-slate-200/80 bg-white px-3 py-2.5 shadow-sm">
+                    <div class="h-7 w-7 shrink-0 rounded-lg bg-blue-50"></div>
+                    <div class="flex-1 space-y-1.5">
+                        <div class="h-2 w-24 rounded-full bg-slate-100"></div>
+                        <div class="h-1.5 w-16 rounded-full bg-[#F8FAFC]"></div>
+                    </div>
+                    <div class="h-2 w-8 rounded-full bg-blue-100"></div>
                 </div>
-                <p class="mt-5 text-sm font-bold text-slate-700">Select a room on the map</p>
-                <p class="mt-2 text-xs leading-5 text-slate-400">Assets, ticket trends, recurring issues, and schedules will appear here.</p>
+                @endforeach
             </div>
         </div>
     </div>
@@ -414,1246 +442,286 @@
                 }
 
             }"
-            class="flex h-full flex-col"
+            class="flex h-full min-h-0 flex-col overflow-hidden"
         >
-            <div class="relative overflow-hidden bg-slate-950 p-6 text-white">
-                <div
-                    class="absolute -right-12 -top-12 h-36 w-36 rounded-full bg-[#005EA6]/30 blur-2xl"
-                ></div>
-                <div class="relative flex items-start justify-between gap-4">
-                    <div>
-                        <p class="text-[10px] font-extrabold uppercase tracking-[.2em] text-[#FFF200]">{{ $room->floor->building->building_name ?? "STI Ormoc" }} · {{ $room->floor->floor_level }}</p>
-                        <h2
-                            class="mt-2 text-2xl font-extrabold"
-                            x-text="roomForm.name || 'Not Specified'"
-                        ></h2>
-                        <p
-                            class="mt-1 text-sm text-slate-400"
-                            x-text="roomForm.type || 'No Room Type'"
-                        ></p>
+            {{-- ── Insight Builder: Room header (white, clean) ── --}}
+            <div class="shrink-0 border-b border-slate-100">
+
+                {{-- Title row --}}
+                <div class="flex items-start justify-between gap-3 px-5 py-4">
+                    <div class="min-w-0 flex-1">
+                        <p class="text-[10px] font-extrabold uppercase tracking-[.18em] text-slate-400">
+                            {{ $room->floor->building->building_name ?? "STI Ormoc" }} · {{ $room->floor->floor_level }}
+                        </p>
+                        <h2 class="mt-0.5 truncate text-base font-black text-slate-950" x-text="roomForm.name || 'Not Specified'"></h2>
+                        <p class="mt-0.5 truncate text-xs font-medium text-slate-400" x-text="roomForm.type || 'No Room Type'"></p>
                     </div>
-                    <button
-                        @click="selectedRoom = null"
-                        class="rounded-xl bg-white/10 p-2 hover:bg-white/20"
-                        aria-label="Close room details"
-                    >
-                        <i data-lucide="x" class="h-5 w-5"></i>
-                    </button>
-                </div>
-                <div
-                    class="relative mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3"
-                >
-                    <div class="rounded-xl bg-white/5 p-3">
-                        <b class="block text-lg">{{
-                            $room->equipment->sum(
-                                "equipment_quantity",
-                            )
-                        }}</b
-                        ><span class="text-[10px] text-slate-400">{{
-                            $room->equipment->sum(
-                                "equipment_quantity",
-                            ) > 1
-                                ? "Equipments"
-                                : "Equipment"
-                        }}</span>
-                    </div>
-                    <div class="rounded-xl bg-white/5 p-3">
-                        <b class="block text-lg">{{
-                            $room->monitoring[
-                                "active_reports"
-                            ]
-                        }}</b
-                        ><span class="text-[10px] text-slate-400">{{
-                            $room->monitoring["active_reports"] > 1
-                                ? "Reports"
-                                : "Report"
-                        }}</span>
-                    </div>
-                    <div class="rounded-xl bg-white/5 p-3">
-                        <b class="block text-lg">{{
-                            $room->equipment
-                                ->where("equipment_condition_status", "Good")
-                                ->sum("equipment_quantity")
-                        }}</b
-                        ><span
-                            class="mt-1.5 block truncate text-[10px] text-slate-400"
-                            data-tooltip="Good Condition"
+                    <div class="flex shrink-0 items-center gap-1.5">
+                        <button
+                            class="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-[10px] font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
+                            disabled
                         >
-                            {{
-                                $room->equipment
-                                    ->where("equipment_condition_status", "Good")
-                                    ->sum("equipment_quantity") > 1
-                                    ? "Good Conditions"
-                                    : "Good Condition"
-                            }}
-                        </span>
+                            <i data-lucide="bookmark" class="h-3 w-3"></i>
+                            Save View
+                        </button>
+                        <button
+                            @click="selectedRoom = null"
+                            class="flex h-7 w-7 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-400 shadow-sm transition hover:bg-slate-50 hover:text-slate-600"
+                            aria-label="Close room details"
+                        >
+                            <i data-lucide="x" class="h-3.5 w-3.5"></i>
+                        </button>
                     </div>
                 </div>
             </div>
 
-            <div class="border-b border-slate-100 p-2">
-                <div class="grid grid-cols-5 gap-1 rounded-xl bg-slate-100 p-1">
-                    <button
-                        @click="tab = 'overview'"
-                        :class="tab === 'overview'
-                            ? 'bg-white text-[#005EA6] shadow-sm'
-                            : 'text-slate-500 hover:bg-white/60'"
-                        class="flex min-w-0 items-center justify-center rounded-lg px-1 py-2 text-[9px] font-semibold leading-tight transition sm:px-2 sm:py-2.5 sm:text-[11px]"
-                    >
-                        <span class="break-words text-center"> Overview </span>
-                    </button>
-
-                    <button
-                        @click="tab = 'equipment'"
-                        :class="tab === 'equipment'
-                            ? 'bg-white text-[#005EA6] shadow-sm'
-                            : 'text-slate-500 hover:bg-white/60'"
-                        class="flex min-w-0 items-center justify-center rounded-lg px-1 py-2 text-[9px] font-semibold leading-tight transition sm:px-2 sm:py-2.5 sm:text-[11px]"
-                    >
-                        <span class="break-words text-center"> Equipment </span>
-                    </button>
-
-                    <button
-                        @click="tab = 'analytics'"
-                        :class="tab === 'analytics'
-                            ? 'bg-white text-[#005EA6] shadow-sm'
-                            : 'text-slate-500 hover:bg-white/60'"
-                        class="flex min-w-0 items-center justify-center rounded-lg px-1 py-2 text-[9px] font-semibold leading-tight transition sm:px-2 sm:py-2.5 sm:text-[11px]"
-                    >
-                        <span class="break-words text-center"> Analytics </span>
-                    </button>
-
-                    <button
-                        @click="tab = 'schedule'"
-                        :class="tab === 'schedule'
-                            ? 'bg-white text-[#005EA6] shadow-sm'
-                            : 'text-slate-500 hover:bg-white/60'"
-                        class="flex min-w-0 items-center justify-center rounded-lg px-1 py-2 text-[9px] font-semibold leading-tight transition sm:px-2 sm:py-2.5 sm:text-[11px]"
-                    >
-                        <span class="break-words text-center"> Schedule </span>
-                    </button>
-
-                    <button
-                        @click="tab = 'history'"
-                        :class="tab === 'history'
-                            ? 'bg-white text-[#005EA6] shadow-sm'
-                            : 'text-slate-500 hover:bg-white/60'"
-                        class="flex min-w-0 items-center justify-center rounded-lg px-1 py-2 text-[9px] font-semibold leading-tight transition sm:px-2 sm:py-2.5 sm:text-[11px]"
-                    >
-                        <span class="break-words text-center"> History </span>
-                    </button>
-                </div>
+            {{-- ── Insight Builder: Icon tab bar ── --}}
+            <div class="flex shrink-0 items-stretch border-b border-slate-100">
+                @foreach ([
+                    ['key'=>'overview',   'icon'=>'layout-dashboard', 'label'=>'Overview'],
+                    ['key'=>'equipment',  'icon'=>'box',              'label'=>'Assets'],
+                    ['key'=>'analytics',  'icon'=>'bar-chart-2',      'label'=>'Analytics'],
+                    ['key'=>'schedule',   'icon'=>'calendar-clock',   'label'=>'Schedule'],
+                    ['key'=>'history',    'icon'=>'history',          'label'=>'History'],
+                ] as $t)
+                <button
+                    @click="tab = '{{ $t['key'] }}'"
+                    :class="tab === '{{ $t['key'] }}'
+                        ? 'border-b-2 border-[#005EA6] text-[#005EA6] bg-blue-50/60'
+                        : 'border-b-2 border-transparent text-slate-400 hover:text-[#005EA6] hover:bg-[#F8FAFC]'"
+                    class="flex flex-1 flex-col items-center gap-1 px-1 pb-2.5 pt-3 text-[8.5px] font-semibold uppercase tracking-wide transition"
+                >
+                    <i data-lucide="{{ $t['icon'] }}" class="h-4 w-4"></i>
+                    <span>{{ $t['label'] }}</span>
+                </button>
+                @endforeach
             </div>
 
             <div
-                class="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-5"
+                class="drawer-scroll relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[#F8FAFC] p-4"
             >
-                <div x-show="tab === 'overview'" x-cloak class="space-y-5">
-                    <div
-                        class="
-                            overflow-hidden
-                            rounded-xl
-                            border
-                            border-slate-200
-                            bg-white
-                        "
-                    >
+                <div x-show="tab === 'overview'" x-cloak class="space-y-3">
 
-                        <!-- ===================================================== -->
-                        <!-- CARD HEADER -->
-                        <!-- ===================================================== -->
-
-                        <div
-                            class="
-                                flex
-                                items-center
-                                justify-between
-                                border-b
-                                border-slate-100
-                                px-5
-                                py-4
-                            "
-                        >
-
-                            <div>
-
-                                <h3 class="text-sm font-semibold text-slate-900">
-                                    Room Information
-                                </h3>
-
-                                <p class="mt-0.5 text-xs text-slate-500">
-                                    Inspection, maintenance, and room status details.
-                                </p>
-
-                            </div>
-
-
-                            <!-- HEADER ICON -->
-
-                            <div
-                                class="
-                                    flex
-                                    h-8
-                                    w-8
-                                    shrink-0
-                                    items-center
-                                    justify-center
-                                    rounded-lg
-                                    bg-slate-50
-                                    text-slate-400
-                                "
-                            >
-                                <i
-                                    data-lucide="info"
-                                    class="h-4 w-4"
-                                ></i>
-                            </div>
-
-                        </div>
-
-
-
-                        <!-- ===================================================== -->
-                        <!-- INFORMATION LIST -->
-                        <!-- ===================================================== -->
-
-                        <div class="px-5">
-
-
-                            <!-- ================================================= -->
-                            <!-- LAST INSPECTION -->
-                            <!-- ================================================= -->
-
-                            <div
-                                class="
-                                    flex
-                                    items-center
-                                    justify-between
-                                    gap-4
-                                    border-b
-                                    border-slate-100
-                                    py-3.5
-                                "
-                            >
-
-                                <div class="flex min-w-0 items-center gap-3">
-
-                                    <div
-                                        class="
-                                            flex
-                                            h-8
-                                            w-8
-                                            shrink-0
-                                            items-center
-                                            justify-center
-                                            rounded-lg
-                                            bg-slate-50
-                                            text-slate-400
-                                        "
-                                    >
-                                        <i
-                                            data-lucide="clipboard-check"
-                                            class="h-3.5 w-3.5"
-                                        ></i>
-                                    </div>
-
-
-                                    <span class="text-sm text-slate-500">
-                                        Last Inspection
-                                    </span>
-
-                                </div>
-
-
-                                <span
-                                    class="
-                                        shrink-0
-                                        text-right
-                                        text-sm
-                                        font-medium
-                                        text-slate-800
-                                    "
-                                    x-text="
-                                        currentRoom?.monitoring
-                                            ?.room_information?.last_inspection
-                                            ? formatDate(
-                                                currentRoom.monitoring
-                                                    .room_information
-                                                    .last_inspection
-                                            )
-                                            : 'Never'
-                                    "
-                                ></span>
-
-                            </div>
-
-
-
-                            <!-- ================================================= -->
-                            <!-- NEXT MAINTENANCE -->
-                            <!-- ================================================= -->
-
-                            <div
-                                class="
-                                    flex
-                                    items-center
-                                    justify-between
-                                    gap-4
-                                    border-b
-                                    border-slate-100
-                                    py-3.5
-                                "
-                            >
-
-                                <div class="flex min-w-0 items-center gap-3">
-
-                                    <div
-                                        class="
-                                            flex
-                                            h-8
-                                            w-8
-                                            shrink-0
-                                            items-center
-                                            justify-center
-                                            rounded-lg
-                                            bg-slate-50
-                                            text-slate-400
-                                        "
-                                    >
-                                        <i
-                                            data-lucide="calendar-clock"
-                                            class="h-3.5 w-3.5"
-                                        ></i>
-                                    </div>
-
-
-                                    <span class="text-sm text-slate-500">
-                                        Next Maintenance
-                                    </span>
-
-                                </div>
-
-
-                                <span
-                                    class="
-                                        shrink-0
-                                        text-right
-                                        text-sm
-                                        font-medium
-                                        text-slate-800
-                                    "
-                                    x-text="
-                                        currentRoom?.monitoring
-                                            ?.room_information?.next_maintenance
-                                            ? formatDate(
-                                                currentRoom.monitoring
-                                                    .room_information
-                                                    .next_maintenance
-                                            )
-                                            : 'No Schedule'
-                                    "
-                                ></span>
-
-                            </div>
-
-
-
-                            <!-- ================================================= -->
-                            <!-- LAST MODIFIED -->
-                            <!-- ================================================= -->
-
-                            <div
-                                class="
-                                    flex
-                                    items-center
-                                    justify-between
-                                    gap-4
-                                    border-b
-                                    border-slate-100
-                                    py-3.5
-                                "
-                            >
-
-                                <div class="flex min-w-0 items-center gap-3">
-
-                                    <div
-                                        class="
-                                            flex
-                                            h-8
-                                            w-8
-                                            shrink-0
-                                            items-center
-                                            justify-center
-                                            rounded-lg
-                                            bg-slate-50
-                                            text-slate-400
-                                        "
-                                    >
-                                        <i
-                                            data-lucide="history"
-                                            class="h-3.5 w-3.5"
-                                        ></i>
-                                    </div>
-
-
-                                    <span class="text-sm text-slate-500">
-                                        Last Modified
-                                    </span>
-
-                                </div>
-
-
-                                <span
-                                    class="
-                                        min-w-0
-                                        truncate
-                                        text-right
-                                        text-sm
-                                        font-medium
-                                        text-slate-800
-                                    "
-                                    x-text="
-                                        currentRoom?.monitoring
-                                            ?.room_information?.last_updated
-                                            ? timeAgo(
-                                                currentRoom.monitoring
-                                                    .room_information
-                                                    .last_updated
-                                            )
-                                            : 'Unknown'
-                                    "
-                                ></span>
-
-                            </div>
-
-
-
-                            <!-- ================================================= -->
-                            <!-- ROOM STATUS -->
-                            <!-- ================================================= -->
-
-                            <div
-                                class="
-                                    flex
-                                    items-center
-                                    justify-between
-                                    gap-4
-                                    py-3.5
-                                "
-                            >
-
-                                <div class="flex min-w-0 items-center gap-3">
-
-                                    <div
-                                        class="
-                                            flex
-                                            h-8
-                                            w-8
-                                            shrink-0
-                                            items-center
-                                            justify-center
-                                            rounded-lg
-                                            bg-slate-50
-                                            text-slate-400
-                                        "
-                                    >
-                                        <i
-                                            data-lucide="activity"
-                                            class="h-3.5 w-3.5"
-                                        ></i>
-                                    </div>
-
-
-                                    <span class="text-sm text-slate-500">
-                                        Room Status
-                                    </span>
-
-                                </div>
-
-
-                                <span
-                                    class="
-                                        inline-flex
-                                        shrink-0
-                                        items-center
-                                        gap-1.5
-                                        rounded-md
-                                        px-2
-                                        py-1
-                                        text-[11px]
-                                        font-medium
-                                    "
-                                    :class="
-                                        currentRoom?.monitoring
-                                            ?.room_information?.status === 'Critical'
-                                            ? 'bg-red-50 text-red-700'
-                                            : currentRoom?.monitoring
-                                                ?.room_information?.status ===
-                                            'Maintenance Needed'
-                                                ? 'bg-amber-50 text-amber-700'
-                                                : 'bg-emerald-50 text-emerald-700'
-                                    "
-                                >
-
-                                    <!-- STATUS DOT -->
-
+                    {{-- ── Status hero ── --}}
+                    <div class="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
+                        <div class="absolute inset-0 bg-gradient-to-br from-blue-50/80 via-white to-[#F8FAFC]"></div>
+                        <div class="relative flex items-start justify-between gap-3">
+                            <div class="min-w-0">
+                                <p class="text-[10px] font-bold uppercase tracking-[.16em] text-slate-400">Current status</p>
+                                <div class="mt-1.5 flex items-center gap-2">
                                     <span
-                                        class="h-1.5 w-1.5 rounded-full"
-                                        :class="
-                                            currentRoom?.monitoring
-                                                ?.room_information?.status === 'Critical'
-                                                ? 'bg-red-500'
-                                                : currentRoom?.monitoring
-                                                    ?.room_information?.status ===
-                                                'Maintenance Needed'
-                                                    ? 'bg-amber-500'
-                                                    : 'bg-emerald-500'
-                                        "
+                                        class="h-2.5 w-2.5 shrink-0 rounded-full bg-[#005EA6] ring-4 ring-blue-50"
+                                        :class="currentRoom?.monitoring?.room_information?.status === 'Critical'
+                                            ? 'bg-slate-500 ring-slate-100'
+                                            : currentRoom?.monitoring?.room_information?.status === 'Maintenance Needed'
+                                                ? 'bg-blue-400 ring-blue-50'
+                                                : 'bg-[#005EA6] ring-blue-50'"
                                     ></span>
-
-
+                                    <p
+                                        class="truncate text-lg font-black text-slate-900"
+                                        x-text="currentRoom?.monitoring?.room_information?.status || 'Normal'"
+                                    ></p>
+                                </div>
+                                <p class="mt-1 text-[11px] font-medium text-slate-400">
+                                    Updated
                                     <span
-                                        x-text="
-                                            currentRoom?.monitoring
-                                                ?.room_information?.status || 'Normal'
-                                        "
+                                        class="text-[#005EA6]"
+                                        x-text="currentRoom?.monitoring?.room_information?.last_updated
+                                            ? timeAgo(currentRoom.monitoring.room_information.last_updated)
+                                            : 'Unknown'"
                                     ></span>
-
-                                </span>
-
+                                </p>
                             </div>
-
+                            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-[#005EA6]">
+                                <i data-lucide="activity" class="h-5 w-5"></i>
+                            </div>
                         </div>
-
                     </div>
 
-                    <!-- ===================================================== -->
-                    <!-- ROOM SUMMARY STATS -->
-                    <!-- ===================================================== -->
-
-                    <div class="grid grid-cols-2 gap-3">
-
-
-                        <!-- ================================================= -->
-                        <!-- EQUIPMENT -->
-                        <!-- ================================================= -->
-
-                        <div
-                            class="
-                                rounded-xl
-                                border
-                                border-slate-200
-                                bg-white
-                                p-4
-                            "
-                        >
-
-                            <!-- HEADER -->
-
-                            <div class="flex items-center justify-between gap-3">
-
-                                <p
-                                    class="
-                                        text-xs
-                                        font-medium
-                                        text-slate-500
-                                    "
-                                >
-                                    Assets
-                                </p>
-
-
-                                <div
-                                    class="
-                                        flex
-                                        h-8
-                                        w-8
-                                        shrink-0
-                                        items-center
-                                        justify-center
-                                        rounded-lg
-                                        bg-blue-50
-                                        text-[#005EA6]
-                                    "
-                                >
-                                    <i
-                                        data-lucide="monitor-cog"
-                                        class="h-4 w-4"
-                                    ></i>
+                    {{-- ── Key metrics ── --}}
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm">
+                            <div class="flex items-center justify-between">
+                                <p class="text-[10px] font-bold uppercase tracking-[.14em] text-slate-400">Assets</p>
+                                <div class="flex h-6 w-6 items-center justify-center rounded-lg bg-blue-50 text-[#005EA6]">
+                                    <i data-lucide="box" class="h-3.5 w-3.5"></i>
                                 </div>
-
                             </div>
-
-
-                            <!-- VALUE -->
-
-                            <div class="mt-3 flex items-end gap-2">
-
-                                <p
-                                    class="
-                                        text-2xl
-                                        font-semibold
-                                        tracking-tight
-                                        text-slate-900
-                                    "
-                                >
-                                    {{ $room->monitoring["equipment_quantity"] }}
-                                </p>
-
-
-                                <span
-                                    class="
-                                        mb-0.5
-                                        text-[11px]
-                                        text-slate-400
-                                    "
-                                >
-                                    registered
-                                </span>
-
-                            </div>
-
+                            <p class="mt-1 text-2xl font-black text-[#005EA6]">{{ $room->monitoring["equipment_quantity"] }}</p>
+                            <p class="text-[10px] font-medium text-slate-400">registered</p>
                         </div>
-
-
-
-                        <!-- ================================================= -->
-                        <!-- ACTIVE REPORTS -->
-                        <!-- ================================================= -->
-
-                        <div
-                            class="
-                                rounded-xl
-                                border
-                                border-slate-200
-                                bg-white
-                                p-4
-                            "
-                        >
-
-                            <!-- HEADER -->
-
-                            <div class="flex items-center justify-between gap-3">
-
-                                <p
-                                    class="
-                                        text-xs
-                                        font-medium
-                                        text-slate-500
-                                    "
-                                >
-                                    Active Reports
-                                </p>
-
-
-                                <div
-                                    class="
-                                        flex
-                                        h-8
-                                        w-8
-                                        shrink-0
-                                        items-center
-                                        justify-center
-                                        rounded-lg
-                                        bg-amber-50
-                                        text-amber-600
-                                    "
-                                >
-                                    <i
-                                        data-lucide="triangle-alert"
-                                        class="h-4 w-4"
-                                    ></i>
+                        <div class="rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm">
+                            <div class="flex items-center justify-between">
+                                <p class="text-[10px] font-bold uppercase tracking-[.14em] text-slate-400">Reports</p>
+                                <div class="flex h-6 w-6 items-center justify-center rounded-lg bg-blue-50 text-[#005EA6]">
+                                    <i data-lucide="triangle-alert" class="h-3.5 w-3.5"></i>
                                 </div>
-
                             </div>
-
-
-                            <!-- VALUE -->
-
-                            <div class="mt-3 flex items-end gap-2">
-
-                                <p
-                                    class="
-                                        text-2xl
-                                        font-semibold
-                                        tracking-tight
-                                        text-slate-900
-                                    "
-                                >
-                                    {{ $room->monitoring["active_reports"] }}
-                                </p>
-
-
-                                <span
-                                    class="
-                                        mb-0.5
-                                        text-[11px]
-                                        text-slate-400
-                                    "
-                                >
-                                    unresolved
-                                </span>
-
-                            </div>
-
+                            <p class="mt-1 text-2xl font-black text-slate-800">{{ $room->monitoring["active_reports"] }}</p>
+                            <p class="text-[10px] font-medium text-slate-400">unresolved</p>
                         </div>
-
                     </div>
 
-                    <!-- ===================================================== -->
-                    <!-- EQUIPMENT CONDITION -->
-                    <!-- ===================================================== -->
+                    {{-- ── Schedule bento grid ── --}}
+                    <div>
+                        <p class="mb-2 px-0.5 text-[10px] font-bold uppercase tracking-[.16em] text-slate-400">Schedule & activity</p>
+                        <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                            <div class="flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm">
+                                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#005EA6]">
+                                    <i data-lucide="clipboard-check" class="h-4 w-4"></i>
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Last inspection</p>
+                                    <p
+                                        class="truncate text-sm font-bold text-slate-800"
+                                        x-text="currentRoom?.monitoring?.room_information?.last_inspection
+                                            ? formatDate(currentRoom.monitoring.room_information.last_inspection)
+                                            : 'Never'"
+                                    ></p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm">
+                                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#005EA6]">
+                                    <i data-lucide="calendar-clock" class="h-4 w-4"></i>
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Next maintenance</p>
+                                    <p
+                                        class="truncate text-sm font-bold text-slate-800"
+                                        x-text="currentRoom?.monitoring?.room_information?.next_maintenance
+                                            ? formatDate(currentRoom.monitoring.room_information.next_maintenance)
+                                            : 'No schedule'"
+                                    ></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
-                    <div
-                        class="
-                            overflow-hidden
-                            rounded-xl
-                            border
-                            border-slate-200
-                            bg-white
-                        "
-                    >
-
-                        <!-- ================================================= -->
-                        <!-- HEADER -->
-                        <!-- ================================================= -->
-
-                        <div
-                            class="
-                                flex
-                                items-center
-                                justify-between
-                                border-b
-                                border-slate-100
-                                px-5
-                                py-4
-                            "
-                        >
-
+                    {{-- ── Equipment health bar ── --}}
+                    @php
+                        $eqTotal = max(1, (int) $room->monitoring['equipment_quantity']);
+                        $eqGood = (int) $room->monitoring['equipment_good'];
+                        $eqMaint = (int) $room->monitoring['equipment_maintenance'];
+                        $eqDamaged = (int) $room->monitoring['equipment_damaged'];
+                        $eqDisposed = (int) $room->monitoring['equipment_disposed'];
+                        $pctGood = round(($eqGood / $eqTotal) * 100);
+                        $pctMaint = round(($eqMaint / $eqTotal) * 100);
+                        $pctDamaged = round(($eqDamaged / $eqTotal) * 100);
+                        $pctDisposed = round(($eqDisposed / $eqTotal) * 100);
+                    @endphp
+                    <div class="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
+                        <div class="flex items-center justify-between gap-3">
                             <div>
-
-                                <h3 class="text-sm font-semibold text-slate-900">
-                                    Equipment Condition
-                                </h3>
-
-                                <p class="mt-0.5 text-xs text-slate-500">
-                                    Current condition of equipment in this room.
-                                </p>
-
+                                <p class="text-sm font-bold text-slate-800">Equipment health</p>
+                                <p class="text-[11px] text-slate-400">Condition breakdown</p>
                             </div>
-
-
-                            <!-- HEADER ICON -->
-
-                            <div
-                                class="
-                                    flex
-                                    h-8
-                                    w-8
-                                    shrink-0
-                                    items-center
-                                    justify-center
-                                    rounded-lg
-                                    bg-slate-50
-                                    text-slate-400
-                                "
-                            >
-                                <i
-                                    data-lucide="activity"
-                                    class="h-4 w-4"
-                                ></i>
-                            </div>
-
+                            <span class="rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold text-[#005EA6]">{{ $eqTotal }} total</span>
                         </div>
 
-
-
-                        <!-- ================================================= -->
-                        <!-- CONDITION LIST -->
-                        <!-- ================================================= -->
-
-                        <div class="px-5">
-
-
-                            <!-- ================================================= -->
-                            <!-- GOOD -->
-                            <!-- ================================================= -->
-
-                            <div
-                                class="
-                                    flex
-                                    items-center
-                                    justify-between
-                                    gap-4
-                                    border-b
-                                    border-slate-100
-                                    py-3.5
-                                "
-                            >
-
-                                <div class="flex items-center gap-2.5">
-
-                                    <!--<span
-                                        class="
-                                            h-2
-                                            w-2
-                                            shrink-0
-                                            rounded-full
-                                            bg-emerald-500
-                                        "
-                                    ></span>-->
-
-
-                                    <span class="text-sm text-slate-600">
-                                        Good
-                                    </span>
-
-                                </div>
-
-
-                                <span
-                                    class="
-                                        min-w-7
-                                        rounded-md
-                                        bg-emerald-50
-                                        px-2
-                                        py-1
-                                        text-center
-                                        text-xs
-                                        font-semibold
-                                        text-emerald-700
-                                    "
-                                >
-                                    {{ $room->monitoring["equipment_good"] }}
-                                </span>
-
-                            </div>
-
-
-
-                            <!-- ================================================= -->
-                            <!-- UNDER MAINTENANCE -->
-                            <!-- ================================================= -->
-
-                            <div
-                                class="
-                                    flex
-                                    items-center
-                                    justify-between
-                                    gap-4
-                                    border-b
-                                    border-slate-100
-                                    py-3.5
-                                "
-                            >
-
-                                <div class="flex items-center gap-2.5">
-
-                                    <!--<span
-                                        class="
-                                            h-2
-                                            w-2
-                                            shrink-0
-                                            rounded-full
-                                            bg-amber-500
-                                        "
-                                    ></span>-->
-
-
-                                    <span class="text-sm text-slate-600">
-                                        Under Maintenance
-                                    </span>
-
-                                </div>
-
-
-                                <span
-                                    class="
-                                        min-w-7
-                                        rounded-md
-                                        bg-amber-50
-                                        px-2
-                                        py-1
-                                        text-center
-                                        text-xs
-                                        font-semibold
-                                        text-amber-700
-                                    "
-                                >
-                                    {{ $room->monitoring["equipment_maintenance"] }}
-                                </span>
-
-                            </div>
-
-
-
-                            <!-- ================================================= -->
-                            <!-- DAMAGED -->
-                            <!-- ================================================= -->
-
-                            <div
-                                class="
-                                    flex
-                                    items-center
-                                    justify-between
-                                    gap-4
-                                    border-b
-                                    border-slate-100
-                                    py-3.5
-                                "
-                            >
-
-                                <div class="flex items-center gap-2.5">
-
-                                    <!--<span
-                                        class="
-                                            h-2
-                                            w-2
-                                            shrink-0
-                                            rounded-full
-                                            bg-red-500
-                                        "
-                                    ></span>-->
-
-
-                                    <span class="text-sm text-slate-600">
-                                        Damaged
-                                    </span>
-
-                                </div>
-
-
-                                <span
-                                    class="
-                                        min-w-7
-                                        rounded-md
-                                        bg-red-50
-                                        px-2
-                                        py-1
-                                        text-center
-                                        text-xs
-                                        font-semibold
-                                        text-red-700
-                                    "
-                                >
-                                    {{ $room->monitoring["equipment_damaged"] }}
-                                </span>
-
-                            </div>
-
-
-
-                            <!-- ================================================= -->
-                            <!-- DISPOSED -->
-                            <!-- ================================================= -->
-
-                            <div
-                                class="
-                                    flex
-                                    items-center
-                                    justify-between
-                                    gap-4
-                                    py-3.5
-                                "
-                            >
-
-                                <div class="flex items-center gap-2.5">
-
-                                    <!--<span
-                                        class="
-                                            h-2
-                                            w-2
-                                            shrink-0
-                                            rounded-full
-                                            bg-slate-400
-                                        "
-                                    ></span>-->
-
-
-                                    <span class="text-sm text-slate-600">
-                                        Disposed
-                                    </span>
-
-                                </div>
-
-
-                                <span
-                                    class="
-                                        min-w-7
-                                        rounded-md
-                                        bg-slate-100
-                                        px-2
-                                        py-1
-                                        text-center
-                                        text-xs
-                                        font-semibold
-                                        text-slate-600
-                                    "
-                                >
-                                    {{ $room->monitoring["equipment_disposed"] }}
-                                </span>
-
-                            </div>
-
+                        {{-- Segmented bar — blue & gray tones --}}
+                        <div class="mt-3 flex h-2.5 overflow-hidden rounded-full bg-slate-100">
+                            @if ($eqGood > 0)
+                                <div class="bg-[#005EA6] transition-all" style="width: {{ $pctGood }}%"></div>
+                            @endif
+                            @if ($eqMaint > 0)
+                                <div class="bg-blue-300 transition-all" style="width: {{ $pctMaint }}%"></div>
+                            @endif
+                            @if ($eqDamaged > 0)
+                                <div class="bg-slate-400 transition-all" style="width: {{ $pctDamaged }}%"></div>
+                            @endif
+                            @if ($eqDisposed > 0)
+                                <div class="bg-slate-200 transition-all" style="width: {{ $pctDisposed }}%"></div>
+                            @endif
                         </div>
 
+                        {{-- Legend chips — white / light gray --}}
+                        <div class="mt-3 grid grid-cols-2 gap-1.5">
+                            <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-[#F8FAFC] px-2.5 py-2">
+                                <span class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+                                    <span class="h-1.5 w-1.5 rounded-full bg-[#005EA6]"></span>Good
+                                </span>
+                                <span class="text-xs font-black text-[#005EA6]">{{ $eqGood }}</span>
+                            </div>
+                            <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-[#F8FAFC] px-2.5 py-2">
+                                <span class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+                                    <span class="h-1.5 w-1.5 rounded-full bg-blue-300"></span>Maint.
+                                </span>
+                                <span class="text-xs font-black text-slate-700">{{ $eqMaint }}</span>
+                            </div>
+                            <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-[#F8FAFC] px-2.5 py-2">
+                                <span class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+                                    <span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span>Damaged
+                                </span>
+                                <span class="text-xs font-black text-slate-700">{{ $eqDamaged }}</span>
+                            </div>
+                            <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-[#F8FAFC] px-2.5 py-2">
+                                <span class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+                                    <span class="h-1.5 w-1.5 rounded-full bg-slate-200"></span>Disposed
+                                </span>
+                                <span class="text-xs font-black text-slate-500">{{ $eqDisposed }}</span>
+                            </div>
+                        </div>
                     </div>
 
-                    {{-- QUICK ACTIONS --}}
-
-                    <!-- ===================================================== -->
-                    <!-- QUICK ACTIONS -->
-                    <!-- ===================================================== -->
-
-                    <div
-                        class="
-                            overflow-hidden
-                            rounded-xl
-                            border
-                            border-slate-200
-                            bg-white
-                        "
-                    >
-
-                        <!-- ================================================= -->
-                        <!-- HEADER -->
-                        <!-- ================================================= -->
-
-                        <div
-                            class="
-                                flex
-                                items-center
-                                justify-between
-                                border-b
-                                border-slate-100
-                                px-5
-                                py-4
-                            "
-                        >
-
-                            <div>
-
-                                <h3 class="text-sm font-semibold text-slate-900">
-                                    Quick Actions
-                                </h3>
-
-                                <p class="mt-0.5 text-xs text-slate-500">
-                                    Manage this room and its equipment.
-                                </p>
-
-                            </div>
-
-
-                            <!-- HEADER ICON -->
-
-                            <div
-                                class="
-                                    flex
-                                    h-8
-                                    w-8
-                                    shrink-0
-                                    items-center
-                                    justify-center
-                                    rounded-lg
-                                    bg-slate-50
-                                    text-slate-400
-                                "
-                            >
-                                <i
-                                    data-lucide="zap"
-                                    class="h-4 w-4"
-                                ></i>
-                            </div>
-
-                        </div>
-
-
-
-                        <!-- ================================================= -->
-                        <!-- ACTION GRID -->
-                        <!-- ================================================= -->
-
-                        <div
-                            class="
-                                grid
-                                grid-cols-1
-                                gap-3
-                                p-4
-                                sm:grid-cols-2
-                            "
-                        >
-
-
+                    {{-- ── Quick actions ── --}}
+                    <div>
+                        <p class="mb-2 px-0.5 text-[10px] font-bold uppercase tracking-[.16em] text-slate-400">Quick actions</p>
+                        <div class="grid grid-cols-2 gap-2">
                             <button
                                 type="button"
                                 @click="categoryManual = false; addEquipmentModal = true"
-                                class="group h-full w-full rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-3 text-left transition hover:border-[#005EA6] hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-70 sm:p-4"
+                                class="group flex items-center gap-2.5 rounded-2xl border border-slate-200/80 bg-white p-3 text-left shadow-sm transition hover:border-[#005EA6]/40 hover:bg-blue-50/40 hover:shadow-md"
                             >
-                                <div class="flex flex-col items-start gap-3">
-                                    <div
-                                        class="rounded-xl bg-blue-100 p-2 text-[#005EA6] sm:p-2.5"
-                                    >
-                                        <i
-                                            data-lucide="plus"
-                                            class="h-4 w-4 sm:h-5 sm:w-5"
-                                        ></i>
-                                    </div>
-
-                                    <div class="min-w-0 flex-1">
-                                        <h4
-                                            class="text-xs font-bold text-black sm:text-[13px]"
-                                        >
-                                            Add Equipment
-                                        </h4>
-
-                                        <p class="mt-1 break-words text-[10px] leading-4 text-slate-500">Provision new equipment into this room.</p>
-                                    </div>
+                                <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#005EA6] transition group-hover:bg-[#005EA6] group-hover:text-white">
+                                    <i data-lucide="plus" class="h-4 w-4"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <p class="text-xs font-bold text-slate-800">Add asset</p>
+                                    <p class="truncate text-[10px] text-slate-400">New equipment</p>
                                 </div>
                             </button>
-
                             <button
                                 type="button"
                                 @click="editRoomModal = true"
-                                class="group h-full w-full rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-3 text-left transition hover:border-[#005EA6] hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-70 sm:p-4"
+                                class="group flex items-center gap-2.5 rounded-2xl border border-slate-200/80 bg-white p-3 text-left shadow-sm transition hover:border-[#005EA6]/40 hover:bg-blue-50/40 hover:shadow-md"
                             >
-                                <div class="flex flex-col items-start gap-3">
-                                    <div
-                                        class="rounded-xl bg-amber-100 p-2 text-amber-600 sm:p-2.5"
-                                    >
-                                        <i
-                                            data-lucide="pencil"
-                                            class="h-4 w-4 sm:h-5 sm:w-5"
-                                        ></i>
-                                    </div>
-
-                                    <div class="min-w-0 flex-1">
-                                        <h4
-                                            class="text-xs font-bold text-black sm:text-[13px]"
-                                        >
-                                            Edit Room
-                                        </h4>
-
-                                        <p class="mt-1 break-words text-[10px] leading-4 text-slate-500">Modify room information and layout.</p>
-                                    </div>
+                                <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#005EA6] transition group-hover:bg-[#005EA6] group-hover:text-white">
+                                    <i data-lucide="pencil" class="h-4 w-4"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <p class="text-xs font-bold text-slate-800">Edit room</p>
+                                    <p class="truncate text-[10px] text-slate-400">Name & type</p>
                                 </div>
                             </button>
-
                             <button
                                 type="button"
                                 @click="transferAssetsModal = true"
-                                class="group h-full w-full rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-3 text-left transition hover:border-[#005EA6] hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-70 sm:p-4"
+                                class="group flex items-center gap-2.5 rounded-2xl border border-slate-200/80 bg-white p-3 text-left shadow-sm transition hover:border-[#005EA6]/40 hover:bg-blue-50/40 hover:shadow-md"
                             >
-                                <div class="flex flex-col items-start gap-3">
-                                    <div
-                                        class="rounded-xl bg-emerald-100 p-2 text-emerald-600 sm:p-2.5"
-                                    >
-                                        <i
-                                            data-lucide="arrow-right-left"
-                                            class="h-4 w-4 sm:h-5 sm:w-5"
-                                        ></i>
-                                    </div>
-
-                                    <div class="min-w-0 flex-1">
-                                        <h4
-                                            class="text-xs font-bold text-black sm:text-[13px]"
-                                        >
-                                            Transfer Assets
-                                        </h4>
-
-                                        <p class="mt-1 break-words text-[10px] leading-4 text-slate-500">Move equipment to another room.</p>
-                                    </div>
+                                <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#005EA6] transition group-hover:bg-[#005EA6] group-hover:text-white">
+                                    <i data-lucide="arrow-right-left" class="h-4 w-4"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <p class="text-xs font-bold text-slate-800">Transfer</p>
+                                    <p class="truncate text-[10px] text-slate-400">Move assets</p>
                                 </div>
                             </button>
-
                             <button
                                 type="button"
                                 @click="archiveRoomModal = true"
-                                class="group h-full w-full rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-3 text-left transition hover:border-[#005EA6] hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-70 sm:p-4"
+                                class="group flex items-center gap-2.5 rounded-2xl border border-slate-200/80 bg-white p-3 text-left shadow-sm transition hover:border-slate-300 hover:bg-[#F8FAFC] hover:shadow-md"
                             >
-                                <div class="flex flex-col items-start gap-3">
-                                    <div
-                                        class="rounded-xl bg-red-100 p-2 text-red-600 sm:p-2.5"
-                                    >
-                                        <i
-                                            data-lucide="archive"
-                                            class="h-4 w-4 sm:h-5 sm:w-5"
-                                        ></i>
-                                    </div>
-
-                                    <div class="min-w-0 flex-1">
-                                        <h4
-                                            class="text-xs font-bold text-black sm:text-[13px]"
-                                        >
-                                            Archive Room
-                                        </h4>
-
-                                        <p class="mt-1 break-words text-[10px] leading-4 text-slate-500">Archive this room and keep records.</p>
-                                    </div>
+                                <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition group-hover:bg-slate-500 group-hover:text-white">
+                                    <i data-lucide="archive" class="h-4 w-4"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <p class="text-xs font-bold text-slate-800">Archive</p>
+                                    <p class="truncate text-[10px] text-slate-400">Keep records</p>
                                 </div>
                             </button>
-
                         </div>
-
-
-
-                        <!-- ================================================= -->
-                        <!-- FOOTER -->
-                        <!-- ================================================= -->
-
-                        <div
-                            class="
-                                flex
-                                items-center
-                                justify-between
-                                gap-4
-                                border-t
-                                border-slate-100
-                                bg-slate-50/50
-                                px-5
-                                py-3
-                            "
-                        >
-
-                            <div class="flex items-center gap-2">
-
-                                <i
-                                    data-lucide="panels-top-left"
-                                    class="h-3.5 w-3.5 text-slate-400"
-                                ></i>
-
-
-                                <span
-                                    class="
-                                        text-xs
-                                        font-medium
-                                        text-slate-500
-                                    "
-                                >
-                                    Layout Editor
-                                </span>
-
-                            </div>
-
-
-                            <span
-                                class="
-                                    rounded-md
-                                    border
-                                    border-slate-200
-                                    bg-white
-                                    px-2
-                                    py-1
-                                    text-[10px]
-                                    font-medium
-                                    text-slate-500
-                                "
-                            >
-                                Equipment Management
-                            </span>
-
-                        </div>
-
                     </div>
+
                 </div>
 
                 <!-- ========================================= -->
@@ -6811,6 +5879,30 @@
         </div>
     @endforeach
 </aside>
+
+<style>
+    [data-monitor-drawer] .drawer-scroll {
+        scrollbar-width: thin;
+        scrollbar-color: #94a3b8 transparent;
+    }
+
+    [data-monitor-drawer] .drawer-scroll::-webkit-scrollbar {
+        width: 5px;
+    }
+
+    [data-monitor-drawer] .drawer-scroll::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    [data-monitor-drawer] .drawer-scroll::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 999px;
+    }
+
+    [data-monitor-drawer] .drawer-scroll::-webkit-scrollbar-thumb:hover {
+        background: #005EA6;
+    }
+</style>
 
 <script>
     document.addEventListener("alpine:init", () => {

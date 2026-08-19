@@ -1,123 +1,121 @@
-{{-- Fills the leftover space under the rooms layout, left of the room drawer --}}
+{{-- Floor health overview — styled after Learning Progress reference --}}
 <section
-    class="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain rounded-[28px] border border-slate-200 bg-white shadow-xl lg:overflow-hidden"
+    data-floor-insights
+    class="overflow-hidden rounded-[30px] border border-slate-200/80 bg-white shadow-[0_8px_32px_rgba(0,0,0,0.06)]"
     x-effect="activeFloor; $nextTick(() => { if (window.lucide) lucide.createIcons(); })"
 >
-    <div class="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
-        <div class="min-w-0">
-            <p class="text-[10px] font-extrabold uppercase tracking-[.18em] text-slate-400">
-                Floor snapshot
-            </p>
-            <h2 class="mt-0.5 truncate text-base font-black text-slate-950">
-                <span x-text="activeFloorLabel"></span>
-                <span class="font-semibold text-slate-400">overview</span>
-            </h2>
-        </div>
-        <span class="hidden shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-500 sm:inline">
-            <span x-text="floorStats.rooms"></span> rooms
-        </span>
+    {{-- Header --}}
+    <div class="flex items-center justify-between gap-4 px-6 pb-4 pt-5">
+        <h2 class="text-[15px] font-bold tracking-tight text-[#1A1A1A]">
+            Floor Health Overview
+        </h2>
+        <button
+            type="button"
+            class="flex items-center gap-1 text-[13px] font-normal text-[#888888] transition hover:text-[#444444]"
+        >
+            <span x-text="activeFloorLabel + ' · ' + floorStats.rooms + ' rooms'"></span>
+            <i data-lucide="chevron-down" class="h-3.5 w-3.5"></i>
+        </button>
     </div>
 
-    <div class="grid shrink-0 grid-cols-2 gap-2 border-b border-slate-100 p-4 lg:grid-cols-4">
-        <div class="rounded-2xl bg-slate-50 px-3 py-2.5">
-            <p class="text-[10px] font-bold uppercase tracking-[.14em] text-slate-400">Attention</p>
-            <p class="mt-1 text-xl font-black text-slate-950" x-text="floorStats.attention"></p>
-        </div>
-        <div class="rounded-2xl bg-slate-50 px-3 py-2.5">
-            <p class="text-[10px] font-bold uppercase tracking-[.14em] text-slate-400">Reports</p>
-            <p class="mt-1 text-xl font-black text-slate-950" x-text="floorStats.reports"></p>
-        </div>
-        <div class="rounded-2xl bg-slate-50 px-3 py-2.5">
-            <p class="text-[10px] font-bold uppercase tracking-[.14em] text-slate-400">Today</p>
-            <p class="mt-1 text-xl font-black text-slate-950" x-text="floorStats.todayReports"></p>
-        </div>
-        <div class="rounded-2xl bg-slate-50 px-3 py-2.5">
-            <p class="text-[10px] font-bold uppercase tracking-[.14em] text-slate-400">Damaged</p>
-            <p class="mt-1 text-xl font-black text-slate-950" x-text="floorStats.damaged"></p>
-        </div>
-    </div>
+    <div class="mx-6 border-t border-[#DDDDDD]"></div>
 
-    <div class="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-2 lg:grid-rows-[minmax(0,1fr)]">
-        <div class="flex min-h-0 flex-col overflow-hidden border-b border-slate-100 lg:border-b-0 lg:border-r">
-            <div class="flex shrink-0 items-center justify-between px-4 py-3">
-                <h3 class="text-sm font-black text-slate-900">Needs attention</h3>
-                <span class="text-[11px] font-bold text-slate-400" x-text="attentionRooms.length + ' rooms'"></span>
+    {{-- Main --}}
+    <div class="grid grid-cols-1 items-center gap-2 px-6 py-5 lg:grid-cols-[1fr_240px] lg:gap-4">
+        {{-- Left column --}}
+        <div class="flex min-w-0 flex-col">
+            <p class="text-[13px] font-normal text-[#999999]">Overall Progress</p>
+
+            <div class="mt-1 flex flex-wrap items-center gap-2.5">
+                <p class="text-[34px] font-bold leading-none tracking-tight text-[#1A1A1A]">
+                    <span x-text="floorHealthAverage"></span>% <span class="font-bold" x-text="floorHealthAverage >= 70 ? 'Healthy' : floorHealthAverage >= 40 ? 'Fair' : 'At Risk'"></span>
+                </p>
+                <span
+                    x-show="floorStats.todayReports > 0"
+                    class="rounded-full bg-[#D4F574] px-2.5 py-[3px] text-[11px] font-semibold text-[#1A1A1A]"
+                    x-text="'+' + floorStats.todayReports + ' today'"
+                ></span>
             </div>
-            <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
-                <div x-show="attentionRooms.length === 0" class="px-4 py-8 text-center">
-                    <p class="text-sm font-bold text-slate-800">This floor looks clear</p>
-                    <p class="mt-1 text-xs text-slate-400">No critical rooms or open reports right now.</p>
+
+            <div class="mt-7 max-w-[300px] space-y-[18px]">
+                <div class="flex items-center gap-3 text-[13px]">
+                    <span class="flex-1 text-[#888888]">Rooms needing attention</span>
+                    <span class="text-[#DDDDDD]">|</span>
+                    <span class="w-10 text-right font-bold text-[#1A1A1A]" x-text="attentionRooms.length"></span>
                 </div>
-
-                <template x-for="room in attentionRooms" :key="'attention-' + room.id">
-                    <button
-                        type="button"
-                        @click="focusInsightRoom(room.id)"
-                        class="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-slate-50"
-                        :class="selectedRoom === room.id ? 'bg-sky-50/70' : ''"
-                    >
-                        <span
-                            class="h-8 w-1.5 shrink-0 rounded-full"
-                            :class="{
-                                'bg-red-500': room.tone === 'critical',
-                                'bg-amber-400': room.tone === 'maintenance',
-                                'bg-sky-500': room.tone === 'normal',
-                            }"
-                        ></span>
-                        <span
-                            class="h-8 w-8 shrink-0 rounded-xl border border-slate-200"
-                            :style="`background:${room.color || '#E2E8F0'}`"
-                        ></span>
-                        <span class="min-w-0 flex-1">
-                            <span class="block truncate text-sm font-bold text-slate-900" x-text="room.name"></span>
-                            <span class="block truncate text-[11px] font-medium text-slate-400" x-text="(room.reports || 0) + ' reports · ' + (room.status || 'Normal')"></span>
-                        </span>
-                    </button>
-                </template>
-            </div>
-        </div>
-
-        <div class="flex min-h-0 flex-col overflow-hidden">
-            <div class="flex shrink-0 items-center justify-between px-4 py-3">
-                <h3 class="text-sm font-black text-slate-900">Upcoming work</h3>
-                <i data-lucide="calendar-clock" class="h-4 w-4 text-slate-400"></i>
-            </div>
-            <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
-                <div x-show="upcomingSchedules.length === 0" class="px-4 py-6 text-center">
-                    <p class="text-sm font-bold text-slate-800">No scheduled work</p>
-                    <p class="mt-1 text-xs text-slate-400">Nothing queued for this floor.</p>
+                <div class="flex items-center gap-3 text-[13px]">
+                    <span class="flex-1 text-[#888888]">Open report volume</span>
+                    <span class="text-[#DDDDDD]">|</span>
+                    <span class="w-10 text-right font-bold text-[#1A1A1A]" x-text="floorStats.reports"></span>
                 </div>
-
-                <template x-for="item in upcomingSchedules" :key="'schedule-' + item.roomId + '-' + item.title + '-' + item.date">
-                    <button
-                        type="button"
-                        @click="focusInsightRoom(item.roomId)"
-                        class="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-slate-50"
-                    >
-                        <span class="min-w-0 flex-1">
-                            <span class="block truncate text-sm font-bold text-slate-900" x-text="item.title"></span>
-                            <span class="block truncate text-[11px] font-medium text-slate-400" x-text="item.roomName"></span>
-                        </span>
-                        <span
-                            class="shrink-0 rounded-full px-2 py-1 text-[10px] font-bold"
-                            :class="scheduleIsOverdue(item.date) ? 'bg-red-50 text-red-600' : 'bg-slate-100 text-slate-500'"
-                            x-text="formatInsightDate(item.date)"
-                        ></span>
-                    </button>
-                </template>
-
-                <div class="border-t border-slate-100 px-4 py-3" x-show="floorHotIssues.length > 0">
-                    <p class="mb-2 text-[10px] font-extrabold uppercase tracking-[.16em] text-slate-400">Recurring issues</p>
-                    <div class="space-y-1.5">
-                        <template x-for="issue in floorHotIssues" :key="'issue-' + issue.label">
-                            <div class="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2">
-                                <p class="min-w-0 truncate text-xs font-semibold text-slate-800" x-text="issue.label"></p>
-                                <span class="shrink-0 text-[10px] font-bold text-slate-500" x-text="issue.count + 'x'"></span>
-                            </div>
-                        </template>
-                    </div>
+                <div class="flex items-center gap-3 text-[13px]">
+                    <span class="flex-1 text-[#888888]">Assets tracked</span>
+                    <span class="text-[#DDDDDD]">|</span>
+                    <span class="w-10 text-right font-bold text-[#1A1A1A]" x-text="floorStats.equipment"></span>
                 </div>
             </div>
+
+            {{-- Goal bar (reference style — gray pill, left column) --}}
+            <div class="mt-8 flex max-w-[340px] items-center gap-2.5 rounded-full bg-[#D8D8D8] px-4 py-[10px]">
+                <span class="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[4px] bg-black">
+                    <i data-lucide="check" class="h-2.5 w-2.5 text-white"></i>
+                </span>
+                <p class="truncate text-[12px] font-normal text-[#666666]">
+                    <span x-text="floorHealthAverage"></span>% of your floor health target reached
+                </p>
+            </div>
+        </div>
+
+        {{-- Right: radar chart --}}
+        <div class="relative flex items-center justify-center lg:justify-end">
+            <svg viewBox="0 0 240 240" class="h-[210px] w-[210px] lg:h-[230px] lg:w-[230px]" aria-hidden="true">
+                <defs>
+                    <radialGradient id="floorRadarFill" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" stop-color="#4DA3FF" stop-opacity="0.7" />
+                        <stop offset="45%" stop-color="#7EC0FF" stop-opacity="0.35" />
+                        <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+                    </radialGradient>
+                    <marker id="floorRadarArrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                        <path d="M0,0 L6,3 L0,6 Z" fill="#4DA3FF" />
+                    </marker>
+                </defs>
+
+                {{-- Grid hexagons --}}
+                <g fill="none" stroke="#D0D0D0" stroke-width="0.6">
+                    <polygon points="120,28 188,67 188,173 120,212 52,173 52,67" />
+                    <polygon points="120,46 172,78 172,162 120,194 68,162 68,78" opacity="0.75" />
+                    <polygon points="120,64 156,89 156,151 120,176 84,151 84,89" opacity="0.5" />
+                </g>
+
+                {{-- Axis spokes with arrows --}}
+                <g stroke="#4DA3FF" stroke-width="1" marker-end="url(#floorRadarArrow)">
+                    <line x1="120" y1="120" x2="120" y2="32" />
+                    <line x1="120" y1="120" x2="196" y2="72" />
+                    <line x1="120" y1="120" x2="196" y2="168" />
+                    <line x1="120" y1="120" x2="120" y2="208" />
+                    <line x1="120" y1="120" x2="44" y2="168" />
+                    <line x1="120" y1="120" x2="44" y2="72" />
+                </g>
+
+                {{-- Data shape --}}
+                <polygon
+                    :points="floorRadarPolygon"
+                    fill="url(#floorRadarFill)"
+                    stroke="#3B8FE8"
+                    stroke-width="1.5"
+                    stroke-linejoin="round"
+                />
+
+                {{-- Axis labels --}}
+                <g fill="#888888" font-size="9" font-family="system-ui, sans-serif" font-weight="500">
+                    <text x="120" y="16" text-anchor="middle">Reports</text>
+                    <text x="210" y="68" text-anchor="start">Attention</text>
+                    <text x="210" y="178" text-anchor="start">Health</text>
+                    <text x="120" y="232" text-anchor="middle">Assets</text>
+                    <text x="30" y="178" text-anchor="end">Schedules</text>
+                    <text x="30" y="68" text-anchor="end">Issues</text>
+                </g>
+            </svg>
         </div>
     </div>
 </section>

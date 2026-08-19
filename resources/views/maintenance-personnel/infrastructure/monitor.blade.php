@@ -60,12 +60,14 @@
                 ],
             )
             ->values();
+        $roomCountsByFloor = $rooms->countBy("room_floor_id");
     @endphp
     @php
         use Illuminate\Support\Str;
     @endphp
 
     <div
+        data-infrastructure-monitor
         x-data="infrastructureMonitor({{ (int) optional($initialFloor)->floor_id }})"
         x-init="init()"
         @keydown.space.window="
@@ -101,7 +103,7 @@
         @keydown.window="handleLayoutUndoHotkey($event)"
         @pointermove.window="trackRoomRotation($event); trackEquipmentRotation($event); trackEquipmentAction($event)"
         @pointerup.window="endRoomRotation($event); endEquipmentRotation($event); endEquipmentAction($event)"
-        class="flex min-h-0 w-full flex-1 flex-col overflow-hidden"
+        class="flex w-full flex-1 flex-col"
     >
         @if (session("success"))
             <div
@@ -123,286 +125,121 @@
             </div>
         @endif
 
-        <div class="flex justify-end">
-                <button
-                    @click="
-                        step = (String(form.building_name || '').trim() || (form.floors || []).length > 0)
-                            ? 2
-                            : 1;
-
-                        wizardOpen = true;
-
-                        wizardHasLocalChanges = false;
-
-                        loadCampus(false);
-
-                        $nextTick(() => {
-                            if (window.lucide) {
-                                lucide.createIcons();
-                            }
-                        });
-                    "
-                    class="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-slate-800"
-                >
-                    <i data-lucide="building-2" class="h-4 w-4"></i> Configure
-                    campus
-                </button>
-                
-            
-        </div>
-
-        
-
         {{-- ========================================================= --}}
         {{-- INFRASTRUCTURE WORKSPACE TOOLBAR --}}
         {{-- ========================================================= --}}
 
-        <section
-            class="mt-6 mb-6 shrink-0 overflow-hidden rounded-2xl
-                border border-slate-200 bg-white"
-        >
+        <div class="mt-6 mb-5 shrink-0">
+            <div class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
 
-            <div
-                class="flex flex-col gap-4 p-4
-                    xl:flex-row xl:items-center"
-            >
+                {{-- LEFT: LEGEND --}}
+                <div class="flex min-w-0 flex-1 items-center gap-2">
 
-                {{-- ================================================= --}}
-                {{-- FLOOR SELECTION --}}
-                {{-- ================================================= --}}
-
-                <div
-                    class="flex min-w-0 flex-1 items-center gap-2"
-                >
-
-                    {{-- FLOOR LABEL --}}
-                    <div
-                        class="hidden shrink-0 items-center gap-2
-                            pr-2 text-xs font-medium text-slate-400
-                            sm:flex"
-                    >
-                        <i
-                            data-lucide="layers-3"
-                            class="h-4 w-4"
-                        ></i>
-
-                        Floors
-                    </div>
-
-
-                    {{-- FLOOR TABS --}}
-                    <div
-                        class="flex min-w-0 flex-1 gap-1
-                            overflow-x-auto rounded-xl
-                            bg-slate-100 p-1"
-                        role="tablist"
-                        aria-label="Floor selection"
-                    >
-
-                        @forelse ($floors as $floor)
-
-                            <button
-                                type="button"
-
-                                @click="selectFloor({{ $floor->floor_id }})"
-
-                                :class="
-                                    activeFloor === {{ $floor->floor_id }}
-                                        ? 'bg-white text-slate-900 shadow-sm'
-                                        : 'text-slate-500 hover:text-slate-800'
-                                "
-
-                                class="flex min-w-max items-center gap-2
-                                    rounded-lg px-3 py-2
-                                    text-xs font-medium transition"
-
-                                role="tab"
-
-                                :aria-selected="
-                                    activeFloor === {{ $floor->floor_id }}
-                                "
-                            >
-
-                                {{-- FLOOR NAME --}}
-                                <span>
-                                    {{ $floor->floor_level }}
-                                </span>
-
-
-                                {{-- ROOM COUNT --}}
-                                <span
-                                    :class="
-                                        activeFloor === {{ $floor->floor_id }}
-                                            ? 'bg-slate-100 text-slate-500'
-                                            : 'bg-white/70 text-slate-400'
-                                    "
-
-                                    class="rounded-md px-1.5 py-0.5
-                                        text-[10px] font-medium"
-                                >
-                                    {{ $floor->rooms_count }}
-                                </span>
-
-                            </button>
-
-
-                        @empty
-
-                            <div
-                                class="flex items-center gap-2
-                                    px-3 py-2 text-xs text-slate-400"
-                            >
-                                <i
-                                    data-lucide="layers"
-                                    class="h-3.5 w-3.5"
-                                ></i>
-
-                                No floors configured
-                            </div>
-
-                        @endforelse
-
+                    {{-- CONDITION LEGEND --}}
+                    <div class="hidden items-center gap-3 text-[11px] font-medium text-slate-500 sm:flex">
+                        <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-emerald-500"></span>Good</span>
+                        <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-amber-400"></span>Maint.</span>
+                        <span class="flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-red-500"></span>Critical</span>
                     </div>
 
                 </div>
 
+                {{-- RIGHT: SEARCH + FIND + CONFIGURE CAMPUS --}}
+                <div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
 
+                    {{-- SEARCH --}}
+                    <div class="relative">
+                        <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"></i>
+                        <input
+                            id="room-blueprint-search"
+                            type="search"
+                            x-model="roomSearch"
+                            @keydown.enter.prevent="focusRoomSearch()"
+                            placeholder="Search rooms…"
+                            class="h-9 w-48 rounded-xl border border-slate-200 bg-white pl-8 pr-3 text-[11px] font-medium text-slate-700 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:w-60 xl:w-52"
+                        >
+                    </div>
 
-                {{-- ================================================= --}}
-                {{-- SEARCH --}}
-                {{-- ================================================= --}}
-
-                <div
-                    class="relative w-full
-                        xl:w-[320px]"
-                >
-
-                    <i
-                        data-lucide="search"
-                        class="pointer-events-none absolute
-                            left-3 top-1/2 h-4 w-4
-                            -translate-y-1/2 text-slate-400"
-                    ></i>
-
-
-                    <input
-                        id="room-blueprint-search"
-
-                        type="search"
-
-                        x-model="roomSearch"
-
-                        @keydown.enter.prevent="focusRoomSearch()"
-
-                        placeholder="Search rooms..."
-
-                        class="h-10 w-full rounded-xl
-                            border border-slate-200 bg-white
-                            pl-9 pr-20
-                            text-xs font-medium text-slate-700
-                            outline-none transition
-                            placeholder:text-slate-400
-                            focus:border-slate-400"
-                    >
-
-
-                    {{-- SEARCH BUTTON --}}
+                    {{-- FIND --}}
                     <button
                         type="button"
-
                         @click="focusRoomSearch()"
-
-                        class="absolute right-1 top-1/2
-                            flex h-8 -translate-y-1/2
-                            items-center gap-1.5 rounded-lg
-                            bg-slate-900 px-3
-                            text-[11px] font-medium text-white
-                            transition hover:bg-slate-800"
+                        class="flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
                     >
+                        <i data-lucide="scan-search" class="h-3.5 w-3.5"></i>
                         Find
+                    </button>
+
+                    {{-- CONFIGURE CAMPUS --}}
+                    <button
+                        @click="
+                            step = (String(form.building_name || '').trim() || (form.floors || []).length > 0)
+                                ? 2
+                                : 1;
+
+                            wizardOpen = true;
+
+                            wizardHasLocalChanges = false;
+
+                            loadCampus(false);
+
+                            $nextTick(() => {
+                                if (window.lucide) {
+                                    lucide.createIcons();
+                                }
+                            });
+                        "
+                        class="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-[11px] font-bold text-white shadow-lg shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-slate-800"
+                    >
+                        <i data-lucide="building-2" class="h-3.5 w-3.5"></i>
+                        Configure campus
                     </button>
 
                 </div>
 
-
-
-                {{-- ================================================= --}}
-                {{-- DIVIDER --}}
-                {{-- ================================================= --}}
-
-                <div
-                    class="hidden h-8 w-px
-                        shrink-0 bg-slate-200
-                        xl:block"
-                ></div>
-
-
-
-                {{-- ================================================= --}}
-                {{-- CONDITION LEGEND --}}
-                {{-- ================================================= --}}
-
-                <div
-                    class="flex shrink-0 flex-wrap
-                        items-center gap-x-4 gap-y-2
-                        text-[11px] font-medium
-                        text-slate-500"
-                >
-
-                    {{-- GOOD --}}
-                    <span class="flex items-center gap-1.5">
-
-                        <span
-                            class="h-2 w-2 rounded-full
-                                bg-emerald-500"
-                        ></span>
-
-                        Good
-
-                    </span>
-
-
-                    {{-- UNDER MAINTENANCE --}}
-                    <span class="flex items-center gap-1.5">
-
-                        <span
-                            class="h-2 w-2 rounded-full
-                                bg-amber-400"
-                        ></span>
-
-                        Maintenance
-
-                    </span>
-
-
-                    {{-- CRITICAL --}}
-                    <span class="flex items-center gap-1.5">
-
-                        <span
-                            class="h-2 w-2 rounded-full
-                                bg-red-500"
-                        ></span>
-
-                        Critical
-
-                    </span>
-
-                </div>
-
             </div>
-
-        </section>
+        </div>
 
         <!-- =============================== -->
         <!-- Workspace -->
         <!-- Replace this whole class -->
         <!-- =============================== -->
 
-        <div class="flex min-h-0 w-full flex-1 flex-col gap-6 overflow-hidden xl:flex-row xl:items-stretch">
-            <div class="flex min-h-0 min-w-0 flex-1 flex-col gap-6 xl:h-[calc(100vh-160px)] xl:max-h-[900px] xl:min-h-[700px]">
+        <div class="flex w-full flex-1 flex-col gap-6 xl:flex-row xl:items-stretch">
+            <div class="flex min-w-0 flex-1 flex-col gap-6">
+            <div class="flex min-w-0 flex-col">
+                {{-- FLOOR FOLDER TABS --}}
+                <div
+                    class="floor-tabs-bar flex min-w-0 items-end gap-1 overflow-x-auto"
+                    role="tablist"
+                    aria-label="Floor selection"
+                >
+                    @forelse ($floors as $floor)
+                        @php
+                            $floorRoomCount = (int) ($roomCountsByFloor[$floor->floor_id] ?? 0);
+                        @endphp
+                        <button
+                            type="button"
+                            @click="selectFloor({{ $floor->floor_id }})"
+                            :class="Number(activeFloor) === {{ $floor->floor_id }}
+                                ? 'floor-tab floor-tab--active'
+                                : 'floor-tab floor-tab--inactive'"
+                            role="tab"
+                            :aria-selected="Number(activeFloor) === {{ $floor->floor_id }}"
+                        >
+                            <span class="floor-tab__label">{{ $floor->floor_level }}</span>
+                            <span class="floor-tab__count">{{ $floorRoomCount }}</span>
+                        </button>
+                    @empty
+                        <div class="floor-tab floor-tab--inactive opacity-60">
+                            No floors
+                        </div>
+                    @endforelse
+                </div>
+
             <section
                 x-ref="blueprintWorkspace"
-                class="relative flex min-h-0 min-w-0 flex-[1.65] flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-xl"
+                class="relative -mt-px flex min-w-0 flex-col overflow-hidden rounded-[28px] rounded-tl-none border border-slate-200 bg-white xl:min-h-[520px]"
             >
                 <!-- ========================================================= -->
                 <!-- TOP TOOLBAR -->
@@ -614,22 +451,6 @@
                                 <div class="border-t border-slate-200"></div>
 
                                 <!-- ==================== -->
-                                <!-- Paint Rooms -->
-                                <!-- ==================== -->
-
-                                <button
-                                    type="button"
-                                    @click="toggleRoomPaintMode()"
-                                    :data-tooltip="roomPaintMode ? 'Close Room Paint' : 'Paint Rooms'"
-                                    :class="roomPaintMode ? 'bg-[#005EA6] text-white hover:bg-[#004b86]' : 'hover:bg-slate-100 text-slate-700'"
-                                    class="flex w-full items-center justify-center py-3 transition"
-                                >
-                                    <i data-lucide="paintbrush" class="h-4 w-4"></i>
-                                </button>
-
-                                <div class="border-t border-slate-200"></div>
-
-                                <!-- ==================== -->
                                 <!-- Reset -->
                                 <!-- ==================== -->
 
@@ -646,6 +467,22 @@
                                     ></i>
 
                                 </button>
+
+                                <div
+                                    x-show="editMode"
+                                    x-transition
+                                    class="border-t border-slate-200"
+                                >
+                                    <button
+                                        type="button"
+                                        @click="toggleRoomPaintMode()"
+                                        :data-tooltip="roomPaintMode ? 'Close Room Paint' : 'Paint Rooms'"
+                                        :class="roomPaintMode ? 'bg-[#005EA6] text-white hover:bg-[#004b86]' : 'hover:bg-slate-100 text-slate-700'"
+                                        class="flex w-full items-center justify-center py-3 transition"
+                                    >
+                                        <i data-lucide="paintbrush" class="h-4 w-4"></i>
+                                    </button>
+                                </div>
 
                                 <div class="border-t border-slate-200"></div>
 
@@ -793,13 +630,13 @@
                     @mousemove.window="moveBlueprintPan($event)"
                     @mouseup.window="endBlueprintPan()"
                     @mouseleave="endBlueprintPan()"
-                    class="relative min-h-0 flex-1 overflow-hidden bg-white"
+                    class="relative min-h-[420px] flex-1 overflow-hidden bg-white xl:min-h-[480px]"
                     :class="isRotating ? 'cursor-grabbing' : blueprint.isPanning ? 'cursor-grabbing' : 'cursor-grab'"
                 >
                     <!--bg-gradient-to-br from-[#dbe6f1] via-[#edf3f8] to-[#cbd9e7] for blueprintCanvas-->
                     <div
                         x-ref="blueprintCanvas"
-                        class="blueprint-grid absolute left-0 top-0 overflow-hidden rounded-[24px] border border-white/70 bg-white shadow-inner"
+                        class="blueprint-grid absolute left-0 top-0 overflow-hidden rounded-[24px] rounded-tl-none border-2 border-dashed border-slate-300 bg-white"
                         :style="`
 
                             width:${blueprint.width}px;
@@ -827,10 +664,7 @@
                         `"
                     >
                         <div
-                            class="pointer-events-none absolute inset-[1px] rounded-[26px] border-[14px] border-slate-500/15 shadow-[inset_0_0_0_2px_rgba(255,255,255,.8)]"
-                        ></div>
-                        <div
-                            class="pointer-events-none absolute left-1/2 top-1/2 h-64 w-[520px] -translate-x-1/2 -translate-y-1/2 rotate-[-8deg] rounded-[50%] border-[24px] border-white/50 bg-sky-100/20 shadow-inner"
+                            class="pointer-events-none absolute left-1/2 top-1/2 h-64 w-[520px] -translate-x-1/2 -translate-y-1/2 rotate-[-8deg] rounded-[50%] border-[24px] border-white/50 bg-sky-100/20"
                         ></div>
                         <div
                             class="pointer-events-none absolute bottom-8 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-full bg-white/65 px-4 py-2 text-[10px] font-bold uppercase tracking-[.2em] text-slate-400"
@@ -841,7 +675,7 @@
 
                         @foreach ($floors as $floor)
                             <div
-                                x-show="activeFloor === {{ $floor->floor_id }}"
+                                x-show="Number(activeFloor) === {{ $floor->floor_id }}"
                                 x-cloak
                                 class="absolute inset-0"
                                 data-floor-panel="{{ $floor->floor_id }}"
@@ -880,7 +714,7 @@
                                         type="button"
                                         @click.stop="if (editMode && roomPaintMode) { selectRoomForPaint({{ $room->room_id }}); return; } if(!editMode) selectedRoom={{ $room->room_id }}"
                                         
-                                        class="room-block room-card group absolute overflow-visible z-10 rounded-xl border-2 p-3 text-left shadow-[0_14px_22px_rgba(15,23,42,.18)] transition-[box-shadow,filter] duration-200 hover:z-20 hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-[#07319C] {{ $room->room_status === 'Critical' ? 'critical-room' : '' }}"
+                                        class="room-block room-card group absolute overflow-visible z-10 rounded-xl border-2 border-white p-3 text-left shadow-[0_14px_22px_rgba(15,23,42,.18)] transition-[box-shadow,filter] duration-200 hover:z-20 hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-[#07319C] {{ $room->room_status === 'Critical' ? 'critical-room' : '' }}"
                                         :class="{'cursor-move ring-2 ring-[#07319C] rounded-lg': editMode, 'ring-2 ring-[#07319C]': selectedRoom === {{ $room->room_id }}}"
                                         data-size="large"
                                         data-label-orientation="{{ $labelOrientation }}"
@@ -939,7 +773,7 @@
                                         {{-- ========================= --}}
 
                                         <div
-                                            class="absolute inset-0 z-20 overflow-hidden rounded-xl"
+                                            class="absolute inset-0 z-20 overflow-hidden rounded-[inherit]"
                                         ></div>
 
                                         <span
@@ -1062,11 +896,15 @@
                     </div>
                 </div>
             </section>
+            </div>
 
             @include ("maintenance-personnel.infrastructure.floor-insights")
             </div>
 
-            @include ("maintenance-personnel.infrastructure.monitor-drawer")
+            <div class="flex w-full shrink-0 flex-col gap-4 xl:w-[22vw] xl:min-w-[360px] xl:max-w-[460px] xl:self-stretch xl:min-h-[calc(100vh-10rem-20px)]">
+                @include ("maintenance-personnel.infrastructure.monitor-drawer")
+                @include ("maintenance-personnel.infrastructure.floor-health-panel")
+            </div>
         </div>
 
         @include ("maintenance-personnel.infrastructure.campus-wizard")
@@ -1850,6 +1688,124 @@
         [x-cloak] {
             display: none !important;
         }
+
+        /* Folder-style floor tabs overlapping the layout viewport */
+        .floor-tabs-bar {
+            scrollbar-width: none;
+        }
+
+        .floor-tabs-bar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .floor-tab {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.4375rem 0.75rem 0.5rem;
+            border: 1px solid #dbe3ee;
+            border-bottom: none;
+            border-radius: 10px 10px 0 0;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1;
+            white-space: nowrap;
+            cursor: pointer;
+            background: #eef2f7;
+            color: #64748b;
+        }
+
+        .floor-tab__label {
+            letter-spacing: -0.01em;
+        }
+
+        .floor-tab__count {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 1.125rem;
+            height: 1.125rem;
+            padding: 0 0.25rem;
+            border-radius: 999px;
+            background: rgba(100, 116, 139, 0.1);
+            font-size: 10px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            color: #64748b;
+        }
+
+        .floor-tab--inactive:hover {
+            background: #e5ebf3;
+            color: #334155;
+        }
+
+        .floor-tab--inactive:hover .floor-tab__count {
+            background: rgba(100, 116, 139, 0.16);
+            color: #475569;
+        }
+
+        .floor-tab--active {
+            z-index: 2;
+            margin-bottom: -1px;
+            padding-bottom: calc(0.5rem + 1px);
+            background: #fff;
+            color: #0f172a;
+            font-weight: 700;
+            border-color: #cbd5e1;
+        }
+
+        .floor-tab--active .floor-tab__count {
+            background: #e8f1ff;
+            color: #005ea6;
+        }
+
+        .floor-tab--active::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: -1px;
+            height: 2px;
+            background: #fff;
+        }
+
+        /* Infrastructure monitor: page scrolls; no nested scroll in buildings layout */
+        body.mp-layout:has([data-infrastructure-monitor]) main {
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+
+        body.mp-layout:has([data-infrastructure-monitor]) main::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        body.mp-layout:has([data-infrastructure-monitor]) main::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        body.mp-layout:has([data-infrastructure-monitor]) main::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 999px;
+        }
+
+        [data-floor-insights] .floor-insights-scroll::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        [data-floor-insights] .floor-insights-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        [data-floor-insights] .floor-insights-scroll::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.5);
+            border-radius: 999px;
+        }
+
+        [data-floor-insights] .floor-insights-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(100, 116, 139, 0.6);
+        }
+
         .blueprint-grid {
             background-image:
                 linear-gradient(rgba(100, 116, 139, 0.12) 1px, transparent 1px),
@@ -2095,10 +2051,54 @@
         }
 
         .room-block {
+            --edge-left: 0;
+            --edge-right: 0;
+            --edge-top: 0;
+            --edge-bottom: 0;
             touch-action: none;
             user-select: none;
             -webkit-user-select: none;
             backface-visibility: hidden;
+            border-color: rgba(255, 255, 255, 0.96);
+        }
+
+        .room-block::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            pointer-events: none;
+            z-index: 15;
+            box-shadow:
+                inset 0 0 0 1px rgba(15, 23, 42, 0.16),
+                inset 3px 0 0 0 rgba(255, 255, 255, var(--edge-left)),
+                inset 4px 0 0 0 rgba(15, 23, 42, calc(var(--edge-left) * 0.32)),
+                inset -3px 0 0 0 rgba(255, 255, 255, var(--edge-right)),
+                inset -4px 0 0 0 rgba(15, 23, 42, calc(var(--edge-right) * 0.32)),
+                inset 0 3px 0 0 rgba(255, 255, 255, var(--edge-top)),
+                inset 0 4px 0 0 rgba(15, 23, 42, calc(var(--edge-top) * 0.32)),
+                inset 0 -3px 0 0 rgba(255, 255, 255, var(--edge-bottom)),
+                inset 0 -4px 0 0 rgba(15, 23, 42, calc(var(--edge-bottom) * 0.32));
+        }
+
+        .room-block[data-edge-left="true"] {
+            border-top-left-radius: 0;
+            border-bottom-left-radius: 0;
+        }
+
+        .room-block[data-edge-right="true"] {
+            border-top-right-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+
+        .room-block[data-edge-top="true"] {
+            border-top-left-radius: 0;
+            border-top-right-radius: 0;
+        }
+
+        .room-block[data-edge-bottom="true"] {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
         }
 
         .room-block.is-dragging,
@@ -2340,7 +2340,11 @@
                     step4InlineErrors: [],
                     toast: "",
                     floors: @js ($floors
-                    ->map(fn($f) => ["id" => $f->floor_id, "label" => $f->floor_level])
+                    ->map(fn($f) => [
+                        "id" => $f->floor_id,
+                        "label" => $f->floor_level,
+                        "room_count" => (int) ($roomCountsByFloor[$f->floor_id] ?? 0),
+                    ])
                     ->values()),
                     existingRoomNamesByFloor: @js(
                         $rooms
@@ -2521,6 +2525,94 @@
                             .sort((a, b) => b.count - a.count)
                             .slice(0, 4);
                     },
+                    roomHealthPercent(room) {
+                        const monitoring = room.monitoring || {};
+                        const total = Math.max(
+                            1,
+                            Number(monitoring.equipment_count || 0) ||
+                                (Array.isArray(room.equipment)
+                                    ? room.equipment.length
+                                    : 0) ||
+                                1,
+                        );
+                        const good = Number(monitoring.equipment_good || 0);
+                        let pct = Math.round((good / total) * 100);
+
+                        const status = String(room.status || "Normal");
+
+                        if (status === "Critical") {
+                            pct = Math.min(pct, 40);
+                        } else if (status === "Maintenance Needed") {
+                            pct = Math.min(pct, 72);
+                        }
+
+                        const reports = Number(monitoring.active_reports || 0);
+
+                        return Math.max(8, Math.min(100, pct - reports * 4));
+                    },
+                    get floorHealthRooms() {
+                        return this.floorRooms
+                            .map((room) => ({
+                                id: room.id,
+                                name: room.name,
+                                color: room.color || "#60A5FA",
+                                health: this.roomHealthPercent(room),
+                            }))
+                            .sort((a, b) => b.health - a.health)
+                            .slice(0, 2);
+                    },
+                    get floorHealthAverage() {
+                        if (!this.floorRooms.length) {
+                            return 0;
+                        }
+
+                        const total = this.floorRooms.reduce(
+                            (sum, room) => sum + this.roomHealthPercent(room),
+                            0,
+                        );
+
+                        return Math.round(total / this.floorRooms.length);
+                    },
+                    get floorRadarPolygon() {
+                        const clamp = (value, max) =>
+                            Math.max(0.15, Math.min(1, Number(value || 0) / max));
+
+                        const values = [
+                            clamp(this.floorStats.reports, 40),
+                            clamp(this.floorStats.attention, 6),
+                            clamp(this.floorHealthAverage, 100),
+                            clamp(this.floorStats.equipment, 15),
+                            clamp(this.upcomingSchedules.length, 4),
+                            clamp(
+                                this.floorHotIssues.reduce(
+                                    (sum, issue) => sum + Number(issue.count || 0),
+                                    0,
+                                ),
+                                8,
+                            ),
+                        ];
+
+                        const cx = 120;
+                        const cy = 120;
+                        const maxR = 82;
+
+                        return values
+                            .map((value, index) => {
+                                const angle =
+                                    Math.PI / 2 + index * ((2 * Math.PI) / 6);
+
+                                const x = cx + maxR * value * Math.cos(angle);
+                                const y = cy - maxR * value * Math.sin(angle);
+
+                                return `${x},${y}`;
+                            })
+                            .join(" ");
+                    },
+                    scrollToFloorInsights() {
+                        document
+                            .querySelector("[data-floor-insights]")
+                            ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    },
                     formatInsightDate(value) {
                         if (!value) {
                             return "No date";
@@ -2616,12 +2708,6 @@
                         });
 
                         this.selectedRoom = Number(ranked[0].id);
-
-                        this.$nextTick(() => {
-                            if (window.lucide) {
-                                lucide.createIcons();
-                            }
-                        });
                     },
                     get activeWizardFloor() {
                         return this.form.floors[this.wizardFloorIndex] || null;
@@ -2782,6 +2868,7 @@
                             document.querySelectorAll(".room-block").forEach((room) => {
                                 this.syncRoomLabel(room);
                             });
+                            this.syncRoomEdges();
 
                             document.addEventListener(
 
@@ -2836,9 +2923,26 @@
                         }
                     },
                     selectFloor(id) {
-                        this.activeFloor = id;
+                        const nextFloor = Number(id);
+
+                        if (Number(this.activeFloor) === nextFloor) {
+                            return;
+                        }
+
+                        this.activeFloor = nextFloor;
                         this.closeRoomManager();
-                        this.selectPriorityRoom(id);
+
+                        queueMicrotask(() => {
+                            const selectedOnFloor = (this.roomCatalog || []).some(
+                                (room) =>
+                                    Number(room.id) === Number(this.selectedRoom) &&
+                                    Number(room.floor_id) === nextFloor,
+                            );
+
+                            if (!selectedOnFloor) {
+                                this.selectPriorityRoom(nextFloor);
+                            }
+                        });
                     },
                     zoomBlueprint(delta) {
                         const oldZoom = this.blueprint.zoom;
@@ -3021,6 +3125,7 @@
                         document.body.classList.remove("cursor-grabbing", "rotate-active-cursor");
                         this.dropLayoutUndoIfUnchanged();
                         this.layoutDirty = true;
+                        this.syncRoomEdges();
                     },
                     rotateSelectedRoom(delta) {
                         if (!this.editMode || !this.selectedRoom) {
@@ -4211,6 +4316,7 @@
                         });
 
                         this.syncSelectedRoomControl();
+                        this.syncRoomEdges();
                     },
                     syncLayoutDirtyFromOriginal() {
                         this.layoutDirty = !this.layoutSnapshotsEqual(
@@ -5237,6 +5343,8 @@
                         if (this.selectedRoom === Number(state.el.dataset.id)) {
                             this.syncSelectedRoomControl();
                         }
+
+                        this.syncRoomEdges();
                     },
                     applyRoomDragVisual(el, x, y) {
                         const originX = Number(el.dataset.x) || 0;
@@ -5306,6 +5414,8 @@
                         if (this.selectedRoom === Number(el.dataset.id)) {
                             this.syncSelectedRoomControl();
                         }
+
+                        this.syncRoomEdges();
                     },
                     bindDragging() {
                         if (!window.interact) {
@@ -6188,6 +6298,86 @@
                             g: Number(rgb[2]),
                             b: Number(rgb[3]),
                         };
+                    },
+                    markRoomEdge(el, edge) {
+                        if (!el) {
+                            return;
+                        }
+
+                        el.setAttribute(`data-edge-${edge}`, "true");
+                        el.style.setProperty(`--edge-${edge}`, "1");
+                    },
+                    syncRoomEdges() {
+                        const tolerance = 6;
+                        const edges = ["left", "right", "top", "bottom"];
+                        const rooms = [...document.querySelectorAll(".room-block")];
+
+                        rooms.forEach((el) => {
+                            edges.forEach((edge) => {
+                                el.removeAttribute(`data-edge-${edge}`);
+                                el.style.setProperty(`--edge-${edge}`, "0");
+                            });
+                        });
+
+                        const layoutRooms = rooms
+                            .map((el) => ({
+                                el,
+                                floor: Number(el.dataset.floor),
+                                x: Number(el.dataset.x) || 0,
+                                y: Number(el.dataset.y) || 0,
+                                width: Number(el.dataset.width) || el.offsetWidth || 0,
+                                height: Number(el.dataset.height) || el.offsetHeight || 0,
+                                rotation: Number(el.dataset.rotation || 0),
+                            }))
+                            .filter((room) => Math.abs(room.rotation % 360) < 1);
+
+                        const axisOverlap = (aStart, aEnd, bStart, bEnd) =>
+                            Math.min(aEnd, bEnd) - Math.max(aStart, bStart) > tolerance;
+
+                        const withinTouch = (gap) =>
+                            Math.abs(gap) <= tolerance || (gap < 0 && Math.abs(gap) <= tolerance + 12);
+
+                        for (let i = 0; i < layoutRooms.length; i++) {
+                            for (let j = i + 1; j < layoutRooms.length; j++) {
+                                const a = layoutRooms[i];
+                                const b = layoutRooms[j];
+
+                                if (a.floor !== b.floor) {
+                                    continue;
+                                }
+
+                                const aRight = a.x + a.width;
+                                const bRight = b.x + b.width;
+                                const aBottom = a.y + a.height;
+                                const bBottom = b.y + b.height;
+
+                                if (axisOverlap(a.y, aBottom, b.y, bBottom)) {
+                                    const gapAtoB = b.x - aRight;
+                                    const gapBtoA = a.x - bRight;
+
+                                    if (withinTouch(gapAtoB)) {
+                                        this.markRoomEdge(a.el, "right");
+                                        this.markRoomEdge(b.el, "left");
+                                    } else if (withinTouch(gapBtoA)) {
+                                        this.markRoomEdge(b.el, "right");
+                                        this.markRoomEdge(a.el, "left");
+                                    }
+                                }
+
+                                if (axisOverlap(a.x, aRight, b.x, bRight)) {
+                                    const gapAtoB = b.y - aBottom;
+                                    const gapBtoA = a.y - bBottom;
+
+                                    if (withinTouch(gapAtoB)) {
+                                        this.markRoomEdge(a.el, "bottom");
+                                        this.markRoomEdge(b.el, "top");
+                                    } else if (withinTouch(gapBtoA)) {
+                                        this.markRoomEdge(b.el, "bottom");
+                                        this.markRoomEdge(a.el, "top");
+                                    }
+                                }
+                            }
+                        }
                     },
                     syncRoomLabel(el) {
                         if (!el) {
