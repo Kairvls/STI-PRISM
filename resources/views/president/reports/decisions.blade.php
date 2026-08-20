@@ -45,7 +45,7 @@
         <div class="flex items-center gap-2">
             <div class="relative">
                 <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"></i>
-                <input type="search" name="search" value="{{ $search ?? '' }}" placeholder="Search by reference, description..." class="w-64 rounded-lg border border-gray-200 bg-white pl-9 pr-4 py-2.5 text-sm text-gray-900 outline-none focus:ring-4 focus:ring-amber-100 transition-all duration-200" />
+                <input type="search" name="search" value="{{ $search ?? '' }}" placeholder="Search by reference, description..." class="w-64 rounded-lg border border-gray-200 bg-white pl-9 pr-4 py-2.5 text-sm text-gray-900 outline-none focus:ring-4 focus:ring-slate-200 transition-all duration-200" />
             </div>
             <div class="flex rounded-lg border border-gray-200 bg-white overflow-hidden">
                 <button type="submit" name="filter" value="all" class="px-4 py-2.5 text-xs font-semibold transition-all duration-200 {{ ($filter ?? 'all') === 'all' ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-100' }}">All</button>
@@ -92,8 +92,8 @@
                         $formattedDate = $decisionDate ? date('F d, Y', strtotime($decisionDate)) : '—';
                         $statusLower = strtolower($row->ris_status ?? '');
                         $statusBadge = $statusLower === 'approved'
-                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                            : 'bg-rose-50 text-rose-800 border-rose-200';
+                            ? 'bg-blue-50 text-blue-800 border-blue-200'
+                            : 'bg-slate-100 text-slate-800 border-slate-200';
                         $remarks = $row->remarks ?? null;
                     @endphp
                     <tr class="border-b border-gray-100 decision-row transition-all duration-200 slide-up" style="animation-delay: {{ $loop->index * 0.03 }}s">
@@ -132,7 +132,7 @@
 
     {{-- Pagination --}}
     <div class="mt-4">
-        {{ $records->links() }}
+        {{ $records->links('pagination.president') }}
     </div>
 </div>
 

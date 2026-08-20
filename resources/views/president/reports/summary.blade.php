@@ -43,15 +43,15 @@
         </div>
         <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.15s">
             <p class="text-sm font-medium text-gray-500">Approved</p>
-            <p class="mt-3 text-3xl font-semibold tracking-tight text-emerald-700 count-up" data-target="{{ $approved ?? 0 }}">{{ $approved ?? 0 }}</p>
+            <p class="mt-3 text-3xl font-semibold tracking-tight text-blue-700 count-up" data-target="{{ $approved ?? 0 }}">{{ $approved ?? 0 }}</p>
         </div>
         <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.2s">
             <p class="text-sm font-medium text-gray-500">Rejected</p>
-            <p class="mt-3 text-3xl font-semibold tracking-tight text-rose-700 count-up" data-target="{{ $rejected ?? 0 }}">{{ $rejected ?? 0 }}</p>
+            <p class="mt-3 text-3xl font-semibold tracking-tight text-slate-700 count-up" data-target="{{ $rejected ?? 0 }}">{{ $rejected ?? 0 }}</p>
         </div>
         <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.25s">
             <p class="text-sm font-medium text-gray-500">Pending</p>
-            <p class="mt-3 text-3xl font-semibold tracking-tight text-amber-700 count-up" data-target="{{ $pending ?? 0 }}">{{ $pending ?? 0 }}</p>
+            <p class="mt-3 text-3xl font-semibold tracking-tight text-slate-700 count-up" data-target="{{ $pending ?? 0 }}">{{ $pending ?? 0 }}</p>
         </div>
     </div>
 
@@ -78,11 +78,11 @@
                 </thead>
                 <tbody>
                     @foreach($tableData ?? [] as $row)
-                        <tr class="border-b border-gray-100 transition-all duration-200 hover:bg-yellow-50/40">
+                        <tr class="border-b border-gray-100 transition-all duration-200 hover:bg-slate-50">
                             <td class="px-3 py-4 text-sm font-semibold text-gray-700">{{ $row['day'] }}</td>
-                            <td class="px-3 py-4 text-sm text-emerald-700 font-semibold">{{ $row['approved'] }}</td>
-                            <td class="px-3 py-4 text-sm text-rose-700 font-semibold">{{ $row['rejected'] }}</td>
-                            <td class="px-3 py-4 text-sm text-amber-700 font-semibold">{{ $row['pending'] }}</td>
+                            <td class="px-3 py-4 text-sm text-blue-700 font-semibold">{{ $row['approved'] }}</td>
+                            <td class="px-3 py-4 text-sm text-slate-700 font-semibold">{{ $row['rejected'] }}</td>
+                            <td class="px-3 py-4 text-sm text-slate-700 font-semibold">{{ $row['pending'] }}</td>
                         </tr>
                     @endforeach
                 </tbody>
@@ -97,12 +97,12 @@
     <div class="rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.05s">
         <form method="GET" action="/president/reports/summary" class="flex items-center gap-2">
             <input type="hidden" name="tab" value="monthly" />
-            <select name="month" class="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:ring-4 focus:ring-amber-100 transition-all duration-200">
+            <select name="month" class="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:ring-4 focus:ring-slate-200 transition-all duration-200">
                 @foreach(($monthNames ?? []) as $num => $name)
                     <option value="{{ $num }}" {{ ($month ?? date('m')) == $num ? 'selected' : '' }}>{{ $name }}</option>
                 @endforeach
             </select>
-            <select name="year" class="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:ring-4 focus:ring-amber-100 transition-all duration-200">
+            <select name="year" class="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:ring-4 focus:ring-slate-200 transition-all duration-200">
                 @for ($y = date('Y'); $y >= date('Y') - 5; $y--)
                     <option value="{{ $y }}" {{ ($year ?? date('Y')) == $y ? 'selected' : '' }}>{{ $y }}</option>
                 @endfor
@@ -122,15 +122,15 @@
         </div>
         <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.15s">
             <p class="text-sm font-medium text-gray-500">Approved</p>
-            <p class="mt-3 text-3xl font-semibold tracking-tight text-emerald-700 count-up" data-target="{{ $approved ?? 0 }}">{{ $approved ?? 0 }}</p>
+            <p class="mt-3 text-3xl font-semibold tracking-tight text-blue-700 count-up" data-target="{{ $approved ?? 0 }}">{{ $approved ?? 0 }}</p>
         </div>
         <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.2s">
             <p class="text-sm font-medium text-gray-500">Rejected</p>
-            <p class="mt-3 text-3xl font-semibold tracking-tight text-rose-700 count-up" data-target="{{ $rejected ?? 0 }}">{{ $rejected ?? 0 }}</p>
+            <p class="mt-3 text-3xl font-semibold tracking-tight text-slate-700 count-up" data-target="{{ $rejected ?? 0 }}">{{ $rejected ?? 0 }}</p>
         </div>
         <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.25s">
             <p class="text-sm font-medium text-gray-500">Pending</p>
-            <p class="mt-3 text-3xl font-semibold tracking-tight text-amber-700 count-up" data-target="{{ $pending ?? 0 }}">{{ $pending ?? 0 }}</p>
+            <p class="mt-3 text-3xl font-semibold tracking-tight text-slate-700 count-up" data-target="{{ $pending ?? 0 }}">{{ $pending ?? 0 }}</p>
         </div>
     </div>
 
@@ -157,11 +157,11 @@
                 </thead>
                 <tbody>
                     @foreach($tableData ?? [] as $row)
-                        <tr class="border-b border-gray-100 transition-all duration-200 hover:bg-yellow-50/40">
+                        <tr class="border-b border-gray-100 transition-all duration-200 hover:bg-slate-50">
                             <td class="px-3 py-4 text-sm font-semibold text-gray-700">{{ $row['day'] }}</td>
-                            <td class="px-3 py-4 text-sm text-emerald-700 font-semibold">{{ $row['approved'] }}</td>
-                            <td class="px-3 py-4 text-sm text-rose-700 font-semibold">{{ $row['rejected'] }}</td>
-                            <td class="px-3 py-4 text-sm text-amber-700 font-semibold">{{ $row['pending'] }}</td>
+                            <td class="px-3 py-4 text-sm text-blue-700 font-semibold">{{ $row['approved'] }}</td>
+                            <td class="px-3 py-4 text-sm text-slate-700 font-semibold">{{ $row['rejected'] }}</td>
+                            <td class="px-3 py-4 text-sm text-slate-700 font-semibold">{{ $row['pending'] }}</td>
                         </tr>
                     @endforeach
                 </tbody>
@@ -209,11 +209,11 @@
                         {
                             label: 'Approved',
                             data: @json($chartApproved ?? []),
-                            borderColor: '#059669',
+                            borderColor: '#2563EB',
                             backgroundColor: 'rgba(5, 150, 105, 0.08)',
                             fill: true,
                             tension: 0.35,
-                            pointBackgroundColor: '#059669',
+                            pointBackgroundColor: '#2563EB',
                             pointBorderColor: '#fff',
                             pointBorderWidth: 2,
                             pointRadius: 4,
@@ -223,11 +223,11 @@
                         {
                             label: 'Rejected',
                             data: @json($chartRejected ?? []),
-                            borderColor: '#e11d48',
+                            borderColor: '#64748B',
                             backgroundColor: 'rgba(225, 29, 72, 0.08)',
                             fill: true,
                             tension: 0.35,
-                            pointBackgroundColor: '#e11d48',
+                            pointBackgroundColor: '#64748B',
                             pointBorderColor: '#fff',
                             pointBorderWidth: 2,
                             pointRadius: 4,
@@ -262,11 +262,11 @@
                         {
                             label: 'Approved',
                             data: @json($chartApproved ?? []),
-                            borderColor: '#059669',
+                            borderColor: '#2563EB',
                             backgroundColor: 'rgba(5, 150, 105, 0.08)',
                             fill: true,
                             tension: 0.35,
-                            pointBackgroundColor: '#059669',
+                            pointBackgroundColor: '#2563EB',
                             pointBorderColor: '#fff',
                             pointBorderWidth: 2,
                             pointRadius: 4,
@@ -276,11 +276,11 @@
                         {
                             label: 'Rejected',
                             data: @json($chartRejected ?? []),
-                            borderColor: '#e11d48',
+                            borderColor: '#64748B',
                             backgroundColor: 'rgba(225, 29, 72, 0.08)',
                             fill: true,
                             tension: 0.35,
-                            pointBackgroundColor: '#e11d48',
+                            pointBackgroundColor: '#64748B',
                             pointBorderColor: '#fff',
                             pointBorderWidth: 2,
                             pointRadius: 4,

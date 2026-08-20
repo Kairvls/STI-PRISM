@@ -4,29 +4,14 @@
 
 @section('content')
 
-<div class="ris-workspace">
+<div class="ris-workspace pm-page">
     <header class="ris-page-header">
-        <div>
-            <h1 class="text-2xl font-semibold tracking-tight text-gray-900">RIS Approvals</h1>
-            <p class="mt-1 text-sm leading-6 text-gray-500">Review forwarded RIS documents and send approved records to Admin.</p>
+        <div class="min-w-0 hidden sm:block">
+            <p class="text-sm leading-6 text-gray-500">Review forwarded RIS documents. Approve to sign, then notify Admin when ready.</p>
         </div>
-        <div class="metric-row">
-            <div class="metric metric-pending">
-                <span>Pending</span>
-                <strong>{{ number_format($totalPendingRis ?? 0) }}</strong>
-            </div>
-            <div class="metric metric-approved">
-                <span>Approved</span>
-                <strong>{{ number_format($totalApprovedRis ?? 0) }}</strong>
-            </div>
-            <div class="metric metric-rejected">
-                <span>Rejected</span>
-                <strong>{{ number_format($totalRejectedRis ?? 0) }}</strong>
-            </div>
-            <div class="metric metric-value">
-                <span>Awaiting value</span>
-                <strong>₱{{ number_format($pendingValue ?? 0, 2) }}</strong>
-            </div>
+        <div class="awaiting-indicator" data-tip="RIS currently waiting for your review" id="awaitingIndicator">
+            <span class="awaiting-label">Awaiting review</span>
+            <strong id="awaitingReviewCount">{{ number_format($totalPendingRis ?? 0) }}</strong>
         </div>
     </header>
 
@@ -34,11 +19,11 @@
         <section class="queue-panel">
             <div class="panel-head">
                 <div>
-                    <h2>Queue</h2>
-                    <p>{{ $pendingRis->total() }} awaiting review</p>
+                    <h2>Approval Queue</h2>
+                    <p>Oldest RIS first · pin approved items to keep them on top</p>
                 </div>
                 <div class="search-wrap">
-                    <input type="text" id="queueSearch" value="{{ request('search') }}" placeholder="Search RIS, requester, purpose" autocomplete="off" />
+                    <input type="text" id="queueSearch" value="{{ request('search') }}" placeholder="Search RIS, requester, purpose" autocomplete="off" data-tip="Search the approval queue" />
                 </div>
             </div>
             <div id="queueList">
@@ -46,7 +31,7 @@
             </div>
             <div id="risPagination" class="{{ $pendingRis->hasPages() ? '' : 'hidden' }}">
                 @if ($pendingRis->hasPages())
-                    {{ $pendingRis->links() }}
+                    {{ $pendingRis->links('pagination.president') }}
                 @endif
             </div>
         </section>
@@ -54,30 +39,38 @@
         <aside class="recent-panel">
             <div class="panel-head compact">
                 <div>
-                    <h2>Recent</h2>
-                    <p>
-                        @if (!empty($latestSubmitted))
-                            Latest in queue: {{ $latestSubmitted->ris_form_number ?? ('RIS #' . $latestSubmitted->ris_id) }}
-                        @else
-                            Latest decisions
-                        @endif
-                    </p>
+                    <h2>Recent RIS</h2>
+                    <p>Earliest decisions first</p>
                 </div>
             </div>
             <div class="recent-list">
                 @forelse ($recentRis as $ris)
                     @php
-                        $rawStatus = (string) ($ris->ris_status ?? '');
-                        $isApproved = in_array($rawStatus, ['Approved', 'Approved by the President'], true);
-                        $isRejected = in_array($rawStatus, ['Rejected', 'Rejected by President', 'Rejected by the President'], true);
-                        $displayStatus = $isApproved ? 'Approved' : ($isRejected ? 'Rejected' : 'Pending');
+                        $isApproved = !empty($ris->is_president_approved);
+                        $isRejected = in_array((string) ($ris->ris_status ?? ''), ['Rejected', 'Rejected by President', 'Rejected by the President'], true);
+                        $displayStatus = $isApproved
+                            ? (!empty($ris->awaiting_notify) ? 'Notify Admin' : 'Approved')
+                            : ($isRejected ? 'Rejected' : 'Pending');
+                        $statusClass = $isApproved
+                            ? (!empty($ris->awaiting_notify) ? 'status-notify' : 'status-approved')
+                            : ($isRejected ? 'status-rejected' : 'status-pending');
                     @endphp
-                    <div class="recent-item">
-                        <div class="min-w-0">
+                    <div class="recent-row">
+                        <div class="min-w-0 flex-1">
                             <p class="truncate text-sm font-semibold text-gray-900">{{ $ris->ris_form_number ?? 'RIS #' . $ris->ris_id }}</p>
                             <p class="truncate text-xs text-gray-500">{{ Str::limit($ris->ris_purpose_description ?? '—', 42) }}</p>
                         </div>
-                        <span class="status-pill status-{{ strtolower($displayStatus) }}">{{ $displayStatus }}</span>
+                        <span class="status-pill {{ $statusClass }}">{{ $displayStatus }}</span>
+                        <div class="row-actions">
+                            @if ($isApproved)
+                                <button type="button" class="icon-btn" data-tip="Open approved RIS" aria-label="Open approved RIS" onclick="openApprovedRisPreviewModal({{ $ris->ris_id }})">
+                                    <i data-lucide="eye" class="h-4 w-4"></i>
+                                </button>
+                            @endif
+                            <button type="button" class="icon-btn" data-tip="Print RIS" aria-label="Print RIS" onclick="printRisDocument({{ $ris->ris_id }})">
+                                <i data-lucide="printer" class="h-4 w-4"></i>
+                            </button>
+                        </div>
                     </div>
                 @empty
                     <p class="empty-note">No recent decisions</p>
@@ -100,38 +93,48 @@
                     <span id="reviewAmount">—</span>
                 </p>
             </div>
-            <button type="button" class="icon-close" onclick="closeRisReviewModal()" aria-label="Close"><i data-lucide="x"></i></button>
+            <div class="doc-head-actions">
+                <button type="button" class="icon-btn" data-tip="Print RIS" aria-label="Print RIS" onclick="printRisDocument(window.currentRisId)">
+                    <i data-lucide="printer" class="h-4 w-4"></i>
+                </button>
+                <button type="button" class="icon-close" onclick="closeRisReviewModal()" data-tip="Close" aria-label="Close"><i data-lucide="x"></i></button>
+            </div>
         </header>
         <div class="doc-stage" id="reviewStage">
             <div class="doc-fit" id="reviewFit">
                 <iframe id="risReviewIframe" title="RIS document" scrolling="no" src="about:blank"></iframe>
             </div>
         </div>
-        <div id="reviewAttachments" class="hidden border-t border-slate-200 bg-white px-4 py-3">
-            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Supporting documents</p>
-            <div id="reviewAttachmentsList" class="mt-2 space-y-1"></div>
+        <div id="reviewAttachments" class="review-attachments hidden">
+            <p class="review-attachments-label">Supporting documents</p>
+            <div id="reviewAttachmentsList" class="review-attachments-list"></div>
         </div>
         <div class="doc-actions">
-            <button type="button" class="btn-ghost" onclick="closeRisReviewModal()">Close</button>
-            <button type="button" class="btn-reject" onclick="openDecisionModal('ris', window.currentRisId, 'Rejected')">Reject</button>
-            <button type="button" class="btn-approve" onclick="submitRisApproval()">Approve</button>
+            <button type="button" class="btn-reject" data-tip="Reject this RIS" onclick="openDecisionModal('ris', window.currentRisId, 'Rejected')">Reject</button>
+            <button type="button" class="btn-approve" data-tip="Sign and approve" onclick="submitRisApproval()">Approve</button>
+            <button type="button" class="btn-ghost" data-tip="Close without deciding" onclick="closeRisReviewModal()">Close</button>
         </div>
     </div>
 </div>
 
 <div id="approvedRisPreviewModal" class="doc-modal hidden">
-    <div class="doc-backdrop" onclick="closeApprovedRisPreviewModal()"></div>
+    <div class="doc-backdrop" onclick="closeApprovedRisPreviewModal(true)"></div>
     <div class="doc-shell" onclick="event.stopPropagation()">
         <header class="doc-head">
             <div class="min-w-0">
-                <p class="eyebrow" style="color:#059669">Approved</p>
+                <p class="eyebrow" style="color:#2563EB">Approved</p>
                 <h2>Final RIS</h2>
                 <p class="doc-meta">
                     <span id="previewPresidentName">—</span><span>·</span>
                     <span id="previewApprovedDate">—</span>
                 </p>
             </div>
-            <button type="button" class="icon-close" onclick="closeApprovedRisPreviewModal()" aria-label="Close"><i data-lucide="x"></i></button>
+            <div class="doc-head-actions">
+                <button type="button" class="icon-btn" data-tip="Print RIS" aria-label="Print RIS" onclick="printRisDocument(window.currentRisId)">
+                    <i data-lucide="printer" class="h-4 w-4"></i>
+                </button>
+                <button type="button" class="icon-close" onclick="closeApprovedRisPreviewModal(true)" data-tip="Close" aria-label="Close"><i data-lucide="x"></i></button>
+            </div>
         </header>
         <div class="doc-stage" id="previewStage">
             <div class="doc-fit" id="previewFit">
@@ -139,8 +142,8 @@
             </div>
         </div>
         <div class="doc-actions">
-            <button type="button" class="btn-ghost" onclick="closeApprovedRisPreviewModal()">Close</button>
-            <button type="button" class="btn-send" id="sendApprovedRisBtn" onclick="sendApprovedRisToAdmin()">Send Back to Admin</button>
+            <button type="button" class="btn-send" id="sendApprovedRisBtn" data-tip="Notify Admin for co-sign" onclick="sendApprovedRisToAdmin()">Notify Admin</button>
+            <button type="button" class="btn-ghost" data-tip="Keep approval and close" onclick="closeApprovedRisPreviewModal(true)">Close</button>
         </div>
     </div>
 </div>
@@ -148,11 +151,11 @@
 <div id="sendConfirmationModal" class="confirm-modal hidden">
     <div class="confirm-backdrop" onclick="closeSendConfirmationModal()"></div>
     <div class="confirm-card" onclick="event.stopPropagation()">
-        <h3>Send back to Admin?</h3>
-        <p>This forwards the approved RIS for Admin co-sign. The document is not duplicated.</p>
+        <h3>Notify Admin?</h3>
+        <p>This notifies Admin that the approved RIS is ready for co-sign. Your approval stays saved.</p>
         <div class="confirm-actions">
-            <button type="button" class="btn-ghost" onclick="closeSendConfirmationModal()">Cancel</button>
-            <button type="button" class="btn-send" id="confirmSendActionBtn" onclick="executeSendRis()">Confirm</button>
+            <button type="button" class="btn-ghost" data-tip="Cancel" onclick="closeSendConfirmationModal()">Cancel</button>
+            <button type="button" class="btn-send" id="confirmSendActionBtn" data-tip="Send notification to Admin" onclick="executeSendRis()">Confirm</button>
         </div>
     </div>
 </div>
@@ -165,7 +168,7 @@
                 <h3 id="decisionModalTitle">Decision</h3>
                 <p id="decisionModalSubtitle">Approve or reject the selected RIS</p>
             </div>
-            <button type="button" class="icon-close" onclick="closeDecisionModal()" aria-label="Close"><i data-lucide="x"></i></button>
+            <button type="button" class="icon-close" onclick="closeDecisionModal()" data-tip="Close" aria-label="Close"><i data-lucide="x"></i></button>
         </div>
         <form id="decisionForm" method="POST" action="">
             @csrf
@@ -178,71 +181,20 @@
                 <label>Digital signature</label>
                 <p class="hint">Sign to approve this RIS.</p>
                 <canvas id="signatureCanvas" width="520" height="160"></canvas>
-                <button type="button" class="btn-ghost sm" onclick="clearSignature()">Clear</button>
+                <button type="button" class="btn-ghost sm" data-tip="Clear signature" onclick="clearSignature()">Clear</button>
             </div>
             <div class="mt-4">
                 <label>Remarks</label>
                 <textarea name="remarks" rows="3" placeholder="Optional for approve. Required for reject."></textarea>
             </div>
             <div class="confirm-actions mt-5">
-                <button type="button" class="btn-ghost" onclick="closeDecisionModal()">Cancel</button>
-                <button type="button" id="approveBtn" class="btn-approve" onclick="submitDecision('Approved')">Approve</button>
-                <button type="button" id="rejectBtn" class="btn-reject" onclick="submitDecision('Rejected')">Reject</button>
+                <button type="button" class="btn-ghost" data-tip="Cancel decision" onclick="closeDecisionModal()">Cancel</button>
+                <button type="button" id="approveBtn" class="btn-approve" data-tip="Confirm approval" onclick="submitDecision('Approved')">Approve</button>
+                <button type="button" id="rejectBtn" class="btn-reject" data-tip="Confirm rejection" onclick="submitDecision('Rejected')">Reject</button>
             </div>
         </form>
     </div>
 </div>
-
-<style>
-    .ris-workspace { animation: fadeIn .35s ease; }
-    .eyebrow { margin: 0; font-size: 0.75rem; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: #6b7280; }
-    .ris-page-header { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
-    .metric-row { display: flex; gap: 8px; flex-wrap: wrap; }
-    .metric { min-width: 92px; padding: 8px 12px; border-radius: 12px; background: #fff; border: 1px solid #e2e8f0; }
-    .metric span { display: block; font-size: 0.75rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: #6b7280; }
-    .metric strong { display: block; margin-top: 2px; font-size: 1.5rem; line-height: 2rem; font-weight: 700; }
-    .metric.metric-value strong { font-size: 1.125rem; line-height: 1.75rem; color: #111827; }
-    .metric-pending strong { color: #d97706; }
-    .metric-approved strong { color: #059669; }
-    .metric-rejected strong { color: #e11d48; }
-    .ris-layout { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(260px, .8fr); gap: 16px; }
-    .queue-panel, .recent-panel { background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: 0 8px 24px rgba(15, 23, 42, .04); overflow: hidden; }
-    .panel-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid #f1f5f9; }
-    .panel-head h2 { margin: 0; font-size: 0.875rem; line-height: 1.25rem; font-weight: 600; color: #111827; }
-    .panel-head p { margin: 2px 0 0; font-size: 0.75rem; line-height: 1rem; color: #6b7280; }
-    .search-wrap { min-width: 220px; flex: 1; max-width: 320px; }
-    .search-wrap input { width: 100%; border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px 12px; font-size: 0.875rem; line-height: 1.25rem; outline: none; background: #f8fafc; }
-    .search-wrap input:focus { border-color: #fbbf24; background: #fff; box-shadow: 0 0 0 3px rgba(251, 191, 36, .15); }
-    #queueList { padding: 8px; }
-    #queueList.updating { opacity: .55; }
-    .queue-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; cursor: pointer; }
-    .queue-item:hover { background: #f8fafc; }
-    .review-btn { flex-shrink: 0; border: 0; border-radius: 9px; padding: 6px 12px; font-size: 0.75rem; line-height: 1rem; font-weight: 600; color: #fff; background: #0f172a; cursor: pointer; }
-    .empty-queue, .empty-note { padding: 36px 16px; text-align: center; color: #6b7280; font-size: 0.875rem; line-height: 1.25rem; }
-    .status-pill { display: inline-flex; align-items: center; border-radius: 999px; padding: 2px 8px; font-size: 0.75rem; line-height: 1rem; font-weight: 600; }
-    .status-pending { background: #fffbeb; color: #b45309; }
-    .status-approved { background: #ecfdf5; color: #047857; }
-    .status-rejected { background: #fff1f2; color: #be123c; }
-    .recent-list { padding: 8px; }
-    .recent-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 8px; border-radius: 10px; }
-    #risPagination { padding: 8px 16px 12px; border-top: 1px solid #f1f5f9; font-size: 0.875rem; }
-    .confirm-modal { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; }
-    .confirm-backdrop { position: absolute; inset: 0; background: rgba(15, 23, 42, .4); }
-    .confirm-card { position: relative; width: min(420px, calc(100vw - 32px)); background: #fff; border-radius: 16px; padding: 20px; box-shadow: 0 20px 60px rgba(15, 23, 42, .2); }
-    .confirm-card.wide { width: min(560px, calc(100vw - 32px)); }
-    .confirm-card h3 { margin: 0; font-size: 1.125rem; line-height: 1.75rem; font-weight: 700; color: #0f172a; }
-    .confirm-card p { margin: 6px 0 0; font-size: 0.875rem; line-height: 1.5rem; color: #64748b; }
-    .confirm-card label { display: block; font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; color: #334155; }
-    .confirm-card .hint { margin: 4px 0 8px; font-size: 0.75rem; line-height: 1rem; }
-    .confirm-card textarea, #signatureCanvas { width: 100%; border: 1px solid #e2e8f0; border-radius: 10px; margin-top: 6px; }
-    .confirm-card textarea { padding: 8px 10px; font-size: 0.875rem; line-height: 1.25rem; resize: none; }
-    #signatureCanvas { height: 160px; touch-action: none; }
-    .confirm-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
-    .btn-ghost.sm { padding: 6px 10px; font-size: 0.75rem; line-height: 1rem; font-weight: 600; margin-top: 8px; }
-    .hidden { display: none !important; }
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    @media (max-width: 1024px) { .ris-layout { grid-template-columns: 1fr; } }
-</style>
 
 @include('president.partials.ris-fit-viewer')
 
@@ -250,12 +202,82 @@
     document.addEventListener('DOMContentLoaded', function () {
         if (window.lucide) lucide.createIcons();
         initSignatureCanvas();
+        applyPinOrder();
     });
 
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
     const presidentDisplayName = @json(Auth::user()->user_full_name ?? 'President');
     const searchInput = document.getElementById('queueSearch');
+    const PIN_STORAGE_KEY = 'president_ris_pins';
     let searchTimeout = null, sendInFlight = false, decideInFlight = false;
+    window.approvedPreviewDirty = false;
+
+    function getPinnedIds() {
+        try {
+            const raw = localStorage.getItem(PIN_STORAGE_KEY);
+            const parsed = raw ? JSON.parse(raw) : [];
+            return Array.isArray(parsed) ? parsed.map(String) : [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function setPinnedIds(ids) {
+        localStorage.setItem(PIN_STORAGE_KEY, JSON.stringify(ids.map(String)));
+    }
+
+    function unpinRis(risId) {
+        setPinnedIds(getPinnedIds().filter(id => id !== String(risId)));
+    }
+
+    window.toggleRisPin = function (risId) {
+        const id = String(risId);
+        let pins = getPinnedIds();
+        if (pins.includes(id)) pins = pins.filter(p => p !== id);
+        else pins.push(id);
+        setPinnedIds(pins);
+        applyPinOrder();
+    };
+
+    function applyPinOrder() {
+        const body = document.getElementById('queueTableBody');
+        if (!body) return;
+        const pins = getPinnedIds();
+        const rows = Array.from(body.querySelectorAll('tr.queue-row'));
+
+        rows.forEach(row => {
+            const id = String(row.dataset.risId || '');
+            const pinBtn = row.querySelector('.pin-btn');
+            const isPinned = pins.includes(id);
+            row.classList.toggle('is-pinned', isPinned);
+            if (pinBtn) {
+                pinBtn.classList.toggle('is-active', isPinned);
+                pinBtn.setAttribute('data-tip', isPinned ? 'Unpin' : 'Pin to top');
+                pinBtn.setAttribute('aria-label', isPinned ? 'Unpin' : 'Pin to top');
+            }
+        });
+
+        rows.sort((a, b) => {
+            const aPinned = pins.includes(String(a.dataset.risId || ''));
+            const bPinned = pins.includes(String(b.dataset.risId || ''));
+            if (aPinned !== bPinned) return aPinned ? -1 : 1;
+
+            const aKind = a.dataset.queueKind || '';
+            const bKind = b.dataset.queueKind || '';
+            if (aKind !== bKind) {
+                if (aKind === 'awaiting_notify') return -1;
+                if (bKind === 'awaiting_notify') return 1;
+            }
+
+            const aDate = Date.parse(a.dataset.sortDate || '') || 0;
+            const bDate = Date.parse(b.dataset.sortDate || '') || 0;
+            if (aDate !== bDate) return aDate - bDate;
+            return Number(a.dataset.risId || 0) - Number(b.dataset.risId || 0);
+        });
+
+        rows.forEach(row => body.appendChild(row));
+        if (window.lucide) lucide.createIcons();
+    }
 
     function formatMoney(value) {
         return '₱' + Number(value || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -281,10 +303,55 @@
         .then(res => res.json())
         .then(data => {
             if (queueList) { queueList.innerHTML = data.table_html; queueList.classList.remove('updating'); }
-            if (pagination) pagination.classList.toggle('hidden', !(data.last_page > 1));
+            if (pagination) {
+                if (data.last_page > 1) {
+                    pagination.innerHTML = buildPagination(data, 'goToPage');
+                    pagination.classList.remove('hidden');
+                } else {
+                    pagination.innerHTML = '';
+                    pagination.classList.add('hidden');
+                }
+            }
+            if (typeof data.awaiting_review !== 'undefined') {
+                const countEl = document.getElementById('awaitingReviewCount');
+                if (countEl) countEl.textContent = Number(data.awaiting_review).toLocaleString();
+            }
+            applyPinOrder();
             if (window.lucide) lucide.createIcons();
         })
         .catch(() => { if (queueList) queueList.classList.remove('updating'); });
+    }
+    function buildPagination(data, fnName) {
+        const current = Number(data.current_page || 1);
+        const last = Number(data.last_page || 1);
+        const windowSize = 5;
+        const half = Math.floor(windowSize / 2);
+        let start = Math.max(1, current - half);
+        let end = Math.min(last, start + windowSize - 1);
+        start = Math.max(1, end - windowSize + 1);
+
+        let html = '<nav class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><p class="text-sm text-slate-600">Showing <span class="font-medium text-slate-900">' + (data.from || 0) + '</span> to <span class="font-medium text-slate-900">' + (data.to || 0) + '</span> of <span class="font-medium text-slate-900">' + (data.total || 0) + '</span> results</p><ul class="inline-flex items-center gap-1">';
+
+        const prevDisabled = current <= 1;
+        html += '<li>' + (prevDisabled
+            ? '<span class="inline-flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-300">&laquo;</span>'
+            : '<button type="button" onclick="' + fnName + '(' + (current - 1) + ')" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">&laquo;</button>') + '</li>';
+
+        for (let i = start; i <= end; i++) {
+            if (i === current) {
+                html += '<li><span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-sm font-semibold text-white">' + i + '</span></li>';
+            } else {
+                html += '<li><button type="button" onclick="' + fnName + '(' + i + ')" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">' + i + '</button></li>';
+            }
+        }
+
+        const nextDisabled = current >= last;
+        html += '<li>' + (nextDisabled
+            ? '<span class="inline-flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-300">&raquo;</span>'
+            : '<button type="button" onclick="' + fnName + '(' + (current + 1) + ')" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">&raquo;</button>') + '</li>';
+
+        html += '</ul></nav>';
+        return html;
     }
     window.goToPage = fetchTableData;
     if (searchInput) {
@@ -293,6 +360,17 @@
             searchTimeout = setTimeout(() => fetchTableData(1), 300);
         });
     }
+
+    window.printRisDocument = function (risId) {
+        if (!risId) return;
+        const win = window.open('/president/ris/' + risId + '/print', '_blank', 'noopener,noreferrer,width=1200,height=860');
+        if (!win) return;
+        const triggerPrint = function () {
+            try { win.focus(); win.print(); } catch (e) {}
+        };
+        win.onload = triggerPrint;
+        setTimeout(triggerPrint, 1200);
+    };
 
     window.openRisReviewModal = function (risId) {
         const modal = document.getElementById('risReviewModal');
@@ -320,8 +398,9 @@
                         link.href = file.url;
                         link.target = '_blank';
                         link.rel = 'noopener';
-                        link.className = 'block truncate text-sm text-blue-600 hover:underline';
+                        link.className = 'review-attachment-link';
                         link.textContent = file.name || 'Attachment';
+                        link.setAttribute('data-tip', 'Open attachment');
                         list.appendChild(link);
                     });
                     box.classList.toggle('hidden', files.length === 0);
@@ -337,22 +416,58 @@
         closeRisReviewModal();
         openDecisionModal('ris', window.currentRisId, 'Approved');
     };
-    window.openApprovedRisPreviewModal = function (risId) {
+    window.openApprovedRisPreviewModal = function (risId, options) {
+        options = options || {};
         const modal = document.getElementById('approvedRisPreviewModal');
         const iframe = document.getElementById('approvedRisIframe');
+        const notifyBtn = document.getElementById('sendApprovedRisBtn');
         window.currentRisId = risId;
-        iframe.src = '/president/ris/' + risId + '/print?preview=1&ts=' + Date.now();
+        window.approvedPreviewDirty = !!options.afterApprove;
+        iframe.src = '/president/ris/' + risId + '/view?preview=1&ts=' + Date.now();
         document.getElementById('previewPresidentName').textContent = presidentDisplayName;
-        document.getElementById('previewApprovedDate').textContent = new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
+        document.getElementById('previewApprovedDate').textContent = options.approvedDate
+            || new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
+        if (notifyBtn) {
+            notifyBtn.classList.remove('hidden');
+            notifyBtn.disabled = false;
+            notifyBtn.textContent = 'Notify Admin';
+        }
         modal.classList.remove('hidden');
         requestAnimationFrame(() => window.fitRisDocument('approvedRisIframe', 'previewStage', 'previewFit'));
         iframe.onload = () => window.fitRisDocument('approvedRisIframe', 'previewStage', 'previewFit');
         if (window.lucide) lucide.createIcons();
+
+        fetch('/president/ris/' + risId + '/details', {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.approved_by_date) {
+                document.getElementById('previewApprovedDate').textContent = new Date(data.approved_by_date)
+                    .toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
+            }
+            if (notifyBtn) {
+                if (data.admin_notified) {
+                    notifyBtn.disabled = true;
+                    notifyBtn.textContent = 'Admin Notified';
+                } else if (data.awaiting_notify || data.is_president_approved) {
+                    notifyBtn.classList.remove('hidden');
+                    notifyBtn.disabled = false;
+                    notifyBtn.textContent = 'Notify Admin';
+                } else {
+                    notifyBtn.classList.add('hidden');
+                }
+            }
+        }).catch(() => {});
     };
-    window.closeApprovedRisPreviewModal = function () {
+    window.closeApprovedRisPreviewModal = function (shouldRefresh) {
         const iframe = document.getElementById('approvedRisIframe');
         if (iframe) iframe.src = 'about:blank';
         document.getElementById('approvedRisPreviewModal').classList.add('hidden');
+        if (shouldRefresh && window.approvedPreviewDirty) {
+            window.approvedPreviewDirty = false;
+            window.location.reload();
+        }
     };
     window.sendApprovedRisToAdmin = function () { confirmSendRis(); };
     function confirmSendRis() {
@@ -369,7 +484,7 @@
         if (!risId || sendInFlight) return;
         sendInFlight = true;
         const original = confirmBtn.textContent;
-        confirmBtn.textContent = 'Sending...';
+        confirmBtn.textContent = 'Notifying...';
         confirmBtn.disabled = true;
         fetch('/president/ris/' + risId + '/send-to-admin', {
             method: 'POST',
@@ -378,23 +493,32 @@
         })
         .then(async response => {
             const data = await response.json().catch(() => ({}));
-            if (!response.ok || data.ok === false) throw new Error(data.message || 'Unable to send RIS to Admin.');
+            if (!response.ok || data.ok === false) throw new Error(data.message || 'Unable to notify Admin.');
+            unpinRis(risId);
             closeSendConfirmationModal();
-            closeApprovedRisPreviewModal();
-            showToast('RIS sent back to Admin successfully.');
+            window.approvedPreviewDirty = false;
+            closeApprovedRisPreviewModal(false);
+            showToast(data.message || 'Admin has been notified.', { title: 'Success', type: 'success' });
             setTimeout(() => window.location.reload(), 900);
         })
         .catch(error => {
             sendInFlight = false;
             confirmBtn.textContent = original;
             confirmBtn.disabled = false;
-            alert(error.message);
+            if (typeof window.showMpToast === 'function') {
+                showMpToast(error.message || 'Unable to notify Admin.', { title: 'Unable to complete', type: 'error', timer: 4200 });
+            } else {
+                alert(error.message);
+            }
         });
     }
-    function showToast(message) {
+    function showToast(message, options) {
+        if (typeof window.showMpToast === 'function') {
+            return window.showMpToast(message, options || { title: 'Success', type: 'success' });
+        }
         const toast = document.createElement('div');
-        toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#059669;color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;z-index:100';
-        toast.textContent = message;
+        toast.className = 'pm-toast';
+        toast.textContent = typeof message === 'string' ? message : (message?.message || 'Done');
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 2800);
     }
@@ -431,12 +555,26 @@
             const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
             let hasDrawing = false;
             for (let i = 3; i < pixels.length; i += 4) { if (pixels[i] > 0) { hasDrawing = true; break; } }
-            if (!hasDrawing) { alert('Please sign the RIS before approving.'); return; }
+            if (!hasDrawing) {
+                if (typeof window.showMpToast === 'function') {
+                    showMpToast('Please sign the RIS before approving.', { title: 'Signature required', type: 'warning', timer: 3600 });
+                } else {
+                    alert('Please sign the RIS before approving.');
+                }
+                return;
+            }
             document.getElementById('signatureData').value = canvas.toDataURL('image/png');
             document.getElementById('signatureUsed').value = '1';
         } else {
             const remarksField = form.querySelector('textarea[name="remarks"]');
-            if (!remarksField || !remarksField.value.trim()) { alert('Please provide a rejection reason.'); return; }
+            if (!remarksField || !remarksField.value.trim()) {
+                if (typeof window.showMpToast === 'function') {
+                    showMpToast('Please provide a rejection reason.', { title: 'Remarks required', type: 'warning', timer: 3600 });
+                } else {
+                    alert('Please provide a rejection reason.');
+                }
+                return;
+            }
         }
         decideInFlight = true;
         fetch(form.action, {
@@ -449,10 +587,26 @@
             if (!response.ok || data.ok === false) throw new Error(data.message || 'Unable to save decision.');
             const risId = data.ris_id || document.getElementById('targetId').value;
             closeDecisionModal();
-            if (decision === 'Approved') openApprovedRisPreviewModal(risId);
-            else { showToast('RIS rejected successfully.'); setTimeout(() => window.location.reload(), 900); }
+            if (decision === 'Approved') {
+                openApprovedRisPreviewModal(risId, {
+                    afterApprove: true,
+                    approvedDate: data.approved_by_date
+                        ? new Date(data.approved_by_date).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })
+                        : null
+                });
+                showToast('RIS approved. Notify Admin when ready.', { title: 'Approved', type: 'success' });
+            } else {
+                showToast('RIS rejected successfully.', { title: 'Rejected', type: 'success' });
+                setTimeout(() => window.location.reload(), 900);
+            }
         })
-        .catch(error => alert(error.message))
+        .catch(error => {
+            if (typeof window.showMpToast === 'function') {
+                showMpToast(error.message || 'Unable to save decision.', { title: 'Unable to complete', type: 'error', timer: 4200 });
+            } else {
+                alert(error.message);
+            }
+        })
         .finally(() => { decideInFlight = false; });
     }
     function initSignatureCanvas() {
@@ -488,10 +642,23 @@
     document.addEventListener('keydown', function (e) {
         if (e.key !== 'Escape') return;
         closeRisReviewModal();
-        closeApprovedRisPreviewModal();
+        closeApprovedRisPreviewModal(true);
         closeDecisionModal();
         closeSendConfirmationModal();
     });
+
+    (function bootFromQuery() {
+        const params = new URLSearchParams(window.location.search);
+        const approveId = params.get('approve');
+        const previewId = params.get('preview');
+        if (approveId) {
+            openRisReviewModal(approveId);
+            history.replaceState({}, '', window.location.pathname);
+        } else if (previewId) {
+            openApprovedRisPreviewModal(previewId);
+            history.replaceState({}, '', window.location.pathname);
+        }
+    })();
 </script>
 
 @endsection

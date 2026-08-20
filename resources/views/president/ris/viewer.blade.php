@@ -71,13 +71,14 @@
             transform: translate(-50%, -50%) rotate(-45deg);
             font-size: 120px;
             font-weight: 900;
-            color: rgba(0, 0, 0, 0.08);
+            color: rgba(5, 150, 105, 0.045);
             letter-spacing: 8px;
             text-transform: uppercase;
             pointer-events: none;
             z-index: 0;
             white-space: nowrap;
             user-select: none;
+            opacity: 0.7;
         }
 
         html.screen-preview,
@@ -96,7 +97,7 @@
         }
         html.screen-preview .signatures { margin-top: 16px; }
         html.screen-preview .approval-watermark { animation: watermarkIn .6s ease both; }
-        @keyframes watermarkIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes watermarkIn { from { opacity: 0; } to { opacity: 0.7; } }
 
         @media print {
             body { background: white; }
@@ -109,7 +110,8 @@
             }
             .header { margin-top: 140px; }
             .approval-watermark {
-                opacity: 0.12;
+                opacity: 0.45;
+                color: rgba(5, 150, 105, 0.05);
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }

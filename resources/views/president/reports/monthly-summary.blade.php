@@ -6,8 +6,7 @@
 
 <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between fade-in">
     <div>
-        <h1 class="text-2xl font-semibold tracking-tight text-gray-900">Reports & Summary</h1>
-        <p class="mt-1 text-sm text-gray-500">Weekly and monthly RIS statistics and trends.</p>
+        <p class="text-sm text-gray-500">Weekly and monthly RIS statistics and trends.</p>
     </div>
 </div>
 
@@ -15,21 +14,21 @@
 {{-- EXECUTIVE INSIGHTS --}}
 {{-- ======================================== --}}
     <div class="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
-        <div class="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-5 slide-up" style="animation-delay: 0.05s">
+        <div class="rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white p-5 slide-up" style="animation-delay: 0.05s">
             <div class="flex items-center gap-2">
-                <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100">
-                    <i data-lucide="check-circle" class="h-4 w-4 text-emerald-700"></i>
+                <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100">
+                    <i data-lucide="check-circle" class="h-4 w-4 text-blue-700"></i>
                 </div>
-                <p class="text-xs font-medium text-emerald-700">Decision Rate</p>
+                <p class="text-xs font-medium text-blue-700">Decision Rate</p>
             </div>
             <div class="mt-3 space-y-1">
                 <div class="flex items-center justify-between">
-                    <span class="text-xs text-emerald-700">Approved</span>
-                    <span class="text-sm font-semibold text-emerald-900">{{ $insights['approval_rate'] ?? 0 }}%</span>
+                    <span class="text-xs text-blue-700">Approved</span>
+                    <span class="text-sm font-semibold text-blue-900">{{ $insights['approval_rate'] ?? 0 }}%</span>
                 </div>
                 <div class="flex items-center justify-between">
-                    <span class="text-xs text-rose-700">Rejected</span>
-                    <span class="text-sm font-semibold text-rose-900">{{ $insights['rejection_rate'] ?? 0 }}%</span>
+                    <span class="text-xs text-slate-700">Rejected</span>
+                    <span class="text-sm font-semibold text-slate-900">{{ $insights['rejection_rate'] ?? 0 }}%</span>
                 </div>
             </div>
         </div>
@@ -54,24 +53,24 @@
         <p class="mt-3 text-2xl font-semibold tracking-tight text-gray-900">₱{{ number_format((float)($insights['rejected_amount'] ?? 0), 2) }}</p>
     </div>
 
-    <div class="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-5 slide-up" style="animation-delay: 0.25s">
+    <div class="rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white p-5 slide-up" style="animation-delay: 0.25s">
         <div class="flex items-center gap-2">
-            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100">
-                <i data-lucide="trending-up" class="h-4 w-4 text-emerald-700"></i>
+            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100">
+                <i data-lucide="trending-up" class="h-4 w-4 text-blue-700"></i>
             </div>
-            <p class="text-xs font-medium text-emerald-700">Top Approval Month</p>
+            <p class="text-xs font-medium text-blue-700">Top Approval Month</p>
         </div>
-        <p class="mt-3 text-lg font-semibold tracking-tight text-emerald-900">{{ $insights['highest_approval_month'] ?? 'N/A' }}</p>
+        <p class="mt-3 text-lg font-semibold tracking-tight text-blue-900">{{ $insights['highest_approval_month'] ?? 'N/A' }}</p>
     </div>
 
-    <div class="rounded-xl border border-rose-200 bg-gradient-to-br from-rose-50 to-white p-5 slide-up" style="animation-delay: 0.3s">
+    <div class="rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-5 slide-up" style="animation-delay: 0.3s">
         <div class="flex items-center gap-2">
-            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-100">
-                <i data-lucide="trending-down" class="h-4 w-4 text-rose-700"></i>
+            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-200">
+                <i data-lucide="trending-down" class="h-4 w-4 text-slate-700"></i>
             </div>
-            <p class="text-xs font-medium text-rose-700">Top Rejection Month</p>
+            <p class="text-xs font-medium text-slate-700">Top Rejection Month</p>
         </div>
-        <p class="mt-3 text-lg font-semibold tracking-tight text-rose-900">{{ $insights['highest_rejection_month'] ?? 'N/A' }}</p>
+        <p class="mt-3 text-lg font-semibold tracking-tight text-slate-900">{{ $insights['highest_rejection_month'] ?? 'N/A' }}</p>
     </div>
 </div>
 
@@ -95,17 +94,17 @@
             <p class="text-xs font-medium text-gray-500">Total RIS</p>
             <p class="mt-2 text-2xl font-semibold tracking-tight text-gray-900 count-up" data-target="{{ $totalRis ?? 0 }}">{{ $totalRis ?? 0 }}</p>
         </div>
-        <div class="rounded-xl border border-emerald-200 bg-emerald-50/60 p-5 card-hover slide-up" style="animation-delay: 0.1s">
-            <p class="text-xs font-medium text-emerald-700">Approved</p>
-            <p class="mt-2 text-2xl font-semibold tracking-tight text-emerald-900 count-up" data-target="{{ $approvedDecisionsCount ?? 0 }}">{{ $approvedDecisionsCount ?? 0 }}</p>
+        <div class="rounded-xl border border-blue-200 bg-blue-50 p-5 card-hover slide-up" style="animation-delay: 0.1s">
+            <p class="text-xs font-medium text-blue-700">Approved</p>
+            <p class="mt-2 text-2xl font-semibold tracking-tight text-blue-900 count-up" data-target="{{ $approvedDecisionsCount ?? 0 }}">{{ $approvedDecisionsCount ?? 0 }}</p>
         </div>
-        <div class="rounded-xl border border-rose-200 bg-rose-50/60 p-5 card-hover slide-up" style="animation-delay: 0.15s">
-            <p class="text-xs font-medium text-rose-700">Rejected</p>
-            <p class="mt-2 text-2xl font-semibold tracking-tight text-rose-900 count-up" data-target="{{ $rejectedDecisionsCount ?? 0 }}">{{ $rejectedDecisionsCount ?? 0 }}</p>
+        <div class="rounded-xl border border-slate-200 bg-slate-50 p-5 card-hover slide-up" style="animation-delay: 0.15s">
+            <p class="text-xs font-medium text-slate-700">Rejected</p>
+            <p class="mt-2 text-2xl font-semibold tracking-tight text-slate-900 count-up" data-target="{{ $rejectedDecisionsCount ?? 0 }}">{{ $rejectedDecisionsCount ?? 0 }}</p>
         </div>
-        <div class="rounded-xl border border-amber-200 bg-amber-50/60 p-5 card-hover slide-up" style="animation-delay: 0.2s">
-            <p class="text-xs font-medium text-amber-700">Pending</p>
-            <p class="mt-2 text-2xl font-semibold tracking-tight text-amber-900 count-up" data-target="{{ $pendingApprovalsCount ?? 0 }}">{{ $pendingApprovalsCount ?? 0 }}</p>
+        <div class="rounded-xl border border-slate-200 bg-slate-50 p-5 card-hover slide-up" style="animation-delay: 0.2s">
+            <p class="text-xs font-medium text-slate-700">Pending</p>
+            <p class="mt-2 text-2xl font-semibold tracking-tight text-slate-900 count-up" data-target="{{ $pendingApprovalsCount ?? 0 }}">{{ $pendingApprovalsCount ?? 0 }}</p>
         </div>
     </div>
 
@@ -145,8 +144,8 @@
                         <tr class="border-b border-gray-100 transition-all duration-200 hover:bg-gray-50/60">
                             <td class="px-4 py-4 text-sm font-semibold text-gray-700">{{ $row['label'] }}</td>
                             <td class="px-4 py-4 text-center text-sm font-semibold text-gray-900">{{ $row['total'] ?? ($row['approved'] + $row['rejected'] + $row['pending']) }}</td>
-                            <td class="px-4 py-4 text-center text-sm text-emerald-700 font-semibold">{{ $row['approved'] }}</td>
-                            <td class="px-4 py-4 text-center text-sm text-rose-700 font-semibold">{{ $row['rejected'] }}</td>
+                            <td class="px-4 py-4 text-center text-sm text-blue-700 font-semibold">{{ $row['approved'] }}</td>
+                            <td class="px-4 py-4 text-center text-sm text-slate-700 font-semibold">{{ $row['rejected'] }}</td>
                             <td class="px-4 py-4 text-right tabular-nums text-gray-700">₱{{ number_format((float)($row['approved_amount'] ?? 0), 2) }}</td>
                             <td class="px-4 py-4 text-right tabular-nums text-gray-700">₱{{ number_format((float)($row['rejected_amount'] ?? 0), 2) }}</td>
                         </tr>
@@ -209,17 +208,17 @@
             <p class="text-xs font-medium text-gray-500">Total RIS</p>
             <p class="mt-2 text-2xl font-semibold tracking-tight text-gray-900 count-up" data-target="{{ $totalRis ?? 0 }}">{{ $totalRis ?? 0 }}</p>
         </div>
-        <div class="rounded-xl border border-emerald-200 bg-emerald-50/60 p-5 card-hover slide-up" style="animation-delay: 0.15s">
-            <p class="text-xs font-medium text-emerald-700">Approved</p>
-            <p class="mt-2 text-2xl font-semibold tracking-tight text-emerald-900 count-up" data-target="{{ $approvedDecisionsCount ?? 0 }}">{{ $approvedDecisionsCount ?? 0 }}</p>
+        <div class="rounded-xl border border-blue-200 bg-blue-50 p-5 card-hover slide-up" style="animation-delay: 0.15s">
+            <p class="text-xs font-medium text-blue-700">Approved</p>
+            <p class="mt-2 text-2xl font-semibold tracking-tight text-blue-900 count-up" data-target="{{ $approvedDecisionsCount ?? 0 }}">{{ $approvedDecisionsCount ?? 0 }}</p>
         </div>
-        <div class="rounded-xl border border-rose-200 bg-rose-50/60 p-5 card-hover slide-up" style="animation-delay: 0.2s">
-            <p class="text-xs font-medium text-rose-700">Rejected</p>
-            <p class="mt-2 text-2xl font-semibold tracking-tight text-rose-900 count-up" data-target="{{ $rejectedDecisionsCount ?? 0 }}">{{ $rejectedDecisionsCount ?? 0 }}</p>
+        <div class="rounded-xl border border-slate-200 bg-slate-50 p-5 card-hover slide-up" style="animation-delay: 0.2s">
+            <p class="text-xs font-medium text-slate-700">Rejected</p>
+            <p class="mt-2 text-2xl font-semibold tracking-tight text-slate-900 count-up" data-target="{{ $rejectedDecisionsCount ?? 0 }}">{{ $rejectedDecisionsCount ?? 0 }}</p>
         </div>
-        <div class="rounded-xl border border-amber-200 bg-amber-50/60 p-5 card-hover slide-up" style="animation-delay: 0.25s">
-            <p class="text-xs font-medium text-amber-700">Pending</p>
-            <p class="mt-2 text-2xl font-semibold tracking-tight text-amber-900 count-up" data-target="{{ $pendingApprovalsCount ?? 0 }}">{{ $pendingApprovalsCount ?? 0 }}</p>
+        <div class="rounded-xl border border-slate-200 bg-slate-50 p-5 card-hover slide-up" style="animation-delay: 0.25s">
+            <p class="text-xs font-medium text-slate-700">Pending</p>
+            <p class="mt-2 text-2xl font-semibold tracking-tight text-slate-900 count-up" data-target="{{ $pendingApprovalsCount ?? 0 }}">{{ $pendingApprovalsCount ?? 0 }}</p>
         </div>
     </div>
 
@@ -259,8 +258,8 @@
                         <tr class="border-b border-gray-100 transition-all duration-200 hover:bg-gray-50/60">
                             <td class="px-4 py-4 text-sm font-semibold text-gray-700">{{ $row['month_label'] }}</td>
                             <td class="px-4 py-4 text-center text-sm font-semibold text-gray-900">{{ $row['total'] ?? ($row['approved'] + $row['rejected'] + $row['pending']) }}</td>
-                            <td class="px-4 py-4 text-center text-sm text-emerald-700 font-semibold">{{ $row['approved'] }}</td>
-                            <td class="px-4 py-4 text-center text-sm text-rose-700 font-semibold">{{ $row['rejected'] }}</td>
+                            <td class="px-4 py-4 text-center text-sm text-blue-700 font-semibold">{{ $row['approved'] }}</td>
+                            <td class="px-4 py-4 text-center text-sm text-slate-700 font-semibold">{{ $row['rejected'] }}</td>
                             <td class="px-4 py-4 text-right tabular-nums text-gray-700">₱{{ number_format((float)($row['approved_amount'] ?? 0), 2) }}</td>
                             <td class="px-4 py-4 text-right tabular-nums text-gray-700">₱{{ number_format((float)($row['rejected_amount'] ?? 0), 2) }}</td>
                         </tr>
@@ -341,22 +340,22 @@
                         {
                             label: 'Approved',
                             data: weeklyData.map(r => r.approved),
-                            borderColor: '#10b981',
+                            borderColor: '#2563EB',
                             backgroundColor: (context) => {
                                 const ctx = context.chart.ctx;
                                 const gradient = ctx.createLinearGradient(0, 0, 0, 340);
-                                gradient.addColorStop(0, 'rgba(16, 185, 129, 0.28)');
-                                gradient.addColorStop(1, 'rgba(16, 185, 129, 0.04)');
+                                gradient.addColorStop(0, 'rgba(37, 99, 235, 0.28)');
+                                gradient.addColorStop(1, 'rgba(37, 99, 235, 0.04)');
                                 return gradient;
                             },
                             fill: true,
                             tension: 0.4,
                             pointBackgroundColor: '#ffffff',
-                            pointBorderColor: '#10b981',
+                            pointBorderColor: '#2563EB',
                             pointBorderWidth: 3,
                             pointRadius: 6,
                             pointHoverRadius: 8,
-                            pointHoverBackgroundColor: '#10b981',
+                            pointHoverBackgroundColor: '#2563EB',
                             pointHoverBorderColor: '#ffffff',
                             pointHoverBorderWidth: 3,
                             borderWidth: 3,
@@ -364,22 +363,22 @@
                         {
                             label: 'Rejected',
                             data: weeklyData.map(r => r.rejected),
-                            borderColor: '#f43f5e',
+                            borderColor: '#64748B',
                             backgroundColor: (context) => {
                                 const ctx = context.chart.ctx;
                                 const gradient = ctx.createLinearGradient(0, 0, 0, 340);
-                                gradient.addColorStop(0, 'rgba(244, 63, 94, 0.28)');
-                                gradient.addColorStop(1, 'rgba(244, 63, 94, 0.04)');
+                                gradient.addColorStop(0, 'rgba(100, 116, 139, 0.28)');
+                                gradient.addColorStop(1, 'rgba(100, 116, 139, 0.04)');
                                 return gradient;
                             },
                             fill: true,
                             tension: 0.4,
                             pointBackgroundColor: '#ffffff',
-                            pointBorderColor: '#f43f5e',
+                            pointBorderColor: '#64748B',
                             pointBorderWidth: 3,
                             pointRadius: 6,
                             pointHoverRadius: 8,
-                            pointHoverBackgroundColor: '#f43f5e',
+                            pointHoverBackgroundColor: '#64748B',
                             pointHoverBorderColor: '#ffffff',
                             pointHoverBorderWidth: 3,
                             borderWidth: 3,
@@ -494,22 +493,22 @@
                         {
                             label: 'Approved',
                             data: monthlyData.map(r => r.approved),
-                            backgroundColor: isFiltered ? 'rgba(16, 185, 129, 1)' : (context) => {
+                            backgroundColor: isFiltered ? 'rgba(37, 99, 235, 1)' : (context) => {
                                 const ctx = context.chart.ctx;
                                 const gradient = ctx.createLinearGradient(0, 0, 0, 340);
-                                gradient.addColorStop(0, 'rgba(16, 185, 129, 0.28)');
-                                gradient.addColorStop(1, 'rgba(16, 185, 129, 0.04)');
+                                gradient.addColorStop(0, 'rgba(37, 99, 235, 0.28)');
+                                gradient.addColorStop(1, 'rgba(37, 99, 235, 0.04)');
                                 return gradient;
                             },
-                            borderColor: '#10b981',
+                            borderColor: '#2563EB',
                             fill: isFiltered ? false : true,
                             tension: isFiltered ? 0 : 0.4,
                             pointBackgroundColor: '#ffffff',
-                            pointBorderColor: '#10b981',
+                            pointBorderColor: '#2563EB',
                             pointBorderWidth: 3,
                             pointRadius: isFiltered ? 0 : 6,
                             pointHoverRadius: isFiltered ? 0 : 8,
-                            pointHoverBackgroundColor: '#10b981',
+                            pointHoverBackgroundColor: '#2563EB',
                             pointHoverBorderColor: '#ffffff',
                             pointHoverBorderWidth: 3,
                             borderWidth: 3,
@@ -518,22 +517,22 @@
                         {
                             label: 'Rejected',
                             data: monthlyData.map(r => r.rejected),
-                            backgroundColor: isFiltered ? 'rgba(244, 63, 94, 1)' : (context) => {
+                            backgroundColor: isFiltered ? 'rgba(71, 85, 105, 1)' : (context) => {
                                 const ctx = context.chart.ctx;
                                 const gradient = ctx.createLinearGradient(0, 0, 0, 340);
-                                gradient.addColorStop(0, 'rgba(244, 63, 94, 0.28)');
-                                gradient.addColorStop(1, 'rgba(244, 63, 94, 0.04)');
+                                gradient.addColorStop(0, 'rgba(100, 116, 139, 0.28)');
+                                gradient.addColorStop(1, 'rgba(100, 116, 139, 0.04)');
                                 return gradient;
                             },
-                            borderColor: '#f43f5e',
+                            borderColor: '#64748B',
                             fill: isFiltered ? false : true,
                             tension: isFiltered ? 0 : 0.4,
                             pointBackgroundColor: '#ffffff',
-                            pointBorderColor: '#f43f5e',
+                            pointBorderColor: '#64748B',
                             pointBorderWidth: 3,
                             pointRadius: isFiltered ? 0 : 6,
                             pointHoverRadius: isFiltered ? 0 : 8,
-                            pointHoverBackgroundColor: '#f43f5e',
+                            pointHoverBackgroundColor: '#64748B',
                             pointHoverBorderColor: '#ffffff',
                             pointHoverBorderWidth: 3,
                             borderWidth: 3,

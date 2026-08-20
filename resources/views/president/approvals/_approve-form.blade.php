@@ -82,7 +82,7 @@
     .president-ris-form .ris-signature-input { height: 49px; padding: 0 6px 4px; }
     .president-ris-form .ris-date-input { height: 31px; padding: 0 6px 4px; }
     .president-ris-form .ris-editable-hint {
-        margin-top: 4px; font-size: 10px; color: #d97706; text-align: center; font-weight: 600;
+        margin-top: 4px; font-size: 10px; color: #64748B; text-align: center; font-weight: 600;
     }
     .president-ris-locked { pointer-events: none; user-select: none; }
 </style>
@@ -98,7 +98,7 @@
     <input type="hidden" name="decision" value="Approved">
 
     <div class="min-h-0 flex-1 overflow-y-auto p-4 md:p-6">
-        <div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+        <div class="mb-4 rounded-lg border border-slate-200 bg-slate-100 px-4 py-3 text-xs text-slate-900">
             You can only fill <strong>Approved by</strong> and its <strong>Date</strong>. All other RIS details are locked.
         </div>
 
@@ -222,7 +222,7 @@
         </button>
         <button
             type="submit"
-            class="rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-800"
+            class="rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-800"
         >
             Confirm Approval
         </button>

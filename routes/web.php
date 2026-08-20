@@ -1890,10 +1890,20 @@ Route::middleware([
             [PresidentController::class, 'notifications']
         )->name('notifications');
 
+        Route::post(
+            '/notifications/mark-all-read',
+            [PresidentController::class, 'markAllNotificationsAsRead']
+        )->name('notifications.mark-all-read');
+
         Route::get(
             '/notifications/rejection-history',
             [PresidentController::class, 'rejectionHistory']
         )->name('notifications.rejection-history');
+
+        Route::get(
+            '/notifications/{id}/open',
+            [PresidentController::class, 'openNotification']
+        )->whereNumber('id')->name('notifications.open');
 
         // =====================================================
         // PROFILE

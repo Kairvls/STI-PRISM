@@ -6,8 +6,7 @@
 
 <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between fade-in">
     <div>
-        <h1 class="text-2xl font-semibold tracking-tight text-gray-900">Approval History</h1>
-        <p class="mt-1 text-sm leading-6 text-gray-500">
+        <p class="text-sm leading-6 text-gray-500">
             View past RIS decisions — both approved and rejected.
         </p>
     </div>
@@ -26,7 +25,7 @@
                 name="search"
                 value="{{ request('search') }}"
                 placeholder="Search by ID, Reference No., or Purpose..."
-                class="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-900 outline-none focus:ring-4 focus:ring-amber-100 transition-all duration-200"
+                class="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-900 outline-none focus:ring-4 focus:ring-slate-200 transition-all duration-200"
                 autocomplete="off"
             />
         </div>
@@ -42,7 +41,7 @@
                 <p class="mt-1 text-xs text-gray-500">A timeline of approval decisions made by the President.</p>
             </div>
 
-            <span id="historyCount" class="inline-flex items-center rounded-lg bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800 border border-amber-200">
+            <span id="historyCount" class="inline-flex items-center rounded-lg bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-800 border border-slate-200">
                 {{ $approvalHistoryRecords->total() }} total
             </span>
         </div>
@@ -68,7 +67,7 @@
         {{-- Pagination --}}
         @if ($approvalHistoryRecords->hasPages())
             <div id="historyPagination" class="mt-4 border-t border-gray-100 pt-4">
-                {{ $approvalHistoryRecords->links() }}
+                {{ $approvalHistoryRecords->links('pagination.president') }}
             </div>
         @endif
     </section>
@@ -81,11 +80,11 @@
                 <iframe id="risViewIframe" class="bg-white shadow-2xl" style="width: 11in; height: 8.5in; min-width: 800px; max-width: 100%; border: 1px solid #e5e7eb;" src="about:blank"></iframe>
             </div>
             <div class="fixed top-4 right-4 z-10 flex items-center gap-2">
-                <button type="button" class="action-btn inline-flex h-9 items-center justify-center rounded-lg bg-white border border-gray-200 px-3 text-xs font-semibold text-gray-700 shadow-sm transition-all duration-200 hover:bg-gray-50 active:scale-95" onclick="printRis()" title="Print RIS">
+                <button type="button" class="action-btn inline-flex h-9 items-center justify-center rounded-lg bg-white border border-gray-200 px-3 text-xs font-semibold text-gray-700 shadow-sm transition-all duration-200 hover:bg-gray-50 active:scale-95" onclick="printRis()" data-tip="Print RIS" aria-label="Print RIS">
                     <i data-lucide="printer" class="h-4 w-4"></i>
                     <span class="ml-1.5">Print</span>
                 </button>
-                <button type="button" class="flex h-9 w-9 items-center justify-center rounded-full bg-white border border-gray-200 text-slate-400 shadow-sm transition-all duration-200 hover:bg-slate-100 hover:text-slate-900 active:scale-90" onclick="closeRisViewModal()" aria-label="Close">
+                <button type="button" class="flex h-9 w-9 items-center justify-center rounded-full bg-white border border-gray-200 text-slate-400 shadow-sm transition-all duration-200 hover:bg-slate-100 hover:text-slate-900 active:scale-90" onclick="closeRisViewModal()" data-tip="Close" aria-label="Close">
                     <i data-lucide="x" class="h-4 w-4"></i>
                 </button>
             </div>
@@ -187,10 +186,23 @@
 
     function printRis() {
         const iframe = document.getElementById('risViewIframe');
-        if (!iframe || !iframe.contentWindow) return;
-        iframe.contentWindow.focus();
-        iframe.contentWindow.print();
+        if (iframe && iframe.contentWindow) {
+            iframe.contentWindow.focus();
+            iframe.contentWindow.print();
+            return;
+        }
     }
+
+    window.printRisDocument = function (risId) {
+        if (!risId) return;
+        const win = window.open('/president/ris/' + risId + '/print', '_blank', 'noopener,noreferrer,width=1200,height=860');
+        if (!win) return;
+        const triggerPrint = function () {
+            try { win.focus(); win.print(); } catch (e) {}
+        };
+        win.onload = triggerPrint;
+        setTimeout(triggerPrint, 1200);
+    };
 
     function scaleRisToFit() {
         const modal = document.getElementById('risViewModal');
@@ -287,21 +299,33 @@
     }
 
     function buildPagination(data) {
-        let html = '<nav class="flex items-center justify-between"><div class="text-sm text-gray-500">Showing ' + data.from + ' to ' + data.to + ' of ' + data.total + ' results</div><ul class="flex items-center gap-1">';
+        const current = Number(data.current_page || 1);
+        const last = Number(data.last_page || 1);
+        const windowSize = 5;
+        const half = Math.floor(windowSize / 2);
+        let start = Math.max(1, current - half);
+        let end = Math.min(last, start + windowSize - 1);
+        start = Math.max(1, end - windowSize + 1);
 
-        const prevDisabled = data.current_page <= 1;
-        html += '<li class="' + (prevDisabled ? 'opacity-50 pointer-events-none' : '') + '"><button onclick="goToPage(' + (data.current_page - 1) + ')" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-sm text-gray-600 hover:bg-gray-50">&laquo;</button></li>';
+        let html = '<nav class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><p class="text-sm text-slate-600">Showing <span class="font-medium text-slate-900">' + data.from + '</span> to <span class="font-medium text-slate-900">' + data.to + '</span> of <span class="font-medium text-slate-900">' + data.total + '</span> results</p><ul class="inline-flex items-center gap-1">';
 
-        for (let i = 1; i <= data.last_page; i++) {
-            if (i === data.current_page) {
-                html += '<li><span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-gray-900 text-sm font-semibold text-white">' + i + '</span></li>';
+        const prevDisabled = current <= 1;
+        html += '<li>' + (prevDisabled
+            ? '<span class="inline-flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-300">&laquo;</span>'
+            : '<button type="button" onclick="goToPage(' + (current - 1) + ')" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">&laquo;</button>') + '</li>';
+
+        for (let i = start; i <= end; i++) {
+            if (i === current) {
+                html += '<li><span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-sm font-semibold text-white">' + i + '</span></li>';
             } else {
-                html += '<li><button onclick="goToPage(' + i + ')" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-sm text-gray-600 hover:bg-gray-50">' + i + '</button></li>';
+                html += '<li><button type="button" onclick="goToPage(' + i + ')" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">' + i + '</button></li>';
             }
         }
 
-        const nextDisabled = data.current_page >= data.last_page;
-        html += '<li class="' + (nextDisabled ? 'opacity-50 pointer-events-none' : '') + '"><button onclick="goToPage(' + (data.current_page + 1) + ')" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-sm text-gray-600 hover:bg-gray-50">&raquo;</button></li>';
+        const nextDisabled = current >= last;
+        html += '<li>' + (nextDisabled
+            ? '<span class="inline-flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-300">&raquo;</span>'
+            : '<button type="button" onclick="goToPage(' + (current + 1) + ')" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">&raquo;</button>') + '</li>';
 
         html += '</ul></nav>';
         return html;
