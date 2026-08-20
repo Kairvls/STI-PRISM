@@ -4,30 +4,43 @@
 
 @section('content')
 <div class="acc-page fade-in">
-    <div class="acc-page-header">
-        <div>
-            <p class="acc-page-kicker">Insights</p>
-            <h1 class="acc-page-title">Reports</h1>
-            <p class="acc-page-subtitle">Live counts from Accounting workflow tables.</p>
-        </div>
+    <div>
+        <p class="text-sm leading-6 text-gray-500">Live counts from Accounting workflow tables.</p>
     </div>
 
-    <div class="acc-stat-grid">
-        @foreach ([
-            ['ATP pending review', $metrics['atp_pending'], 'warn'],
-            ['Request Checks pending', $metrics['rfc_pending'], 'warn'],
-            ['Funds awaiting release', $metrics['funds_awaiting'], 'ok'],
-            ['Liquidations pending', $metrics['liq_pending'], 'warn'],
-            ['Approved ATP', $metrics['atp_approved'], 'ok'],
-            ['Approved Request Checks', $metrics['rfc_approved'], 'ok'],
-            ['Approved liquidations', $metrics['liq_approved'], 'ok'],
-            ['Items requiring revision', $metrics['needs_revision'], 'info'],
-        ] as $i => [$label, $value, $tone])
-            <div class="acc-stat-card slide-up" style="animation-delay:{{ 0.04 * ($i + 1) }}s; padding-right: 0.9rem;">
-                <p class="acc-stat-label is-{{ $tone }}">{{ $label }}</p>
-                <p class="acc-stat-value">{{ $value }}</p>
-            </div>
-        @endforeach
+    <div class="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div class="pm-kpi-card slide-up" style="animation-delay:.04s">
+            <p class="text-xs font-semibold text-gray-500">ATP pending review</p>
+            <p class="mt-2 text-2xl font-bold text-blue-600">{{ $metrics['atp_pending'] }}</p>
+        </div>
+        <div class="pm-kpi-card slide-up" style="animation-delay:.08s">
+            <p class="text-xs font-semibold text-gray-500">Request Checks pending</p>
+            <p class="mt-2 text-2xl font-bold text-blue-600">{{ $metrics['rfc_pending'] }}</p>
+        </div>
+        <div class="pm-kpi-card slide-up" style="animation-delay:.12s">
+            <p class="text-xs font-semibold text-gray-500">Funds awaiting release</p>
+            <p class="mt-2 text-2xl font-bold text-blue-600">{{ $metrics['funds_awaiting'] }}</p>
+        </div>
+        <div class="pm-kpi-card slide-up" style="animation-delay:.16s">
+            <p class="text-xs font-semibold text-gray-500">Liquidations pending</p>
+            <p class="mt-2 text-2xl font-bold text-slate-700">{{ $metrics['liq_pending'] }}</p>
+        </div>
+        <div class="pm-kpi-card slide-up" style="animation-delay:.2s">
+            <p class="text-xs font-semibold text-gray-500">Approved ATP</p>
+            <p class="mt-2 text-2xl font-bold text-blue-600">{{ $metrics['atp_approved'] }}</p>
+        </div>
+        <div class="pm-kpi-card slide-up" style="animation-delay:.24s">
+            <p class="text-xs font-semibold text-gray-500">Approved Request Checks</p>
+            <p class="mt-2 text-2xl font-bold text-blue-600">{{ $metrics['rfc_approved'] }}</p>
+        </div>
+        <div class="pm-kpi-card slide-up" style="animation-delay:.28s">
+            <p class="text-xs font-semibold text-gray-500">Approved liquidations</p>
+            <p class="mt-2 text-2xl font-bold text-blue-600">{{ $metrics['liq_approved'] }}</p>
+        </div>
+        <div class="pm-kpi-card slide-up" style="animation-delay:.32s">
+            <p class="text-xs font-semibold text-gray-500">Items requiring revision</p>
+            <p class="mt-2 text-2xl font-bold text-slate-700">{{ $metrics['needs_revision'] }}</p>
+        </div>
     </div>
 </div>
 @endsection

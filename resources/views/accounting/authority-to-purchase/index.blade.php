@@ -5,12 +5,19 @@
 @section('content')
 @include('accounting.partials.flash')
 
+@php
+    $filters = [
+        'incoming' => 'Needs review ('.$counts['incoming'].')',
+        'revision' => 'Revision ('.$counts['revision'].')',
+        'approved' => 'Approved ('.$counts['approved'].')',
+        'all' => 'All',
+    ];
+@endphp
+
 <div class="acc-page fade-in">
-    <div class="acc-page-header">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-            <p class="acc-page-kicker">Transactions</p>
-            <h1 class="acc-page-title">Authority to Purchase</h1>
-            <p class="acc-page-subtitle">Review ATP submitted by Purchaser.</p>
+            <p class="text-sm leading-6 text-gray-500">Review ATP submitted by Purchaser.</p>
         </div>
         <form method="GET" class="acc-toolbar">
             <input type="hidden" name="status" value="{{ $filter }}">
@@ -19,13 +26,22 @@
         </form>
     </div>
 
-    <div class="acc-filters slide-up">
-        @foreach (['incoming' => 'Needs review ('.$counts['incoming'].')', 'revision' => 'Revision ('.$counts['revision'].')', 'approved' => 'Approved ('.$counts['approved'].')', 'all' => 'All'] as $key => $label)
-            <a href="/accounting/authority-to-purchase?status={{ $key }}" class="acc-chip {{ $filter === $key ? 'is-active' : '' }}">{{ $label }}</a>
-        @endforeach
+    <div class="mt-4 flex flex-wrap items-center gap-3 slide-up">
+        <div class="pm-seg" role="tablist" aria-label="ATP status filters" data-active="{{ $filter }}">
+            <span class="pm-seg-thumb" aria-hidden="true"></span>
+            @foreach ($filters as $key => $label)
+                <a
+                    href="/accounting/authority-to-purchase?status={{ $key }}{{ request('search') ? '&search='.urlencode(request('search')) : '' }}"
+                    role="tab"
+                    class="pm-seg-btn {{ $filter === $key ? 'is-active' : '' }}"
+                    data-filter="{{ $key }}"
+                    aria-selected="{{ $filter === $key ? 'true' : 'false' }}"
+                >{{ $label }}</a>
+            @endforeach
+        </div>
     </div>
 
-    <div class="acc-table-wrap slide-up">
+    <div class="acc-table-wrap mt-4 slide-up">
         <table class="acc-table min-w-[820px]">
             <thead>
                 <tr>
@@ -47,7 +63,16 @@
                         <td class="acc-money">{{ $row->atp_total !== null ? '₱'.number_format((float)$row->atp_total, 2) : '—' }}</td>
                         <td class="acc-muted">{{ $row->authority_purchase_submitted_at ? \Carbon\Carbon::parse($row->authority_purchase_submitted_at)->format('M d, Y') : '—' }}</td>
                         <td>@include('accounting.partials.status-badge', ['status' => $row->authority_purchase_status, 'submitted' => $row->authority_purchase_submitted_at, 'revision' => $row->authority_purchase_rejection_reason])</td>
-                        <td class="text-right"><a href="/accounting/authority-to-purchase/{{ $row->authority_purchase_id }}" class="acc-row-link">Review</a></td>
+                        <td class="text-right">
+                            <a
+                                href="/accounting/authority-to-purchase/{{ $row->authority_purchase_id }}"
+                                class="icon-btn"
+                                data-tip="Review ATP"
+                                aria-label="Review ATP"
+                            >
+                                <i data-lucide="eye" class="h-4 w-4"></i>
+                            </a>
+                        </td>
                     </tr>
                 @empty
                     <tr><td colspan="7"><div class="acc-empty my-2">No ATP records in this queue.</div></td></tr>
@@ -55,6 +80,8 @@
             </tbody>
         </table>
     </div>
-    <div class="acc-pagination">{{ $records->links() }}</div>
+    @if ($records->hasPages())
+        <div class="acc-pagination mt-3">{{ $records->links('pagination.president') }}</div>
+    @endif
 </div>
 @endsection

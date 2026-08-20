@@ -1,47 +1,19 @@
-{{-- Accounting design system — scoped to Accounting pages only --}}
-<link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&display=swap"
-    rel="stylesheet"
-/>
+{{-- Accounting design system — aligned with President (blue / white) --}}
 <style>
     :root {
-        --acc-brand: #0037c7;
-        --acc-brand-soft: rgba(0, 55, 199, 0.85);
-        --acc-primary: #ffd400;
-        --acc-page-bg: #f1f5f9;
+        --acc-brand: #2563EB;
+        --acc-brand-soft: rgba(37, 99, 235, 0.85);
+        --acc-primary: #2563EB;
+        --acc-primary-dark: #1D4ED8;
+        --acc-primary-light: #EFF6FF;
+        --acc-page-bg: #ffffff;
         --acc-card: #ffffff;
         --acc-ink: #0f172a;
         --acc-muted: #64748b;
         --acc-border: #e2e8f0;
         --acc-radius: 14px;
-        --acc-radius-lg: 16px;
+        --acc-radius-lg: 18px;
         --acc-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-    }
-
-    /* Beat global Poppins on Accounting content */
-    main,
-    main *,
-    .acc-page,
-    .acc-page * {
-        font-family: "Inter", sans-serif;
-    }
-
-    .acc-page-title,
-    .acc-stat-value,
-    .acc-panel-title {
-        font-family: "Outfit", sans-serif;
-    }
-
-    /* Tighter main canvas on Accounting (laptop-friendly) */
-    main.flex-1 {
-        padding: 1.125rem 1.35rem !important;
-        background: var(--acc-page-bg) !important;
-    }
-
-    @media (min-width: 1280px) {
-        main.flex-1 {
-            padding: 1.25rem 1.5rem !important;
-        }
     }
 
     .fade-in { animation: accFade .28s ease both; }
@@ -66,7 +38,7 @@
     }
 
     .acc-page-kicker {
-        display: inline-flex;
+        display: none;
         align-items: center;
         gap: 0.4rem;
         font-size: 0.6875rem;
@@ -84,13 +56,15 @@
         background: var(--acc-primary);
     }
 
-    .acc-page-title {
-        margin-top: 0.15rem;
-        font-size: 1.625rem;
-        line-height: 1.15;
-        font-weight: 800;
-        letter-spacing: -0.03em;
+    /* List page titles live in the topbar; keep review/doc titles visible */
+    .acc-page-header .acc-page-title { display: none; }
+    .acc-review-head .acc-page-title {
+        margin-top: 0.25rem;
+        font-size: 1.25rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
         color: var(--acc-ink);
+        line-height: 1.25;
     }
 
     .acc-page-subtitle {
@@ -249,7 +223,6 @@
 
     .acc-mini-card p:last-child {
         margin-top: 0.15rem;
-        font-family: "Outfit", sans-serif;
         font-size: 1.125rem;
         font-weight: 700;
         color: var(--acc-ink);
@@ -422,18 +395,18 @@
 
     .acc-btn:active { transform: scale(0.98); }
 
-    .acc-btn-approve { background: #059669; color: #fff; }
-    .acc-btn-approve:hover { background: #047857; }
+    .acc-btn-approve { background: #2563EB; color: #fff; }
+    .acc-btn-approve:hover { background: #1D4ED8; }
 
     .acc-btn-revise {
-        background: #fffbeb;
-        color: #92400e;
-        border-color: #fcd34d;
+        background: #fff;
+        color: #475569;
+        border-color: #e2e8f0;
     }
-    .acc-btn-revise:hover { background: #fef3c7; }
+    .acc-btn-revise:hover { background: #f8fafc; color: #0f172a; }
 
-    .acc-btn-funds { background: #111827; color: #fff; }
-    .acc-btn-funds:hover { background: #030712; }
+    .acc-btn-funds { background: #0f172a; color: #fff; }
+    .acc-btn-funds:hover { background: #020617; }
 
     .acc-btn-ghost {
         background: #fff;
@@ -443,10 +416,10 @@
     .acc-btn-ghost:hover { background: #f8fafc; }
 
     .acc-btn-primary {
-        background: var(--acc-brand-soft);
+        background: #2563EB;
         color: #fff;
     }
-    .acc-btn-primary:hover { background: rgba(0, 44, 155, 0.85); }
+    .acc-btn-primary:hover { background: #1D4ED8; }
 
     /* ---------- Review layout ---------- */
     .acc-review-head {
@@ -864,62 +837,3 @@
     }
 </style>
 
-<script>
-    (function () {
-        function fitAccountingDocuments() {
-            document.querySelectorAll('.acc-viewer').forEach(function (viewer) {
-                var stage = viewer.querySelector('.acc-viewer-stage');
-                var fit = viewer.querySelector('.acc-viewer-fit');
-                if (!stage || !fit) return;
-
-                fit.style.transform = 'none';
-                fit.style.width = 'auto';
-                fit.style.height = 'auto';
-                fit.style.margin = '0';
-
-                var sheet = fit.querySelector('.rfc-print-sheet, .liq-print-sheet, .acc-paper') || fit.firstElementChild;
-                if (!sheet) return;
-
-                var pad = 16;
-                var availW = Math.max(140, stage.clientWidth - pad);
-                var availH = Math.max(140, stage.clientHeight - pad);
-                var docW = Math.max(sheet.scrollWidth, sheet.offsetWidth);
-                var docH = Math.max(sheet.scrollHeight, sheet.offsetHeight);
-                if (!docW || !docH) return;
-
-                var scale = Math.min(availW / docW, availH / docH, 1);
-                scale = Math.max(0.28, Math.round(scale * 1000) / 1000);
-
-                fit.style.width = docW + 'px';
-                fit.style.height = docH + 'px';
-                fit.style.transform = 'scale(' + scale + ')';
-                fit.style.margin = ((docH * (scale - 1)) / 2) + 'px ' + ((docW * (scale - 1)) / 2) + 'px';
-            });
-        }
-
-        window.fitAccountingDocuments = fitAccountingDocuments;
-
-        function scheduleFit() {
-            requestAnimationFrame(function () {
-                fitAccountingDocuments();
-                setTimeout(fitAccountingDocuments, 80);
-                setTimeout(fitAccountingDocuments, 320);
-            });
-        }
-
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', scheduleFit);
-        } else {
-            scheduleFit();
-        }
-
-        window.addEventListener('resize', function () {
-            clearTimeout(window.__accFitTimer);
-            window.__accFitTimer = setTimeout(fitAccountingDocuments, 80);
-        });
-
-        if (window.lucide) {
-            try { lucide.createIcons(); } catch (e) {}
-        }
-    })();
-</script>

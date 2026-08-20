@@ -14,7 +14,7 @@
         }
     }
     if (in_array($raw, ['Approved', 'Completed', 'Released', 'Funds released'], true)) {
-        $cls = 'bg-emerald-50 text-emerald-800 ring-emerald-200';
+        $cls = 'bg-blue-50 text-blue-800 ring-blue-200';
     }
     if (in_array($raw, ['Minor Revision', 'Revision'], true) || ($raw === 'Pending' && empty($submitted) && !empty($revision))) {
         $cls = 'bg-sky-50 text-sky-800 ring-sky-200';
