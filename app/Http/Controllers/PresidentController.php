@@ -334,7 +334,7 @@ class PresidentController extends Controller
             });
 
         // ================================
-        // Recent decisions (oldest first in the stack)
+        // Recent decisions (oldest first, paginated)
         // ================================
         $recentRis = DB::table('requisition_issue_slip_table as ris')
             ->leftJoin('requisition_issue_slip_items_table as items', 'ris.ris_id', '=', 'items.ris_id')
@@ -371,9 +371,11 @@ class PresidentController extends Controller
             ->orderBy('ris.ris_approved_by_date')
             ->orderBy('ris.ris_created_at')
             ->orderBy('ris.ris_id')
-            ->limit(10)
-            ->get()
-            ->map(function ($ris) {
+            ->paginate(10, ['*'], 'recent_page')
+            ->withQueryString();
+
+        $recentRis->setCollection(
+            $recentRis->getCollection()->map(function ($ris) {
                 $isApproved = RisWorkflow::isPresidentApproved($ris);
                 $ris->is_president_approved = $isApproved;
                 $ris->admin_notified = $isApproved && $this->presidentHasNotifiedAdmin((int) $ris->ris_id);
@@ -381,12 +383,28 @@ class PresidentController extends Controller
                     && trim((string) ($ris->ris_issued_by_signature ?? '')) === '';
 
                 return $ris;
-            });
+            })
+        );
 
         // ================================
         // AJAX response: return JSON with rendered partial
         // ================================
         if ($request->ajax()) {
+            if ($request->get('section') === 'recent') {
+                $listHtml = view('president.approvals._recent-list', [
+                    'recentRis' => $recentRis,
+                ])->render();
+
+                return response()->json([
+                    'list_html' => $listHtml,
+                    'total' => $recentRis->total(),
+                    'from' => $recentRis->firstItem(),
+                    'to' => $recentRis->lastItem(),
+                    'current_page' => $recentRis->currentPage(),
+                    'last_page' => $recentRis->lastPage(),
+                ]);
+            }
+
             $tableHtml = view('president.approvals._table', [
                 'pendingRis' => $pendingRis,
                 'awaitingNotifyRis' => $awaitingNotifyRis,
@@ -660,17 +678,23 @@ class PresidentController extends Controller
     public function approvedReports(Request $request)
     {
         $filter = $request->filled('filter') ? $request->filter : 'all';
-        
+
         if (!in_array($filter, ['all', 'approved', 'rejected', 'pending'], true)) {
             $filter = 'all';
         }
 
+        // Latest President approval-log per RIS (avoids duplicate table rows)
+        $latestPresidentLog = DB::table('approval_logs_table')
+            ->select('approval_log_reference_id', DB::raw('MAX(approval_log_id) as latest_log_id'))
+            ->where('approval_log_reference_type', 'RIS')
+            ->where('approval_log_level', 'President')
+            ->groupBy('approval_log_reference_id');
+
         $query = DB::table('requisition_issue_slip_table as ris')
-            ->leftJoin('approval_logs_table as log', function ($join) {
-                $join->on('log.approval_log_reference_id', '=', 'ris.ris_id')
-                    ->where('log.approval_log_reference_type', '=', 'RIS')
-                    ->where('log.approval_log_level', '=', 'President');
+            ->leftJoinSub($latestPresidentLog, 'latest_log', function ($join) {
+                $join->on('latest_log.approval_log_reference_id', '=', 'ris.ris_id');
             })
+            ->leftJoin('approval_logs_table as log', 'log.approval_log_id', '=', 'latest_log.latest_log_id')
             ->leftJoin('requisition_issue_slip_items_table as items', 'ris.ris_id', '=', 'items.ris_id')
             ->select(
                 'ris.ris_id',
@@ -680,6 +704,7 @@ class PresidentController extends Controller
                 'ris.ris_purpose_description',
                 'ris.ris_requested_by_signature',
                 'ris.ris_approved_by_signature',
+                'ris.ris_approved_by_date',
                 'ris.ris_issued_by_signature',
                 'log.approval_log_approval_remarks as remarks',
                 'log.approval_log_approved_at as decided_at',
@@ -693,15 +718,14 @@ class PresidentController extends Controller
                 'ris.ris_purpose_description',
                 'ris.ris_requested_by_signature',
                 'ris.ris_approved_by_signature',
+                'ris.ris_approved_by_date',
                 'ris.ris_issued_by_signature',
                 'log.approval_log_approval_remarks',
                 'log.approval_log_approved_at'
             );
 
-        if ($filter !== 'all') {
-            $status = $filter === 'approved' ? 'Approved' : ($filter === 'rejected' ? 'Rejected' : 'Pending');
-            $query->where('ris.ris_status', $status);
-        }
+        // Same buckets for table filters and KPI cards
+        $this->applyDecisionHistoryFilter($query, $filter);
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -717,17 +741,23 @@ class PresidentController extends Controller
         }
 
         $outcomeRecords = $query
-            ->orderByDesc('ris.ris_created_at')
+            ->orderByDesc(DB::raw('COALESCE(log.approval_log_approved_at, ris.ris_approved_by_date, ris.ris_created_at)'))
+            ->orderByDesc('ris.ris_id')
             ->paginate(10)
             ->withQueryString();
 
-        $totalApproved = DB::table('requisition_issue_slip_table')->where('ris_status', 'Approved')->count();
-        $totalRejected = DB::table('requisition_issue_slip_table')->whereIn('ris_status', ['Rejected', 'Rejected by President', 'Rejected by the President'])->count();
-        $totalPending = DB::table('requisition_issue_slip_table')->where('ris_status', 'Pending')->count();
+        // Card totals = same scopes as the All / Approved / Rejected / Pending lists
+        $totalApproved = $this->countDecisionHistoryBucket('approved');
+        $totalRejected = $this->countDecisionHistoryBucket('rejected');
+        $totalPending = $this->countDecisionHistoryBucket('pending');
         $totalDecisions = $totalApproved + $totalRejected + $totalPending;
 
         if ($request->ajax()) {
-            $tableHtml = view('president.reports._approved-table', ['approvedOutcomeRecords' => $outcomeRecords, 'type' => $filter])->render();
+            $tableHtml = view('president.reports._approved-table', [
+                'approvedOutcomeRecords' => $outcomeRecords,
+                'type' => $filter,
+            ])->render();
+
             return response()->json([
                 'table_html' => $tableHtml,
                 'total' => $outcomeRecords->total(),
@@ -735,6 +765,10 @@ class PresidentController extends Controller
                 'to' => $outcomeRecords->lastItem(),
                 'current_page' => $outcomeRecords->currentPage(),
                 'last_page' => $outcomeRecords->lastPage(),
+                'total_approved' => $totalApproved,
+                'total_rejected' => $totalRejected,
+                'total_pending' => $totalPending,
+                'total_decisions' => $totalDecisions,
             ]);
         }
 
@@ -747,6 +781,53 @@ class PresidentController extends Controller
             'totalPending' => $totalPending,
             'totalDecisions' => $totalDecisions,
         ]);
+    }
+
+    /**
+     * Apply the Decision History status bucket used by both the table and KPI cards.
+     */
+    private function applyDecisionHistoryFilter($query, string $filter, string $prefix = 'ris.')
+    {
+        if ($filter === 'approved') {
+            return $this->scopePresidentApproved($query, $prefix);
+        }
+
+        if ($filter === 'rejected') {
+            return $this->scopeDecisionHistoryRejected($query, $prefix);
+        }
+
+        if ($filter === 'pending') {
+            return $this->scopeAwaitingPresident($query, $prefix);
+        }
+
+        // "all" = union of the three buckets (matches Total Decisions card)
+        return $query->where(function ($q) use ($prefix) {
+            $q->where(function ($approved) use ($prefix) {
+                $this->scopePresidentApproved($approved, $prefix);
+            })->orWhere(function ($rejected) use ($prefix) {
+                $this->scopeDecisionHistoryRejected($rejected, $prefix);
+            })->orWhere(function ($pending) use ($prefix) {
+                $this->scopeAwaitingPresident($pending, $prefix);
+            });
+        });
+    }
+
+    private function scopeDecisionHistoryRejected($query, string $prefix = '')
+    {
+        $status = $prefix . 'ris_status';
+
+        return $query->where(function ($q) use ($status) {
+            $q->whereIn($status, RisWorkflow::presidentRejectedStatuses())
+                ->orWhere($status, 'Rejected');
+        });
+    }
+
+    private function countDecisionHistoryBucket(string $filter): int
+    {
+        $query = DB::table('requisition_issue_slip_table as ris');
+        $this->applyDecisionHistoryFilter($query, $filter, 'ris.');
+
+        return (int) $query->count();
     }
 
     public function monthlySummary(Request $request): View

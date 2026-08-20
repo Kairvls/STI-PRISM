@@ -42,14 +42,6 @@
                 <i data-lucide="bar-chart-3"></i>
                 <span>Monthly Decisions</span>
             </a>
-
-            <a
-                href="/president/reports/approved"
-                class="quick-card {{ request()->is('president/reports/approved*') ? 'active' : '' }}"
-            >
-                <i data-lucide="badge-check"></i>
-                <span>History</span>
-            </a>
         </div>
 
         <div class="menu-title" id="dashboard-section">DASHBOARD</div>

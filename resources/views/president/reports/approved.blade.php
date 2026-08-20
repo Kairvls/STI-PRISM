@@ -7,7 +7,7 @@
 <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between fade-in">
     <div>
         <p class="text-sm leading-6 text-gray-500">
-            View all RIS records marked as Approved, Rejected, or Pending.
+            View approved, rejected, and pending President RIS decisions.
         </p>
     </div>
 </div>
@@ -16,19 +16,19 @@
 <div class="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4 slide-up" style="animation-delay: 0.05s">
     <div class="pm-kpi-card slide-up" style="animation-delay: 0.05s">
         <p class="text-xs font-semibold text-gray-500">Total Approved</p>
-        <p class="mt-2 text-3xl font-bold text-blue-600 count-up" data-target="{{ $totalApproved ?? 0 }}">{{ $totalApproved ?? 0 }}</p>
+        <p id="cardTotalApproved" class="mt-2 text-3xl font-bold text-blue-600 count-up" data-target="{{ $totalApproved ?? 0 }}">{{ $totalApproved ?? 0 }}</p>
     </div>
     <div class="pm-kpi-card slide-up" style="animation-delay: 0.1s">
         <p class="text-xs font-semibold text-gray-500">Total Rejected</p>
-        <p class="mt-2 text-3xl font-bold text-slate-600 count-up" data-target="{{ $totalRejected ?? 0 }}">{{ $totalRejected ?? 0 }}</p>
+        <p id="cardTotalRejected" class="mt-2 text-3xl font-bold text-slate-600 count-up" data-target="{{ $totalRejected ?? 0 }}">{{ $totalRejected ?? 0 }}</p>
     </div>
     <div class="pm-kpi-card slide-up" style="animation-delay: 0.15s">
         <p class="text-xs font-semibold text-gray-500">Pending RIS</p>
-        <p class="mt-2 text-3xl font-bold text-slate-600 count-up" data-target="{{ $totalPending ?? 0 }}">{{ $totalPending ?? 0 }}</p>
+        <p id="cardTotalPending" class="mt-2 text-3xl font-bold text-slate-600 count-up" data-target="{{ $totalPending ?? 0 }}">{{ $totalPending ?? 0 }}</p>
     </div>
     <div class="pm-kpi-card slide-up" style="animation-delay: 0.2s">
         <p class="text-xs font-semibold text-gray-500">Total Decisions</p>
-        <p class="mt-2 text-3xl font-bold text-gray-900 count-up" data-target="{{ $totalDecisions ?? 0 }}">{{ $totalDecisions ?? 0 }}</p>
+        <p id="cardTotalDecisions" class="mt-2 text-3xl font-bold text-gray-900 count-up" data-target="{{ $totalDecisions ?? 0 }}">{{ $totalDecisions ?? 0 }}</p>
     </div>
 </div>
 
@@ -51,8 +51,8 @@
         $listDescription = match ($currentFilter) {
             'approved' => 'RIS records approved by the President.',
             'rejected' => 'RIS records rejected by the President.',
-            'pending' => 'RIS records pending President\'s decision.',
-            default => 'All RIS records.',
+            'pending' => 'RIS records awaiting the President\'s decision.',
+            default => 'Approved, rejected, and pending President decisions.',
         };
     @endphp
     <section class="rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.15s">
@@ -364,6 +364,18 @@
                 tbody.style.opacity = '1';
             }
             if (totalSpan) totalSpan.textContent = data.total + ' total';
+            if (typeof data.total_approved !== 'undefined') {
+                const setCard = (id, value) => {
+                    const el = document.getElementById(id);
+                    if (!el) return;
+                    el.textContent = Number(value).toLocaleString();
+                    el.setAttribute('data-target', String(value));
+                };
+                setCard('cardTotalApproved', data.total_approved);
+                setCard('cardTotalRejected', data.total_rejected);
+                setCard('cardTotalPending', data.total_pending);
+                setCard('cardTotalDecisions', data.total_decisions);
+            }
             if (pagination) {
                 if (data.last_page > 1) {
                     let html = buildPagination(data, 'goToApprovedPage');

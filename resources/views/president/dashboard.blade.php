@@ -16,7 +16,7 @@
 {{-- ===================================== --}}
 <div class="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
     <div class="pm-stat-card relative slide-up" style="animation-delay: 0.05s">
-        <div class="pm-stat-icon bg-slate-50 text-slate-600">
+        <div class="pm-stat-icon bg-blue-50 text-blue-600">
             <i data-lucide="file-text"></i>
         </div>
         <div class="min-w-0 flex-1">
@@ -26,23 +26,23 @@
     </div>
 
     <div class="pm-stat-card relative slide-up" style="animation-delay: 0.1s">
-        <div class="pm-stat-icon bg-slate-100 text-slate-600">
+        <div class="pm-stat-icon bg-blue-50 text-blue-600">
             <i data-lucide="clock-3"></i>
         </div>
         <div class="min-w-0 flex-1">
             <p class="pm-stat-label">Awaiting decision</p>
-            <p class="pm-stat-value"><span class="count-up" data-target="{{ $pendingApprovalsCount ?? 0 }}">0</span> Pending</p>
+            <p class="pm-stat-value is-blue"><span class="count-up" data-target="{{ $pendingApprovalsCount ?? 0 }}">0</span> Pending</p>
         </div>
         <a href="/president/approvals" class="absolute inset-0 z-10 opacity-0"><span class="sr-only">View pending</span></a>
     </div>
 
     <div class="pm-stat-card relative slide-up" style="animation-delay: 0.15s">
-        <div class="pm-stat-icon bg-slate-100 text-slate-700">
+        <div class="pm-stat-icon bg-blue-50 text-blue-600">
             <i data-lucide="circle-check-big"></i>
         </div>
         <div class="min-w-0 flex-1">
             <p class="pm-stat-label">Successfully approved</p>
-            <p class="pm-stat-value"><span class="count-up" data-target="{{ $approvedDecisionsCount ?? 0 }}">0</span> Approved</p>
+            <p class="pm-stat-value is-blue"><span class="count-up" data-target="{{ $approvedDecisionsCount ?? 0 }}">0</span> Approved</p>
         </div>
         <a href="/president/reports/approved" class="absolute inset-0 z-10 opacity-0"><span class="sr-only">View approved</span></a>
     </div>
@@ -74,7 +74,7 @@
                 <h2 class="pm-analytics-title">Decision Trend</h2>
                 <p class="pm-analytics-subtitle">Last 6 months · approvals &amp; rejections</p>
             </div>
-            <div class="pm-chart-total">
+            <div class="pm-chart-total is-blue">
                 {{ number_format($chartDecisionTotal) }}
                 <span>decisions</span>
             </div>
@@ -102,7 +102,7 @@
                 <h2 class="text-sm font-bold text-gray-900">Recent RIS</h2>
                 <p class="mt-0.5 text-xs text-gray-400">Top 3 awaiting your decision</p>
             </div>
-            <a href="/president/approvals" class="text-xs font-semibold text-gray-900 transition hover:text-slate-600" data-tip="Open approval queue">
+            <a href="/president/approvals" class="text-xs font-semibold text-blue-600 transition hover:text-blue-800" data-tip="Open approval queue">
                 View all
             </a>
         </div>
@@ -114,12 +114,12 @@
                     $requester = $ris->ris_requested_by_signature ?: '—';
                     $amount = number_format((float) ($ris->total_amount ?? 0), 2);
                 @endphp
-                <div class="rounded-xl border border-gray-200 bg-white px-3 py-3 transition hover:border-slate-300 hover:bg-slate-50">
+                <div class="rounded-xl border border-blue-100 bg-white px-3 py-3 transition hover:border-blue-200 hover:bg-blue-50/40">
                     <div class="flex items-start justify-between gap-2">
                         <div class="min-w-0 flex-1">
                             <p class="truncate text-xs font-semibold text-gray-900">{{ $label }}</p>
                             <p class="mt-0.5 truncate text-[11px] text-gray-500">{{ $requester }} · {{ $date }}</p>
-                            <p class="mt-1 text-xs font-semibold text-gray-800">₱{{ $amount }}</p>
+                            <p class="mt-1 text-xs font-semibold text-blue-700">₱{{ $amount }}</p>
                         </div>
                         <div class="flex items-center gap-1.5 shrink-0">
                             <button type="button" class="icon-btn" data-tip="Print RIS" aria-label="Print RIS" onclick="printRisDocument({{ $ris->ris_id }})">
@@ -127,7 +127,7 @@
                             </button>
                             <a
                                 href="/president/approvals?approve={{ $ris->ris_id }}"
-                                class="inline-flex h-9 items-center rounded-xl bg-slate-900 px-3 text-[11px] font-medium text-white transition hover:bg-slate-800"
+                                class="inline-flex h-9 items-center rounded-xl bg-blue-600 px-3 text-[11px] font-medium text-white transition hover:bg-blue-700"
                                 data-tip="Open and approve this RIS"
                             >
                                 Approve
@@ -157,32 +157,32 @@
             </div>
         </div>
         <div class="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
-            <a href="/president/approvals" class="group rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 transition hover:border-slate-300 hover:bg-slate-100">
+            <a href="/president/approvals" class="group rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-4 transition hover:border-blue-200 hover:bg-blue-50">
                 <div class="flex items-center justify-between">
-                    <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-slate-600 ring-1 ring-slate-200">
+                    <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-blue-600 ring-1 ring-blue-100">
                         <i data-lucide="clipboard-check" class="h-4 w-4"></i>
                     </div>
-                    <span class="text-xl font-bold text-slate-800">{{ $pendingApprovalsCount ?? 0 }}</span>
+                    <span class="text-xl font-bold text-blue-700">{{ $pendingApprovalsCount ?? 0 }}</span>
                 </div>
                 <p class="mt-3 text-sm font-semibold text-gray-900">Pending review</p>
                 <p class="mt-0.5 text-[11px] text-gray-500">RIS waiting for your decision</p>
             </a>
-            <a href="/president/approvals" class="group rounded-xl border border-slate-200 bg-white px-4 py-4 transition hover:border-slate-300 hover:bg-slate-50">
+            <a href="/president/approvals" class="group rounded-xl border border-slate-200 bg-white px-4 py-4 transition hover:border-blue-200 hover:bg-blue-50/40">
                 <div class="flex items-center justify-between">
-                    <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50 text-slate-600 ring-1 ring-slate-200">
+                    <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 ring-1 ring-blue-100">
                         <i data-lucide="bell" class="h-4 w-4"></i>
                     </div>
-                    <span class="text-xl font-bold text-slate-800">{{ $awaitingNotifyCount ?? 0 }}</span>
+                    <span class="text-xl font-bold text-blue-700">{{ $awaitingNotifyCount ?? 0 }}</span>
                 </div>
                 <p class="mt-3 text-sm font-semibold text-gray-900">Ready to notify</p>
                 <p class="mt-0.5 text-[11px] text-gray-500">Approved, Admin not yet notified</p>
             </a>
-            <a href="/president/approvals/history" class="group rounded-xl border border-slate-200 bg-white px-4 py-4 transition hover:border-slate-300 hover:bg-slate-50">
+            <a href="/president/approvals/history" class="group rounded-xl border border-slate-200 bg-white px-4 py-4 transition hover:border-blue-200 hover:bg-blue-50/40">
                 <div class="flex items-center justify-between">
-                    <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50 text-slate-600 ring-1 ring-slate-200">
+                    <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 ring-1 ring-blue-100">
                         <i data-lucide="history" class="h-4 w-4"></i>
                     </div>
-                    <i data-lucide="chevron-right" class="h-4 w-4 text-gray-300 transition group-hover:translate-x-0.5 group-hover:text-gray-500"></i>
+                    <i data-lucide="chevron-right" class="h-4 w-4 text-gray-300 transition group-hover:translate-x-0.5 group-hover:text-blue-500"></i>
                 </div>
                 <p class="mt-3 text-sm font-semibold text-gray-900">Approval history</p>
                 <p class="mt-0.5 text-[11px] text-gray-500">Review past decisions</p>
@@ -196,7 +196,7 @@
                 <h2 class="text-sm font-bold text-gray-900">Recently Approved RIS</h2>
                 <p class="mt-0.5 text-xs text-gray-400">Your latest approvals</p>
             </div>
-            <a href="/president/reports/approved" class="text-xs font-semibold text-gray-900 transition hover:text-slate-600" data-tip="View all approved RIS">
+            <a href="/president/reports/approved" class="text-xs font-semibold text-blue-600 transition hover:text-blue-800" data-tip="View all approved RIS">
                 View all
             </a>
         </div>
@@ -212,10 +212,10 @@
                 <div class="flex items-center gap-1">
                     <a
                         href="/president/approvals?preview={{ $ris->ris_id }}"
-                        class="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all duration-200 hover:bg-slate-50 min-w-0 flex-1"
+                        class="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all duration-200 hover:bg-blue-50/60 min-w-0 flex-1"
                         data-tip="Open approved RIS"
                     >
-                        <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                        <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
                             <i data-lucide="badge-check" class="h-4 w-4"></i>
                         </div>
                         <div class="min-w-0 flex-1">
@@ -223,11 +223,11 @@
                             <p class="text-[11px] text-gray-500">{{ $date }}</p>
                         </div>
                         @if ($awaiting)
-                            <span class="inline-flex items-center rounded-xl bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
+                            <span class="inline-flex items-center rounded-xl bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700 ring-1 ring-inset ring-blue-100">
                                 Notify Admin
                             </span>
                         @else
-                            <span class="inline-flex items-center rounded-xl bg-slate-900 px-2 py-0.5 text-[10px] font-semibold text-white">
+                            <span class="inline-flex items-center rounded-xl bg-blue-600 px-2 py-0.5 text-[10px] font-semibold text-white">
                                 Approved
                             </span>
                         @endif
@@ -302,6 +302,9 @@
         color: #0f172a;
         white-space: nowrap;
     }
+    .pm-chart-total.is-blue {
+        color: #1d4ed8;
+    }
     .pm-chart-total span {
         margin-left: 2px;
         font-size: 9px;
@@ -327,7 +330,7 @@
         height: 3px;
         border-radius: 999px;
     }
-    .pm-decision-chart-swatch.is-approved { background: #72b4dc; }
+    .pm-decision-chart-swatch.is-approved { background: #2563EB; }
     .pm-decision-chart-swatch.is-rejected { background: #94a3b8; }
     .pm-decision-chart {
         position: relative;
@@ -391,10 +394,10 @@
                 const chartArea = chart.chartArea;
                 const points = meta.data;
                 const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
-                gradient.addColorStop(0, 'rgba(114, 180, 220, 0.45)');
-                gradient.addColorStop(0.35, 'rgba(114, 180, 220, 0.22)');
-                gradient.addColorStop(0.7, 'rgba(114, 180, 220, 0.08)');
-                gradient.addColorStop(1, 'rgba(114, 180, 220, 0)');
+                gradient.addColorStop(0, 'rgba(37, 99, 235, 0.35)');
+                gradient.addColorStop(0.35, 'rgba(37, 99, 235, 0.16)');
+                gradient.addColorStop(0.7, 'rgba(37, 99, 235, 0.06)');
+                gradient.addColorStop(1, 'rgba(37, 99, 235, 0)');
 
                 ctx.save();
                 ctx.beginPath();
@@ -473,7 +476,7 @@
                     {
                         label: 'Approved',
                         data: chartApproved,
-                        borderColor: '#72b4dc',
+                        borderColor: '#2563EB',
                         backgroundColor: 'transparent',
                         borderWidth: 1.5,
                         fill: false,
@@ -482,7 +485,7 @@
                         pointRadius: 0,
                         pointHoverRadius: 4,
                         pointHitRadius: 25,
-                        pointHoverBackgroundColor: '#72b4dc',
+                        pointHoverBackgroundColor: '#2563EB',
                         pointHoverBorderColor: 'white',
                         pointHoverBorderWidth: 2,
                     },

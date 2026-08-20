@@ -47,38 +47,13 @@
                     <p>Earliest decisions first</p>
                 </div>
             </div>
-            <div class="recent-list">
-                @forelse ($recentRis as $ris)
-                    @php
-                        $isApproved = !empty($ris->is_president_approved);
-                        $isRejected = in_array((string) ($ris->ris_status ?? ''), ['Rejected', 'Rejected by President', 'Rejected by the President'], true);
-                        $displayStatus = $isApproved
-                            ? (!empty($ris->awaiting_notify) ? 'Notify Admin' : 'Approved')
-                            : ($isRejected ? 'Rejected' : 'Pending');
-                        $statusClass = $isApproved
-                            ? (!empty($ris->awaiting_notify) ? 'status-notify' : 'status-approved')
-                            : ($isRejected ? 'status-rejected' : 'status-pending');
-                    @endphp
-                    <div class="recent-row">
-                        <div class="min-w-0 flex-1">
-                            <p class="truncate text-sm font-semibold text-gray-900">{{ $ris->ris_form_number ?? 'RIS #' . $ris->ris_id }}</p>
-                            <p class="truncate text-xs text-gray-500">{{ Str::limit($ris->ris_purpose_description ?? '—', 42) }}</p>
-                        </div>
-                        <span class="status-pill {{ $statusClass }}">{{ $displayStatus }}</span>
-                        <div class="row-actions">
-                            @if ($isApproved)
-                                <button type="button" class="icon-btn" data-tip="Open approved RIS" aria-label="Open approved RIS" onclick="openApprovedRisPreviewModal({{ $ris->ris_id }})">
-                                    <i data-lucide="eye" class="h-4 w-4"></i>
-                                </button>
-                            @endif
-                            <button type="button" class="icon-btn" data-tip="Print RIS" aria-label="Print RIS" onclick="printRisDocument({{ $ris->ris_id }})">
-                                <i data-lucide="printer" class="h-4 w-4"></i>
-                            </button>
-                        </div>
-                    </div>
-                @empty
-                    <p class="empty-note">No recent decisions</p>
-                @endforelse
+            <div id="recentList" class="recent-list">
+                @include('president.approvals._recent-list', ['recentRis' => $recentRis])
+            </div>
+            <div id="recentPagination" class="recent-pagination {{ $recentRis->hasPages() ? '' : 'hidden' }}">
+                @if ($recentRis->hasPages())
+                    {{ $recentRis->links('pagination.president') }}
+                @endif
             </div>
         </aside>
     </div>
@@ -358,6 +333,65 @@
         return html;
     }
     window.goToPage = fetchTableData;
+
+    function fetchRecentData(page) {
+        const recentList = document.getElementById('recentList');
+        const pagination = document.getElementById('recentPagination');
+        if (recentList) recentList.classList.add('updating');
+
+        const params = new URLSearchParams(window.location.search);
+        params.set('section', 'recent');
+        params.set('recent_page', page || 1);
+
+        fetch(`{{ route('president.approvals') }}?${params.toString()}`, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (recentList) {
+                recentList.innerHTML = data.list_html;
+                recentList.classList.remove('updating');
+            }
+            if (pagination) {
+                if (data.last_page > 1) {
+                    pagination.innerHTML = buildPagination(data, 'goToRecentPage');
+                    pagination.classList.remove('hidden');
+                } else {
+                    pagination.innerHTML = '';
+                    pagination.classList.add('hidden');
+                }
+            }
+            const url = new URL(window.location.href);
+            if (Number(data.current_page) > 1) {
+                url.searchParams.set('recent_page', data.current_page);
+            } else {
+                url.searchParams.delete('recent_page');
+            }
+            window.history.replaceState({}, '', url);
+            if (window.lucide) lucide.createIcons();
+        })
+        .catch(() => {
+            if (recentList) recentList.classList.remove('updating');
+        });
+    }
+    window.goToRecentPage = fetchRecentData;
+
+    (function initRecentPagination() {
+        const recentPagination = document.getElementById('recentPagination');
+        @if ($recentRis->hasPages())
+        if (recentPagination) {
+            recentPagination.innerHTML = buildPagination({
+                from: {{ $recentRis->firstItem() ?? 0 }},
+                to: {{ $recentRis->lastItem() ?? 0 }},
+                total: {{ $recentRis->total() }},
+                current_page: {{ $recentRis->currentPage() }},
+                last_page: {{ $recentRis->lastPage() }},
+            }, 'goToRecentPage');
+            recentPagination.classList.remove('hidden');
+        }
+        @endif
+    })();
+
     if (searchInput) {
         searchInput.addEventListener('input', function () {
             clearTimeout(searchTimeout);
