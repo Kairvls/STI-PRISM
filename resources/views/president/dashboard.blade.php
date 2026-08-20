@@ -14,58 +14,46 @@
 {{-- ===================================== --}}
 {{-- KPI SUMMARY CARDS --}}
 {{-- ===================================== --}}
-<div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-    <div class="group relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 transition-all duration-300 hover:border-gray-300 hover:shadow-lg card-hover slide-up" style="animation-delay: 0.05s">
-        <div class="flex items-start justify-between">
-            <div>
-                <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Total RIS</p>
-                <p class="mt-2 text-3xl font-bold text-gray-900 count-up" data-target="{{ $totalRisCount ?? 0 }}">0</p>
-                <p class="mt-1 text-[11px] text-gray-400">All time records</p>
-            </div>
-            <div class="flex h-11 w-11 items-center justify-center rounded-lg bg-slate-50 text-slate-600 ring-1 ring-slate-100">
-                <i data-lucide="file-text" class="h-5 w-5"></i>
-            </div>
+<div class="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="pm-stat-card relative slide-up" style="animation-delay: 0.05s">
+        <div class="pm-stat-icon bg-slate-50 text-slate-600">
+            <i data-lucide="file-text"></i>
+        </div>
+        <div class="min-w-0 flex-1">
+            <p class="pm-stat-label">All time records</p>
+            <p class="pm-stat-value"><span class="count-up" data-target="{{ $totalRisCount ?? 0 }}">0</span> Total RIS</p>
         </div>
     </div>
 
-    <div class="group relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 transition-all duration-300 hover:border-slate-200 hover:shadow-lg card-hover slide-up" style="animation-delay: 0.1s">
-        <div class="flex items-start justify-between">
-            <div>
-                <p class="text-xs font-semibold uppercase tracking-wider text-slate-700">Pending</p>
-                <p class="mt-2 text-3xl font-bold text-gray-900 count-up" data-target="{{ $pendingApprovalsCount ?? 0 }}">0</p>
-                <p class="mt-1 text-[11px] text-slate-500">Awaiting decision</p>
-            </div>
-            <div class="flex h-11 w-11 items-center justify-center rounded-lg bg-slate-100 text-slate-600 ring-1 ring-slate-200">
-                <i data-lucide="clock-3" class="h-5 w-5"></i>
-            </div>
+    <div class="pm-stat-card relative slide-up" style="animation-delay: 0.1s">
+        <div class="pm-stat-icon bg-slate-100 text-slate-600">
+            <i data-lucide="clock-3"></i>
+        </div>
+        <div class="min-w-0 flex-1">
+            <p class="pm-stat-label">Awaiting decision</p>
+            <p class="pm-stat-value"><span class="count-up" data-target="{{ $pendingApprovalsCount ?? 0 }}">0</span> Pending</p>
         </div>
         <a href="/president/approvals" class="absolute inset-0 z-10 opacity-0"><span class="sr-only">View pending</span></a>
     </div>
 
-    <div class="group relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 transition-all duration-300 hover:border-blue-200 hover:shadow-lg card-hover slide-up" style="animation-delay: 0.15s">
-        <div class="flex items-start justify-between">
-            <div>
-                <p class="text-xs font-semibold uppercase tracking-wider text-blue-700">Approved</p>
-                <p class="mt-2 text-3xl font-bold text-gray-900 count-up" data-target="{{ $approvedDecisionsCount ?? 0 }}">0</p>
-                <p class="mt-1 text-[11px] text-blue-500">Successfully approved</p>
-            </div>
-            <div class="flex h-11 w-11 items-center justify-center rounded-lg bg-blue-50 text-blue-600 ring-1 ring-blue-100">
-                <i data-lucide="circle-check-big" class="h-5 w-5"></i>
-            </div>
+    <div class="pm-stat-card relative slide-up" style="animation-delay: 0.15s">
+        <div class="pm-stat-icon bg-slate-100 text-slate-700">
+            <i data-lucide="circle-check-big"></i>
+        </div>
+        <div class="min-w-0 flex-1">
+            <p class="pm-stat-label">Successfully approved</p>
+            <p class="pm-stat-value"><span class="count-up" data-target="{{ $approvedDecisionsCount ?? 0 }}">0</span> Approved</p>
         </div>
         <a href="/president/reports/approved" class="absolute inset-0 z-10 opacity-0"><span class="sr-only">View approved</span></a>
     </div>
 
-    <div class="group relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 transition-all duration-300 hover:border-slate-200 hover:shadow-lg card-hover slide-up" style="animation-delay: 0.2s">
-        <div class="flex items-start justify-between">
-            <div>
-                <p class="text-xs font-semibold uppercase tracking-wider text-slate-700">Rejected</p>
-                <p class="mt-2 text-3xl font-bold text-gray-900 count-up" data-target="{{ $rejectedDecisionsCount ?? 0 }}">0</p>
-                <p class="mt-1 text-[11px] text-slate-500">Declined requests</p>
-            </div>
-            <div class="flex h-11 w-11 items-center justify-center rounded-lg bg-slate-100 text-slate-600 ring-1 ring-slate-200">
-                <i data-lucide="x-circle" class="h-5 w-5"></i>
-            </div>
+    <div class="pm-stat-card relative slide-up" style="animation-delay: 0.2s">
+        <div class="pm-stat-icon bg-slate-100 text-slate-600">
+            <i data-lucide="x-circle"></i>
+        </div>
+        <div class="min-w-0 flex-1">
+            <p class="pm-stat-label">Declined requests</p>
+            <p class="pm-stat-value"><span class="count-up" data-target="{{ $rejectedDecisionsCount ?? 0 }}">0</span> Rejected</p>
         </div>
         <a href="/president/reports/approved?filter=rejected" class="absolute inset-0 z-10 opacity-0"><span class="sr-only">View rejected</span></a>
     </div>
@@ -74,50 +62,41 @@
 {{-- ===================================== --}}
 {{-- CHARTS + TOP 3 RECENT RIS --}}
 {{-- ===================================== --}}
+@php
+    $chartApprovedTotal = collect($monthlyStats ?? [])->sum('approved');
+    $chartRejectedTotal = collect($monthlyStats ?? [])->sum('rejected');
+    $chartDecisionTotal = $chartApprovedTotal + $chartRejectedTotal;
+@endphp
 <div class="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
-    <div class="lg:col-span-2 rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.22s">
-        <div class="flex flex-wrap items-start justify-between gap-3">
+    <section class="pm-analytics-card lg:col-span-2 slide-up" style="animation-delay: 0.22s">
+        <div class="pm-analytics-header">
             <div>
-                <h2 class="text-sm font-bold text-gray-900">Decision Trend</h2>
-                <p class="mt-0.5 text-xs text-gray-400">Last 6 months · approvals &amp; rejections</p>
+                <h2 class="pm-analytics-title">Decision Trend</h2>
+                <p class="pm-analytics-subtitle">Last 6 months · approvals &amp; rejections</p>
             </div>
-            <div class="flex items-center gap-3">
-                <div class="flex items-center gap-1.5">
-                    <span class="h-2 w-2 rounded-sm bg-blue-500"></span>
-                    <span class="text-[11px] font-medium text-gray-500">Approved</span>
-                </div>
-                <div class="flex items-center gap-1.5">
-                    <span class="h-2 w-2 rounded-sm bg-slate-400"></span>
-                    <span class="text-[11px] font-medium text-gray-500">Rejected</span>
-                </div>
+            <div class="pm-chart-total">
+                {{ number_format($chartDecisionTotal) }}
+                <span>decisions</span>
             </div>
         </div>
-        <div class="mt-4" style="height: 260px; position: relative;">
+
+        <div class="pm-decision-chart-legend">
+            <div class="pm-decision-chart-legend-item">
+                <span class="pm-decision-chart-swatch is-approved"></span>
+                Approved
+            </div>
+            <div class="pm-decision-chart-legend-item">
+                <span class="pm-decision-chart-swatch is-rejected"></span>
+                Rejected
+            </div>
+        </div>
+
+        <div class="pm-decision-chart">
             <canvas id="dashboardChart"></canvas>
         </div>
-        @php
-            $chartApprovedTotal = collect($monthlyStats ?? [])->sum('approved');
-            $chartRejectedTotal = collect($monthlyStats ?? [])->sum('rejected');
-            $chartDecisionTotal = max($chartApprovedTotal + $chartRejectedTotal, 1);
-            $approvalRate = round(($chartApprovedTotal / $chartDecisionTotal) * 100);
-        @endphp
-        <div class="mt-4 grid grid-cols-3 gap-3 border-t border-gray-100 pt-4">
-            <div class="rounded-lg bg-blue-50 px-3 py-2.5">
-                <p class="text-[10px] font-semibold uppercase tracking-wide text-blue-700">Approved</p>
-                <p class="mt-0.5 text-lg font-bold text-blue-800">{{ $chartApprovedTotal }}</p>
-            </div>
-            <div class="rounded-lg bg-slate-100 px-3 py-2.5">
-                <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-700">Rejected</p>
-                <p class="mt-0.5 text-lg font-bold text-slate-800">{{ $chartRejectedTotal }}</p>
-            </div>
-            <div class="rounded-lg bg-slate-50 px-3 py-2.5">
-                <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-600">Approval rate</p>
-                <p class="mt-0.5 text-lg font-bold text-slate-800">{{ $approvalRate }}%</p>
-            </div>
-        </div>
-    </div>
+    </section>
 
-    <aside class="rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.25s">
+    <aside class="pm-card p-5 slide-up" style="animation-delay: 0.25s">
         <div class="flex items-center justify-between">
             <div>
                 <h2 class="text-sm font-bold text-gray-900">Recent RIS</h2>
@@ -135,7 +114,7 @@
                     $requester = $ris->ris_requested_by_signature ?: '—';
                     $amount = number_format((float) ($ris->total_amount ?? 0), 2);
                 @endphp
-                <div class="rounded-lg border border-gray-100 bg-gray-50/60 px-3 py-3 transition hover:border-slate-200 hover:bg-slate-50">
+                <div class="rounded-xl border border-gray-200 bg-white px-3 py-3 transition hover:border-slate-300 hover:bg-slate-50">
                     <div class="flex items-start justify-between gap-2">
                         <div class="min-w-0 flex-1">
                             <p class="truncate text-xs font-semibold text-gray-900">{{ $label }}</p>
@@ -148,7 +127,7 @@
                             </button>
                             <a
                                 href="/president/approvals?approve={{ $ris->ris_id }}"
-                                class="inline-flex items-center rounded-md bg-blue-600 px-2.5 py-1.5 text-[11px] font-semibold text-white shadow-sm transition hover:bg-blue-700"
+                                class="inline-flex h-9 items-center rounded-xl bg-slate-900 px-3 text-[11px] font-medium text-white transition hover:bg-slate-800"
                                 data-tip="Open and approve this RIS"
                             >
                                 Approve
@@ -157,7 +136,7 @@
                     </div>
                 </div>
             @empty
-                <div class="rounded-lg border border-dashed border-gray-200 px-3 py-8 text-center">
+                <div class="rounded-xl border border-dashed border-gray-200 px-3 py-8 text-center">
                     <p class="text-xs font-medium text-gray-500">No pending RIS right now</p>
                     <p class="mt-1 text-[11px] text-gray-400">New forwarded requests will appear here</p>
                 </div>
@@ -170,7 +149,7 @@
 {{-- ATTENTION + RECENTLY APPROVED --}}
 {{-- ===================================== --}}
 <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-    <section class="lg:col-span-2 rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.28s">
+    <section class="lg:col-span-2 pm-card p-5 slide-up" style="animation-delay: 0.28s">
         <div class="flex items-center justify-between">
             <div>
                 <h2 class="text-sm font-bold text-gray-900">Needs Your Attention</h2>
@@ -178,9 +157,9 @@
             </div>
         </div>
         <div class="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
-            <a href="/president/approvals" class="group rounded-lg border border-slate-200 bg-slate-50 px-4 py-4 transition hover:border-slate-200 hover:bg-slate-100">
+            <a href="/president/approvals" class="group rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 transition hover:border-slate-300 hover:bg-slate-100">
                 <div class="flex items-center justify-between">
-                    <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-slate-600 ring-1 ring-slate-200">
+                    <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-slate-600 ring-1 ring-slate-200">
                         <i data-lucide="clipboard-check" class="h-4 w-4"></i>
                     </div>
                     <span class="text-xl font-bold text-slate-800">{{ $pendingApprovalsCount ?? 0 }}</span>
@@ -188,19 +167,19 @@
                 <p class="mt-3 text-sm font-semibold text-gray-900">Pending review</p>
                 <p class="mt-0.5 text-[11px] text-gray-500">RIS waiting for your decision</p>
             </a>
-            <a href="/president/approvals" class="group rounded-lg border border-sky-100 bg-sky-50/50 px-4 py-4 transition hover:border-sky-200 hover:bg-sky-50">
+            <a href="/president/approvals" class="group rounded-xl border border-slate-200 bg-white px-4 py-4 transition hover:border-slate-300 hover:bg-slate-50">
                 <div class="flex items-center justify-between">
-                    <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-sky-600 ring-1 ring-sky-100">
+                    <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50 text-slate-600 ring-1 ring-slate-200">
                         <i data-lucide="bell" class="h-4 w-4"></i>
                     </div>
-                    <span class="text-xl font-bold text-sky-800">{{ $awaitingNotifyCount ?? 0 }}</span>
+                    <span class="text-xl font-bold text-slate-800">{{ $awaitingNotifyCount ?? 0 }}</span>
                 </div>
                 <p class="mt-3 text-sm font-semibold text-gray-900">Ready to notify</p>
                 <p class="mt-0.5 text-[11px] text-gray-500">Approved, Admin not yet notified</p>
             </a>
-            <a href="/president/approvals/history" class="group rounded-lg border border-gray-100 bg-gray-50/60 px-4 py-4 transition hover:border-gray-200 hover:bg-white hover:shadow-sm">
+            <a href="/president/approvals/history" class="group rounded-xl border border-slate-200 bg-white px-4 py-4 transition hover:border-slate-300 hover:bg-slate-50">
                 <div class="flex items-center justify-between">
-                    <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-gray-600 ring-1 ring-gray-200">
+                    <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-50 text-slate-600 ring-1 ring-slate-200">
                         <i data-lucide="history" class="h-4 w-4"></i>
                     </div>
                     <i data-lucide="chevron-right" class="h-4 w-4 text-gray-300 transition group-hover:translate-x-0.5 group-hover:text-gray-500"></i>
@@ -211,13 +190,13 @@
         </div>
     </section>
 
-    <aside class="rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.3s">
+    <aside class="pm-card p-5 slide-up" style="animation-delay: 0.3s">
         <div class="flex items-center justify-between">
             <div>
                 <h2 class="text-sm font-bold text-gray-900">Recently Approved RIS</h2>
                 <p class="mt-0.5 text-xs text-gray-400">Your latest approvals</p>
             </div>
-            <a href="/president/reports/approved" class="text-xs font-semibold text-gray-900 transition hover:text-blue-600" data-tip="View all approved RIS">
+            <a href="/president/reports/approved" class="text-xs font-semibold text-gray-900 transition hover:text-slate-600" data-tip="View all approved RIS">
                 View all
             </a>
         </div>
@@ -233,10 +212,10 @@
                 <div class="flex items-center gap-1">
                     <a
                         href="/president/approvals?preview={{ $ris->ris_id }}"
-                        class="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all duration-200 hover:bg-gray-50 min-w-0 flex-1"
+                        class="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all duration-200 hover:bg-slate-50 min-w-0 flex-1"
                         data-tip="Open approved RIS"
                     >
-                        <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600 ring-1 ring-blue-100">
+                        <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
                             <i data-lucide="badge-check" class="h-4 w-4"></i>
                         </div>
                         <div class="min-w-0 flex-1">
@@ -244,11 +223,11 @@
                             <p class="text-[11px] text-gray-500">{{ $date }}</p>
                         </div>
                         @if ($awaiting)
-                            <span class="inline-flex items-center rounded-md bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-700">
+                            <span class="inline-flex items-center rounded-xl bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
                                 Notify Admin
                             </span>
                         @else
-                            <span class="inline-flex items-center rounded-md bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
+                            <span class="inline-flex items-center rounded-xl bg-slate-900 px-2 py-0.5 text-[10px] font-semibold text-white">
                                 Approved
                             </span>
                         @endif
@@ -284,10 +263,78 @@
 
     .fade-in { animation: fadeIn 0.4s ease-out forwards; }
     .slide-up { opacity: 0; animation: slideUp 0.5s ease-out forwards; }
-    .card-hover { transition: all 0.25s ease; }
-    .card-hover:hover { transform: translateY(-3px); }
     .count-up { display: inline-block; }
-    #dashboardChart { animation: chartFadeIn 0.8s ease-out forwards; opacity: 0; }
+
+    /* Maintenance-style analytics chart card */
+    .pm-analytics-card {
+        min-width: 0;
+        overflow: hidden;
+        padding: 22px;
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 22px;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+    }
+    .pm-analytics-card .pm-stat-value {
+        font-size: inherit;
+    }
+    .pm-analytics-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 12px;
+    }
+    .pm-analytics-title {
+        margin: 0;
+        color: #0f172a;
+        font-size: 16px;
+        font-weight: 700;
+    }
+    .pm-analytics-subtitle {
+        margin: 3px 0 0;
+        color: #94a3b8;
+        font-size: 10px;
+    }
+    .pm-chart-total {
+        font-size: 18px;
+        font-weight: 800;
+        color: #0f172a;
+        white-space: nowrap;
+    }
+    .pm-chart-total span {
+        margin-left: 2px;
+        font-size: 9px;
+        font-weight: 500;
+        color: #94a3b8;
+    }
+    .pm-decision-chart-legend {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 8px;
+    }
+    .pm-decision-chart-legend-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        font-weight: 500;
+        color: #64748b;
+    }
+    .pm-decision-chart-swatch {
+        width: 10px;
+        height: 3px;
+        border-radius: 999px;
+    }
+    .pm-decision-chart-swatch.is-approved { background: #72b4dc; }
+    .pm-decision-chart-swatch.is-rejected { background: #94a3b8; }
+    .pm-decision-chart {
+        position: relative;
+        width: 100%;
+        height: 320px;
+        animation: chartFadeIn 0.8s ease-out forwards;
+    }
 </style>
 
 <script>
@@ -326,104 +373,211 @@
         const chartLabels = @json(array_column($monthlyStats ?? [], 'month_label'));
         const chartApproved = @json(array_column($monthlyStats ?? [], 'approved'));
         const chartRejected = @json(array_column($monthlyStats ?? [], 'rejected'));
+        const canvas = document.getElementById('dashboardChart');
 
-        const ctx = document.getElementById('dashboardChart');
-        if (ctx && chartLabels.length > 0) {
-            const chartCtx = ctx.getContext('2d');
-            const approvedFill = chartCtx.createLinearGradient(0, 0, 0, 260);
-            approvedFill.addColorStop(0, 'rgba(37, 99, 235, 0.22)');
-            approvedFill.addColorStop(1, 'rgba(37, 99, 235, 0.02)');
-
-            new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: chartLabels,
-                    datasets: [
-                        {
-                            type: 'line',
-                            label: 'Approved',
-                            data: chartApproved,
-                            borderColor: '#2563EB',
-                            backgroundColor: approvedFill,
-                            fill: true,
-                            tension: 0.35,
-                            borderWidth: 2.5,
-                            pointRadius: 3.5,
-                            pointHoverRadius: 6,
-                            pointBackgroundColor: '#2563EB',
-                            pointBorderColor: '#fff',
-                            pointBorderWidth: 2,
-                            order: 1,
-                            yAxisID: 'y',
-                        },
-                        {
-                            type: 'bar',
-                            label: 'Rejected',
-                            data: chartRejected,
-                            backgroundColor: 'rgba(148, 163, 184, 0.55)',
-                            hoverBackgroundColor: 'rgba(71, 85, 105, 0.75)',
-                            borderRadius: 6,
-                            borderSkipped: false,
-                            barPercentage: 0.45,
-                            categoryPercentage: 0.6,
-                            order: 2,
-                            yAxisID: 'y',
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    animation: { duration: 900, easing: 'easeOutQuart' },
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            backgroundColor: '#0f172a',
-                            titleColor: '#f8fafc',
-                            titleFont: { size: 12, weight: '600' },
-                            bodyColor: '#e2e8f0',
-                            bodyFont: { size: 11 },
-                            padding: 12,
-                            cornerRadius: 10,
-                            boxPadding: 6,
-                            displayColors: true,
-                            callbacks: {
-                                label: function (context) {
-                                    return ' ' + context.dataset.label + ': ' + context.parsed.y;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                stepSize: 1,
-                                precision: 0,
-                                font: { size: 11 },
-                                color: '#94a3b8',
-                                padding: 8,
-                            },
-                            grid: {
-                                color: 'rgba(15, 23, 42, 0.05)',
-                                drawBorder: false,
-                            },
-                            border: { display: false },
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: {
-                                font: { size: 11, weight: '500' },
-                                color: '#64748b',
-                                maxRotation: 0,
-                            },
-                            border: { display: false },
-                        }
-                    },
-                    interaction: { intersect: false, mode: 'index' }
-                }
-            });
+        if (!canvas || !chartLabels.length) {
+            return;
         }
+
+        const blueShadowPlugin = {
+            id: 'presidentBlueShadowPlugin',
+            beforeDatasetsDraw(chart) {
+                const meta = chart.getDatasetMeta(0);
+                if (!meta || meta.hidden || !meta.data.length || !meta.dataset) {
+                    return;
+                }
+
+                const ctx = chart.ctx;
+                const chartArea = chart.chartArea;
+                const points = meta.data;
+                const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                gradient.addColorStop(0, 'rgba(114, 180, 220, 0.45)');
+                gradient.addColorStop(0.35, 'rgba(114, 180, 220, 0.22)');
+                gradient.addColorStop(0.7, 'rgba(114, 180, 220, 0.08)');
+                gradient.addColorStop(1, 'rgba(114, 180, 220, 0)');
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
+                ctx.clip();
+                ctx.beginPath();
+                meta.dataset.path(ctx);
+
+                const lastPoint = points[points.length - 1];
+                const firstPoint = points[0];
+                const shadowDepth = 75;
+                ctx.lineTo(lastPoint.x, Math.min(lastPoint.y + shadowDepth, chartArea.bottom));
+                ctx.lineTo(firstPoint.x, Math.min(firstPoint.y + shadowDepth, chartArea.bottom));
+                ctx.closePath();
+                ctx.fillStyle = gradient;
+                ctx.fill();
+                ctx.restore();
+            }
+        };
+
+        const hoverLinePlugin = {
+            id: 'presidentDecisionHoverLine',
+            afterDatasetsDraw(chart) {
+                const activeElements = chart.tooltip?.getActiveElements();
+                if (!activeElements?.length) {
+                    return;
+                }
+
+                const activeElement = activeElements[0].element;
+                const activeIndex = activeElements[0].index;
+                const x = activeElement.x;
+                const ctx = chart.ctx;
+                const chartArea = chart.chartArea;
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.setLineDash([3, 3]);
+                ctx.moveTo(x, chartArea.top);
+                ctx.lineTo(x, chartArea.bottom);
+                ctx.lineWidth = 1;
+                ctx.strokeStyle = '#d7dce5';
+                ctx.stroke();
+                ctx.restore();
+
+                const xScale = chart.scales.x;
+                const labelX = xScale.getPixelForTick(activeIndex);
+                const labelY = xScale.bottom + 17;
+                const activeLabel = String(chartLabels[activeIndex] || '');
+
+                ctx.save();
+                ctx.font = '600 10px Inter, sans-serif';
+                const textWidth = ctx.measureText(activeLabel).width;
+                const boxWidth = textWidth + 14;
+                const boxHeight = 22;
+                ctx.fillStyle = '#f1f1f3';
+                ctx.beginPath();
+                if (typeof ctx.roundRect === 'function') {
+                    ctx.roundRect(labelX - boxWidth / 2, labelY - boxHeight / 2, boxWidth, boxHeight, 6);
+                } else {
+                    ctx.rect(labelX - boxWidth / 2, labelY - boxHeight / 2, boxWidth, boxHeight);
+                }
+                ctx.fill();
+                ctx.fillStyle = '#475569';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(activeLabel, labelX, labelY);
+                ctx.restore();
+            }
+        };
+
+        new Chart(canvas, {
+            type: 'line',
+            data: {
+                labels: chartLabels,
+                datasets: [
+                    {
+                        label: 'Approved',
+                        data: chartApproved,
+                        borderColor: '#72b4dc',
+                        backgroundColor: 'transparent',
+                        borderWidth: 1.5,
+                        fill: false,
+                        tension: 0.42,
+                        cubicInterpolationMode: 'monotone',
+                        pointRadius: 0,
+                        pointHoverRadius: 4,
+                        pointHitRadius: 25,
+                        pointHoverBackgroundColor: '#72b4dc',
+                        pointHoverBorderColor: 'white',
+                        pointHoverBorderWidth: 2,
+                    },
+                    {
+                        label: 'Rejected',
+                        data: chartRejected,
+                        borderColor: '#94a3b8',
+                        backgroundColor: 'transparent',
+                        borderWidth: 1.5,
+                        fill: false,
+                        tension: 0.42,
+                        cubicInterpolationMode: 'monotone',
+                        pointRadius: 0,
+                        pointHoverRadius: 4,
+                        pointHitRadius: 25,
+                        pointHoverBackgroundColor: '#94a3b8',
+                        pointHoverBorderColor: 'white',
+                        pointHoverBorderWidth: 2,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                normalized: true,
+                interaction: { mode: 'index', intersect: false },
+                layout: { padding: { top: 10, right: 8, bottom: 18, left: 0 } },
+                animation: { duration: 350 },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        enabled: true,
+                        mode: 'index',
+                        intersect: false,
+                        position: 'nearest',
+                        backgroundColor: '#0f172a',
+                        titleColor: 'white',
+                        bodyColor: '#94a3b8',
+                        borderWidth: 0,
+                        padding: { top: 10, right: 12, bottom: 10, left: 12 },
+                        cornerRadius: 7,
+                        caretSize: 0,
+                        displayColors: true,
+                        usePointStyle: false,
+                        boxWidth: 2,
+                        boxHeight: 14,
+                        boxPadding: 7,
+                        titleSpacing: 4,
+                        bodySpacing: 7,
+                        titleMarginBottom: 7,
+                        titleFont: { family: 'Inter', size: 11, weight: '600' },
+                        bodyFont: { family: 'Inter', size: 10, weight: '400' },
+                        callbacks: {
+                            title(context) {
+                                return context[0].label;
+                            },
+                            label(context) {
+                                const value = Math.round(Number(context.raw));
+                                return context.dataset.label + '     ' + value;
+                            },
+                        },
+                    },
+                },
+                scales: {
+                    x: {
+                        offset: false,
+                        border: { display: false },
+                        grid: { display: false },
+                        ticks: {
+                            autoSkip: false,
+                            color: '#8c929c',
+                            padding: 14,
+                            maxRotation: 0,
+                            minRotation: 0,
+                            font: { family: 'Inter', size: 10, weight: '400' },
+                        },
+                    },
+                    y: {
+                        beginAtZero: true,
+                        border: { display: false },
+                        grid: {
+                            color: '#eef1f5',
+                            drawTicks: false,
+                        },
+                        ticks: {
+                            precision: 0,
+                            padding: 8,
+                            color: '#94a3b8',
+                            font: { family: 'Inter', size: 10 },
+                        },
+                    },
+                },
+            },
+            plugins: [blueShadowPlugin, hoverLinePlugin],
+        });
     });
 </script>
 

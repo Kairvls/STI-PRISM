@@ -216,13 +216,13 @@
         <button
             type="button"
             onclick="closePresidentApproveModal()"
-            class="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+            class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
         >
             Cancel
         </button>
         <button
             type="submit"
-            class="rounded-lg bg-blue-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-800"
+            class="h-10 rounded-xl bg-slate-900 px-5 text-sm font-medium text-white transition hover:bg-slate-800"
         >
             Confirm Approval
         </button>

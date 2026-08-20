@@ -42,18 +42,43 @@
 {{-- Search & Filters --}}
 <div class="mt-6 rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.35s">
     <form method="GET" action="/president/reports/decisions" class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
             <div class="relative">
                 <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"></i>
                 <input type="search" name="search" value="{{ $search ?? '' }}" placeholder="Search by reference, description..." class="w-64 rounded-lg border border-gray-200 bg-white pl-9 pr-4 py-2.5 text-sm text-gray-900 outline-none focus:ring-4 focus:ring-slate-200 transition-all duration-200" />
             </div>
-            <div class="flex rounded-lg border border-gray-200 bg-white overflow-hidden">
-                <button type="submit" name="filter" value="all" class="px-4 py-2.5 text-xs font-semibold transition-all duration-200 {{ ($filter ?? 'all') === 'all' ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-100' }}">All</button>
-                <button type="submit" name="filter" value="Approved" class="px-4 py-2.5 text-xs font-semibold transition-all duration-200 {{ ($filter ?? '') === 'Approved' ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-100' }}">Approved</button>
-                <button type="submit" name="filter" value="Rejected" class="px-4 py-2.5 text-xs font-semibold transition-all duration-200 {{ ($filter ?? '') === 'Rejected' ? 'bg-gray-900 text-white' : 'text-gray-700 hover:bg-gray-100' }}">Rejected</button>
+            @php
+                $decisionFilters = [
+                    'all' => 'All',
+                    'Approved' => 'Approved',
+                    'Rejected' => 'Rejected',
+                ];
+                $activeDecisionFilter = $filter ?? 'all';
+            @endphp
+            <div
+                id="decisionsFilterSlider"
+                class="pm-seg"
+                role="tablist"
+                aria-label="Decision filters"
+                data-active="{{ $activeDecisionFilter }}"
+            >
+                <span class="pm-seg-thumb" aria-hidden="true"></span>
+                @foreach ($decisionFilters as $key => $label)
+                    <button
+                        type="submit"
+                        name="filter"
+                        value="{{ $key }}"
+                        role="tab"
+                        class="pm-seg-btn {{ $activeDecisionFilter === $key ? 'is-active' : '' }}"
+                        data-filter="{{ $key }}"
+                        aria-selected="{{ $activeDecisionFilter === $key ? 'true' : 'false' }}"
+                    >
+                        {{ $label }}
+                    </button>
+                @endforeach
             </div>
             @if ($search || ($filter ?? 'all') !== 'all')
-                <a href="/president/reports/decisions" class="action-btn inline-flex h-10 items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 active:scale-95">Clear</a>
+                <a href="/president/reports/decisions" class="action-btn inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-gray-700 transition hover:bg-gray-50 active:scale-95">Clear</a>
             @endif
         </div>
     </form>
@@ -73,7 +98,7 @@
     </div>
 
     <div class="mt-4 overflow-x-auto">
-        <table class="min-w-full">
+        <table id="decisionTable" class="min-w-full">
             <thead>
                 <tr class="border-b border-gray-100">
                     <th class="px-3 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Reference No.</th>
@@ -105,12 +130,12 @@
                         <td class="px-3 py-4 text-sm text-gray-700 whitespace-nowrap">{{ $formattedDate }}</td>
                         <td class="px-3 py-4 text-center">
                             <div class="flex items-center justify-center gap-2">
-                                <button type="button" class="action-btn inline-flex h-8 items-center justify-center rounded-lg bg-white px-3 text-xs font-semibold text-slate-700 border border-gray-200 transition-all duration-200 hover:bg-gray-50 active:scale-95" title="View RIS form" onclick="openRisViewModal({{ $row->ris_id }})">
+                                <button type="button" class="action-btn inline-flex h-9 items-center justify-center rounded-xl bg-white px-3 text-xs font-semibold text-slate-700 border border-gray-200 transition-all duration-200 hover:bg-gray-50 active:scale-95" title="View RIS form" onclick="openRisViewModal({{ $row->ris_id }})">
                                     <i data-lucide="eye" class="h-4 w-4"></i>
                                     <span class="ml-1.5">View</span>
                                 </button>
                                 @if ($remarks)
-                                    <button type="button" class="action-btn inline-flex h-8 items-center justify-center rounded-lg bg-white px-3 text-xs font-semibold text-slate-700 border border-gray-200 transition-all duration-200 hover:bg-gray-50 active:scale-95" title="View remarks" onclick="openRemarksModal('{{ addslashes($remarks) }}')">
+                                    <button type="button" class="action-btn inline-flex h-9 items-center justify-center rounded-xl bg-white px-3 text-xs font-semibold text-slate-700 border border-gray-200 transition-all duration-200 hover:bg-gray-50 active:scale-95" title="View remarks" onclick="openRemarksModal('{{ addslashes($remarks) }}')">
                                         <i data-lucide="message-square" class="h-4 w-4"></i>
                                         <span class="ml-1.5">Remarks</span>
                                     </button>
@@ -129,6 +154,10 @@
             </tbody>
         </table>
     </div>
+    @include('president.partials.table-word-export', [
+        'target' => '#decisionTable',
+        'filename' => 'president-decisions',
+    ])
 
     {{-- Pagination --}}
     <div class="mt-4">
@@ -143,7 +172,7 @@
     <div class="flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 sm:p-8 modal-overlay" onclick="closeRisViewModal()">
         <div class="relative w-full max-w-5xl max-h-[90vh] bg-white shadow-2xl modal-content" onclick="event.stopPropagation()">
             <div class="absolute top-4 right-4 z-10 flex items-center gap-2">
-                <button type="button" class="action-btn inline-flex h-9 items-center justify-center rounded-lg bg-white border border-gray-200 px-3 text-xs font-semibold text-gray-700 shadow-sm transition-all duration-200 hover:bg-gray-50 active:scale-95" onclick="window.print()" title="Print RIS">
+                <button type="button" class="action-btn inline-flex h-9 items-center justify-center rounded-xl bg-white border border-gray-200 px-3 text-xs font-semibold text-gray-700 shadow-sm transition-all duration-200 hover:bg-gray-50 active:scale-95" onclick="window.print()" title="Print RIS">
                     <i data-lucide="printer" class="h-4 w-4"></i>
                     <span class="ml-1.5">Print</span>
                 </button>
@@ -179,7 +208,7 @@
                 <p id="remarksText" class="text-sm text-gray-700 whitespace-pre-wrap"></p>
             </div>
             <div class="border-t border-gray-100 px-6 py-4">
-                <button type="button" class="action-btn rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white transition-all duration-200 hover:bg-gray-800 active:scale-95" onclick="closeRemarksModal()">Close</button>
+                <button type="button" class="action-btn h-10 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition-all duration-200 hover:bg-gray-800 active:scale-95" onclick="closeRemarksModal()">Close</button>
             </div>
         </div>
     </div>

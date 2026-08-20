@@ -29,6 +29,10 @@
             <div id="queueList">
                 @include('president.approvals._table')
             </div>
+            @include('president.partials.table-word-export', [
+                'target' => '#queueList .pm-queue-table',
+                'filename' => 'president-approval-queue',
+            ])
             <div id="risPagination" class="{{ $pendingRis->hasPages() ? '' : 'hidden' }}">
                 @if ($pendingRis->hasPages())
                     {{ $pendingRis->links('pagination.president') }}
@@ -334,21 +338,21 @@
 
         const prevDisabled = current <= 1;
         html += '<li>' + (prevDisabled
-            ? '<span class="inline-flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-300">&laquo;</span>'
-            : '<button type="button" onclick="' + fnName + '(' + (current - 1) + ')" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">&laquo;</button>') + '</li>';
+            ? '<span class="inline-flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-xl border border-slate-200 bg-white text-sm text-slate-300">&laquo;</span>'
+            : '<button type="button" onclick="' + fnName + '(' + (current - 1) + ')" class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">&laquo;</button>') + '</li>';
 
         for (let i = start; i <= end; i++) {
             if (i === current) {
-                html += '<li><span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-sm font-semibold text-white">' + i + '</span></li>';
+                html += '<li><span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-sm font-semibold text-white">' + i + '</span></li>';
             } else {
-                html += '<li><button type="button" onclick="' + fnName + '(' + i + ')" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">' + i + '</button></li>';
+                html += '<li><button type="button" onclick="' + fnName + '(' + i + ')" class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">' + i + '</button></li>';
             }
         }
 
         const nextDisabled = current >= last;
         html += '<li>' + (nextDisabled
-            ? '<span class="inline-flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-300">&raquo;</span>'
-            : '<button type="button" onclick="' + fnName + '(' + (current + 1) + ')" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">&raquo;</button>') + '</li>';
+            ? '<span class="inline-flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-xl border border-slate-200 bg-white text-sm text-slate-300">&raquo;</span>'
+            : '<button type="button" onclick="' + fnName + '(' + (current + 1) + ')" class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">&raquo;</button>') + '</li>';
 
         html += '</ul></nav>';
         return html;

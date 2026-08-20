@@ -13,74 +13,74 @@
 {{-- ======================================== --}}
 {{-- EXECUTIVE INSIGHTS --}}
 {{-- ======================================== --}}
-    <div class="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-5">
-        <div class="rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white p-5 slide-up" style="animation-delay: 0.05s">
+    <div class="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
+        <div class="pm-kpi-card slide-up" style="animation-delay: 0.05s">
             <div class="flex items-center gap-2">
-                <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100">
-                    <i data-lucide="check-circle" class="h-4 w-4 text-blue-700"></i>
+                <div class="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100">
+                    <i data-lucide="check-circle" class="h-4 w-4 text-slate-700"></i>
                 </div>
-                <p class="text-xs font-medium text-blue-700">Decision Rate</p>
+                <p class="text-xs font-medium text-slate-600">Decision Rate</p>
             </div>
             <div class="mt-3 space-y-1">
                 <div class="flex items-center justify-between">
-                    <span class="text-xs text-blue-700">Approved</span>
-                    <span class="text-sm font-semibold text-blue-900">{{ $insights['approval_rate'] ?? 0 }}%</span>
+                    <span class="text-xs text-slate-600">Approved</span>
+                    <span class="text-sm font-semibold text-slate-900">{{ $insights['approval_rate'] ?? 0 }}%</span>
                 </div>
                 <div class="flex items-center justify-between">
-                    <span class="text-xs text-slate-700">Rejected</span>
+                    <span class="text-xs text-slate-600">Rejected</span>
                     <span class="text-sm font-semibold text-slate-900">{{ $insights['rejection_rate'] ?? 0 }}%</span>
                 </div>
             </div>
         </div>
 
-        <div class="rounded-xl border border-gray-200 bg-gradient-to-br from-gray-50 to-white p-5 slide-up" style="animation-delay: 0.15s">
+        <div class="pm-kpi-card slide-up" style="animation-delay: 0.15s">
         <div class="flex items-center gap-2">
-            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100">
-                <i data-lucide="wallet" class="h-4 w-4 text-gray-700"></i>
+            <div class="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100">
+                <i data-lucide="wallet" class="h-4 w-4 text-slate-700"></i>
             </div>
-            <p class="text-xs font-medium text-gray-600">Approved Value</p>
+            <p class="text-xs font-medium text-slate-600">Approved Value</p>
         </div>
-        <p class="mt-3 text-2xl font-semibold tracking-tight text-gray-900">₱{{ number_format((float)($insights['approved_amount'] ?? 0), 2) }}</p>
+        <p class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">₱{{ number_format((float)($insights['approved_amount'] ?? 0), 2) }}</p>
     </div>
 
-    <div class="rounded-xl border border-gray-200 bg-gradient-to-br from-gray-50 to-white p-5 slide-up" style="animation-delay: 0.2s">
+    <div class="pm-kpi-card slide-up" style="animation-delay: 0.2s">
         <div class="flex items-center gap-2">
-            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100">
-                <i data-lucide="wallet" class="h-4 w-4 text-gray-700"></i>
+            <div class="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100">
+                <i data-lucide="wallet" class="h-4 w-4 text-slate-700"></i>
             </div>
-            <p class="text-xs font-medium text-gray-600">Rejected Value</p>
+            <p class="text-xs font-medium text-slate-600">Rejected Value</p>
         </div>
-        <p class="mt-3 text-2xl font-semibold tracking-tight text-gray-900">₱{{ number_format((float)($insights['rejected_amount'] ?? 0), 2) }}</p>
+        <p class="mt-3 text-2xl font-semibold tracking-tight text-slate-900">₱{{ number_format((float)($insights['rejected_amount'] ?? 0), 2) }}</p>
     </div>
 
-    <div class="rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-white p-5 slide-up" style="animation-delay: 0.25s">
+    <div class="pm-kpi-card slide-up" style="animation-delay: 0.25s">
         <div class="flex items-center gap-2">
-            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100">
-                <i data-lucide="trending-up" class="h-4 w-4 text-blue-700"></i>
+            <div class="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100">
+                <i data-lucide="trending-up" class="h-4 w-4 text-slate-700"></i>
             </div>
-            <p class="text-xs font-medium text-blue-700">Top Approval Month</p>
+            <p class="text-xs font-medium text-slate-600">Top Approval Month</p>
         </div>
-        <p class="mt-3 text-lg font-semibold tracking-tight text-blue-900">{{ $insights['highest_approval_month'] ?? 'N/A' }}</p>
+        <p class="mt-3 text-lg font-semibold tracking-tight text-slate-900">{{ $insights['highest_approval_month'] ?? 'N/A' }}</p>
     </div>
 
-    <div class="rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-5 slide-up" style="animation-delay: 0.3s">
+    <div class="pm-kpi-card slide-up" style="animation-delay: 0.3s">
         <div class="flex items-center gap-2">
-            <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-200">
+            <div class="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100">
                 <i data-lucide="trending-down" class="h-4 w-4 text-slate-700"></i>
             </div>
-            <p class="text-xs font-medium text-slate-700">Top Rejection Month</p>
+            <p class="text-xs font-medium text-slate-600">Top Rejection Month</p>
         </div>
         <p class="mt-3 text-lg font-semibold tracking-tight text-slate-900">{{ $insights['highest_rejection_month'] ?? 'N/A' }}</p>
     </div>
 </div>
 
 {{-- Tabs --}}
-<div class="mt-6 flex flex-wrap items-center gap-3">
-    <button type="button" id="tabWeekly" onclick="switchTab('weekly')" class="action-btn inline-flex h-11 items-center justify-center gap-2.5 rounded-lg px-5 text-sm font-semibold transition-all duration-200 {{ request('tab') !== 'monthly' ? 'bg-gray-900 text-white shadow-sm' : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50' }}">
+<div class="mt-6 flex flex-wrap items-center gap-2">
+    <button type="button" id="tabWeekly" onclick="switchTab('weekly')" class="action-btn inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium transition {{ request('tab') !== 'monthly' ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-slate-900' }}">
         <i data-lucide="trending-up" class="h-4 w-4"></i>
         <span>Weekly Summary</span>
     </button>
-    <button type="button" id="tabMonthly" onclick="switchTab('monthly')" class="action-btn inline-flex h-11 items-center justify-center gap-2.5 rounded-lg px-5 text-sm font-semibold transition-all duration-200 {{ request('tab') === 'monthly' ? 'bg-gray-900 text-white shadow-sm' : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50' }}">
+    <button type="button" id="tabMonthly" onclick="switchTab('monthly')" class="action-btn inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-medium transition {{ request('tab') === 'monthly' ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:text-slate-900' }}">
         <i data-lucide="calendar-days" class="h-4 w-4"></i>
         <span>Monthly Summary</span>
     </button>
@@ -89,46 +89,67 @@
 {{-- Weekly Tab --}}
 <div id="weeklyTab" class="mt-6 {{ request('tab') === 'monthly' ? 'hidden' : '' }}">
     {{-- Weekly Stats Cards --}}
-    <div class="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.05s">
-            <p class="text-xs font-medium text-gray-500">Total RIS</p>
-            <p class="mt-2 text-2xl font-semibold tracking-tight text-gray-900 count-up" data-target="{{ $totalRis ?? 0 }}">{{ $totalRis ?? 0 }}</p>
+    <div class="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div class="pm-kpi-card slide-up" style="animation-delay: 0.05s">
+            <p class="text-xs font-medium text-slate-500">Total RIS</p>
+            <p class="mt-2 text-2xl font-semibold tracking-tight text-slate-900 count-up" data-target="{{ $totalRis ?? 0 }}">{{ $totalRis ?? 0 }}</p>
         </div>
-        <div class="rounded-xl border border-blue-200 bg-blue-50 p-5 card-hover slide-up" style="animation-delay: 0.1s">
-            <p class="text-xs font-medium text-blue-700">Approved</p>
-            <p class="mt-2 text-2xl font-semibold tracking-tight text-blue-900 count-up" data-target="{{ $approvedDecisionsCount ?? 0 }}">{{ $approvedDecisionsCount ?? 0 }}</p>
+        <div class="pm-kpi-card slide-up" style="animation-delay: 0.1s">
+            <p class="text-xs font-medium text-slate-500">Approved</p>
+            <p class="mt-2 text-2xl font-semibold tracking-tight text-slate-900 count-up" data-target="{{ $approvedDecisionsCount ?? 0 }}">{{ $approvedDecisionsCount ?? 0 }}</p>
         </div>
-        <div class="rounded-xl border border-slate-200 bg-slate-50 p-5 card-hover slide-up" style="animation-delay: 0.15s">
-            <p class="text-xs font-medium text-slate-700">Rejected</p>
+        <div class="pm-kpi-card slide-up" style="animation-delay: 0.15s">
+            <p class="text-xs font-medium text-slate-500">Rejected</p>
             <p class="mt-2 text-2xl font-semibold tracking-tight text-slate-900 count-up" data-target="{{ $rejectedDecisionsCount ?? 0 }}">{{ $rejectedDecisionsCount ?? 0 }}</p>
         </div>
-        <div class="rounded-xl border border-slate-200 bg-slate-50 p-5 card-hover slide-up" style="animation-delay: 0.2s">
-            <p class="text-xs font-medium text-slate-700">Pending</p>
+        <div class="pm-kpi-card slide-up" style="animation-delay: 0.2s">
+            <p class="text-xs font-medium text-slate-500">Pending</p>
             <p class="mt-2 text-2xl font-semibold tracking-tight text-slate-900 count-up" data-target="{{ $pendingApprovalsCount ?? 0 }}">{{ $pendingApprovalsCount ?? 0 }}</p>
         </div>
     </div>
 
     {{-- Weekly Chart --}}
-    <div class="mt-6 rounded-xl border border-gray-200 bg-white slide-up" style="animation-delay: 0.25s">
-        <div class="p-5 pb-3">
-            <h2 class="text-sm font-semibold text-gray-900">Weekly Trend</h2>
-            <p class="mt-1 text-xs text-gray-500">Last 4 weeks RIS decisions.</p>
-        </div>
-        <div class="px-5 pb-5">
-            <div style="height: 340px;">
-                <canvas id="weeklyChart"></canvas>
+    @php
+        $weeklyApprovedTotal = collect($weeklyStats ?? [])->sum('approved');
+        $weeklyRejectedTotal = collect($weeklyStats ?? [])->sum('rejected');
+        $weeklyDecisionTotal = $weeklyApprovedTotal + $weeklyRejectedTotal;
+    @endphp
+    <section class="pm-analytics-card mt-6 slide-up" style="animation-delay: 0.25s">
+        <div class="pm-analytics-header">
+            <div>
+                <h2 class="pm-analytics-title">Weekly Trend</h2>
+                <p class="pm-analytics-subtitle">Last 4 weeks · approvals &amp; rejections</p>
+            </div>
+            <div class="pm-chart-total">
+                {{ number_format($weeklyDecisionTotal) }}
+                <span>decisions</span>
             </div>
         </div>
-    </div>
+
+        <div class="pm-decision-chart-legend">
+            <div class="pm-decision-chart-legend-item">
+                <span class="pm-decision-chart-swatch is-approved"></span>
+                Approved
+            </div>
+            <div class="pm-decision-chart-legend-item">
+                <span class="pm-decision-chart-swatch is-rejected"></span>
+                Rejected
+            </div>
+        </div>
+
+        <div class="pm-decision-chart">
+            <canvas id="weeklyChart"></canvas>
+        </div>
+    </section>
 
     {{-- Weekly Table --}}
-    <div class="mt-6 rounded-xl border border-gray-200 bg-white slide-up" style="animation-delay: 0.3s">
+    <div class="mt-6 pm-card slide-up" style="animation-delay: 0.3s">
         <div class="p-5 pb-3">
             <h2 class="text-sm font-semibold text-gray-900">Weekly Breakdown</h2>
             <p class="mt-1 text-xs text-gray-500">Detailed performance metrics per week.</p>
         </div>
         <div class="overflow-x-auto">
-            <table class="min-w-full">
+            <table id="weeklyBreakdownTable" class="min-w-full">
                 <thead>
                     <tr class="border-b border-gray-100">
                         <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-black bg-gray-50">Period</th>
@@ -159,6 +180,10 @@
                 </tbody>
             </table>
         </div>
+        @include('president.partials.table-word-export', [
+            'target' => '#weeklyBreakdownTable',
+            'filename' => 'president-weekly-breakdown',
+        ])
     </div>
 </div>
 
@@ -166,15 +191,15 @@
 <div id="monthlyTab" class="mt-6 {{ request('tab') === 'monthly' ? '' : 'hidden' }}">
     {{-- Month & Year Picker --}}
     <div class="slide-up" style="animation-delay: 0.05s">
-        <div class="flex flex-wrap items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 shadow-sm transition-all duration-200 hover:border-gray-300 hover:shadow-md">
-            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-50 text-gray-700 transition-colors duration-200">
+        <div class="flex flex-wrap items-center gap-3 rounded-[22px] border border-slate-200 bg-white p-3 shadow-[0_1px_3px_rgba(15,23,42,0.04)]">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-50 text-slate-700">
                 <i data-lucide="calendar-days" class="h-5 w-5"></i>
             </div>
 
-            <div class="h-8 w-px bg-gray-200"></div>
+            <div class="h-8 w-px bg-slate-200"></div>
 
             <div class="flex items-center gap-2">
-                <select name="month" id="monthSelect" class="filter-select rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition-all duration-200 focus:border-gray-900 focus:ring-4 focus:ring-gray-100">
+                <select name="month" id="monthSelect" class="filter-select rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-400">
                     @foreach([1=>'January',2=>'February',3=>'March',4=>'April',5=>'May',6=>'June',7=>'July',8=>'August',9=>'September',10=>'October',11=>'November',12=>'December'] as $num => $name)
                         <option value="{{ $num }}" {{ (request('month') ?? date('m')) == $num ? 'selected' : '' }}>{{ $name }}</option>
                     @endforeach
@@ -182,48 +207,48 @@
             </div>
 
             <div class="flex items-center gap-2">
-                <select name="year" id="yearSelect" class="filter-select rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none transition-all duration-200 focus:border-gray-900 focus:ring-4 focus:ring-gray-100">
+                <select name="year" id="yearSelect" class="filter-select rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-400">
                     @for ($y = date('Y'); $y >= date('Y') - 5; $y--)
                         <option value="{{ $y }}" {{ (request('year') ?? date('Y')) == $y ? 'selected' : '' }}>{{ $y }}</option>
                     @endfor
                 </select>
             </div>
 
-            <div class="h-8 w-px bg-gray-200"></div>
+            <div class="h-8 w-px bg-slate-200"></div>
 
-            <button type="button" id="resetFilterBtn" class="action-btn inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-transparent bg-white px-3 text-sm font-medium text-gray-600 transition-all duration-200 hover:border-gray-200 hover:bg-gray-50 hover:text-gray-900 active:scale-95 {{ !request('month') && !request('year') ? 'opacity-40 cursor-not-allowed' : '' }}">
+            <button type="button" id="resetFilterBtn" class="action-btn inline-flex h-10 items-center justify-center gap-1.5 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 active:scale-95 {{ !request('month') && !request('year') ? 'opacity-40 cursor-not-allowed' : '' }}">
                 <i data-lucide="rotate-ccw" class="h-3.5 w-3.5"></i>
                 <span>Reset</span>
             </button>
 
             <div id="filterLoader" class="hidden ml-1">
-                <div class="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-gray-900"></div>
+                <div class="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-900"></div>
             </div>
         </div>
     </div>
 
     {{-- Monthly Stats Cards --}}
-    <div class="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.1s">
-            <p class="text-xs font-medium text-gray-500">Total RIS</p>
-            <p class="mt-2 text-2xl font-semibold tracking-tight text-gray-900 count-up" data-target="{{ $totalRis ?? 0 }}">{{ $totalRis ?? 0 }}</p>
+    <div class="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div class="pm-kpi-card slide-up" style="animation-delay: 0.1s">
+            <p class="text-xs font-medium text-slate-500">Total RIS</p>
+            <p class="mt-2 text-2xl font-semibold tracking-tight text-slate-900 count-up" data-target="{{ $totalRis ?? 0 }}">{{ $totalRis ?? 0 }}</p>
         </div>
-        <div class="rounded-xl border border-blue-200 bg-blue-50 p-5 card-hover slide-up" style="animation-delay: 0.15s">
-            <p class="text-xs font-medium text-blue-700">Approved</p>
-            <p class="mt-2 text-2xl font-semibold tracking-tight text-blue-900 count-up" data-target="{{ $approvedDecisionsCount ?? 0 }}">{{ $approvedDecisionsCount ?? 0 }}</p>
+        <div class="pm-kpi-card slide-up" style="animation-delay: 0.15s">
+            <p class="text-xs font-medium text-slate-500">Approved</p>
+            <p class="mt-2 text-2xl font-semibold tracking-tight text-slate-900 count-up" data-target="{{ $approvedDecisionsCount ?? 0 }}">{{ $approvedDecisionsCount ?? 0 }}</p>
         </div>
-        <div class="rounded-xl border border-slate-200 bg-slate-50 p-5 card-hover slide-up" style="animation-delay: 0.2s">
-            <p class="text-xs font-medium text-slate-700">Rejected</p>
+        <div class="pm-kpi-card slide-up" style="animation-delay: 0.2s">
+            <p class="text-xs font-medium text-slate-500">Rejected</p>
             <p class="mt-2 text-2xl font-semibold tracking-tight text-slate-900 count-up" data-target="{{ $rejectedDecisionsCount ?? 0 }}">{{ $rejectedDecisionsCount ?? 0 }}</p>
         </div>
-        <div class="rounded-xl border border-slate-200 bg-slate-50 p-5 card-hover slide-up" style="animation-delay: 0.25s">
-            <p class="text-xs font-medium text-slate-700">Pending</p>
+        <div class="pm-kpi-card slide-up" style="animation-delay: 0.25s">
+            <p class="text-xs font-medium text-slate-500">Pending</p>
             <p class="mt-2 text-2xl font-semibold tracking-tight text-slate-900 count-up" data-target="{{ $pendingApprovalsCount ?? 0 }}">{{ $pendingApprovalsCount ?? 0 }}</p>
         </div>
     </div>
 
     {{-- Monthly Chart --}}
-    <div class="mt-6 rounded-xl border border-gray-200 bg-white slide-up" style="animation-delay: 0.3s">
+    <div class="mt-6 pm-card slide-up" style="animation-delay: 0.3s">
         <div class="p-5 pb-3">
             <h2 class="text-sm font-semibold text-gray-900">Monthly Analytics</h2>
             <p class="mt-1 text-xs text-gray-500">{{ $filterMonth && $filterYear ? 'Approved vs rejected RIS for the selected month.' : 'Approved vs rejected RIS over the last 6 months.' }}</p>
@@ -236,13 +261,13 @@
     </div>
 
     {{-- Monthly Table --}}
-    <div class="mt-6 rounded-xl border border-gray-200 bg-white slide-up" style="animation-delay: 0.35s">
+    <div class="mt-6 pm-card slide-up" style="animation-delay: 0.35s">
         <div class="p-5 pb-3">
             <h2 class="text-sm font-semibold text-gray-900">Monthly Breakdown</h2>
             <p class="mt-1 text-xs text-gray-500">Detailed performance metrics per month.</p>
         </div>
         <div class="overflow-x-auto">
-            <table class="min-w-full">
+            <table id="monthlyBreakdownTable" class="min-w-full">
                 <thead>
                     <tr class="border-b border-gray-100">
                         <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-black bg-gray-50">Period</th>
@@ -273,6 +298,10 @@
                 </tbody>
             </table>
         </div>
+        @include('president.partials.table-word-export', [
+            'target' => '#monthlyBreakdownTable',
+            'filename' => 'president-monthly-breakdown',
+        ])
     </div>
 </div>
 
@@ -289,17 +318,17 @@
         if (tab === 'weekly') {
             weeklyTab.classList.remove('hidden');
             monthlyTab.classList.add('hidden');
-            weeklyBtn.classList.remove('bg-white', 'text-gray-700', 'border', 'border-gray-200', 'hover:bg-gray-50');
-            weeklyBtn.classList.add('bg-gray-900', 'text-white', 'shadow-sm');
-            monthlyBtn.classList.remove('bg-gray-900', 'text-white', 'shadow-sm');
-            monthlyBtn.classList.add('bg-white', 'text-gray-700', 'border', 'border-gray-200', 'hover:bg-gray-50');
+            weeklyBtn.classList.remove('bg-white', 'text-slate-600', 'border', 'border-slate-200', 'hover:bg-slate-50', 'hover:text-slate-900');
+            weeklyBtn.classList.add('bg-slate-900', 'text-white');
+            monthlyBtn.classList.remove('bg-slate-900', 'text-white');
+            monthlyBtn.classList.add('bg-white', 'text-slate-600', 'border', 'border-slate-200', 'hover:bg-slate-50', 'hover:text-slate-900');
         } else {
             weeklyTab.classList.add('hidden');
             monthlyTab.classList.remove('hidden');
-            monthlyBtn.classList.remove('bg-white', 'text-gray-700', 'border', 'border-gray-200', 'hover:bg-gray-50');
-            monthlyBtn.classList.add('bg-gray-900', 'text-white', 'shadow-sm');
-            weeklyBtn.classList.remove('bg-gray-900', 'text-white', 'shadow-sm');
-            weeklyBtn.classList.add('bg-white', 'text-gray-700', 'border', 'border-gray-200', 'hover:bg-gray-50');
+            monthlyBtn.classList.remove('bg-white', 'text-slate-600', 'border', 'border-slate-200', 'hover:bg-slate-50', 'hover:text-slate-900');
+            monthlyBtn.classList.add('bg-slate-900', 'text-white');
+            weeklyBtn.classList.remove('bg-slate-900', 'text-white');
+            weeklyBtn.classList.add('bg-white', 'text-slate-600', 'border', 'border-slate-200', 'hover:bg-slate-50', 'hover:text-slate-900');
         }
     }
 
@@ -329,155 +358,211 @@
         const monthlyData = @json($monthlyStats ?? []);
         const weeklyData = @json($weeklyStats ?? []);
 
-        // Weekly Chart
+        // Weekly Chart (same design as President dashboard Decision Trend)
         const weeklyCtx = document.getElementById('weeklyChart');
         if (weeklyCtx && weeklyData.length > 0) {
+            const weeklyLabels = weeklyData.map(r => r.label);
+            const weeklyApproved = weeklyData.map(r => r.approved);
+            const weeklyRejected = weeklyData.map(r => r.rejected);
+
+            const weeklyBlueShadowPlugin = {
+                id: 'weeklyBlueShadowPlugin',
+                beforeDatasetsDraw(chart) {
+                    const meta = chart.getDatasetMeta(0);
+                    if (!meta || meta.hidden || !meta.data.length || !meta.dataset) {
+                        return;
+                    }
+
+                    const ctx = chart.ctx;
+                    const chartArea = chart.chartArea;
+                    const points = meta.data;
+                    const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                    gradient.addColorStop(0, 'rgba(114, 180, 220, 0.45)');
+                    gradient.addColorStop(0.35, 'rgba(114, 180, 220, 0.22)');
+                    gradient.addColorStop(0.7, 'rgba(114, 180, 220, 0.08)');
+                    gradient.addColorStop(1, 'rgba(114, 180, 220, 0)');
+
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.rect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
+                    ctx.clip();
+                    ctx.beginPath();
+                    meta.dataset.path(ctx);
+
+                    const lastPoint = points[points.length - 1];
+                    const firstPoint = points[0];
+                    const shadowDepth = 75;
+                    ctx.lineTo(lastPoint.x, Math.min(lastPoint.y + shadowDepth, chartArea.bottom));
+                    ctx.lineTo(firstPoint.x, Math.min(firstPoint.y + shadowDepth, chartArea.bottom));
+                    ctx.closePath();
+                    ctx.fillStyle = gradient;
+                    ctx.fill();
+                    ctx.restore();
+                }
+            };
+
+            const weeklyHoverLinePlugin = {
+                id: 'weeklyDecisionHoverLine',
+                afterDatasetsDraw(chart) {
+                    const activeElements = chart.tooltip?.getActiveElements();
+                    if (!activeElements?.length) {
+                        return;
+                    }
+
+                    const activeElement = activeElements[0].element;
+                    const activeIndex = activeElements[0].index;
+                    const x = activeElement.x;
+                    const ctx = chart.ctx;
+                    const chartArea = chart.chartArea;
+
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.setLineDash([3, 3]);
+                    ctx.moveTo(x, chartArea.top);
+                    ctx.lineTo(x, chartArea.bottom);
+                    ctx.lineWidth = 1;
+                    ctx.strokeStyle = '#d7dce5';
+                    ctx.stroke();
+                    ctx.restore();
+
+                    const xScale = chart.scales.x;
+                    const labelX = xScale.getPixelForTick(activeIndex);
+                    const labelY = xScale.bottom + 17;
+                    const activeLabel = String(weeklyLabels[activeIndex] || '');
+
+                    ctx.save();
+                    ctx.font = '600 10px Inter, sans-serif';
+                    const textWidth = ctx.measureText(activeLabel).width;
+                    const boxWidth = textWidth + 14;
+                    const boxHeight = 22;
+                    ctx.fillStyle = '#f1f1f3';
+                    ctx.beginPath();
+                    if (typeof ctx.roundRect === 'function') {
+                        ctx.roundRect(labelX - boxWidth / 2, labelY - boxHeight / 2, boxWidth, boxHeight, 6);
+                    } else {
+                        ctx.rect(labelX - boxWidth / 2, labelY - boxHeight / 2, boxWidth, boxHeight);
+                    }
+                    ctx.fill();
+                    ctx.fillStyle = '#475569';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(activeLabel, labelX, labelY);
+                    ctx.restore();
+                }
+            };
+
             new Chart(weeklyCtx, {
                 type: 'line',
                 data: {
-                    labels: weeklyData.map(r => r.label),
+                    labels: weeklyLabels,
                     datasets: [
                         {
                             label: 'Approved',
-                            data: weeklyData.map(r => r.approved),
-                            borderColor: '#2563EB',
-                            backgroundColor: (context) => {
-                                const ctx = context.chart.ctx;
-                                const gradient = ctx.createLinearGradient(0, 0, 0, 340);
-                                gradient.addColorStop(0, 'rgba(37, 99, 235, 0.28)');
-                                gradient.addColorStop(1, 'rgba(37, 99, 235, 0.04)');
-                                return gradient;
-                            },
-                            fill: true,
-                            tension: 0.4,
-                            pointBackgroundColor: '#ffffff',
-                            pointBorderColor: '#2563EB',
-                            pointBorderWidth: 3,
-                            pointRadius: 6,
-                            pointHoverRadius: 8,
-                            pointHoverBackgroundColor: '#2563EB',
-                            pointHoverBorderColor: '#ffffff',
-                            pointHoverBorderWidth: 3,
-                            borderWidth: 3,
+                            data: weeklyApproved,
+                            borderColor: '#72b4dc',
+                            backgroundColor: 'transparent',
+                            borderWidth: 1.5,
+                            fill: false,
+                            tension: 0.42,
+                            cubicInterpolationMode: 'monotone',
+                            pointRadius: 0,
+                            pointHoverRadius: 4,
+                            pointHitRadius: 25,
+                            pointHoverBackgroundColor: '#72b4dc',
+                            pointHoverBorderColor: 'white',
+                            pointHoverBorderWidth: 2,
                         },
                         {
                             label: 'Rejected',
-                            data: weeklyData.map(r => r.rejected),
-                            borderColor: '#64748B',
-                            backgroundColor: (context) => {
-                                const ctx = context.chart.ctx;
-                                const gradient = ctx.createLinearGradient(0, 0, 0, 340);
-                                gradient.addColorStop(0, 'rgba(100, 116, 139, 0.28)');
-                                gradient.addColorStop(1, 'rgba(100, 116, 139, 0.04)');
-                                return gradient;
-                            },
-                            fill: true,
-                            tension: 0.4,
-                            pointBackgroundColor: '#ffffff',
-                            pointBorderColor: '#64748B',
-                            pointBorderWidth: 3,
-                            pointRadius: 6,
-                            pointHoverRadius: 8,
-                            pointHoverBackgroundColor: '#64748B',
-                            pointHoverBorderColor: '#ffffff',
-                            pointHoverBorderWidth: 3,
-                            borderWidth: 3,
+                            data: weeklyRejected,
+                            borderColor: '#94a3b8',
+                            backgroundColor: 'transparent',
+                            borderWidth: 1.5,
+                            fill: false,
+                            tension: 0.42,
+                            cubicInterpolationMode: 'monotone',
+                            pointRadius: 0,
+                            pointHoverRadius: 4,
+                            pointHitRadius: 25,
+                            pointHoverBackgroundColor: '#94a3b8',
+                            pointHoverBorderColor: 'white',
+                            pointHoverBorderWidth: 2,
                         }
                     ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    animation: {
-                        duration: 1600,
-                        easing: 'easeInOutQuart',
-                    },
-                    interaction: {
-                        mode: 'index',
-                        intersect: false,
-                    },
+                    normalized: true,
+                    interaction: { mode: 'index', intersect: false },
+                    layout: { padding: { top: 10, right: 8, bottom: 18, left: 0 } },
+                    animation: { duration: 350 },
                     plugins: {
-                        legend: {
-                            display: true,
-                            position: 'top',
-                            align: 'end',
-                            labels: {
-                                usePointStyle: true,
-                                pointStyle: 'circle',
-                                boxWidth: 8,
-                                boxHeight: 8,
-                                padding: 24,
-                                font: {
-                                    size: 12,
-                                    weight: '600'
-                                },
-                                color: '#475569'
-                            }
-                        },
+                        legend: { display: false },
                         tooltip: {
-                            backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                            titleColor: '#f8fafc',
-                            bodyColor: '#e2e8f0',
-                            titleFont: {
-                                size: 13,
-                                weight: '600'
-                            },
-                            bodyFont: {
-                                size: 12
-                            },
-                            padding: 14,
-                            cornerRadius: 10,
+                            enabled: true,
+                            mode: 'index',
+                            intersect: false,
+                            position: 'nearest',
+                            backgroundColor: '#0f172a',
+                            titleColor: 'white',
+                            bodyColor: '#94a3b8',
+                            borderWidth: 0,
+                            padding: { top: 10, right: 12, bottom: 10, left: 12 },
+                            cornerRadius: 7,
+                            caretSize: 0,
                             displayColors: true,
-                            boxWidth: 10,
-                            boxHeight: 10,
-                            boxPadding: 4,
-                            usePointStyle: true,
+                            usePointStyle: false,
+                            boxWidth: 2,
+                            boxHeight: 14,
+                            boxPadding: 7,
+                            titleSpacing: 4,
+                            bodySpacing: 7,
+                            titleMarginBottom: 7,
+                            titleFont: { family: 'Inter', size: 11, weight: '600' },
+                            bodyFont: { family: 'Inter', size: 10, weight: '400' },
                             callbacks: {
-                                label: function(context) {
-                                    return context.dataset.label + ': ' + context.parsed.y + ' RIS';
-                                }
-                            }
-                        }
+                                title(context) {
+                                    return context[0].label;
+                                },
+                                label(context) {
+                                    const value = Math.round(Number(context.raw));
+                                    return context.dataset.label + '     ' + value;
+                                },
+                            },
+                        },
                     },
                     scales: {
+                        x: {
+                            offset: false,
+                            border: { display: false },
+                            grid: { display: false },
+                            ticks: {
+                                autoSkip: false,
+                                color: '#8c929c',
+                                padding: 14,
+                                maxRotation: 0,
+                                minRotation: 0,
+                                font: { family: 'Inter', size: 10, weight: '400' },
+                            },
+                        },
                         y: {
                             beginAtZero: true,
-                            ticks: {
-                                stepSize: 1,
-                                font: {
-                                    size: 11,
-                                    weight: '500'
-                                },
-                                color: '#64748b',
-                                padding: 12
-                            },
+                            border: { display: false },
                             grid: {
-                                color: 'rgba(0, 0, 0, 0.04)',
-                                drawBorder: false
+                                color: '#eef1f5',
+                                drawTicks: false,
                             },
-                            border: {
-                                display: false
-                            }
+                            ticks: {
+                                precision: 0,
+                                padding: 8,
+                                color: '#94a3b8',
+                                font: { family: 'Inter', size: 10 },
+                            },
                         },
-                        x: {
-                            grid: {
-                                display: false,
-                                drawBorder: false
-                            },
-                            ticks: {
-                                font: {
-                                    size: 11,
-                                    weight: '500'
-                                },
-                                color: '#64748b',
-                                padding: 12
-                            },
-                            border: {
-                                display: false
-                            }
-                        }
-                    }
-                }
+                    },
+                },
+                plugins: [weeklyBlueShadowPlugin, weeklyHoverLinePlugin],
             });
         }
 
@@ -714,16 +799,17 @@
     }
 
     .card-hover {
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
     }
 
     .card-hover:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.06);
+        transform: translateY(-1px);
+        border-color: #d1d5db;
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
     }
 
     .action-btn {
-        transition: all 0.2s ease;
+        transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
     }
 
     .action-btn:active {
@@ -748,6 +834,73 @@
 
     .filter-select:hover {
         border-color: #d1d5db;
+    }
+
+    /* Same analytics chart chrome as President dashboard */
+    .pm-analytics-card {
+        min-width: 0;
+        overflow: hidden;
+        padding: 22px;
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 22px;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+    }
+    .pm-analytics-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 12px;
+    }
+    .pm-analytics-title {
+        margin: 0;
+        color: #0f172a;
+        font-size: 16px;
+        font-weight: 700;
+    }
+    .pm-analytics-subtitle {
+        margin: 3px 0 0;
+        color: #94a3b8;
+        font-size: 10px;
+    }
+    .pm-chart-total {
+        font-size: 18px;
+        font-weight: 800;
+        color: #0f172a;
+        white-space: nowrap;
+    }
+    .pm-chart-total span {
+        margin-left: 2px;
+        font-size: 9px;
+        font-weight: 500;
+        color: #94a3b8;
+    }
+    .pm-decision-chart-legend {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 8px;
+    }
+    .pm-decision-chart-legend-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        font-weight: 500;
+        color: #64748b;
+    }
+    .pm-decision-chart-swatch {
+        width: 10px;
+        height: 3px;
+        border-radius: 999px;
+    }
+    .pm-decision-chart-swatch.is-approved { background: #72b4dc; }
+    .pm-decision-chart-swatch.is-rejected { background: #94a3b8; }
+    .pm-decision-chart {
+        position: relative;
+        width: 100%;
+        height: 320px;
     }
 </style>
 

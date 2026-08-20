@@ -25,7 +25,7 @@
                 name="search"
                 value="{{ request('search') }}"
                 placeholder="Search by ID, Reference No., or Purpose..."
-                class="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-900 outline-none focus:ring-4 focus:ring-slate-200 transition-all duration-200"
+                class="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-900 outline-none focus:ring-4 focus:ring-slate-200 transition-all duration-200"
                 autocomplete="off"
             />
         </div>
@@ -47,7 +47,7 @@
         </div>
 
         <div class="mt-4 overflow-x-auto">
-            <table class="min-w-full">
+            <table id="historyTable" class="min-w-full">
                 <thead>
                     <tr class="border-b border-gray-100">
                         <th class="px-2 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">RIS ID</th>
@@ -63,6 +63,10 @@
                 </tbody>
             </table>
         </div>
+        @include('president.partials.table-word-export', [
+            'target' => '#historyTable',
+            'filename' => 'president-approval-history',
+        ])
 
         {{-- Pagination --}}
         @if ($approvalHistoryRecords->hasPages())
@@ -80,7 +84,7 @@
                 <iframe id="risViewIframe" class="bg-white shadow-2xl" style="width: 11in; height: 8.5in; min-width: 800px; max-width: 100%; border: 1px solid #e5e7eb;" src="about:blank"></iframe>
             </div>
             <div class="fixed top-4 right-4 z-10 flex items-center gap-2">
-                <button type="button" class="action-btn inline-flex h-9 items-center justify-center rounded-lg bg-white border border-gray-200 px-3 text-xs font-semibold text-gray-700 shadow-sm transition-all duration-200 hover:bg-gray-50 active:scale-95" onclick="printRis()" data-tip="Print RIS" aria-label="Print RIS">
+                <button type="button" class="action-btn inline-flex h-9 items-center justify-center rounded-xl bg-white border border-gray-200 px-3 text-xs font-semibold text-gray-700 shadow-sm transition-all duration-200 hover:bg-gray-50 active:scale-95" onclick="printRis()" data-tip="Print RIS" aria-label="Print RIS">
                     <i data-lucide="printer" class="h-4 w-4"></i>
                     <span class="ml-1.5">Print</span>
                 </button>
@@ -311,21 +315,21 @@
 
         const prevDisabled = current <= 1;
         html += '<li>' + (prevDisabled
-            ? '<span class="inline-flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-300">&laquo;</span>'
-            : '<button type="button" onclick="goToPage(' + (current - 1) + ')" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">&laquo;</button>') + '</li>';
+            ? '<span class="inline-flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-xl border border-slate-200 bg-white text-sm text-slate-300">&laquo;</span>'
+            : '<button type="button" onclick="goToPage(' + (current - 1) + ')" class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">&laquo;</button>') + '</li>';
 
         for (let i = start; i <= end; i++) {
             if (i === current) {
-                html += '<li><span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-sm font-semibold text-white">' + i + '</span></li>';
+                html += '<li><span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-sm font-semibold text-white">' + i + '</span></li>';
             } else {
-                html += '<li><button type="button" onclick="goToPage(' + i + ')" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">' + i + '</button></li>';
+                html += '<li><button type="button" onclick="goToPage(' + i + ')" class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">' + i + '</button></li>';
             }
         }
 
         const nextDisabled = current >= last;
         html += '<li>' + (nextDisabled
-            ? '<span class="inline-flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-300">&raquo;</span>'
-            : '<button type="button" onclick="goToPage(' + (current + 1) + ')" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">&raquo;</button>') + '</li>';
+            ? '<span class="inline-flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-xl border border-slate-200 bg-white text-sm text-slate-300">&raquo;</span>'
+            : '<button type="button" onclick="goToPage(' + (current + 1) + ')" class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">&raquo;</button>') + '</li>';
 
         html += '</ul></nav>';
         return html;

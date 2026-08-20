@@ -33,14 +33,15 @@
     }
     .icon-close { width: 32px; height: 32px; border: 0; border-radius: 8px; background: transparent; color: #64748b; display: grid; place-items: center; cursor: pointer; }
     .icon-close:hover { background: #f1f5f9; color: #0f172a; }
-    .btn-ghost, .btn-reject, .btn-approve, .btn-send { border: 0; border-radius: 10px; padding: 8px 16px; font-size: 0.875rem; line-height: 1.25rem; font-weight: 600; cursor: pointer; }
-    .btn-ghost { background: #f1f5f9; color: #334155; }
+    .btn-ghost, .btn-reject, .btn-approve, .btn-send { border: 0; border-radius: 12px; padding: 8px 16px; font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; cursor: pointer; }
+    .btn-ghost { background: transparent; color: #475569; }
     .btn-reject { background: #334155; color: #fff; }
-    .btn-approve { background: #2563eb; color: #fff; }
-    .btn-send { background: #1d4ed8; color: #fff; }
+    .btn-approve { background: #0f172a; color: #fff; }
+    .btn-send { background: #0f172a; color: #fff; }
+    .btn-ghost:hover { background: #f1f5f9; color: #0f172a; }
     .btn-reject:hover { background: #1e293b; }
-    .btn-approve:hover { background: #1d4ed8; }
-    .btn-send:hover { background: #1e40af; }
+    .btn-approve:hover { background: #1e293b; }
+    .btn-send:hover { background: #1e293b; }
     @media (max-width: 1024px) {
         .doc-shell {
             width: min(1240px, calc(100vw - 16px));

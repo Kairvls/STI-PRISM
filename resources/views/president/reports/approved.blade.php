@@ -14,19 +14,19 @@
 
 {{-- Summary Cards --}}
 <div class="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4 slide-up" style="animation-delay: 0.05s">
-    <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.05s">
+    <div class="pm-kpi-card slide-up" style="animation-delay: 0.05s">
         <p class="text-xs font-semibold text-gray-500">Total Approved</p>
         <p class="mt-2 text-3xl font-bold text-blue-600 count-up" data-target="{{ $totalApproved ?? 0 }}">{{ $totalApproved ?? 0 }}</p>
     </div>
-    <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.1s">
+    <div class="pm-kpi-card slide-up" style="animation-delay: 0.1s">
         <p class="text-xs font-semibold text-gray-500">Total Rejected</p>
         <p class="mt-2 text-3xl font-bold text-slate-600 count-up" data-target="{{ $totalRejected ?? 0 }}">{{ $totalRejected ?? 0 }}</p>
     </div>
-    <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.15s">
+    <div class="pm-kpi-card slide-up" style="animation-delay: 0.15s">
         <p class="text-xs font-semibold text-gray-500">Pending RIS</p>
         <p class="mt-2 text-3xl font-bold text-slate-600 count-up" data-target="{{ $totalPending ?? 0 }}">{{ $totalPending ?? 0 }}</p>
     </div>
-    <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.2s">
+    <div class="pm-kpi-card slide-up" style="animation-delay: 0.2s">
         <p class="text-xs font-semibold text-gray-500">Total Decisions</p>
         <p class="mt-2 text-3xl font-bold text-gray-900 count-up" data-target="{{ $totalDecisions ?? 0 }}">{{ $totalDecisions ?? 0 }}</p>
     </div>
@@ -68,20 +68,35 @@
 
         {{-- Filters --}}
         <div class="mt-4 flex flex-wrap items-center gap-3">
-            {{-- Status Filter Buttons --}}
-            <div class="flex items-center gap-2">
-                <button type="button" class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ ($filter ?? 'all') === 'all' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50' }}" data-filter="all">
-                    All
-                </button>
-                <button type="button" class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ ($filter ?? '') === 'pending' ? 'bg-slate-500 text-white border-slate-500' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100' }}" data-filter="pending">
-                    Pending
-                </button>
-                <button type="button" class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ ($filter ?? '') === 'approved' ? 'bg-blue-500 text-white border-blue-600' : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-50' }}" data-filter="approved">
-                    Approved
-                </button>
-                <button type="button" class="status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 {{ ($filter ?? '') === 'rejected' ? 'bg-slate-700 text-white border-slate-700' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50' }}" data-filter="rejected">
-                    Rejected
-                </button>
+            {{-- Status Filter Slider --}}
+            @php
+                $approvedFilters = [
+                    'all' => 'All',
+                    'pending' => 'Pending',
+                    'approved' => 'Approved',
+                    'rejected' => 'Rejected',
+                ];
+                $activeApprovedFilter = $filter ?? 'all';
+            @endphp
+            <div
+                id="approvedFilterSlider"
+                class="pm-seg"
+                role="tablist"
+                aria-label="Decision status filters"
+                data-active="{{ $activeApprovedFilter }}"
+            >
+                <span class="pm-seg-thumb" aria-hidden="true"></span>
+                @foreach ($approvedFilters as $key => $label)
+                    <button
+                        type="button"
+                        role="tab"
+                        class="pm-seg-btn status-filter-btn {{ $activeApprovedFilter === $key ? 'is-active' : '' }}"
+                        data-filter="{{ $key }}"
+                        aria-selected="{{ $activeApprovedFilter === $key ? 'true' : 'false' }}"
+                    >
+                        {{ $label }}
+                    </button>
+                @endforeach
             </div>
 
             {{-- Live Search --}}
@@ -93,21 +108,21 @@
                     name="search"
                     value="{{ request('search') }}"
                     placeholder="Search by Reference No., Purpose, or Status..."
-                    class="w-full rounded-lg border border-gray-200 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-900 outline-none focus:ring-4 focus:ring-slate-200 transition-all duration-200"
+                    class="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-gray-900 outline-none focus:ring-4 focus:ring-slate-200 transition-all duration-200"
                     autocomplete="off"
                 />
             </div>
 
             {{-- Clear link --}}
             @if (request('search') || request('filter'))
-                <button type="button" id="clearFiltersBtn" class="inline-flex h-10 items-center justify-center rounded-lg border border-gray-200 bg-white px-4 text-sm font-semibold text-gray-600 transition-all duration-200 hover:bg-gray-50 active:scale-95">
+                <button type="button" id="clearFiltersBtn" class="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-medium text-gray-600 transition-all duration-200 hover:bg-gray-50 active:scale-95">
                     Clear
                 </button>
             @endif
         </div>
 
         <div class="mt-4 overflow-x-auto">
-            <table class="min-w-full">
+            <table id="approvedTable" class="min-w-full">
                 <thead>
                     <tr class="border-b border-gray-100">
                         <th class="px-3 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Reference No.</th>
@@ -123,6 +138,10 @@
                 </tbody>
             </table>
         </div>
+        @include('president.partials.table-word-export', [
+            'target' => '#approvedTable',
+            'filename' => 'president-decision-history',
+        ])
 
         {{-- Pagination --}}
         @if ($outcomeRecords->hasPages())
@@ -154,7 +173,7 @@
                 <p id="remarksContent" class="text-sm text-slate-700 leading-relaxed"></p>
             </div>
             <div class="flex items-center justify-end border-t border-gray-100 px-6 py-4">
-                <button type="button" class="action-btn rounded-lg px-4 py-2.5 text-sm font-medium text-slate-600 transition-all duration-200 hover:bg-slate-100 hover:text-slate-950 active:scale-95" onclick="closeRemarksModal()">Close</button>
+                <button type="button" class="action-btn h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition-all duration-200 hover:bg-slate-100 hover:text-slate-950 active:scale-95" onclick="closeRemarksModal()">Close</button>
             </div>
         </div>
     </div>
@@ -215,18 +234,6 @@
     }
 
     .action-btn:active {
-        transform: scale(0.95);
-    }
-
-    .status-filter-btn {
-        transition: all 0.2s ease;
-    }
-
-    .status-filter-btn:hover {
-        transform: translateY(-1px);
-    }
-
-    .status-filter-btn:active {
         transform: scale(0.95);
     }
 
@@ -319,30 +326,13 @@
     let currentFilter = '{{ $filter ?? 'all' }}';
 
     function updateFilterButtons(activeFilter) {
-        filterButtons.forEach(btn => {
-            const btnFilter = btn.getAttribute('data-filter');
-            if (btnFilter === activeFilter) {
-                if (btnFilter === 'all') {
-                    btn.className = 'status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 bg-gray-900 text-white border-gray-900';
-                } else if (btnFilter === 'pending') {
-                    btn.className = 'status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 bg-slate-500 text-white border-slate-500';
-                } else if (btnFilter === 'approved') {
-                    btn.className = 'status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 bg-blue-500 text-white border-blue-600';
-                } else if (btnFilter === 'rejected') {
-                    btn.className = 'status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 bg-slate-700 text-white border-slate-700';
-                }
-            } else {
-                if (btnFilter === 'all') {
-                    btn.className = 'status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 bg-white text-gray-600 border-gray-200 hover:bg-gray-50';
-                } else if (btnFilter === 'pending') {
-                    btn.className = 'status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 bg-white text-slate-700 border-slate-200 hover:bg-slate-50';
-                } else if (btnFilter === 'approved') {
-                    btn.className = 'status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 bg-white text-blue-700 border-blue-200 hover:bg-blue-50';
-                } else if (btnFilter === 'rejected') {
-                    btn.className = 'status-filter-btn inline-flex h-10 items-center justify-center rounded-lg border px-4 text-sm font-semibold transition-all duration-200 active:scale-95 bg-white text-slate-700 border-slate-200 hover:bg-slate-50';
-                }
+        const track = document.getElementById('approvedFilterSlider');
+        if (track) {
+            track.setAttribute('data-active', activeFilter);
+            if (typeof window.pmUpdateSegControl === 'function') {
+                window.pmUpdateSegControl(track, activeFilter, true);
             }
-        });
+        }
     }
 
     function fetchApprovedData(page, filter) {
@@ -402,21 +392,21 @@
 
         const prevDisabled = current <= 1;
         html += '<li>' + (prevDisabled
-            ? '<span class="inline-flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-300">&laquo;</span>'
-            : '<button type="button" onclick="' + fnName + '(' + (current - 1) + ')" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">&laquo;</button>') + '</li>';
+            ? '<span class="inline-flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-xl border border-slate-200 bg-white text-sm text-slate-300">&laquo;</span>'
+            : '<button type="button" onclick="' + fnName + '(' + (current - 1) + ')" class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">&laquo;</button>') + '</li>';
 
         for (let i = start; i <= end; i++) {
             if (i === current) {
-                html += '<li><span class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-sm font-semibold text-white">' + i + '</span></li>';
+                html += '<li><span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-sm font-semibold text-white">' + i + '</span></li>';
             } else {
-                html += '<li><button type="button" onclick="' + fnName + '(' + i + ')" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">' + i + '</button></li>';
+                html += '<li><button type="button" onclick="' + fnName + '(' + i + ')" class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">' + i + '</button></li>';
             }
         }
 
         const nextDisabled = current >= last;
         html += '<li>' + (nextDisabled
-            ? '<span class="inline-flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-300">&raquo;</span>'
-            : '<button type="button" onclick="' + fnName + '(' + (current + 1) + ')" class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">&raquo;</button>') + '</li>';
+            ? '<span class="inline-flex h-9 w-9 cursor-not-allowed items-center justify-center rounded-xl border border-slate-200 bg-white text-sm text-slate-300">&raquo;</span>'
+            : '<button type="button" onclick="' + fnName + '(' + (current + 1) + ')" class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-sm text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">&raquo;</button>') + '</li>';
 
         html += '</ul></nav>';
         return html;
@@ -478,6 +468,10 @@
     document.addEventListener('DOMContentLoaded', () => {
         if (window.lucide) lucide.createIcons();
         updateFilterButtons(currentFilter);
+        const track = document.getElementById('approvedFilterSlider');
+        if (track && typeof window.pmUpdateSegControl === 'function') {
+            window.pmUpdateSegControl(track, currentFilter, false);
+        }
 
         const counters = document.querySelectorAll('.count-up');
         counters.forEach(el => {
