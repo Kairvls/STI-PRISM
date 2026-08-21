@@ -266,6 +266,9 @@ class AccountingController extends Controller
             '/purchaser/request-check?selected_atp=' . (int) $id
         );
 
+        if ($request->ajax()) {
+            return response()->json(['ok' => true, 'message' => 'ATP approved. Purchaser has been notified.']);
+        }
         return redirect('/accounting/authority-to-purchase/' . $id)->with('success', 'ATP approved. Purchaser has been notified.');
         });
     }
@@ -297,6 +300,9 @@ class AccountingController extends Controller
             '/purchaser/authority-to-purchase'
         );
 
+        if ($request->ajax()) {
+            return response()->json(['ok' => true, 'message' => 'Revision requested. Purchaser has been notified.']);
+        }
         return redirect('/accounting/authority-to-purchase')->with('success', 'Revision requested. Purchaser has been notified.');
     }
 
@@ -432,6 +438,9 @@ class AccountingController extends Controller
             '/purchaser/request-check'
         );
 
+        if ($request->ajax()) {
+            return response()->json(['ok' => true, 'message' => 'Request Check approved.']);
+        }
         return redirect('/accounting/request-check/' . $id)->with('success', 'Request Check approved.');
     }
 
@@ -464,6 +473,9 @@ class AccountingController extends Controller
             '/purchaser/request-check'
         );
 
+        if ($request->ajax()) {
+            return response()->json(['ok' => true, 'message' => 'Revision requested. Purchaser has been notified.']);
+        }
         return redirect('/accounting/request-check')->with('success', 'Revision requested. Purchaser has been notified.');
     }
 
@@ -652,6 +664,9 @@ class AccountingController extends Controller
             '/purchaser/liquidation-reports'
         );
 
+        if ($request->ajax()) {
+            return response()->json(['ok' => true, 'message' => 'Liquidation approved. Transaction completed.']);
+        }
         return redirect('/accounting/liquidation-reports/' . $id)->with('success', 'Liquidation approved. Transaction completed.');
     }
 
@@ -684,6 +699,9 @@ class AccountingController extends Controller
             '/purchaser/liquidation-reports'
         );
 
+        if ($request->ajax()) {
+            return response()->json(['ok' => true, 'message' => 'Revision requested. Purchaser has been notified.']);
+        }
         return redirect('/accounting/liquidation-reports')->with('success', 'Revision requested. Purchaser has been notified.');
     }
 

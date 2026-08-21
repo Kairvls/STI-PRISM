@@ -773,6 +773,89 @@
 
     .acc-backdrop { background: rgba(15, 23, 42, .45); }
 
+    /* ---------- President-style decision modal ---------- */
+    .icon-close {
+        width: 32px;
+        height: 32px;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: #64748b;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        flex-shrink: 0;
+    }
+    .icon-close:hover { background: #f1f5f9; color: #0f172a; }
+
+    .confirm-card {
+        background: #fff;
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 24px 80px rgba(15, 23, 42, 0.28);
+        max-height: calc(100vh - 48px);
+        overflow: auto;
+    }
+    .confirm-card label { display: block; font-size: 0.875rem; font-weight: 500; color: #334155; }
+    .confirm-card .hint { margin: 4px 0 8px; font-size: 0.75rem; color: #64748b; }
+    .confirm-card textarea,
+    #signatureCanvas {
+        width: 100%;
+        border-radius: 12px;
+        border-color: #e2e8f0;
+    }
+    .confirm-card textarea {
+        padding: 8px 10px;
+        font-size: 0.875rem;
+        line-height: 1.5rem;
+        resize: vertical;
+        min-height: 5.25rem;
+        outline: none;
+    }
+    .confirm-card textarea:focus { border-color: #2563EB; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12); }
+    #signatureCanvas {
+        height: 160px;
+        touch-action: none;
+        max-width: 100%;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+    }
+    .btn-approve {
+        background: #2563EB;
+        color: #fff;
+    }
+    .btn-approve:hover { background: #1D4ED8; }
+    .btn-reject {
+        background: #334155;
+        color: #fff;
+    }
+    .btn-reject:hover { background: #1e293b; }
+    .btn-send {
+        background: #0f172a;
+        color: #fff;
+    }
+    .btn-send:hover { background: #1e293b; }
+    .btn-ghost { background: transparent; color: #475569; }
+    .btn-ghost:hover { background: #f1f5f9; color: #0f172a; }
+    .btn-ghost.sm { padding: 6px 10px; font-size: 0.75rem; }
+    .btn-approve, .btn-reject, .btn-send, .btn-ghost {
+        border: 0;
+        border-radius: 12px;
+        padding: 8px 16px;
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+        font-weight: 500;
+        cursor: pointer;
+    }
+    .confirm-actions {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
     /* ---------- Empty / flash / notes ---------- */
     .acc-empty {
         border: 1px dashed #e2e8f0;
