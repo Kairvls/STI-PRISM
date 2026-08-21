@@ -12,17 +12,27 @@
 <div class="acc-page fade-in">
     <div class="acc-review-head">
         <div>
-            <a href="/accounting/authority-to-purchase" class="acc-back">← ATP queue</a>
-            <h1 class="acc-page-title mt-1">{{ $atp->authority_purchase_form_number }}</h1>
+            <a href="/accounting/authority-to-purchase" class="acc-back" data-tip="Back to ATP queue" aria-label="Back to ATP queue">
+                <i data-lucide="arrow-left" class="h-4 w-4"></i>
+            </a>
+            <div class="mt-1 flex flex-wrap items-center gap-2">
+                <h1 class="acc-page-title">{{ $atp->authority_purchase_form_number }}</h1>
+                @include('accounting.partials.status-badge', ['status' => \App\Support\RisWorkflow::atpStatusLabel($atp), 'submitted' => $atp->authority_purchase_submitted_at, 'revision' => $atp->authority_purchase_rejection_reason])
+            </div>
             <p class="acc-page-subtitle">Purchaser ATP form. Actions stay outside the document.</p>
         </div>
         <div class="acc-actions">
             @if ($reviewable)
-                <button type="button" onclick="document.getElementById('approve-box').classList.toggle('hidden'); if (window.initSignaturePad) window.initSignaturePad('atpSignatureCanvas');" class="acc-btn acc-btn-approve">Approve</button>
-                <button type="button" onclick="document.getElementById('revise-box').classList.toggle('hidden')" class="acc-btn acc-btn-revise">Request revision</button>
+                <button type="button" onclick="document.getElementById('approve-box').classList.toggle('hidden'); if (window.initSignaturePad) window.initSignaturePad('atpSignatureCanvas');" class="icon-btn" data-tip="Approve ATP" aria-label="Approve ATP">
+                    <i data-lucide="check" class="h-4 w-4"></i>
+                </button>
+                <button type="button" onclick="document.getElementById('revise-box').classList.toggle('hidden')" class="icon-btn" data-tip="Request revision" aria-label="Request revision">
+                    <i data-lucide="pencil" class="h-4 w-4"></i>
+                </button>
             @endif
-            @include('accounting.partials.status-badge', ['status' => \App\Support\RisWorkflow::atpStatusLabel($atp), 'submitted' => $atp->authority_purchase_submitted_at, 'revision' => $atp->authority_purchase_rejection_reason])
-            <button type="button" class="acc-btn acc-btn-ghost" onclick="window.print()">Print</button>
+            <button type="button" class="icon-btn" onclick="window.print()" data-tip="Print ATP" aria-label="Print ATP">
+                <i data-lucide="printer" class="h-4 w-4"></i>
+            </button>
         </div>
     </div>
 

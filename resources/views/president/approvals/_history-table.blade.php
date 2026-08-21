@@ -12,11 +12,11 @@
         <td class="px-2 py-4 text-sm text-gray-700">{{ $reference }}</td>
         <td class="px-2 py-4 text-sm">
             @if ($decision === 'Approved' || $decisionLower === 'approved')
-                <span class="inline-flex items-center rounded-lg bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 border border-emerald-200">Approved</span>
+                <span class="status-pill status-approved">Approved</span>
             @elseif ($decision === 'Rejected' || $decisionLower === 'rejected')
-                <span class="inline-flex items-center rounded-lg bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-800 border border-rose-200">Rejected</span>
+                <span class="status-pill status-rejected">Rejected</span>
             @else
-                <span class="inline-flex items-center rounded-lg bg-gray-50 px-3 py-1 text-xs font-semibold text-gray-600 border border-gray-200">{{ $decision }}</span>
+                <span class="status-pill status-pending">{{ $decision }}</span>
             @endif
         </td>
         <td class="px-2 py-4 text-sm text-gray-700">
@@ -30,9 +30,14 @@
         </td>
         <td class="px-2 py-4 text-center">
             @if ($risId)
-                <button type="button" class="action-btn inline-flex h-8 items-center justify-center rounded-lg bg-white px-2.5 text-xs font-semibold text-slate-700 border border-gray-200 transition-all duration-200 hover:bg-gray-50 active:scale-95" title="View RIS form" onclick="openRisViewModal({{ $risId }})">
-                    <i data-lucide="eye" class="h-4 w-4"></i>
-                </button>
+                <div class="row-actions justify-center">
+                    <button type="button" class="icon-btn" data-tip="View RIS" aria-label="View RIS" onclick="openRisViewModal({{ $risId }})">
+                        <i data-lucide="eye" class="h-4 w-4"></i>
+                    </button>
+                    <button type="button" class="icon-btn" data-tip="Print RIS" aria-label="Print RIS" onclick="printRisDocument({{ $risId }})">
+                        <i data-lucide="printer" class="h-4 w-4"></i>
+                    </button>
+                </div>
             @else
                 <span class="text-xs text-gray-400">—</span>
             @endif

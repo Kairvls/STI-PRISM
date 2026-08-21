@@ -1111,7 +1111,11 @@ body:not(.pp-layout) [data-tip]:focus-visible::before {
     display: inline-grid;
     place-items: center;
     cursor: pointer;
+    text-decoration: none;
     transition: background .18s ease, color .18s ease, transform .18s ease;
+}
+a.icon-btn:hover {
+    text-decoration: none;
 }
 .icon-btn:hover {
     background: #f1f5f9;

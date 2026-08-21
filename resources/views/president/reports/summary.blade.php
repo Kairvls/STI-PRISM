@@ -13,11 +13,11 @@
 
 {{-- Tabs --}}
 <div class="mt-6 flex items-center gap-2">
-    <button type="button" id="tabWeekly" onclick="switchTab('weekly')" class="action-btn inline-flex h-10 items-center justify-center rounded-lg px-4 text-sm font-semibold transition-all duration-200 {{ $tab === 'weekly' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50' }}">
+    <button type="button" id="tabWeekly" onclick="switchTab('weekly')" class="action-btn inline-flex h-10 items-center justify-center rounded-xl px-4 text-sm font-medium transition {{ $tab === 'weekly' ? 'bg-slate-900 text-white' : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50' }}">
         <i data-lucide="calendar-week" class="h-4 w-4"></i>
         <span class="ml-1.5">Weekly Summary</span>
     </button>
-    <button type="button" id="tabMonthly" onclick="switchTab('monthly')" class="action-btn inline-flex h-10 items-center justify-center rounded-lg px-4 text-sm font-semibold transition-all duration-200 {{ $tab === 'monthly' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50' }}">
+    <button type="button" id="tabMonthly" onclick="switchTab('monthly')" class="action-btn inline-flex h-10 items-center justify-center rounded-xl px-4 text-sm font-medium transition {{ $tab === 'monthly' ? 'bg-slate-900 text-white' : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-50' }}">
         <i data-lucide="calendar-days" class="h-4 w-4"></i>
         <span class="ml-1.5">Monthly Summary</span>
     </button>
@@ -26,7 +26,7 @@
 {{-- Weekly Tab --}}
 <div id="weeklyTab" class="mt-6 {{ $tab === 'weekly' ? '' : 'hidden' }}">
     {{-- Date Range --}}
-    <div class="rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.05s">
+    <div class="pm-card p-5 slide-up" style="animation-delay: 0.05s">
         <div class="flex items-center justify-between">
             <div>
                 <h2 class="text-sm font-semibold text-gray-900">This Week</h2>
@@ -37,26 +37,26 @@
 
     {{-- Weekly Stats Cards --}}
     <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.1s">
+        <div class="pm-kpi-card slide-up" style="animation-delay: 0.1s">
             <p class="text-sm font-medium text-gray-500">Total RIS</p>
             <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900 count-up" data-target="{{ $totalRis ?? 0 }}">{{ $totalRis ?? 0 }}</p>
         </div>
-        <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.15s">
+        <div class="pm-kpi-card slide-up" style="animation-delay: 0.15s">
             <p class="text-sm font-medium text-gray-500">Approved</p>
-            <p class="mt-3 text-3xl font-semibold tracking-tight text-emerald-700 count-up" data-target="{{ $approved ?? 0 }}">{{ $approved ?? 0 }}</p>
+            <p class="mt-3 text-3xl font-semibold tracking-tight text-slate-900 count-up" data-target="{{ $approved ?? 0 }}">{{ $approved ?? 0 }}</p>
         </div>
-        <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.2s">
+        <div class="pm-kpi-card slide-up" style="animation-delay: 0.2s">
             <p class="text-sm font-medium text-gray-500">Rejected</p>
-            <p class="mt-3 text-3xl font-semibold tracking-tight text-rose-700 count-up" data-target="{{ $rejected ?? 0 }}">{{ $rejected ?? 0 }}</p>
+            <p class="mt-3 text-3xl font-semibold tracking-tight text-slate-700 count-up" data-target="{{ $rejected ?? 0 }}">{{ $rejected ?? 0 }}</p>
         </div>
-        <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.25s">
+        <div class="pm-kpi-card slide-up" style="animation-delay: 0.25s">
             <p class="text-sm font-medium text-gray-500">Pending</p>
-            <p class="mt-3 text-3xl font-semibold tracking-tight text-amber-700 count-up" data-target="{{ $pending ?? 0 }}">{{ $pending ?? 0 }}</p>
+            <p class="mt-3 text-3xl font-semibold tracking-tight text-slate-700 count-up" data-target="{{ $pending ?? 0 }}">{{ $pending ?? 0 }}</p>
         </div>
     </div>
 
     {{-- Weekly Chart --}}
-    <div class="mt-6 rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.35s">
+    <div class="mt-6 pm-card p-5 slide-up" style="animation-delay: 0.35s">
         <h2 class="text-sm font-semibold text-gray-900">Weekly Trend</h2>
         <div class="mt-4" style="height: 300px;">
             <canvas id="weeklyChart"></canvas>
@@ -64,10 +64,10 @@
     </div>
 
     {{-- Weekly Table --}}
-    <div class="mt-6 rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.4s">
+    <div class="mt-6 pm-card p-5 slide-up" style="animation-delay: 0.4s">
         <h2 class="text-sm font-semibold text-gray-900">Daily Breakdown</h2>
         <div class="mt-4 overflow-x-auto">
-            <table class="min-w-full">
+            <table id="summaryWeeklyTable" class="min-w-full">
                 <thead>
                     <tr class="border-b border-gray-100">
                         <th class="px-3 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Day</th>
@@ -78,36 +78,40 @@
                 </thead>
                 <tbody>
                     @foreach($tableData ?? [] as $row)
-                        <tr class="border-b border-gray-100 transition-all duration-200 hover:bg-yellow-50/40">
+                        <tr class="border-b border-gray-100 transition-all duration-200 hover:bg-slate-50">
                             <td class="px-3 py-4 text-sm font-semibold text-gray-700">{{ $row['day'] }}</td>
-                            <td class="px-3 py-4 text-sm text-emerald-700 font-semibold">{{ $row['approved'] }}</td>
-                            <td class="px-3 py-4 text-sm text-rose-700 font-semibold">{{ $row['rejected'] }}</td>
-                            <td class="px-3 py-4 text-sm text-amber-700 font-semibold">{{ $row['pending'] }}</td>
+                            <td class="px-3 py-4 text-sm text-blue-700 font-semibold">{{ $row['approved'] }}</td>
+                            <td class="px-3 py-4 text-sm text-slate-700 font-semibold">{{ $row['rejected'] }}</td>
+                            <td class="px-3 py-4 text-sm text-slate-700 font-semibold">{{ $row['pending'] }}</td>
                         </tr>
                     @endforeach
                 </tbody>
             </table>
         </div>
+        @include('president.partials.table-word-export', [
+            'target' => '#summaryWeeklyTable',
+            'filename' => 'president-weekly-daily-breakdown',
+        ])
     </div>
 </div>
 
 {{-- Monthly Tab --}}
 <div id="monthlyTab" class="mt-6 {{ $tab === 'monthly' ? '' : 'hidden' }}">
     {{-- Month Selector --}}
-    <div class="rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.05s">
+    <div class="pm-card p-5 slide-up" style="animation-delay: 0.05s">
         <form method="GET" action="/president/reports/summary" class="flex items-center gap-2">
             <input type="hidden" name="tab" value="monthly" />
-            <select name="month" class="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:ring-4 focus:ring-amber-100 transition-all duration-200">
+            <select name="month" class="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:ring-4 focus:ring-slate-200 transition-all duration-200">
                 @foreach(($monthNames ?? []) as $num => $name)
                     <option value="{{ $num }}" {{ ($month ?? date('m')) == $num ? 'selected' : '' }}>{{ $name }}</option>
                 @endforeach
             </select>
-            <select name="year" class="rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:ring-4 focus:ring-amber-100 transition-all duration-200">
+            <select name="year" class="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 outline-none focus:ring-4 focus:ring-slate-200 transition-all duration-200">
                 @for ($y = date('Y'); $y >= date('Y') - 5; $y--)
                     <option value="{{ $y }}" {{ ($year ?? date('Y')) == $y ? 'selected' : '' }}>{{ $y }}</option>
                 @endfor
             </select>
-            <button type="submit" class="action-btn inline-flex h-10 items-center justify-center rounded-lg bg-gray-900 px-4 text-sm font-semibold text-white transition hover:bg-gray-800 active:scale-95">
+            <button type="submit" class="action-btn inline-flex h-10 items-center justify-center rounded-xl bg-slate-900 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 active:scale-95">
                 <i data-lucide="search" class="h-4 w-4"></i>
                 <span class="ml-1.5">Apply</span>
             </button>
@@ -116,26 +120,26 @@
 
     {{-- Monthly Stats Cards --}}
     <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.1s">
+        <div class="pm-kpi-card slide-up" style="animation-delay: 0.1s">
             <p class="text-sm font-medium text-gray-500">Total RIS</p>
             <p class="mt-3 text-3xl font-semibold tracking-tight text-gray-900 count-up" data-target="{{ $totalRis ?? 0 }}">{{ $totalRis ?? 0 }}</p>
         </div>
-        <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.15s">
+        <div class="pm-kpi-card slide-up" style="animation-delay: 0.15s">
             <p class="text-sm font-medium text-gray-500">Approved</p>
-            <p class="mt-3 text-3xl font-semibold tracking-tight text-emerald-700 count-up" data-target="{{ $approved ?? 0 }}">{{ $approved ?? 0 }}</p>
+            <p class="mt-3 text-3xl font-semibold tracking-tight text-slate-900 count-up" data-target="{{ $approved ?? 0 }}">{{ $approved ?? 0 }}</p>
         </div>
-        <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.2s">
+        <div class="pm-kpi-card slide-up" style="animation-delay: 0.2s">
             <p class="text-sm font-medium text-gray-500">Rejected</p>
-            <p class="mt-3 text-3xl font-semibold tracking-tight text-rose-700 count-up" data-target="{{ $rejected ?? 0 }}">{{ $rejected ?? 0 }}</p>
+            <p class="mt-3 text-3xl font-semibold tracking-tight text-slate-700 count-up" data-target="{{ $rejected ?? 0 }}">{{ $rejected ?? 0 }}</p>
         </div>
-        <div class="rounded-xl border border-gray-200 bg-white p-5 card-hover slide-up" style="animation-delay: 0.25s">
+        <div class="pm-kpi-card slide-up" style="animation-delay: 0.25s">
             <p class="text-sm font-medium text-gray-500">Pending</p>
-            <p class="mt-3 text-3xl font-semibold tracking-tight text-amber-700 count-up" data-target="{{ $pending ?? 0 }}">{{ $pending ?? 0 }}</p>
+            <p class="mt-3 text-3xl font-semibold tracking-tight text-slate-700 count-up" data-target="{{ $pending ?? 0 }}">{{ $pending ?? 0 }}</p>
         </div>
     </div>
 
     {{-- Monthly Chart --}}
-    <div class="mt-6 rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.35s">
+    <div class="mt-6 pm-card p-5 slide-up" style="animation-delay: 0.35s">
         <h2 class="text-sm font-semibold text-gray-900">Monthly Trend</h2>
         <div class="mt-4" style="height: 300px;">
             <canvas id="monthlyChart"></canvas>
@@ -143,10 +147,10 @@
     </div>
 
     {{-- Monthly Table --}}
-    <div class="mt-6 rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.4s">
+    <div class="mt-6 pm-card p-5 slide-up" style="animation-delay: 0.4s">
         <h2 class="text-sm font-semibold text-gray-900">Daily Breakdown</h2>
         <div class="mt-4 overflow-x-auto">
-            <table class="min-w-full">
+            <table id="summaryMonthlyTable" class="min-w-full">
                 <thead>
                     <tr class="border-b border-gray-100">
                         <th class="px-3 py-3 text-left text-[12px] font-bold uppercase tracking-wider text-black bg-gray-50">Day</th>
@@ -157,16 +161,20 @@
                 </thead>
                 <tbody>
                     @foreach($tableData ?? [] as $row)
-                        <tr class="border-b border-gray-100 transition-all duration-200 hover:bg-yellow-50/40">
+                        <tr class="border-b border-gray-100 transition-all duration-200 hover:bg-slate-50">
                             <td class="px-3 py-4 text-sm font-semibold text-gray-700">{{ $row['day'] }}</td>
-                            <td class="px-3 py-4 text-sm text-emerald-700 font-semibold">{{ $row['approved'] }}</td>
-                            <td class="px-3 py-4 text-sm text-rose-700 font-semibold">{{ $row['rejected'] }}</td>
-                            <td class="px-3 py-4 text-sm text-amber-700 font-semibold">{{ $row['pending'] }}</td>
+                            <td class="px-3 py-4 text-sm text-blue-700 font-semibold">{{ $row['approved'] }}</td>
+                            <td class="px-3 py-4 text-sm text-slate-700 font-semibold">{{ $row['rejected'] }}</td>
+                            <td class="px-3 py-4 text-sm text-slate-700 font-semibold">{{ $row['pending'] }}</td>
                         </tr>
                     @endforeach
                 </tbody>
             </table>
         </div>
+        @include('president.partials.table-word-export', [
+            'target' => '#summaryMonthlyTable',
+            'filename' => 'president-monthly-daily-breakdown',
+        ])
     </div>
 </div>
 
@@ -183,15 +191,15 @@
             weeklyTab.classList.remove('hidden');
             monthlyTab.classList.add('hidden');
             weeklyBtn.classList.remove('bg-white', 'text-gray-700', 'border', 'border-gray-200', 'hover:bg-gray-50');
-            weeklyBtn.classList.add('bg-gray-900', 'text-white');
-            monthlyBtn.classList.remove('bg-gray-900', 'text-white');
+            weeklyBtn.classList.add('bg-slate-900', 'text-white');
+            monthlyBtn.classList.remove('bg-slate-900', 'text-white');
             monthlyBtn.classList.add('bg-white', 'text-gray-700', 'border', 'border-gray-200', 'hover:bg-gray-50');
         } else {
             weeklyTab.classList.add('hidden');
             monthlyTab.classList.remove('hidden');
             monthlyBtn.classList.remove('bg-white', 'text-gray-700', 'border', 'border-gray-200', 'hover:bg-gray-50');
-            monthlyBtn.classList.add('bg-gray-900', 'text-white');
-            weeklyBtn.classList.remove('bg-gray-900', 'text-white');
+            monthlyBtn.classList.add('bg-slate-900', 'text-white');
+            weeklyBtn.classList.remove('bg-slate-900', 'text-white');
             weeklyBtn.classList.add('bg-white', 'text-gray-700', 'border', 'border-gray-200', 'hover:bg-gray-50');
         }
     }
@@ -209,11 +217,11 @@
                         {
                             label: 'Approved',
                             data: @json($chartApproved ?? []),
-                            borderColor: '#059669',
+                            borderColor: '#2563EB',
                             backgroundColor: 'rgba(5, 150, 105, 0.08)',
                             fill: true,
                             tension: 0.35,
-                            pointBackgroundColor: '#059669',
+                            pointBackgroundColor: '#2563EB',
                             pointBorderColor: '#fff',
                             pointBorderWidth: 2,
                             pointRadius: 4,
@@ -223,11 +231,11 @@
                         {
                             label: 'Rejected',
                             data: @json($chartRejected ?? []),
-                            borderColor: '#e11d48',
+                            borderColor: '#64748B',
                             backgroundColor: 'rgba(225, 29, 72, 0.08)',
                             fill: true,
                             tension: 0.35,
-                            pointBackgroundColor: '#e11d48',
+                            pointBackgroundColor: '#64748B',
                             pointBorderColor: '#fff',
                             pointBorderWidth: 2,
                             pointRadius: 4,
@@ -262,11 +270,11 @@
                         {
                             label: 'Approved',
                             data: @json($chartApproved ?? []),
-                            borderColor: '#059669',
+                            borderColor: '#2563EB',
                             backgroundColor: 'rgba(5, 150, 105, 0.08)',
                             fill: true,
                             tension: 0.35,
-                            pointBackgroundColor: '#059669',
+                            pointBackgroundColor: '#2563EB',
                             pointBorderColor: '#fff',
                             pointBorderWidth: 2,
                             pointRadius: 4,
@@ -276,11 +284,11 @@
                         {
                             label: 'Rejected',
                             data: @json($chartRejected ?? []),
-                            borderColor: '#e11d48',
+                            borderColor: '#64748B',
                             backgroundColor: 'rgba(225, 29, 72, 0.08)',
                             fill: true,
                             tension: 0.35,
-                            pointBackgroundColor: '#e11d48',
+                            pointBackgroundColor: '#64748B',
                             pointBorderColor: '#fff',
                             pointBorderWidth: 2,
                             pointRadius: 4,

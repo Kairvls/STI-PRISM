@@ -7,9 +7,14 @@
                 <h2 id="historyRisTitle">RIS</h2>
                 <p class="doc-meta">Read-only document preview</p>
             </div>
-            <button type="button" class="icon-close" onclick="closeRisViewModal()" aria-label="Close">
-                <i data-lucide="x"></i>
-            </button>
+            <div class="doc-head-actions">
+                <button type="button" class="icon-btn" data-tip="Print RIS" aria-label="Print RIS" onclick="printRisDocument(window.currentHistoryRisId || null)">
+                    <i data-lucide="printer" class="h-4 w-4"></i>
+                </button>
+                <button type="button" class="icon-close" onclick="closeRisViewModal()" data-tip="Close" aria-label="Close">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
         </header>
         <div class="doc-stage" id="historyStage">
             <div class="doc-fit" id="historyFit">
@@ -17,7 +22,10 @@
             </div>
         </div>
         <div class="doc-actions">
-            <button type="button" class="btn-ghost" onclick="closeRisViewModal()">Close</button>
+            <button type="button" class="btn-ghost" data-tip="Print RIS form" onclick="printRisDocument(window.currentHistoryRisId || null)">
+                <i data-lucide="printer" class="h-4 w-4 inline-block mr-1"></i> Print
+            </button>
+            <button type="button" class="btn-ghost" data-tip="Close preview" onclick="closeRisViewModal()">Close</button>
         </div>
     </div>
 </div>

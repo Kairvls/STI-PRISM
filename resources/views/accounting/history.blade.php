@@ -4,11 +4,9 @@
 
 @section('content')
 <div class="acc-page fade-in">
-    <div class="acc-page-header">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-            <p class="acc-page-kicker">Records</p>
-            <h1 class="acc-page-title">History</h1>
-            <p class="acc-page-subtitle">Processed ATP, Request Checks, fund releases, and liquidations.</p>
+            <p class="text-sm leading-6 text-gray-500">Processed ATP, Request Checks, fund releases, and liquidations.</p>
         </div>
         <form method="GET" class="acc-toolbar">
             <select name="type" class="acc-select">
@@ -22,7 +20,7 @@
         </form>
     </div>
 
-    <div class="acc-table-wrap slide-up">
+    <div class="acc-table-wrap mt-4 slide-up">
         <table class="acc-table min-w-[760px]">
             <thead>
                 <tr>
@@ -49,6 +47,9 @@
                 @endforelse
             </tbody>
         </table>
+        @if ($records->hasPages())
+            <div class="acc-pagination mt-3">{{ $records->links('pagination.president') }}</div>
+        @endif
     </div>
 </div>
 @endsection

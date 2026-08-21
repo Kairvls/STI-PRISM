@@ -3114,11 +3114,8 @@
                     preview.substring(0, 90) + '...';
             }
 
-            // Maintenance layout: use shared PRISM toast card
-            if (
-                document.body.classList.contains('mp-layout') &&
-                typeof window.showMpToast === 'function'
-            ) {
+            // PRISM toast card (Maintenance / President layouts)
+            if (typeof window.showMpToast === 'function') {
                 const result = window.showMpToast(preview, {
                     title: senderName,
                     type: 'info',
