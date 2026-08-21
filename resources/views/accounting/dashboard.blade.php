@@ -86,12 +86,23 @@
                         </div>
                         <span class="acc-feed-money">{{ $item->amount !== null ? '₱'.number_format((float)$item->amount, 2) : '—' }}</span>
                         @include('accounting.partials.status-badge', ['status' => $item->status])
-                        <span class="acc-feed-action">{{ $item->action }}</span>
+                        @if ($item->action === 'Release funds')
+                            <span class="icon-btn" data-tip="Release funds" aria-label="Release funds">
+                                <i data-lucide="banknote" class="h-4 w-4"></i>
+                            </span>
+                        @else
+                            <span class="icon-btn" data-tip="Review {{ $item->type }}" aria-label="Review {{ $item->type }}">
+                                <i data-lucide="eye" class="h-4 w-4"></i>
+                            </span>
+                        @endif
                     </a>
                 @empty
                     <div class="p-6"><div class="acc-empty">Nothing waiting for Accounting right now.</div></div>
                 @endforelse
             </div>
+            @if ($queue->hasPages())
+                <div class="acc-pagination acc-pagination--flush border-t border-slate-100">{{ $queue->links('pagination.president') }}</div>
+            @endif
         </section>
 
         <aside class="pm-card p-5 slide-up" style="animation-delay:.3s">
@@ -112,6 +123,9 @@
                     <p class="py-4 text-center text-xs text-slate-400">No recent Accounting actions.</p>
                 @endforelse
             </div>
+            @if ($recentActivity->hasPages())
+                <div class="mt-3 border-t border-slate-100 pt-2">{{ $recentActivity->links('pagination.president') }}</div>
+            @endif
         </aside>
     </div>
 </div>

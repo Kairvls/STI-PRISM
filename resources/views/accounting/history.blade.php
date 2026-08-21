@@ -47,6 +47,9 @@
                 @endforelse
             </tbody>
         </table>
+        @if ($records->hasPages())
+            <div class="acc-pagination mt-3">{{ $records->links('pagination.president') }}</div>
+        @endif
     </div>
 </div>
 @endsection

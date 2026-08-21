@@ -13,7 +13,7 @@
             <div class="flex items-start justify-between">
                 <div>
                     <p class="text-xs font-medium text-slate-500">Inbox</p>
-                    <p class="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{{ ($items ?? collect())->count() }}</p>
+                    <p class="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{{ ($items->total() ?? 0) }}</p>
                 </div>
                 <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
                     <i data-lucide="bell" class="h-5 w-5"></i>
@@ -53,6 +53,9 @@
         @empty
             <div class="p-6"><div class="acc-empty">No notifications for Accounting yet.</div></div>
         @endforelse
+        @if ($items->hasPages())
+            <div class="acc-pagination acc-pagination--flush border-t border-slate-100">{{ $items->links('pagination.president') }}</div>
+        @endif
     </section>
 </div>
 @endsection

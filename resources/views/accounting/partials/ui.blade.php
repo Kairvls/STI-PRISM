@@ -75,17 +75,6 @@
         max-width: 40rem;
     }
 
-    .acc-back {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.25rem;
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: #64748b;
-        text-decoration: none;
-    }
-
-    .acc-back:hover { color: var(--acc-ink); }
 
     /* ---------- Surfaces ---------- */
     .acc-card {
@@ -337,6 +326,47 @@
     .acc-table tbody tr:hover { background: #f8fafc; }
     .acc-table tbody tr:last-child td { border-bottom: 0; }
 
+    /* ---------- Modern table animations ---------- */
+    @keyframes accRowIn {
+        from { opacity: 0; transform: translateY(10px) scale(.995); }
+        to   { opacity: 1; transform: none; }
+    }
+
+    /* Staggered entrance for table rows (works on load and after live updates). */
+    .acc-table tbody.acc-animate tr {
+        animation: accRowIn .38s cubic-bezier(.22,.61,.36,1) both;
+    }
+    .acc-table tbody.acc-animate tr:nth-child(1)  { animation-delay: .02s; }
+    .acc-table tbody.acc-animate tr:nth-child(2)  { animation-delay: .05s; }
+    .acc-table tbody.acc-animate tr:nth-child(3)  { animation-delay: .08s; }
+    .acc-table tbody.acc-animate tr:nth-child(4)  { animation-delay: .11s; }
+    .acc-table tbody.acc-animate tr:nth-child(5)  { animation-delay: .14s; }
+    .acc-table tbody.acc-animate tr:nth-child(6)  { animation-delay: .17s; }
+    .acc-table tbody.acc-animate tr:nth-child(7)  { animation-delay: .20s; }
+    .acc-table tbody.acc-animate tr:nth-child(8)  { animation-delay: .23s; }
+    .acc-table tbody.acc-animate tr:nth-child(9)  { animation-delay: .26s; }
+    .acc-table tbody.acc-animate tr:nth-child(10) { animation-delay: .29s; }
+    .acc-table tbody.acc-animate tr:nth-child(11) { animation-delay: .32s; }
+    .acc-table tbody.acc-animate tr:nth-child(12) { animation-delay: .35s; }
+
+    @media (prefers-reduced-motion: reduce) {
+        .acc-table tbody.acc-animate tr { animation: none; }
+    }
+
+    /* Soft loading state while fetching live results. */
+    .acc-table tbody.is-loading {
+        opacity: .45;
+        filter: saturate(.6);
+        pointer-events: none;
+        transition: opacity .18s ease, filter .18s ease;
+    }
+
+    @keyframes accFadeSwap {
+        from { opacity: 0; transform: translateY(6px); }
+        to   { opacity: 1; transform: none; }
+    }
+    .acc-pagination > nav { animation: accFadeSwap .3s ease both; }
+
     .acc-table .acc-ref {
         font-weight: 600;
         color: var(--acc-ink);
@@ -375,6 +405,58 @@
         flex-wrap: wrap;
         align-items: center;
         gap: 0.4rem;
+    }
+
+    /* Larger icon action buttons on review pages */
+    .acc-actions .icon-btn {
+        width: 2.6rem;
+        height: 2.6rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 0.8rem;
+        border: 1px solid var(--acc-border);
+        background: #fff;
+        color: #475569;
+        cursor: pointer;
+        transition: background .12s ease, color .12s ease, border-color .12s ease, transform .12s ease;
+    }
+
+    .acc-actions .icon-btn:hover {
+        background: #f8fafc;
+        color: var(--acc-ink);
+        border-color: #cbd5e1;
+    }
+
+    .acc-actions .icon-btn:active { transform: scale(0.95); }
+
+    .acc-actions .icon-btn svg {
+        width: 1.3rem;
+        height: 1.3rem;
+    }
+
+    /* Slightly larger back arrow button */
+    .acc-back {
+        width: 2.4rem;
+        height: 2.4rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 0.7rem;
+        border: 1px solid transparent;
+        margin-bottom: 0.35rem;
+        transition: background .12s ease, color .12s ease, border-color .12s ease;
+    }
+
+    .acc-back:hover {
+        background: #f1f5f9;
+        color: var(--acc-ink);
+        text-decoration: none;
+    }
+
+    .acc-back svg {
+        width: 1.3rem;
+        height: 1.3rem;
     }
 
     .acc-btn {
@@ -780,7 +862,34 @@
     }
 
     /* ---------- Pagination spacing ---------- */
-    .acc-pagination { margin-top: 0.75rem; }
+    /* Inset the pagination inside its container box so it never touches the edges. */
+    .acc-pagination {
+        margin-top: 0.5rem;
+        padding: 0.25rem 1rem 0.85rem;
+    }
+
+    /* Neutralize the president pagination view's built-in top margin so it
+       aligns flush with the table above, and keep both sides vertically centered. */
+    .acc-pagination > nav { margin-top: 0; }
+    .acc-pagination nav > div { align-items: center; }
+    .acc-pagination nav p { margin: 0; }
+    .acc-pagination nav ul { margin: 0; }
+
+    /* Flush variant for pagination inside a card section (e.g. notifications). */
+    .acc-pagination--flush {
+        margin-top: 0;
+        padding: 0.75rem 1.25rem;
+    }
+
+    @media (max-width: 640px) {
+        .acc-pagination { padding-left: 0.625rem; padding-right: 0.625rem; }
+    }
+
+    /* ---------- Status badges ---------- */
+    .acc-status-badge {
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+        transition: background .15s ease, ring-color .15s ease;
+    }
 
     /* ---------- Notifications list ---------- */
     .acc-notif-item {

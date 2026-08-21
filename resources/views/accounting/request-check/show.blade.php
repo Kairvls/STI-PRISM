@@ -8,23 +8,35 @@
 <div class="acc-page fade-in">
     <div class="acc-review-head">
         <div>
-            <a href="/accounting/request-check" class="acc-back">← Request Check queue</a>
-            <h1 class="acc-page-title mt-1">{{ $rfc->request_check_form_number ?? ('RFC-'.$rfc->request_check_id) }}</h1>
+            <a href="/accounting/request-check" class="acc-back" data-tip="Back to Request Check queue" aria-label="Back to Request Check queue">
+                <i data-lucide="arrow-left" class="h-4 w-4"></i>
+            </a>
+            <div class="mt-1 flex flex-wrap items-center gap-2">
+                <h1 class="acc-page-title">{{ $rfc->request_check_form_number ?? ('RFC-'.$rfc->request_check_id) }}</h1>
+                @include('accounting.partials.status-badge', ['status' => !empty($rfc->request_check_funds_released_at) ? 'Released' : $rfc->request_check_status])
+            </div>
             <p class="acc-page-subtitle">Official Request for Check. Funds are collected in person.</p>
         </div>
         <div class="acc-actions">
             @if ($reviewable)
-                <button type="button" onclick="document.getElementById('approve-box').classList.toggle('hidden'); if (window.initSignaturePad) window.initSignaturePad('rfcSignatureCanvas');" class="acc-btn acc-btn-approve">Approve</button>
-                <button type="button" onclick="document.getElementById('revise-box').classList.toggle('hidden')" class="acc-btn acc-btn-revise">Request revision</button>
+                <button type="button" onclick="document.getElementById('approve-box').classList.toggle('hidden'); if (window.initSignaturePad) window.initSignaturePad('rfcSignatureCanvas');" class="icon-btn" data-tip="Approve request check" aria-label="Approve request check">
+                    <i data-lucide="check" class="h-4 w-4"></i>
+                </button>
+                <button type="button" onclick="document.getElementById('revise-box').classList.toggle('hidden')" class="icon-btn" data-tip="Request revision" aria-label="Request revision">
+                    <i data-lucide="pencil" class="h-4 w-4"></i>
+                </button>
             @endif
             @if ($releasable)
                 <form method="POST" action="/accounting/request-check/{{ $rfc->request_check_id }}/release-funds" onsubmit="return confirm('Mark funds as ready for personal collection?');">
                     @csrf
-                    <button class="acc-btn acc-btn-funds">Release funds</button>
+                    <button type="submit" class="icon-btn" data-tip="Release funds" aria-label="Release funds">
+                        <i data-lucide="banknote" class="h-4 w-4"></i>
+                    </button>
                 </form>
             @endif
-            @include('accounting.partials.status-badge', ['status' => !empty($rfc->request_check_funds_released_at) ? 'Released' : $rfc->request_check_status])
-            <button type="button" class="acc-btn acc-btn-ghost" onclick="window.print()">Print</button>
+            <button type="button" class="icon-btn" onclick="window.print()" data-tip="Print request check" aria-label="Print request check">
+                <i data-lucide="printer" class="h-4 w-4"></i>
+            </button>
         </div>
     </div>
 

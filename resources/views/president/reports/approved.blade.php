@@ -141,6 +141,7 @@
         @include('president.partials.table-word-export', [
             'target' => '#approvedTable',
             'filename' => 'president-decision-history',
+            'label' => 'Print as Word',
         ])
 
         {{-- Pagination --}}
