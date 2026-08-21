@@ -284,6 +284,34 @@
         color: #fff;
     }
 
+    /* ---------- Filter count badges ---------- */
+    .acc-count-badge {
+        position: relative;
+        z-index: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 1.35rem;
+        height: 1.15rem;
+        padding: 0 0.35rem;
+        margin-left: 0.4rem;
+        border-radius: 999px;
+        background: #e2e8f0;
+        color: #475569;
+        font-size: 0.625rem;
+        font-weight: 700;
+        line-height: 1;
+        transition: background .12s ease, color .12s ease;
+    }
+
+    /* Solid white badge on the dark active pill so the count is always visible */
+    .pm-seg-btn.is-active .acc-count-badge,
+    .acc-chip.is-active .acc-count-badge {
+        background: #ffffff;
+        color: #0f172a;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.15);
+    }
+
     /* ---------- Tables ---------- */
     .acc-table-wrap {
         overflow: auto;
@@ -325,6 +353,29 @@
     .acc-table tbody tr { transition: background .12s ease; }
     .acc-table tbody tr:hover { background: #f8fafc; }
     .acc-table tbody tr:last-child td { border-bottom: 0; }
+
+    /* Slightly more breathing room between rows */
+    .acc-table--spaced td {
+        padding-top: 0.78rem;
+        padding-bottom: 0.78rem;
+    }
+
+    /* Keep the table box tall enough for a full page so the pagination
+       below stays in place even when the last page has few rows. */
+    .acc-table-fill {
+        min-height: 33rem;
+    }
+
+    /* Same idea for list-style containers (dashboard queue/activity, notifications) */
+    .acc-list-fill-lg { min-height: 33rem; }
+    .acc-list-fill-md { min-height: 21rem; }
+    .acc-list-fill-sm { min-height: 15rem; }
+
+    /* Reserve space on the whole page container so the table outline can hug
+       its rows dynamically while the pagination below stays in place. */
+    .acc-content-fill {
+        min-height: 42rem;
+    }
 
     /* ---------- Modern table animations ---------- */
     @keyframes accRowIn {
@@ -798,6 +849,32 @@
         color: #94a3b8;
     }
 
+    /* Plain type icon + label for feed items (dashboard "Needs your attention") */
+    .acc-feed-icon {
+        width: 1.25rem;
+        height: 1.25rem;
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #94a3b8;
+        pointer-events: none;
+    }
+
+    .acc-feed-icon svg {
+        width: 1.1rem;
+        height: 1.1rem;
+    }
+
+    .acc-feed-label {
+        width: 6.25rem;
+        flex-shrink: 0;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: #334155;
+        line-height: 1.2;
+    }
+
     .acc-feed-money {
         width: 5.5rem;
         text-align: right;
@@ -903,6 +980,7 @@
         .acc-feed-action { display: none; }
         .acc-feed-money { width: 4.5rem; font-size: 0.75rem; }
         .acc-feed-type { width: 3.25rem; }
+        .acc-feed-label { width: auto; }
         .acc-page-header { align-items: flex-start; }
         .acc-search { max-width: none; }
     }

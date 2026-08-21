@@ -137,6 +137,19 @@ class AccountingController extends Controller
             }
         }
 
+        if ($request->ajax()) {
+            return response()->json([
+                'queue_html' => view('accounting._queue-items', compact('queue'))->render(),
+                'queue_pagination_html' => $queue->hasPages()
+                    ? view('pagination.president', ['paginator' => $queue])->render()
+                    : '',
+                'activity_html' => view('accounting._activity-items', compact('recentActivity'))->render(),
+                'activity_pagination_html' => $recentActivity->hasPages()
+                    ? view('pagination.president', ['paginator' => $recentActivity])->render()
+                    : '',
+            ]);
+        }
+
         return view('accounting.dashboard', compact(
             'metrics',
             'incomingAtp',
@@ -150,7 +163,7 @@ class AccountingController extends Controller
 
     public function authorityToPurchase(Request $request)
     {
-        $filter = $request->query('status', 'incoming');
+        $filter = $request->query('status', 'all');
         $query = $this->atpQuery()->where(function ($q) {
             $q->whereNull('authority_to_purchase_table.authority_purchase_is_archived')
                 ->orWhere('authority_to_purchase_table.authority_purchase_is_archived', 0);
@@ -172,6 +185,8 @@ class AccountingController extends Controller
         $this->applySearch($query, $request, [
             'authority_to_purchase_table.authority_purchase_form_number',
             'requisition_issue_slip_table.ris_form_number',
+            'requisition_issue_slip_table.ris_purpose_description',
+            'authority_to_purchase_table.authority_purchase_status',
             'physical_suppliers_table.company_name',
             'online_suppliers_table.shop_name',
         ]);
@@ -287,7 +302,7 @@ class AccountingController extends Controller
 
     public function requestCheck(Request $request)
     {
-        $filter = $request->query('status', 'incoming');
+        $filter = $request->query('status', 'all');
         $query = $this->rfcQuery();
         if ($this->rfcHas('request_check_is_archived')) {
             $query->where(function ($q) {
@@ -315,12 +330,18 @@ class AccountingController extends Controller
             $query->where('request_check_table.request_check_status', 'Approved');
         }
 
-        $searchCols = ['request_check_table.request_check_payee'];
+        $searchCols = [
+            'request_check_table.request_check_payee',
+            'request_check_table.request_check_status',
+        ];
         if ($this->rfcHas('request_check_form_number')) {
             array_unshift($searchCols, 'request_check_table.request_check_form_number');
         }
         $searchCols[] = 'authority_to_purchase_table.authority_purchase_form_number';
         $searchCols[] = 'requisition_issue_slip_table.ris_form_number';
+        if ($this->rfcHas('request_check_amount_figures')) {
+            $searchCols[] = 'request_check_table.request_check_amount_figures';
+        }
         $this->applySearch($query, $request, $searchCols);
 
         $records = $query->orderByDesc($this->rfcSortColumn())->paginate(12)->withQueryString();
@@ -503,7 +524,7 @@ class AccountingController extends Controller
 
     public function liquidationReports(Request $request)
     {
-        $filter = $request->query('status', 'incoming');
+        $filter = $request->query('status', 'all');
         $query = $this->liqQuery();
         if (Schema::hasColumn('liquidation_reports_table', 'liquidation_report_is_archived')) {
             $query->where(function ($q) {
@@ -520,12 +541,18 @@ class AccountingController extends Controller
             $query->where('liquidation_reports_table.liquidation_report_status', 'Approved');
         }
 
-        $liqSearch = ['liquidation_reports_table.liquidation_report_employee_name'];
+        $liqSearch = [
+            'liquidation_reports_table.liquidation_report_employee_name',
+            'liquidation_reports_table.liquidation_report_status',
+        ];
         if (Schema::hasColumn('liquidation_reports_table', 'liquidation_report_form_number')) {
             array_unshift($liqSearch, 'liquidation_reports_table.liquidation_report_form_number');
         }
         if (Schema::hasColumn('liquidation_reports_table', 'liquidation_report_receiving_report_id')) {
             $liqSearch[] = 'receiving_reports_table.receiving_report_form_number';
+        }
+        if (Schema::hasColumn('liquidation_reports_table', 'liquidation_report_amount_advance')) {
+            $liqSearch[] = 'liquidation_reports_table.liquidation_report_amount_advance';
         }
         $this->applySearch($query, $request, $liqSearch);
 
@@ -770,12 +797,21 @@ class AccountingController extends Controller
             ]
         );
 
-        return view('accounting.history', compact('records', 'type', 'search'));
-    }
+        if ($request->ajax()) {
+            return response()->json([
+                'table_html' => view('accounting._history-rows', compact('records'))->render(),
+                'total' => $records->total(),
+                'from' => $records->firstItem(),
+                'to' => $records->lastItem(),
+                'current_page' => $records->currentPage(),
+                'last_page' => $records->lastPage(),
+                'pagination_html' => $records->hasPages()
+                    ? view('pagination.president', ['paginator' => $records])->render()
+                    : '',
+            ]);
+        }
 
-    public function reports()
-    {
-        return view('accounting.reports.index', ['metrics' => $this->metrics()]);
+        return view('accounting.history', compact('records', 'type', 'search'));
     }
 
     public function financialRecords(Request $request)
@@ -797,6 +833,18 @@ class AccountingController extends Controller
                 ->withQueryString();
         } catch (\Throwable $e) {
             $items = new \Illuminate\Pagination\LengthAwarePaginator(collect(), 0, 12);
+        }
+
+        if (request()->ajax()) {
+            return response()->json([
+                'table_html' => view('accounting._notif-items', compact('items'))->render(),
+                'total' => $items->total(),
+                'current_page' => $items->currentPage(),
+                'last_page' => $items->lastPage(),
+                'pagination_html' => $items->hasPages()
+                    ? view('pagination.president', ['paginator' => $items])->render()
+                    : '',
+            ]);
         }
 
         return view('accounting.notifications.index', compact('items'));
