@@ -667,9 +667,10 @@
                 /* ===================================================== */
 
                 .dashboard-quick-action-icon {
-                    
+                    width: 28px;
+                    height: 28px;
 
-                    display: flex;
+                    display: inline-flex;
                     align-items: center;
                     justify-content: center;
 
@@ -681,15 +682,19 @@
 
                     color: #64748b;
 
+                    line-height: 0;
+
                     transition:
                         background 0.18s ease,
                         color 0.18s ease;
                 }
 
 
-                .dashboard-quick-action-icon svg {
-                    
-
+                .dashboard-quick-action-icon svg,
+                .dashboard-quick-action-icon i {
+                    display: block;
+                    width: 16px;
+                    height: 16px;
                     stroke-width: 1.8;
                 }
 
@@ -770,6 +775,81 @@
 
                     .dashboard-quick-action {
                         flex-shrink: 0;
+                    }
+
+                }
+
+                /* ===================================================== */
+                /* SIDEBAR QUICK ACTIONS — MOBILE ONLY */
+                /* Equipment / Schedule / Borrowing */
+                /* ===================================================== */
+
+                .maintenance-dashboard-sidebar > .dashboard-sidebar-quick-actions {
+                    width: 100%;
+                    margin-left: 0;
+                    min-width: 0;
+                }
+
+                @media (max-width: 768px) {
+
+                    .maintenance-dashboard-sidebar > .dashboard-sidebar-quick-actions {
+                        display: grid;
+                        grid-template-columns: repeat(3, minmax(0, 1fr));
+                        gap: 8px;
+                        overflow: visible;
+                        white-space: normal;
+                    }
+
+                    .maintenance-dashboard-sidebar > .dashboard-sidebar-quick-actions .dashboard-quick-action {
+                        width: 100%;
+                        min-width: 0;
+                        flex: none;
+                        padding: 8px 6px;
+                        gap: 6px;
+                        flex-direction: row;
+                        align-items: center;
+                        justify-content: center;
+                        white-space: nowrap;
+                        text-align: center;
+                        font-size: 11px;
+                        line-height: 1.2;
+                    }
+
+                    .maintenance-dashboard-sidebar > .dashboard-sidebar-quick-actions .dashboard-quick-action > span:not(.dashboard-quick-action-icon) {
+                        display: inline;
+                    }
+
+                    .maintenance-dashboard-sidebar > .dashboard-sidebar-quick-actions .dashboard-quick-action-icon {
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        width: 28px;
+                        height: 28px;
+                        flex-shrink: 0;
+                        line-height: 0;
+                    }
+
+                    .maintenance-dashboard-sidebar > .dashboard-sidebar-quick-actions .dashboard-quick-action-icon svg,
+                    .maintenance-dashboard-sidebar > .dashboard-sidebar-quick-actions .dashboard-quick-action-icon i {
+                        display: block;
+                        width: 16px;
+                        height: 16px;
+                        margin: 0;
+                    }
+
+                }
+
+                @media (max-width: 380px) {
+
+                    .maintenance-dashboard-sidebar > .dashboard-sidebar-quick-actions {
+                        grid-template-columns: 1fr;
+                    }
+
+                    .maintenance-dashboard-sidebar > .dashboard-sidebar-quick-actions .dashboard-quick-action {
+                        flex-direction: row;
+                        justify-content: flex-start;
+                        padding: 10px 12px;
+                        font-size: 12px;
                     }
 
                 }
@@ -1088,6 +1168,22 @@
                         padding: 0;
                     }
 
+                    /* Keep sidebar Equipment / Schedule / Borrowing labels */
+                    .maintenance-dashboard-sidebar > .dashboard-sidebar-quick-actions .dashboard-quick-action {
+                        width: auto;
+                        padding: 4px 10px;
+                    }
+
+                    .maintenance-dashboard-sidebar > .dashboard-sidebar-quick-actions .dashboard-quick-action > span:not(.dashboard-quick-action-icon) {
+                        display: inline;
+                    }
+
+                    .maintenance-dashboard-sidebar > .dashboard-sidebar-quick-actions .dashboard-quick-action-icon {
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                    }
+
                 }
 
 
@@ -1167,6 +1263,23 @@
                         flex: 0 0 42px;
 
                         padding: 0;
+                    }
+
+                    /* Sidebar quick actions keep full labels / grid layout */
+                    .maintenance-dashboard-sidebar > .dashboard-sidebar-quick-actions .dashboard-quick-action {
+                        width: 100%;
+                        flex: none;
+                        padding: 8px 6px;
+                    }
+
+                    .maintenance-dashboard-sidebar > .dashboard-sidebar-quick-actions .dashboard-quick-action > span:not(.dashboard-quick-action-icon) {
+                        display: inline;
+                    }
+
+                    .maintenance-dashboard-sidebar > .dashboard-sidebar-quick-actions .dashboard-quick-action-icon {
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
                     }
 
                 }
@@ -2570,6 +2683,114 @@
 
 
         /* ===================================================== */
+        /* EQUIPMENT CONDITION — STATISTIC CARD (RADAR) */
+        /* ===================================================== */
+
+        .equipment-statistic-card {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .equipment-statistic-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 0;
+        }
+
+        .equipment-statistic-heading {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .equipment-statistic-icon {
+            width: 34px;
+            height: 34px;
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            background: #f8fafc;
+            border: 1px solid #eef2f7;
+            color: #64748b;
+        }
+
+        .equipment-statistic-icon svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .equipment-statistic-title {
+            margin: 0;
+            color: #0f172a;
+            font-family: "Outfit", sans-serif;
+            font-size: 16px;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+
+        .equipment-statistic-action {
+            width: 36px;
+            height: 36px;
+            flex-shrink: 0;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 999px;
+            border: 1px solid #e5e7eb;
+            background: #f8fafc;
+            color: #334155;
+            text-decoration: none;
+            transition:
+                background 0.18s ease,
+                border-color 0.18s ease,
+                color 0.18s ease;
+        }
+
+        .equipment-statistic-action:hover {
+            background: #ffffff;
+            border-color: #cbd5e1;
+            color: #0f172a;
+        }
+
+        .equipment-statistic-action svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .equipment-statistic-panel {
+            flex: 1 1 auto;
+            min-height: 0;
+            padding: 14px;
+            border: 1px solid #e5e7eb;
+            border-radius: 18px;
+            background: #fafafa;
+        }
+
+        .equipment-statistic-chart {
+            position: relative;
+            width: 100%;
+            height: 250px;
+        }
+
+        @media (max-width: 640px) {
+            .equipment-statistic-chart {
+                height: 220px;
+            }
+
+            .equipment-statistic-panel {
+                padding: 12px;
+                border-radius: 16px;
+            }
+        }
+
+
+        /* ===================================================== */
         /* MAINTENANCE CALENDAR */
         /* RIGHT SIDEBAR ABOVE ACTIVITY */
         /* ===================================================== */
@@ -3904,6 +4125,16 @@
             .maintenance-hero-primary,
             .maintenance-hero-secondary {
                 width: 100%;
+                height: 36px;
+                min-height: 36px;
+                box-sizing: border-box;
+                font-size: 13px;
+            }
+
+            .maintenance-summary-action {
+                height: 36px;
+                min-height: 36px;
+                box-sizing: border-box;
             }
         }
 
@@ -5916,44 +6147,35 @@
                     </section>
 
                     {{-- ===================================================== --}}
-                    {{-- EQUIPMENT CONDITION --}}
+                    {{-- EQUIPMENT CONDITION — STATISTIC / RADAR STYLE --}}
                     {{-- ===================================================== --}}
 
-                    <section class="dashboard-analytics-card">
-                        {{-- ===================================================== --}}
-                        {{-- HEADER --}}
-                        {{-- ===================================================== --}}
+                    <section class="dashboard-analytics-card equipment-statistic-card">
+                        <div class="equipment-statistic-header">
+                            <div class="equipment-statistic-heading">
+                                <span class="equipment-statistic-icon" aria-hidden="true">
+                                    <i data-lucide="layers-2" class="h-4 w-4"></i>
+                                </span>
 
-                        <div class="dashboard-analytics-header">
-                            <div>
-                                <h2 class="dashboard-analytics-title">
+                                <h2 class="equipment-statistic-title">
                                     Equipment Condition
                                 </h2>
-
-                                <p class="dashboard-analytics-subtitle">Current condition of registered equipment</p>
                             </div>
 
-                            {{-- ===================================================== --}}
-                            {{-- TOTAL REGISTERED EQUIPMENT --}}
-                            {{-- ===================================================== --}}
-
-                            <div class="activity-chart-total">
-                                {{
-                                    collect(
-                                        $equipmentConditionChart["data"],
-                                    )->sum()
-                                }}
-
-                                <span> equipment </span>
-                            </div>
+                            <a
+                                href="{{ url('/maintenance/equipment/inventory') }}"
+                                class="equipment-statistic-action"
+                                aria-label="Open equipment inventory"
+                                title="Open equipment inventory"
+                            >
+                                <i data-lucide="arrow-up-right" class="h-4 w-4"></i>
+                            </a>
                         </div>
 
-                        {{-- ===================================================== --}}
-                        {{-- CONCENTRIC BUBBLE CHART --}}
-                        {{-- ===================================================== --}}
-
-                        <div class="dashboard-small-chart">
-                            <canvas id="equipmentConditionChart"></canvas>
+                        <div class="equipment-statistic-panel">
+                            <div class="equipment-statistic-chart">
+                                <canvas id="equipmentConditionChart"></canvas>
+                            </div>
                         </div>
                     </section>
                 </div>
@@ -6219,7 +6441,7 @@
             {{-- ===================================================== --}}
 
             <div
-                class="dashboard-toolbar-actions ml-auto flex items-center gap-2"
+                class="dashboard-toolbar-actions dashboard-sidebar-quick-actions ml-auto flex items-center gap-2"
             >
                 {{-- ===================================================== --}}
                 {{-- ADD EQUIPMENT --}}
@@ -6229,7 +6451,7 @@
                 {{-- ADD EQUIPMENT --}}
                 {{-- ===================================================== --}}
 
-                <button type="button" class="button" onclick="openAddEquipmentModal()">
+                <!--<button type="button" class="button" onclick="openAddEquipmentModal()">
                     <span class="fold"></span>
 
                     <div class="points_wrapper">
@@ -6251,6 +6473,18 @@
                         <path d="m10.273 2.513-.921-.944.715-.698.622.637.89-.011a2.89 2.89 0 0 1 2.924 2.924l-.01.89.636.622a2.89 2.89 0 0 1 0 4.134l-.637.622.011.89a2.89 2.89 0 0 1-2.924 2.924l-.89-.01-.622.636a2.89 2.89 0 0 1-4.134 0l-.622-.637-.89.011a2.89 2.89 0 0 1-2.924-2.924l.01-.89-.636-.622a2.89 2.89 0 0 1 0-4.134l.637-.622-.011-.89a2.89 2.89 0 0 1 2.924-2.924l.89.01.622-.636a2.89 2.89 0 0 1 4.134 0l-.715.698a1.89 1.89 0 0 0-2.704 0l-.92.944-1.32-.016a1.89 1.89 0 0 0-1.911 1.912l.016 1.318-.944.921a1.89 1.89 0 0 0 0 2.704l.944.92-.016 1.32a1.89 1.89 0 0 0 1.912 1.911l1.318-.016.921.944a1.89 1.89 0 0 0 2.704 0l.92-.944 1.32.016a1.89 1.89 0 0 0 1.911-1.912l-.016-1.318.944-.921a1.89 1.89 0 0 0 0-2.704l-.944-.92.016-1.32a1.89 1.89 0 0 0-1.912-1.911z"/>
                         </svg>Equipment</span
                     >
+                </button>-->
+
+                <button
+                    type="button"
+                    class="dashboard-quick-action"
+                    onclick="openAddEquipmentModal()"
+                >
+                    <span class="dashboard-quick-action-icon">
+                        <i data-lucide="plus" class="h-4 w-4"></i>
+                    </span>
+
+                    <span>Equipment</span>
                 </button>
 
                 {{-- ===================================================== --}}

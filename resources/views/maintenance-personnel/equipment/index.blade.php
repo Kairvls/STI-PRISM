@@ -1069,11 +1069,13 @@
 
                                                 '{{ $item->equipment_inventory_status }}',
 
-                                                '{{ $item->equipment_is_borrowable }}',
+                                            
 
                                                 '{{ $item->equipment_purchase_date ?? 'N/A' }}',
 
                                                 '{{ $item->equipment_warranty_expiration ?? 'N/A' }}',
+
+                                                '{{ $item->equipment_created_at ?? 'N/A' }}',
 
                                                 '{{ $item->equipment_is_borrowable ? 'Yes' : 'No' }}'
 
@@ -1110,6 +1112,8 @@
                                                 '{{ $item->equipment_condition_status }}',
 
                                                 '{{ $item->equipment_inventory_status }}',
+
+                                                '{{ $item->equipment_warranty_expiration ?? '' }}',
 
                                                 '{{ $item->equipment_is_borrowable }}'
 
@@ -1321,54 +1325,77 @@
     @endphp
 
         <div
-        id="viewEquipmentModal"
-        class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
-    >
-        <div class="flex w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
-            <div class="flex items-start justify-between gap-4 px-6 pt-6">
-                <div class="min-w-0">
-                    <p id="modal_name" class="truncate text-xl font-semibold tracking-tight text-slate-900"></p>
-                    <p class="mt-1 truncate text-sm text-slate-500">
-                        <span id="modal_category"></span>
-                        <span class="mx-1.5 text-slate-300">·</span>
-                        <span id="modal_room"></span>
-                    </p>
-                    <div class="mt-3 flex flex-wrap gap-2">
-                        <span id="modal_condition" class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700"></span>
-                        <span id="modal_status" class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700"></span>
+            id="viewEquipmentModal"
+            class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
+        >
+            <div class="flex w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
+                <div class="flex items-start justify-between gap-4 px-6 pt-6">
+                    <div class="min-w-0">
+                        <p id="modal_name" class="truncate text-xl font-semibold tracking-tight text-slate-900"></p>
+                        <p class="mt-1 truncate text-sm text-slate-800">
+                            <span id="modal_category"></span>
+                            <span class="mx-1.5 text-slate-300">·</span>
+                            <span id="modal_room"></span>
+                        </p>
+                        <div class="flex justify-between gap-4 mt-1">
+                        
+                            <span
+                                id="modal_created_at"
+                                class="text-right text-xs text-slate-500"
+                            ></span>
+                        </div>
+                        <div class="mt-3 flex flex-wrap gap-2">
+                            <span id="modal_condition" class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700"></span>
+                            <span id="modal_status" class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700"></span>
+                        </div>
+                    </div>
+                    <button type="button" onclick="closeEquipmentModal()" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
+                        <i data-lucide="x" class="h-4 w-4"></i>
+                    </button>
+                </div>
+
+                <div class="mt-5 grid grid-cols-2 gap-3 px-6">
+                    <div class="rounded-2xl bg-slate-50 px-4 py-3">
+                        <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Quantity</p>
+                        <p id="modal_quantity" class="mt-1 text-lg font-semibold text-slate-900"></p>
+                    </div>
+                    <div class="rounded-2xl bg-slate-50 px-4 py-3">
+                        <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Borrowable</p>
+                        <p id="modal_borrowable" class="mt-1 text-lg font-semibold text-slate-900"></p>
                     </div>
                 </div>
-                <button type="button" onclick="closeEquipmentModal()" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
-                    <i data-lucide="x" class="h-4 w-4"></i>
-                </button>
-            </div>
 
-            <div class="mt-5 grid grid-cols-2 gap-3 px-6">
-                <div class="rounded-2xl bg-slate-50 px-4 py-3">
-                    <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Quantity</p>
-                    <p id="modal_quantity" class="mt-1 text-lg font-semibold text-slate-900"></p>
+                <div class="mt-4 space-y-2.5 px-6 pb-2 text-sm">
+                    <div class="flex justify-between gap-4"><span class="text-slate-400">Asset tag</span><span id="modal_asset_tag" class="text-right font-medium text-slate-800"></span></div>
+                    <div class="flex justify-between gap-4"><span class="text-slate-400">Brand</span><span id="modal_brand" class="text-right font-medium text-slate-800"></span></div>
+                    <div class="flex justify-between gap-4"><span class="text-slate-400">Model</span><span id="modal_model" class="text-right font-medium text-slate-800"></span></div>
+                    <div class="flex justify-between gap-4"><span class="text-slate-400">Serial</span><span id="modal_serial" class="text-right font-medium text-slate-800"></span></div>
+                    <div class="flex justify-between gap-4">
+                        <span class="text-slate-400">Purchased</span>
+                        <span
+                            id="modal_purchase_date"
+                            class="text-right font-medium text-slate-800"
+                        ></span>
+                    </div>
+
+                    <div class="flex justify-between gap-4">
+                        <span class="text-slate-400">Warranty</span>
+                        <span
+                            id="modal_warranty"
+                            class="text-right font-medium text-slate-800"
+                        ></span>
+                    </div>
+
+                    <!-- ADDED DATE AND TIME -->
+                    
                 </div>
-                <div class="rounded-2xl bg-slate-50 px-4 py-3">
-                    <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Borrowable</p>
-                    <p id="modal_borrowable" class="mt-1 text-lg font-semibold text-slate-900"></p>
+
+                <div class="flex justify-end px-6 py-4">
+                    <button type="button" onclick="closeEquipmentModal()" class="h-10 rounded-xl bg-slate-900 px-4 text-sm font-medium text-white">Close</button>
                 </div>
-            </div>
-
-            <div class="mt-4 space-y-2.5 px-6 pb-2 text-sm">
-                <div class="flex justify-between gap-4"><span class="text-slate-400">Asset tag</span><span id="modal_asset_tag" class="text-right font-medium text-slate-800"></span></div>
-                <div class="flex justify-between gap-4"><span class="text-slate-400">Brand</span><span id="modal_brand" class="text-right font-medium text-slate-800"></span></div>
-                <div class="flex justify-between gap-4"><span class="text-slate-400">Model</span><span id="modal_model" class="text-right font-medium text-slate-800"></span></div>
-                <div class="flex justify-between gap-4"><span class="text-slate-400">Serial</span><span id="modal_serial" class="text-right font-medium text-slate-800"></span></div>
-                <div class="flex justify-between gap-4"><span class="text-slate-400">Purchased</span><span id="modal_purchase_date" class="text-right font-medium text-slate-800"></span></div>
-                <div class="flex justify-between gap-4"><span class="text-slate-400">Warranty</span><span id="modal_warranty" class="text-right font-medium text-slate-800"></span></div>
-            </div>
-
-            <div class="flex justify-end px-6 py-4">
-                <button type="button" onclick="closeEquipmentModal()" class="h-10 rounded-xl bg-slate-900 px-4 text-sm font-medium text-white">Close</button>
             </div>
         </div>
-    </div>
-<div
+    <div
         id="addEquipmentModal"
         class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
     >
@@ -1438,7 +1465,7 @@
                 </div>
                 <details class="mt-5 rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200/80">
                     <summary class="cursor-pointer text-sm font-medium text-slate-700">More details</summary>
-                    <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
                         <div>
                             <label for="add_equipment_asset_tag" class="{{ $eqLabel }}">Asset tag</label>
                             <input id="add_equipment_asset_tag" type="text" name="equipment_asset_tag" class="{{ $eqField }}" />
@@ -1454,6 +1481,21 @@
                         <div>
                             <label for="add_equipment_serial" class="{{ $eqLabel }}">Serial number</label>
                             <input id="add_equipment_serial" type="text" name="equipment_serial_number" class="{{ $eqField }}" />
+                        </div>
+                        <div>
+                            <label
+                                for="add_warranty_expiration"
+                                class="{{ $eqLabel }}"
+                            >
+                                Warranty expiration
+                            </label>
+
+                            <input
+                                id="add_warranty_expiration"
+                                type="date"
+                                name="equipment_warranty_expiration"
+                                class="{{ $eqField }}"
+                            />
                         </div>
                     </div>
                 </details>
@@ -1545,7 +1587,7 @@
                 </div>
                 <details class="mt-5 rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200/80">
                     <summary class="cursor-pointer text-sm font-medium text-slate-700">More details</summary>
-                    <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
                         <div>
                             <label for="edit_asset_tag" class="{{ $eqLabel }}">Asset tag</label>
                             <input id="edit_asset_tag" type="text" name="equipment_asset_tag" class="{{ $eqField }}" />
@@ -1561,6 +1603,21 @@
                         <div>
                             <label for="edit_serial" class="{{ $eqLabel }}">Serial number</label>
                             <input id="edit_serial" type="text" name="equipment_serial_number" class="{{ $eqField }}" />
+                        </div>
+                        <div>
+                            <label
+                                for="edit_warranty_expiration"
+                                class="{{ $eqLabel }}"
+                            >
+                                Warranty expiration
+                            </label>
+
+                            <input
+                                id="edit_warranty_expiration"
+                                type="date"
+                                name="equipment_warranty_expiration"
+                                class="{{ $eqField }}"
+                            />
                         </div>
                     </div>
                 </details>
@@ -1587,7 +1644,8 @@
             status,
             purchaseDate,
             warranty,
-            borrowable,
+            createdAt,
+            borrowable
         ) {
             document.getElementById("modal_asset_tag").textContent = assetTag;
             document.getElementById("modal_name").textContent = name;
@@ -1602,6 +1660,8 @@
             document.getElementById("modal_purchase_date").textContent =
                 purchaseDate;
             document.getElementById("modal_warranty").textContent = warranty;
+            document.getElementById("modal_created_at").textContent =
+                createdAt;
             document.getElementById("modal_borrowable").textContent =
                 borrowable;
 
@@ -1609,6 +1669,24 @@
 
             modal.classList.remove("hidden");
             modal.classList.add("flex");
+
+            const formattedCreatedAt = createdAt && createdAt !== 'N/A'
+                ? new Date(
+                    createdAt.replace(' ', 'T')
+                ).toLocaleString('en-PH', {
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true
+                })
+                : 'N/A';
+
+            document.getElementById("modal_created_at").textContent =
+                createdAt && createdAt !== 'N/A'
+                    ? `Added ${formattedCreatedAt}`
+                    : 'Added date unavailable';
         }
 
         function closeEquipmentModal() {
@@ -1649,6 +1727,7 @@
             quantity,
             condition,
             status,
+            warranty,
             borrowable
         ) {
             document.getElementById("editEquipmentForm").action =
@@ -1663,6 +1742,8 @@
             document.getElementById("edit_model").value = model;
 
             document.getElementById("edit_serial").value = serial;
+
+            document.getElementById("edit_warranty_expiration").value = warranty;
 
             document.getElementById("edit_quantity").value = quantity;
 

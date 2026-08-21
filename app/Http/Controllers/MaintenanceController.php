@@ -2781,7 +2781,7 @@ class MaintenanceController extends Controller
                 'assigned_purchaser.user_full_name
                     as assigned_purchaser_name',
 
-                DB::raw('COALESCE(open_report_group.open_count, reports_table.report_related_count, 1) as grouped_report_count'),
+                DB::raw('COALESCE(open_report_group.open_count, 1) as grouped_report_count'),
 
                 DB::raw("CASE WHEN open_report_group.has_urgent = 1 THEN 'Urgent' ELSE reports_table.report_urgency_level END as grouped_urgency")
 
@@ -5113,8 +5113,8 @@ class MaintenanceController extends Controller
         $equipment = $query
 
             ->orderBy(
-                'equipment_table.equipment_name',
-                'asc'
+                'equipment_table.equipment_created_at',
+                'desc'
             )
 
             ->paginate(10)
@@ -6507,7 +6507,7 @@ class MaintenanceController extends Controller
                         => $request->equipment_condition_status,
 
                     'equipment_inventory_status'
-                        => $request->equipment_inventory_status,
+                        => $request->equipment_inventory_status ?? 'Active',
 
                     'equipment_purchase_date'
                         => $request->equipment_purchase_date,
@@ -6665,6 +6665,9 @@ class MaintenanceController extends Controller
 
                     'equipment_inventory_status'
                         => $request->equipment_inventory_status,
+
+                    'equipment_warranty_expiration'
+                        => $request->equipment_warranty_expiration,
 
                     'equipment_is_borrowable'
                         => $request->has('equipment_is_borrowable'),
@@ -11297,10 +11300,7 @@ class MaintenanceController extends Controller
 
             $reporters = $query
 
-                ->orderBy(
-                    'reporter_full_name',
-                    'asc'
-                )
+                ->orderBy('reporter_id', 'desc')
 
                 ->paginate(
                     10,
@@ -13726,24 +13726,70 @@ class MaintenanceController extends Controller
     public function storeReporter(Request $request)
     {
         $request->validate([
-            'employee_id' => 'required|string|max:100',
-            'first_name' => 'required|string|max:100',
-            'middle_name' => 'nullable|string|max:100',
-            'last_name' => 'required|string|max:100',
-            'type' => 'nullable|in:Faculty,Staff',
-            'email' => 'nullable|email|max:255',
-            'contact' => 'nullable|string|max:50',
+            // Employee ID
+            // Required and must be unique
+            'employee_id' => [
+                'required',
+                'string',
+                'max:100',
+                'unique:reporters_table,reporter_employee_id',
+            ],
+
+            // First Name
+            // Required
+            'first_name' => [
+                'required',
+                'string',
+                'max:100',
+            ],
+
+            // Middle Name
+            // Optional
+            'middle_name' => [
+                'nullable',
+                'string',
+                'max:100',
+            ],
+
+            // Last Name
+            // Required
+            'last_name' => [
+                'required',
+                'string',
+                'max:100',
+            ],
+
+            // Employment Type
+            // Required
+            'type' => [
+                'required',
+                'in:Faculty,Staff',
+            ],
+
+            // Email
+            // Optional, but must be valid if entered
+            'email' => [
+                'nullable',
+                'email',
+                'max:255',
+            ],
+
+            // Contact Number
+            // Optional, but must contain exactly 11 digits if entered
+            'contact' => [
+                'nullable',
+                'digits:11',
+            ],
         ]);
 
         $employeeId = trim($request->employee_id);
 
-        $exists = DB::table('reporters_table')
-            ->where('reporter_employee_id', $employeeId)
-            ->exists();
-
-        if ($exists) {
-            return back()->with('error', 'That employee ID is already registered.');
-        }
+            if (ReporterApprovals::pendingByEmployeeId($employeeId)) {
+                return back()->with(
+                    'error',
+                    'That employee ID already has an application waiting for approval.'
+                );
+            }
 
         if (ReporterApprovals::pendingByEmployeeId($employeeId)) {
             return back()->with('error', 'That employee ID already has an application waiting for approval.');

@@ -2,6 +2,39 @@
 
 @section ("content")
 
+    @if ($errors->any())
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Please check the form',
+                    html: `
+                        <div class="text-left">
+                            <ul class="space-y-1 text-sm text-slate-600">
+                                @foreach ($errors->all() as $error)
+                                    <li>
+                                        • {{ $error }}
+                                    </li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    `,
+                    confirmButtonText: 'OK',
+                    confirmButtonColor: '#0f172a',
+                    allowOutsideClick: false,
+                    customClass: {
+                        popup: 'rounded-2xl',
+                        confirmButton: 'rounded-xl px-5 py-2.5'
+                    }
+                });
+
+            });
+        </script>
+
+    @endif
+
     <div class="mb-4 flex flex-wrap items-center justify-end gap-2">
         @if (!$historyReporter)
             <div class="flex flex-wrap items-center gap-2">
@@ -421,18 +454,51 @@
         
 
     <div class="rounded-3xl border border-slate-100 bg-white shadow-sm">
-        @if (session("success"))
-            <div
-                class="mb-6 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700"
-            >
-                <svg class="h-5 w-5 shrink-0 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                {{ session('success') }}
-            </div>
+        @if (session('success'))
+
+            <script>
+                document.addEventListener('DOMContentLoaded', function () {
+
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Success',
+                        text: @js(session('success')),
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#0f172a',
+                        timer: 2500,
+                        timerProgressBar: true,
+                        customClass: {
+                            popup: 'rounded-2xl',
+                            confirmButton: 'rounded-xl px-5 py-2.5'
+                        }
+                    });
+
+                });
+            </script>
+
         @endif
+
+
         @if (session('error'))
-            <div class="mb-6 flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
-                {{ session('error') }}
-            </div>
+
+            <script>
+                document.addEventListener('DOMContentLoaded', function () {
+
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Something went wrong',
+                        text: @js(session('error')),
+                        confirmButtonText: 'OK',
+                        confirmButtonColor: '#0f172a',
+                        customClass: {
+                            popup: 'rounded-2xl',
+                            confirmButton: 'rounded-xl px-5 py-2.5'
+                        }
+                    });
+
+                });
+            </script>
+
         @endif
 
         
@@ -2281,8 +2347,10 @@
         class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
     >
         <form
+            id="createReporterForm"
             action="/maintenance/reporters/store"
             method="POST"
+            novalidate
             class="flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10"
         >
             @csrf
@@ -2373,8 +2441,10 @@
         class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
     >
         <form
+            id="editReporterForm"
             action="/maintenance/reporters/update"
             method="POST"
+            novalidate
             class="flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10"
         >
             @csrf
@@ -3042,9 +3112,20 @@
         const importSubmitBtn = document.getElementById('importSubmitBtn');
 
         function showImportError(message) {
-            importError.textContent = message;
-            importError.classList.remove('hidden');
+
             importSubmitBtn.disabled = true;
+
+            Swal.fire({
+                icon: 'error',
+                title: 'Import cannot continue',
+                text: message,
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#0f172a',
+                customClass: {
+                    popup: 'rounded-2xl',
+                    confirmButton: 'rounded-xl px-5 py-2.5'
+                }
+            });
         }
 
         function cellText(value) {
@@ -3086,6 +3167,29 @@
         }
 
         async function previewImportFile(file) {
+
+            const allowedExtensions = [
+                'csv',
+                'txt',
+                'xlsx'
+            ];
+
+            const extension =
+                file.name
+                    .split('.')
+                    .pop()
+                    .toLowerCase();
+
+
+            if (!allowedExtensions.includes(extension)) {
+
+                showImportError(
+                    'Please upload a CSV, TXT, or Excel file.'
+                );
+
+                return;
+            }
+
             importError.classList.add('hidden');
             importFileName.textContent = file.name;
             importFileName.classList.remove('hidden');
@@ -3141,5 +3245,232 @@
             previewImportFile(file);
         });
     </script>
+
+    <script>
+        // =====================================================
+        // REPORTER SWEETALERT VALIDATION
+        // =====================================================
+
+        function reporterAlert(
+            icon,
+            title,
+            text
+        ) {
+            return Swal.fire({
+                icon: icon,
+                title: title,
+                text: text,
+                confirmButtonText: 'OK',
+                confirmButtonColor: '#0f172a',
+                allowOutsideClick: false,
+                customClass: {
+                    popup: 'rounded-2xl',
+                    confirmButton: 'rounded-xl px-5 py-2.5'
+                }
+            });
+        }
+
+
+        // =====================================================
+        // GET FORM DATA
+        // =====================================================
+
+        function getReporterFormData(form) {
+
+            return {
+                employeeId:
+                    form.querySelector('[name="employee_id"]')
+                        ?.value
+                        .trim(),
+
+                firstName:
+                    form.querySelector('[name="first_name"]')
+                        ?.value
+                        .trim(),
+
+                middleName:
+                    form.querySelector('[name="middle_name"]')
+                        ?.value
+                        .trim(),
+
+                lastName:
+                    form.querySelector('[name="last_name"]')
+                        ?.value
+                        .trim(),
+
+                type:
+                    form.querySelector('[name="type"]')
+                        ?.value
+                        .trim(),
+
+                email:
+                    form.querySelector('[name="email"]')
+                        ?.value
+                        .trim(),
+
+                contact:
+                    form.querySelector('[name="contact"]')
+                        ?.value
+                        .trim()
+            };
+        }
+
+
+        // =====================================================
+        // VALIDATE REPORTER
+        // =====================================================
+
+        function validateReporterForm(form) {
+
+            const data = getReporterFormData(form);
+
+
+            // =================================================
+            // EMPLOYEE ID
+            // =================================================
+
+            if (!data.employeeId) {
+
+                reporterAlert(
+                    'warning',
+                    'Employee ID required',
+                    'Please enter the reporter employee ID.'
+                );
+
+                return false;
+            }
+
+
+            // =================================================
+            // FIRST NAME
+            // =================================================
+
+            if (!data.firstName) {
+
+                reporterAlert(
+                    'warning',
+                    'First name required',
+                    'Please enter the reporter first name.'
+                );
+
+                return false;
+            }
+
+
+            // =================================================
+            // LAST NAME
+            // =================================================
+
+            if (!data.lastName) {
+
+                reporterAlert(
+                    'warning',
+                    'Last name required',
+                    'Please enter the reporter last name.'
+                );
+
+                return false;
+            }
+
+
+            // =================================================
+            // EMAIL
+            // =================================================
+
+            if (data.email) {
+
+                const emailPattern =
+                    /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+                if (!emailPattern.test(data.email)) {
+
+                    reporterAlert(
+                        'warning',
+                        'Invalid email address',
+                        'Please enter a valid email address.'
+                    );
+
+                    return false;
+                }
+            }
+
+
+            // =================================================
+            // CONTACT NUMBER
+            // =================================================
+
+            if (data.contact) {
+
+                if (!/^[0-9]+$/.test(data.contact)) {
+
+                    reporterAlert(
+                        'warning',
+                        'Invalid contact number',
+                        'Contact number must contain numbers only.'
+                    );
+
+                    return false;
+                }
+
+
+                if (data.contact.length !== 11) {
+
+                    reporterAlert(
+                        'warning',
+                        'Invalid contact number',
+                        'Contact number must contain exactly 11 digits.'
+                    );
+
+                    return false;
+                }
+            }
+
+
+            // =================================================
+            // ALL VALID
+            // =================================================
+
+            return true;
+        }
+
+
+        // =====================================================
+        // CREATE REPORTER VALIDATION
+        // =====================================================
+
+        document
+            .getElementById('createReporterForm')
+            ?.addEventListener('submit', function (event) {
+
+                if (!validateReporterForm(this)) {
+
+                    event.preventDefault();
+
+                    return;
+                }
+
+            });
+
+
+        // =====================================================
+        // EDIT REPORTER VALIDATION
+        // =====================================================
+
+        document
+            .getElementById('editReporterForm')
+            ?.addEventListener('submit', function (event) {
+
+                if (!validateReporterForm(this)) {
+
+                    event.preventDefault();
+
+                    return;
+                }
+
+            });
+
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 @endsection
