@@ -1077,6 +1077,11 @@ Route::post(
     [InfrastructureController::class, 'transferEquipment']
 );
 
+Route::post(
+    '/maintenance/infrastructure/rooms/{room}/transfer-equipment',
+    [InfrastructureController::class, 'transferRoomEquipment']
+)->name('maintenance.infrastructure.rooms.transfer-equipment');
+
 Route::delete(
     '/maintenance/infrastructure/equipment/{equipment}',
     [InfrastructureController::class, 'archiveEquipment']

@@ -1115,12 +1115,6 @@
                         >
                             Front wall / board
                         </div>
-                        <div
-                            class="pointer-events-none absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-xl bg-amber-100 px-4 py-2 text-xs font-black text-amber-700"
-                        >
-                            <i data-lucide="door-open" class="h-4 w-4"></i>
-                            Door
-                        </div>
 
                         <template x-if="roomLayout.equipment.length === 0">
                             <div
@@ -3644,7 +3638,7 @@
 
                             condition: "Good",
 
-                            zone: "Front Wall",
+                            zone: "Holding",
                         });
 
                         this.$nextTick(() => {

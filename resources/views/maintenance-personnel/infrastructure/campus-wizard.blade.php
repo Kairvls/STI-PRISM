@@ -2,7 +2,8 @@
     x-show="wizardOpen"
     x-cloak
     x-transition.opacity
-    class="fixed inset-0 z-[1000] flex items-center justify-center bg-[#0b1220]/70 p-3 sm:p-6"
+    class="fixed inset-0 z-[1000] flex items-center justify-center bg-[#0b1220]/70"
+    :class="wizardFullscreen ? 'p-0' : 'p-3 sm:p-6'"
     role="dialog"
     aria-modal="true"
 >
@@ -10,18 +11,15 @@
         method="POST"
         action="{{ route('maintenance.infrastructure.campus.store') }}"
         @submit.prevent="submitCampusWizard($event)"
-        @click.outside="
-            wizardOpen = false;
-
-            await loadCampus();
-
-            step = 1;
-        "
-        class="flex max-h-[80vh] w-full max-w-5xl flex-col overflow-hidden rounded-[28px] bg-white shadow-2xl"
+        @click.outside="closeCampusWizard()"
+        class="flex w-full flex-col overflow-hidden bg-white shadow-2xl"
+        :class="wizardFullscreen
+            ? 'h-[100dvh] max-h-[100dvh] max-w-none rounded-none'
+            : 'max-h-[80vh] max-w-5xl rounded-[28px]'"
     >
         @csrf
         <header
-            class="flex items-start justify-between border-b border-slate-100 px-6 py-5 sm:px-8"
+            class="flex shrink-0 items-start justify-between border-b border-slate-100 px-6 py-5 sm:px-8"
         >
             <div>
                 <p class="text-[10px] font-extrabold uppercase tracking-[.2em] text-[#005EA6]">Unified creation cascade</p>
@@ -31,19 +29,25 @@
                     Campus configuration wizard
                 </h2>
             </div>
-            <button
-                type="button"
-                @click="
-                    wizardOpen = false;
-
-                    await loadCampus();
-
-                    step = 1;
-                "
-                class="rounded-xl bg-slate-100 p-2 text-slate-500 hover:bg-slate-200"
-            >
-                <i data-lucide="x" class="h-5 w-5"></i>
-            </button>
+            <div class="ml-3 flex shrink-0 items-center gap-1">
+                <button
+                    type="button"
+                    @click="toggleWizardFullscreen()"
+                    class="rounded-xl bg-slate-100 p-2 text-slate-500 hover:bg-slate-200"
+                    :title="wizardFullscreen ? 'Exit full screen' : 'Full screen'"
+                    :aria-label="wizardFullscreen ? 'Exit full screen' : 'Full screen'"
+                >
+                    <i :data-lucide="wizardFullscreen ? 'minimize-2' : 'maximize-2'" class="h-5 w-5"></i>
+                </button>
+                <button
+                    type="button"
+                    @click="closeCampusWizard()"
+                    class="rounded-xl bg-slate-100 p-2 text-slate-500 hover:bg-slate-200"
+                    aria-label="Close wizard"
+                >
+                    <i data-lucide="x" class="h-5 w-5"></i>
+                </button>
+            </div>
         </header>
 
         <div
@@ -97,7 +101,7 @@
             </div>
         @endif
 
-        <div class="flex-1 overflow-y-auto p-6 sm:p-8">
+        <div class="min-h-0 flex-1 overflow-y-auto p-6 sm:p-8">
             <section x-show="step === 1" x-transition>
                 <div
                     x-show="isWizardSetupLocked"
@@ -509,7 +513,8 @@
                                                 <button
                                                     type="button"
                                                     @click="floor.rooms.splice(ri, 1)"
-                                                    class="p-2 text-slate-400 hover:text-red-600"
+                                                    class="mt-[1.375rem] inline-flex h-[2.375rem] items-center justify-center rounded-xl p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                                                    aria-label="Remove room"
                                                 >
                                                     <i data-lucide="trash-2" class="h-4 w-4"></i>
                                                 </button>
@@ -654,7 +659,8 @@
                                             <button
                                                 type="button"
                                                 @click="floor.rooms.splice(ri, 1)"
-                                                class="p-2 text-slate-400 hover:text-red-600"
+                                                class="mt-[1.375rem] inline-flex h-[2.375rem] items-center justify-center rounded-xl p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                                                aria-label="Remove room"
                                             >
                                                 <i
                                                     data-lucide="trash-2"
@@ -779,37 +785,27 @@
                                                         </label>
 
                                                         <label class="text-[11px] font-semibold uppercase tracking-wider text-black sm:col-span-2 lg:col-span-2">
-                                                            Placement Zone
+                                                            Placement
                                                             <select
                                                                 x-model="eq.zone"
                                                                 :name="`floors[${fi}][rooms][${ri}][equipment][${ei}][zone]`"
                                                                 class="mt-1 w-full rounded-lg cursor-pointer border border-slate-200 px-2.5 py-2 text-xs"
-                                                                data-tooltip="Placement zone"
+                                                                data-tooltip="Placement"
                                                             >
-                                                                <option>
-                                                                    Front Wall
-                                                                </option>
-                                                                <option>
-                                                                    Center Ceiling
-                                                                </option>
-                                                                <option>
-                                                                    Left Row Pods
-                                                                </option>
-                                                                <option>
-                                                                    Right Row Pods
-                                                                </option>
-                                                                <option>
-                                                                    Rear Wall
-                                                                </option>
-                                                                <option>Storage</option>
+                                                                <option value="Holding">Holding Area</option>
+                                                                <option value="Floor">Floor</option>
+                                                                <option value="Row 1">Row 1</option>
+                                                                <option value="Row 2">Row 2</option>
+                                                                <option value="Row 3">Row 3</option>
                                                             </select>
+                                                            <p class="mt-1 text-[10px] font-normal normal-case tracking-normal text-slate-400">Holding Area = unplaced. Floor = floor icon. Rows can be arranged later in Room interior layout.</p>
                                                         </label>
                                                     </div>
 
                                                     <div class="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-2.5">
                                                         <div class="mb-2 flex items-center justify-between px-1">
-                                                            <p class="text-[10px] font-semibold uppercase tracking-widest text-black">Placement Blueprint</p>
-                                                            <p class="text-[10px] font-normal text-black">Zone: <span class="text-black font-normal" x-text="eq.zone"></span></p>
+                                                            <p class="text-[10px] font-semibold uppercase tracking-widest text-black">Placement preview</p>
+                                                            <p class="text-[10px] font-normal text-black">Zone: <span class="text-black font-normal" x-text="placementZoneLabel(eq.zone)"></span></p>
                                                         </div>
 
                                                         <div
@@ -817,11 +813,12 @@
                                                         >
                                                             <div class="absolute inset-0 opacity-70" style="background-image: linear-gradient(to right, rgba(148,163,184,.25) 1px, transparent 1px), linear-gradient(to bottom, rgba(148,163,184,.2) 1px, transparent 1px); background-size: 20% 33.333%;"></div>
 
-                                                            <span class="absolute left-1/2 top-1 -translate-x-1/2 text-[8px] font-black uppercase tracking-[.16em] text-slate-400">Front wall</span>
-                                                            <span class="absolute left-1.5 top-1/2 -translate-y-1/2 text-[8px] font-bold uppercase tracking-wider text-slate-400">Left pods</span>
-                                                            <span class="absolute right-1.5 top-1/2 -translate-y-1/2 text-[8px] font-bold uppercase tracking-wider text-slate-400">Right pods</span>
-                                                            <span class="absolute left-1/2 bottom-1 -translate-x-1/2 text-[8px] font-black uppercase tracking-[.16em] text-slate-400">Rear wall</span>
-                                                            <span class="absolute left-1/2 top-[48%] -translate-x-1/2 text-[8px] font-bold uppercase tracking-wider text-slate-400">Center ceiling</span>
+                                                            <span class="absolute left-1/2 top-1 -translate-x-1/2 text-[8px] font-black uppercase tracking-[.16em] text-slate-400">Front wall / board</span>
+                                                            <span class="absolute left-2 top-[28%] text-[8px] font-bold uppercase tracking-wider text-slate-400">Row 1</span>
+                                                            <span class="absolute left-2 top-[48%] text-[8px] font-bold uppercase tracking-wider text-slate-400">Row 2</span>
+                                                            <span class="absolute left-2 top-[68%] text-[8px] font-bold uppercase tracking-wider text-slate-400">Row 3</span>
+                                                            <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[8px] font-bold uppercase tracking-wider text-slate-400">Floor</span>
+                                                            <span class="absolute left-1/2 bottom-1 -translate-x-1/2 text-[8px] font-black uppercase tracking-[.16em] text-amber-600/80">Holding area</span>
 
                                                             <span
                                                                 class="absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-[#F39200] shadow-[0_0_0_4px_rgba(251,191,36,.25)] transition-all duration-200"
