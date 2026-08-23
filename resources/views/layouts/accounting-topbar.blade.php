@@ -11,7 +11,6 @@
                 request()->is('accounting/request-check*') => ['Request Checks', 'Review RFCs and release funds.'],
                 request()->is('accounting/liquidation-reports*') => ['Liquidation Reports', 'Review liquidation documents.'],
                 request()->is('accounting/history*') || request()->is('accounting/financial-records*') => ['History', 'Processed Accounting records.'],
-                request()->is('accounting/reports*') => ['Reports', 'Accounting metrics and summaries.'],
                 request()->is('accounting/notifications*') => ['Alerts', 'Recent activity requiring your attention.'],
                 default => [View::yieldContent('title', 'PRISM'), 'Accounting Panel'],
             };

@@ -284,6 +284,34 @@
         color: #fff;
     }
 
+    /* ---------- Filter count badges ---------- */
+    .acc-count-badge {
+        position: relative;
+        z-index: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 1.35rem;
+        height: 1.15rem;
+        padding: 0 0.35rem;
+        margin-left: 0.4rem;
+        border-radius: 999px;
+        background: #e2e8f0;
+        color: #475569;
+        font-size: 0.625rem;
+        font-weight: 700;
+        line-height: 1;
+        transition: background .12s ease, color .12s ease;
+    }
+
+    /* Solid white badge on the dark active pill so the count is always visible */
+    .pm-seg-btn.is-active .acc-count-badge,
+    .acc-chip.is-active .acc-count-badge {
+        background: #ffffff;
+        color: #0f172a;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.15);
+    }
+
     /* ---------- Tables ---------- */
     .acc-table-wrap {
         overflow: auto;
@@ -325,6 +353,29 @@
     .acc-table tbody tr { transition: background .12s ease; }
     .acc-table tbody tr:hover { background: #f8fafc; }
     .acc-table tbody tr:last-child td { border-bottom: 0; }
+
+    /* Slightly more breathing room between rows */
+    .acc-table--spaced td {
+        padding-top: 0.78rem;
+        padding-bottom: 0.78rem;
+    }
+
+    /* Keep the table box tall enough for a full page so the pagination
+       below stays in place even when the last page has few rows. */
+    .acc-table-fill {
+        min-height: 33rem;
+    }
+
+    /* Same idea for list-style containers (dashboard queue/activity, notifications) */
+    .acc-list-fill-lg { min-height: 33rem; }
+    .acc-list-fill-md { min-height: 21rem; }
+    .acc-list-fill-sm { min-height: 15rem; }
+
+    /* Reserve space on the whole page container so the table outline can hug
+       its rows dynamically while the pagination below stays in place. */
+    .acc-content-fill {
+        min-height: 42rem;
+    }
 
     /* ---------- Modern table animations ---------- */
     @keyframes accRowIn {
@@ -722,6 +773,89 @@
 
     .acc-backdrop { background: rgba(15, 23, 42, .45); }
 
+    /* ---------- President-style decision modal ---------- */
+    .icon-close {
+        width: 32px;
+        height: 32px;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: #64748b;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        flex-shrink: 0;
+    }
+    .icon-close:hover { background: #f1f5f9; color: #0f172a; }
+
+    .confirm-card {
+        background: #fff;
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 24px 80px rgba(15, 23, 42, 0.28);
+        max-height: calc(100vh - 48px);
+        overflow: auto;
+    }
+    .confirm-card label { display: block; font-size: 0.875rem; font-weight: 500; color: #334155; }
+    .confirm-card .hint { margin: 4px 0 8px; font-size: 0.75rem; color: #64748b; }
+    .confirm-card textarea,
+    #signatureCanvas {
+        width: 100%;
+        border-radius: 12px;
+        border-color: #e2e8f0;
+    }
+    .confirm-card textarea {
+        padding: 8px 10px;
+        font-size: 0.875rem;
+        line-height: 1.5rem;
+        resize: vertical;
+        min-height: 5.25rem;
+        outline: none;
+    }
+    .confirm-card textarea:focus { border-color: #2563EB; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12); }
+    #signatureCanvas {
+        height: 160px;
+        touch-action: none;
+        max-width: 100%;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+    }
+    .btn-approve {
+        background: #2563EB;
+        color: #fff;
+    }
+    .btn-approve:hover { background: #1D4ED8; }
+    .btn-reject {
+        background: #334155;
+        color: #fff;
+    }
+    .btn-reject:hover { background: #1e293b; }
+    .btn-send {
+        background: #0f172a;
+        color: #fff;
+    }
+    .btn-send:hover { background: #1e293b; }
+    .btn-ghost { background: transparent; color: #475569; }
+    .btn-ghost:hover { background: #f1f5f9; color: #0f172a; }
+    .btn-ghost.sm { padding: 6px 10px; font-size: 0.75rem; }
+    .btn-approve, .btn-reject, .btn-send, .btn-ghost {
+        border: 0;
+        border-radius: 12px;
+        padding: 8px 16px;
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+        font-weight: 500;
+        cursor: pointer;
+    }
+    .confirm-actions {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
     /* ---------- Empty / flash / notes ---------- */
     .acc-empty {
         border: 1px dashed #e2e8f0;
@@ -796,6 +930,32 @@
         text-transform: uppercase;
         letter-spacing: 0.05em;
         color: #94a3b8;
+    }
+
+    /* Plain type icon + label for feed items (dashboard "Needs your attention") */
+    .acc-feed-icon {
+        width: 1.25rem;
+        height: 1.25rem;
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #94a3b8;
+        pointer-events: none;
+    }
+
+    .acc-feed-icon svg {
+        width: 1.1rem;
+        height: 1.1rem;
+    }
+
+    .acc-feed-label {
+        width: 6.25rem;
+        flex-shrink: 0;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: #334155;
+        line-height: 1.2;
     }
 
     .acc-feed-money {
@@ -903,6 +1063,7 @@
         .acc-feed-action { display: none; }
         .acc-feed-money { width: 4.5rem; font-size: 0.75rem; }
         .acc-feed-type { width: 3.25rem; }
+        .acc-feed-label { width: auto; }
         .acc-page-header { align-items: flex-start; }
         .acc-search { max-width: none; }
     }

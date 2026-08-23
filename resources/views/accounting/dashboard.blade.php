@@ -76,33 +76,14 @@
                     <p class="mt-0.5 text-xs text-gray-400">ATP, Request Check, funds, and liquidation work</p>
                 </div>
             </div>
-            <div>
-                @forelse ($queue as $item)
-                    <a href="{{ $item->url }}" class="acc-feed-item">
-                        <span class="acc-feed-type">{{ $item->type }}</span>
-                        <div class="min-w-0 flex-1">
-                            <p class="truncate text-sm font-semibold text-slate-900">{{ $item->ref }}</p>
-                            <p class="truncate text-[11px] text-slate-500">{{ $item->related }} · {{ $item->who }}</p>
-                        </div>
-                        <span class="acc-feed-money">{{ $item->amount !== null ? '₱'.number_format((float)$item->amount, 2) : '—' }}</span>
-                        @include('accounting.partials.status-badge', ['status' => $item->status])
-                        @if ($item->action === 'Release funds')
-                            <span class="icon-btn" data-tip="Release funds" aria-label="Release funds">
-                                <i data-lucide="banknote" class="h-4 w-4"></i>
-                            </span>
-                        @else
-                            <span class="icon-btn" data-tip="Review {{ $item->type }}" aria-label="Review {{ $item->type }}">
-                                <i data-lucide="eye" class="h-4 w-4"></i>
-                            </span>
-                        @endif
-                    </a>
-                @empty
-                    <div class="p-6"><div class="acc-empty">Nothing waiting for Accounting right now.</div></div>
-                @endforelse
+            <div id="queueItems" class="acc-list-fill-md">
+                @include('accounting._queue-items', ['queue' => $queue])
             </div>
-            @if ($queue->hasPages())
-                <div class="acc-pagination acc-pagination--flush border-t border-slate-100">{{ $queue->links('pagination.president') }}</div>
-            @endif
+            <div id="queuePagination">
+                @if ($queue->hasPages())
+                    <div class="acc-pagination acc-pagination--flush border-t border-slate-100">{{ $queue->links('pagination.president') }}</div>
+                @endif
+            </div>
         </section>
 
         <aside class="pm-card p-5 slide-up" style="animation-delay:.3s">
@@ -113,20 +94,62 @@
                 </div>
                 <a href="/accounting/history" class="text-xs font-semibold text-blue-600 transition hover:text-blue-800">View all</a>
             </div>
-            <div class="mt-2">
-                @forelse ($recentActivity as $event)
-                    <div class="acc-activity-item">
-                        <p class="text-xs font-semibold text-slate-900">{{ $event->approval_log_approval_status }} · {{ $event->approval_log_reference_type }}</p>
-                        <p class="text-[11px] text-slate-500">{{ $event->user_full_name ?? 'Accounting' }} · {{ $event->approval_log_approved_at ? \Carbon\Carbon::parse($event->approval_log_approved_at)->format('M d, g:i A') : '' }}</p>
-                    </div>
-                @empty
-                    <p class="py-4 text-center text-xs text-slate-400">No recent Accounting actions.</p>
-                @endforelse
+            <div class="mt-2 acc-list-fill-sm" id="activityItems">
+                @include('accounting._activity-items', ['recentActivity' => $recentActivity])
             </div>
-            @if ($recentActivity->hasPages())
-                <div class="mt-3 border-t border-slate-100 pt-2">{{ $recentActivity->links('pagination.president') }}</div>
-            @endif
+            <div id="activityPagination">
+                @if ($recentActivity->hasPages())
+                    <div class="mt-3 border-t border-slate-100 pt-2">{{ $recentActivity->links('pagination.president') }}</div>
+                @endif
+            </div>
         </aside>
     </div>
 </div>
+
+<script>
+    (function () {
+        function livePagination(containerId, apply) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            container.addEventListener('click', function (e) {
+                const link = e.target.closest('a[href]');
+                if (!link || !link.getAttribute('href') || link.getAttribute('href') === '#') return;
+                e.preventDefault();
+                const url = new URL(link.href, window.location.origin);
+                fetch(url.pathname + url.search, {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+                })
+                .then(res => res.json())
+                .then(data => apply(data, url))
+                .catch(err => console.error(err));
+            });
+        }
+
+        livePagination('queuePagination', function (data, url) {
+            const items = document.getElementById('queueItems');
+            const pag = document.getElementById('queuePagination');
+            if (items && data.queue_html !== undefined) items.innerHTML = data.queue_html;
+            if (pag && data.queue_pagination_html !== undefined) {
+                pag.innerHTML = data.queue_pagination_html
+                    ? '<div class="acc-pagination acc-pagination--flush border-t border-slate-100">' + data.queue_pagination_html + '</div>'
+                    : '';
+            }
+            if (window.lucide) lucide.createIcons();
+            window.history.replaceState({}, '', url.pathname + url.search);
+        });
+
+        livePagination('activityPagination', function (data, url) {
+            const items = document.getElementById('activityItems');
+            const pag = document.getElementById('activityPagination');
+            if (items && data.activity_html !== undefined) items.innerHTML = data.activity_html;
+            if (pag && data.activity_pagination_html !== undefined) {
+                pag.innerHTML = data.activity_pagination_html
+                    ? '<div class="mt-3 border-t border-slate-100 pt-2">' + data.activity_pagination_html + '</div>'
+                    : '';
+            }
+            if (window.lucide) lucide.createIcons();
+            window.history.replaceState({}, '', url.pathname + url.search);
+        });
+    })();
+</script>
 @endsection

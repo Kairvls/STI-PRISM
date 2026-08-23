@@ -7,24 +7,28 @@
 
 @php
     $filters = [
-        'incoming' => 'Needs review ('.$counts['incoming'].')',
-        'funds' => 'Funds ('.$counts['funds'].')',
-        'released' => 'Released ('.$counts['released'].')',
+        'all' => 'All',
+        'incoming' => 'Needs review',
+        'funds' => 'Funds',
+        'released' => 'Released',
         'revision' => 'Revision',
         'approved' => 'Approved',
-        'all' => 'All',
+    ];
+    $filterCounts = [
+        'incoming' => $counts['incoming'],
+        'funds' => $counts['funds'],
+        'released' => $counts['released'],
     ];
 @endphp
 
-<div class="acc-page fade-in">
+<div class="acc-page acc-content-fill fade-in">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
             <p class="text-sm leading-6 text-gray-500">Review submitted checks and mark funds ready for personal collection.</p>
         </div>
         <form method="GET" class="acc-toolbar" id="rfcSearchForm">
             <input type="hidden" name="status" value="{{ $filter }}">
-            <input type="search" name="search" id="rfcSearch" value="{{ request('search') }}" placeholder="Search RFC, ATP, RIS, payee" class="acc-search">
-            <button class="acc-btn acc-btn-funds" type="submit">Search</button>
+            <input type="search" name="search" id="rfcSearch" value="{{ request('search') }}" placeholder="Search RFC, ATP, RIS, payee..." class="acc-search">
         </form>
     </div>
 
@@ -38,7 +42,7 @@
                     class="pm-seg-btn status-filter-btn {{ $filter === $key ? 'is-active' : '' }}"
                     data-filter="{{ $key }}"
                     aria-selected="{{ $filter === $key ? 'true' : 'false' }}"
-                >{{ $label }}</a>
+                >{{ $label }}@if (isset($filterCounts[$key]))<span class="acc-count-badge">{{ $filterCounts[$key] }}</span>@endif</a>
             @endforeach
         </div>
     </div>
@@ -134,9 +138,9 @@
                     const map = { incoming: 'incoming', funds: 'funds', released: 'released' };
                     filterButtons.forEach(btn => {
                         const key = btn.getAttribute('data-filter');
-                        if (map[key] && typeof data.counts[map[key]] !== 'undefined') {
-                            const base = btn.textContent.replace(/\s*\(\d+\)\s*$/, '');
-                            btn.textContent = base + ' (' + data.counts[map[key]] + ')';
+                        const badge = btn.querySelector('.acc-count-badge');
+                        if (map[key] && badge && typeof data.counts[map[key]] !== 'undefined') {
+                            badge.textContent = data.counts[map[key]];
                         }
                     });
                 }
@@ -184,11 +188,11 @@
             });
         }
 
-        // Delegate pagination clicks
+        // Delegate pagination clicks (live, no page reload)
         if (pagination) {
             pagination.addEventListener('click', function (e) {
-                const link = e.target.closest('a[href*="page="]');
-                if (!link) return;
+                const link = e.target.closest('a[href]');
+                if (!link || !link.getAttribute('href') || link.getAttribute('href') === '#') return;
                 e.preventDefault();
                 const url = new URL(link.href, window.location.origin);
                 const page = parseInt(url.searchParams.get('page') || '1', 10);

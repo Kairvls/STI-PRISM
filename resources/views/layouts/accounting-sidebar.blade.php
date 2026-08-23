@@ -100,13 +100,6 @@
             <i class="h-5 w-5" data-lucide="history"></i>
             <span>History</span>
         </a>
-        <a
-            href="/accounting/reports"
-            class="menu-item {{ request()->is('accounting/reports*') ? 'active' : '' }} mt-1"
-        >
-            <i class="h-5 w-5" data-lucide="bar-chart-3"></i>
-            <span>Reports</span>
-        </a>
     </div>
 </div>
 

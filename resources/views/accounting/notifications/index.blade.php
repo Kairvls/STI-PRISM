@@ -44,18 +44,41 @@
             <h2 class="text-sm font-bold text-gray-900">All alerts</h2>
             <p class="mt-0.5 text-xs text-gray-400">Newest first</p>
         </div>
-        @forelse ($items as $item)
-            <div class="acc-notif-item">
-                <p class="text-sm font-semibold text-slate-900">{{ $item->notification_title }}</p>
-                <p class="mt-0.5 text-xs leading-relaxed text-slate-600">{{ $item->notification_message }}</p>
-                <p class="mt-1.5 text-[11px] text-slate-400">{{ $item->notification_created_at ? \Carbon\Carbon::parse($item->notification_created_at)->format('M d, Y g:i A') : '' }}</p>
-            </div>
-        @empty
-            <div class="p-6"><div class="acc-empty">No notifications for Accounting yet.</div></div>
-        @endforelse
-        @if ($items->hasPages())
-            <div class="acc-pagination acc-pagination--flush border-t border-slate-100">{{ $items->links('pagination.president') }}</div>
-        @endif
+        <div id="notifItems" class="acc-list-fill-lg">
+            @include('accounting._notif-items', ['items' => $items])
+        </div>
+        <div id="notifPagination">
+            @if ($items->hasPages())
+                <div class="acc-pagination acc-pagination--flush border-t border-slate-100">{{ $items->links('pagination.president') }}</div>
+            @endif
+        </div>
     </section>
 </div>
+
+<script>
+    (function () {
+        const container = document.getElementById('notifPagination');
+        if (!container) return;
+        container.addEventListener('click', function (e) {
+            const link = e.target.closest('a[href]');
+            if (!link || !link.getAttribute('href') || link.getAttribute('href') === '#') return;
+            e.preventDefault();
+            const url = new URL(link.href, window.location.origin);
+            fetch(url.pathname + url.search, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+            })
+            .then(res => res.json())
+            .then(data => {
+                const items = document.getElementById('notifItems');
+                if (items && data.table_html !== undefined) items.innerHTML = data.table_html;
+                container.innerHTML = data.pagination_html
+                    ? '<div class="acc-pagination acc-pagination--flush border-t border-slate-100">' + data.pagination_html + '</div>'
+                    : '';
+                if (window.lucide) lucide.createIcons();
+                window.history.replaceState({}, '', url.pathname + url.search);
+            })
+            .catch(err => console.error(err));
+        });
+    })();
+</script>
 @endsection

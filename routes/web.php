@@ -1989,7 +1989,6 @@ Route::middleware(['auth', 'accounting'])
 
         Route::get('/history', [AccountingController::class, 'history']);
         Route::get('/financial-records', [AccountingController::class, 'financialRecords']);
-        Route::get('/reports', [AccountingController::class, 'reports']);
         Route::get('/notifications', [AccountingController::class, 'notifications']);
 
 
