@@ -90,19 +90,39 @@
                 >
                     <a
                         href="{{ url('/maintenance/reporters/approvals?status=pending') }}"
-                        class="shrink-0 rounded-lg px-3 py-2 text-sm transition {{ $status === 'pending' ? 'bg-slate-900 font-medium text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800' }}"
+                        class="shrink-0 rounded-lg px-3 py-1.5
+                            text-[13px] transition
+                            {{
+                                $status === 'pending'
+                                    ? 'bg-slate-100/80 font-medium text-slate-900 shadow-sm'
+                                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                            }}"
                     >
                         Waiting
                     </a>
+
                     <a
                         href="{{ url('/maintenance/reporters/approvals?status=approved') }}"
-                        class="shrink-0 rounded-lg px-3 py-2 text-sm transition {{ $status === 'approved' ? 'bg-slate-900 font-medium text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800' }}"
+                        class="shrink-0 rounded-lg px-3 py-1.5
+                            text-[13px] transition
+                            {{
+                                $status === 'approved'
+                                    ? 'bg-slate-100/80 font-medium text-slate-900 shadow-sm'
+                                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                            }}"
                     >
                         Approved
                     </a>
+
                     <a
                         href="{{ url('/maintenance/reporters/approvals?status=rejected') }}"
-                        class="shrink-0 rounded-lg px-3 py-2 text-sm transition {{ $status === 'rejected' ? 'bg-slate-900 font-medium text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800' }}"
+                        class="shrink-0 rounded-lg px-3 py-1.5
+                            text-[13px] transition
+                            {{
+                                $status === 'rejected'
+                                    ? 'bg-slate-100/80 font-medium text-slate-900 shadow-sm'
+                                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                            }}"
                     >
                         Declined
                     </a>
@@ -127,7 +147,7 @@
                 </div>
                 <button
                     type="submit"
-                    class="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800"
+                    class="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-blue-800"
                 >
                     <i data-lucide="search" class="h-4 w-4"></i>
                     Search
@@ -264,13 +284,13 @@
                                         </button>
                                         <button
                                             type="button"
-                                            class="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3 text-xs font-semibold text-rose-600 transition hover:bg-rose-50"
+                                            class="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg  bg-white px-3 text-xs font-semibold text-rose-600 transition hover:bg-rose-50"
                                             data-tooltip="Decline this application"
                                             onclick="openRejectModal(this)"
                                             data-id="{{ $application->id }}"
                                             data-name="{{ $application->full_name }}"
                                         >
-                                            <i data-lucide="x" class="h-3.5 w-3.5"></i>
+                                            
                                             Decline
                                         </button>
                                     </div>

@@ -5,265 +5,240 @@
 @section('content')
 
 {{-- ===================================== --}}
-{{-- TOP HEADER --}}
+{{-- TOP HEADER (page title lives in topbar) --}}
 {{-- ===================================== --}}
 <div class="fade-in">
-    <h1 class="text-2xl font-bold tracking-tight text-gray-900">Dashboard</h1>
-    <p class="mt-0.5 text-sm text-gray-500">Welcome back, President. Here's your overview.</p>
+    <p class="text-sm text-gray-500">Welcome back, President. Here's your overview.</p>
 </div>
 
 {{-- ===================================== --}}
 {{-- KPI SUMMARY CARDS --}}
 {{-- ===================================== --}}
-<div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-    {{-- Total RIS --}}
-    <div class="group relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 transition-all duration-300 hover:border-gray-300 hover:shadow-lg card-hover slide-up" style="animation-delay: 0.05s">
-        <div class="flex items-start justify-between">
-            <div>
-                <p class="text-xs font-semibold uppercase tracking-wider text-gray-500">Total RIS</p>
-                <p class="mt-2 text-3xl font-bold text-gray-900 count-up" data-target="{{ $totalRisCount ?? 0 }}">0</p>
-                <p class="mt-1 text-[11px] text-gray-400">All time records</p>
-            </div>
-            <div class="flex h-11 w-11 items-center justify-center rounded-lg bg-slate-50 text-slate-600 ring-1 ring-slate-100">
-                <i data-lucide="file-text" class="h-5 w-5"></i>
-            </div>
+<div class="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="pm-stat-card relative slide-up" style="animation-delay: 0.05s">
+        <div class="pm-stat-icon bg-blue-50 text-blue-600">
+            <i data-lucide="file-text"></i>
+        </div>
+        <div class="min-w-0 flex-1">
+            <p class="pm-stat-label">All time records</p>
+            <p class="pm-stat-value"><span class="count-up" data-target="{{ $totalRisCount ?? 0 }}">0</span> Total RIS</p>
         </div>
     </div>
 
-    {{-- Pending --}}
-    <div class="group relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 transition-all duration-300 hover:border-amber-200 hover:shadow-lg card-hover slide-up" style="animation-delay: 0.1s">
-        <div class="flex items-start justify-between">
-            <div>
-                <p class="text-xs font-semibold uppercase tracking-wider text-amber-700">Pending</p>
-                <p class="mt-2 text-3xl font-bold text-gray-900 count-up" data-target="{{ $pendingApprovalsCount ?? 0 }}">0</p>
-                <p class="mt-1 text-[11px] text-amber-500">Awaiting decision</p>
-            </div>
-            <div class="flex h-11 w-11 items-center justify-center rounded-lg bg-amber-50 text-amber-600 ring-1 ring-amber-100">
-                <i data-lucide="clock-3" class="h-5 w-5"></i>
-            </div>
+    <div class="pm-stat-card relative slide-up" style="animation-delay: 0.1s">
+        <div class="pm-stat-icon bg-blue-50 text-blue-600">
+            <i data-lucide="clock-3"></i>
+        </div>
+        <div class="min-w-0 flex-1">
+            <p class="pm-stat-label">Awaiting decision</p>
+            <p class="pm-stat-value is-blue"><span class="count-up" data-target="{{ $pendingApprovalsCount ?? 0 }}">0</span> Pending</p>
         </div>
         <a href="/president/approvals" class="absolute inset-0 z-10 opacity-0"><span class="sr-only">View pending</span></a>
     </div>
 
-    {{-- Approved --}}
-    <div class="group relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 transition-all duration-300 hover:border-emerald-200 hover:shadow-lg card-hover slide-up" style="animation-delay: 0.15s">
-        <div class="flex items-start justify-between">
-            <div>
-                <p class="text-xs font-semibold uppercase tracking-wider text-emerald-700">Approved</p>
-                <p class="mt-2 text-3xl font-bold text-gray-900 count-up" data-target="{{ $approvedDecisionsCount ?? 0 }}">0</p>
-                <p class="mt-1 text-[11px] text-emerald-500">Successfully approved</p>
-            </div>
-            <div class="flex h-11 w-11 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
-                <i data-lucide="circle-check-big" class="h-5 w-5"></i>
-            </div>
+    <div class="pm-stat-card relative slide-up" style="animation-delay: 0.15s">
+        <div class="pm-stat-icon bg-blue-50 text-blue-600">
+            <i data-lucide="circle-check-big"></i>
+        </div>
+        <div class="min-w-0 flex-1">
+            <p class="pm-stat-label">Successfully approved</p>
+            <p class="pm-stat-value is-blue"><span class="count-up" data-target="{{ $approvedDecisionsCount ?? 0 }}">0</span> Approved</p>
         </div>
         <a href="/president/reports/approved" class="absolute inset-0 z-10 opacity-0"><span class="sr-only">View approved</span></a>
     </div>
 
-    {{-- Rejected --}}
-    <div class="group relative overflow-hidden rounded-xl border border-gray-200 bg-white p-5 transition-all duration-300 hover:border-rose-200 hover:shadow-lg card-hover slide-up" style="animation-delay: 0.2s">
-        <div class="flex items-start justify-between">
-            <div>
-                <p class="text-xs font-semibold uppercase tracking-wider text-rose-700">Rejected</p>
-                <p class="mt-2 text-3xl font-bold text-gray-900 count-up" data-target="{{ $rejectedDecisionsCount ?? 0 }}">0</p>
-                <p class="mt-1 text-[11px] text-rose-500">Declined requests</p>
-            </div>
-            <div class="flex h-11 w-11 items-center justify-center rounded-lg bg-rose-50 text-rose-600 ring-1 ring-rose-100">
-                <i data-lucide="x-circle" class="h-5 w-5"></i>
-            </div>
+    <div class="pm-stat-card relative slide-up" style="animation-delay: 0.2s">
+        <div class="pm-stat-icon bg-slate-100 text-slate-600">
+            <i data-lucide="x-circle"></i>
+        </div>
+        <div class="min-w-0 flex-1">
+            <p class="pm-stat-label">Declined requests</p>
+            <p class="pm-stat-value"><span class="count-up" data-target="{{ $rejectedDecisionsCount ?? 0 }}">0</span> Rejected</p>
         </div>
         <a href="/president/reports/approved?filter=rejected" class="absolute inset-0 z-10 opacity-0"><span class="sr-only">View rejected</span></a>
     </div>
 </div>
 
 {{-- ===================================== --}}
-{{-- CHARTS + RECENT ACTIVITY ROW --}}
+{{-- CHARTS + TOP 3 RECENT RIS --}}
 {{-- ===================================== --}}
+@php
+    $chartApprovedTotal = collect($monthlyStats ?? [])->sum('approved');
+    $chartRejectedTotal = collect($monthlyStats ?? [])->sum('rejected');
+    $chartDecisionTotal = $chartApprovedTotal + $chartRejectedTotal;
+@endphp
 <div class="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
-    {{-- Monthly Trend Chart --}}
-    <div class="lg:col-span-2 rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.22s">
-        <div class="flex items-center justify-between">
+    <section class="pm-analytics-card lg:col-span-2 slide-up" style="animation-delay: 0.22s">
+        <div class="pm-analytics-header">
             <div>
-                <h2 class="text-sm font-bold text-gray-900">Monthly Trend</h2>
-                <p class="mt-0.5 text-xs text-gray-400">Approved vs Rejected over the last 6 months</p>
+                <h2 class="pm-analytics-title">Decision Trend</h2>
+                <p class="pm-analytics-subtitle">Last 6 months · approvals &amp; rejections</p>
             </div>
-            <div class="flex items-center gap-3">
-                <div class="flex items-center gap-1.5">
-                    <span class="h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
-                    <span class="text-[11px] font-medium text-gray-500">Approved</span>
-                </div>
-                <div class="flex items-center gap-1.5">
-                    <span class="h-2.5 w-2.5 rounded-full bg-rose-400"></span>
-                    <span class="text-[11px] font-medium text-gray-500">Rejected</span>
-                </div>
+            <div class="pm-chart-total is-blue">
+                {{ number_format($chartDecisionTotal) }}
+                <span>decisions</span>
             </div>
         </div>
-        <div class="mt-4" style="height: 240px; position: relative;">
+
+        <div class="pm-decision-chart-legend">
+            <div class="pm-decision-chart-legend-item">
+                <span class="pm-decision-chart-swatch is-approved"></span>
+                Approved
+            </div>
+            <div class="pm-decision-chart-legend-item">
+                <span class="pm-decision-chart-swatch is-rejected"></span>
+                Rejected
+            </div>
+        </div>
+
+        <div class="pm-decision-chart">
             <canvas id="dashboardChart"></canvas>
         </div>
-    </div>
+    </section>
 
-    {{-- Recent Activity --}}
-    <aside class="rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.25s">
+    <aside class="pm-card p-5 slide-up" style="animation-delay: 0.25s">
         <div class="flex items-center justify-between">
             <div>
-                <h2 class="text-sm font-bold text-gray-900">Recent Activity</h2>
-                <p class="mt-0.5 text-xs text-gray-400">Latest RIS updates</p>
+                <h2 class="text-sm font-bold text-gray-900">Recent RIS</h2>
+                <p class="mt-0.5 text-xs text-gray-400">Top 3 awaiting your decision</p>
             </div>
-            <a href="/president/approvals/history" class="text-xs font-semibold text-gray-900 transition hover:text-amber-600">
+            <a href="/president/approvals" class="text-xs font-semibold text-blue-600 transition hover:text-blue-800" data-tip="Open approval queue">
                 View all
             </a>
         </div>
-        <div class="mt-4 space-y-1">
+        <div class="mt-4 space-y-2.5">
             @forelse ($recentRis as $ris)
                 @php
-                    $rawStatus = (string) ($ris->ris_status ?? '');
-                    $statusLower = strtolower($rawStatus);
-                    $isApproved = in_array($rawStatus, ['Approved', 'Approved by the President'], true)
-                        || str_contains($statusLower, 'approved by the president');
-                    $isRejected = in_array($rawStatus, ['Rejected', 'Rejected by President', 'Rejected by the President'], true)
-                        || str_contains($statusLower, 'rejected');
-                    $isPending = in_array($rawStatus, ['Forwarded to President', 'Pending'], true)
-                        || ($rawStatus === 'Approved' && empty(trim((string) ($ris->ris_approved_by_signature ?? ''))));
-                    $displayStatus = $isPending ? 'Pending' : ($isApproved ? 'Approved' : ($isRejected ? 'Rejected' : ($rawStatus !== '' ? $rawStatus : 'Pending')));
-                    $icon = $isApproved ? 'circle-check-big' : ($isRejected ? 'x-circle' : 'clock-3');
-                    $color = $isApproved ? 'text-emerald-600 bg-emerald-50 ring-emerald-100' : ($isRejected ? 'text-rose-600 bg-rose-50 ring-rose-100' : 'text-amber-600 bg-amber-50 ring-amber-100');
-                    $badge = $isApproved ? 'bg-emerald-50 text-emerald-700' : ($isRejected ? 'bg-rose-50 text-rose-700' : 'bg-amber-50 text-amber-700');
-                    $date = $ris->ris_created_at ? date('M d, Y', strtotime($ris->ris_created_at)) : '—';
                     $label = $ris->ris_form_number ?? ('RIS #' . $ris->ris_id);
+                    $date = $ris->ris_created_at ? date('M d, Y', strtotime($ris->ris_created_at)) : '—';
+                    $requester = $ris->ris_requested_by_signature ?: '—';
+                    $amount = number_format((float) ($ris->total_amount ?? 0), 2);
                 @endphp
-                <a href="/president/approvals" class="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-all duration-200 hover:bg-gray-50">
-                    <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg {{ $color }} ring-1">
-                        <i data-lucide="{{ $icon }}" class="h-4 w-4"></i>
+                <div class="rounded-xl border border-blue-100 bg-white px-3 py-3 transition hover:border-blue-200 hover:bg-blue-50/40">
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate text-xs font-semibold text-gray-900">{{ $label }}</p>
+                            <p class="mt-0.5 truncate text-[11px] text-gray-500">{{ $requester }} · {{ $date }}</p>
+                            <p class="mt-1 text-xs font-semibold text-blue-700">₱{{ $amount }}</p>
+                        </div>
+                        <div class="flex items-center gap-1.5 shrink-0">
+                            <button type="button" class="icon-btn" data-tip="Print RIS" aria-label="Print RIS" onclick="printRisDocument({{ $ris->ris_id }})">
+                                <i data-lucide="printer" class="h-4 w-4"></i>
+                            </button>
+                            <a
+                                href="/president/approvals?approve={{ $ris->ris_id }}"
+                                class="inline-flex h-9 items-center rounded-xl bg-blue-600 px-3 text-[11px] font-medium text-white transition hover:bg-blue-700"
+                                data-tip="Open and approve this RIS"
+                            >
+                                Approve
+                            </a>
+                        </div>
                     </div>
-                    <div class="flex-1 min-w-0">
-                        <p class="text-xs font-semibold text-gray-900 truncate">{{ $label }}</p>
-                        <p class="text-[11px] text-gray-500">{{ $date }}</p>
-                    </div>
-                    <span class="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold {{ $badge }}">
-                        {{ $displayStatus }}
-                    </span>
-                </a>
+                </div>
             @empty
-                <p class="px-3 py-4 text-center text-xs text-gray-400">No recent activity</p>
+                <div class="rounded-xl border border-dashed border-gray-200 px-3 py-8 text-center">
+                    <p class="text-xs font-medium text-gray-500">No pending RIS right now</p>
+                    <p class="mt-1 text-[11px] text-gray-400">New forwarded requests will appear here</p>
+                </div>
             @endforelse
         </div>
     </aside>
 </div>
 
 {{-- ===================================== --}}
-{{-- QUICK ACTIONS + STATUS BREAKDOWN --}}
+{{-- ATTENTION + RECENTLY APPROVED --}}
 {{-- ===================================== --}}
 <div class="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-    {{-- Quick Actions --}}
-    <section class="lg:col-span-2 rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.28s">
+    <section class="lg:col-span-2 pm-card p-5 slide-up" style="animation-delay: 0.28s">
         <div class="flex items-center justify-between">
             <div>
-                <h2 class="text-sm font-bold text-gray-900">Quick Actions</h2>
-                <p class="mt-0.5 text-xs text-gray-400">Navigate to key sections</p>
+                <h2 class="text-sm font-bold text-gray-900">Needs Your Attention</h2>
+                <p class="mt-0.5 text-xs text-gray-400">Actions that keep the approval workflow moving</p>
             </div>
         </div>
-        <div class="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-            <a href="/president/approvals" class="group flex items-center gap-3.5 rounded-lg border border-gray-100 bg-gray-50/50 px-4 py-3.5 transition-all duration-200 hover:border-gray-200 hover:bg-white hover:shadow-sm active:scale-[0.98]">
-                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-gray-700 ring-1 ring-gray-200">
-                    <i data-lucide="clipboard-check" class="h-5 w-5"></i>
+        <div class="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+            <a href="/president/approvals" class="group rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-4 transition hover:border-blue-200 hover:bg-blue-50">
+                <div class="flex items-center justify-between">
+                    <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-blue-600 ring-1 ring-blue-100">
+                        <i data-lucide="clipboard-check" class="h-4 w-4"></i>
+                    </div>
+                    <span class="text-xl font-bold text-blue-700">{{ $pendingApprovalsCount ?? 0 }}</span>
                 </div>
-                <div class="flex-1 min-w-0">
-                    <p class="text-sm font-semibold text-gray-900">RIS Review</p>
-                    <p class="text-[11px] text-gray-500">Pending approvals</p>
-                </div>
-                <i data-lucide="chevron-right" class="h-4 w-4 shrink-0 text-gray-300 transition-all duration-200 group-hover:text-gray-500 group-hover:translate-x-0.5"></i>
+                <p class="mt-3 text-sm font-semibold text-gray-900">Pending review</p>
+                <p class="mt-0.5 text-[11px] text-gray-500">RIS waiting for your decision</p>
             </a>
-            <a href="/president/approvals/history" class="group flex items-center gap-3.5 rounded-lg border border-gray-100 bg-gray-50/50 px-4 py-3.5 transition-all duration-200 hover:border-gray-200 hover:bg-white hover:shadow-sm active:scale-[0.98]">
-                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-gray-700 ring-1 ring-gray-200">
-                    <i data-lucide="history" class="h-5 w-5"></i>
+            <a href="/president/approvals" class="group rounded-xl border border-slate-200 bg-white px-4 py-4 transition hover:border-blue-200 hover:bg-blue-50/40">
+                <div class="flex items-center justify-between">
+                    <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 ring-1 ring-blue-100">
+                        <i data-lucide="bell" class="h-4 w-4"></i>
+                    </div>
+                    <span class="text-xl font-bold text-blue-700">{{ $awaitingNotifyCount ?? 0 }}</span>
                 </div>
-                <div class="flex-1 min-w-0">
-                    <p class="text-sm font-semibold text-gray-900">Approval History</p>
-                    <p class="text-[11px] text-gray-500">Past decisions</p>
-                </div>
-                <i data-lucide="chevron-right" class="h-4 w-4 shrink-0 text-gray-300 transition-all duration-200 group-hover:text-gray-500 group-hover:translate-x-0.5"></i>
+                <p class="mt-3 text-sm font-semibold text-gray-900">Ready to notify</p>
+                <p class="mt-0.5 text-[11px] text-gray-500">Approved, Admin not yet notified</p>
             </a>
-            <a href="/president/reports/approved" class="group flex items-center gap-3.5 rounded-lg border border-gray-100 bg-gray-50/50 px-4 py-3.5 transition-all duration-200 hover:border-gray-200 hover:bg-white hover:shadow-sm active:scale-[0.98]">
-                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-gray-700 ring-1 ring-gray-200">
-                    <i data-lucide="badge-check" class="h-5 w-5"></i>
+            <a href="/president/approvals/history" class="group rounded-xl border border-slate-200 bg-white px-4 py-4 transition hover:border-blue-200 hover:bg-blue-50/40">
+                <div class="flex items-center justify-between">
+                    <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 ring-1 ring-blue-100">
+                        <i data-lucide="history" class="h-4 w-4"></i>
+                    </div>
+                    <i data-lucide="chevron-right" class="h-4 w-4 text-gray-300 transition group-hover:translate-x-0.5 group-hover:text-blue-500"></i>
                 </div>
-                <div class="flex-1 min-w-0">
-                    <p class="text-sm font-semibold text-gray-900">Decision Reports</p>
-                    <p class="text-[11px] text-gray-500">View all decisions</p>
-                </div>
-                <i data-lucide="chevron-right" class="h-4 w-4 shrink-0 text-gray-300 transition-all duration-200 group-hover:text-gray-500 group-hover:translate-x-0.5"></i>
-            </a>
-            <a href="/president/reports/summary" class="group flex items-center gap-3.5 rounded-lg border border-gray-100 bg-gray-50/50 px-4 py-3.5 transition-all duration-200 hover:border-gray-200 hover:bg-white hover:shadow-sm active:scale-[0.98]">
-                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-gray-700 ring-1 ring-gray-200">
-                    <i data-lucide="bar-chart-3" class="h-5 w-5"></i>
-                </div>
-                <div class="flex-1 min-w-0">
-                    <p class="text-sm font-semibold text-gray-900">Reports & Summary</p>
-                    <p class="text-[11px] text-gray-500">Analytics & trends</p>
-                </div>
-                <i data-lucide="chevron-right" class="h-4 w-4 shrink-0 text-gray-300 transition-all duration-200 group-hover:text-gray-500 group-hover:translate-x-0.5"></i>
+                <p class="mt-3 text-sm font-semibold text-gray-900">Approval history</p>
+                <p class="mt-0.5 text-[11px] text-gray-500">Review past decisions</p>
             </a>
         </div>
     </section>
 
-    {{-- Status Breakdown --}}
-    <aside class="rounded-xl border border-gray-200 bg-white p-5 slide-up" style="animation-delay: 0.3s">
-        <div>
-            <h2 class="text-sm font-bold text-gray-900">Status Overview</h2>
-            <p class="mt-0.5 text-xs text-gray-400">Breakdown of all RIS records</p>
+    <aside class="pm-card p-5 slide-up" style="animation-delay: 0.3s">
+        <div class="flex items-center justify-between">
+            <div>
+                <h2 class="text-sm font-bold text-gray-900">Recently Approved RIS</h2>
+                <p class="mt-0.5 text-xs text-gray-400">Your latest approvals</p>
+            </div>
+            <a href="/president/reports/approved" class="text-xs font-semibold text-blue-600 transition hover:text-blue-800" data-tip="View all approved RIS">
+                View all
+            </a>
         </div>
-        <div class="mt-5 space-y-4">
-            @php
-                $total = max(($totalRisCount ?? 1), 1);
-                $approvedPct = round((($approvedDecisionsCount ?? 0) / $total) * 100);
-                $pendingPct = round((($pendingApprovalsCount ?? 0) / $total) * 100);
-                $rejectedPct = round((($rejectedDecisionsCount ?? 0) / $total) * 100);
-            @endphp
-            {{-- Approved --}}
-            <div>
-                <div class="flex items-center justify-between mb-1.5">
-                    <div class="flex items-center gap-2">
-                        <span class="h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
-                        <span class="text-xs font-medium text-gray-700">Approved</span>
-                    </div>
-                    <span class="text-xs font-semibold text-gray-900">{{ $approvedDecisionsCount ?? 0 }}</span>
+        <div class="mt-4 space-y-1">
+            @forelse ($recentlyApprovedRis ?? [] as $ris)
+                @php
+                    $label = $ris->ris_form_number ?? ('RIS #' . $ris->ris_id);
+                    $date = $ris->ris_approved_by_date
+                        ? date('M d, Y', strtotime($ris->ris_approved_by_date))
+                        : '—';
+                    $awaiting = !empty($ris->awaiting_notify);
+                @endphp
+                <div class="flex items-center gap-1">
+                    <a
+                        href="/president/approvals?preview={{ $ris->ris_id }}"
+                        class="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-all duration-200 hover:bg-blue-50/60 min-w-0 flex-1"
+                        data-tip="Open approved RIS"
+                    >
+                        <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+                            <i data-lucide="badge-check" class="h-4 w-4"></i>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate text-xs font-semibold text-gray-900">{{ $label }}</p>
+                            <p class="text-[11px] text-gray-500">{{ $date }}</p>
+                        </div>
+                        @if ($awaiting)
+                            <span class="inline-flex items-center rounded-xl bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700 ring-1 ring-inset ring-blue-100">
+                                Notify Admin
+                            </span>
+                        @else
+                            <span class="inline-flex items-center rounded-xl bg-blue-600 px-2 py-0.5 text-[10px] font-semibold text-white">
+                                Approved
+                            </span>
+                        @endif
+                    </a>
+                    <button type="button" class="icon-btn shrink-0" data-tip="Print RIS" aria-label="Print RIS" onclick="printRisDocument({{ $ris->ris_id }})">
+                        <i data-lucide="printer" class="h-4 w-4"></i>
+                    </button>
                 </div>
-                <div class="h-2 w-full rounded-full bg-gray-100">
-                    <div class="h-2 rounded-full bg-emerald-500 transition-all duration-1000" style="width: {{ $approvedPct }}%"></div>
-                </div>
-            </div>
-            {{-- Pending --}}
-            <div>
-                <div class="flex items-center justify-between mb-1.5">
-                    <div class="flex items-center gap-2">
-                        <span class="h-2.5 w-2.5 rounded-full bg-amber-400"></span>
-                        <span class="text-xs font-medium text-gray-700">Pending</span>
-                    </div>
-                    <span class="text-xs font-semibold text-gray-900">{{ $pendingApprovalsCount ?? 0 }}</span>
-                </div>
-                <div class="h-2 w-full rounded-full bg-gray-100">
-                    <div class="h-2 rounded-full bg-amber-400 transition-all duration-1000" style="width: {{ $pendingPct }}%"></div>
-                </div>
-            </div>
-            {{-- Rejected --}}
-            <div>
-                <div class="flex items-center justify-between mb-1.5">
-                    <div class="flex items-center gap-2">
-                        <span class="h-2.5 w-2.5 rounded-full bg-rose-400"></span>
-                        <span class="text-xs font-medium text-gray-700">Rejected</span>
-                    </div>
-                    <span class="text-xs font-semibold text-gray-900">{{ $rejectedDecisionsCount ?? 0 }}</span>
-                </div>
-                <div class="h-2 w-full rounded-full bg-gray-100">
-                    <div class="h-2 rounded-full bg-rose-400 transition-all duration-1000" style="width: {{ $rejectedPct }}%"></div>
-                </div>
-            </div>
-        </div>
-        {{-- Mini summary --}}
-        <div class="mt-5 flex items-center justify-between rounded-lg bg-gray-50 px-4 py-3">
-            <span class="text-xs font-medium text-gray-500">Total records</span>
-            <span class="text-sm font-bold text-gray-900">{{ $totalRisCount ?? 0 }}</span>
+            @empty
+                <p class="px-3 py-4 text-center text-xs text-gray-400">No approved RIS yet</p>
+            @endforelse
         </div>
     </aside>
 </div>
@@ -286,42 +261,102 @@
         to { opacity: 1; transform: translateY(0); }
     }
 
-    .fade-in {
-        animation: fadeIn 0.4s ease-out forwards;
-    }
+    .fade-in { animation: fadeIn 0.4s ease-out forwards; }
+    .slide-up { opacity: 0; animation: slideUp 0.5s ease-out forwards; }
+    .count-up { display: inline-block; }
 
-    .slide-up {
-        opacity: 0;
-        animation: slideUp 0.5s ease-out forwards;
+    /* Maintenance-style analytics chart card */
+    .pm-analytics-card {
+        min-width: 0;
+        overflow: hidden;
+        padding: 22px;
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 22px;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
     }
-
-    .card-hover {
-        transition: all 0.25s ease;
+    .pm-analytics-card .pm-stat-value {
+        font-size: inherit;
     }
-
-    .card-hover:hover {
-        transform: translateY(-3px);
+    .pm-analytics-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 12px;
     }
-
-    .count-up {
-        display: inline-block;
+    .pm-analytics-title {
+        margin: 0;
+        color: #0f172a;
+        font-size: 16px;
+        font-weight: 700;
     }
-
-    #dashboardChart {
+    .pm-analytics-subtitle {
+        margin: 3px 0 0;
+        color: #94a3b8;
+        font-size: 10px;
+    }
+    .pm-chart-total {
+        font-size: 18px;
+        font-weight: 800;
+        color: #0f172a;
+        white-space: nowrap;
+    }
+    .pm-chart-total.is-blue {
+        color: #1d4ed8;
+    }
+    .pm-chart-total span {
+        margin-left: 2px;
+        font-size: 9px;
+        font-weight: 500;
+        color: #94a3b8;
+    }
+    .pm-decision-chart-legend {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 8px;
+    }
+    .pm-decision-chart-legend-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        font-weight: 500;
+        color: #64748b;
+    }
+    .pm-decision-chart-swatch {
+        width: 10px;
+        height: 3px;
+        border-radius: 999px;
+    }
+    .pm-decision-chart-swatch.is-approved { background: #2563EB; }
+    .pm-decision-chart-swatch.is-rejected { background: #94a3b8; }
+    .pm-decision-chart {
+        position: relative;
+        width: 100%;
+        height: 320px;
         animation: chartFadeIn 0.8s ease-out forwards;
-        opacity: 0;
     }
 </style>
 
 <script>
+    window.printRisDocument = function (risId) {
+        if (!risId) return;
+        const win = window.open('/president/ris/' + risId + '/print', '_blank', 'noopener,noreferrer,width=1200,height=860');
+        if (!win) return;
+        const triggerPrint = function () {
+            try { win.focus(); win.print(); } catch (e) {}
+        };
+        win.onload = triggerPrint;
+        setTimeout(triggerPrint, 1200);
+    };
+
     document.addEventListener('DOMContentLoaded', () => {
         if (window.lucide) {
             lucide.createIcons();
         }
 
-        // =====================================================
-        // COUNT-UP ANIMATION
-        // =====================================================
         const counters = document.querySelectorAll('.count-up');
         counters.forEach(el => {
             const target = parseInt(el.dataset.target || el.textContent || '0', 10);
@@ -338,137 +373,214 @@
             }, 30);
         });
 
-        // =====================================================
-        // MONTHLY TREND CHART
-        // =====================================================
         const chartLabels = @json(array_column($monthlyStats ?? [], 'month_label'));
         const chartApproved = @json(array_column($monthlyStats ?? [], 'approved'));
         const chartRejected = @json(array_column($monthlyStats ?? [], 'rejected'));
+        const canvas = document.getElementById('dashboardChart');
 
-        const ctx = document.getElementById('dashboardChart');
-        if (ctx && chartLabels.length > 0) {
-            const approvedGradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 240);
-            approvedGradient.addColorStop(0, 'rgba(5, 150, 105, 0.28)');
-            approvedGradient.addColorStop(0.4, 'rgba(5, 150, 105, 0.08)');
-            approvedGradient.addColorStop(1, 'rgba(5, 150, 105, 0.01)');
-
-            const rejectedGradient = ctx.getContext('2d').createLinearGradient(0, 0, 0, 240);
-            rejectedGradient.addColorStop(0, 'rgba(225, 29, 72, 0.18)');
-            rejectedGradient.addColorStop(0.4, 'rgba(225, 29, 72, 0.06)');
-            rejectedGradient.addColorStop(1, 'rgba(225, 29, 72, 0.01)');
-
-            new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: chartLabels,
-                    datasets: [
-                        {
-                            label: 'Approved',
-                            data: chartApproved,
-                            borderColor: '#059669',
-                            backgroundColor: approvedGradient,
-                            fill: true,
-                            tension: 0.4,
-                            pointBackgroundColor: '#059669',
-                            pointBorderColor: '#fff',
-                            pointBorderWidth: 2.5,
-                            pointRadius: 4,
-                            pointHoverRadius: 7,
-                            pointHoverBackgroundColor: '#059669',
-                            pointHoverBorderColor: '#fff',
-                            pointHoverBorderWidth: 3,
-                            borderWidth: 2.5,
-                        },
-                        {
-                            label: 'Rejected',
-                            data: chartRejected,
-                            borderColor: '#fb7185',
-                            backgroundColor: rejectedGradient,
-                            fill: true,
-                            tension: 0.4,
-                            pointBackgroundColor: '#fb7185',
-                            pointBorderColor: '#fff',
-                            pointBorderWidth: 2.5,
-                            pointRadius: 4,
-                            pointHoverRadius: 7,
-                            pointHoverBackgroundColor: '#fb7185',
-                            pointHoverBorderColor: '#fff',
-                            pointHoverBorderWidth: 3,
-                            borderWidth: 2.5,
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    animation: {
-                        duration: 1200,
-                        easing: 'easeInOutQuart',
-                    },
-                    plugins: {
-                        legend: {
-                            display: false,
-                        },
-                        tooltip: {
-                            backgroundColor: '#1f2937',
-                            titleColor: '#f3f4f6',
-                            titleFont: { size: 12, weight: '600' },
-                            bodyColor: '#e5e7eb',
-                            bodyFont: { size: 11 },
-                            padding: 12,
-                            cornerRadius: 8,
-                            boxPadding: 6,
-                            usePointStyle: true,
-                            callbacks: {
-                                label: function(context) {
-                                    return ' ' + context.dataset.label + ': ' + context.parsed.y;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                stepSize: 1,
-                                font: { size: 11 },
-                                color: '#9ca3af',
-                                padding: 8,
-                            },
-                            grid: {
-                                color: 'rgba(0,0,0,0.04)',
-                                drawBorder: false,
-                            }
-                        },
-                        x: {
-                            grid: {
-                                display: false,
-                            },
-                            ticks: {
-                                font: { size: 11, weight: '500' },
-                                color: '#6b7280',
-                                maxRotation: 0,
-                            }
-                        }
-                    },
-                    interaction: {
-                        intersect: false,
-                        mode: 'index',
-                    },
-                    elements: {
-                        point: {
-                            hover: {
-                                scale: 1.5,
-                            }
-                        }
-                    },
-                    hover: {
-                        mode: 'index',
-                        intersect: false,
-                    }
-                }
-            });
+        if (!canvas || !chartLabels.length) {
+            return;
         }
+
+        const blueShadowPlugin = {
+            id: 'presidentBlueShadowPlugin',
+            beforeDatasetsDraw(chart) {
+                const meta = chart.getDatasetMeta(0);
+                if (!meta || meta.hidden || !meta.data.length || !meta.dataset) {
+                    return;
+                }
+
+                const ctx = chart.ctx;
+                const chartArea = chart.chartArea;
+                const points = meta.data;
+                const gradient = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                gradient.addColorStop(0, 'rgba(37, 99, 235, 0.35)');
+                gradient.addColorStop(0.35, 'rgba(37, 99, 235, 0.16)');
+                gradient.addColorStop(0.7, 'rgba(37, 99, 235, 0.06)');
+                gradient.addColorStop(1, 'rgba(37, 99, 235, 0)');
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
+                ctx.clip();
+                ctx.beginPath();
+                meta.dataset.path(ctx);
+
+                const lastPoint = points[points.length - 1];
+                const firstPoint = points[0];
+                const shadowDepth = 75;
+                ctx.lineTo(lastPoint.x, Math.min(lastPoint.y + shadowDepth, chartArea.bottom));
+                ctx.lineTo(firstPoint.x, Math.min(firstPoint.y + shadowDepth, chartArea.bottom));
+                ctx.closePath();
+                ctx.fillStyle = gradient;
+                ctx.fill();
+                ctx.restore();
+            }
+        };
+
+        const hoverLinePlugin = {
+            id: 'presidentDecisionHoverLine',
+            afterDatasetsDraw(chart) {
+                const activeElements = chart.tooltip?.getActiveElements();
+                if (!activeElements?.length) {
+                    return;
+                }
+
+                const activeElement = activeElements[0].element;
+                const activeIndex = activeElements[0].index;
+                const x = activeElement.x;
+                const ctx = chart.ctx;
+                const chartArea = chart.chartArea;
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.setLineDash([3, 3]);
+                ctx.moveTo(x, chartArea.top);
+                ctx.lineTo(x, chartArea.bottom);
+                ctx.lineWidth = 1;
+                ctx.strokeStyle = '#d7dce5';
+                ctx.stroke();
+                ctx.restore();
+
+                const xScale = chart.scales.x;
+                const labelX = xScale.getPixelForTick(activeIndex);
+                const labelY = xScale.bottom + 17;
+                const activeLabel = String(chartLabels[activeIndex] || '');
+
+                ctx.save();
+                ctx.font = '600 10px Inter, sans-serif';
+                const textWidth = ctx.measureText(activeLabel).width;
+                const boxWidth = textWidth + 14;
+                const boxHeight = 22;
+                ctx.fillStyle = '#f1f1f3';
+                ctx.beginPath();
+                if (typeof ctx.roundRect === 'function') {
+                    ctx.roundRect(labelX - boxWidth / 2, labelY - boxHeight / 2, boxWidth, boxHeight, 6);
+                } else {
+                    ctx.rect(labelX - boxWidth / 2, labelY - boxHeight / 2, boxWidth, boxHeight);
+                }
+                ctx.fill();
+                ctx.fillStyle = '#475569';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(activeLabel, labelX, labelY);
+                ctx.restore();
+            }
+        };
+
+        new Chart(canvas, {
+            type: 'line',
+            data: {
+                labels: chartLabels,
+                datasets: [
+                    {
+                        label: 'Approved',
+                        data: chartApproved,
+                        borderColor: '#2563EB',
+                        backgroundColor: 'transparent',
+                        borderWidth: 1.5,
+                        fill: false,
+                        tension: 0.42,
+                        cubicInterpolationMode: 'monotone',
+                        pointRadius: 0,
+                        pointHoverRadius: 4,
+                        pointHitRadius: 25,
+                        pointHoverBackgroundColor: '#2563EB',
+                        pointHoverBorderColor: 'white',
+                        pointHoverBorderWidth: 2,
+                    },
+                    {
+                        label: 'Rejected',
+                        data: chartRejected,
+                        borderColor: '#94a3b8',
+                        backgroundColor: 'transparent',
+                        borderWidth: 1.5,
+                        fill: false,
+                        tension: 0.42,
+                        cubicInterpolationMode: 'monotone',
+                        pointRadius: 0,
+                        pointHoverRadius: 4,
+                        pointHitRadius: 25,
+                        pointHoverBackgroundColor: '#94a3b8',
+                        pointHoverBorderColor: 'white',
+                        pointHoverBorderWidth: 2,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                normalized: true,
+                interaction: { mode: 'index', intersect: false },
+                layout: { padding: { top: 10, right: 8, bottom: 18, left: 0 } },
+                animation: { duration: 350 },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        enabled: true,
+                        mode: 'index',
+                        intersect: false,
+                        position: 'nearest',
+                        backgroundColor: '#0f172a',
+                        titleColor: 'white',
+                        bodyColor: '#94a3b8',
+                        borderWidth: 0,
+                        padding: { top: 10, right: 12, bottom: 10, left: 12 },
+                        cornerRadius: 7,
+                        caretSize: 0,
+                        displayColors: true,
+                        usePointStyle: false,
+                        boxWidth: 2,
+                        boxHeight: 14,
+                        boxPadding: 7,
+                        titleSpacing: 4,
+                        bodySpacing: 7,
+                        titleMarginBottom: 7,
+                        titleFont: { family: 'Inter', size: 11, weight: '600' },
+                        bodyFont: { family: 'Inter', size: 10, weight: '400' },
+                        callbacks: {
+                            title(context) {
+                                return context[0].label;
+                            },
+                            label(context) {
+                                const value = Math.round(Number(context.raw));
+                                return context.dataset.label + '     ' + value;
+                            },
+                        },
+                    },
+                },
+                scales: {
+                    x: {
+                        offset: false,
+                        border: { display: false },
+                        grid: { display: false },
+                        ticks: {
+                            autoSkip: false,
+                            color: '#8c929c',
+                            padding: 14,
+                            maxRotation: 0,
+                            minRotation: 0,
+                            font: { family: 'Inter', size: 10, weight: '400' },
+                        },
+                    },
+                    y: {
+                        beginAtZero: true,
+                        border: { display: false },
+                        grid: {
+                            color: '#eef1f5',
+                            drawTicks: false,
+                        },
+                        ticks: {
+                            precision: 0,
+                            padding: 8,
+                            color: '#94a3b8',
+                            font: { family: 'Inter', size: 10 },
+                        },
+                    },
+                },
+            },
+            plugins: [blueShadowPlugin, hoverLinePlugin],
+        });
     });
 </script>
 

@@ -5,27 +5,49 @@
 @section('content')
 @include('accounting.partials.flash')
 
-<div class="acc-page fade-in">
-    <div class="acc-page-header">
+@php
+    $filters = [
+        'all' => 'All',
+        'incoming' => 'Needs review',
+        'funds' => 'Funds',
+        'released' => 'Released',
+        'revision' => 'Revision',
+        'approved' => 'Approved',
+    ];
+    $filterCounts = [
+        'incoming' => $counts['incoming'],
+        'funds' => $counts['funds'],
+        'released' => $counts['released'],
+    ];
+@endphp
+
+<div class="acc-page acc-content-fill fade-in">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-            <p class="acc-page-kicker">Transactions</p>
-            <h1 class="acc-page-title">Request Checks</h1>
-            <p class="acc-page-subtitle">Review submitted checks and mark funds ready for personal collection.</p>
+            <p class="text-sm leading-6 text-gray-500">Review submitted checks and mark funds ready for personal collection.</p>
         </div>
-        <form method="GET" class="acc-toolbar">
+        <form method="GET" class="acc-toolbar" id="rfcSearchForm">
             <input type="hidden" name="status" value="{{ $filter }}">
-            <input type="search" name="search" value="{{ request('search') }}" placeholder="Search RFC, ATP, RIS, payee" class="acc-search">
-            <button class="acc-btn acc-btn-funds">Search</button>
+            <input type="search" name="search" id="rfcSearch" value="{{ request('search') }}" placeholder="Search RFC, ATP, RIS, payee..." class="acc-search">
         </form>
     </div>
 
-    <div class="acc-filters slide-up">
-        @foreach (['incoming' => 'Needs review ('.$counts['incoming'].')', 'funds' => 'Funds to release ('.$counts['funds'].')', 'released' => 'Released ('.$counts['released'].')', 'revision' => 'Revision', 'approved' => 'Approved', 'all' => 'All'] as $key => $label)
-            <a href="/accounting/request-check?status={{ $key }}" class="acc-chip {{ $filter === $key ? 'is-active' : '' }}">{{ $label }}</a>
-        @endforeach
+    <div class="mt-4 flex flex-wrap items-center gap-3 slide-up">
+        <div class="pm-seg" id="rfcFilterSlider" role="tablist" aria-label="Request Check status filters" data-active="{{ $filter }}">
+            <span class="pm-seg-thumb" aria-hidden="true"></span>
+            @foreach ($filters as $key => $label)
+                <a
+                    href="/accounting/request-check?status={{ $key }}{{ request('search') ? '&search='.urlencode(request('search')) : '' }}"
+                    role="tab"
+                    class="pm-seg-btn status-filter-btn {{ $filter === $key ? 'is-active' : '' }}"
+                    data-filter="{{ $key }}"
+                    aria-selected="{{ $filter === $key ? 'true' : 'false' }}"
+                >{{ $label }}@if (isset($filterCounts[$key]))<span class="acc-count-badge">{{ $filterCounts[$key] }}</span>@endif</a>
+            @endforeach
+        </div>
     </div>
 
-    <div class="acc-table-wrap slide-up">
+    <div class="acc-table-wrap mt-4 slide-up">
         <table class="acc-table min-w-[900px]">
             <thead>
                 <tr>
@@ -39,29 +61,156 @@
                     <th></th>
                 </tr>
             </thead>
-            <tbody>
-                @forelse ($records as $row)
-                    @php
-                        $st = $row->request_check_status;
-                        if (!empty($row->request_check_funds_released_at)) { $st = 'Released'; }
-                        $when = $row->request_check_submitted_at ?? $row->request_check_date ?? $row->request_check_created_at;
-                    @endphp
-                    <tr>
-                        <td class="acc-ref">{{ $row->request_check_form_number ?? ('RFC-'.$row->request_check_id) }}</td>
-                        <td class="acc-muted">{{ $row->authority_purchase_form_number ?? '—' }}</td>
-                        <td class="acc-muted">{{ $row->ris_form_number ?? '—' }}</td>
-                        <td class="acc-muted">{{ $row->request_check_payee }}</td>
-                        <td class="acc-money">{{ $row->request_check_amount_figures !== null ? '₱'.number_format((float)$row->request_check_amount_figures, 2) : '—' }}</td>
-                        <td class="acc-muted">{{ $when ? \Carbon\Carbon::parse($when)->format('M d, Y') : '—' }}</td>
-                        <td>@include('accounting.partials.status-badge', ['status' => $st])</td>
-                        <td class="text-right"><a href="/accounting/request-check/{{ $row->request_check_id }}" class="acc-row-link">{{ $st === 'Released' || $st === 'Approved' ? 'View' : 'Review' }}</a></td>
-                    </tr>
-                @empty
-                    <tr><td colspan="8"><div class="acc-empty my-2">No Request Check records in this queue.</div></td></tr>
-                @endforelse
+            <tbody id="rfcTableBody" class="acc-animate">
+                @include('accounting.request-check._rows', ['records' => $records])
             </tbody>
         </table>
     </div>
-    <div class="acc-pagination">{{ $records->links() }}</div>
+    <div id="rfcPagination">
+        @if ($records->hasPages())
+            <div class="acc-pagination mt-3">{{ $records->links('pagination.president') }}</div>
+        @endif
+    </div>
 </div>
+
+<script>
+    (function () {
+        const tbody = document.getElementById('rfcTableBody');
+        const pagination = document.getElementById('rfcPagination');
+        const searchInput = document.getElementById('rfcSearch');
+        const searchForm = document.getElementById('rfcSearchForm');
+        const filterSlider = document.getElementById('rfcFilterSlider');
+        const filterButtons = document.querySelectorAll('#rfcFilterSlider .status-filter-btn');
+        let currentFilter = '{{ $filter }}';
+        let searchTimeout = null;
+        let fetching = false;
+
+        function updateFilterButtons(activeFilter) {
+            if (filterSlider) {
+                filterSlider.setAttribute('data-active', activeFilter);
+                if (typeof window.pmUpdateSegControl === 'function') {
+                    window.pmUpdateSegControl(filterSlider, activeFilter, true);
+                }
+            }
+            filterButtons.forEach(btn => {
+                const active = btn.getAttribute('data-filter') === activeFilter;
+                btn.classList.toggle('is-active', active);
+                btn.setAttribute('aria-selected', active ? 'true' : 'false');
+            });
+        }
+
+        function buildUrl(page, filter, search) {
+            const params = new URLSearchParams();
+            params.set('status', filter);
+            if (search) params.set('search', search);
+            if (page && page > 1) params.set('page', page);
+            return '/accounting/request-check?' + params.toString();
+        }
+
+        function fetchData(page, filter) {
+            if (fetching) return;
+            fetching = true;
+            page = page || 1;
+            filter = filter || currentFilter;
+            const search = searchInput ? searchInput.value.trim() : '';
+
+            if (tbody) tbody.classList.add('is-loading');
+
+            fetch(buildUrl(page, filter, search), {
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (tbody) {
+                    tbody.innerHTML = data.table_html;
+                    tbody.classList.remove('is-loading');
+                    // Re-trigger the staggered row entrance animation
+                    tbody.classList.remove('acc-animate');
+                    void tbody.offsetWidth;
+                    tbody.classList.add('acc-animate');
+                }
+                if (pagination) {
+                    pagination.innerHTML = data.pagination_html
+                        ? '<div class="acc-pagination mt-3">' + data.pagination_html + '</div>'
+                        : '';
+                }
+                if (data.counts) {
+                    const map = { incoming: 'incoming', funds: 'funds', released: 'released' };
+                    filterButtons.forEach(btn => {
+                        const key = btn.getAttribute('data-filter');
+                        const badge = btn.querySelector('.acc-count-badge');
+                        if (map[key] && badge && typeof data.counts[map[key]] !== 'undefined') {
+                            badge.textContent = data.counts[map[key]];
+                        }
+                    });
+                }
+                if (window.lucide) lucide.createIcons();
+                fetching = false;
+            })
+            .catch(err => {
+                console.error(err);
+                if (tbody) tbody.classList.remove('is-loading');
+                fetching = false;
+            });
+        }
+
+        function pushUrl(page, filter, search) {
+            window.history.replaceState({}, '', buildUrl(page, filter, search));
+        }
+
+        filterButtons.forEach(btn => {
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                const newFilter = this.getAttribute('data-filter');
+                if (newFilter === currentFilter) return;
+                currentFilter = newFilter;
+                updateFilterButtons(newFilter);
+                fetchData(1, newFilter);
+                pushUrl(1, newFilter, searchInput ? searchInput.value.trim() : '');
+            });
+        });
+
+        if (searchForm) {
+            searchForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+                fetchData(1, currentFilter);
+                pushUrl(1, currentFilter, searchInput ? searchInput.value.trim() : '');
+            });
+        }
+
+        if (searchInput) {
+            searchInput.addEventListener('input', function () {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    fetchData(1, currentFilter);
+                    pushUrl(1, currentFilter, searchInput.value.trim());
+                }, 300);
+            });
+        }
+
+        // Delegate pagination clicks (live, no page reload)
+        if (pagination) {
+            pagination.addEventListener('click', function (e) {
+                const link = e.target.closest('a[href]');
+                if (!link || !link.getAttribute('href') || link.getAttribute('href') === '#') return;
+                e.preventDefault();
+                const url = new URL(link.href, window.location.origin);
+                const page = parseInt(url.searchParams.get('page') || '1', 10);
+                fetchData(page, currentFilter);
+                pushUrl(page, currentFilter, searchInput ? searchInput.value.trim() : '');
+            });
+        }
+
+        // Handle browser back/forward
+        window.addEventListener('popstate', function () {
+            const params = new URLSearchParams(window.location.search);
+            const filter = params.get('status') || 'incoming';
+            const search = params.get('search') || '';
+            currentFilter = filter;
+            if (searchInput) searchInput.value = search;
+            updateFilterButtons(filter);
+            fetchData(1, filter);
+        });
+    })();
+</script>
 @endsection

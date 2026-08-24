@@ -5115,14 +5115,20 @@ class MaintenanceController extends Controller
         $equipment = $query
 
             ->orderBy(
-                'equipment_table.equipment_name',
-                'asc'
+                'equipment_table.equipment_created_at',
+                'desc'
             )
 
             ->paginate(10)
 
             ->withQueryString();
 
+
+        $usedAssetTags = DB::table('equipment_table')
+            ->whereNotNull('equipment_asset_tag')
+            ->where('equipment_asset_tag', '!=', '')
+            ->whereNotIn('equipment_inventory_status', ['Disposed'])
+            ->pluck('equipment_asset_tag');
 
         /*
         |--------------------------------------------------------------------------
@@ -5137,6 +5143,7 @@ class MaintenanceController extends Controller
                 'equipment',
                 'categories',
                 'rooms',
+                'usedAssetTags',
 
                 // =====================================================
                 // EQUIPMENT DASHBOARD COUNTS
@@ -6441,126 +6448,249 @@ class MaintenanceController extends Controller
         // VALIDATE EQUIPMENT
         // =====================================================
 
-        $request->validate([
+        $validated = $request->validate([
 
-            'equipment_name' => 'required',
+            'equipment_name' => 'required|string|max:255',
 
             'equipment_category_id' => 'required',
 
             'equipment_room_id' => 'required',
 
-            'equipment_quantity' => 'required'
+            'equipment_quantity' => 'required|integer|min:1|max:200',
+
+            'equipment_tracking_mode' => 'nullable|in:Bulk,Individual',
+
+            'equipment_condition_status' => 'nullable|string',
+
+            'equipment_inventory_status' => 'nullable|string',
+
+            'equipment_asset_tag' => 'nullable|string|max:255',
+
+            'equipment_brand_name' => 'nullable|string|max:255',
+
+            'equipment_model' => 'nullable|string|max:255',
+
+            'equipment_serial_number' => 'nullable|string|max:255',
+
+            'equipment_purchase_date' => 'nullable|date',
+
+            'equipment_warranty_expiration' => 'nullable|date',
+
+            'items' => 'nullable|array|max:200',
+
+            'items.*.equipment_asset_tag' => 'nullable|string|max:255',
+
+            'items.*.equipment_serial_number' => 'nullable|string|max:255',
+
+            'items.*.equipment_brand_name' => 'nullable|string|max:255',
+
+            'items.*.equipment_model' => 'nullable|string|max:255',
+
+            'items.*.equipment_condition_status' => 'nullable|string',
+
+            'items.*.equipment_warranty_expiration' => 'nullable|date',
 
         ]);
 
-        $duplicateName = DB::table('equipment_table')
-            ->where('equipment_room_id', $request->equipment_room_id)
-            ->whereRaw('LOWER(equipment_name) = ?', [mb_strtolower(trim((string) $request->equipment_name))])
-            ->whereNotIn('equipment_inventory_status', ['Disposed'])
-            ->exists();
+        $trackingMode = $validated['equipment_tracking_mode'] ?? 'Individual';
+        $items = array_values($validated['items'] ?? []);
+        $quantity = (int) $validated['equipment_quantity'];
 
-        if ($duplicateName) {
+        if ($trackingMode === 'Individual' && count($items) > 0 && count($items) !== $quantity) {
             return back()
-                ->withErrors(['equipment_name' => 'That equipment name already exists in this room.'])
+                ->withErrors(['items' => 'Item count must match the quantity.'])
                 ->withInput();
         }
 
+        // Bulk stock keeps unique name-per-room; Individual units may share a display name.
+        if ($trackingMode === 'Bulk') {
+            $duplicateName = DB::table('equipment_table')
+                ->where('equipment_room_id', $request->equipment_room_id)
+                ->whereRaw('LOWER(equipment_name) = ?', [mb_strtolower(trim((string) $request->equipment_name))])
+                ->whereNotIn('equipment_inventory_status', ['Disposed'])
+                ->exists();
+
+            if ($duplicateName) {
+                return back()
+                    ->withErrors(['equipment_name' => 'That equipment name already exists in this room.'])
+                    ->withInput();
+            }
+        }
+
+        $identifierError = $this->validateEquipmentIdentifierUniqueness(
+            $items,
+            $validated,
+            $trackingMode
+        );
+
+        if ($identifierError !== null) {
+            return back()
+                ->withErrors($identifierError)
+                ->withInput();
+        }
+
+        $createdIds = [];
 
         // =====================================================
         // START TRANSACTION
         // =====================================================
 
-        DB::transaction(function () use ($request) {
+        DB::transaction(function () use (
+            $request,
+            $validated,
+            $trackingMode,
+            $items,
+            $quantity,
+            &$createdIds
+        ) {
 
-            // =================================================
-            // CREATE EQUIPMENT
-            //
-            // insertGetId() RETURNS THE NEW EQUIPMENT ID
-            // =================================================
+            $borrowable = $request->has('equipment_is_borrowable');
 
-            $equipmentId = DB::table('equipment_table')
-                ->insertGetId([
-
-                    'equipment_category_id'
-                        => $request->equipment_category_id,
-
-                    'equipment_room_id'
-                        => $request->equipment_room_id,
-
-                    'equipment_asset_tag'
-                        => $request->equipment_asset_tag,
-
-                    'equipment_name'
-                        => $request->equipment_name,
-
-                    'equipment_brand_name'
-                        => $request->equipment_brand_name,
-
-                    'equipment_model'
-                        => $request->equipment_model,
-
-                    'equipment_serial_number'
-                        => $request->equipment_serial_number,
-
-                    'equipment_quantity'
-                        => $request->equipment_quantity,
-
-                    'equipment_condition_status'
-                        => $request->equipment_condition_status,
-
-                    'equipment_inventory_status'
-                        => $request->equipment_inventory_status,
-
-                    'equipment_purchase_date'
-                        => $request->equipment_purchase_date,
-
-                    'equipment_warranty_expiration'
-                        => $request->equipment_warranty_expiration,
-
-                    'equipment_is_borrowable'
-                        => $request->has('equipment_is_borrowable'),
-
-                    'equipment_created_at'
-                        => now()
-
+            if ($trackingMode === 'Bulk') {
+                $equipmentId = DB::table('equipment_table')->insertGetId([
+                    'equipment_category_id' => $validated['equipment_category_id'],
+                    'equipment_room_id' => $validated['equipment_room_id'],
+                    'equipment_asset_tag' => $validated['equipment_asset_tag'] ?? null,
+                    'equipment_name' => $validated['equipment_name'],
+                    'equipment_brand_name' => $validated['equipment_brand_name'] ?? null,
+                    'equipment_model' => $validated['equipment_model'] ?? null,
+                    'equipment_serial_number' => $validated['equipment_serial_number'] ?? null,
+                    'equipment_quantity' => $quantity,
+                    'equipment_tracking_mode' => 'Bulk',
+                    'equipment_condition_status' => $validated['equipment_condition_status'] ?? 'Good',
+                    'equipment_inventory_status' => $validated['equipment_inventory_status'] ?? 'Active',
+                    'equipment_purchase_date' => $validated['equipment_purchase_date'] ?? null,
+                    'equipment_warranty_expiration' => $validated['equipment_warranty_expiration'] ?? null,
+                    'equipment_is_borrowable' => $borrowable,
+                    'equipment_created_at' => now(),
                 ]);
 
-            EquipmentQrCodes::assignIfEligible((int) $equipmentId);
+                EquipmentQrCodes::assignIfEligible((int) $equipmentId);
+                $createdIds[] = (int) $equipmentId;
+            } else {
+                $rows = count($items) > 0
+                    ? $items
+                    : array_fill(0, $quantity, []);
 
+                foreach ($rows as $item) {
+                    $equipmentId = DB::table('equipment_table')->insertGetId([
+                        'equipment_category_id' => $validated['equipment_category_id'],
+                        'equipment_room_id' => $validated['equipment_room_id'],
+                        'equipment_asset_tag' => $item['equipment_asset_tag']
+                            ?? (($quantity === 1) ? ($validated['equipment_asset_tag'] ?? null) : null),
+                        'equipment_name' => $validated['equipment_name'],
+                        'equipment_brand_name' => $item['equipment_brand_name']
+                            ?? ($validated['equipment_brand_name'] ?? null),
+                        'equipment_model' => $item['equipment_model']
+                            ?? ($validated['equipment_model'] ?? null),
+                        'equipment_serial_number' => $item['equipment_serial_number']
+                            ?? (($quantity === 1) ? ($validated['equipment_serial_number'] ?? null) : null),
+                        'equipment_quantity' => 1,
+                        'equipment_tracking_mode' => 'Individual',
+                        'equipment_condition_status' => $item['equipment_condition_status']
+                            ?? ($validated['equipment_condition_status'] ?? 'Good'),
+                        'equipment_inventory_status' => $validated['equipment_inventory_status'] ?? 'Active',
+                        'equipment_purchase_date' => $validated['equipment_purchase_date'] ?? null,
+                        'equipment_warranty_expiration' => $item['equipment_warranty_expiration']
+                            ?? ($validated['equipment_warranty_expiration'] ?? null),
+                        'equipment_is_borrowable' => $borrowable,
+                        'equipment_created_at' => now(),
+                    ]);
 
-            // =================================================
-            // RECENT ACTIVITY
-            // =================================================
+                    EquipmentQrCodes::assignIfEligible((int) $equipmentId);
+                    $createdIds[] = (int) $equipmentId;
+                }
+            }
+
+            $count = count($createdIds);
+            $lastId = (int) end($createdIds);
 
             $this->logActivity(
-
                 'Added equipment',
-
                 'Equipment',
-
                 'equipment_table',
-
-                (int) $equipmentId,
-
-                'Added '
-                . $request->equipment_name
-                . ' to the equipment inventory.'
-
+                $lastId,
+                $count > 1
+                    ? 'Added '.$count.' × '.$validated['equipment_name'].' to the equipment inventory.'
+                    : 'Added '.$validated['equipment_name'].' to the equipment inventory.'
             );
 
         });
-
 
         // =====================================================
         // SUCCESS
         // =====================================================
 
+        $count = count($createdIds);
+
         return redirect(
             '/maintenance/equipment/inventory'
         )->with(
             'success',
-            'Equipment added successfully.'
+            $count > 1
+                ? "{$count} equipment records added successfully."
+                : 'Equipment added successfully.'
         );
+    }
+
+    /**
+     * @return array<string, string>|null
+     */
+    private function validateEquipmentIdentifierUniqueness(
+        array $items,
+        array $validated,
+        string $trackingMode
+    ): ?array {
+        $candidates = count($items) > 0
+            ? $items
+            : [[
+                'equipment_asset_tag' => $validated['equipment_asset_tag'] ?? null,
+                'equipment_serial_number' => $validated['equipment_serial_number'] ?? null,
+            ]];
+
+        $assetTags = [];
+        $serials = [];
+
+        foreach ($candidates as $index => $item) {
+            $tag = trim((string) ($item['equipment_asset_tag'] ?? ''));
+            $serial = trim((string) ($item['equipment_serial_number'] ?? ''));
+
+            if ($tag !== '') {
+                $key = mb_strtolower($tag);
+                if (isset($assetTags[$key])) {
+                    return ['items' => 'Duplicate asset tag in this batch.'];
+                }
+                $assetTags[$key] = true;
+
+                if (
+                    DB::table('equipment_table')
+                        ->whereRaw('LOWER(equipment_asset_tag) = ?', [$key])
+                        ->whereNotIn('equipment_inventory_status', ['Disposed'])
+                        ->exists()
+                ) {
+                    return ["items.{$index}.equipment_asset_tag" => "Asset tag \"{$tag}\" is already in use."];
+                }
+            }
+
+            if ($serial !== '') {
+                $key = mb_strtolower($serial);
+                if (isset($serials[$key])) {
+                    return ['items' => 'Duplicate serial number in this batch.'];
+                }
+                $serials[$key] = true;
+
+                if (
+                    DB::table('equipment_table')
+                        ->whereRaw('LOWER(equipment_serial_number) = ?', [$key])
+                        ->whereNotIn('equipment_inventory_status', ['Disposed'])
+                        ->exists()
+                ) {
+                    return ["items.{$index}.equipment_serial_number" => "Serial number \"{$serial}\" is already in use."];
+                }
+            }
+        }
+
+        return null;
     }
 
     
@@ -6667,6 +6797,9 @@ class MaintenanceController extends Controller
 
                     'equipment_inventory_status'
                         => $request->equipment_inventory_status,
+
+                    'equipment_warranty_expiration'
+                        => $request->equipment_warranty_expiration,
 
                     'equipment_is_borrowable'
                         => $request->has('equipment_is_borrowable'),
@@ -11299,10 +11432,7 @@ class MaintenanceController extends Controller
 
             $reporters = $query
 
-                ->orderBy(
-                    'reporter_full_name',
-                    'asc'
-                )
+                ->orderBy('reporter_id', 'desc')
 
                 ->paginate(
                     10,
@@ -13728,24 +13858,70 @@ class MaintenanceController extends Controller
     public function storeReporter(Request $request)
     {
         $request->validate([
-            'employee_id' => 'required|string|max:100',
-            'first_name' => 'required|string|max:100',
-            'middle_name' => 'nullable|string|max:100',
-            'last_name' => 'required|string|max:100',
-            'type' => 'nullable|in:Faculty,Staff',
-            'email' => 'nullable|email|max:255',
-            'contact' => 'nullable|string|max:50',
+            // Employee ID
+            // Required and must be unique
+            'employee_id' => [
+                'required',
+                'string',
+                'max:100',
+                'unique:reporters_table,reporter_employee_id',
+            ],
+
+            // First Name
+            // Required
+            'first_name' => [
+                'required',
+                'string',
+                'max:100',
+            ],
+
+            // Middle Name
+            // Optional
+            'middle_name' => [
+                'nullable',
+                'string',
+                'max:100',
+            ],
+
+            // Last Name
+            // Required
+            'last_name' => [
+                'required',
+                'string',
+                'max:100',
+            ],
+
+            // Employment Type
+            // Required
+            'type' => [
+                'required',
+                'in:Faculty,Staff',
+            ],
+
+            // Email
+            // Optional, but must be valid if entered
+            'email' => [
+                'nullable',
+                'email',
+                'max:255',
+            ],
+
+            // Contact Number
+            // Optional, but must contain exactly 11 digits if entered
+            'contact' => [
+                'nullable',
+                'digits:11',
+            ],
         ]);
 
         $employeeId = trim($request->employee_id);
 
-        $exists = DB::table('reporters_table')
-            ->where('reporter_employee_id', $employeeId)
-            ->exists();
-
-        if ($exists) {
-            return back()->with('error', 'That employee ID is already registered.');
-        }
+            if (ReporterApprovals::pendingByEmployeeId($employeeId)) {
+                return back()->with(
+                    'error',
+                    'That employee ID already has an application waiting for approval.'
+                );
+            }
 
         if (ReporterApprovals::pendingByEmployeeId($employeeId)) {
             return back()->with('error', 'That employee ID already has an application waiting for approval.');

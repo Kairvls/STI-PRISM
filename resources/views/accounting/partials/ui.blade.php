@@ -1,47 +1,19 @@
-{{-- Accounting design system — scoped to Accounting pages only --}}
-<link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&display=swap"
-    rel="stylesheet"
-/>
+{{-- Accounting design system — aligned with President (blue / white) --}}
 <style>
     :root {
-        --acc-brand: #0037c7;
-        --acc-brand-soft: rgba(0, 55, 199, 0.85);
-        --acc-primary: #ffd400;
-        --acc-page-bg: #f1f5f9;
+        --acc-brand: #2563EB;
+        --acc-brand-soft: rgba(37, 99, 235, 0.85);
+        --acc-primary: #2563EB;
+        --acc-primary-dark: #1D4ED8;
+        --acc-primary-light: #EFF6FF;
+        --acc-page-bg: #ffffff;
         --acc-card: #ffffff;
         --acc-ink: #0f172a;
         --acc-muted: #64748b;
         --acc-border: #e2e8f0;
         --acc-radius: 14px;
-        --acc-radius-lg: 16px;
+        --acc-radius-lg: 18px;
         --acc-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-    }
-
-    /* Beat global Poppins on Accounting content */
-    main,
-    main *,
-    .acc-page,
-    .acc-page * {
-        font-family: "Inter", sans-serif;
-    }
-
-    .acc-page-title,
-    .acc-stat-value,
-    .acc-panel-title {
-        font-family: "Outfit", sans-serif;
-    }
-
-    /* Tighter main canvas on Accounting (laptop-friendly) */
-    main.flex-1 {
-        padding: 1.125rem 1.35rem !important;
-        background: var(--acc-page-bg) !important;
-    }
-
-    @media (min-width: 1280px) {
-        main.flex-1 {
-            padding: 1.25rem 1.5rem !important;
-        }
     }
 
     .fade-in { animation: accFade .28s ease both; }
@@ -66,7 +38,7 @@
     }
 
     .acc-page-kicker {
-        display: inline-flex;
+        display: none;
         align-items: center;
         gap: 0.4rem;
         font-size: 0.6875rem;
@@ -84,13 +56,15 @@
         background: var(--acc-primary);
     }
 
-    .acc-page-title {
-        margin-top: 0.15rem;
-        font-size: 1.625rem;
-        line-height: 1.15;
-        font-weight: 800;
-        letter-spacing: -0.03em;
+    /* List page titles live in the topbar; keep review/doc titles visible */
+    .acc-page-header .acc-page-title { display: none; }
+    .acc-review-head .acc-page-title {
+        margin-top: 0.25rem;
+        font-size: 1.25rem;
+        font-weight: 700;
+        letter-spacing: -0.02em;
         color: var(--acc-ink);
+        line-height: 1.25;
     }
 
     .acc-page-subtitle {
@@ -101,17 +75,6 @@
         max-width: 40rem;
     }
 
-    .acc-back {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.25rem;
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: #64748b;
-        text-decoration: none;
-    }
-
-    .acc-back:hover { color: var(--acc-ink); }
 
     /* ---------- Surfaces ---------- */
     .acc-card {
@@ -249,7 +212,6 @@
 
     .acc-mini-card p:last-child {
         margin-top: 0.15rem;
-        font-family: "Outfit", sans-serif;
         font-size: 1.125rem;
         font-weight: 700;
         color: var(--acc-ink);
@@ -322,6 +284,34 @@
         color: #fff;
     }
 
+    /* ---------- Filter count badges ---------- */
+    .acc-count-badge {
+        position: relative;
+        z-index: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 1.35rem;
+        height: 1.15rem;
+        padding: 0 0.35rem;
+        margin-left: 0.4rem;
+        border-radius: 999px;
+        background: #e2e8f0;
+        color: #475569;
+        font-size: 0.625rem;
+        font-weight: 700;
+        line-height: 1;
+        transition: background .12s ease, color .12s ease;
+    }
+
+    /* Solid white badge on the dark active pill so the count is always visible */
+    .pm-seg-btn.is-active .acc-count-badge,
+    .acc-chip.is-active .acc-count-badge {
+        background: #ffffff;
+        color: #0f172a;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.15);
+    }
+
     /* ---------- Tables ---------- */
     .acc-table-wrap {
         overflow: auto;
@@ -364,6 +354,70 @@
     .acc-table tbody tr:hover { background: #f8fafc; }
     .acc-table tbody tr:last-child td { border-bottom: 0; }
 
+    /* Slightly more breathing room between rows */
+    .acc-table--spaced td {
+        padding-top: 0.78rem;
+        padding-bottom: 0.78rem;
+    }
+
+    /* Keep the table box tall enough for a full page so the pagination
+       below stays in place even when the last page has few rows. */
+    .acc-table-fill {
+        min-height: 33rem;
+    }
+
+    /* Same idea for list-style containers (dashboard queue/activity, notifications) */
+    .acc-list-fill-lg { min-height: 33rem; }
+    .acc-list-fill-md { min-height: 21rem; }
+    .acc-list-fill-sm { min-height: 15rem; }
+
+    /* Reserve space on the whole page container so the table outline can hug
+       its rows dynamically while the pagination below stays in place. */
+    .acc-content-fill {
+        min-height: 42rem;
+    }
+
+    /* ---------- Modern table animations ---------- */
+    @keyframes accRowIn {
+        from { opacity: 0; transform: translateY(10px) scale(.995); }
+        to   { opacity: 1; transform: none; }
+    }
+
+    /* Staggered entrance for table rows (works on load and after live updates). */
+    .acc-table tbody.acc-animate tr {
+        animation: accRowIn .38s cubic-bezier(.22,.61,.36,1) both;
+    }
+    .acc-table tbody.acc-animate tr:nth-child(1)  { animation-delay: .02s; }
+    .acc-table tbody.acc-animate tr:nth-child(2)  { animation-delay: .05s; }
+    .acc-table tbody.acc-animate tr:nth-child(3)  { animation-delay: .08s; }
+    .acc-table tbody.acc-animate tr:nth-child(4)  { animation-delay: .11s; }
+    .acc-table tbody.acc-animate tr:nth-child(5)  { animation-delay: .14s; }
+    .acc-table tbody.acc-animate tr:nth-child(6)  { animation-delay: .17s; }
+    .acc-table tbody.acc-animate tr:nth-child(7)  { animation-delay: .20s; }
+    .acc-table tbody.acc-animate tr:nth-child(8)  { animation-delay: .23s; }
+    .acc-table tbody.acc-animate tr:nth-child(9)  { animation-delay: .26s; }
+    .acc-table tbody.acc-animate tr:nth-child(10) { animation-delay: .29s; }
+    .acc-table tbody.acc-animate tr:nth-child(11) { animation-delay: .32s; }
+    .acc-table tbody.acc-animate tr:nth-child(12) { animation-delay: .35s; }
+
+    @media (prefers-reduced-motion: reduce) {
+        .acc-table tbody.acc-animate tr { animation: none; }
+    }
+
+    /* Soft loading state while fetching live results. */
+    .acc-table tbody.is-loading {
+        opacity: .45;
+        filter: saturate(.6);
+        pointer-events: none;
+        transition: opacity .18s ease, filter .18s ease;
+    }
+
+    @keyframes accFadeSwap {
+        from { opacity: 0; transform: translateY(6px); }
+        to   { opacity: 1; transform: none; }
+    }
+    .acc-pagination > nav { animation: accFadeSwap .3s ease both; }
+
     .acc-table .acc-ref {
         font-weight: 600;
         color: var(--acc-ink);
@@ -404,6 +458,58 @@
         gap: 0.4rem;
     }
 
+    /* Larger icon action buttons on review pages */
+    .acc-actions .icon-btn {
+        width: 2.6rem;
+        height: 2.6rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 0.8rem;
+        border: 1px solid var(--acc-border);
+        background: #fff;
+        color: #475569;
+        cursor: pointer;
+        transition: background .12s ease, color .12s ease, border-color .12s ease, transform .12s ease;
+    }
+
+    .acc-actions .icon-btn:hover {
+        background: #f8fafc;
+        color: var(--acc-ink);
+        border-color: #cbd5e1;
+    }
+
+    .acc-actions .icon-btn:active { transform: scale(0.95); }
+
+    .acc-actions .icon-btn svg {
+        width: 1.3rem;
+        height: 1.3rem;
+    }
+
+    /* Slightly larger back arrow button */
+    .acc-back {
+        width: 2.4rem;
+        height: 2.4rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 0.7rem;
+        border: 1px solid transparent;
+        margin-bottom: 0.35rem;
+        transition: background .12s ease, color .12s ease, border-color .12s ease;
+    }
+
+    .acc-back:hover {
+        background: #f1f5f9;
+        color: var(--acc-ink);
+        text-decoration: none;
+    }
+
+    .acc-back svg {
+        width: 1.3rem;
+        height: 1.3rem;
+    }
+
     .acc-btn {
         display: inline-flex;
         align-items: center;
@@ -422,18 +528,18 @@
 
     .acc-btn:active { transform: scale(0.98); }
 
-    .acc-btn-approve { background: #059669; color: #fff; }
-    .acc-btn-approve:hover { background: #047857; }
+    .acc-btn-approve { background: #2563EB; color: #fff; }
+    .acc-btn-approve:hover { background: #1D4ED8; }
 
     .acc-btn-revise {
-        background: #fffbeb;
-        color: #92400e;
-        border-color: #fcd34d;
+        background: #fff;
+        color: #475569;
+        border-color: #e2e8f0;
     }
-    .acc-btn-revise:hover { background: #fef3c7; }
+    .acc-btn-revise:hover { background: #f8fafc; color: #0f172a; }
 
-    .acc-btn-funds { background: #111827; color: #fff; }
-    .acc-btn-funds:hover { background: #030712; }
+    .acc-btn-funds { background: #0f172a; color: #fff; }
+    .acc-btn-funds:hover { background: #020617; }
 
     .acc-btn-ghost {
         background: #fff;
@@ -443,10 +549,10 @@
     .acc-btn-ghost:hover { background: #f8fafc; }
 
     .acc-btn-primary {
-        background: var(--acc-brand-soft);
+        background: #2563EB;
         color: #fff;
     }
-    .acc-btn-primary:hover { background: rgba(0, 44, 155, 0.85); }
+    .acc-btn-primary:hover { background: #1D4ED8; }
 
     /* ---------- Review layout ---------- */
     .acc-review-head {
@@ -667,6 +773,89 @@
 
     .acc-backdrop { background: rgba(15, 23, 42, .45); }
 
+    /* ---------- President-style decision modal ---------- */
+    .icon-close {
+        width: 32px;
+        height: 32px;
+        border: 0;
+        border-radius: 8px;
+        background: transparent;
+        color: #64748b;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        flex-shrink: 0;
+    }
+    .icon-close:hover { background: #f1f5f9; color: #0f172a; }
+
+    .confirm-card {
+        background: #fff;
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 24px 80px rgba(15, 23, 42, 0.28);
+        max-height: calc(100vh - 48px);
+        overflow: auto;
+    }
+    .confirm-card label { display: block; font-size: 0.875rem; font-weight: 500; color: #334155; }
+    .confirm-card .hint { margin: 4px 0 8px; font-size: 0.75rem; color: #64748b; }
+    .confirm-card textarea,
+    #signatureCanvas {
+        width: 100%;
+        border-radius: 12px;
+        border-color: #e2e8f0;
+    }
+    .confirm-card textarea {
+        padding: 8px 10px;
+        font-size: 0.875rem;
+        line-height: 1.5rem;
+        resize: vertical;
+        min-height: 5.25rem;
+        outline: none;
+    }
+    .confirm-card textarea:focus { border-color: #2563EB; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12); }
+    #signatureCanvas {
+        height: 160px;
+        touch-action: none;
+        max-width: 100%;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+    }
+    .btn-approve {
+        background: #2563EB;
+        color: #fff;
+    }
+    .btn-approve:hover { background: #1D4ED8; }
+    .btn-reject {
+        background: #334155;
+        color: #fff;
+    }
+    .btn-reject:hover { background: #1e293b; }
+    .btn-send {
+        background: #0f172a;
+        color: #fff;
+    }
+    .btn-send:hover { background: #1e293b; }
+    .btn-ghost { background: transparent; color: #475569; }
+    .btn-ghost:hover { background: #f1f5f9; color: #0f172a; }
+    .btn-ghost.sm { padding: 6px 10px; font-size: 0.75rem; }
+    .btn-approve, .btn-reject, .btn-send, .btn-ghost {
+        border: 0;
+        border-radius: 12px;
+        padding: 8px 16px;
+        font-size: 0.875rem;
+        line-height: 1.25rem;
+        font-weight: 500;
+        cursor: pointer;
+    }
+    .confirm-actions {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
     /* ---------- Empty / flash / notes ---------- */
     .acc-empty {
         border: 1px dashed #e2e8f0;
@@ -743,6 +932,32 @@
         color: #94a3b8;
     }
 
+    /* Plain type icon + label for feed items (dashboard "Needs your attention") */
+    .acc-feed-icon {
+        width: 1.25rem;
+        height: 1.25rem;
+        flex-shrink: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #94a3b8;
+        pointer-events: none;
+    }
+
+    .acc-feed-icon svg {
+        width: 1.1rem;
+        height: 1.1rem;
+    }
+
+    .acc-feed-label {
+        width: 6.25rem;
+        flex-shrink: 0;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: #334155;
+        line-height: 1.2;
+    }
+
     .acc-feed-money {
         width: 5.5rem;
         text-align: right;
@@ -807,7 +1022,34 @@
     }
 
     /* ---------- Pagination spacing ---------- */
-    .acc-pagination { margin-top: 0.75rem; }
+    /* Inset the pagination inside its container box so it never touches the edges. */
+    .acc-pagination {
+        margin-top: 0.5rem;
+        padding: 0.25rem 1rem 0.85rem;
+    }
+
+    /* Neutralize the president pagination view's built-in top margin so it
+       aligns flush with the table above, and keep both sides vertically centered. */
+    .acc-pagination > nav { margin-top: 0; }
+    .acc-pagination nav > div { align-items: center; }
+    .acc-pagination nav p { margin: 0; }
+    .acc-pagination nav ul { margin: 0; }
+
+    /* Flush variant for pagination inside a card section (e.g. notifications). */
+    .acc-pagination--flush {
+        margin-top: 0;
+        padding: 0.75rem 1.25rem;
+    }
+
+    @media (max-width: 640px) {
+        .acc-pagination { padding-left: 0.625rem; padding-right: 0.625rem; }
+    }
+
+    /* ---------- Status badges ---------- */
+    .acc-status-badge {
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+        transition: background .15s ease, ring-color .15s ease;
+    }
 
     /* ---------- Notifications list ---------- */
     .acc-notif-item {
@@ -821,6 +1063,7 @@
         .acc-feed-action { display: none; }
         .acc-feed-money { width: 4.5rem; font-size: 0.75rem; }
         .acc-feed-type { width: 3.25rem; }
+        .acc-feed-label { width: auto; }
         .acc-page-header { align-items: flex-start; }
         .acc-search { max-width: none; }
     }
@@ -864,62 +1107,3 @@
     }
 </style>
 
-<script>
-    (function () {
-        function fitAccountingDocuments() {
-            document.querySelectorAll('.acc-viewer').forEach(function (viewer) {
-                var stage = viewer.querySelector('.acc-viewer-stage');
-                var fit = viewer.querySelector('.acc-viewer-fit');
-                if (!stage || !fit) return;
-
-                fit.style.transform = 'none';
-                fit.style.width = 'auto';
-                fit.style.height = 'auto';
-                fit.style.margin = '0';
-
-                var sheet = fit.querySelector('.rfc-print-sheet, .liq-print-sheet, .acc-paper') || fit.firstElementChild;
-                if (!sheet) return;
-
-                var pad = 16;
-                var availW = Math.max(140, stage.clientWidth - pad);
-                var availH = Math.max(140, stage.clientHeight - pad);
-                var docW = Math.max(sheet.scrollWidth, sheet.offsetWidth);
-                var docH = Math.max(sheet.scrollHeight, sheet.offsetHeight);
-                if (!docW || !docH) return;
-
-                var scale = Math.min(availW / docW, availH / docH, 1);
-                scale = Math.max(0.28, Math.round(scale * 1000) / 1000);
-
-                fit.style.width = docW + 'px';
-                fit.style.height = docH + 'px';
-                fit.style.transform = 'scale(' + scale + ')';
-                fit.style.margin = ((docH * (scale - 1)) / 2) + 'px ' + ((docW * (scale - 1)) / 2) + 'px';
-            });
-        }
-
-        window.fitAccountingDocuments = fitAccountingDocuments;
-
-        function scheduleFit() {
-            requestAnimationFrame(function () {
-                fitAccountingDocuments();
-                setTimeout(fitAccountingDocuments, 80);
-                setTimeout(fitAccountingDocuments, 320);
-            });
-        }
-
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', scheduleFit);
-        } else {
-            scheduleFit();
-        }
-
-        window.addEventListener('resize', function () {
-            clearTimeout(window.__accFitTimer);
-            window.__accFitTimer = setTimeout(fitAccountingDocuments, 80);
-        });
-
-        if (window.lucide) {
-            try { lucide.createIcons(); } catch (e) {}
-        }
-    })();
-</script>

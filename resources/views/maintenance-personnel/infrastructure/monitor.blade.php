@@ -21,6 +21,8 @@
                     "width" => (int) $room->room_width,
                     "height" => (int) $room->room_height,
                     "monitoring" => $room->monitoring,
+                    "comlab_rows" => data_get($room->room_metadata, 'comlab_rows', []),
+                    "comlab_row_layouts" => data_get($room->room_metadata, 'comlab_row_layouts'),
                     "equipment" => $room->equipment
                         ->values()
                         ->map(
@@ -35,10 +37,20 @@
 
                                 "quantity" => (int) $equipment->equipment_quantity,
 
+                                "tracking_mode" => $equipment->equipment_tracking_mode ?: "Individual",
+
                                 "condition" => $equipment->equipment_condition_status,
 
                                 "inventory_status" =>
                                     $equipment->equipment_inventory_status,
+
+                                "asset_tag" => $equipment->equipment_asset_tag,
+
+                                "serial_number" => $equipment->equipment_serial_number,
+
+                                "brand" => $equipment->equipment_brand_name,
+
+                                "model" => $equipment->equipment_model,
 
                                 "location" => $equipment->equipment_current_location,
 
@@ -94,15 +106,18 @@
             }
         "
         @keydown.escape.window="
-            wizardOpen = false;
-
-            await loadCampus();
-
-            step = 1;
+            if (wizardOpen) {
+                if (wizardFullscreen) {
+                    wizardFullscreen = false;
+                    $nextTick(() => { if (window.lucide) lucide.createIcons(); });
+                } else {
+                    closeCampusWizard();
+                }
+            }
         "
         @keydown.window="handleLayoutUndoHotkey($event)"
-        @pointermove.window="trackRoomRotation($event); trackEquipmentRotation($event); trackEquipmentAction($event)"
-        @pointerup.window="endRoomRotation($event); endEquipmentRotation($event); endEquipmentAction($event)"
+        @pointermove.window="trackRoomRotation($event); trackEquipmentRotation($event); trackComlabRowRotation($event); trackEquipmentAction($event)"
+        @pointerup.window="endRoomRotation($event); endEquipmentRotation($event); endComlabRowRotation($event); endEquipmentAction($event)"
         class="flex w-full flex-1 flex-col"
     >
         @if (session("success"))
@@ -1033,67 +1048,96 @@
             x-show="roomLayout.open"
             x-transition.opacity
             x-cloak
-            class="fixed inset-0 z-[1250] flex items-center justify-center bg-[#0b1220]/70 p-4"
+            @keydown.escape.window="
+                if (!roomLayout.open) return;
+                if (roomLayout.fullscreen) {
+                    roomLayout.fullscreen = false;
+                    $nextTick(() => { if (window.lucide) lucide.createIcons(); });
+                } else {
+                    requestCloseRoomLayout();
+                }
+            "
+            class="fixed inset-0 z-[1250] flex items-center justify-center bg-[#0b1220]/70"
+            :class="roomLayout.fullscreen ? 'p-0' : 'p-4'"
         >
             <div
-                class="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-[30px] bg-white shadow-2xl"
+                class="flex w-full flex-col overflow-hidden bg-white shadow-2xl"
+                :class="roomLayout.fullscreen
+                    ? 'h-[100dvh] max-h-[100dvh] max-w-none rounded-none'
+                    : 'h-[92vh] max-h-[92vh] max-w-6xl rounded-2xl'"
             >
                 <div
-                    class="flex flex-col gap-4 bg-gradient-to-br from-slate-950 to-[#a68800] px-6 py-5 text-white lg:flex-row lg:items-center lg:justify-between"
+                    class="flex shrink-0 flex-col gap-4 border-b border-slate-200 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6"
                 >
-                    <div>
-                        <p class="text-[10px] font-extrabold uppercase tracking-[.22em] text-white/60">Room interior layout</p>
+                    <div class="min-w-0">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Room interior layout</p>
+                            <span
+                                x-show="roomLayout.edit"
+                                x-cloak
+                                class="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700 ring-1 ring-amber-100"
+                            >
+                                <span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span>
+                                Editing
+                            </span>
+                        </div>
                         <h2
-                            class="mt-1 text-2xl font-black"
+                            class="mt-1 truncate text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl"
                             x-text="roomLayout.name || 'Room layout'"
                         ></h2>
-                        <p class="mt-1 text-sm text-white/70">Drag equipment inside the room, then click Save Layout to apply your changes.</p>
+                        <p class="mt-0.5 text-sm text-slate-500" x-text="roomLayoutHint()"></p>
                     </div>
-                    <div class="flex flex-wrap gap-2">
+                    <div class="flex flex-wrap items-center gap-2">
                         <button
                             type="button"
                             @click="toggleRoomLayoutEdit()"
                             :class="roomLayout.edit
-                                ? 'bg-[#FFF200] text-slate-950 hover:bg-[#f3e80e]'
-                                : 'bg-white/10 text-white hover:bg-white/20'"
-                            class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold"
+                                ? 'bg-slate-900 text-white hover:bg-slate-800'
+                                : 'bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-50'"
+                            class="inline-flex h-10 items-center gap-2 rounded-xl px-4 text-sm font-medium transition"
                         >
                             <i data-lucide="pencil" class="h-4 w-4"></i>
-                            <span
-                                x-text="
-                                    roomLayout.edit
-                                        ? 'Editing...'
-                                        : 'Edit layout'
-                                "
-                            ></span>
+                            <span x-text="roomLayout.edit ? 'Editing…' : 'Edit layout'"></span>
                         </button>
                         <button
                             type="button"
                             @click="saveLayout()"
                             :disabled="saving || !roomLayout.edit"
-                            class="inline-flex items-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                            class="inline-flex h-10 items-center gap-2 rounded-xl bg-[#005EA6] px-4 text-sm font-medium text-white transition hover:bg-[#004a85] disabled:cursor-not-allowed disabled:opacity-40"
                         >
                             <i data-lucide="save" class="h-4 w-4"></i>
                             Save
                         </button>
-                        <button
-                            type="button"
-                            @click="requestCloseRoomLayout()"
-                            class="rounded-xl bg-white/10 p-2 transition hover:bg-white/20"
-                            aria-label="Close room layout"
-                        >
-                            <i data-lucide="x" class="h-5 w-5"></i>
-                        </button>
+                        <div class="ml-1 flex items-center gap-1 border-l border-slate-200 pl-2">
+                            <button
+                                type="button"
+                                @click="toggleRoomLayoutFullscreen()"
+                                class="inline-flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                                :title="roomLayout.fullscreen ? 'Exit full screen' : 'Full screen'"
+                                :aria-label="roomLayout.fullscreen ? 'Exit full screen' : 'Full screen'"
+                            >
+                                <i :data-lucide="roomLayout.fullscreen ? 'minimize-2' : 'maximize-2'" class="h-4 w-4"></i>
+                            </button>
+                            <button
+                                type="button"
+                                @click="requestCloseRoomLayout()"
+                                class="inline-flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                                aria-label="Close room layout"
+                            >
+                                <i data-lucide="x" class="h-4 w-4"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
                 <div
-                    class="grid min-h-0 flex-1 gap-4 overflow-auto bg-slate-100 p-5 lg:grid-cols-[minmax(0,1fr)_260px]"
+                    class="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] gap-0 overflow-hidden bg-slate-50 lg:grid-cols-[minmax(0,1fr)_320px]"
                 >
+                    <div x-show="!isComlabRoomLayout()" class="h-full min-h-0 min-w-0">
                     <div
                         x-ref="roomInteriorCanvas"
-                        class="room-interior-grid relative h-[520px] min-w-[620px] overflow-hidden rounded-[26px] border-8 border-slate-300 bg-white shadow-inner"
-                        @pointerdown="if (roomLayout.edit) selectEquipment(null)"
+                        class="room-interior-grid relative m-4 h-[calc(100%-2rem)] min-h-0 min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+                        @pointerdown="if (roomLayout.edit) { selectEquipment(null); clearLayoutSelection(); }"
                     >
                         <div
                             class="pointer-events-none absolute inset-x-20 top-4 rounded-full border border-dashed border-slate-300 px-4 py-1 text-center text-[10px] font-black uppercase tracking-[.2em] text-slate-400"
@@ -1101,10 +1145,19 @@
                             Front wall / board
                         </div>
                         <div
-                            class="pointer-events-none absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-xl bg-amber-100 px-4 py-2 text-xs font-black text-amber-700"
+                            class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 rounded-lg bg-slate-100/80 px-2 py-6 text-[9px] font-black uppercase tracking-[.18em] text-slate-400 [writing-mode:vertical-rl]"
                         >
-                            <i data-lucide="door-open" class="h-4 w-4"></i>
-                            Door
+                            Left row pods
+                        </div>
+                        <div
+                            class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded-lg bg-slate-100/80 px-2 py-6 text-[9px] font-black uppercase tracking-[.18em] text-slate-400 [writing-mode:vertical-rl]"
+                        >
+                            Right row pods
+                        </div>
+                        <div
+                            class="pointer-events-none absolute inset-x-28 top-[46%] text-center text-[9px] font-black uppercase tracking-[.2em] text-slate-300"
+                        >
+                            Center ceiling
                         </div>
 
                         <template x-if="roomLayout.equipment.length === 0">
@@ -1124,40 +1177,50 @@
                         </template>
 
                         <template
-                            x-for="item in roomLayout.equipment"
-                            :key="item.id"
+                            x-for="group in layoutGroups()"
+                            :key="group.key"
                         >
                             <div
                                 class="room-equipment-node absolute z-20 flex min-w-0 items-center gap-2 overflow-visible rounded-2xl border-2 border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 shadow-md hover:border-[#07319C]"
                                 :class="{
                                     'ring-2 ring-[#07319C]/80 cursor-move':
                                         roomLayout.edit &&
-                                        selectedEquipmentId !== item.id,
+                                        selectedEquipmentId !== group.primaryId,
 
                                     'ring-2 ring-[#07319C] cursor-move':
                                         roomLayout.edit &&
-                                        selectedEquipmentId === item.id,
+                                        selectedEquipmentId === group.primaryId,
+
+                                    'ring-2 ring-emerald-500':
+                                        !roomLayout.edit &&
+                                        roomLayout.selectedGroupKey === group.key,
 
                                     'cursor-move':
                                         equipmentAction &&
                                         equipmentAction.type === 'drag' &&
-                                        selectedEquipmentId === item.id
+                                        selectedEquipmentId === group.primaryId
                                 }"
-                                :data-equipment-id="item.id"
-                                :data-x="item.x"
-                                :data-y="item.y"
-                                :data-width="item.width || 120"
-                                :data-height="item.height || 96"
-                                :data-rotation="item.rotation || 0"
-                                :data-label-orientation="(item.height || 96) > (item.width || 120) ? 'vertical' : 'horizontal'"
-                                @pointerdown.stop="handleEquipmentPointerDown($event, item.id)"
+                                :data-equipment-id="group.primaryId"
+                                :data-group-ids="group.ids.join(',')"
+                                :data-group-key="group.key"
+                                :data-x="group.x"
+                                :data-y="group.y"
+                                :data-width="group.width || 140"
+                                :data-height="group.height || 96"
+                                :data-rotation="group.rotation || 0"
+                                :data-zone="group.zone"
+                                :data-label-orientation="(group.height || 96) > (group.width || 140) ? 'vertical' : 'horizontal'"
+                                @pointerdown.stop="
+                                    openLayoutGroup(group.key);
+                                    handleEquipmentPointerDown($event, group.primaryId);
+                                "
                                 :style="`
-                                    left:${item.x}%;
-                                    top:${item.y}%;
-                                    width:${item.width || 120}px;
-                                    height:${item.height || 96}px;
+                                    left:${group.x}%;
+                                    top:${group.y}%;
+                                    width:${group.width || 140}px;
+                                    height:${group.height || 96}px;
                                     touch-action:none;
-                                    transform:translate(-50%,-50%) rotate(${(equipmentIsRotating && selectedEquipmentId === item.id && equipmentLiveRotation != null) ? equipmentLiveRotation : (item.rotation || 0)}deg);
+                                    transform:translate(-50%,-50%) rotate(${(equipmentIsRotating && selectedEquipmentId === group.primaryId && equipmentLiveRotation != null) ? equipmentLiveRotation : (group.rotation || 0)}deg);
                                     transform-origin:center center;
                                     will-change:left,top,transform;
                                 `"
@@ -1167,28 +1230,24 @@
                                 >
                                     <span
                                         class="equipment-icon shrink-0 text-lg"
-                                        x-text="equipmentIcon(item.name)"
+                                        x-html="equipmentIcon(group.name)"
                                     ></span>
 
                                     <span class="equipment-copy flex min-w-0 flex-col leading-tight">
                                         <span
                                             class="equipment-name truncate"
-                                            x-text="item.name"
+                                            x-text="group.label"
                                         ></span>
 
                                         <span
                                             class="equipment-meta truncate text-[10px] font-semibold text-slate-400"
-                                            x-text="
-                                                item.location ||
-                                                item.placement_zone ||
-                                                'No location'
-                                            "
+                                            x-text="group.zone || 'No zone'"
                                         ></span>
                                     </span>
                                 </span>
 
                                 <!-- Resize Handles -->
-                                <template x-if="roomLayout.edit && selectedEquipmentId === item.id">
+                                <template x-if="roomLayout.edit && selectedEquipmentId === group.primaryId">
 
                                     <div>
 
@@ -1245,19 +1304,19 @@
                                 </template>
 
                                 <!-- Rotate Handle -->
-                                <template x-if="roomLayout.edit && selectedEquipmentId === item.id">
+                                <template x-if="roomLayout.edit && selectedEquipmentId === group.primaryId">
 
                                     <div
                                         class="equipment-rotate-gimbal pointer-events-none absolute left-1/2 top-1/2 z-40"
-                                        :style="equipmentRotateGimbalStyle(item)"
+                                        :style="equipmentRotateGimbalStyle(group)"
                                     >
 
                                         <button
                                             type="button"
-                                            @pointerdown.stop.prevent="beginEquipmentRotation($event, item.id)"
+                                            @pointerdown.stop.prevent="beginEquipmentRotation($event, group.primaryId)"
                                             aria-label="Rotate selected equipment"
                                             class="rotate-equipment-handle-cursor pointer-events-auto absolute left-1/2 flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-lg transition hover:bg-slate-100"
-                                            :style="equipmentRotateHandleStyle(item)"
+                                            :style="equipmentRotateHandleStyle(group)"
                                         >
 
                                             <span
@@ -1290,61 +1349,224 @@
                         </template>
                         
                     </div>
+                    </div>
 
-                    <aside
-                        class="flex h-[520px] min-h-0 flex-col rounded-[24px] bg-white p-4 shadow-sm"
+                    <div
+                        x-show="isComlabRoomLayout()"
+                        x-cloak
+                        class="flex h-full min-h-0 min-w-0 flex-col overflow-hidden p-4"
                     >
-                        <div>
-                            <p class="text-[10px] font-extrabold uppercase tracking-[.18em] text-slate-400">Equipment list</p>
-                            <p class="mt-1 text-sm font-bold text-slate-600">Drag items on the room map, then save.</p>
-                        </div>
-                        <div class="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
-                            <template
-                                x-for="item in roomLayout.equipment"
-                                :key="'list-' + item.id"
-                            >
-                                <div
-                                    class="rounded-2xl border border-slate-100 bg-slate-50 p-3"
-                                >
-                                    <p class="font-black text-slate-800">
+                        @include('maintenance-personnel.infrastructure.partials.comlab-layout-canvas')
+                    </div>
+
+                    <div x-show="!isComlabRoomLayout()" class="min-h-0 min-w-0 h-full">
+                    <aside
+                        class="flex h-full min-h-0 flex-col border-l border-slate-200 bg-white"
+                    >
+                        <template x-if="selectedLayoutAsset()">
+                            <div class="flex min-h-0 flex-1 flex-col">
+                                <div class="border-b border-slate-100 px-4 py-3">
+                                    <button
+                                        type="button"
+                                        @click="roomLayout.selectedAssetId = null; if (!(selectedLayoutGroup() && selectedLayoutGroup().quantity > 1)) { clearLayoutSelection(); }"
+                                        class="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 transition hover:text-slate-900"
+                                    >
+                                        <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+                                        <span x-text="(selectedLayoutGroup() && selectedLayoutGroup().quantity > 1) ? 'Back to group' : 'All groups'"></span>
+                                    </button>
+                                    <p class="mt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">Asset details</p>
+                                    <h3 class="mt-1 truncate text-base font-semibold text-slate-900" x-text="selectedLayoutAsset()?.asset_tag || selectedLayoutAsset()?.name"></h3>
+                                </div>
+                                <div class="min-h-0 flex-1 space-y-0 overflow-y-auto px-4 py-2 text-sm">
+                                    <div class="flex items-center justify-between gap-3 border-b border-slate-50 py-3">
+                                        <span class="text-slate-400">Brand</span>
+                                        <span class="font-medium text-slate-800" x-text="selectedLayoutAsset()?.brand || '—'"></span>
+                                    </div>
+                                    <div class="flex items-center justify-between gap-3 border-b border-slate-50 py-3">
+                                        <span class="text-slate-400">Model</span>
+                                        <span class="font-medium text-slate-800" x-text="selectedLayoutAsset()?.model || '—'"></span>
+                                    </div>
+                                    <div class="flex items-center justify-between gap-3 border-b border-slate-50 py-3">
+                                        <span class="text-slate-400">Serial</span>
+                                        <span class="font-medium text-slate-800" x-text="selectedLayoutAsset()?.serial_number || '—'"></span>
+                                    </div>
+                                    <div class="flex items-center justify-between gap-3 border-b border-slate-50 py-3">
+                                        <span class="text-slate-400">Condition</span>
                                         <span
-                                            x-text="equipmentIcon(item.name)"
+                                            class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold"
+                                            :class="
+                                                (selectedLayoutAsset()?.condition || '') === 'Good'
+                                                    ? 'bg-emerald-50 text-emerald-700'
+                                                    : (selectedLayoutAsset()?.condition || '') === 'Damaged'
+                                                        ? 'bg-rose-50 text-rose-700'
+                                                        : 'bg-slate-100 text-slate-600'
+                                            "
+                                            x-text="selectedLayoutAsset()?.condition || '—'"
                                         ></span>
-                                        <span x-text="item.name"></span>
-                                    </p>
-                                    <div class="mt-2 space-y-1 text-xs">
-                                        <p class="font-semibold text-slate-600">
-                                            Condition:
-                                            <span
-                                                x-text="item.condition || 'Unknown'"
-                                            ></span>
-                                        </p>
-
-                                        <p class="text-slate-500">
-                                            Location:
-                                            <span
-                                                x-text="
-                                                    item.location || 'Not assigned'
-                                                "
-                                            ></span>
-                                        </p>
-
-                                        <p class="text-slate-500">
-                                            Placement:
-                                            <span
-                                                x-text="
-                                                    item.placement_zone || 'None'
-                                                "
-                                            ></span>
-                                        </p>
-
-                                        <p class="text-slate-400">X:
-                                        <span x-text="item.x"></span>% • Y: <span x-text="item.y"></span>%</p>
+                                    </div>
+                                    <div class="flex items-center justify-between gap-3 border-b border-slate-50 py-3">
+                                        <span class="text-slate-400">Location</span>
+                                        <span class="font-medium text-slate-800" x-text="roomLayout.name || '—'"></span>
+                                    </div>
+                                    <div class="flex items-center justify-between gap-3 py-3">
+                                        <span class="text-slate-400">Zone</span>
+                                        <span class="font-medium text-slate-800" x-text="selectedLayoutAsset()?.placement_zone || selectedLayoutAsset()?.location || '—'"></span>
                                     </div>
                                 </div>
-                            </template>
-                        </div>
+                            </div>
+                        </template>
+
+                        <template x-if="!selectedLayoutAsset() && selectedLayoutGroup() && selectedLayoutGroup().quantity > 1">
+                            <div class="flex min-h-0 flex-1 flex-col">
+                                <div class="border-b border-slate-100 px-4 py-3">
+                                    <button
+                                        type="button"
+                                        @click="clearLayoutSelection()"
+                                        class="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 transition hover:text-slate-900"
+                                    >
+                                        <i data-lucide="arrow-left" class="h-3.5 w-3.5"></i>
+                                        All groups
+                                    </button>
+                                    <p class="mt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400" x-text="selectedLayoutGroup()?.name"></p>
+                                    <h3 class="mt-1 text-base font-semibold text-slate-900">
+                                        <span x-text="selectedLayoutGroup()?.quantity"></span> assets
+                                    </h3>
+                                    <p class="mt-0.5 text-xs text-slate-500" x-text="selectedLayoutGroup()?.zone || 'No zone'"></p>
+                                    <div class="relative mt-3">
+                                        <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"></i>
+                                        <input
+                                            type="search"
+                                            x-model="roomLayout.listSearch"
+                                            @input="roomLayout.listPage = 1"
+                                            placeholder="Search asset tag / serial"
+                                            class="h-10 w-full rounded-xl border-0 bg-slate-50 pl-9 pr-3 text-sm text-slate-900 outline-none ring-1 ring-slate-200 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-slate-900/10"
+                                        />
+                                    </div>
+                                </div>
+                                <div class="min-h-0 flex-1 space-y-1.5 overflow-y-auto px-3 py-3">
+                                    <template x-for="asset in pagedGroupAssets()" :key="'asset-' + asset.id">
+                                        <button
+                                            type="button"
+                                            @click="selectLayoutAsset(asset.id)"
+                                            class="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left transition hover:bg-slate-50"
+                                        >
+                                            <div class="min-w-0">
+                                                <p class="truncate text-sm font-medium text-slate-800" x-text="asset.asset_tag || asset.name"></p>
+                                                <p class="truncate text-[11px] text-slate-400" x-text="asset.serial_number || 'No serial'"></p>
+                                            </div>
+                                            <span
+                                                class="ml-2 inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-1 text-[10px] font-semibold"
+                                                :class="
+                                                    (asset.condition || '') === 'Good'
+                                                        ? 'bg-emerald-50 text-emerald-700'
+                                                        : (asset.condition || '') === 'Damaged'
+                                                            ? 'bg-rose-50 text-rose-700'
+                                                            : 'bg-slate-100 text-slate-600'
+                                                "
+                                            >
+                                                <span class="h-1.5 w-1.5 rounded-full bg-current opacity-70"></span>
+                                                <span x-text="asset.condition || '—'"></span>
+                                            </span>
+                                        </button>
+                                    </template>
+                                </div>
+                                <div class="flex items-center justify-between border-t border-slate-100 px-4 py-2.5 text-xs text-slate-500" x-show="groupAssetPageCount() > 1">
+                                    <button type="button" class="rounded-lg px-2 py-1 hover:bg-slate-100 disabled:opacity-40" :disabled="roomLayout.listPage <= 1" @click="roomLayout.listPage = Math.max(1, roomLayout.listPage - 1)">Prev</button>
+                                    <span x-text="roomLayout.listPage + ' / ' + groupAssetPageCount()"></span>
+                                    <button type="button" class="rounded-lg px-2 py-1 hover:bg-slate-100 disabled:opacity-40" :disabled="roomLayout.listPage >= groupAssetPageCount()" @click="roomLayout.listPage = Math.min(groupAssetPageCount(), roomLayout.listPage + 1)">Next</button>
+                                </div>
+                            </div>
+                        </template>
+
+                        <template x-if="!selectedLayoutAsset() && !(selectedLayoutGroup() && selectedLayoutGroup().quantity > 1)">
+                            <div class="flex min-h-0 flex-1 flex-col">
+                                <div class="border-b border-slate-100 px-4 py-3">
+                                    <div class="flex items-start justify-between gap-2">
+                                        <div>
+                                            <p class="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">Equipment</p>
+                                            <p class="mt-1 text-sm text-slate-500">Select a group, then an asset.</p>
+                                        </div>
+                                        <span
+                                            class="inline-flex shrink-0 items-center rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600"
+                                            x-text="layoutGroups().length + (layoutGroups().length === 1 ? ' group' : ' groups')"
+                                        ></span>
+                                    </div>
+                                    <div class="relative mt-3">
+                                        <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"></i>
+                                        <input
+                                            type="search"
+                                            x-model="roomLayout.listSearch"
+                                            @input="roomLayout.listPage = 1"
+                                            placeholder="Search equipment / zone"
+                                            class="h-10 w-full rounded-xl border-0 bg-slate-50 pl-9 pr-3 text-sm text-slate-900 outline-none ring-1 ring-slate-200 placeholder:text-slate-400 focus:bg-white focus:ring-2 focus:ring-slate-900/10"
+                                        />
+                                    </div>
+                                </div>
+                                <div class="min-h-0 flex-1 space-y-1 overflow-y-auto px-2 py-2">
+                                    <template
+                                        x-for="group in pagedLayoutGroups()"
+                                        :key="'list-' + group.key"
+                                    >
+                                        <button
+                                            type="button"
+                                            @click="openLayoutGroup(group.key); selectEquipment(group.primaryId)"
+                                            class="flex w-full items-start gap-3 rounded-xl px-3 py-2.5 text-left transition"
+                                            :class="roomLayout.selectedGroupKey === group.key
+                                                ? 'bg-[#005EA6]/8 ring-1 ring-[#005EA6]/20'
+                                                : 'hover:bg-slate-50'"
+                                        >
+                                            <span class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-base">
+                                                <span class="inline-flex h-5 w-5 items-center justify-center [&_svg]:h-full [&_svg]:w-full" x-html="equipmentIcon(group.name)"></span>
+                                            </span>
+                                            <span class="min-w-0 flex-1">
+                                                <span class="flex items-center justify-between gap-2">
+                                                    <span class="truncate text-sm font-semibold text-slate-900" x-text="group.label"></span>
+                                                    <span
+                                                        x-show="group.quantity > 1"
+                                                        class="shrink-0 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500"
+                                                        x-text="'×' + group.quantity"
+                                                    ></span>
+                                                </span>
+                                                <span class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-500">
+                                                    <span class="inline-flex items-center gap-1">
+                                                        <i data-lucide="map-pin" class="h-3 w-3 text-slate-400"></i>
+                                                        <span x-text="group.zone || 'Not assigned'"></span>
+                                                    </span>
+                                                    <template x-if="group.quantity === 1">
+                                                        <span
+                                                            class="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 font-medium"
+                                                            :class="
+                                                                (group.members[0]?.condition || '') === 'Good'
+                                                                    ? 'bg-emerald-50 text-emerald-700'
+                                                                    : (group.members[0]?.condition || '') === 'Damaged'
+                                                                        ? 'bg-rose-50 text-rose-700'
+                                                                        : 'bg-slate-100 text-slate-600'
+                                                            "
+                                                            x-text="group.members[0]?.condition || 'Unknown'"
+                                                        ></span>
+                                                    </template>
+                                                </span>
+                                            </span>
+                                        </button>
+                                    </template>
+                                </div>
+                                <div class="flex items-center justify-between border-t border-slate-100 px-4 py-2.5 text-xs text-slate-500" x-show="layoutGroupPageCount() > 1">
+                                    <button type="button" class="rounded-lg px-2 py-1 hover:bg-slate-100 disabled:opacity-40" :disabled="roomLayout.listPage <= 1" @click="roomLayout.listPage = Math.max(1, roomLayout.listPage - 1)">Prev</button>
+                                    <span x-text="roomLayout.listPage + ' / ' + layoutGroupPageCount()"></span>
+                                    <button type="button" class="rounded-lg px-2 py-1 hover:bg-slate-100 disabled:opacity-40" :disabled="roomLayout.listPage >= layoutGroupPageCount()" @click="roomLayout.listPage = Math.min(layoutGroupPageCount(), roomLayout.listPage + 1)">Next</button>
+                                </div>
+                            </div>
+                        </template>
                     </aside>
+                    </div>
+
+                    <div
+                        x-show="isComlabRoomLayout()"
+                        x-cloak
+                        class="flex h-full min-h-0 min-w-0 flex-col overflow-hidden"
+                    >
+                        @include('maintenance-personnel.infrastructure.partials.comlab-layout-sidebar')
+                    </div>
                 </div>
             </div>
         </div>
@@ -1450,6 +1672,16 @@
                             type="button"
                             @click="
                                 closeLayoutModal.open = false;
+                                if (layoutDirty && originalRoomLayout) {
+                                    roomLayout.equipment = JSON.parse(JSON.stringify(originalRoomLayout));
+                                    if (originalComlabRows) {
+                                        roomLayout.comlabRows = JSON.parse(JSON.stringify(originalComlabRows));
+                                    }
+                                    if (originalComlabRowLayouts) {
+                                        roomLayout.comlabRowLayouts = JSON.parse(JSON.stringify(originalComlabRowLayouts));
+                                    }
+                                    layoutDirty = false;
+                                }
                                 closeRoomLayout();
                             "
                             class="
@@ -2148,6 +2380,8 @@
     </style>
 
     @push ("scripts")
+        @include('layouts.partials.equipment-asset-tag')
+        @include('layouts.partials.equipment-layout-icons')
         <script>
             function infrastructureMonitor(initialFloor) {
                 return {
@@ -2302,12 +2536,34 @@
                     roomLayout: {
                         open: false,
                         edit: false,
+                        fullscreen: false,
                         id: null,
                         name: "",
+                        type: "",
                         equipment: [],
+                        selectedGroupKey: null,
+                        selectedAssetId: null,
+                        listSearch: "",
+                        listPage: 1,
+                        listPerPage: 12,
+                        comlabRows: [],
+                        comlabRowLayouts: [],
+                        comlabNav: 'rows',
+                        selectedComlabRow: null,
+                        selectedComlabRowTable: null,
+                        comlabSetCarouselIndex: 0,
+                        comlabHoldingPage: 0,
                     },
+                    selectedComlabRowTable: null,
+                    comlabRowIsRotating: false,
+                    comlabRowLiveRotation: null,
+                    comlabRowRotationDrag: null,
+                    comlabRowRotateHandleSide: 'bottom',
+                    comlabRowRotationDisplayAngle: 0,
 
                     originalRoomLayout: null,
+                    originalComlabRows: null,
+                    originalComlabRowLayouts: null,
 
                     blueprintLayoutModal:{
 
@@ -2324,6 +2580,7 @@
                     ? "true"
                     : "false"
             }},
+                    wizardFullscreen: false,
                     canManageCampusSetup: {{ ($canManageCampusSetup ?? false) ? 'true' : 'false' }},
                     step: 1,
                     wizardSetupUnlocked: false,
@@ -3262,6 +3519,9 @@
                         if (!this.roomLayout.edit) return;
 
                         this.selectedEquipmentId = equipmentId;
+                        if (equipmentId) {
+                            this.selectedComlabRowTable = null;
+                        }
 
                         if (!equipmentId) {
                             this.selectedEquipmentControl = {
@@ -3278,6 +3538,7 @@
                         }
 
                         this.$nextTick(() => {
+                            this.equipmentRotateHandleSide = "bottom";
                             this.syncSelectedEquipmentControl();
                             this.updateEquipmentRotateHandlePlacement();
                         });
@@ -3350,6 +3611,10 @@
                         const centerX = (currentX / 100) * parentRect.width;
                         const centerY = (currentY / 100) * parentRect.height;
 
+                        if (node.classList.contains('comlab-floor-node')) {
+                            this._comlabFloorDidDrag = true;
+                        }
+
                         node.classList.add("dragging");
                         node.setPointerCapture?.(event.pointerId);
 
@@ -3377,6 +3642,10 @@
                         const rotationRad = (rotationDeg * Math.PI) / 180;
                         const cos = Math.cos(rotationRad);
                         const sin = Math.sin(rotationRad);
+
+                        if (node.classList.contains('comlab-floor-node')) {
+                            this._comlabFloorDidDrag = true;
+                        }
 
                         node.classList.add("dragging");
                         node.setPointerCapture?.(event.pointerId);
@@ -3411,6 +3680,44 @@
                         node.dataset.labelOrientation = h > w ? "vertical" : "horizontal";
                         node.classList.toggle("is-compact", w < 40);
                     },
+
+                    getNodeDragHalfExtents(node) {
+                        const width = Math.max(10, Number(node.dataset.width) || 120);
+                        const height = Math.max(10, Number(node.dataset.height) || 96);
+                        const rotationDeg = Number(node.dataset.rotation || 0);
+                        const rad = (rotationDeg * Math.PI) / 180;
+                        const cos = Math.abs(Math.cos(rad));
+                        const sin = Math.abs(Math.sin(rad));
+                        // Axis-aligned bounds after rotation (vertical row uses height as width).
+                        const halfW = (width * cos + height * sin) / 2;
+                        const halfH = (width * sin + height * cos) / 2;
+                        const isRow = node.classList.contains("comlab-row-node");
+                        const inset = isRow ? 4 : 0;
+                        return {
+                            halfW: Math.max(8, halfW - inset),
+                            halfH: Math.max(8, halfH - inset),
+                            isRow,
+                        };
+                    },
+
+                    clampNodeCenter(node, x, y, parentRect) {
+                        const { halfW, halfH, isRow } = this.getNodeDragHalfExtents(node);
+                        // Rows may sit nearly on the canvas edge; other nodes keep full half-size padding.
+                        const minX = isRow ? Math.min(halfW, parentRect.width * 0.02) : halfW;
+                        const maxX = isRow
+                            ? Math.max(parentRect.width - halfW, parentRect.width * 0.98)
+                            : parentRect.width - halfW;
+                        const minY = isRow ? Math.min(halfH, parentRect.height * 0.02) : halfH;
+                        const maxY = isRow
+                            ? Math.max(parentRect.height - halfH, parentRect.height * 0.98)
+                            : parentRect.height - halfH;
+
+                        return {
+                            x: Math.min(Math.max(x, Math.min(minX, maxX)), Math.max(minX, maxX)),
+                            y: Math.min(Math.max(y, Math.min(minY, maxY)), Math.max(minY, maxY)),
+                        };
+                    },
+
                     applyEquipmentActionFrame() {
                         this.equipmentActionRaf = 0;
                         const action = this.equipmentAction;
@@ -3433,23 +3740,31 @@
                         if (action.type === "drag") {
                             let x = action.startCenterX + dx;
                             let y = action.startCenterY + dy;
-                            const halfW = Math.max(10, (Number(node.dataset.width) || 120) / 2);
-                            const halfH = Math.max(10, (Number(node.dataset.height) || 96) / 2);
-
-                            x = Math.min(rect.width - halfW, Math.max(halfW, x));
-                            y = Math.min(rect.height - halfH, Math.max(halfH, y));
+                            const clamped = this.clampNodeCenter(node, x, y, rect);
+                            x = clamped.x;
+                            y = clamped.y;
 
                             node.style.left = x + "px";
                             node.style.top = y + "px";
                             node.dataset.x = Math.round((x / rect.width) * 100);
                             node.dataset.y = Math.round((y / rect.height) * 100);
+
+                            if (
+                                this.isComlabRoomLayout()
+                                && node.classList.contains('comlab-floor-node')
+                            ) {
+                                this.highlightComlabRowDropTarget(
+                                    this.findComlabRowAtClientPoint(event.clientX, event.clientY),
+                                );
+                            }
                         }
 
                         if (action.type === "resize") {
-                            const MIN_WIDTH = 20;
-                            const MAX_WIDTH = 220;
-                            const MIN_HEIGHT = 80;
-                            const MAX_HEIGHT = 220;
+                            const isRowNode = node.classList.contains("comlab-row-node");
+                            const MIN_WIDTH = isRowNode ? 120 : 20;
+                            const MAX_WIDTH = isRowNode ? 480 : 1000;
+                            const MIN_HEIGHT = isRowNode ? 40 : 20;
+                            const MAX_HEIGHT = isRowNode ? 120 : 1000;
                             const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
                             const localDx = dx * action.cos + dy * action.sin;
                             const localDy = -dx * action.sin + dy * action.cos;
@@ -3479,8 +3794,15 @@
                             let centerX = action.startCenterX + shiftWorldX;
                             let centerY = action.startCenterY + shiftWorldY;
 
-                            centerX = Math.min(rect.width - width / 2, Math.max(width / 2, centerX));
-                            centerY = Math.min(rect.height - height / 2, Math.max(height / 2, centerY));
+                            const prevW = node.dataset.width;
+                            const prevH = node.dataset.height;
+                            node.dataset.width = String(Math.round(width));
+                            node.dataset.height = String(Math.round(height));
+                            const clamped = this.clampNodeCenter(node, centerX, centerY, rect);
+                            node.dataset.width = prevW;
+                            node.dataset.height = prevH;
+                            centerX = clamped.x;
+                            centerY = clamped.y;
 
                             node.style.width = width + "px";
                             node.style.height = height + "px";
@@ -3494,6 +3816,9 @@
                         }
 
                         this.updateEquipmentRotateHandlePlacement(node);
+                        if (node.classList.contains('comlab-row-node')) {
+                            this.updateComlabRowRotateHandlePlacement(node);
+                        }
                     },
                     trackEquipmentAction(event) {
                         if (this.equipmentIsRotating) {
@@ -3566,16 +3891,65 @@
                         const top = parseFloat(node.style.top || "0") || 0;
                         const percentX = Math.round((left / rect.width) * 100);
                         const percentY = Math.round((top / rect.height) * 100);
+                        const isRowNode = node.classList.contains("comlab-row-node");
+                        const minPct = isRowNode ? 1 : 4;
+                        const maxPct = isRowNode ? 99 : 96;
 
-                        node.dataset.x = Math.min(96, Math.max(4, percentX));
-                        node.dataset.y = Math.min(96, Math.max(4, percentY));
+                        node.dataset.x = Math.min(maxPct, Math.max(minPct, percentX));
+                        node.dataset.y = Math.min(maxPct, Math.max(minPct, percentY));
                         node.dataset.width = parseInt(node.style.width || node.dataset.width || 120, 10);
                         node.dataset.height = parseInt(node.style.height || node.dataset.height || 96, 10);
                         this.syncEquipmentLabel(node);
 
+                        if (node.classList.contains("comlab-row-node")) {
+                            const row = (this.roomLayout.comlabRowLayouts || []).find(
+                                (entry) => entry.name === node.dataset.rowName,
+                            );
+                            if (row) {
+                                row.x = Number(node.dataset.x);
+                                row.y = Number(node.dataset.y);
+                                row.width = Number(node.dataset.width);
+                                row.height = Number(node.dataset.height);
+                                row.rotation = Number(node.dataset.rotation || 0);
+                            }
+                            node.style.left = node.dataset.x + "%";
+                            node.style.top = node.dataset.y + "%";
+                            this.equipmentAction = null;
+                            node.classList.remove("dragging");
+                            node.releasePointerCapture?.(event.pointerId);
+                            this.equipmentPendingDrag = null;
+                            this.layoutDirty = true;
+                            this.$nextTick(() => this.updateComlabRowRotateHandlePlacement(node));
+                            return;
+                        }
+
+                        const action = this.equipmentAction;
                         const item = this.roomLayout.equipment.find(
                             equipment => equipment.id === Number(node.dataset.equipmentId)
                         );
+
+                        if (
+                            item
+                            && this.isComlabRoomLayout()
+                            && node.classList.contains('comlab-floor-node')
+                            && action.type === 'drag'
+                        ) {
+                            const rowName = this.findComlabRowAtClientPoint(event.clientX, event.clientY);
+                            this.highlightComlabRowDropTarget(null);
+                            if (rowName) {
+                                this.assignEquipmentToComlabRow(item.id, rowName);
+                                this.selectedEquipmentId = null;
+                                this.roomLayout.selectedAssetId = null;
+                                this.selectComlabRowTable(rowName);
+                                this.equipmentAction = null;
+                                node.classList.remove("dragging");
+                                node.releasePointerCapture?.(event.pointerId);
+                                this.equipmentPendingDrag = null;
+                                this.layoutDirty = true;
+                                this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+                                return;
+                            }
+                        }
 
                         if (item) {
                             item.x = Number(node.dataset.x);
@@ -3583,7 +3957,19 @@
                             item.width = Number(node.dataset.width);
                             item.height = Number(node.dataset.height);
                             item.rotation = Number(node.dataset.rotation || 0);
+
+                            if (this.isComlabRoomLayout() && this.isComlabFloorEquipment(item)) {
+                                if (item._holding || item.placement_zone === 'Holding' || item.location === 'Holding') {
+                                    // Keep in holding; skip zone sync from drag of other nodes
+                                } else {
+                                    item.placement_zone = 'Floor';
+                                    item.location = 'Floor';
+                                    node.dataset.zone = 'Floor';
+                                }
+                            }
                         }
+
+                        this.highlightComlabRowDropTarget(null);
 
                         node.style.left = node.dataset.x + "%";
                         node.style.top = node.dataset.y + "%";
@@ -3676,7 +4062,9 @@
                             document.querySelector(
                                 `.room-equipment-node[data-equipment-id="${this.selectedEquipmentId}"]`,
                             );
-                        const canvas = this.$refs.roomInteriorCanvas;
+                        const canvas = this.isComlabRoomLayout()
+                            ? this.$refs.comlabInteriorCanvas
+                            : this.$refs.roomInteriorCanvas;
 
                         if (!itemNode || !canvas) {
                             this.equipmentRotateHandleSide = "bottom";
@@ -3684,7 +4072,9 @@
                         }
 
                         const padding = 8;
-                        const handleReserve = 62;
+                        const isFloorNode = itemNode.classList.contains('comlab-floor-node');
+                        // Floor markers keep a name label; reserve a bit more so the handle clears it.
+                        const handleReserve = isFloorNode ? 72 : 62;
                         const nodeRect = itemNode.getBoundingClientRect();
                         const canvasRect = canvas.getBoundingClientRect();
                         const clip = {
@@ -3699,7 +4089,9 @@
                             right: clip.right - nodeRect.right,
                             left: nodeRect.left - clip.left,
                         };
-                        const order = ["bottom", "top", "right", "left"];
+
+                        // Always prefer bottom; flip only when the canvas edge would cover the handle.
+                        const order = ['bottom', 'top', 'right', 'left'];
                         const fitting = order.find((side) => space[side] >= handleReserve);
                         const side =
                             fitting ||
@@ -3812,6 +4204,10 @@
                         this.equipmentLiveRotation = startRotation;
                         this.equipmentRotationDisplayAngle = this.formatRotationDisplay(startRotation);
                         document.body.classList.add("equipment-rotate-active-cursor");
+
+                        if (item.classList.contains('comlab-floor-node')) {
+                            this._comlabFloorDidDrag = true;
+                        }
 
                         event.currentTarget.setPointerCapture?.(event.pointerId);
                     },
@@ -4745,7 +5141,7 @@
 
                             condition: "Good",
 
-                            zone: "Front Wall",
+                            zone: "Holding",
                         });
 
                         this.$nextTick(() => {
@@ -5072,6 +5468,7 @@
                             : 1;
 
                         this.wizardOpen = true;
+                        this.wizardFullscreen = false;
 
                         this.wizardHasLocalChanges = false;
                         this.step3ValidationAttempted = false;
@@ -5083,6 +5480,20 @@
                                 lucide.createIcons();
                             }
                         });
+                    },
+
+                    toggleWizardFullscreen() {
+                        this.wizardFullscreen = !this.wizardFullscreen;
+                        this.$nextTick(() => {
+                            if (window.lucide) lucide.createIcons();
+                        });
+                    },
+
+                    closeCampusWizard() {
+                        this.wizardOpen = false;
+                        this.wizardFullscreen = false;
+                        this.step = 1;
+                        this.loadCampus();
                     },
                     
                     // =====================================
@@ -5135,40 +5546,76 @@
 
                     },
                     syncEquipmentZone(node) {
-                        const item = this.roomLayout.equipment.find(
-                            (equipment) => equipment.id === +node.dataset.equipmentId,
-                        );
+                        const ids = String(node.dataset.groupIds || node.dataset.equipmentId || '')
+                            .split(',')
+                            .map((value) => Number(value))
+                            .filter((value) => Number.isFinite(value) && value > 0);
 
-                        if (!item) return null;
+                        if (!ids.length) return null;
 
-                        item.x = +node.dataset.x;
-                        item.y = +node.dataset.y;
+                        const x = +node.dataset.x;
+                        const y = +node.dataset.y;
+                        const width = +node.dataset.width || 140;
+                        const isFloorNode = node.classList.contains('comlab-floor-node');
+                        const height = isFloorNode
+                            ? Math.max(20, +node.dataset.height || 40)
+                            : Math.max(80, +node.dataset.height || 96);
+                        const rotation = +node.dataset.rotation || 0;
+                        // Keep organizational zone separate from exact X/Y drag position.
+                        const preservedZone = node.dataset.zone || null;
 
-                        const zone = this.detectEquipmentZone(item.x, item.y);
+                        let firstItem = null;
 
-                        item.location = zone;
-                        item.placement_zone = zone;
-                        
-                        node.dataset.zone = zone;
+                        ids.forEach((id) => {
+                            const item = this.roomLayout.equipment.find(
+                                (equipment) => equipment.id === id,
+                            );
 
-                        const room = this.roomCatalog.find(
-                            (room) => room.id === this.roomLayout.id,
-                        );
+                            if (!item) return;
 
-                        const catalogItem = room?.equipment?.find(
-                            (equipment) => equipment.id === item.id,
-                        );
+                            item.x = x;
+                            item.y = y;
+                            item.width = width;
+                            item.height = height;
+                            item.rotation = rotation;
 
-                        if (catalogItem && catalogItem !== item) {
-                            Object.assign(catalogItem, {
-                                x: item.x,
-                                y: item.y,
-                                location: zone,
-                                placement_zone: zone,
-                            });
-                        }
+                            const zone = this.isComlabRoomLayout() && this.isComlabFloorEquipment(item)
+                                ? null
+                                : (item.placement_zone
+                                    || item.location
+                                    || preservedZone
+                                    || this.detectEquipmentZone(x, y));
 
-                        return item;
+                            item.location = zone;
+                            item.placement_zone = zone;
+                            node.dataset.zone = zone || '';
+
+                            if (!firstItem) {
+                                firstItem = item;
+                            }
+
+                            const room = this.roomCatalog.find(
+                                (room) => room.id === this.roomLayout.id,
+                            );
+
+                            const catalogItem = room?.equipment?.find(
+                                (equipment) => equipment.id === id,
+                            );
+
+                            if (catalogItem && catalogItem !== item) {
+                                Object.assign(catalogItem, {
+                                    x: item.x,
+                                    y: item.y,
+                                    width: item.width,
+                                    height: item.height,
+                                    rotation: item.rotation,
+                                    location: zone,
+                                    placement_zone: zone,
+                                });
+                            }
+                        });
+
+                        return firstItem;
                     },
                     
                     getLayoutZoom() {
@@ -5719,6 +6166,14 @@
                                     body: JSON.stringify({
                                         floor_id: floorBeingSaved,
 
+                                        ...(this.roomLayout.open && this.isComlabRoomLayout()
+                                            ? {
+                                                comlab_room_id: this.roomLayout.id,
+                                                comlab_rows: (this.roomLayout.comlabRowLayouts || []).map((entry) => entry.name),
+                                                comlab_row_layouts: this.roomLayout.comlabRowLayouts || [],
+                                            }
+                                            : {}),
+
                                         rooms: nodes.map((n) => {
                                             const rawRotation = Number(n.dataset.rotation || 0);
                                             const normalizedRotation = ((rawRotation % 360) + 360) % 360;
@@ -5740,7 +6195,34 @@
                                             };
                                         }),
 
-                                        equipment: [
+                                        equipment: this.roomLayout.open
+                                            ? this.roomLayout.equipment.map((item) => {
+                                                const isFloor = this.isComlabRoomLayout() && this.isComlabFloorEquipment(item)
+                                                    && !item._holding
+                                                    && item.placement_zone !== 'Holding'
+                                                    && item.location !== 'Holding';
+                                                const holding = !!item._holding
+                                                    || item.placement_zone === 'Holding'
+                                                    || item.location === 'Holding';
+                                                const zone = holding
+                                                    ? 'Holding'
+                                                    : (isFloor
+                                                        ? null
+                                                        : (item.placement_zone
+                                                            || item.location
+                                                            || this.detectEquipmentZone(+item.x, +item.y)));
+
+                                                return {
+                                                    id: +item.id,
+                                                    x: holding ? 0 : Math.round(Number(item.x) || 0),
+                                                    y: holding ? 0 : Math.round(Number(item.y) || 0),
+                                                    width: +item.width || 120,
+                                                    height: +item.height || 96,
+                                                    rotation: Math.round((((Number(item.rotation) || 0) % 360) + 360) % 360),
+                                                    zone,
+                                                };
+                                            })
+                                            : [
                                             ...document.querySelectorAll(
                                                 ".room-equipment-node",
                                             ),
@@ -5781,6 +6263,11 @@
                                             ...item,
                                         }),
                                     );
+
+                                    if (this.isComlabRoomLayout()) {
+                                        room.comlab_rows = (this.roomLayout.comlabRowLayouts || []).map((entry) => entry.name);
+                                        room.comlab_row_layouts = JSON.parse(JSON.stringify(this.roomLayout.comlabRowLayouts || []));
+                                    }
                                 }
                             }
 
@@ -5988,22 +6475,1382 @@
                     // =====================================
 
                     zonePosition(location) {
+                        const zone = String(location || '').trim();
                         const zones = {
+                            Holding: { x: 50, y: 90 },
+                            Floor: { x: 78, y: 52 },
+                            "Row 1": { x: 38, y: 28 },
+                            "Row 2": { x: 38, y: 48 },
+                            "Row 3": { x: 38, y: 68 },
                             "Front Wall": { x: 50, y: 12 },
-
                             "Rear Wall": { x: 50, y: 88 },
-
                             "Center Ceiling": { x: 50, y: 48 },
-
                             "Left Row Pods": { x: 18, y: 55 },
-
                             "Right Row Pods": { x: 82, y: 55 },
-
                             Storage: { x: 90, y: 90 },
                         };
 
-                        return zones[location] ?? { x: 50, y: 50 };
+                        if (zones[zone]) return zones[zone];
+                        const rowMatch = zone.match(/^Row\s+(\d+)$/i);
+                        if (rowMatch) {
+                            const n = Math.max(1, Number(rowMatch[1]) || 1);
+                            return { x: 38, y: Math.min(78, 20 + n * 18) };
+                        }
+                        return { x: 50, y: 50 };
                     },
+
+                    /** Placement options for Add/Assign/Edit equipment — matches room interior layout. */
+                    placementZonesForRoom(roomId, currentZone = null) {
+                        const room = this.roomCatalog.find((item) => item.id === roomId);
+                        const fromLayouts = Array.isArray(room?.comlab_row_layouts)
+                            ? room.comlab_row_layouts.map((entry) => entry.name).filter(Boolean)
+                            : [];
+                        const fromNames = Array.isArray(room?.comlab_rows)
+                            ? room.comlab_rows.filter(Boolean)
+                            : [];
+                        const rows = (fromLayouts.length ? fromLayouts : fromNames);
+                        const zones = ['Holding', 'Floor', ...rows];
+                        const current = String(currentZone || '').trim();
+                        if (current && !zones.includes(current)) {
+                            zones.push(current);
+                        }
+                        return zones;
+                    },
+
+                    /** Display label for placement values (value stays "Holding" in data). */
+                    placementZoneLabel(zone) {
+                        const value = String(zone || '').trim();
+                        if (value === 'Holding') return 'Holding Area';
+                        return value || '—';
+                    },
+
+                    isComlabRoom(name) {
+                        return /computer\s*laboratory/i.test(String(name || ''));
+                    },
+
+                    /** Row-table interior layout for every loose-equipment room (comlabs + lecture/HM/library/etc.).
+                     *  Must not depend on roomLayout.open — that flips false during the close fade and briefly
+                     *  reveals the legacy LEFT/RIGHT ROW PODS canvas behind the comlab UI. */
+                    isComlabRoomLayout() {
+                        return true;
+                    },
+
+                    isComputerLabLayout() {
+                        if (!this.isComlabRoomLayout()) return false;
+                        return this.isComlabRoom(this.roomLayout.name)
+                            || this.isComlabRoom(this.roomLayout.type);
+                    },
+
+                    roomLayoutHint() {
+                        if (!this.isComlabRoomLayout()) {
+                            return 'Drag equipment inside the room, then save to apply your changes.';
+                        }
+                        if (this.roomLayout.edit) {
+                            return 'Drag row tables to arrange. Drop any equipment on rows, or place icons on the floor.';
+                        }
+                        return this.isComputerLabLayout()
+                            ? 'Select a row and click Open to browse computer sets and equipment.'
+                            : 'Select a row and click Open to browse equipment, or select floor icons.';
+                    },
+
+                    isComlabRowZone(zone) {
+                        return /^Row\s+\d+$/i.test(String(zone || '').trim());
+                    },
+
+                    legacyZoneToComlabRow(zone) {
+                        const map = {
+                            'Left Row Pods': 'Row 1',
+                            'Center Ceiling': 'Row 2',
+                            'Right Row Pods': 'Row 3',
+                        };
+                        return map[zone] || null;
+                    },
+
+                    initComlabLayout(room) {
+                        const catalogRoom = this.roomCatalog.find((item) => item.id === room.id);
+                        const savedNames = catalogRoom?.comlab_rows || room.comlab_rows;
+                        const savedLayouts = catalogRoom?.comlab_row_layouts || room.comlab_row_layouts;
+                        const isLab = this.isComputerLabLayout();
+
+                        // Only restore rows the user previously saved — never auto-create tables
+                        if (Array.isArray(savedLayouts) && savedLayouts.length) {
+                            this.roomLayout.comlabRowLayouts = savedLayouts.map((entry) => ({
+                                name: entry.name,
+                                x: Number(entry.x ?? 50),
+                                y: Number(entry.y ?? 50),
+                                width: Number(entry.width ?? 280),
+                                height: Number(entry.height ?? 56),
+                                rotation: Number(entry.rotation ?? 0),
+                            }));
+                            this.roomLayout.comlabRows = this.roomLayout.comlabRowLayouts.map((entry) => entry.name);
+                        } else if (Array.isArray(savedNames) && savedNames.length) {
+                            this.roomLayout.comlabRows = [...savedNames];
+                            this.roomLayout.comlabRowLayouts = this.buildDefaultComlabRowLayouts(savedNames);
+                        } else {
+                            this.roomLayout.comlabRows = [];
+                            this.roomLayout.comlabRowLayouts = [];
+                        }
+
+                        this.roomLayout.comlabNav = 'rows';
+                        this.roomLayout.selectedComlabRow = null;
+                        this.roomLayout.selectedComlabRowTable = null;
+                        this.selectedComlabRowTable = null;
+                        this.roomLayout.comlabSetCarouselIndex = 0;
+
+                        this.roomLayout.equipment.forEach((item) => {
+                            const zone = item.placement_zone || item.location || '';
+
+                            if (zone === 'Holding' || item._holding) {
+                                item._holding = true;
+                                item.placement_zone = 'Holding';
+                                item.location = 'Holding';
+                                return;
+                            }
+
+                            if (zone === 'Floor') {
+                                item._holding = false;
+                                item.placement_zone = 'Floor';
+                                item.location = 'Floor';
+                                const fx = Number(item.x);
+                                const fy = Number(item.y);
+                                if (!Number.isFinite(fx) || !Number.isFinite(fy) || (fx === 0 && fy === 0) || (fx === 40 && fy === 40)) {
+                                    item.x = 50;
+                                    item.y = 55;
+                                }
+                                const w = Number(item.width || 0);
+                                const h = Number(item.height || 0);
+                                const isLegacyCard = w >= 120 && w <= 160 && h >= 80 && h <= 110;
+                                if (!w || w < 24 || w > 1000 || isLegacyCard) item.width = isLegacyCard ? 64 : (w > 1000 ? 1000 : 64);
+                                if (!h || h < 24 || h > 1000 || isLegacyCard) item.height = isLegacyCard ? 64 : (h > 1000 ? 1000 : 64);
+                                return;
+                            }
+
+                            if (!this.isComlabRowZone(zone)) {
+                                const mapped = isLab ? this.legacyZoneToComlabRow(zone) : null;
+                                if (mapped) {
+                                    item.placement_zone = mapped;
+                                    item.location = mapped;
+                                } else if (
+                                    zone &&
+                                    zone !== 'Holding' &&
+                                    !isLab &&
+                                    this.legacyZoneToComlabRow(zone)
+                                ) {
+                                    // Decorative zones from the old canvas → free floor placement
+                                    item.placement_zone = null;
+                                    item.location = null;
+                                }
+                            }
+
+                            if (this.isComlabRowZone(item.placement_zone || item.location || '')) {
+                                item._holding = false;
+                                return;
+                            }
+
+                            if (this.isFloorEquipmentType(item)) {
+                                const hasPos =
+                                    item.x != null &&
+                                    item.y != null &&
+                                    !(Number(item.x) === 40 && Number(item.y) === 40) &&
+                                    !(Number(item.x) === 0 && Number(item.y) === 0) &&
+                                    item.placement_zone !== 'Holding' &&
+                                    item.location !== 'Holding';
+
+                                if (!hasPos || item._holding) {
+                                    item._holding = true;
+                                    item.placement_zone = 'Holding';
+                                    item.location = 'Holding';
+                                } else {
+                                    item._holding = false;
+                                    if (!item.placement_zone && !item.location) {
+                                        item.placement_zone = 'Floor';
+                                        item.location = 'Floor';
+                                    }
+                                }
+
+                                // Keep valid sizes (incl. user-resized up to 1000). Only fix missing/invalid or legacy bulky cards.
+                                const w = Number(item.width || 0);
+                                const h = Number(item.height || 0);
+                                const isLegacyCard = w >= 120 && w <= 160 && h >= 80 && h <= 110;
+                                if (!w || w < 24 || w > 1000 || isLegacyCard) item.width = isLegacyCard ? 64 : (w > 1000 ? 1000 : 64);
+                                if (!h || h < 24 || h > 1000 || isLegacyCard) item.height = isLegacyCard ? 64 : (h > 1000 ? 1000 : 64);
+                            }
+                        });
+                    },
+
+                    buildDefaultComlabRowLayouts(names) {
+                        const total = Math.max(names.length, 1);
+                        return names.map((name, index) => ({
+                            name,
+                            x: 50,
+                            y: Math.round(20 + (index * (55 / total))),
+                            width: 300,
+                            height: 56,
+                            rotation: 0,
+                        }));
+                    },
+
+                    isFloorEquipmentType(item) {
+                        // Non-lab rooms: every asset can sit on the floor as an icon marker
+                        if (!this.isComputerLabLayout()) {
+                            return true;
+                        }
+
+                        const name = typeof item === 'string' ? item : item?.name;
+                        const cat = this.equipmentVisualCategory(name);
+                        // Only computer-set parts belong in row tables for comlabs
+                        if (['monitor', 'mouse', 'keyboard', 'system_unit', 'power'].includes(cat)) {
+                            return false;
+                        }
+                        return true;
+                    },
+
+                    isComlabFloorEquipment(item) {
+                        const zone = (typeof item === 'object' && item)
+                            ? (item.placement_zone || item.location || '')
+                            : '';
+
+                        if (zone === 'Holding') return false;
+                        if (zone === 'Floor') return true;
+
+                        // Items already assigned to a row table are never floor markers
+                        if (this.isComlabRowZone(zone)) {
+                            return false;
+                        }
+
+                        return this.isFloorEquipmentType(item);
+                    },
+
+                    isComlabRowAssignedSetItem(item) {
+                        const zone = item.placement_zone || item.location || '';
+                        return this.isComlabRowZone(zone);
+                    },
+
+                    comlabRowItemsLabel(rowName) {
+                        const items = this.equipmentInComlabRow(rowName);
+                        if (this.isComputerLabLayout()) {
+                            const summary = this.comlabRowSummary(rowName);
+                            const parts = [];
+                            parts.push(
+                                summary.setCount === 1
+                                    ? '1 Computer Set'
+                                    : `${summary.setCount} Computer Sets`,
+                            );
+                            if (summary.otherCount > 0) {
+                                parts.push(
+                                    summary.otherCount === 1
+                                        ? '1 Item'
+                                        : `${summary.otherCount} Items`,
+                                );
+                            }
+                            return parts.join(' · ');
+                        }
+                        const total = items.reduce((sum, item) => sum + (Number(item.quantity) || 1), 0);
+                        return total === 1 ? '1 Item' : `${total} Items`;
+                    },
+
+                    comlabCanvasEquipment() {
+                        return (this.roomLayout.equipment || []).filter((item) => {
+                            if (!this.isComlabFloorEquipment(item)) return false;
+                            if (item._holding || item.placement_zone === 'Holding' || item.location === 'Holding') {
+                                return false;
+                            }
+                            return true;
+                        });
+                    },
+
+                    comlabDraggableSetItems() {
+                        return (this.roomLayout.equipment || []).filter((item) => {
+                            if (this.isComlabFloorEquipment(item)) {
+                                return false;
+                            }
+                            const zone = item.placement_zone || item.location || '';
+                            return !this.isComlabRowZone(zone);
+                        });
+                    },
+
+                    comlabDraggableFloorItems() {
+                        return (this.roomLayout.equipment || []).filter((item) => {
+                            if (!this.isComlabFloorEquipment(item)) return false;
+                            return !!item._holding || item.placement_zone === 'Holding' || item.location === 'Holding';
+                        });
+                    },
+
+                    comlabHoldingItems() {
+                        return [...this.comlabDraggableSetItems(), ...this.comlabDraggableFloorItems()];
+                    },
+
+                    comlabHoldingPerPage() {
+                        return 6;
+                    },
+
+                    comlabHoldingPages() {
+                        const items = this.comlabHoldingItems();
+                        const per = this.comlabHoldingPerPage();
+                        const pages = [];
+                        for (let i = 0; i < items.length; i += per) {
+                            pages.push(items.slice(i, i + per));
+                        }
+                        return pages.length ? pages : [[]];
+                    },
+
+                    comlabHoldingPageCount() {
+                        return Math.max(1, this.comlabHoldingPages().length);
+                    },
+
+                    comlabHoldingPrev() {
+                        const max = this.comlabHoldingPageCount();
+                        if (max <= 1) return;
+                        this.roomLayout.comlabHoldingPage =
+                            (this.roomLayout.comlabHoldingPage - 1 + max) % max;
+                        this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+                    },
+
+                    comlabHoldingNext() {
+                        const max = this.comlabHoldingPageCount();
+                        if (max <= 1) return;
+                        this.roomLayout.comlabHoldingPage =
+                            (this.roomLayout.comlabHoldingPage + 1) % max;
+                        this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+                    },
+
+                    selectComlabRowTable(name) {
+                        this.selectedComlabRowTable = name;
+                        this.selectedEquipmentId = null;
+                        this.$nextTick(() => {
+                            this.updateComlabRowRotateHandlePlacement();
+                            if (window.lucide) lucide.createIcons();
+                        });
+                    },
+
+                    selectComlabFloorEquipment(id) {
+                        this.selectedComlabRowTable = null;
+                        this.roomLayout.selectedComlabRow = null;
+                        this.roomLayout.selectedAssetId = id;
+                        // Stay on room layout — never open the row page for floor items
+                        this.roomLayout.comlabNav = 'rows';
+                        if (this.roomLayout.edit) {
+                            this.selectEquipment(id);
+                        } else {
+                            this.selectedEquipmentId = null;
+                        }
+                        this.$nextTick(() => {
+                            this.updateEquipmentRotateHandlePlacement();
+                            if (window.lucide) lucide.createIcons();
+                        });
+                    },
+
+                    deselectComlabFloorEquipment() {
+                        this.roomLayout.selectedAssetId = null;
+                        if (this.roomLayout.edit) {
+                            this.selectEquipment(null);
+                        } else {
+                            this.selectedEquipmentId = null;
+                        }
+                        this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+                    },
+
+                    clearComlabCanvasSelection() {
+                        this.selectedComlabRowTable = null;
+                        this.deselectComlabFloorEquipment();
+                    },
+
+                    onComlabFloorPointerDown(event, id) {
+                        this._comlabFloorPointerSelected = false;
+                        this._comlabFloorDidDrag = false;
+
+                        if (this.roomLayout.edit) {
+                            if (this.selectedEquipmentId !== id) {
+                                this.selectComlabFloorEquipment(id);
+                                this._comlabFloorPointerSelected = true;
+                            }
+                            this.handleEquipmentPointerDown(event, id);
+                            return;
+                        }
+
+                        // View mode: select on pointer down; click may toggle off
+                        if (this.roomLayout.selectedAssetId !== id) {
+                            this.selectComlabFloorEquipment(id);
+                            this._comlabFloorPointerSelected = true;
+                        }
+                    },
+
+                    onComlabFloorClick(id) {
+                        if (this._comlabFloorPointerSelected) {
+                            this._comlabFloorPointerSelected = false;
+                            return;
+                        }
+                        if (this._comlabFloorDidDrag) {
+                            this._comlabFloorDidDrag = false;
+                            return;
+                        }
+
+                        const isSelected = this.roomLayout.edit
+                            ? this.selectedEquipmentId === id
+                            : this.roomLayout.selectedAssetId === id;
+
+                        if (isSelected) {
+                            this.deselectComlabFloorEquipment();
+                        } else {
+                            this.selectComlabFloorEquipment(id);
+                        }
+                    },
+
+                    shortEquipmentName(name) {
+                        const raw = String(name || '').trim();
+                        if (!raw) return 'Equipment';
+
+                        const cat = this.equipmentVisualCategory(name);
+                        const labels = {
+                            chair: 'Chair',
+                            table: 'Table',
+                            whiteboard: 'Whiteboard',
+                            curtain: 'Curtain',
+                            fan: 'Fan',
+                            aircon: 'AirConditioner',
+                            tv: 'TV',
+                            projector: 'Projector',
+                            monitor: 'Monitor',
+                            mouse: 'Mouse',
+                            keyboard: 'Keyboard',
+                            system_unit: 'System Unit',
+                            power: 'UPS/AVR',
+                            network: 'Ethernet',
+                            bulb: 'Bulb',
+                            printer: 'Printer',
+                        };
+                        if (labels[cat]) return labels[cat];
+
+                        const cleaned = raw
+                            .replace(/\b(floor|wall|ceiling|mounted|mount|inverter|standing|split|type|window|long|short|the|a|an|lcd|led|flat|screen|office|classroom|laboratory|electric|compact|fluorescent|light)\b/gi, ' ')
+                            .replace(/[^a-zA-Z0-9\s]/g, ' ')
+                            .replace(/\s+/g, ' ')
+                            .trim();
+
+                        if (!cleaned) {
+                            return raw.split(/\s+/).pop() || 'Equipment';
+                        }
+
+                        const parts = cleaned.split(/\s+/).slice(-2);
+                        return parts.map((part) =>
+                            part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()
+                        ).join(' ');
+                    },
+
+                    comlabFloorLabelSide(item) {
+                        const x = Number(item?.x ?? 50);
+                        const y = Number(item?.y ?? 50);
+                        const isSelected =
+                            this.roomLayout?.edit
+                            && this.selectedEquipmentId === item?.id;
+                        const rotateSide = isSelected
+                            ? (this.equipmentRotateHandleSide || 'bottom')
+                            : null;
+
+                        // Keep the name label opposite the rotate handle so they don't overlap.
+                        if (rotateSide === 'bottom') {
+                            if (y > 14) return 'top';
+                            if (x <= 50) return 'right';
+                            return 'left';
+                        }
+                        if (rotateSide === 'top') {
+                            if (y < 86) return 'bottom';
+                            if (x <= 50) return 'right';
+                            return 'left';
+                        }
+                        if (rotateSide === 'left') {
+                            if (x < 90) return 'right';
+                            return y < 50 ? 'bottom' : 'top';
+                        }
+                        if (rotateSide === 'right') {
+                            if (x > 10) return 'left';
+                            return y < 50 ? 'bottom' : 'top';
+                        }
+
+                        if (y >= 88) return 'top';
+                        if (y <= 12) return 'bottom';
+                        if (x <= 10) return 'right';
+                        if (x >= 90) return 'left';
+                        return 'bottom';
+                    },
+
+                    comlabFloorLabelStyle(item) {
+                        const rotation = this.liveEquipmentRotation
+                            ? this.liveEquipmentRotation(item)
+                            : Number(item?.rotation || 0);
+                        const side = this.comlabFloorLabelSide(item);
+                        const gap = 6;
+
+                        if (side === 'top') {
+                            return `left:50%; bottom:calc(100% + ${gap}px); transform:translateX(-50%) rotate(${-rotation}deg); transform-origin:center bottom;`;
+                        }
+                        if (side === 'left') {
+                            return `right:calc(100% + ${gap}px); top:50%; transform:translateY(-50%) rotate(${-rotation}deg); transform-origin:right center;`;
+                        }
+                        if (side === 'right') {
+                            return `left:calc(100% + ${gap}px); top:50%; transform:translateY(-50%) rotate(${-rotation}deg); transform-origin:left center;`;
+                        }
+                        return `left:50%; top:calc(100% + ${gap}px); transform:translateX(-50%) rotate(${-rotation}deg); transform-origin:center top;`;
+                    },
+
+                    openComlabRowDetail(row) {
+                        this.selectComlabRow(row);
+                    },
+
+                    handleComlabRowPointerDown(event, rowName) {
+                        if (!this.roomLayout.edit) {
+                            this.selectComlabRowTable(rowName);
+                            return;
+                        }
+                        if (event.button !== 0) return;
+                        event.preventDefault();
+
+                        const node = event.currentTarget;
+                        const target = event.target instanceof Element ? event.target : event.target.parentElement;
+                        const resizeHandle = target?.closest('.resize-grip');
+                        const rotateHandle = target?.closest('.rotate-equipment-handle-cursor');
+
+                        this.selectComlabRowTable(rowName);
+                        this.selectedEquipmentId = null;
+
+                        if (rotateHandle) {
+                            this.beginComlabRowRotation(event, rowName);
+                            return;
+                        }
+
+                        if (resizeHandle) {
+                            this.beginEquipmentResize(event, node, resizeHandle);
+                            return;
+                        }
+
+                        this.equipmentPendingDrag = {
+                            node,
+                            pointerId: event.pointerId,
+                            startX: event.clientX,
+                            startY: event.clientY,
+                        };
+                    },
+
+                    beginComlabRowRotation(event, rowName) {
+                        if (!this.roomLayout.edit) return;
+                        this.selectComlabRowTable(rowName);
+                        const item = document.querySelector(`.comlab-row-node[data-row-name="${rowName}"]`);
+                        if (!item) return;
+
+                        this.equipmentPendingDrag = null;
+                        if (this.equipmentAction) {
+                            this.endEquipmentAction(event);
+                        }
+
+                        const center = this.getEquipmentCenterClient(item);
+                        const startRotation = Number(item.dataset.rotation || 0);
+                        const startMouseAngle = Math.atan2(event.clientY - center.y, event.clientX - center.x) * (180 / Math.PI);
+
+                        this.comlabRowRotationDrag = {
+                            node: item,
+                            rowName,
+                            pointerId: event.pointerId,
+                            startRotation,
+                            startMouseAngle,
+                            handleElement: event.currentTarget,
+                        };
+                        this.comlabRowIsRotating = true;
+                        this.comlabRowLiveRotation = startRotation;
+                        this.comlabRowRotationDisplayAngle = this.formatRotationDisplay(startRotation);
+                        document.body.classList.add('equipment-rotate-active-cursor');
+                        event.currentTarget.setPointerCapture?.(event.pointerId);
+                    },
+
+                    trackComlabRowRotation(event) {
+                        if (!this.comlabRowRotationDrag || event.pointerId !== this.comlabRowRotationDrag.pointerId) {
+                            return;
+                        }
+                        const { node, startRotation, startMouseAngle } = this.comlabRowRotationDrag;
+                        const center = this.getEquipmentCenterClient(node);
+                        const mouseAngle = Math.atan2(event.clientY - center.y, event.clientX - center.x) * (180 / Math.PI);
+                        let delta = mouseAngle - startMouseAngle;
+                        if (delta > 180) delta -= 360;
+                        else if (delta < -180) delta += 360;
+                        const value = startRotation + delta;
+                        node.dataset.rotation = value;
+                        node.style.transform = `translate(-50%,-50%) rotate(${value}deg)`;
+                        this.comlabRowLiveRotation = value;
+                        this.comlabRowRotationDisplayAngle = this.formatRotationDisplay(value);
+
+                        const row = (this.roomLayout.comlabRowLayouts || []).find(
+                            (entry) => entry.name === this.comlabRowRotationDrag.rowName,
+                        );
+                        if (row) {
+                            // Keep handle outside while rotating by refreshing side occasionally
+                            this.updateComlabRowRotateHandlePlacement(node, true);
+                        }
+                    },
+
+                    endComlabRowRotation(event) {
+                        if (!this.comlabRowRotationDrag || event.pointerId !== this.comlabRowRotationDrag.pointerId) {
+                            return;
+                        }
+                        const { node, rowName } = this.comlabRowRotationDrag;
+                        const finalRotation = this.normalizeRotation(Number(node.dataset.rotation || 0));
+                        node.dataset.rotation = finalRotation;
+                        node.style.transform = `translate(-50%,-50%) rotate(${finalRotation}deg)`;
+                        const row = (this.roomLayout.comlabRowLayouts || []).find((entry) => entry.name === rowName);
+                        if (row) {
+                            row.rotation = finalRotation;
+                        }
+                        this.comlabRowRotationDrag.handleElement?.releasePointerCapture?.(event.pointerId);
+                        this.comlabRowRotationDrag = null;
+                        this.comlabRowIsRotating = false;
+                        this.comlabRowLiveRotation = null;
+                        this.comlabRowRotationDisplayAngle = this.formatRotationDisplay(finalRotation);
+                        document.body.classList.remove('equipment-rotate-active-cursor');
+                        this.layoutDirty = true;
+                        this.$nextTick(() => this.updateComlabRowRotateHandlePlacement(node));
+                    },
+
+                    liveComlabRowRotation(row) {
+                        if (
+                            this.comlabRowIsRotating &&
+                            this.selectedComlabRowTable === row?.name &&
+                            this.comlabRowLiveRotation != null
+                        ) {
+                            return this.comlabRowLiveRotation;
+                        }
+                        return Number(row?.rotation || 0);
+                    },
+
+                    comlabRowRotateGimbalStyle(row) {
+                        const rotation = this.liveComlabRowRotation(row);
+                        return `transform:translate(-50%,-50%) rotate(${-rotation}deg)`;
+                    },
+
+                    comlabRowRotateHandleStyle(row) {
+                        return this.buildComlabRowRotateHandleStyle(
+                            row,
+                            this.comlabRowRotateHandleSide || 'bottom',
+                        );
+                    },
+
+                    buildComlabRowRotateHandleStyle(row, side = 'bottom') {
+                        const rotation = this.liveComlabRowRotation(row);
+                        const width = Number(row?.width || 280);
+                        const height = Number(row?.height || 56);
+                        const rad = (rotation * Math.PI) / 180;
+                        const aabbWidth =
+                            Math.abs(width * Math.cos(rad)) +
+                            Math.abs(height * Math.sin(rad));
+                        const aabbHeight =
+                            Math.abs(width * Math.sin(rad)) +
+                            Math.abs(height * Math.cos(rad));
+                        const handleSize = this.comlabRowIsRotating ? 44 : 36;
+                        const gap = 18;
+                        const offsetX = aabbWidth / 2 + gap;
+                        const offsetY = aabbHeight / 2 + gap;
+
+                        if (side === 'top') {
+                            return `left:0;top:${-(offsetY + handleSize)}px;transform:translateX(-50%)`;
+                        }
+                        if (side === 'right') {
+                            return `left:${offsetX}px;top:0;transform:translateY(-50%)`;
+                        }
+                        if (side === 'left') {
+                            return `left:${-(offsetX + handleSize)}px;top:0;transform:translateY(-50%)`;
+                        }
+                        return `left:0;top:${offsetY}px;transform:translateX(-50%)`;
+                    },
+
+                    updateComlabRowRotateHandlePlacement(node = null, whileRotating = false) {
+                        if (!this.roomLayout?.edit || !this.selectedComlabRowTable) {
+                            this.comlabRowRotateHandleSide = 'bottom';
+                            return;
+                        }
+
+                        const itemNode =
+                            node ||
+                            document.querySelector(
+                                `.comlab-row-node[data-row-name="${this.selectedComlabRowTable}"]`,
+                            );
+                        const canvas = this.$refs.comlabInteriorCanvas;
+
+                        if (!itemNode || !canvas) {
+                            this.comlabRowRotateHandleSide = 'bottom';
+                            return;
+                        }
+
+                        const padding = 8;
+                        const handleReserve = whileRotating ? 72 : 58;
+                        const nodeRect = itemNode.getBoundingClientRect();
+                        const canvasRect = canvas.getBoundingClientRect();
+                        const clip = {
+                            top: canvasRect.top + padding,
+                            right: canvasRect.right - padding,
+                            bottom: canvasRect.bottom - padding,
+                            left: canvasRect.left + padding,
+                        };
+                        const space = {
+                            bottom: clip.bottom - nodeRect.bottom,
+                            top: nodeRect.top - clip.top,
+                            right: clip.right - nodeRect.right,
+                            left: nodeRect.left - clip.left,
+                        };
+                        const order = ['bottom', 'top', 'right', 'left'];
+                        const fitting = order.find((side) => space[side] >= handleReserve);
+                        const side =
+                            fitting ||
+                            order.reduce((best, current) =>
+                                space[current] > space[best] ? current : best,
+                            );
+
+                        const row = (this.roomLayout.comlabRowLayouts || []).find(
+                            (entry) => entry.name === this.selectedComlabRowTable,
+                        ) || {
+                            width: itemNode.dataset.width,
+                            height: itemNode.dataset.height,
+                            rotation: itemNode.dataset.rotation,
+                            name: this.selectedComlabRowTable,
+                        };
+
+                        // Prefer live dataset size/rotation while dragging/rotating
+                        const styleSource = {
+                            name: row.name,
+                            width: Number(itemNode.dataset.width || row.width || 280),
+                            height: Number(itemNode.dataset.height || row.height || 56),
+                            rotation: Number(itemNode.dataset.rotation || row.rotation || 0),
+                        };
+
+                        this.comlabRowRotateHandleSide = side;
+
+                        const handle = itemNode.querySelector('.rotate-equipment-handle-cursor');
+                        if (handle) {
+                            handle.setAttribute('style', this.buildComlabRowRotateHandleStyle(styleSource, side));
+                        }
+                    },
+
+                    comlabDropOnCanvas(event) {
+                        if (!this.roomLayout.edit) return;
+                        const id = Number(event.dataTransfer.getData('equipmentId'));
+                        if (!id) return;
+                        const item = this.roomLayout.equipment.find((entry) => entry.id === id);
+                        if (!item) return;
+                        // Labs: only floor gear. Other rooms: any equipment can sit on the floor as an icon.
+                        if (this.isComputerLabLayout() && !this.isFloorEquipmentType(item)) return;
+
+                        const canvas = this.$refs.comlabInteriorCanvas;
+                        if (!canvas) return;
+                        const rect = canvas.getBoundingClientRect();
+                        const x = Math.round(((event.clientX - rect.left) / rect.width) * 100);
+                        const y = Math.round(((event.clientY - rect.top) / rect.height) * 100);
+
+                        item.x = Math.min(96, Math.max(4, x));
+                        item.y = Math.min(96, Math.max(4, y));
+                        item.placement_zone = 'Floor';
+                        item.location = 'Floor';
+                        item._holding = false;
+                        if (!item.width || Number(item.width) < 24 || Number(item.width) > 1000) item.width = 64;
+                        if (!item.height || Number(item.height) < 24 || Number(item.height) > 1000) item.height = 64;
+                        this.roomLayout.comlabHoldingPage = Math.min(
+                            this.roomLayout.comlabHoldingPage || 0,
+                            Math.max(0, this.comlabHoldingPageCount() - 1),
+                        );
+                        this.layoutDirty = true;
+                    },
+
+                    returnEquipmentToHolding(item) {
+                        if (!item) return;
+                        item.placement_zone = 'Holding';
+                        item.location = 'Holding';
+                        item._holding = true;
+                        item.x = null;
+                        item.y = null;
+                    },
+
+                    sendEquipmentToHolding(equipmentId) {
+                        if (!this.roomLayout.edit) return;
+                        const item = (this.roomLayout.equipment || []).find((entry) => entry.id === Number(equipmentId));
+                        if (!item) return;
+
+                        const wasInRow = this.isComlabRowZone(item.placement_zone || item.location || '');
+                        this.returnEquipmentToHolding(item);
+                        if (this.selectedEquipmentId === item.id) {
+                            this.selectedEquipmentId = null;
+                        }
+                        if (this.roomLayout.selectedAssetId === item.id) {
+                            this.roomLayout.selectedAssetId = null;
+                            if (wasInRow && this.roomLayout.comlabNav === 'asset') {
+                                this.roomLayout.comlabNav = this.comlabSetsInSelectedRow().length ? 'set' : 'row';
+                            }
+                        }
+                        if (!wasInRow) {
+                            this.selectedComlabRowTable = null;
+                        }
+                        this.roomLayout.comlabHoldingPage = 0;
+                        this.layoutDirty = true;
+                        this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+                    },
+
+                    comlabDropOnHolding(event) {
+                        if (!this.roomLayout.edit) return;
+                        const id = Number(event.dataTransfer.getData('equipmentId'));
+                        if (!id) return;
+                        this.sendEquipmentToHolding(id);
+                    },
+
+                    deleteComlabRow(rowName) {
+                        if (!this.roomLayout.edit || !rowName) return;
+
+                        (this.roomLayout.equipment || []).forEach((item) => {
+                            const zone = item.placement_zone || item.location || '';
+                            if (zone === rowName) {
+                                this.returnEquipmentToHolding(item);
+                            }
+                        });
+
+                        this.roomLayout.comlabRowLayouts = (this.roomLayout.comlabRowLayouts || [])
+                            .filter((entry) => entry.name !== rowName);
+                        this.roomLayout.comlabRows = this.roomLayout.comlabRowLayouts.map((entry) => entry.name);
+
+                        if (this.selectedComlabRowTable === rowName) {
+                            this.selectedComlabRowTable = null;
+                        }
+                        if (this.roomLayout.selectedComlabRow === rowName) {
+                            this.roomLayout.selectedComlabRow = null;
+                            this.roomLayout.comlabNav = 'rows';
+                            this.roomLayout.selectedAssetId = null;
+                        }
+
+                        this.roomLayout.comlabHoldingPage = 0;
+                        this.layoutDirty = true;
+                        this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+                    },
+                    isComputerSetComponent(name) {
+                        return this.computerSetComponentRole(name) !== null;
+                    },
+
+                    computerSetComponentRole(name) {
+                        const n = String(name || '').toLowerCase();
+                        if (/chair|table|curtain|projector|floor mat|long table|cabinet|whiteboard|door|air\s*con|printer|\btv\b|speaker|fan|bulb|ethernet|cable/.test(n)) {
+                            return null;
+                        }
+                        if (/monitor|display/.test(n) && !/tv|television/.test(n)) return 'monitor';
+                        if (/keyboard/.test(n)) return 'keyboard';
+                        if (/mouse/.test(n)) return 'mouse';
+                        if (/system\s*unit|\bcpu\b|desktop|tower|\bpc\b/.test(n)) return 'system_unit';
+                        if (/\bavr\b|\bups\b/.test(n)) return 'power';
+                        if (/webcam|headset/.test(n)) return 'peripheral';
+                        return null;
+                    },
+
+                    equipmentInComlabRow(rowName) {
+                        return (this.roomLayout.equipment || []).filter((item) =>
+                            this.isComlabRowAssignedSetItem(item)
+                            && (item.placement_zone || item.location) === rowName,
+                        );
+                    },
+
+                    comlabSetNumberOffset(rowName) {
+                        let offset = 0;
+                        for (const row of (this.roomLayout.comlabRows || [])) {
+                            if (row === rowName) {
+                                break;
+                            }
+                            offset += this.buildComlabComputerSets(this.equipmentInComlabRow(row)).length;
+                        }
+                        return offset;
+                    },
+
+                    buildComlabComputerSets(rowItems, startSetNum = 1) {
+                        const components = rowItems.filter((item) => {
+                            if (!this.isComputerSetComponent(item.name)) {
+                                return false;
+                            }
+                            const qty = Number(item.quantity) || 1;
+                            return !(qty > 1 && String(item.tracking_mode || '') === 'Bulk');
+                        });
+
+                        const roleOrder = [
+                            'monitor',
+                            'keyboard',
+                            'mouse',
+                            'system_unit',
+                            'power',
+                            'peripheral',
+                        ];
+
+                        const pools = {};
+                        roleOrder.forEach((role) => { pools[role] = []; });
+
+                        components
+                            .slice()
+                            .sort((a, b) =>
+                                String(a.asset_tag || a.name).localeCompare(String(b.asset_tag || b.name)),
+                            )
+                            .forEach((item) => {
+                                const role = this.computerSetComponentRole(item.name);
+                                if (role && pools[role]) {
+                                    pools[role].push(item);
+                                }
+                            });
+
+                        const setCount = Math.max(
+                            0,
+                            ...roleOrder.map((role) => pools[role].length),
+                        );
+
+                        const sets = [];
+                        for (let i = 0; i < setCount; i += 1) {
+                            const members = [];
+                            const usedRoles = new Set();
+
+                            roleOrder.forEach((role) => {
+                                if (usedRoles.has(role)) return;
+                                const item = pools[role][i];
+                                if (!item) return;
+                                members.push(item);
+                                usedRoles.add(role);
+                            });
+
+                            if (!members.length) continue;
+
+                            sets.push({
+                                index: sets.length,
+                                label: `Computer Set ${startSetNum + sets.length}`,
+                                members,
+                            });
+                        }
+
+                        return sets;
+                    },
+
+                    comlabRowSummary(rowName) {
+                        const items = this.equipmentInComlabRow(rowName);
+                        const startNum = this.comlabSetNumberOffset(rowName) + 1;
+                        const sets = this.buildComlabComputerSets(items, startNum);
+                        const setMemberIds = new Set(
+                            sets.flatMap((set) => (set.members || []).map((member) => member.id)),
+                        );
+                        const other = items.filter((item) => !setMemberIds.has(item.id));
+
+                        return {
+                            sets,
+                            other,
+                            setCount: sets.length,
+                            otherCount: other.length,
+                            total: items.length,
+                        };
+                    },
+
+                    comlabSetsInSelectedRow() {
+                        if (!this.roomLayout.selectedComlabRow) {
+                            return [];
+                        }
+                        const startNum = this.comlabSetNumberOffset(this.roomLayout.selectedComlabRow) + 1;
+                        return this.buildComlabComputerSets(
+                            this.equipmentInComlabRow(this.roomLayout.selectedComlabRow),
+                            startNum,
+                        );
+                    },
+
+                    comlabOtherInSelectedRow() {
+                        if (!this.roomLayout.selectedComlabRow) {
+                            return [];
+                        }
+                        return this.comlabRowSummary(this.roomLayout.selectedComlabRow).other;
+                    },
+
+                    activeComlabSet() {
+                        const sets = this.comlabSetsInSelectedRow();
+                        return sets[this.roomLayout.comlabSetCarouselIndex] || null;
+                    },
+
+                    comlabUnassignedEquipment() {
+                        const rows = new Set(this.roomLayout.comlabRows || []);
+                        return (this.roomLayout.equipment || []).filter((item) => {
+                            const zone = item.placement_zone || item.location || '';
+                            return !rows.has(zone);
+                        });
+                    },
+
+                    selectComlabRow(row) {
+                        this.roomLayout.selectedComlabRow = row;
+                        this.roomLayout.comlabNav = 'row';
+                        this.roomLayout.comlabSetCarouselIndex = 0;
+                        this.roomLayout.selectedAssetId = null;
+                        this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+                    },
+
+                    selectComlabSet(index) {
+                        this.roomLayout.comlabSetCarouselIndex = index;
+                        this.roomLayout.comlabNav = 'set';
+                        this.roomLayout.selectedAssetId = null;
+                        this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+                    },
+
+                    comlabSetCarouselPerPage() {
+                        return 3;
+                    },
+
+                    comlabSetCarouselPage() {
+                        const per = this.comlabSetCarouselPerPage();
+                        return Math.floor((this.roomLayout.comlabSetCarouselIndex || 0) / per);
+                    },
+
+                    comlabSetCarouselPageCount() {
+                        const total = this.comlabSetsInSelectedRow().length;
+                        return Math.max(1, Math.ceil(total / this.comlabSetCarouselPerPage()));
+                    },
+
+                    comlabSetCarouselPageLabel() {
+                        const total = this.comlabSetsInSelectedRow().length;
+                        if (total <= this.comlabSetCarouselPerPage()) {
+                            return `${total} set${total === 1 ? '' : 's'}`;
+                        }
+                        return `${this.comlabSetCarouselPage() + 1} / ${this.comlabSetCarouselPageCount()}`;
+                    },
+
+                    comlabCarouselGoToPage(page) {
+                        const per = this.comlabSetCarouselPerPage();
+                        const maxPage = this.comlabSetCarouselPageCount() - 1;
+                        const nextPage = Math.min(Math.max(0, page), maxPage);
+                        this.selectComlabSet(nextPage * per);
+                    },
+
+                    comlabCarouselPrev() {
+                        const page = this.comlabSetCarouselPage();
+                        if (page <= 0) return;
+                        this.comlabCarouselGoToPage(page - 1);
+                    },
+
+                    comlabCarouselNext() {
+                        const max = this.comlabSetCarouselPageCount();
+                        const page = this.comlabSetCarouselPage();
+                        if (page >= max - 1) return;
+                        this.comlabCarouselGoToPage(page + 1);
+                    },
+
+                    selectComlabAsset(id) {
+                        const item = (this.roomLayout.equipment || []).find((e) => e.id === id);
+                        if (item && this.isEquipmentInHolding(item)) {
+                            this.selectComlabHoldingItem(id);
+                            return;
+                        }
+                        if (item && this.isComlabFloorEquipment(item)) {
+                            this.selectComlabFloorEquipment(id);
+                            return;
+                        }
+                        if (item) {
+                            const zone = item.placement_zone || item.location || '';
+                            if (this.isComlabRowZone(zone)) {
+                                this.roomLayout.selectedComlabRow = zone;
+                                this.roomLayout.comlabNav = 'asset';
+                            } else {
+                                this.roomLayout.comlabNav = 'rows';
+                            }
+                        } else {
+                            this.roomLayout.comlabNav = 'asset';
+                        }
+                        this.roomLayout.selectedAssetId = id;
+                        this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+                    },
+
+                    isEquipmentInHolding(item) {
+                        if (!item) return false;
+                        return !!item._holding
+                            || item.placement_zone === 'Holding'
+                            || item.location === 'Holding';
+                    },
+
+                    selectComlabHoldingItem(id) {
+                        this.selectedComlabRowTable = null;
+                        this.roomLayout.selectedComlabRow = null;
+                        this.selectedEquipmentId = null;
+                        this.roomLayout.selectedAssetId = id;
+                        this.roomLayout.comlabNav = 'rows';
+                        this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+                    },
+
+                    comlabAssetPlacementLabel(item) {
+                        if (!item) return '—';
+                        if (this.isEquipmentInHolding(item)) return 'Holding Area';
+                        const zone = item.placement_zone || item.location || '';
+                        if (this.isComlabRowZone(zone)) return zone;
+                        if (this.isComlabFloorEquipment(item)) return 'Floor';
+                        return zone || '—';
+                    },
+
+                    comlabAssetPlacementHint(item) {
+                        if (!item) return '—';
+                        if (this.isEquipmentInHolding(item)) return 'Holding area';
+                        if (this.isComlabFloorEquipment(item)) return 'Floor placement';
+                        return this.roomLayout.selectedComlabRow
+                            || item.placement_zone
+                            || item.location
+                            || '—';
+                    },
+
+                    comlabDragStart(event, equipmentId) {
+                        if (!this.roomLayout.edit) return;
+                        event.dataTransfer.setData('equipmentId', String(equipmentId));
+                        event.dataTransfer.effectAllowed = 'move';
+                    },
+
+                    comlabNavTo(level) {
+                        this.roomLayout.comlabNav = level;
+                        if (level === 'rows') {
+                            this.roomLayout.selectedComlabRow = null;
+                            this.roomLayout.selectedAssetId = null;
+                        }
+                        if (level === 'row') {
+                            this.roomLayout.selectedAssetId = null;
+                        }
+                        this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+                    },
+
+                    comlabBack() {
+                        if (this.roomLayout.selectedAssetId && this.roomLayout.comlabNav === 'rows') {
+                            this.roomLayout.selectedAssetId = null;
+                            this.selectedEquipmentId = null;
+                            this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+                            return;
+                        }
+                        if (this.roomLayout.comlabNav === 'asset') {
+                            this.roomLayout.selectedAssetId = null;
+                            this.roomLayout.comlabNav = this.comlabSetsInSelectedRow().length ? 'set' : 'row';
+                        } else if (this.roomLayout.comlabNav === 'set') {
+                            this.roomLayout.comlabNav = 'row';
+                        } else if (this.roomLayout.comlabNav === 'row') {
+                            this.comlabNavTo('rows');
+                        } else {
+                            this.comlabNavTo('rows');
+                        }
+                        this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+                    },
+
+                    addComlabRow() {
+                        const existing = this.roomLayout.comlabRowLayouts || [];
+                        const used = new Set(existing.map((entry) => entry.name));
+                        let n = existing.length + 1;
+                        while (used.has(`Row ${n}`)) n += 1;
+                        const name = `Row ${n}`;
+                        this.roomLayout.comlabRowLayouts = [
+                            ...existing,
+                            {
+                                name,
+                                x: 50,
+                                y: Math.min(88, 18 + n * 14),
+                                width: 300,
+                                height: 56,
+                                rotation: 0,
+                            },
+                        ];
+                        this.roomLayout.comlabRows = this.roomLayout.comlabRowLayouts.map((entry) => entry.name);
+                        this.layoutDirty = true;
+                        this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+                    },
+
+                    assignEquipmentToComlabRow(equipmentId, rowName) {
+                        const item = this.roomLayout.equipment.find((e) => e.id === equipmentId);
+                        if (!item || !rowName) return;
+                        item.placement_zone = rowName;
+                        item.location = rowName;
+                        item._holding = false;
+                        this.roomLayout.comlabHoldingPage = Math.min(
+                            this.roomLayout.comlabHoldingPage || 0,
+                            Math.max(0, this.comlabHoldingPageCount() - 1),
+                        );
+                        this.layoutDirty = true;
+                    },
+
+                    findComlabRowAtClientPoint(clientX, clientY) {
+                        const rows = document.querySelectorAll('.comlab-row-node[data-row-name]');
+                        for (const rowNode of rows) {
+                            const rect = rowNode.getBoundingClientRect();
+                            if (
+                                clientX >= rect.left
+                                && clientX <= rect.right
+                                && clientY >= rect.top
+                                && clientY <= rect.bottom
+                            ) {
+                                return rowNode.dataset.rowName || null;
+                            }
+                        }
+                        return null;
+                    },
+
+                    highlightComlabRowDropTarget(rowName) {
+                        document.querySelectorAll('.comlab-row-node').forEach((node) => {
+                            const active = rowName && node.dataset.rowName === rowName;
+                            node.classList.toggle('ring-2', !!active);
+                            node.classList.toggle('ring-emerald-400', !!active);
+                        });
+                    },
+
+                    comlabDropOnRow(event, rowName) {
+                        if (!this.roomLayout.edit) return;
+                        const id = Number(event.dataTransfer.getData('equipmentId'));
+                        if (!id) return;
+                        this.assignEquipmentToComlabRow(id, rowName);
+                        if (this.selectedEquipmentId === id) {
+                            this.selectedEquipmentId = null;
+                        }
+                        if (this.roomLayout.selectedAssetId === id) {
+                            this.roomLayout.selectedAssetId = null;
+                        }
+                        this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+                    },
+
+                    layoutGroups() {
+                        const map = new Map();
+
+                        (this.roomLayout.equipment || []).forEach((item) => {
+                            const zone = item.placement_zone || item.location || 'Unassigned';
+                            const qty = Number(item.quantity) || 1;
+                            const isBulk = String(item.tracking_mode || '') === 'Bulk' || qty > 1;
+                            const key = isBulk
+                                ? `id:${item.id}`
+                                : `n:${String(item.name || '').toLowerCase()}|z:${zone}`;
+
+                            if (!map.has(key)) {
+                                map.set(key, {
+                                    key,
+                                    name: item.name,
+                                    zone,
+                                    ids: [],
+                                    members: [],
+                                    x: 0,
+                                    y: 0,
+                                    width: item.width || 140,
+                                    height: Math.max(80, item.height || 96),
+                                    rotation: item.rotation || 0,
+                                    quantity: 0,
+                                    isBulk,
+                                    primaryId: item.id,
+                                });
+                            }
+
+                            const group = map.get(key);
+                            group.ids.push(item.id);
+                            group.members.push(item);
+                            group.quantity += isBulk ? qty : 1;
+                            group.width = Math.max(group.width, item.width || 140);
+                            group.height = Math.max(group.height, Math.max(80, item.height || 96));
+                        });
+
+                        return [...map.values()].map((group) => {
+                            const count = group.members.length || 1;
+                            group.x = Math.round(
+                                group.members.reduce((sum, member) => sum + Number(member.x || 50), 0) / count,
+                            );
+                            group.y = Math.round(
+                                group.members.reduce((sum, member) => sum + Number(member.y || 50), 0) / count,
+                            );
+                            group.rotation = group.members[0]?.rotation || 0;
+                            group.primaryId = group.ids[0];
+                            group.label = group.quantity > 1
+                                ? `${group.name} × ${group.quantity}`
+                                : group.name;
+                            return group;
+                        });
+                    },
+
+                    filteredLayoutGroups() {
+                        const q = String(this.roomLayout.listSearch || '').trim().toLowerCase();
+                        const groups = this.layoutGroups();
+                        if (!q) return groups;
+                        return groups.filter((group) =>
+                            String(group.name || '').toLowerCase().includes(q)
+                            || String(group.zone || '').toLowerCase().includes(q)
+                            || String(group.label || '').toLowerCase().includes(q)
+                            || group.members.some((member) =>
+                                String(member.asset_tag || '').toLowerCase().includes(q)
+                                || String(member.serial_number || '').toLowerCase().includes(q)
+                            )
+                        );
+                    },
+
+                    layoutGroupPageCount() {
+                        return Math.max(
+                            1,
+                            Math.ceil(this.filteredLayoutGroups().length / (this.roomLayout.listPerPage || 12)),
+                        );
+                    },
+
+                    pagedLayoutGroups() {
+                        const perPage = this.roomLayout.listPerPage || 12;
+                        const page = Math.min(this.roomLayout.listPage || 1, this.layoutGroupPageCount());
+                        const start = (page - 1) * perPage;
+                        return this.filteredLayoutGroups().slice(start, start + perPage);
+                    },
+
+                    selectedLayoutGroup() {
+                        const key = this.roomLayout.selectedGroupKey;
+                        if (!key) return null;
+                        return this.layoutGroups().find((group) => group.key === key) || null;
+                    },
+
+                    filteredGroupAssets() {
+                        const group = this.selectedLayoutGroup();
+                        if (!group) return [];
+                        const q = String(this.roomLayout.listSearch || '').trim().toLowerCase();
+                        if (!q) return group.members;
+                        return group.members.filter((member) =>
+                            String(member.asset_tag || '').toLowerCase().includes(q)
+                            || String(member.serial_number || '').toLowerCase().includes(q)
+                            || String(member.name || '').toLowerCase().includes(q)
+                        );
+                    },
+
+                    groupAssetPageCount() {
+                        return Math.max(
+                            1,
+                            Math.ceil(this.filteredGroupAssets().length / (this.roomLayout.listPerPage || 12)),
+                        );
+                    },
+
+                    pagedGroupAssets() {
+                        const perPage = this.roomLayout.listPerPage || 12;
+                        const page = Math.min(this.roomLayout.listPage || 1, this.groupAssetPageCount());
+                        const start = (page - 1) * perPage;
+                        return this.filteredGroupAssets().slice(start, start + perPage);
+                    },
+
+                    selectedLayoutAsset() {
+                        const id = this.roomLayout.selectedAssetId;
+                        if (!id) return null;
+                        return (this.roomLayout.equipment || []).find((item) => item.id === id) || null;
+                    },
+
+                    clearLayoutSelection() {
+                        this.roomLayout.selectedGroupKey = null;
+                        this.roomLayout.selectedAssetId = null;
+                        this.roomLayout.listSearch = '';
+                        this.roomLayout.listPage = 1;
+                        if (this.isComlabRoomLayout()) {
+                            this.roomLayout.comlabNav = 'rows';
+                            this.roomLayout.selectedComlabRow = null;
+                            this.roomLayout.comlabSetCarouselIndex = 0;
+                        }
+                        this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+                    },
+
+                    openLayoutGroup(key) {
+                        this.roomLayout.selectedGroupKey = key;
+                        this.roomLayout.selectedAssetId = null;
+                        this.roomLayout.listSearch = '';
+                        this.roomLayout.listPage = 1;
+
+                        const group = this.layoutGroups().find((item) => item.key === key);
+                        if (group && group.quantity === 1 && group.primaryId) {
+                            this.roomLayout.selectedAssetId = group.primaryId;
+                        }
+
+                        this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+                    },
+
+                    selectLayoutAsset(id) {
+                        this.roomLayout.selectedAssetId = id;
+                        this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+                    },
+
                     // ===================================
                     // Auto Position Equipment
                     // Place BELOW zonePosition()
@@ -6046,43 +7893,32 @@
                         this.roomLayout = {
                             open: true,
                             edit: false,
+                            fullscreen: false,
                             id: room.id,
                             name: room.name,
+                            type: room.type || 'Room',
                             equipment: room.equipment.map((item) => ({
                                 width: item.width || 120,
                                 height: item.height || 96,
                                 rotation: item.rotation || 0,
                                 ...item,
                             })),
+                            selectedGroupKey: null,
+                            selectedAssetId: null,
+                            listSearch: '',
+                            listPage: 1,
+                            listPerPage: 12,
+                            comlabRows: [],
+                            comlabRowLayouts: [],
+                            comlabNav: 'rows',
+                            selectedComlabRow: null,
+                            selectedComlabRowTable: null,
+                            comlabSetCarouselIndex: 0,
+                            comlabHoldingPage: 0,
                         };
-                        this.roomLayout.equipment.forEach((item)=>{
+                        this.selectedComlabRowTable = null;
 
-                            const hasSavedPosition =
-                                item.x !== null &&
-                                item.y !== null &&
-                                item.x !== undefined &&
-                                item.y !== undefined &&
-                                !(Number(item.x) === 40 && Number(item.y) === 40);
-
-                            if (!hasSavedPosition) {
-
-                                const pos = this.zonePosition(
-                                    item.placement_zone || item.location
-                                );
-
-                                item.x = Number(pos.x);
-                                item.y = Number(pos.y);
-
-                                this.layoutDirty = true;
-
-                            } else {
-
-                                item.x = Number(item.x);
-                                item.y = Number(item.y);
-
-                            }
-
-                        });
+                        this.initComlabLayout(room);
                         this.$nextTick(() => {
                             this.bindDragging();
                             if (window.lucide) lucide.createIcons();
@@ -6191,15 +8027,17 @@
                     closeRoomLayout() {
                         this.roomLayout.open = false;
                         this.roomLayout.edit = false;
+                        this.roomLayout.fullscreen = false;
+                        this.clearLayoutSelection();
                     },
                     requestCloseRoomLayout(){
 
-                        if(this.roomLayout.edit){
+                        if(this.roomLayout.edit && this.layoutDirty){
 
                             this.closeLayoutModal.title = "Discard Changes?";
 
                             this.closeLayoutModal.message =
-                                "You are still editing the room layout. Any unsaved changes will be lost.";
+                                "You have unsaved layout changes. Any changes will be lost.";
 
                             this.closeLayoutModal.open = true;
 
@@ -6210,6 +8048,20 @@
                         this.closeRoomLayout();
 
                     },
+                    toggleRoomLayoutFullscreen() {
+                        this.roomLayout.fullscreen = !this.roomLayout.fullscreen;
+                        this.$nextTick(() => {
+                            if (window.lucide) lucide.createIcons();
+                            // Recalculate rotate-handle placement after the canvas resizes
+                            if (this.selectedEquipmentId) {
+                                this.updateEquipmentRotateHandlePlacement();
+                            }
+                            if (this.selectedComlabRowTable) {
+                                this.updateComlabRowRotateHandlePlacement();
+                            }
+                        });
+                    },
+
                     toggleRoomLayoutEdit() {
 
                         if (this.roomLayout.edit && this.layoutDirty) {
@@ -6225,26 +8077,42 @@
 
                         }
 
+                        const enteringEdit = !this.roomLayout.edit;
+
+                        if (enteringEdit) {
+                            this.originalRoomLayout = JSON.parse(
+                                JSON.stringify(this.roomLayout.equipment),
+                            );
+                            this.originalComlabRows = this.isComlabRoomLayout()
+                                ? JSON.parse(JSON.stringify(this.roomLayout.comlabRows || []))
+                                : null;
+                            this.originalComlabRowLayouts = this.isComlabRoomLayout()
+                                ? JSON.parse(JSON.stringify(this.roomLayout.comlabRowLayouts || []))
+                                : null;
+                            this.layoutDirty = false;
+                        }
+
                         this.roomLayout.edit = !this.roomLayout.edit;
 
                         this.$nextTick(() => this.bindDragging());
 
                     },
-                    equipmentIcon(name) {
-                        const label = (name || "").toLowerCase();
-                        if (label.includes("projector")) return "📽️";
-                        if (label.includes("printer")) return "🖨️";
-                        if (label.includes("tv") || label.includes("monitor")) return "📺";
-                        if (label.includes("speaker") || label.includes("sound"))
-                            return "🔊";
-                        if (label.includes("router") || label.includes("wifi")) return "📡";
-                        if (
-                            label.includes("pc") ||
-                            label.includes("desktop") ||
-                            label.includes("computer")
-                        )
-                            return "💻";
-                        return "📦";
+                    equipmentIcon(name, size = null) {
+                        return window.PrismEquipmentIcons
+                            ? window.PrismEquipmentIcons.svg(name, size)
+                            : '📦';
+                    },
+
+                    equipmentVisualCategory(name) {
+                        return window.PrismEquipmentIcons
+                            ? window.PrismEquipmentIcons.category(name)
+                            : 'default';
+                    },
+
+                    equipmentCategoryGroup(name) {
+                        return window.PrismEquipmentIcons
+                            ? window.PrismEquipmentIcons.group(name)
+                            : 'Other Equipment';
                     },
                     applyRoomLabelContrast(el) {
                         if (!el) {

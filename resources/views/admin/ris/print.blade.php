@@ -99,29 +99,9 @@
             bottom: 100%;
             margin-bottom: -6px;
         }
-        .approval-watermark {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(-45deg);
-            font-size: 72px;
-            font-weight: 900;
-            color: rgba(0, 0, 0, 0.07);
-            letter-spacing: 6px;
-            text-transform: uppercase;
-            pointer-events: none;
-            z-index: 0;
-            white-space: nowrap;
-            user-select: none;
-        }
         @media print {
             body { background: #fff; padding: 0; }
             .ris-original-form { border-width: 1px; max-width: none; }
-            .approval-watermark {
-                opacity: 0.12;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            }
             @page { size: landscape; margin: 0.25in; }
         }
     </style>
@@ -148,9 +128,9 @@
 
     <div class="ris-original-form">
         @if ($isDirectlyApproved)
-            <div class="approval-watermark">ADMIN APPROVED</div>
+            @include('partials.ris-approval-watermark', ['watermarkLabel' => 'ADMIN APPROVED'])
         @elseif ($hasPresidentSign && $issuedDisplay !== '')
-            <div class="approval-watermark">APPROVED</div>
+            @include('partials.ris-approval-watermark', ['watermarkLabel' => 'APPROVED'])
         @endif
 
         <div class="ris-document-header">
