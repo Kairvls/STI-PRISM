@@ -187,24 +187,9 @@
 
                     {{-- CONFIGURE CAMPUS --}}
                     <button
-                        @click="
-                            step = (String(form.building_name || '').trim() || (form.floors || []).length > 0)
-                                ? 2
-                                : 1;
-
-                            wizardOpen = true;
-
-                            wizardHasLocalChanges = false;
-
-                            loadCampus(false);
-
-                            $nextTick(() => {
-                                if (window.lucide) {
-                                    lucide.createIcons();
-                                }
-                            });
-                        "
-                        class="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-[11px] font-bold text-white shadow-lg shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-slate-800"
+                        type="button"
+                        @click="openCampusWizard()"
+                        class="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-[#0025cc] px-4 text-[11px] font-bold text-white shadow-lg shadow-slate-900/10 transition hover:-translate-y-0.5 hover:bg-blue-800"
                     >
                         <i data-lucide="building-2" class="h-3.5 w-3.5"></i>
                         Configure campus
@@ -220,8 +205,11 @@
         <!-- Replace this whole class -->
         <!-- =============================== -->
 
-        <div class="flex w-full flex-1 flex-col gap-6 xl:flex-row xl:items-stretch">
-            <div class="flex min-w-0 flex-1 flex-col gap-6">
+        <div
+            class="layout-workspace w-full min-w-0 flex-1"
+            :class="drawerOpen ? 'is-drawer-open' : 'is-drawer-closed'"
+        >
+            <div class="layout-monitor-main flex min-h-0 min-w-0 flex-col gap-6">
             <div class="flex min-w-0 flex-col">
                 {{-- FLOOR FOLDER TABS --}}
                 <div
@@ -310,17 +298,29 @@
                                     <button
                                         type="button"
                                         @click="toggleBlueprintEdit()"
-                                        :data-tooltip="editMode ? 'Exit Edit Mode' : 'Edit Layout'"
+                                        :data-tooltip="editMode ? null : 'Edit Layout'"
+                                        :aria-label="editMode ? 'Exit Edit Mode' : 'Edit Layout'"
                                         :class="editMode
-                                            ? 'bg-[#FFF200] text-slate-900'
+                                            ? 'group/edit-btn bg-[#FFF200] text-slate-900'
                                             : 'hover:bg-slate-100 text-slate-700'"
-                                        class="flex h-12 w-full items-center justify-center transition"
+                                        class="relative flex h-12 w-full items-center justify-center transition"
                                     >
 
                                         <i
                                             data-lucide="pencil"
-                                            class="h-4 w-4"
+                                            class="h-4 w-4 transition-opacity duration-150"
+                                            :class="editMode ? 'group-hover/edit-btn:opacity-0' : ''"
                                         ></i>
+
+                                        {{-- Hover X overlay while in edit mode --}}
+                                        <span
+                                            x-show="editMode"
+                                            x-cloak
+                                            class="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-150 group-hover/edit-btn:opacity-100"
+                                            aria-hidden="true"
+                                        >
+                                            <i data-lucide="x" class="h-5 w-5 text-slate-900"></i>
+                                        </span>
 
                                     </button>
 
@@ -502,6 +502,25 @@
                                 <div class="border-t border-slate-200"></div>
 
                                 <!-- ==================== -->
+                                <!-- Hide / Show Inspector -->
+                                <!-- ==================== -->
+
+                                <button
+                                    type="button"
+                                    @click="toggleDrawer()"
+                                    :data-tooltip="drawerOpen ? 'Hide panel' : 'Show panel'"
+                                    class="flex w-full items-center justify-center py-3 transition hover:bg-slate-100"
+                                    :class="drawerOpen ? 'text-slate-700' : 'bg-[#005EA6] text-white hover:bg-[#004b86]'"
+                                >
+                                    <span x-show="drawerOpen" class="flex items-center justify-center">
+                                        <i data-lucide="panel-right-close" class="h-4 w-4"></i>
+                                    </span>
+                                    <span x-show="!drawerOpen" class="flex items-center justify-center">
+                                        <i data-lucide="panel-right-open" class="h-4 w-4"></i>
+                                    </span>
+                                </button>
+
+                                <!-- ==================== -->
                                 <!-- Fit -->
                                 <!-- ==================== -->
 
@@ -652,6 +671,7 @@
                     <div
                         x-ref="blueprintCanvas"
                         class="blueprint-grid absolute left-0 top-0 overflow-hidden rounded-[24px] rounded-tl-none border-2 border-dashed border-slate-300 bg-white"
+                        :class="{ 'is-drawer-animating': drawerAnimating }"
                         :style="`
 
                             width:${blueprint.width}px;
@@ -727,7 +747,8 @@
                                     <!--ring-[#5B6682]/40-->
                                     <button
                                         type="button"
-                                        @click.stop="if (editMode && roomPaintMode) { selectRoomForPaint({{ $room->room_id }}); return; } if(!editMode) selectedRoom={{ $room->room_id }}"
+                                        @click.stop="if (editMode && roomPaintMode) { selectRoomForPaint({{ $room->room_id }}); return; } selectRoom({{ $room->room_id }})"
+                                        @dblclick.stop="openRoomInspector({{ $room->room_id }})"
                                         
                                         class="room-block room-card group absolute overflow-visible z-10 rounded-xl border-2 border-white p-3 text-left shadow-[0_14px_22px_rgba(15,23,42,.18)] transition-[box-shadow,filter] duration-200 hover:z-20 hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-[#07319C] {{ $room->room_status === 'Critical' ? 'critical-room' : '' }}"
                                         :class="{'cursor-move ring-2 ring-[#07319C] rounded-lg': editMode, 'ring-2 ring-[#07319C]': selectedRoom === {{ $room->room_id }}}"
@@ -913,12 +934,45 @@
             </section>
             </div>
 
-            @include ("maintenance-personnel.infrastructure.floor-insights")
+            <div
+                class="grid w-full min-h-0 flex-1 grid-cols-1 items-stretch"
+                :class="drawerOpen
+                    ? 'gap-0 xl:grid-cols-1'
+                    : 'gap-4 xl:grid-cols-[minmax(0,1fr)_360px]'"
+            >
+                <div class="flex min-h-0 min-w-0 w-full flex-1 flex-col">
+                    @include ("maintenance-personnel.infrastructure.floor-insights")
+                </div>
+
+                {{-- Room health rate beside Floor Health Overview when drawer is hidden --}}
+                <div
+                    class="layout-health-dock flex min-h-0 min-w-0 flex-col self-stretch overflow-hidden"
+                    x-show="!drawerOpen"
+                    :class="!drawerOpen
+                        ? 'max-w-[360px] opacity-100 xl:w-[360px]'
+                        : 'is-hidden pointer-events-none'"
+                    :aria-hidden="drawerOpen"
+                >
+                    <div class="flex min-h-0 w-full flex-1 flex-col">
+                        @include ("maintenance-personnel.infrastructure.floor-health-panel")
+                    </div>
+                </div>
+            </div>
             </div>
 
-            <div class="flex w-full shrink-0 flex-col gap-4 xl:w-[22vw] xl:min-w-[360px] xl:max-w-[460px] xl:self-stretch xl:min-h-[calc(100vh-10rem-20px)]">
-                @include ("maintenance-personnel.infrastructure.monitor-drawer")
-                @include ("maintenance-personnel.infrastructure.floor-health-panel")
+            <div
+                class="layout-drawer-shell flex min-w-0 flex-col overflow-hidden"
+                :class="drawerOpen ? 'is-open' : 'is-closed'"
+                :aria-hidden="!drawerOpen"
+            >
+                <div class="layout-drawer-pane flex min-h-0 flex-1 flex-col gap-4">
+                    @include ("maintenance-personnel.infrastructure.monitor-drawer")
+
+                    {{-- Room health rate under inspector while drawer is open --}}
+                    <div class="min-w-0 shrink-0" x-show="drawerOpen">
+                        @include ("maintenance-personnel.infrastructure.floor-health-panel")
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -1024,21 +1078,19 @@
                                 <i data-lucide="archive-x" class="h-5 w-5"></i>
                             </div>
                             <div>
-                                <h3 class="font-black text-red-950">
-                                    Archive/reset this room
+                                <h3 class="font-black text-slate-950">
+                                    Rooms stay in the building
                                 </h3>
-                                <p class="mt-1 text-xs leading-5 text-red-700">This removes the room from the active blueprint and deletes live equipment and schedules inside it. Old reports/history are preserved for audit.</p>
+                                <p class="mt-1 text-xs leading-5 text-slate-600">Rooms are not archived. Edit type, name, or status instead — changes stay in history.</p>
                             </div>
                         </div>
-                        <button
-                            type="button"
-                            @click="archiveRoom()"
-                            :disabled="saving"
-                            class="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-red-900/15 disabled:opacity-50"
+                        <a
+                            :href="`/maintenance/rooms?history=${roomManager.selectedRoomId || ''}`"
+                            class="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#0025cc] px-5 py-3 text-sm font-black text-white shadow-lg shadow-slate-900/10"
                         >
-                            <i data-lucide="trash-2" class="h-4 w-4"></i>
-                            Archive room and clear details
-                        </button>
+                            <i data-lucide="history" class="h-4 w-4"></i>
+                            Open room history
+                        </a>
                     </div>
                 </div>
             </div>
@@ -1103,7 +1155,7 @@
                             type="button"
                             @click="saveLayout()"
                             :disabled="saving || !roomLayout.edit"
-                            class="inline-flex h-10 items-center gap-2 rounded-xl bg-[#005EA6] px-4 text-sm font-medium text-white transition hover:bg-[#004a85] disabled:cursor-not-allowed disabled:opacity-40"
+                            class="inline-flex h-10 items-center gap-2 rounded-xl bg-[#0025cc] px-4 text-sm font-medium text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                             <i data-lucide="save" class="h-4 w-4"></i>
                             Save
@@ -2038,6 +2090,109 @@
             background: rgba(100, 116, 139, 0.6);
         }
 
+        /* Workspace: CSS grid so the canvas column always yields real width to
+           the inspector. Flex let the blueprint spill under the drawer when
+           reopening from the wide (hidden) state. */
+        .layout-workspace {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            gap: 0;
+            transition: gap 300ms cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .layout-workspace.is-drawer-open {
+            gap: 0;
+        }
+
+        @media (min-width: 1280px) {
+            .layout-workspace {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) auto;
+                align-items: stretch;
+                gap: 0;
+                column-gap: 0;
+            }
+
+            .layout-workspace.is-drawer-open {
+                column-gap: 1.5rem;
+            }
+        }
+
+        /* Drawer width drives the auto grid track; main (1fr) shrinks with it. */
+        .layout-drawer-shell {
+            --drawer-width: 100%;
+            width: var(--drawer-width);
+            min-width: 0;
+            max-width: none;
+            overflow: hidden;
+            pointer-events: auto;
+            transition: width 300ms cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        @media (min-width: 1280px) {
+            .layout-drawer-shell {
+                --drawer-width: min(460px, max(360px, 22vw));
+            }
+
+            .layout-drawer-shell.is-open {
+                min-height: calc(100vh - 10rem - 20px);
+            }
+        }
+
+        .layout-drawer-shell.is-closed {
+            width: 0;
+            max-width: 0;
+            height: 0;
+            min-height: 0;
+            overflow: hidden;
+            pointer-events: none;
+            border: 0;
+            padding: 0;
+            margin: 0;
+        }
+
+        .layout-drawer-pane {
+            width: var(--drawer-width);
+            min-width: var(--drawer-width);
+            max-width: var(--drawer-width);
+            flex-shrink: 0;
+        }
+
+        /* While collapsed, kill the pane's intrinsic min width so the auto
+           grid track can stay at 0 instead of reserving the open drawer size. */
+        .layout-drawer-shell.is-closed .layout-drawer-pane {
+            width: 0;
+            min-width: 0;
+            max-width: 0;
+        }
+
+        .layout-monitor-main {
+            min-width: 0;
+            overflow: hidden;
+        }
+
+        .layout-health-dock {
+            align-self: stretch;
+            transition:
+                width 300ms cubic-bezier(0.22, 1, 0.36, 1),
+                max-width 300ms cubic-bezier(0.22, 1, 0.36, 1),
+                opacity 200ms ease;
+        }
+
+        .layout-health-dock:not(.is-hidden) > * {
+            flex: 1 1 0%;
+            min-height: 0;
+        }
+
+        .layout-health-dock.is-hidden {
+            pointer-events: none;
+        }
+
+        .blueprint-grid.is-drawer-animating {
+            transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
         .blueprint-grid {
             background-image:
                 linear-gradient(rgba(100, 116, 139, 0.12) 1px, transparent 1px),
@@ -2387,6 +2542,13 @@
                 return {
                     activeFloor: initialFloor || null,
                     selectedRoom: null,
+                    drawerOpen: true,
+                    drawerAnimating: false,
+                    drawerAnimFrame: 0,
+                    drawerAnimTimer: 0,
+                    // Double-tap stamp for opening the drawer (survives edit drag/resize).
+                    roomTapStamp: { id: null, at: 0 },
+                    fitBlueprintRaf: 0,
                     editMode: false,
                     saving: false,
                     
@@ -2591,6 +2753,7 @@
                     wizardRoomKey: 0,
                     wizardEquipmentKey: 0,
                     wizardHasLocalChanges: false,
+                    wizardBaselineFloorSignature: '',
                     step3Mode: 'fast',
                     step3ValidationAttempted: false,
                     step3InlineErrors: {},
@@ -2905,6 +3068,9 @@
                     },
                     focusInsightRoom(roomId) {
                         this.selectedRoom = Number(roomId);
+                        if (!this.drawerOpen) {
+                            this.setDrawerOpen(true);
+                        }
 
                         this.$nextTick(() => {
                             this.$refs.blueprintWorkspace?.scrollIntoView({
@@ -3046,6 +3212,19 @@
                     init() {
                         window.infrastructure = this;
 
+                        try {
+                            const savedDrawer = localStorage.getItem(
+                                "prism.buildingLayout.drawerOpen",
+                            );
+                            if (savedDrawer === "0") {
+                                this.drawerOpen = false;
+                            } else if (savedDrawer === "1") {
+                                this.drawerOpen = true;
+                            }
+                        } catch (error) {
+                            // Ignore storage failures
+                        }
+
                         if (this.form.floors.length === 0) {
                             this.generateFloors();
                         } else {
@@ -3106,6 +3285,20 @@
                         });
 
                         this.$nextTick(() => {
+                            const viewport = this.$refs.blueprintViewport;
+                            if (viewport && typeof ResizeObserver !== "undefined") {
+                                let roTimer = 0;
+                                this.blueprintResizeObserver = new ResizeObserver(() => {
+                                    clearTimeout(roTimer);
+                                    roTimer = setTimeout(() => {
+                                        if (!this.drawerAnimating) {
+                                            this.fitBlueprint();
+                                        }
+                                    }, 16);
+                                });
+                                this.blueprintResizeObserver.observe(viewport);
+                            }
+
                             this.bindDragging();
 
                             this.$nextTick(() => {
@@ -4333,9 +4526,142 @@
                         this.fitBlueprint();
                     },
 
+                    setDrawerOpen(open) {
+                        const nextOpen = Boolean(open);
+
+                        if (nextOpen === this.drawerOpen) {
+                            return;
+                        }
+
+                        const viewport = this.$refs.blueprintViewport;
+                        const currentWidth = viewport ? viewport.clientWidth : 0;
+                        const drawerWidth = this.getDrawerSlotWidth();
+                        const predictedWidth = nextOpen
+                            ? Math.max(160, currentWidth - drawerWidth)
+                            : currentWidth + drawerWidth;
+
+                        this.drawerOpen = nextOpen;
+
+                        // Closing resets the double-click stamp so the next open
+                        // always needs two fresh clicks on a room.
+                        if (!nextOpen) {
+                            this.roomTapStamp = { id: null, at: 0 };
+                        }
+
+                        try {
+                            localStorage.setItem(
+                                "prism.buildingLayout.drawerOpen",
+                                this.drawerOpen ? "1" : "0",
+                            );
+                        } catch (error) {
+                            // Ignore storage failures (private mode, etc.)
+                        }
+
+                        // Force a synchronous style flush so the grid track
+                        // shrinks before we measure/fit the blueprint.
+                        if (this.$el) {
+                            void this.$el.offsetWidth;
+                        }
+
+                        this.animateBlueprintForDrawer(predictedWidth);
+                    },
+
+                    getDrawerSlotWidth() {
+                        if (typeof window === "undefined" || window.innerWidth < 1280) {
+                            return 0;
+                        }
+
+                        const drawerWidth = Math.min(
+                            460,
+                            Math.max(360, window.innerWidth * 0.22),
+                        );
+                        const workspaceGap = 24;
+
+                        return drawerWidth + workspaceGap;
+                    },
+
+                    animateBlueprintForDrawer(predictedViewportWidth) {
+                        if (this.drawerAnimFrame) {
+                            cancelAnimationFrame(this.drawerAnimFrame);
+                            this.drawerAnimFrame = 0;
+                        }
+
+                        if (this.drawerAnimTimer) {
+                            clearTimeout(this.drawerAnimTimer);
+                            this.drawerAnimTimer = 0;
+                        }
+
+                        this.drawerAnimating = true;
+
+                        if (predictedViewportWidth && window.innerWidth >= 1280) {
+                            this.fitBlueprint({
+                                viewportWidth: predictedViewportWidth,
+                                immediate: true,
+                            });
+                        }
+
+                        // Refit on successive frames while the grid column
+                        // settles, then once more after the transition ends.
+                        const refitFromDom = () => {
+                            this.fitBlueprint({ immediate: true });
+                        };
+
+                        this.drawerAnimFrame = requestAnimationFrame(() => {
+                            refitFromDom();
+                            this.drawerAnimFrame = requestAnimationFrame(() => {
+                                this.drawerAnimFrame = 0;
+                                refitFromDom();
+                            });
+                        });
+
+                        this.drawerAnimTimer = setTimeout(() => {
+                            this.drawerAnimTimer = 0;
+                            this.drawerAnimating = false;
+                            this.$nextTick(() => {
+                                requestAnimationFrame(() => this.fitBlueprint());
+                            });
+                        }, 320);
+                    },
+
+                    toggleDrawer() {
+                        this.setDrawerOpen(!this.drawerOpen);
+                    },
+
+                    // Single click = select only. Double-click opens the inspector.
+                    selectRoom(roomId) {
+                        const nextId = Number(roomId);
+
+                        if (!Number.isFinite(nextId) || nextId <= 0) {
+                            return;
+                        }
+
+                        // Edit mode: Interact.js tap owns selection. Ignore native
+                        // click so it cannot pair with tap and fake a double-click.
+                        if (this.editMode && !this.roomPaintMode) {
+                            return;
+                        }
+
+                        this.selectedRoom = nextId;
+                    },
+
+                    openRoomInspector(roomId) {
+                        const nextId = Number(roomId);
+
+                        if (!Number.isFinite(nextId) || nextId <= 0) {
+                            return;
+                        }
+
+                        this.selectedRoom = nextId;
+                        this.roomTapStamp = { id: null, at: 0 };
+
+                        if (!this.drawerOpen) {
+                            this.setDrawerOpen(true);
+                        }
+                    },
+
                     
 
-                    fitBlueprint() {
+                    fitBlueprint(options = {}) {
 
                         const workspace = this.$refs.blueprintWorkspace;
                         const toolbar = this.$refs.blueprintToolbar;
@@ -4343,6 +4669,11 @@
                         const dock = this.$refs.blueprintControlsDock;
 
                         if (!workspace || !viewport) return;
+
+                        if (this.fitBlueprintRaf) {
+                            cancelAnimationFrame(this.fitBlueprintRaf);
+                            this.fitBlueprintRaf = 0;
+                        }
 
                         const dockWidth = dock ? dock.clientWidth : 64;
 
@@ -4356,17 +4687,7 @@
                         const blueprintWidth = this.blueprint.width;
                         const blueprintHeight = this.blueprint.height;
 
-                        // -------------------------------------------------
-                        // STEP 1
-                        // Measure current viewport
-                        // -------------------------------------------------
-
-                        const viewportWidth = viewport.clientWidth;
-
-                        // -------------------------------------------------
-                        // STEP 2
-                        // Responsive viewport height
-                        // -------------------------------------------------
+                        const viewportWidth = options.viewportWidth ?? viewport.clientWidth;
 
                         let targetViewportHeight;
 
@@ -4379,15 +4700,26 @@
                             targetViewportHeight =
                                 window.innerHeight -
                                 toolbarHeight -
-                                24; // desired bottom padding
+                                24;
 
                         } else {
+                            // Always size height so a width-fit zoom wins. That keeps
+                            // the dashed layout balanced when the inspector opens or
+                            // closes instead of letterboxing/clipping rooms.
+                            const widthForFit = Math.max(
+                                160,
+                                viewportWidth - padding.left - padding.right,
+                            );
+                            const heightToFillWidth =
+                                (widthForFit * blueprintHeight) / blueprintWidth +
+                                padding.top +
+                                padding.bottom;
+                            const maxHeight = this.drawerOpen ? 850 : 920;
 
                             targetViewportHeight = Math.max(
                                 500,
-                                Math.min(viewportWidth * 0.5, 850)
+                                Math.min(heightToFillWidth, maxHeight),
                             );
-
                         }
 
                         viewport.style.height = targetViewportHeight + "px";
@@ -4399,15 +4731,12 @@
                         workspace.style.height =
                             toolbarHeight + targetViewportHeight + "px";
 
-                        // -------------------------------------------------
-                        // STEP 3
-                        // Wait for browser layout
-                        // -------------------------------------------------
+                        const applyZoom = () => {
+                            this.fitBlueprintRaf = 0;
 
-                        requestAnimationFrame(() => {
-
+                            const measuredWidth = options.viewportWidth ?? viewport.clientWidth;
                             const availableWidth =
-                                viewport.clientWidth -
+                                measuredWidth -
                                 padding.left -
                                 padding.right;
 
@@ -4415,6 +4744,10 @@
                                 viewport.clientHeight -
                                 padding.top -
                                 padding.bottom;
+
+                            if (availableWidth <= 0 || availableHeight <= 0) {
+                                return;
+                            }
 
                             const zoom = Math.min(
                                 availableWidth / blueprintWidth,
@@ -4437,8 +4770,13 @@
 
                             this.blueprint.panY =
                                 (availableHeight - scaledHeight) / 2;
+                        };
 
-                        });
+                        if (options.immediate) {
+                            applyZoom();
+                        } else {
+                            this.fitBlueprintRaf = requestAnimationFrame(applyZoom);
+                        }
 
                         this.$nextTick(() => this.updateRotateHandlePlacement());
 
@@ -4810,6 +5148,7 @@
                         }
 
                         this.selectedRoom = normalizedRoomId;
+                        this.roomTapStamp = { id: null, at: 0 };
                         this.roomPaintColor = room.color || this.defaultRoomColor(room.type);
                     },
                     defaultRoomColor(type) {
@@ -5255,6 +5594,8 @@
                             this.clearStep3ErrorsForFloor(boundedIndex, ['room-name']);
                             this.validateStep3RoomNamesForFloor(boundedIndex);
                         }
+
+                        this.$nextTick(() => this.refreshCampusWizardIcons());
                     },
                     step3ErrorKey(type, fi, ri = null, ei = null) {
                         return [type, fi, ri, ei].filter((part) => part !== null && part !== undefined).join('-');
@@ -5305,6 +5646,54 @@
                     countDraftRooms() {
                         return (this.form.floors || []).reduce(
                             (total, floor) => total + this.countNamedRoomsForFloor(floor),
+                            0,
+                        );
+                    },
+                    floorStructureSignature(floors = []) {
+                        return (floors || [])
+                            .map((floor) => `${floor?.id ?? 'new'}:${String(floor?.level || '').trim()}`)
+                            .join('|');
+                    },
+                    captureWizardFloorBaseline() {
+                        this.wizardBaselineFloorSignature = this.floorStructureSignature(this.form.floors || []);
+                    },
+                    wizardFloorStructureChanged() {
+                        const current = this.floorStructureSignature(this.form.floors || []);
+
+                        // First-time campus create: always treat floors as part of the review.
+                        if (!this.form.setup_locked && !this.wizardBaselineFloorSignature) {
+                            return true;
+                        }
+
+                        return current !== this.wizardBaselineFloorSignature;
+                    },
+                    wizardReviewRooms() {
+                        const items = [];
+
+                        (this.form.floors || []).forEach((floor) => {
+                            (floor.rooms || []).forEach((room) => {
+                                if (!this.roomHasName(room)) {
+                                    return;
+                                }
+
+                                const equipmentNames = (room.equipment || [])
+                                    .map((eq) => String(eq?.name || '').trim())
+                                    .filter((name) => name.length > 0);
+
+                                items.push({
+                                    floor: floor.level || 'Floor',
+                                    name: String(room.name || '').trim(),
+                                    equipmentCount: equipmentNames.length,
+                                    equipmentNames,
+                                });
+                            });
+                        });
+
+                        return items;
+                    },
+                    countDraftEquipment() {
+                        return this.wizardReviewRooms().reduce(
+                            (total, room) => total + Number(room.equipmentCount || 0),
                             0,
                         );
                     },
@@ -5385,8 +5774,71 @@
                             return;
                         }
 
+                        this.syncCampusWizardFormPayload(event.target);
+
                         this.$nextTick(() => {
                             event.target.submit();
+                        });
+                    },
+                    refreshCampusWizardIcons() {
+                        const root = document.querySelector('[data-campus-wizard]');
+                        if (!window.lucide || !root) {
+                            return;
+                        }
+                        if (typeof lucide.createIcons === 'function') {
+                            lucide.createIcons({ nodes: [root] });
+                        }
+                    },
+                    syncCampusWizardFormPayload(formEl) {
+                        if (!formEl) {
+                            return;
+                        }
+
+                        formEl.querySelectorAll('[data-wizard-sync]').forEach((node) => node.remove());
+
+                        // Avoid duplicate floors[...] values from visible step fields.
+                        formEl.querySelectorAll('input[name^="floors["], select[name^="floors["], textarea[name^="floors["]').forEach((el) => {
+                            el.disabled = true;
+                        });
+
+                        const appendHidden = (name, value) => {
+                            const input = document.createElement('input');
+                            input.type = 'hidden';
+                            input.name = name;
+                            input.value = value == null ? '' : String(value);
+                            input.setAttribute('data-wizard-sync', '1');
+                            formEl.appendChild(input);
+                        };
+
+                        (this.form.floors || []).forEach((floor, fi) => {
+                            appendHidden(`floors[${fi}][level]`, floor.level ?? '');
+                            appendHidden(`floors[${fi}][id]`, floor.id ?? '');
+
+                            (floor.rooms || []).forEach((room, ri) => {
+                                const roomName = String(room.name || '').trim();
+                                if (!roomName) {
+                                    return;
+                                }
+
+                                appendHidden(`floors[${fi}][rooms][${ri}][id]`, room.id ?? '');
+                                appendHidden(`floors[${fi}][rooms][${ri}][name]`, roomName);
+                                appendHidden(`floors[${fi}][rooms][${ri}][type]`, room.type || 'Lecture Room');
+                                appendHidden(`floors[${fi}][rooms][${ri}][status]`, room.status || 'Normal');
+
+                                (room.equipment || []).forEach((eq, ei) => {
+                                    const eqName = String(eq.name || '').trim();
+                                    if (!eqName) {
+                                        return;
+                                    }
+
+                                    appendHidden(`floors[${fi}][rooms][${ri}][equipment][${ei}][id]`, eq.id ?? '');
+                                    appendHidden(`floors[${fi}][rooms][${ri}][equipment][${ei}][name]`, eqName);
+                                    appendHidden(`floors[${fi}][rooms][${ri}][equipment][${ei}][category_id]`, eq.category_id ?? '');
+                                    appendHidden(`floors[${fi}][rooms][${ri}][equipment][${ei}][quantity]`, eq.quantity ?? 1);
+                                    appendHidden(`floors[${fi}][rooms][${ri}][equipment][${ei}][condition]`, eq.condition || 'Good');
+                                    appendHidden(`floors[${fi}][rooms][${ri}][equipment][${ei}][zone]`, eq.zone || 'Holding');
+                                });
+                            });
                         });
                     },
                     async loadCampus(forceOverwrite = true) {
@@ -5453,6 +5905,7 @@
                             this.unlockPromptOpen = false;
                             this.unlockCredential = "";
                             this.unlockVerifyBusy = false;
+                            this.captureWizardFloorBaseline();
                         } catch (error) {
                             console.error(error);
 
@@ -5476,16 +5929,14 @@
                         this.loadCampus(false);
 
                         this.$nextTick(() => {
-                            if (window.lucide) {
-                                lucide.createIcons();
-                            }
+                            this.refreshCampusWizardIcons();
                         });
                     },
 
                     toggleWizardFullscreen() {
                         this.wizardFullscreen = !this.wizardFullscreen;
                         this.$nextTick(() => {
-                            if (window.lucide) lucide.createIcons();
+                            this.refreshCampusWizardIcons();
                         });
                     },
 
@@ -5874,8 +6325,7 @@
 
                                 if (!this.editMode) return;
 
-                                event.preventDefault();
-
+                                // Do not preventDefault — it suppresses native dblclick.
                                 if (this.roomPaintMode) {
                                     this.selectRoomForPaint(
                                         Number(event.currentTarget.dataset.id),
@@ -5884,8 +6334,33 @@
                                     return;
                                 }
 
-                                this.selectedRoom = Number(event.currentTarget.dataset.id);
+                                const nextId = Number(event.currentTarget.dataset.id);
 
+                                if (!Number.isFinite(nextId) || nextId <= 0) {
+                                    return;
+                                }
+
+                                const now = Date.now();
+                                const prevAt = Number(this.roomTapStamp.at || 0);
+                                const sameRoom = Number(this.roomTapStamp.id) === nextId;
+                                const dt = now - prevAt;
+
+                                // Same physical click often emits two tap events;
+                                // ignore the duplicate so one click cannot open the drawer.
+                                if (sameRoom && dt < 120) {
+                                    this.selectedRoom = nextId;
+                                    return;
+                                }
+
+                                // Real second tap on the same room → open inspector
+                                if (sameRoom && dt >= 120 && dt <= 500) {
+                                    this.openRoomInspector(nextId);
+                                    return;
+                                }
+
+                                // First tap: select only
+                                this.selectedRoom = nextId;
+                                this.roomTapStamp = { id: nextId, at: now };
                             })
                             .draggable({
                                 inertia: false,

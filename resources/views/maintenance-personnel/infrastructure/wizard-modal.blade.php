@@ -172,23 +172,8 @@
 
         <header class="mb-6 flex justify-end">
                 <button
-                    @click="
-                        step = (String(form.building_name || '').trim() || (form.floors || []).length > 0)
-                            ? 2
-                            : 1;
-
-                        wizardOpen = true;
-
-                        wizardHasLocalChanges = false;
-
-                        loadCampus(false);
-
-                        $nextTick(() => {
-                            if (window.lucide) {
-                                lucide.createIcons();
-                            }
-                        });
-                    "
+                    type="button"
+                    @click="openCampusWizard()"
                     class="inline-flex items-center gap-2 rounded-xl bg-[#005EA6] px-5 py-3 text-sm font-bold text-white shadow-lg shadow-blue-900/15 transition hover:-translate-y-0.5 hover:bg-[#004b86]"
                 >
                     <i data-lucide="building-2" class="h-4 w-4"></i> Configure
@@ -1024,21 +1009,19 @@
                                 <i data-lucide="archive-x" class="h-5 w-5"></i>
                             </div>
                             <div>
-                                <h3 class="font-black text-red-950">
-                                    Archive/reset this room
+                                <h3 class="font-black text-slate-950">
+                                    Rooms stay in the building
                                 </h3>
-                                <p class="mt-1 text-xs leading-5 text-red-700">This removes the room from the active blueprint and deletes live equipment and schedules inside it. Old reports/history are preserved for audit.</p>
+                                <p class="mt-1 text-xs leading-5 text-slate-600">Rooms are not archived. Edit type, name, or status instead — changes stay in history.</p>
                             </div>
                         </div>
-                        <button
-                            type="button"
-                            @click="archiveRoom()"
-                            :disabled="saving"
-                            class="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-red-900/15 disabled:opacity-50"
+                        <a
+                            :href="`/maintenance/rooms?history=${roomManager.selectedRoomId || ''}`"
+                            class="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#0025cc] px-5 py-3 text-sm font-black text-white shadow-lg shadow-slate-900/10"
                         >
-                            <i data-lucide="trash-2" class="h-4 w-4"></i>
-                            Archive room and clear details
-                        </button>
+                            <i data-lucide="history" class="h-4 w-4"></i>
+                            Open room history
+                        </a>
                     </div>
                 </div>
             </div>
@@ -1990,6 +1973,7 @@
                     wizardRoomKey: 0,
                     wizardEquipmentKey: 0,
                     wizardHasLocalChanges: false,
+                    wizardBaselineFloorSignature: '',
                     step3Mode: 'fast',
                     step3ValidationAttempted: false,
                     step3InlineErrors: {},
@@ -3805,6 +3789,53 @@
                             0,
                         );
                     },
+                    floorStructureSignature(floors = []) {
+                        return (floors || [])
+                            .map((floor) => `${floor?.id ?? 'new'}:${String(floor?.level || '').trim()}`)
+                            .join('|');
+                    },
+                    captureWizardFloorBaseline() {
+                        this.wizardBaselineFloorSignature = this.floorStructureSignature(this.form.floors || []);
+                    },
+                    wizardFloorStructureChanged() {
+                        const current = this.floorStructureSignature(this.form.floors || []);
+
+                        if (!this.form.setup_locked && !this.wizardBaselineFloorSignature) {
+                            return true;
+                        }
+
+                        return current !== this.wizardBaselineFloorSignature;
+                    },
+                    wizardReviewRooms() {
+                        const items = [];
+
+                        (this.form.floors || []).forEach((floor) => {
+                            (floor.rooms || []).forEach((room) => {
+                                if (!this.roomHasName(room)) {
+                                    return;
+                                }
+
+                                const equipmentNames = (room.equipment || [])
+                                    .map((eq) => String(eq?.name || '').trim())
+                                    .filter((name) => name.length > 0);
+
+                                items.push({
+                                    floor: floor.level || 'Floor',
+                                    name: String(room.name || '').trim(),
+                                    equipmentCount: equipmentNames.length,
+                                    equipmentNames,
+                                });
+                            });
+                        });
+
+                        return items;
+                    },
+                    countDraftEquipment() {
+                        return this.wizardReviewRooms().reduce(
+                            (total, room) => total + Number(room.equipmentCount || 0),
+                            0,
+                        );
+                    },
                     validateStep3Entries() {
                         this.clearStep3InlineErrors();
 
@@ -3882,8 +3913,71 @@
                             return;
                         }
 
+                        this.syncCampusWizardFormPayload(event.target);
+
                         this.$nextTick(() => {
                             event.target.submit();
+                        });
+                    },
+                    refreshCampusWizardIcons() {
+                        const root = document.querySelector('[data-campus-wizard]');
+                        if (!window.lucide || !root) {
+                            return;
+                        }
+                        if (typeof lucide.createIcons === 'function') {
+                            lucide.createIcons({ nodes: [root] });
+                        }
+                    },
+                    syncCampusWizardFormPayload(formEl) {
+                        if (!formEl) {
+                            return;
+                        }
+
+                        formEl.querySelectorAll('[data-wizard-sync]').forEach((node) => node.remove());
+
+                        // Avoid duplicate floors[...] values from visible step fields.
+                        formEl.querySelectorAll('input[name^="floors["], select[name^="floors["], textarea[name^="floors["]').forEach((el) => {
+                            el.disabled = true;
+                        });
+
+                        const appendHidden = (name, value) => {
+                            const input = document.createElement('input');
+                            input.type = 'hidden';
+                            input.name = name;
+                            input.value = value == null ? '' : String(value);
+                            input.setAttribute('data-wizard-sync', '1');
+                            formEl.appendChild(input);
+                        };
+
+                        (this.form.floors || []).forEach((floor, fi) => {
+                            appendHidden(`floors[${fi}][level]`, floor.level ?? '');
+                            appendHidden(`floors[${fi}][id]`, floor.id ?? '');
+
+                            (floor.rooms || []).forEach((room, ri) => {
+                                const roomName = String(room.name || '').trim();
+                                if (!roomName) {
+                                    return;
+                                }
+
+                                appendHidden(`floors[${fi}][rooms][${ri}][id]`, room.id ?? '');
+                                appendHidden(`floors[${fi}][rooms][${ri}][name]`, roomName);
+                                appendHidden(`floors[${fi}][rooms][${ri}][type]`, room.type || 'Lecture Room');
+                                appendHidden(`floors[${fi}][rooms][${ri}][status]`, room.status || 'Normal');
+
+                                (room.equipment || []).forEach((eq, ei) => {
+                                    const eqName = String(eq.name || '').trim();
+                                    if (!eqName) {
+                                        return;
+                                    }
+
+                                    appendHidden(`floors[${fi}][rooms][${ri}][equipment][${ei}][id]`, eq.id ?? '');
+                                    appendHidden(`floors[${fi}][rooms][${ri}][equipment][${ei}][name]`, eqName);
+                                    appendHidden(`floors[${fi}][rooms][${ri}][equipment][${ei}][category_id]`, eq.category_id ?? '');
+                                    appendHidden(`floors[${fi}][rooms][${ri}][equipment][${ei}][quantity]`, eq.quantity ?? 1);
+                                    appendHidden(`floors[${fi}][rooms][${ri}][equipment][${ei}][condition]`, eq.condition || 'Good');
+                                    appendHidden(`floors[${fi}][rooms][${ri}][equipment][${ei}][zone]`, eq.zone || 'Holding');
+                                });
+                            });
                         });
                     },
                     async loadCampus(forceOverwrite = true) {
@@ -3950,6 +4044,7 @@
                             this.unlockPromptOpen = false;
                             this.unlockCredential = "";
                             this.unlockVerifyBusy = false;
+                            this.captureWizardFloorBaseline();
                         } catch (error) {
                             console.error(error);
 
@@ -3972,9 +4067,7 @@
                         this.loadCampus(false);
 
                         this.$nextTick(() => {
-                            if (window.lucide) {
-                                lucide.createIcons();
-                            }
+                            this.refreshCampusWizardIcons();
                         });
                     },
                     

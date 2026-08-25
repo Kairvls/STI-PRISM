@@ -24,6 +24,7 @@ use App\Http\Controllers\UomController;
 use App\Http\Controllers\ItemCategoryController;
 use App\Http\Controllers\ItemSubCategoryController;
 use App\Http\Controllers\FileMaintenanceController;
+use App\Http\Controllers\AccountSettingsController;
 
 /*
 |--------------------------------------------------------------------------
@@ -525,6 +526,36 @@ Route::middleware(['auth'])->group(function () {
         '/maintenance/dashboard',
         [MaintenanceController::class, 'dashboard']
     );
+
+    Route::get(
+        '/maintenance/settings/profile',
+        [AccountSettingsController::class, 'profile']
+    )->name('maintenance.settings.profile');
+
+    Route::post(
+        '/maintenance/settings/profile',
+        [AccountSettingsController::class, 'updateProfile']
+    )->name('maintenance.settings.profile.update');
+
+    Route::post(
+        '/maintenance/settings/profile/picture',
+        [AccountSettingsController::class, 'updateProfilePicture']
+    )->name('maintenance.settings.profile.picture');
+
+    Route::delete(
+        '/maintenance/settings/profile/picture',
+        [AccountSettingsController::class, 'removeProfilePicture']
+    )->name('maintenance.settings.profile.picture.remove');
+
+    Route::get(
+        '/maintenance/settings/security',
+        [AccountSettingsController::class, 'security']
+    )->name('maintenance.settings.security');
+
+    Route::put(
+        '/maintenance/settings/security/password',
+        [AccountSettingsController::class, 'updatePassword']
+    )->name('maintenance.settings.security.password');
 
     Route::get(
         '/maintenance/reports/incoming',

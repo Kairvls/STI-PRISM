@@ -18,7 +18,7 @@
         <button
             type="button"
             @click="openCreateModal()"
-            class="inline-flex items-center gap-2 rounded-xl bg-[rgba(0,55,199,0.85)] px-4 py-3 font-semibold font-sans-serif text-sm text-white transition hover:bg-[rgba(0,44,155,0.85)]"
+            class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 font-semibold font-sans-serif text-[13px] text-white transition hover:bg-blue-800"
         >
             <i data-lucide="plus" class="w-4 h-4"></i>
 
@@ -435,7 +435,7 @@
                         name="search"
                         value="{{ request('search') }}"
                         placeholder="Search categories..."
-                        class="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 sm:w-72"
+                        class="h-9 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100 sm:w-72"
                     >
 
                 </div>
@@ -443,8 +443,16 @@
 
                 <button
                     type="submit"
-                    class="inline-flex h-11 items-center justify-center rounded-xl bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
+                    class="inline-flex h-9 shrink-0
+                            items-center justify-center gap-2
+                            rounded-lg bg-[#0025cc] px-4
+                            text-sm font-semibold text-white
+                            transition hover:bg-blue-800"
                 >
+                        <i
+                            data-lucide="search"
+                            class="h-4 w-4"
+                        ></i>
                     Search
                 </button>
 
@@ -977,7 +985,7 @@
                     <button
                         type="button"
                         @click="closeCreateModal()"
-                        class="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+                        class="inline-flex h-10 items-center justify-center px-2 text-sm font-medium text-slate-600 transition hover:text-slate-950"
                     >
                         Cancel
                     </button>
@@ -986,7 +994,7 @@
                     <button
                         type="submit"
                         :disabled="createSubmitting"
-                        class="inline-flex h-10 min-w-32 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                        class="inline-flex h-10 min-w-32 items-center justify-center gap-2 rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
                     >
 
                         <svg
@@ -1163,7 +1171,7 @@
                     <button
                         type="button"
                         @click="closeEditModal()"
-                        class="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-950"
+                        class="inline-flex h-10 items-center justify-center px-2 text-sm font-medium text-slate-600 transition hover:text-slate-950"
                     >
                         Cancel
                     </button>
@@ -1172,7 +1180,7 @@
                     <button
                         type="submit"
                         :disabled="editSubmitting"
-                        class="inline-flex h-10 min-w-32 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                        class="inline-flex h-10 min-w-32 items-center justify-center gap-2 rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60"
                     >
 
                         <svg

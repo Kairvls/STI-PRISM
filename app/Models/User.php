@@ -26,6 +26,7 @@ class User extends Authenticatable
         'user_full_name',
         'user_email_address',
         'user_contact_number',
+        'user_profile_picture',
         'user_password',
 
     ];
@@ -45,6 +46,14 @@ class User extends Authenticatable
     }
 
     /**
+     * users_table has no remember_token column.
+     */
+    public function getRememberTokenName()
+    {
+        return null;
+    }
+
+    /**
      * ROLE RELATIONSHIP
      */
     public function role()
@@ -54,6 +63,31 @@ class User extends Authenticatable
             'user_role_id',
             'role_id'
         );
+    }
+
+    /**
+     * Public URL for the uploaded profile picture (or null).
+     */
+    public function getProfilePictureUrlAttribute(): ?string
+    {
+        $path = $this->user_profile_picture;
+
+        if (! filled($path)) {
+            return null;
+        }
+
+        if (
+            str_starts_with($path, 'http://')
+            || str_starts_with($path, 'https://')
+            || str_starts_with($path, '/')
+        ) {
+            return $path;
+        }
+
+        $normalized = ltrim(str_replace('\\', '/', (string) $path), '/');
+        $normalized = preg_replace('#^storage/#', '', $normalized) ?: $normalized;
+
+        return asset('storage/'.$normalized);
     }
 
     /**

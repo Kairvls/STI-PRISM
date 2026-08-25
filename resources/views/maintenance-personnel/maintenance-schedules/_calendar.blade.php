@@ -2721,8 +2721,98 @@
         document.getElementById("calendarEventPopover")?.classList.add("hidden");
     }
     function openScheduleModal() {
+        const modal = document.getElementById("scheduleModal");
+        if (modal?._x_dataStack?.[0]?.reset) {
+            modal._x_dataStack[0].reset();
+        }
         showModal("scheduleModal");
+        if (window.lucide) lucide.createIcons();
     }
+    function scheduleEquipmentCart(catalog) {
+        return {
+            catalog: Array.isArray(catalog) ? catalog : [],
+            query: '',
+            open: false,
+            highlight: 0,
+            cart: [],
+            pickerError: '',
+            cartError: '',
+            get filtered() {
+                const q = String(this.query || '').trim().toLowerCase();
+                const selectedIds = new Set(this.cart.map((line) => line.id));
+                return this.catalog
+                    .filter((item) => !selectedIds.has(item.id))
+                    .filter((item) => {
+                        if (!q) return true;
+                        return [item.name, item.room, item.qr, item.assetTag]
+                            .join(' ')
+                            .toLowerCase()
+                            .includes(q);
+                    })
+                    .slice(0, 40);
+            },
+            meta(item) {
+                const bits = [];
+                if (item.room) bits.push(item.room);
+                if (item.qr) bits.push(item.qr);
+                if (item.assetTag) bits.push(item.assetTag);
+                return bits.join(' · ') || 'QR-ready equipment';
+            },
+            reset() {
+                this.query = '';
+                this.open = false;
+                this.highlight = 0;
+                this.cart = [];
+                this.pickerError = '';
+                this.cartError = '';
+            },
+            move(delta) {
+                if (!this.filtered.length) return;
+                this.highlight = (this.highlight + delta + this.filtered.length) % this.filtered.length;
+            },
+            addHighlighted() {
+                if (!this.filtered.length) return;
+                this.addItem(this.filtered[this.highlight] || this.filtered[0]);
+            },
+            addItem(item) {
+                this.pickerError = '';
+                if (!item) return;
+                if (this.cart.some((line) => line.id === item.id)) {
+                    this.pickerError = 'That equipment is already in the list.';
+                    return;
+                }
+                this.cart.push({ ...item });
+                this.query = '';
+                this.open = false;
+                this.highlight = 0;
+                this.cartError = '';
+                this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+            },
+            removeLine(index) {
+                this.cart.splice(index, 1);
+                this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+            },
+            prepareSubmit(event) {
+                this.cartError = '';
+                if (!this.cart.length) {
+                    event.preventDefault();
+                    this.cartError = 'Add at least one equipment item.';
+                    return;
+                }
+                const nextDate = document.getElementById('scheduleNextDate')?.value;
+                if (!nextDate) {
+                    event.preventDefault();
+                    this.cartError = 'Please choose a next maintenance date.';
+                }
+            },
+        };
+    }
+    window.scheduleEquipmentCart = scheduleEquipmentCart;
+    document.addEventListener("alpine:init", () => {
+        if (window.Alpine?.data) {
+            window.Alpine.data("scheduleEquipmentCart", scheduleEquipmentCart);
+        }
+    });
     function scheduleNextDatePicker() {
         const now = new Date();
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -2848,7 +2938,11 @@
         }
     });
     function closeScheduleModal() {
+        const modal = document.getElementById("scheduleModal");
         hideModal("scheduleModal");
+        if (modal?._x_dataStack?.[0]?.reset) {
+            modal._x_dataStack[0].reset();
+        }
     }
     function closeViewModal() {
         hideModal("viewModal");

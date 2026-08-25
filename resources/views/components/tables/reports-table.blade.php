@@ -217,14 +217,19 @@
                     aria-label="Search"
                     class="group relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-neutral-100 text-slate-600 ring-1 ring-slate-200/80 transition hover:bg-neutral-200 hover:text-slate-800"
                 >
-                    <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" viewBox="0 0 24 24">
+                    <!--<svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" viewBox="0 0 24 24">
                         <path d="M4 8h2" />
                         <circle cx="9" cy="8" r="2.2" fill="currentColor" stroke="none" />
                         <path d="M12 8h8" />
                         <path d="M4 16h8" />
                         <circle cx="15" cy="16" r="2.2" fill="currentColor" stroke="none" />
                         <path d="M18 16h2" />
-                    </svg>
+                    </svg>-->
+
+                    <i
+                            data-lucide="search"
+                            class="h-4 w-4"
+                        ></i>
                     <span class="pointer-events-none absolute bottom-full left-1/2 z-30 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition group-hover:opacity-100">
                         Search
                     </span>
@@ -972,28 +977,44 @@
 <!-- UPDATE MODALS -->
 @foreach ($reports as $report)
     @php
-        $equipmentLabel = $report->equipment_name ?? ($report->report_unlisted_equipment_name ?? "Equipment Report");
+        $statusDotClasses = match ($report->report_current_status) {
+            'Pending' => 'bg-amber-500',
+            'Processing' => 'bg-blue-500',
+            'Resolved' => 'bg-emerald-500',
+            'Rejected' => 'bg-red-500',
+            'For Replacement' => 'bg-orange-500',
+            default => 'bg-gray-400',
+        };
     @endphp
     <div id="update-modal-{{ $report->report_id }}" class="fixed inset-0 z-50 hidden overflow-hidden">
-        <div class="flex min-h-screen items-center justify-center bg-[#0b1220]/70 p-3 sm:p-6">
+        <div
+            class="flex min-h-screen items-center justify-center bg-[#0b1220]/70 p-4"
+            onclick="closeReportModal('update-modal-{{ $report->report_id }}')"
+        >
             <div
-                class="flex max-h-[86vh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
+                class="flex max-h-[86vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl"
                 onclick="event.stopPropagation()"
             >
-                <div class="flex items-start justify-between gap-4 px-6 pt-6">
+                {{-- Header --}}
+                <div class="flex shrink-0 items-start justify-between border-b border-gray-100 px-6 py-5">
                     <div class="min-w-0">
-                        <p class="text-xs text-slate-400">#{{ $report->report_id }} · {{ $report->report_current_status }}</p>
-                        <h2 class="mt-1 truncate text-xl font-semibold tracking-tight text-slate-900">
-                            {{ $equipmentLabel }}
+                        <p class="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                            Report #{{ $report->report_id }}
+                        </p>
+                        <h2 class="mt-1 text-xl font-semibold text-gray-900">
+                            Update Status
                         </h2>
+                        <p class="mt-1 text-sm text-gray-500">
+                            Change the current maintenance status.
+                        </p>
                     </div>
                     <button
                         type="button"
                         onclick="closeReportModal('update-modal-{{ $report->report_id }}')"
-                        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
-                        aria-label="Close modal"
+                        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                        aria-label="Close"
                     >
-                        <i data-lucide="x" class="h-4 w-4"></i>
+                        <i data-lucide="x" class="h-5 w-5"></i>
                     </button>
                 </div>
 
@@ -1005,21 +1026,37 @@
                 >
                     @csrf
 
-                    <div class="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-6">
+                    <div class="min-h-0 flex-1 space-y-6 overflow-y-auto px-6 py-6">
+                        {{-- Current status --}}
                         <div>
-                            <label for="status-{{ $report->report_id }}" class="mb-1.5 block text-sm text-slate-600">
-                                Status
+                            <p class="text-xs font-semibold uppercase tracking-wider text-gray-400">
+                                Current Status
+                            </p>
+                            <div class="mt-2 flex items-center gap-2">
+                                <span class="h-2 w-2 rounded-full {{ $statusDotClasses }}"></span>
+                                <span class="text-sm font-semibold text-gray-900">
+                                    {{ $report->report_current_status }}
+                                </span>
+                            </div>
+                        </div>
+
+                        {{-- Change status --}}
+                        <div>
+                            <label
+                                for="status-{{ $report->report_id }}"
+                                class="mb-2 block text-sm font-semibold text-gray-700"
+                            >
+                                Change Status
                             </label>
                             <select
                                 id="status-{{ $report->report_id }}"
                                 name="status"
                                 required
-                                class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                                class="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition focus:border-gray-400 focus:ring-4 focus:ring-gray-100"
                             >
                                 @if ($report->report_current_status == "Pending")
                                     <option value="" selected disabled>Select status</option>
                                     <option value="Processing">Processing</option>
-                                    <option value="Rejected">Rejected</option>
                                 @elseif ($report->report_current_status == "Processing")
                                     <option value="" selected disabled>Select status</option>
                                     <option value="Resolved">Resolved</option>
@@ -1030,6 +1067,13 @@
                                     </option>
                                 @endif
                             </select>
+
+                            @if ($report->report_current_status == "Pending")
+                                <div class="mt-3 flex items-start gap-2 rounded-xl bg-gray-50 px-3.5 py-3 text-xs leading-5 text-gray-500">
+                                    <i data-lucide="info" class="mt-0.5 h-4 w-4 shrink-0"></i>
+                                    <p>Starting this report will make you responsible for handling it.</p>
+                                </div>
+                            @endif
                         </div>
 
                         <div id="notes-section-{{ $report->report_id }}" class="hidden">
@@ -1110,10 +1154,93 @@
                         </p>
                     </div>
 
-                    <div class="flex shrink-0 justify-end gap-2 px-6 pb-6">
+                    {{-- Footer --}}
+                    <div class="flex shrink-0 items-center justify-end gap-3 border-t border-gray-100 bg-gray-50/70 px-6 py-4">
                         <button
                             type="button"
                             onclick="closeReportModal('update-modal-{{ $report->report_id }}')"
+                            class="rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            class="rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800"
+                        >
+                            Update Status
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+@endforeach
+
+{{-- REJECT MODALS (original design) --}}
+@foreach ($reports as $report)
+    @continue($report->report_current_status !== 'Pending')
+    @php
+        $equipmentLabel = $report->equipment_name ?? ($report->report_unlisted_equipment_name ?? "Equipment Report");
+    @endphp
+    <div id="reject-modal-{{ $report->report_id }}" class="fixed inset-0 z-50 hidden overflow-hidden">
+        <div class="flex min-h-screen items-center justify-center bg-[#0b1220]/70 p-3 sm:p-6">
+            <div
+                class="flex max-h-[86vh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
+                onclick="event.stopPropagation()"
+            >
+                <div class="flex items-start justify-between gap-4 px-6 pt-6">
+                    <div class="min-w-0">
+                        <p class="text-xs text-slate-400">#{{ $report->report_id }} · {{ $report->report_current_status }}</p>
+                        <h2 class="mt-1 truncate text-xl font-semibold tracking-tight text-slate-900">
+                            {{ $equipmentLabel }}
+                        </h2>
+                    </div>
+                    <button
+                        type="button"
+                        onclick="closeReportModal('reject-modal-{{ $report->report_id }}')"
+                        class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                        aria-label="Close modal"
+                    >
+                        <i data-lucide="x" class="h-4 w-4"></i>
+                    </button>
+                </div>
+
+                <form
+                    action="/maintenance/reports/update-status/{{ $report->report_id }}"
+                    method="POST"
+                    class="flex min-h-0 flex-1 flex-col"
+                >
+                    @csrf
+                    <input type="hidden" name="status" value="Rejected" />
+
+                    <div class="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-6">
+                        <div>
+                            <label class="mb-1.5 block text-sm text-slate-600">
+                                Status
+                            </label>
+                            <div class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900">
+                                Rejected
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="reject-remarks-{{ $report->report_id }}" class="mb-1.5 block text-sm text-slate-600">
+                                Remarks <span class="text-slate-400">(optional)</span>
+                            </label>
+                            <textarea
+                                id="reject-remarks-{{ $report->report_id }}"
+                                name="remarks"
+                                rows="4"
+                                placeholder="Findings, actions taken, or justification"
+                                class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
+                            ></textarea>
+                        </div>
+                    </div>
+
+                    <div class="flex shrink-0 justify-end gap-2 px-6 pb-6">
+                        <button
+                            type="button"
+                            onclick="closeReportModal('reject-modal-{{ $report->report_id }}')"
                             class="rounded-lg px-4 py-2 text-sm font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
                         >
                             Cancel

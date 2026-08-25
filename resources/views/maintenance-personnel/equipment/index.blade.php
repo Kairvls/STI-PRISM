@@ -3,13 +3,31 @@
 @section ("title", "Equipment Inventory")
 
 @section ("content")
+    @php
+        $eqImageUrl = function ($path) {
+            if (!filled($path)) {
+                return '';
+            }
+
+            if (
+                str_starts_with($path, 'http://')
+                || str_starts_with($path, 'https://')
+                || str_starts_with($path, '/storage/')
+            ) {
+                return $path;
+            }
+
+            return asset('storage/'.$path);
+        };
+    @endphp
+
     <div class="space-y-6">
         <!-- PAGE HEADER -->
         <div class="flex justify-end">
             <button
                 type="button"
                 onclick="openAddEquipmentModal()"
-                class="inline-flex items-center gap-2 rounded-xl bg-[rgba(0,55,199,0.85)] px-4 py-3 font-semibold font-sans-serif text-sm text-white transition hover:bg-[rgba(0,44,155,0.85)]"
+                class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 font-semibold font-sans-serif text-[13px] text-white transition hover:bg-blue-800"
             >
                 <i data-lucide="plus" class="w-4 h-4"></i>
 
@@ -604,7 +622,7 @@
                                     text-sm transition
                                     {{
                                         !request()->filled('status')
-                                            ? 'bg-slate-900 font-medium text-white'
+                                            ? 'bg-gray-100/80 font-medium text-black'
                                             : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
                                     }}"
                             >
@@ -624,7 +642,7 @@
                                     text-sm transition
                                     {{
                                         request('status') === 'Active'
-                                            ? 'bg-slate-900 font-medium text-white'
+                                            ? 'bg-gray-100/80 font-medium text-black'
                                             : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
                                     }}"
                             >
@@ -644,7 +662,7 @@
                                     text-sm transition
                                     {{
                                         request('status') === 'Under Maintenance'
-                                            ? 'bg-slate-900 font-medium text-white'
+                                            ? 'bg-gray-100/80 font-medium text-black'
                                             : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
                                     }}"
                             >
@@ -664,11 +682,31 @@
                                     text-sm transition
                                     {{
                                         request('status') === 'Borrowed'
-                                            ? 'bg-slate-900 font-medium text-white'
+                                            ? 'bg-gray-100/80 font-medium text-black'
                                             : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
                                     }}"
                             >
                                 Borrowed
+                            </a>
+
+
+                            {{-- FOR REPLACEMENT --}}
+
+                            <a
+                                href="{{ request()->fullUrlWithQuery([
+                                    'status' => 'For Replacement',
+                                    'page' => null,
+                                ]) }}"
+
+                                class="shrink-0 rounded-lg px-3 py-2
+                                    text-sm transition
+                                    {{
+                                        request('status') === 'For Replacement'
+                                            ? 'bg-gray-100/80 font-medium text-black'
+                                            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                                    }}"
+                            >
+                                For Replacement
                             </a>
 
 
@@ -684,7 +722,7 @@
                                     text-sm transition
                                     {{
                                         request('status') === 'Disposed'
-                                            ? 'bg-slate-900 font-medium text-white'
+                                            ? 'bg-gray-100/80 font-medium text-black'
                                             : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
                                     }}"
                             >
@@ -871,9 +909,9 @@
 
                             class="inline-flex h-10 shrink-0
                                 items-center justify-center gap-2
-                                rounded-lg bg-slate-950 px-4
+                                rounded-lg bg-[#0025cc] px-4
                                 text-sm font-semibold text-white
-                                transition hover:bg-slate-800"
+                                transition hover:bg-blue-800"
                         >
 
                             <i
@@ -991,14 +1029,40 @@
                             @endphp
                             <tr class="border-b border-slate-100 transition duration-200 hover:bg-slate-50">
                                 <td class="px-6 py-4">
-                                    <div class="flex flex-col">
-                                        <span class="font-semibold text-slate-900">
-                                            {{ $item->equipment_name }}
-                                        </span>
+                                    <div class="flex items-center gap-3">
+                                        <div class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80">
+                                            @if (filled($item->equipment_image))
+                                                <button
+                                                    type="button"
+                                                    onclick="event.stopPropagation(); openEquipmentPhotoViewer({{ json_encode($eqImageUrl($item->equipment_image)) }}, {{ json_encode($item->equipment_name) }})"
+                                                    class="group relative h-full w-full"
+                                                    aria-label="View {{ $item->equipment_name }} photo fullscreen"
+                                                >
+                                                    <img
+                                                        src="{{ $eqImageUrl($item->equipment_image) }}"
+                                                        alt="{{ $item->equipment_name }}"
+                                                        class="h-full w-full object-cover"
+                                                    >
+                                                    <span class="absolute inset-0 flex items-center justify-center bg-slate-950/0 transition group-hover:bg-slate-950/40">
+                                                        <i data-lucide="expand" class="h-3.5 w-3.5 text-white opacity-0 transition group-hover:opacity-100"></i>
+                                                    </span>
+                                                </button>
+                                            @else
+                                                <span
+                                                    class="inline-flex h-6 w-6 items-center justify-center [&_svg]:h-full [&_svg]:w-full"
+                                                    data-equipment-layout-icon="{{ $item->equipment_name }}"
+                                                ></span>
+                                            @endif
+                                        </div>
+                                        <div class="flex min-w-0 flex-col">
+                                            <span class="font-semibold text-slate-900">
+                                                {{ $item->equipment_name }}
+                                            </span>
 
-                                        <span class="mt-1 text-xs text-slate-400">
-                                            {{ $item->equipment_asset_tag ?? "No Asset Tag" }}
-                                        </span>
+                                            <span class="mt-1 text-xs text-slate-400">
+                                                {{ $item->equipment_asset_tag ?? "No Asset Tag" }}
+                                            </span>
+                                        </div>
                                     </div>
                                 </td>
 
@@ -1077,7 +1141,9 @@
 
                                                 '{{ $item->equipment_created_at ?? 'N/A' }}',
 
-                                                '{{ $item->equipment_is_borrowable ? 'Yes' : 'No' }}'
+                                                '{{ $item->equipment_is_borrowable ? 'Yes' : 'No' }}',
+
+                                                {{ json_encode($eqImageUrl($item->equipment_image)) }}
 
                                             )"
                                             class="flex h-9 items-center justify-center gap-x-1.5 rounded-lg  bg-slate-100 px-3 text-xs  text-slate-800 transition shadow-sm hover:bg-slate-200 hover:text-gray-600"
@@ -1115,7 +1181,9 @@
 
                                                 '{{ $item->equipment_warranty_expiration ?? '' }}',
 
-                                                '{{ $item->equipment_is_borrowable }}'
+                                                '{{ $item->equipment_is_borrowable }}',
+
+                                                {{ json_encode($eqImageUrl($item->equipment_image)) }}
 
                                             )"
                                             class="flex h-9 w-9 items-center justify-center rounded-lg bg-[#FFF200] text-black transition hover:bg-[#E6E600]"
@@ -1124,6 +1192,23 @@
                                         >
                                             <i data-lucide="edit-3" class="h-4 w-4"></i>
                                         </button>
+
+                                        @if (($item->equipment_inventory_status ?? '') === 'For Replacement')
+                                            <button
+                                                type="button"
+                                                onclick="openInventoryDisposeModal(
+                                                    {{ (int) $item->equipment_id }},
+                                                    {{ json_encode($item->equipment_name) }},
+                                                    {{ json_encode($item->room_name ?? '') }}
+                                                )"
+                                                class="flex h-9 items-center justify-center gap-x-1.5 rounded-lg bg-rose-600 px-3 text-xs font-medium text-white transition hover:bg-rose-700"
+                                                data-tooltip="Dispose equipment"
+                                                aria-label="Dispose equipment"
+                                            >
+                                                <i data-lucide="archive-x" class="h-4 w-4"></i>
+                                                
+                                            </button>
+                                        @endif
 
                                     </div>
                                 </td>
@@ -1330,7 +1415,29 @@
         >
             <div class="flex w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
                 <div class="flex items-start justify-between gap-4 px-6 pt-6">
-                    <div class="min-w-0">
+                    <div class="flex min-w-0 items-start gap-4">
+                        <button
+                            type="button"
+                            id="modal_image_wrap"
+                            onclick="openEquipmentPhotoViewer(document.getElementById('modal_image')?.src, document.getElementById('modal_name')?.textContent)"
+                            class="hidden group relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80"
+                            aria-label="View equipment photo fullscreen"
+                        >
+                            <img id="modal_image" src="" alt="" class="h-full w-full object-cover">
+                            <span class="absolute inset-0 flex items-center justify-center bg-slate-950/0 transition group-hover:bg-slate-950/40">
+                                <i data-lucide="expand" class="h-4 w-4 text-white opacity-0 transition group-hover:opacity-100"></i>
+                            </span>
+                        </button>
+                        <div
+                            id="modal_layout_icon_wrap"
+                            class="hidden h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-white ring-1 ring-slate-200/80"
+                        >
+                            <span
+                                id="modal_layout_icon"
+                                class="inline-flex h-8 w-8 items-center justify-center [&_svg]:h-full [&_svg]:w-full"
+                            ></span>
+                        </div>
+                        <div class="min-w-0">
                         <p id="modal_name" class="truncate text-xl font-semibold tracking-tight text-slate-900"></p>
                         <p class="mt-1 truncate text-sm text-slate-800">
                             <span id="modal_category"></span>
@@ -1347,6 +1454,7 @@
                         <div class="mt-3 flex flex-wrap gap-2">
                             <span id="modal_condition" class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700"></span>
                             <span id="modal_status" class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700"></span>
+                        </div>
                         </div>
                     </div>
                     <button type="button" onclick="closeEquipmentModal()" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
@@ -1401,7 +1509,7 @@
         x-show="open"
         x-cloak
         x-effect="document.body.style.overflow = open ? 'hidden' : ''"
-        @keydown.escape.window="if (open) { if (fullscreen && step === 2) { fullscreen = false; } else { close(); } }"
+        @keydown.escape.window="if (document.getElementById('equipmentPhotoViewer')?.classList.contains('flex')) { return; } if (open) { if (fullscreen && step === 2) { fullscreen = false; } else { close(); } }"
         @if ($errors->any())
         x-init="
             open = true;
@@ -1411,6 +1519,7 @@
                 @if ($errors->has('equipment_category_id')) category: {{ json_encode($errors->first('equipment_category_id')) }}, @endif
                 @if ($errors->has('equipment_room_id')) room: {{ json_encode($errors->first('equipment_room_id')) }}, @endif
                 @if ($errors->has('equipment_quantity')) quantity: {{ json_encode($errors->first('equipment_quantity')) }}, @endif
+                @if ($errors->has('equipment_image')) image: {{ json_encode($errors->first('equipment_image')) }}, @endif
             };
             $nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
         "
@@ -1424,12 +1533,13 @@
         <form
             action="/maintenance/equipment/store"
             method="POST"
+            enctype="multipart/form-data"
             @submit="prepareSubmit($event)"
             class="flex w-full flex-col overflow-hidden border border-slate-200 bg-white shadow-2xl shadow-slate-950/10"
             :class="fullscreen && step === 2
                 ? 'h-[100dvh] max-h-[100dvh] max-w-none rounded-none border-0 shadow-none'
                 : (step === 2
-                    ? 'max-h-[90vh] max-w-[80rem] rounded-2xl'
+                    ? 'max-h-[90vh] w-[calc(93vw-1.5rem)] max-w-[calc(93vw-1.5rem)] rounded-2xl'
                     : 'max-h-[90vh] max-w-4xl rounded-2xl')"
         >
             @csrf
@@ -1474,6 +1584,73 @@
             </div>
 
             <div class="eq-modal-scroll min-h-0 flex-1 overflow-y-auto px-6 py-5" x-show="step === 1">
+                <div
+                    class="mb-5 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80"
+                    x-show="!needsItemStep()"
+                    x-cloak
+                >
+                    <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Photo (optional)</p>
+                    <div class="mt-3 flex items-center gap-4">
+                        <button
+                            type="button"
+                            x-show="imagePreview"
+                            x-cloak
+                            @click="openEquipmentPhotoViewer(imagePreview, name || 'Equipment photo')"
+                            class="group relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80"
+                            aria-label="View equipment photo fullscreen"
+                        >
+                            <img :src="imagePreview" alt="Equipment photo preview" class="h-full w-full object-cover">
+                            <span class="absolute inset-0 flex items-center justify-center bg-slate-950/0 transition group-hover:bg-slate-950/40">
+                                <i data-lucide="expand" class="h-4 w-4 text-white opacity-0 transition group-hover:opacity-100"></i>
+                            </span>
+                        </button>
+                        <div
+                            x-show="!imagePreview"
+                            class="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80"
+                        >
+                            <span
+                                class="inline-flex h-8 w-8 items-center justify-center [&_svg]:h-full [&_svg]:w-full"
+                                x-html="window.PrismEquipmentIcons ? window.PrismEquipmentIcons.svg(name || '') : ''"
+                            ></span>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-sm font-medium text-slate-900">Add equipment photo</p>
+                            <p class="mt-0.5 text-xs text-slate-400">JPG, PNG, WebP, or GIF. Max 5 MB.</p>
+                            <p x-show="imagePreview" x-cloak class="mt-0.5 text-xs text-slate-500">Click the photo to view it full screen.</p>
+                            <div class="mt-2 flex flex-wrap items-center gap-2">
+                                <label class="inline-flex h-9 cursor-pointer items-center rounded-lg bg-white px-3 text-xs font-semibold text-slate-700 ring-1 ring-slate-200/80 transition hover:bg-slate-50">
+                                    Choose image
+                                    <input
+                                        type="file"
+                                        :name="needsItemStep() ? null : 'equipment_image'"
+                                        accept="image/jpeg,image/png,image/webp,image/gif"
+                                        class="sr-only"
+                                        x-ref="imageInput"
+                                        :disabled="needsItemStep()"
+                                        @change="onImageChange($event)"
+                                    >
+                                </label>
+                                <button
+                                    type="button"
+                                    x-show="imagePreview"
+                                    x-cloak
+                                    @click="clearImage()"
+                                    class="inline-flex h-9 items-center rounded-lg px-3 text-xs font-semibold text-rose-600 hover:bg-rose-50"
+                                >
+                                    Remove
+                                </button>
+                            </div>
+                            <p x-show="errors.image" x-cloak class="mt-2 text-xs font-medium text-rose-600" x-text="errors.image"></p>
+                        </div>
+                    </div>
+                </div>
+                <div
+                    class="mb-5 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200/80"
+                    x-show="needsItemStep()"
+                    x-cloak
+                >
+                    Photos are optional per unit on the next step — one shared photo isn’t used when creating multiple individually tracked assets.
+                </div>
                 <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
                     <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
                         <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">What & where</p>
@@ -1538,7 +1715,7 @@
                                     min="1"
                                     max="200"
                                     x-model.number="quantity"
-                                    @input="clearError('quantity'); syncAssetTag()"
+                                    @input="clearError('quantity'); syncAssetTag(); onSharedPhotoModeChange()"
                                     class="{{ $eqField }}"
                                     :class="errors.quantity ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
                                 />
@@ -1557,8 +1734,8 @@
                         <div>
                             <label class="{{ $eqLabel }}">Tracking mode</label>
                             <div class="flex h-11 rounded-xl bg-slate-100 p-1">
-                                <button type="button" @click="tracking = 'Bulk'; assetTagManual = false; syncAssetTag()" class="flex-1 rounded-lg text-sm font-medium transition" :class="tracking === 'Bulk' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Bulk</button>
-                                <button type="button" @click="tracking = 'Individual'; assetTagManual = false; syncAssetTag()" class="flex-1 rounded-lg text-sm font-medium transition" :class="tracking === 'Individual' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Individual</button>
+                                <button type="button" @click="tracking = 'Bulk'; assetTagManual = false; syncAssetTag(); onSharedPhotoModeChange()" class="flex-1 rounded-lg text-sm font-medium transition" :class="tracking === 'Bulk' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Bulk</button>
+                                <button type="button" @click="tracking = 'Individual'; assetTagManual = false; syncAssetTag(); onSharedPhotoModeChange()" class="flex-1 rounded-lg text-sm font-medium transition" :class="tracking === 'Individual' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Individual</button>
                             </div>
                             <p class="mt-1.5 text-xs text-slate-400" x-text="tracking === 'Bulk'
                                 ? 'One stock record with combined quantity.'
@@ -1604,51 +1781,139 @@
                         <span class="font-medium text-slate-900" x-text="name"></span>
                         <span class="text-slate-400"> · </span>
                         <span x-text="items.length + ' individually tracked units'"></span>
+                        <span class="text-slate-400"> · </span>
+                        <span class="text-slate-500">Optional photo per unit</span>
                     </div>
                     <div class="flex flex-wrap gap-2">
                         <button type="button" @click="regenerateAssetTags()" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Regenerate asset tags</button>
                         <button type="button" @click="applyDefaults()" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Re-apply shared defaults</button>
                     </div>
                 </div>
-                <div class="eq-modal-scroll overflow-x-auto rounded-xl ring-1 ring-slate-200">
-                    <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+                <div class="rounded-xl ring-1 ring-slate-200">
+                    <table class="w-full table-fixed divide-y divide-slate-200 text-left text-sm">
+                        <colgroup>
+                            <col class="w-[3%]">
+                            <col class="w-[14%]">
+                            <col class="w-[22%]">
+                            <col class="w-[14%]">
+                            <col class="w-[12%]">
+                            <col class="w-[12%]">
+                            <col class="w-[13%]">
+                            <col class="w-[10%]">
+                        </colgroup>
                         <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
                             <tr>
-                                <th class="px-3 py-2.5">#</th>
-                                <th class="px-3 py-2.5">Asset tag</th>
-                                <th class="px-3 py-2.5">Serial</th>
-                                <th class="px-3 py-2.5">Brand</th>
-                                <th class="px-3 py-2.5">Model</th>
-                                <th class="px-3 py-2.5">Condition</th>
-                                <th class="px-3 py-2.5">Warranty</th>
+                                <th class="px-2 py-2.5">#</th>
+                                <th class="px-2 py-2.5">Photo</th>
+                                <th class="px-2 py-2.5">Asset tag</th>
+                                <th class="px-2 py-2.5">Serial</th>
+                                <th class="px-2 py-2.5">Brand</th>
+                                <th class="px-2 py-2.5">Model</th>
+                                <th class="px-2 py-2.5">Condition</th>
+                                <th class="px-2 py-2.5">Warranty</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-slate-100 bg-white">
                             <template x-for="(item, index) in items" :key="index">
                                 <tr>
-                                    <td class="px-3 py-2 text-slate-400" x-text="index + 1"></td>
-                                    <td class="px-3 py-2">
-                                        <input type="text" :name="'items[' + index + '][equipment_asset_tag]'" x-model="item.equipment_asset_tag" @input="item._tagManual = true" class="h-9 w-56 min-w-[14rem] rounded-md border border-slate-200 px-2 text-sm" />
+                                    <td class="px-2 py-2 text-slate-400" x-text="index + 1"></td>
+                                    <td class="px-2 py-2">
+                                        <div class="flex min-w-0 flex-wrap items-center gap-1.5">
+                                            <button
+                                                type="button"
+                                                x-show="item._imagePreview"
+                                                x-cloak
+                                                @click="openEquipmentPhotoViewer(item._imagePreview, (item.equipment_asset_tag || name || 'Equipment') + ' photo')"
+                                                class="group relative h-9 w-9 shrink-0 overflow-hidden rounded-md bg-white ring-1 ring-slate-200"
+                                                aria-label="View unit photo"
+                                            >
+                                                <img :src="item._imagePreview" alt="" class="h-full w-full object-cover">
+                                            </button>
+                                            <div
+                                                x-show="!item._imagePreview"
+                                                class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-slate-50 ring-1 ring-slate-200"
+                                            >
+                                                <span
+                                                    class="inline-flex h-4 w-4 items-center justify-center [&_svg]:h-full [&_svg]:w-full"
+                                                    x-html="window.PrismEquipmentIcons ? window.PrismEquipmentIcons.svg(name || '') : ''"
+                                                ></span>
+                                            </div>
+                                            <label class="inline-flex h-8 cursor-pointer items-center rounded-md bg-white px-2 text-[11px] font-semibold text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50">
+                                                <span x-text="item._imagePreview ? 'Change' : 'Add'"></span>
+                                                <input
+                                                    type="file"
+                                                    :name="'items[' + index + '][equipment_image]'"
+                                                    :data-item-image-index="index"
+                                                    accept="image/jpeg,image/png,image/webp,image/gif"
+                                                    class="sr-only"
+                                                    @change="onItemImageChange(index, $event)"
+                                                >
+                                            </label>
+                                            <button
+                                                type="button"
+                                                x-show="item._imagePreview"
+                                                x-cloak
+                                                @click="clearItemImage(index)"
+                                                class="text-[11px] font-semibold text-rose-600 hover:text-rose-700"
+                                            >
+                                                Remove
+                                            </button>
+                                        </div>
                                     </td>
-                                    <td class="px-3 py-2">
-                                        <input type="text" :name="'items[' + index + '][equipment_serial_number]'" x-model="item.equipment_serial_number" class="h-9 w-36 rounded-md border border-slate-200 px-2 text-sm" />
+                                    <td class="px-2 py-2">
+                                        <div class="group/eqtip relative min-w-0">
+                                            <input type="text" :name="'items[' + index + '][equipment_asset_tag]'" x-model="item.equipment_asset_tag" @input="item._tagManual = true" class="h-9 w-full min-w-0 truncate rounded-md border border-slate-200 px-2 text-sm" />
+                                            <div
+                                                x-show="String(item.equipment_asset_tag || '').trim()"
+                                                x-cloak
+                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-medium leading-snug text-white shadow-lg opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
+                                                x-text="item.equipment_asset_tag"
+                                            ></div>
+                                        </div>
                                     </td>
-                                    <td class="px-3 py-2">
-                                        <input type="text" :name="'items[' + index + '][equipment_brand_name]'" x-model="item.equipment_brand_name" class="h-9 w-28 rounded-md border border-slate-200 px-2 text-sm" />
+                                    <td class="px-2 py-2">
+                                        <div class="group/eqtip relative min-w-0">
+                                            <input type="text" :name="'items[' + index + '][equipment_serial_number]'" x-model="item.equipment_serial_number" class="h-9 w-full min-w-0 truncate rounded-md border border-slate-200 px-2 text-sm" />
+                                            <div
+                                                x-show="String(item.equipment_serial_number || '').trim()"
+                                                x-cloak
+                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-medium leading-snug text-white shadow-lg opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
+                                                x-text="item.equipment_serial_number"
+                                            ></div>
+                                        </div>
                                     </td>
-                                    <td class="px-3 py-2">
-                                        <input type="text" :name="'items[' + index + '][equipment_model]'" x-model="item.equipment_model" class="h-9 w-28 rounded-md border border-slate-200 px-2 text-sm" />
+                                    <td class="px-2 py-2">
+                                        <div class="group/eqtip relative min-w-0">
+                                            <input type="text" :name="'items[' + index + '][equipment_brand_name]'" x-model="item.equipment_brand_name" class="h-9 w-full min-w-0 truncate rounded-md border border-slate-200 px-2 text-sm" />
+                                            <div
+                                                x-show="String(item.equipment_brand_name || '').trim()"
+                                                x-cloak
+                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-medium leading-snug text-white shadow-lg opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
+                                                x-text="item.equipment_brand_name"
+                                            ></div>
+                                        </div>
                                     </td>
-                                    <td class="px-3 py-2">
-                                        <select :name="'items[' + index + '][equipment_condition_status]'" x-model="item.equipment_condition_status" class="h-9 rounded-md border border-slate-200 px-2 text-sm">
+                                    <td class="px-2 py-2">
+                                        <div class="group/eqtip relative min-w-0">
+                                            <input type="text" :name="'items[' + index + '][equipment_model]'" x-model="item.equipment_model" class="h-9 w-full min-w-0 truncate rounded-md border border-slate-200 px-2 text-sm" />
+                                            <div
+                                                x-show="String(item.equipment_model || '').trim()"
+                                                x-cloak
+                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-medium leading-snug text-white shadow-lg opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
+                                                x-text="item.equipment_model"
+                                            ></div>
+                                        </div>
+                                    </td>
+                                    <td class="px-2 py-2">
+                                        <select :name="'items[' + index + '][equipment_condition_status]'" x-model="item.equipment_condition_status" class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-2 text-sm">
                                             <option value="Good">Good</option>
                                             <option value="Damaged">Damaged</option>
                                             <option value="Under Maintenance">Under Maintenance</option>
                                             <option value="Disposed">Disposed</option>
                                         </select>
                                     </td>
-                                    <td class="px-3 py-2">
-                                        <input type="date" :name="'items[' + index + '][equipment_warranty_expiration]'" x-model="item.equipment_warranty_expiration" class="h-9 rounded-md border border-slate-200 px-2 text-sm" />
+                                    <td class="px-2 py-2">
+                                        <input type="date" :name="'items[' + index + '][equipment_warranty_expiration]'" x-model="item.equipment_warranty_expiration" class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-2 text-sm" />
                                     </td>
                                 </tr>
                             </template>
@@ -1663,14 +1928,14 @@
                     type="button"
                     x-show="step === 1 && needsItemStep()"
                     @click="goToItems()"
-                    class="h-10 rounded-xl bg-slate-900 px-5 text-sm font-medium text-white transition hover:bg-slate-800"
+                    class="h-10 rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800"
                 >
                     Continue
                 </button>
                 <button
                     type="submit"
                     x-show="step === 2 || !needsItemStep()"
-                    class="h-10 rounded-xl bg-slate-900 px-5 text-sm font-medium text-white transition hover:bg-slate-800"
+                    class="h-10 rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800"
                     x-text="step === 2 ? ('Create ' + items.length + ' assets') : 'Add equipment'"
                 ></button>
             </div>
@@ -1681,7 +1946,7 @@
         id="editEquipmentModal"
         class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
     >
-        <form id="editEquipmentForm" method="POST" class="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
+        <form id="editEquipmentForm" method="POST" enctype="multipart/form-data" class="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/10">
             @csrf
             <div class="flex items-start justify-between px-6 pt-6">
                 <div>
@@ -1694,6 +1959,54 @@
             </div>
 
             <div class="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+                <div class="mb-5 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
+                    <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Photo (optional)</p>
+                    <div class="mt-3 flex items-center gap-4">
+                        <button
+                            type="button"
+                            id="edit_image_button"
+                            onclick="openEquipmentPhotoViewer(document.getElementById('edit_image_preview')?.src, document.getElementById('edit_equipment_name')?.value || 'Equipment photo')"
+                            class="group relative hidden h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80"
+                            aria-label="View equipment photo fullscreen"
+                        >
+                            <img id="edit_image_preview" src="" alt="Equipment photo" class="h-full w-full object-cover">
+                            <span class="absolute inset-0 flex items-center justify-center bg-slate-950/0 transition group-hover:bg-slate-950/40">
+                                <i data-lucide="expand" class="h-4 w-4 text-white opacity-0 transition group-hover:opacity-100"></i>
+                            </span>
+                        </button>
+                        <div id="edit_image_placeholder" class="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80">
+                            <span id="edit_layout_icon" class="inline-flex h-8 w-8 items-center justify-center [&_svg]:h-full [&_svg]:w-full"></span>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-sm font-medium text-slate-900">Change equipment photo</p>
+                            <p class="mt-0.5 text-xs text-slate-400">JPG, PNG, WebP, or GIF. Max 5 MB. Leave empty to keep the current photo.</p>
+                            <p id="edit_image_hint" class="mt-0.5 hidden text-xs text-slate-500">Click the photo to view it full screen.</p>
+                            <div class="mt-2 flex flex-wrap items-center gap-2">
+                                <label class="inline-flex h-9 cursor-pointer items-center rounded-lg bg-white px-3 text-xs font-semibold text-slate-700 ring-1 ring-slate-200/80 transition hover:bg-slate-50">
+                                    Choose image
+                                    <input
+                                        id="edit_equipment_image"
+                                        type="file"
+                                        name="equipment_image"
+                                        accept="image/jpeg,image/png,image/webp,image/gif"
+                                        class="sr-only"
+                                    >
+                                </label>
+                                <button
+                                    type="button"
+                                    id="edit_clear_image"
+                                    class="hidden h-9 items-center rounded-lg px-3 text-xs font-semibold text-rose-600 hover:bg-rose-50"
+                                >
+                                    Remove
+                                </button>
+                                <input type="hidden" name="remove_equipment_image" id="edit_remove_image" value="0">
+                            </div>
+                            @error('equipment_image')
+                                <p class="mt-2 text-xs font-medium text-rose-600">{{ $message }}</p>
+                            @enderror
+                        </div>
+                    </div>
+                </div>
                 <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
                     <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
                         <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">What & where</p>
@@ -1794,7 +2107,7 @@
 
             <div class="flex items-center justify-end gap-2 px-6 py-4">
                 <button type="button" onclick="closeEditEquipmentModal()" class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100">Cancel</button>
-                <button type="submit" class="h-10 rounded-xl bg-slate-900 px-5 text-sm font-medium text-white transition hover:bg-slate-800">Save changes</button>
+                <button type="submit" class="h-10 rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800">Save changes</button>
             </div>
         </form>
     </div>
@@ -1814,7 +2127,8 @@
             purchaseDate,
             warranty,
             createdAt,
-            borrowable
+            borrowable,
+            imageUrl
         ) {
             document.getElementById("modal_asset_tag").textContent = assetTag;
             document.getElementById("modal_name").textContent = name;
@@ -1833,6 +2147,28 @@
                 createdAt;
             document.getElementById("modal_borrowable").textContent =
                 borrowable;
+
+            const imageWrap = document.getElementById("modal_image_wrap");
+            const image = document.getElementById("modal_image");
+            const iconWrap = document.getElementById("modal_layout_icon_wrap");
+            const icon = document.getElementById("modal_layout_icon");
+
+            if (imageUrl) {
+                image.src = imageUrl;
+                image.alt = name;
+                imageWrap.classList.remove("hidden");
+                iconWrap.classList.add("hidden");
+                iconWrap.classList.remove("flex");
+            } else {
+                image.src = "";
+                image.alt = "";
+                imageWrap.classList.add("hidden");
+                iconWrap.classList.remove("hidden");
+                iconWrap.classList.add("flex");
+                if (icon && window.PrismEquipmentIcons) {
+                    icon.innerHTML = window.PrismEquipmentIcons.svg(name || "");
+                }
+            }
 
             const modal = document.getElementById("viewEquipmentModal");
 
@@ -1888,6 +2224,80 @@
                 items: [],
                 errors: {},
                 formError: '',
+                imagePreview: null,
+                onImageChange(event) {
+                    const file = event.target.files?.[0];
+                    if (this.imagePreview) {
+                        URL.revokeObjectURL(this.imagePreview);
+                    }
+                    this.imagePreview = file ? URL.createObjectURL(file) : null;
+                    this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                },
+                clearImage() {
+                    if (this.imagePreview) {
+                        URL.revokeObjectURL(this.imagePreview);
+                    }
+                    this.imagePreview = null;
+                    if (this.$refs.imageInput) {
+                        this.$refs.imageInput.value = '';
+                    }
+                    this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                },
+                onSharedPhotoModeChange() {
+                    if (this.needsItemStep()) {
+                        this.clearImage();
+                    }
+                },
+                onItemImageChange(index, event) {
+                    const item = this.items[index];
+                    if (!item) return;
+                    const file = event.target.files?.[0] || null;
+                    if (item._imagePreview) {
+                        URL.revokeObjectURL(item._imagePreview);
+                    }
+                    item._imageFile = file;
+                    item._imagePreview = file ? URL.createObjectURL(file) : null;
+                    this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                },
+                clearItemImage(index) {
+                    const item = this.items[index];
+                    if (!item) return;
+                    if (item._imagePreview) {
+                        URL.revokeObjectURL(item._imagePreview);
+                    }
+                    item._imagePreview = null;
+                    item._imageFile = null;
+                    const input = document.querySelector(`[data-item-image-index="${index}"]`);
+                    if (input) input.value = '';
+                    this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                },
+                clearAllItemImages() {
+                    (this.items || []).forEach((item, index) => {
+                        if (item?._imagePreview) {
+                            URL.revokeObjectURL(item._imagePreview);
+                        }
+                        if (item) {
+                            item._imagePreview = null;
+                            item._imageFile = null;
+                        }
+                        const input = document.querySelector(`[data-item-image-index="${index}"]`);
+                        if (input) input.value = '';
+                    });
+                },
+                restoreItemImageInputs() {
+                    (this.items || []).forEach((item, index) => {
+                        if (!item?._imageFile) return;
+                        const input = document.querySelector(`[data-item-image-index="${index}"]`);
+                        if (!input) return;
+                        try {
+                            const transfer = new DataTransfer();
+                            transfer.items.add(item._imageFile);
+                            input.files = transfer.files;
+                        } catch (e) {
+                            // Browser may reject DataTransfer assignment; native input value still used when unchanged.
+                        }
+                    });
+                },
                 needsItemStep() {
                     return this.tracking === 'Individual' && Number(this.quantity) > 1;
                 },
@@ -1993,7 +2403,9 @@
                     this.assetTag = '';
                     this.assetTagManual = false;
                     this.serial = '';
+                    this.clearAllItemImages();
                     this.items = [];
+                    this.clearImage();
                     this.clearErrors();
                     const borrowable = document.getElementById('add_equipment_borrowable');
                     if (borrowable) borrowable.checked = false;
@@ -2076,6 +2488,8 @@
                         equipment_condition_status: this.condition,
                         equipment_warranty_expiration: this.warranty || '',
                         _tagManual: previous[i]?._tagManual || false,
+                        _imagePreview: previous[i]?._imagePreview || null,
+                        _imageFile: previous[i]?._imageFile || null,
                     }));
                 },
                 regenerateAssetTags() {
@@ -2091,6 +2505,7 @@
                         equipment_asset_tag: generated[i] || this.buildAssetTag(i),
                         _tagManual: false,
                     }));
+                    this.$nextTick(() => this.restoreItemImageInputs());
                 },
                 applyDefaults() {
                     this.items = this.items.map((item) => ({
@@ -2105,10 +2520,14 @@
                     if (!this.validateStep1()) {
                         return;
                     }
+                    this.clearImage();
                     this.buildItems();
                     this.step = 2;
                     this.clearErrors();
-                    this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                    this.$nextTick(() => {
+                        this.restoreItemImageInputs();
+                        if (window.lucide) window.lucide.createIcons();
+                    });
                 },
                 prepareSubmit(event) {
                     if (this.needsItemStep() && this.step !== 2) {
@@ -2125,6 +2544,10 @@
                     }
                     if (this.step === 2 && !this.validateItems()) {
                         event.preventDefault();
+                        return;
+                    }
+                    if (this.step === 2) {
+                        this.restoreItemImageInputs();
                     }
                 },
             };
@@ -2165,7 +2588,8 @@
             condition,
             status,
             warranty,
-            borrowable
+            borrowable,
+            imageUrl
         ) {
             document.getElementById("editEquipmentForm").action =
                 "/maintenance/equipment/update/" + id;
@@ -2195,12 +2619,111 @@
             document.getElementById("edit_equipment_borrowable").checked =
                 borrowable == 1;
 
+            setEditEquipmentImage(imageUrl, name);
+
             document
                 .getElementById("editEquipmentModal")
                 .classList.remove("hidden");
 
             document.getElementById("editEquipmentModal").classList.add("flex");
+
+            if (window.lucide) {
+                window.lucide.createIcons();
+            }
         }
+
+        function setEditEquipmentImage(imageUrl, name) {
+            const preview = document.getElementById("edit_image_preview");
+            const previewButton = document.getElementById("edit_image_button");
+            const placeholder = document.getElementById("edit_image_placeholder");
+            const layoutIcon = document.getElementById("edit_layout_icon");
+            const hint = document.getElementById("edit_image_hint");
+            const clearButton = document.getElementById("edit_clear_image");
+            const fileInput = document.getElementById("edit_equipment_image");
+            const removeInput = document.getElementById("edit_remove_image");
+            const equipmentName = name || document.getElementById("edit_equipment_name")?.value || "";
+
+            if (fileInput) {
+                fileInput.value = "";
+            }
+            if (removeInput) {
+                removeInput.value = "0";
+            }
+
+            if (layoutIcon && window.PrismEquipmentIcons) {
+                layoutIcon.innerHTML = window.PrismEquipmentIcons.svg(equipmentName);
+            }
+
+            if (imageUrl) {
+                preview.src = imageUrl;
+                previewButton.classList.remove("hidden");
+                placeholder.classList.add("hidden");
+                hint?.classList.remove("hidden");
+                clearButton.classList.remove("hidden");
+                clearButton.classList.add("inline-flex");
+            } else {
+                preview.src = "";
+                previewButton.classList.add("hidden");
+                placeholder.classList.remove("hidden");
+                hint?.classList.add("hidden");
+                clearButton.classList.add("hidden");
+                clearButton.classList.remove("inline-flex");
+            }
+
+            if (window.lucide) {
+                window.lucide.createIcons();
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+            const fileInput = document.getElementById("edit_equipment_image");
+            const clearButton = document.getElementById("edit_clear_image");
+
+            fileInput?.addEventListener("change", function (event) {
+                const file = event.target.files?.[0];
+                const preview = document.getElementById("edit_image_preview");
+                const previewButton = document.getElementById("edit_image_button");
+                const placeholder = document.getElementById("edit_image_placeholder");
+                const removeInput = document.getElementById("edit_remove_image");
+                const removeButton = document.getElementById("edit_clear_image");
+
+                if (removeInput) {
+                    removeInput.value = "0";
+                }
+
+                if (!file) {
+                    return;
+                }
+
+                preview.src = URL.createObjectURL(file);
+                previewButton.classList.remove("hidden");
+                placeholder.classList.add("hidden");
+                document.getElementById("edit_image_hint")?.classList.remove("hidden");
+                removeButton.classList.remove("hidden");
+                removeButton.classList.add("inline-flex");
+
+                if (window.lucide) {
+                    window.lucide.createIcons();
+                }
+            });
+
+            clearButton?.addEventListener("click", function () {
+                setEditEquipmentImage("");
+                document.getElementById("edit_remove_image").value = "1";
+            });
+
+            document.getElementById("edit_equipment_name")?.addEventListener("input", function () {
+                const previewButton = document.getElementById("edit_image_button");
+                const layoutIcon = document.getElementById("edit_layout_icon");
+                if (!layoutIcon || !window.PrismEquipmentIcons) {
+                    return;
+                }
+                if (previewButton && !previewButton.classList.contains("hidden")) {
+                    return;
+                }
+                layoutIcon.innerHTML = window.PrismEquipmentIcons.svg(this.value);
+            });
+        });
 
         function closeEditEquipmentModal() {
             if (window.closeEqSelectPanel) {
@@ -2214,10 +2737,119 @@
                 .getElementById("editEquipmentModal")
                 .classList.remove("flex");
         }
+
+        function openInventoryDisposeModal(equipmentId, equipmentName, roomName) {
+            document.getElementById("inventoryDisposeEquipmentId").value = equipmentId;
+            document.getElementById("inventoryDisposeEquipmentName").textContent = equipmentName || "Equipment";
+            document.getElementById("inventoryDisposeLocation").value = roomName || "";
+            document.getElementById("inventoryDisposeReason").value = "";
+
+            const modal = document.getElementById("inventoryDisposeModal");
+            modal.classList.remove("hidden");
+            modal.classList.add("flex");
+
+            if (window.lucide) {
+                window.lucide.createIcons();
+            }
+        }
+
+        function closeInventoryDisposeModal() {
+            const modal = document.getElementById("inventoryDisposeModal");
+            modal.classList.add("hidden");
+            modal.classList.remove("flex");
+        }
     </script>
 
+    <div
+        id="inventoryDisposeModal"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
+    >
+        <div class="w-full max-w-md overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]">
+            <div class="flex items-start justify-between gap-6 px-6 pb-5 pt-6">
+                <div class="min-w-0">
+                    <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-rose-50 text-rose-600">
+                        <i data-lucide="archive-x" class="h-4 w-4"></i>
+                    </div>
+                    <h2 class="text-lg font-semibold tracking-tight text-slate-950">
+                        Dispose equipment
+                    </h2>
+                    <p class="mt-2 text-sm leading-6 text-slate-500">
+                        Move this item from inventory into the Disposal module. This is permanent until restored from Disposal.
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    onclick="closeInventoryDisposeModal()"
+                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                    aria-label="Close modal"
+                >
+                    <i data-lucide="x" class="h-4 w-4"></i>
+                </button>
+            </div>
+
+            <form action="/maintenance/disposal/store" method="POST">
+                @csrf
+                <input type="hidden" name="equipment_id" id="inventoryDisposeEquipmentId" value="" />
+
+                <div class="border-y border-slate-100 px-6 py-5">
+                    <div class="space-y-5">
+                        <div>
+                            <p class="mb-1 text-sm font-medium text-slate-700">Equipment</p>
+                            <p id="inventoryDisposeEquipmentName" class="rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-900"></p>
+                        </div>
+
+                        <div>
+                            <label for="inventoryDisposeReason" class="mb-2 block text-sm font-medium text-slate-700">
+                                Reason
+                            </label>
+                            <textarea
+                                id="inventoryDisposeReason"
+                                name="reason"
+                                rows="3"
+                                required
+                                placeholder="Why is this equipment being disposed?"
+                                class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                            ></textarea>
+                        </div>
+
+                        <div>
+                            <label for="inventoryDisposeLocation" class="mb-2 block text-sm font-medium text-slate-700">
+                                Location
+                            </label>
+                            <input
+                                id="inventoryDisposeLocation"
+                                name="location"
+                                type="text"
+                                placeholder="Area / room"
+                                class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-end gap-2 px-6 py-4">
+                    <button
+                        type="button"
+                        onclick="closeInventoryDisposeModal()"
+                        class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        class="h-10 rounded-xl bg-rose-600 px-5 text-sm font-medium text-white transition hover:bg-rose-700"
+                    >
+                        Dispose
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    @include('layouts.partials.equipment-layout-icons')
     @include('layouts.partials.equipment-asset-tag')
     @include('layouts.partials.equipment-category-detect')
+    @include('layouts.partials.equipment-photo-viewer')
 
     <style>
         .eq-modal-scroll {

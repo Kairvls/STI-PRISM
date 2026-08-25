@@ -25,6 +25,8 @@
                 request()->is('maintenance/borrowing*') => ['Borrowing', 'Borrowed equipment and return status.'],
                 request()->is('maintenance/schedules*') => ['Schedules', 'Planned maintenance work.'],
                 request()->is('maintenance/disposal*') => ['Disposal', 'Items marked for disposal.'],
+                request()->is('maintenance/settings/profile*') => ['Profile Settings', 'Update your account information.'],
+                request()->is('maintenance/settings/security*') => ['Security Settings', 'Manage your password and account security.'],
                 default => [View::yieldContent('title', 'PRISM'), 'Maintenance Personnel'],
             };
         @endphp
@@ -406,6 +408,11 @@
         <!-- ===================================== -->
         <!-- PROFILE -->
         <!-- ===================================== -->
+        @php
+            $topbarUser = Auth::user();
+            $topbarInitial = strtoupper(substr($topbarUser->user_full_name ?? 'U', 0, 1));
+            $topbarPictureUrl = $topbarUser->profile_picture_url;
+        @endphp
         <div class="relative">
             <!-- PROFILE BUTTON -->
             <button
@@ -415,16 +422,25 @@
             >
                 <!-- AVATAR -->
                 <div
-                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-900 text-sm font-medium text-white"
+                    data-user-avatar
+                    class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-900 text-sm font-medium text-white"
                 >
-                    {{ strtoupper(substr(Auth::user()->user_full_name, 0, 1)) }}
+                    @if ($topbarPictureUrl)
+                        <img
+                            src="{{ $topbarPictureUrl }}?v={{ time() }}"
+                            alt="{{ $topbarUser->user_full_name }}"
+                            class="h-full w-full object-cover"
+                        >
+                    @else
+                        {{ $topbarInitial }}
+                    @endif
                 </div>
 
                 <!-- PROFILE INFORMATION -->
                 <div class="hidden min-w-0 sm:block">
                     <p
                         class="max-w-[150px] truncate text-sm font-medium text-slate-900"
-                    >{{ Auth::user()->user_full_name }}</p>
+                    >{{ $topbarUser->user_full_name }}</p>
 
                     <p
                         class="mt-0.5 max-w-[150px] truncate text-xs text-slate-500"
@@ -450,20 +466,29 @@
                     <div class="flex items-center gap-3">
                         <!-- AVATAR -->
                         <div
-                            class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-900 text-sm font-medium text-white"
+                            data-user-avatar
+                            class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-900 text-sm font-medium text-white"
                         >
-                            {{ strtoupper(substr(Auth::user()->user_full_name, 0, 1)) }}
+                            @if ($topbarPictureUrl)
+                                <img
+                                    src="{{ $topbarPictureUrl }}?v={{ time() }}"
+                                    alt="{{ $topbarUser->user_full_name }}"
+                                    class="h-full w-full object-cover"
+                                >
+                            @else
+                                {{ $topbarInitial }}
+                            @endif
                         </div>
 
                         <!-- USER INFORMATION -->
                         <div class="min-w-0">
                             <p
                                 class="truncate text-sm font-medium text-slate-950"
-                            >{{ Auth::user()->user_full_name }}</p>
+                            >{{ $topbarUser->user_full_name }}</p>
 
                             <p
                                 class="mt-0.5 truncate text-xs text-slate-500"
-                            >{{ Auth::user()->user_email_address }}</p>
+                            >{{ $topbarUser->user_email_address }}</p>
                         </div>
                     </div>
                 </div>
@@ -473,7 +498,7 @@
                 <!-- ===================================== -->
                 <div class="p-2">
                     <a
-                        href="#"
+                        href="{{ url('/maintenance/settings/profile') }}"
                         class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
                     >
                         <i
@@ -485,7 +510,7 @@
                     </a>
 
                     <a
-                        href="#"
+                        href="{{ url('/maintenance/settings/security') }}"
                         class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
                     >
                         <i

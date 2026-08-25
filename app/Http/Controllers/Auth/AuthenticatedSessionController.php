@@ -21,89 +21,15 @@ class AuthenticatedSessionController extends Controller
 
     /**
      * HANDLE LOGIN REQUEST
+     * Password login is disabled — Office 365 SSO only.
      */
     public function store(LoginRequest $request): RedirectResponse
     {
-        // =====================================================
-        // AUTHENTICATE USER HERE
-        // LoginRequest checks employee ID, password, and role
-        // =====================================================
-
-        $request->authenticate();
-
-
-        // =====================================================
-        // REGENERATE SESSION HERE
-        // Protects the session after successful login
-        // =====================================================
-
-        $request->session()->regenerate();
-
-
-        // =====================================================
-        // GET AUTHENTICATED USER HERE
-        // =====================================================
-
-        $user = Auth::user();
-
-
-        // =====================================================
-        // REDIRECT USER BASED ON ROLE HERE
-        //
-        // 1 = Admin
-        // 2 = Maintenance Personnel
-        // 3 = Purchaser
-        // 4 = President
-        // 5 = Accounting
-        // 6 = Receiving Officer
-        // =====================================================
-
-        return match ((int) $user->user_role_id) {
-
-            // ADMIN
-            1 => redirect('/admin/dashboard'),
-
-            // MAINTENANCE PERSONNEL
-            2 => redirect('/maintenance/dashboard'),
-
-            // PURCHASER
-            3 => redirect('/purchaser/dashboard'),
-
-            // PRESIDENT
-            4 => redirect('/president/dashboard'),
-
-            // ACCOUNTING
-            5 => redirect('/accounting/dashboard'),
-
-            // RECEIVING OFFICER
-            6 => redirect('/receiving/dashboard'),
-
-            // UNKNOWN ROLE
-            default => $this->logoutUnknownRole($request),
-        };
-    }
-
-
-    /**
-     * =====================================================
-     * LOGOUT USER WHEN ROLE IS INVALID HERE
-     * =====================================================
-     */
-    private function logoutUnknownRole(
-        LoginRequest $request
-    ): RedirectResponse
-    {
-        Auth::guard('web')->logout();
-
-        $request->session()->invalidate();
-
-        $request->session()->regenerateToken();
-
-        return redirect('/login')
-            ->withErrors([
-                'user_employee_id' =>
-                    'Your account does not have a valid system role.',
-            ]);
+        return redirect('/')
+            ->with(
+                'error',
+                'Password login is disabled. Please use Log in with Office 365.'
+            );
     }
 
     /**
@@ -111,16 +37,10 @@ class AuthenticatedSessionController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
-        // LOGOUT USER
         Auth::guard('web')->logout();
-
-        // INVALIDATE SESSION
         $request->session()->invalidate();
-
-        // REGENERATE CSRF TOKEN
         $request->session()->regenerateToken();
 
-        // REDIRECT TO HOME PAGE
-        return redirect('http://127.0.0.1:8000/');
+        return redirect('/');
     }
 }

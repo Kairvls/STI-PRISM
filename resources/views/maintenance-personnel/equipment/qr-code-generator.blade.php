@@ -3,6 +3,24 @@
 @section ("title", "QR Code Tools")
 
 @section ("content")
+    @php
+        $eqImageUrl = function ($path) {
+            if (!filled($path)) {
+                return '';
+            }
+
+            if (
+                str_starts_with($path, 'http://')
+                || str_starts_with($path, 'https://')
+                || str_starts_with($path, '/storage/')
+            ) {
+                return $path;
+            }
+
+            return asset('storage/'.$path);
+        };
+    @endphp
+
     <div class="space-y-6">
         {{-- ===================================================== --}}
         {{-- QR TOOLS DASHBOARD --}}
@@ -463,7 +481,7 @@
                             value="{{ request('search') }}"
                             placeholder="Search equipment, asset tag, serial number, or QR code..."
 
-                            class="h-10 w-full rounded-lg
+                            class="h-9 w-full rounded-lg
                                 border border-slate-200
                                 bg-white pl-10 pr-3
                                 text-sm text-slate-700
@@ -485,7 +503,7 @@
                         <select
                             name="category"
 
-                            class="h-10 min-w-[180px]
+                            class="h-9 min-w-[180px]
                                 appearance-none rounded-lg
                                 border border-slate-200
                                 bg-white pl-3 pr-9
@@ -536,7 +554,7 @@
                         <select
                             name="room"
 
-                            class="h-10 min-w-[180px]
+                            class="h-9 min-w-[180px]
                                 appearance-none rounded-lg
                                 border border-slate-200
                                 bg-white pl-3 pr-9
@@ -587,7 +605,7 @@
                         <select
                             name="qr_status"
 
-                            class="h-10 min-w-[170px]
+                            class="h-9 min-w-[170px]
                                 appearance-none rounded-lg
                                 border border-slate-200
                                 bg-white pl-3 pr-9
@@ -635,12 +653,12 @@
                     <button
                         type="submit"
 
-                        class="inline-flex h-10 items-center
+                        class="inline-flex h-9 items-center
                             justify-center gap-2 rounded-lg
-                            bg-slate-950 px-4
+                            bg-[#0025cc] px-4
                             text-sm font-semibold text-white
                             transition
-                            hover:bg-slate-800"
+                            hover:bg-blue-800"
                     >
 
                         <i
@@ -798,17 +816,35 @@
 
                                     <div class="flex items-center gap-3">
 
-                                        {{-- EQUIPMENT ICON --}}
+                                        {{-- EQUIPMENT PHOTO OR LAYOUT ICON --}}
                                         <div
                                             class="flex h-9 w-9 shrink-0
                                                 items-center justify-center
-                                                rounded-lg border border-slate-200
-                                                bg-white text-slate-400"
+                                                overflow-hidden rounded-lg
+                                                border border-slate-200 bg-white"
                                         >
-                                            <i
-                                                data-lucide="monitor-cog"
-                                                class="h-4 w-4"
-                                            ></i>
+                                            @if (filled($item->equipment_image))
+                                                <button
+                                                    type="button"
+                                                    onclick="event.stopPropagation(); openEquipmentPhotoViewer({{ json_encode($eqImageUrl($item->equipment_image)) }}, {{ json_encode($item->equipment_name) }})"
+                                                    class="group relative h-full w-full"
+                                                    aria-label="View {{ $item->equipment_name }} photo fullscreen"
+                                                >
+                                                    <img
+                                                        src="{{ $eqImageUrl($item->equipment_image) }}"
+                                                        alt="{{ $item->equipment_name }}"
+                                                        class="h-full w-full object-cover"
+                                                    >
+                                                    <span class="absolute inset-0 flex items-center justify-center bg-slate-950/0 transition group-hover:bg-slate-950/40">
+                                                        <i data-lucide="expand" class="h-3 w-3 text-white opacity-0 transition group-hover:opacity-100"></i>
+                                                    </span>
+                                                </button>
+                                            @else
+                                                <span
+                                                    class="inline-flex h-5 w-5 items-center justify-center text-slate-400 [&_svg]:h-full [&_svg]:w-full"
+                                                    data-equipment-layout-icon="{{ $item->equipment_name }}"
+                                                ></span>
+                                            @endif
                                         </div>
 
 
@@ -828,7 +864,7 @@
                                                 class="mt-0.5 text-[11px]
                                                     text-slate-400"
                                             >
-                                                Equipment record
+                                                {{ $item->equipment_asset_tag ?? 'Equipment record' }}
                                             </p>
 
                                         </div>
@@ -1633,7 +1669,7 @@
                 <button
                     type="button"
                     @click="printQr()"
-                    class="inline-flex items-center gap-2 rounded-lg bg-slate-900 px-3.5 py-2 text-sm font-medium text-white transition hover:bg-slate-800"
+                    class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-3.5 py-2 text-sm font-medium text-white transition hover:bg-blue-800"
                 >
                     <i data-lucide="printer" class="h-4 w-4"></i>
                     Print QR
@@ -2332,4 +2368,6 @@
         }
     </script>
 
+@include('layouts.partials.equipment-layout-icons')
+@include('layouts.partials.equipment-photo-viewer')
 @endsection

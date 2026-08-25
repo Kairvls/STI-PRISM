@@ -1,5 +1,6 @@
 {{-- Bottom-right panel — Attendance Rate reference style --}}
-<div class="shrink-0 rounded-[24px] border border-slate-200/80 bg-white p-5 shadow-[0_4px_24px_rgba(0,0,0,0.06)]">
+<!--<div class="shrink-0 rounded-[24px] border border-slate-200/80 bg-white p-5 shadow-[0_4px_24px_rgba(0,0,0,0.06)]">-->
+<div class="flex h-full min-h-0 flex-1 flex-col rounded-[24px] border border-slate-200/80 bg-white p-5">
     <div class="flex items-center justify-between gap-3">
         <h3 class="text-[15px] font-bold text-[#1A1A1A]">Room health rate</h3>
         <button
@@ -40,21 +41,23 @@
         </template>
     </div>
 
-    <div class="mt-5 flex items-center gap-4 border-t border-[#E0E0E0] pt-4">
-        <p class="min-w-0 flex-1 text-[13px] font-bold text-[#1A1A1A]">
-            <span x-text="floorStats.equipment"></span> assets tracked
-        </p>
-        <span class="h-4 w-px shrink-0 bg-[#DDDDDD]"></span>
-        <p class="shrink-0 text-[13px] font-normal text-[#888888]">
-            <span x-text="floorStats.todayReports"></span> reports today
-        </p>
-    </div>
+    <div class="mt-auto">
+        <div class="mt-5 flex items-center gap-4 border-t border-[#E0E0E0] pt-4">
+            <p class="min-w-0 flex-1 text-[13px] font-bold text-[#1A1A1A]">
+                <span x-text="floorStats.equipment"></span> assets tracked
+            </p>
+            <span class="h-4 w-px shrink-0 bg-[#DDDDDD]"></span>
+            <p class="shrink-0 text-[13px] font-normal text-[#888888]">
+                <span x-text="floorStats.todayReports"></span> reports today
+            </p>
+        </div>
 
-    <button
-        type="button"
-        @click="scrollToFloorInsights()"
-        class="mt-4 flex w-full items-center justify-center rounded-xl bg-[#E8E8E8] py-3.5 text-[13px] font-semibold text-[#333333] transition hover:bg-[#DDDDDD]"
-    >
-        View detailed report
-    </button>
+        <button
+            type="button"
+            @click="scrollToFloorInsights()"
+            class="mt-4 flex w-full items-center justify-center rounded-xl bg-[#E8E8E8] py-3.5 text-[13px] font-semibold text-[#333333] transition hover:bg-[#DDDDDD]"
+        >
+            View detailed report
+        </button>
+    </div>
 </div>

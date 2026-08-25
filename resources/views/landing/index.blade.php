@@ -864,7 +864,7 @@
             justify-content: center;
             border: 0;
             border-radius: 999px;
-            background: #f4f5f8;
+            
             color: #6b7280;
             cursor: pointer;
             transition: background .2s ease, color .2s ease;
@@ -974,20 +974,28 @@
             align-items: center;
             justify-content: center;
             gap: 10px;
-            padding: 12px 16px;
+            padding: 13px 16px;
             border-radius: 14px;
-            border: 1px solid var(--line);
+            border: 1px solid #d7deee;
             background: #fff;
             color: var(--ink);
-            font-weight: 600;
-            font-size: .9rem;
+            font-weight: 700;
+            font-size: .92rem;
             text-decoration: none;
             margin-bottom: 10px;
-            transition: background .2s ease, border-color .2s ease;
+            
+            transition: background .2s ease, border-color .2s ease, box-shadow .2s ease;
         }
         .login-microsoft:hover {
             background: #f7f8fb;
-            border-color: #d7deee;
+            border-color: #c9d3e8;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, .08);
+        }
+        .login-microsoft-hint {
+            margin: 0 0 18px;
+            font-size: .82rem;
+            line-height: 1.45;
+            color: #717171;
         }
 
         .modern-success-popup {
@@ -2127,129 +2135,18 @@
     <!-- MODALS -->
     @guest
     <div id="loginChooserModal"
-         class="hidden fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30 p-4 backdrop-blur-[3px]">
-        <div class="modal-animation modal-panel w-full max-w-[400px] rounded-[22px] p-6 md:p-7 relative">
+         class="hidden fixed inset-0 z-50 flex items-start justify-center px-4 pt-6 sm:pt-10 bg-[#0b1220]/70 p-4">
+        <div class="modal-animation modal-panel w-full max-w-[400px] rounded-lg p-6 md:p-7 relative">
             <button type="button" onclick="closeLoginChooser()" class="modal-close" aria-label="Close">
                 <i data-lucide="x" class="w-4 h-4"></i>
             </button>
 
-            <h2 class="login-title">Log in</h2>
-            <p class="login-subtitle">Select your access level to continue.</p>
+            <h2 class="login-title mb-5 pr-8 leading-snug">Log in</h2>
 
-            <div class="space-y-2.5">
-                <button type="button" onclick="openStaffLoginChooser()" class="login-choice login-choice--primary">
-                    <i data-lucide="users" class="w-4 h-4"></i>
-                    Log in as Staff
-                </button>
-                <button type="button" onclick="openPresidentLogin()" class="login-choice login-choice--accent">
-                    <i data-lucide="crown" class="w-4 h-4"></i>
-                    President log in
-                </button>
-                <button type="button" onclick="openAdminLogin()" class="login-choice login-choice--ghost">
-                    <i data-lucide="shield-check" class="w-4 h-4"></i>
-                    Admin log in
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <div id="staffChooserModal"
-         class="hidden fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30 p-4 backdrop-blur-[3px]">
-        <div class="modal-animation modal-panel w-full max-w-[400px] rounded-[22px] p-6 md:p-7 relative">
-            <button type="button" onclick="closeStaffChooser()" class="modal-close" aria-label="Close">
-                <i data-lucide="x" class="w-4 h-4"></i>
-            </button>
-
-            <h2 class="login-title">Staff login</h2>
-            <p class="login-subtitle">Select your role to continue.</p>
-
-            <div class="grid grid-cols-2 gap-2.5 mb-3">
-                <button type="button" onclick="openRoleLogin('Maintenance Personnel', 2)" class="login-role login-role--blue">
-                    <span class="login-role-icon"><i data-lucide="wrench" class="w-5 h-5"></i></span>
-                    <span class="text-[13px] font-semibold text-center leading-snug">Maintenance<br>Personnel</span>
-                </button>
-                <button type="button" onclick="openRoleLogin('Purchaser', 3)" class="login-role login-role--yellow">
-                    <span class="login-role-icon"><i data-lucide="shopping-cart" class="w-5 h-5"></i></span>
-                    <span class="text-[13px] font-semibold">Purchaser</span>
-                </button>
-                <button type="button" onclick="openRoleLogin('Accounting', 5)" class="login-role login-role--blue">
-                    <span class="login-role-icon"><i data-lucide="calculator" class="w-5 h-5"></i></span>
-                    <span class="text-[13px] font-semibold">Accounting</span>
-                </button>
-                <button type="button" onclick="openRoleLogin('Receiving Officer', 6)" class="login-role login-role--yellow">
-                    <span class="login-role-icon"><i data-lucide="clipboard-list" class="w-5 h-5"></i></span>
-                    <span class="text-[13px] font-semibold text-center leading-snug">Receiving<br>Officer</span>
-                </button>
-            </div>
-
-            <button type="button" onclick="showModal(loginChooserModal)" class="login-back">Back</button>
-        </div>
-    </div>
-
-    <div id="roleLoginModal"
-         class="hidden fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/30 p-4 backdrop-blur-[3px]">
-        <div class="modal-animation modal-panel w-full max-w-[400px] rounded-[22px] p-6 md:p-7 relative">
-            <button type="button" onclick="closeRoleLogin()" class="modal-close" aria-label="Close">
-                <i data-lucide="x" class="w-4 h-4"></i>
-            </button>
-
-            <h2 id="roleLoginTitle" class="login-title mb-6 pr-8 leading-snug">
-                Maintenance Personnel Login
-            </h2>
-
-            <form method="POST" action="{{ route('login') }}">
-                @csrf
-                <input type="hidden" name="login_role_id" id="login_role_id">
-                <input type="hidden" name="login_modal" id="login_modal">
-
-                <div class="mb-4">
-                    <label class="modal-label">User ID</label>
-                    <input type="text" name="user_employee_id" value="{{ old('user_employee_id') }}"
-                           placeholder="Enter your user ID" class="modal-input" required>
-                </div>
-
-                <div class="mb-2">
-                    <label class="modal-label">Password</label>
-                    <div class="relative">
-                        <input type="password" name="password" id="password" placeholder="Enter your password"
-                               class="modal-input pr-12" required>
-                        <button type="button" onclick="togglePassword()"
-                            class="absolute right-3 top-1/2 -translate-y-1/2 border-0 bg-transparent cursor-pointer"
-                            style="color:#8892a4;"
-                            onmouseover="this.style.color='#0025cc'" onmouseout="this.style.color='#8892a4'">
-                            <i data-lucide="eye" id="eyeIcon" class="w-4 h-4"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <p id="loginErrorMessage" class="hidden mt-2 mb-1" style="color:#dc2626; font-size:.8rem; font-weight:500;">
-                    Incorrect User ID or Password.
-                </p>
-
-                <div class="flex items-center justify-between mt-4 mb-5">
-                    <label class="flex items-center gap-2" style="font-size:.8rem; color:#717171; cursor:pointer;">
-                        <input type="checkbox" name="remember" style="accent-color:#0025cc;">
-                        Remember me
-                    </label>
-                    <a href="{{ route('password.request') }}" class="no-underline font-medium" style="font-size:.8rem; color:var(--blue);">
-                        Forgot password?
-                    </a>
-                </div>
-
-                <button type="submit" class="login-choice login-choice--primary mb-2.5">
-                    <i data-lucide="lock" class="w-4 h-4"></i>
-                    Log in
-                </button>
-
-                <a href="{{ route('auth.microsoft.redirect') }}" class="login-microsoft">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_logo.svg" class="w-4 h-4" alt="Microsoft">
-                    Log in with Office 365
-                </a>
-
-                <button type="button" onclick="goBackRoleLogin()" class="login-back">
-                    Back to SSO
-                </button>
-            </form>
+            <a href="{{ route('auth.microsoft.redirect') }}" class="login-microsoft" style="margin-bottom:0;" id="msLoginPrimary">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/4/44/Microsoft_logo.svg" class="w-4 h-4" alt="Microsoft">
+                Log in with Office 365
+            </a>
         </div>
     </div>
     @endguest
@@ -2426,14 +2323,10 @@
         }
 
         const loginChooserModal = document.getElementById('loginChooserModal');
-        const staffChooserModal = document.getElementById('staffChooserModal');
-        const roleLoginModal = document.getElementById('roleLoginModal');
         const reportModal = document.getElementById('reportModal');
 
         function closeAllModals() {
             if (loginChooserModal) loginChooserModal.classList.add('hidden');
-            if (staffChooserModal) staffChooserModal.classList.add('hidden');
-            if (roleLoginModal) roleLoginModal.classList.add('hidden');
             if (reportModal) reportModal.classList.add('hidden');
         }
 
@@ -2456,51 +2349,9 @@
 
         function openLoginModal() { showModal(loginChooserModal); }
         function openLoginChooser() { showModal(loginChooserModal); }
-        function openStaffLoginChooser() { showModal(staffChooserModal); }
         function closeLoginChooser() { hideModal(loginChooserModal); }
-        function closeStaffChooser() { hideModal(staffChooserModal); }
-        function closeRoleLogin() { hideModal(roleLoginModal); }
         function openReportModal() { showModal(reportModal); }
         function closeReportModal() { hideModal(reportModal); }
-        function openAdminLogin() { openRoleLogin('Admin', 1); }
-        function openPresidentLogin() { openRoleLogin('President', 4); }
-
-        function openRoleLogin(roleName, roleId) {
-            showModal(roleLoginModal);
-            document.getElementById('roleLoginTitle').innerText = roleName + ' Login';
-            document.getElementById('login_role_id').value = roleId;
-            document.getElementById('login_modal').value = roleName;
-
-            if (roleName !== "{{ old('login_modal') }}") {
-                document.querySelector('input[name="user_employee_id"]').value = '';
-                document.querySelector('input[name="password"]').value = '';
-            }
-
-            const errorMessage = document.getElementById('loginErrorMessage');
-            if ("{{ $errors->has('user_employee_id') }}" && roleName === "{{ old('login_modal') }}") {
-                errorMessage.classList.remove('hidden');
-            } else {
-                errorMessage.classList.add('hidden');
-            }
-        }
-
-        function goBackRoleLogin() {
-            const currentRole = document.getElementById('login_modal').value;
-            showModal(currentRole === 'Admin' || currentRole === 'President' ? loginChooserModal : staffChooserModal);
-        }
-
-        function togglePassword() {
-            const input = document.getElementById('password');
-            const eyeIcon = document.getElementById('eyeIcon');
-            if (input.type === 'password') {
-                input.type = 'text';
-                eyeIcon.setAttribute('data-lucide', 'eye-off');
-            } else {
-                input.type = 'password';
-                eyeIcon.setAttribute('data-lucide', 'eye');
-            }
-            lucide.createIcons();
-        }
 
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') {
@@ -2736,13 +2587,16 @@
         });
     </script>
 
-    @if ($errors->any())
+    @if(session('error'))
     <script>
-        window.addEventListener('load', function () {
-            const modalName = "{{ old('login_modal') }}";
-            const roleId = "{{ old('login_role_id') }}";
-            if (modalName !== '') openRoleLogin(modalName, roleId);
+    document.addEventListener('DOMContentLoaded', function () {
+        paayoSwal({
+            title: 'Sign-in failed',
+            text: @json(session('error')),
+            confirmText: 'OK',
+            tone: 'error',
         });
+    });
     </script>
     @endif
 

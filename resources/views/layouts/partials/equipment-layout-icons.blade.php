@@ -77,5 +77,18 @@ window.PrismEquipmentIcons = {
 
         return icons[cat] || icons.default;
     },
+
+    paint(root) {
+        const scope = root && root.querySelectorAll ? root : document;
+        scope.querySelectorAll('[data-equipment-layout-icon]').forEach((el) => {
+            el.innerHTML = this.svg(el.getAttribute('data-equipment-layout-icon'));
+        });
+    },
 };
+
+document.addEventListener('DOMContentLoaded', function () {
+    if (window.PrismEquipmentIcons) {
+        window.PrismEquipmentIcons.paint();
+    }
+});
 </script>

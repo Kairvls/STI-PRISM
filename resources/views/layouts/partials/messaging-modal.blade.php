@@ -2577,6 +2577,8 @@
     (function() {
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
         const currentUserId = {{ auth()->id() }};
+        const currentUserName = @json(auth()->user()?->user_full_name ?? 'You');
+        const currentUserProfilePicture = @json(auth()->user()?->user_profile_picture);
         let currentConversationId = null;
         let lastPinNoticeEl = null;
         let lastUnpinNoticeEl = null;
@@ -4107,10 +4109,29 @@
                 Number(row?.dataset?.senderId) ===
                 Number(currentUserId);
 
-            // For your own messages use initials.
-            // The other participant uses the same avatar as
-            // Conversation Info.
+            // Own messages: use your saved profile picture.
+            // The other participant uses Conversation Info avatar.
             if (isOwn) {
+                const ownPicture = getConversationInfoPictureUrl({
+                    user_profile_picture: currentUserProfilePicture
+                });
+
+                if (ownPicture) {
+                    return `
+                        <img
+                            src="${escapeHtml(ownPicture)}"
+                            alt="${escapeHtml(currentUserName || 'You')}"
+                            class="
+                                h-9
+                                w-9
+                                shrink-0
+                                rounded-full
+                                object-cover
+                            "
+                        >
+                    `;
+                }
+
                 return `
                     <div
                         class="
@@ -12189,7 +12210,16 @@ if (!isGroup) {
         }
 
         function getMessageAvatarHtml(msg, senderName) {
-            const picture = msg.sender?.user_profile_picture || msg.sender?.profile_picture || '';
+            const isOwn =
+                Number(msg?.sender_id ?? msg?.sender?.user_id) ===
+                Number(currentUserId);
+
+            const picture =
+                msg.sender?.user_profile_picture ||
+                msg.sender?.profile_picture ||
+                (isOwn ? currentUserProfilePicture : '') ||
+                '';
+
             const initials = String(senderName || '?')
                 .split(/\s+/).filter(Boolean).slice(0, 2)
                 .map(part => part.charAt(0)).join('').toUpperCase() || '?';
@@ -14560,6 +14590,7 @@ if (!isGroup) {
                         let picture =
                             sender.user_profile_picture ||
                             sender.profile_picture ||
+                            (isOwn ? currentUserProfilePicture : '') ||
                             '';
 
                         let avatarHtml = '';
@@ -16668,6 +16699,7 @@ if (!isGroup) {
                     let picture =
                         user.user_profile_picture ||
                         user.profile_picture ||
+                        (isMe ? currentUserProfilePicture : '') ||
                         '';
 
                     if (

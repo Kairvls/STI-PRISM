@@ -467,7 +467,7 @@
                             value="{{ request('search') }}"
                             placeholder="Search equipment, asset tag, category, or room..."
 
-                            class="h-10 w-full rounded-lg
+                            class="h-9 w-full rounded-lg
                                 border border-slate-200
                                 bg-white pl-10 pr-3
                                 text-sm text-slate-700
@@ -489,7 +489,7 @@
                         <select
                             name="category"
 
-                            class="h-10 min-w-[175px]
+                            class="h-9 min-w-[175px]
                                 appearance-none rounded-lg
                                 border border-slate-200
                                 bg-white pl-3 pr-9
@@ -539,7 +539,7 @@
                         <select
                             name="room"
 
-                            class="h-10 min-w-[165px]
+                            class="h-9 min-w-[165px]
                                 appearance-none rounded-lg
                                 border border-slate-200
                                 bg-white pl-3 pr-9
@@ -589,7 +589,7 @@
                         <select
                             name="status"
 
-                            class="h-10 min-w-[180px]
+                            class="h-9 min-w-[180px]
                                 appearance-none rounded-lg
                                 border border-slate-200
                                 bg-white pl-3 pr-9
@@ -650,11 +650,11 @@
                     <button
                         type="submit"
 
-                        class="inline-flex h-10 items-center
+                        class="inline-flex h-9 items-center
                             justify-center gap-2 rounded-lg
-                            bg-slate-950 px-4
+                            bg-[#0025cc] px-4
                             text-sm font-semibold text-white
-                            transition hover:bg-slate-800"
+                            transition hover:bg-blue-800"
                     >
 
                         <i
@@ -1267,106 +1267,68 @@
     <!-- ===================================================== -->
 
     <div
-    id="transferModal"
-    class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
->
-    <!-- ===================================== -->
-    <!-- TRANSFER EQUIPMENT MODAL -->
-    <!-- ===================================== -->
-    <div
-        class="w-full max-w-md overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
+        id="transferModal"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
+        onclick="if (event.target === this) closeTransferModal()"
     >
-        <!-- ===================================== -->
-        <!-- MODAL HEADER -->
-        <!-- ===================================== -->
-        <div class="flex items-start justify-between gap-6 px-6 pb-5 pt-6 border-b border-dashed border-slate-500">
-            <div>
-                <p
-                    class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400"
-                >
-                    Equipment Management
-                </p>
-
-                <h2
-                    class="mt-1.5 text-lg font-semibold tracking-tight text-slate-950"
-                >
-                    Transfer equipment
-                </h2>
-            </div>
-
-            <!-- CLOSE BUTTON -->
-            <button
-                type="button"
-                onclick="closeTransferModal()"
-                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
-                aria-label="Close modal"
-            >
-                <i data-lucide="x" class="h-4 w-4"></i>
-            </button>
-        </div>
-
-        <!-- ===================================== -->
-        <!-- TRANSFER FORM -->
-        <!-- ===================================== -->
-        <form action="/maintenance/equipment/transfer" method="POST">
-            @csrf
-
-            <input
-                type="hidden"
-                id="transfer_equipment_id"
-                name="equipment_id"
-            />
-
-            <!-- ===================================== -->
-            <!-- MODAL CONTENT -->
-            <!-- ===================================== -->
-            <div class="border-y border-slate-100 px-6 py-5">
-
-                <!-- ===================================== -->
-                <!-- CURRENT EQUIPMENT INFORMATION -->
-                <!-- ===================================== -->
-                <div
-                    class="mb-6 divide-y divide-slate-100 rounded-xl border border-slate-200 px-4"
-                >
-                    <!-- EQUIPMENT -->
-                    <div
-                        class="flex items-center justify-between gap-6 py-3.5"
-                    >
-                        <span class="shrink-0 text-sm text-slate-500">
-                            Equipment
-                        </span>
-
-                        <span
-                            id="transferEquipmentName"
-                            class="min-w-0 truncate text-right text-sm font-medium text-slate-950"
-                        ></span>
+        <div
+            class="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+        >
+            <div class="flex items-start justify-between border-b border-slate-200 px-6 py-5">
+                <div class="min-w-0">
+                    <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-blue-50 text-[#0025cc]">
+                        <i data-lucide="arrow-right-left" class="h-4 w-4"></i>
                     </div>
-
-                    <!-- CURRENT ROOM -->
-                    <div
-                        class="flex items-center justify-between gap-6 py-3.5"
-                    >
-                        <span class="shrink-0 text-sm text-slate-500">
-                            Current room
-                        </span>
-
-                        <span
-                            id="transferCurrentRoom"
-                            class="min-w-0 truncate text-right text-sm font-medium text-slate-800"
-                        ></span>
-                    </div>
+                    <h2 class="text-lg font-semibold tracking-tight text-slate-950">
+                        Transfer equipment
+                    </h2>
+                    <p class="mt-1 text-sm text-slate-500">
+                        Move this item to another room and optionally add remarks.
+                    </p>
                 </div>
 
-                <!-- ===================================== -->
-                <!-- TRANSFER FIELDS -->
-                <!-- ===================================== -->
-                <div class="space-y-5">
+                <button
+                    type="button"
+                    onclick="closeTransferModal()"
+                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                    aria-label="Close modal"
+                >
+                    <i data-lucide="x" class="h-5 w-5"></i>
+                </button>
+            </div>
 
-                    <!-- TRANSFER TO -->
+            <form action="/maintenance/equipment/transfer" method="POST">
+                @csrf
+
+                <input
+                    type="hidden"
+                    id="transfer_equipment_id"
+                    name="equipment_id"
+                />
+
+                <div class="space-y-5 px-6 py-6">
+                    <div class="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-slate-50/60">
+                        <div class="flex items-center justify-between gap-6 px-4 py-3.5">
+                            <span class="shrink-0 text-sm text-slate-500">Equipment</span>
+                            <span
+                                id="transferEquipmentName"
+                                class="min-w-0 truncate text-right text-sm font-semibold text-slate-950"
+                            ></span>
+                        </div>
+
+                        <div class="flex items-center justify-between gap-6 px-4 py-3.5">
+                            <span class="shrink-0 text-sm text-slate-500">Current room</span>
+                            <span
+                                id="transferCurrentRoom"
+                                class="min-w-0 truncate text-right text-sm font-medium text-slate-800"
+                            ></span>
+                        </div>
+                    </div>
+
                     <div>
                         <label
                             for="transferRoom"
-                            class="mb-2 block text-sm font-medium text-slate-700"
+                            class="mb-2 block text-sm font-semibold text-slate-700"
                         >
                             Transfer to
                         </label>
@@ -1375,12 +1337,9 @@
                             id="transferRoom"
                             name="room_id"
                             required
-                            class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                            class="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
                         >
-                            <option value="">
-                                Select destination room
-                            </option>
-
+                            <option value="">Select destination room</option>
                             @foreach ($rooms as $room)
                                 <option value="{{ $room->room_id }}">
                                     {{ $room->room_name }}
@@ -1389,19 +1348,15 @@
                         </select>
                     </div>
 
-                    <!-- REMARKS -->
                     <div>
                         <div class="mb-2 flex items-center justify-between gap-4">
                             <label
                                 for="transferRemarks"
-                                class="text-sm font-medium text-slate-700"
+                                class="text-sm font-semibold text-slate-700"
                             >
                                 Remarks
                             </label>
-
-                            <span class="text-xs text-slate-400">
-                                Optional
-                            </span>
+                            <span class="text-xs text-slate-400">Optional</span>
                         </div>
 
                         <textarea
@@ -1409,499 +1364,343 @@
                             name="remarks"
                             rows="3"
                             placeholder="Add a note about this transfer"
-                            class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                            class="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
                         ></textarea>
                     </div>
                 </div>
-            </div>
 
-            <div class="border-t border-dashed border-slate-500"></div>
+                <div class="flex items-center justify-end gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4">
+                    <button
+                        type="button"
+                        onclick="closeTransferModal()"
+                        class="inline-flex h-10 items-center justify-center px-2 text-sm font-medium text-slate-600 transition hover:text-slate-950"
+                    >
+                        Cancel
+                    </button>
 
-            <!-- ===================================== -->
-            <!-- MODAL FOOTER -->
-            <!-- ===================================== -->
-            <div class="flex items-center justify-end gap-2 px-6 py-4">
-                <button
-                    type="button"
-                    onclick="closeTransferModal()"
-                    class="rounded-lg px-3.5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
-                >
-                    Cancel
-                </button>
-
-                <button
-                    type="submit"
-                    class="rounded-lg bg-[rgba(0,55,199,0.85)] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[rgba(0,44,155,0.85)] focus:outline-none focus:ring-4 focus:ring-slate-200 active:bg-black"
-                >
-                    Transfer equipment
-                </button>
-            </div>
-        </form>
+                    <button
+                        type="submit"
+                        class="inline-flex h-10 items-center justify-center rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-blue-800"
+                    >
+                        Transfer equipment
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
-</div>
 
     <!-- ===================================================== -->
     <!-- HISTORY MODAL -->
     <!-- ===================================================== -->
 
     <div
-    id="historyModal"
-    class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
->
-    <!-- ===================================== -->
-    <!-- MAINTENANCE HISTORY MODAL -->
-    <!-- ===================================== -->
-    <div
-        class="flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
+        id="historyModal"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
+        onclick="if (event.target === this) closeHistoryModal()"
     >
-        <!-- ===================================== -->
-        <!-- MODAL HEADER -->
-        <!-- ===================================== -->
         <div
-            class="flex shrink-0 items-start justify-between border-b border-dashed border-slate-500 gap-6 px-6 pb-5 pt-6"
+            class="flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
         >
-            <div class="min-w-0">
-                <p
-                    class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400"
-                >
-                    Equipment Records
-                </p>
+            <div class="flex shrink-0 items-start justify-between border-b border-slate-200 px-6 py-5">
+                <div class="min-w-0">
+                    <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-600">
+                        <i data-lucide="history" class="h-4 w-4"></i>
+                    </div>
+                    <h2 class="text-lg font-semibold tracking-tight text-slate-950">
+                        Maintenance history
+                    </h2>
+                    <p
+                        id="historyEquipmentName"
+                        class="mt-1 truncate text-sm text-slate-500"
+                    >
+                        Equipment records
+                    </p>
+                </div>
 
-                <h2
-                    id="historyEquipmentName"
-                    class="mt-1.5 truncate text-lg font-semibold tracking-tight text-slate-950"
+                <button
+                    type="button"
+                    onclick="closeHistoryModal()"
+                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                    aria-label="Close modal"
                 >
-                    Maintenance history
-                </h2>
+                    <i data-lucide="x" class="h-5 w-5"></i>
+                </button>
             </div>
 
-            <!-- CLOSE BUTTON -->
-            <button
-                type="button"
-                onclick="closeHistoryModal()"
-                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
-                aria-label="Close modal"
-            >
-                <i data-lucide="x" class="h-4 w-4"></i>
-            </button>
-        </div>
-
-        <!-- ===================================== -->
-        <!-- HISTORY CONTENT -->
-        <!-- ===================================== -->
-        <div class="min-h-0 flex-1 overflow-y-auto border-y border-slate-100">
-            <div class="p-6">
-                <div id="historyContent">
-                    <!-- ===================================== -->
-                    <!-- EMPTY STATE -->
-                    <!-- ===================================== -->
-                    <div
-                        class="flex min-h-[280px] flex-col items-center justify-center text-center"
-                    >
-                        <div
-                            class="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-400"
-                        >
-                            <i
-                                data-lucide="history"
-                                class="h-4 w-4"
-                            ></i>
+            <div class="min-h-0 flex-1 overflow-y-auto">
+                <div class="p-6">
+                    <div id="historyContent">
+                        <div class="flex min-h-[280px] flex-col items-center justify-center text-center">
+                            <div class="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-400">
+                                <i data-lucide="history" class="h-5 w-5"></i>
+                            </div>
+                            <h3 class="mt-4 text-sm font-semibold text-slate-900">
+                                No maintenance history
+                            </h3>
+                            <p class="mt-1.5 max-w-xs text-sm leading-6 text-slate-500">
+                                Maintenance records for this equipment will appear here.
+                            </p>
                         </div>
-
-                        <h3
-                            class="mt-4 text-sm font-medium text-slate-900"
-                        >
-                            No maintenance history
-                        </h3>
-
-                        <p
-                            class="mt-1.5 max-w-xs text-sm leading-6 text-slate-500"
-                        >
-                            Maintenance records for this equipment will appear
-                            here.
-                        </p>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <div class="border-t border-dashed border-slate-500"></div>
-
-        <!-- ===================================== -->
-        <!-- MODAL FOOTER -->
-        <!-- ===================================== -->
-        <div class="flex shrink-0 items-center justify-end px-6 py-4">
-            <button
-                type="button"
-                onclick="closeHistoryModal()"
-                class="rounded-lg px-3.5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
-            >
-                Close
-            </button>
+            <div class="flex shrink-0 items-center justify-end border-t border-slate-200 bg-slate-50 px-6 py-4">
+                <button
+                    type="button"
+                    onclick="closeHistoryModal()"
+                    class="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                >
+                    Close
+                </button>
+            </div>
         </div>
     </div>
-</div>
 
     <!-- ===================================================== -->
     <!-- ADD MAINTENANCE MODAL -->
     <!-- ===================================================== -->
 
     <div
-    id="maintenanceModal"
-    class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
->
-    <!-- ===================================== -->
-    <!-- ADD MAINTENANCE RECORD MODAL -->
-    <!-- ===================================== -->
-    <div
-        class="flex max-h-[70vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
+        id="maintenanceModal"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
+        onclick="if (event.target === this) closeMaintenanceModal()"
     >
-        <!-- ===================================== -->
-        <!-- MODAL HEADER -->
-        <!-- ===================================== -->
         <div
-            class="flex shrink-0 items-start justify-between gap-6 px-6 pb-5 pt-6 border-b border-dashed border-slate-500"
+            class="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
         >
-            <div class="min-w-0">
-                <p
-                    class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400"
-                >
-                    Maintenance Record
-                </p>
-
-                <h2
-                    class="mt-1.5 text-lg font-semibold tracking-tight text-slate-950"
-                >
-                    Add maintenance record
-                </h2>
-
-                <p
-                    id="maintenanceEquipmentName"
-                    class="mt-1 truncate text-sm text-slate-500"
-                ></p>
-            </div>
-
-            <!-- CLOSE BUTTON -->
-            <button
-                type="button"
-                onclick="closeMaintenanceModal()"
-                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
-                aria-label="Close modal"
-            >
-                <i data-lucide="x" class="h-4 w-4"></i>
-            </button>
-        </div>
-
-        <!-- ===================================== -->
-        <!-- MAINTENANCE FORM -->
-        <!-- ===================================== -->
-        <form
-            action="/maintenance/equipment/history/store"
-            method="POST"
-            enctype="multipart/form-data"
-            class="flex min-h-0 flex-1 flex-col"
-        >
-            @csrf
-
-            <input
-                type="hidden"
-                id="maintenance_equipment_id"
-                name="equipment_id"
-            />
-
-            <!-- ===================================== -->
-            <!-- SCROLLABLE FORM CONTENT -->
-            <!-- ===================================== -->
-            <div
-                class="min-h-0 flex-1 overflow-y-auto border-y border-slate-100 px-6 py-5"
-            >
-                <div class="space-y-5">
-
-                    <!-- ===================================== -->
-                    <!-- STATUS -->
-                    <!-- ===================================== -->
-                    <div>
-                        <label
-                            for="maintenanceStatus"
-                            class="mb-2 block text-sm font-medium text-slate-700"
-                        >
-                            Status
-                        </label>
-
-                        <select
-                            id="maintenanceStatus"
-                            name="status"
-                            required
-                            class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                        >
-                            <option value="Pending">
-                                Pending
-                            </option>
-
-                            <option value="Processing">
-                                Processing
-                            </option>
-
-                            <option value="Resolved">
-                                Resolved
-                            </option>
-
-                            <option value="For Replacement">
-                                For Replacement
-                            </option>
-                        </select>
+            <div class="flex shrink-0 items-start justify-between border-b border-slate-200 px-6 py-5">
+                <div class="min-w-0">
+                    <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-amber-50 text-amber-700">
+                        <i data-lucide="wrench" class="h-4 w-4"></i>
                     </div>
-
-                    <!-- ===================================== -->
-                    <!-- FINDINGS -->
-                    <!-- ===================================== -->
-                    <div>
-                        <div class="mb-2 flex items-center justify-between gap-4">
-                            <label
-                                for="maintenanceFindings"
-                                class="text-sm font-medium text-slate-700"
-                            >
-                                Findings
-                            </label>
-
-                            <span class="text-xs text-slate-400">
-                                Optional
-                            </span>
-                        </div>
-
-                        <textarea
-                            id="maintenanceFindings"
-                            name="findings"
-                            rows="3"
-                            placeholder="Describe the issue or inspection findings"
-                            class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                        ></textarea>
-                    </div>
-
-                    <!-- ===================================== -->
-                    <!-- REPAIR ACTION -->
-                    <!-- ===================================== -->
-                    <div>
-                        <div class="mb-2 flex items-center justify-between gap-4">
-                            <label
-                                for="maintenanceRepairAction"
-                                class="text-sm font-medium text-slate-700"
-                            >
-                                Repair action
-                            </label>
-
-                            <span class="text-xs text-slate-400">
-                                Optional
-                            </span>
-                        </div>
-
-                        <textarea
-                            id="maintenanceRepairAction"
-                            name="repair_action"
-                            rows="3"
-                            placeholder="Describe the repair or action performed"
-                            class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                        ></textarea>
-                    </div>
-
-                    <!-- ===================================== -->
-                    <!-- PROOF IMAGE -->
-                    <!-- ===================================== -->
-                    <div>
-                        <div class="mb-2 flex items-center justify-between gap-4">
-                            <label
-                                for="maintenanceProofImage"
-                                class="text-sm font-medium text-slate-700"
-                            >
-                                Proof image
-                            </label>
-
-                            <span class="text-xs text-slate-400">
-                                Optional
-                            </span>
-                        </div>
-
-                        <label
-                            for="maintenanceProofImage"
-                            class="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-slate-300 px-4 py-4 transition hover:border-slate-400 hover:bg-slate-50"
-                        >
-                            <div
-                                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500"
-                            >
-                                <i
-                                    data-lucide="image-plus"
-                                    class="h-4 w-4"
-                                ></i>
-                            </div>
-
-                            <div class="min-w-0">
-                                <p class="text-sm font-medium text-slate-700">
-                                    Upload an image
-                                </p>
-
-                                <p class="mt-0.5 text-xs text-slate-400">
-                                    Select a photo from your device
-                                </p>
-                            </div>
-
-                            <input
-                                id="maintenanceProofImage"
-                                type="file"
-                                name="proof_image"
-                                accept="image/*"
-                                class="hidden"
-                            />
-                        </label>
-                    </div>
+                    <h2 class="text-lg font-semibold tracking-tight text-slate-950">
+                        Add maintenance record
+                    </h2>
+                    <p
+                        id="maintenanceEquipmentName"
+                        class="mt-1 truncate text-sm text-slate-500"
+                    ></p>
                 </div>
-            </div>
 
-            <div class="border-t border-dashed border-slate-500"></div>
-
-            <!-- ===================================== -->
-            <!-- MODAL FOOTER -->
-            <!-- ===================================== -->
-            <div
-                class="flex shrink-0 items-center justify-end gap-2 px-6 py-4"
-            >
                 <button
                     type="button"
                     onclick="closeMaintenanceModal()"
-                    class="rounded-lg px-3.5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                    aria-label="Close modal"
                 >
-                    Cancel
+                    <i data-lucide="x" class="h-5 w-5"></i>
                 </button>
+            </div>
+
+            <form
+                action="/maintenance/equipment/history/store"
+                method="POST"
+                enctype="multipart/form-data"
+                class="flex min-h-0 flex-1 flex-col"
+            >
+                @csrf
+
+                <input
+                    type="hidden"
+                    id="maintenance_equipment_id"
+                    name="equipment_id"
+                />
+
+                <div class="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+                    <div class="space-y-5">
+                        <div>
+                            <label
+                                for="maintenanceStatus"
+                                class="mb-2 block text-sm font-semibold text-slate-700"
+                            >
+                                Status
+                            </label>
+
+                            <select
+                                id="maintenanceStatus"
+                                name="status"
+                                required
+                                class="h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm text-slate-800 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                            >
+                                <option value="Pending">Pending</option>
+                                <option value="Processing">Processing</option>
+                                <option value="Resolved">Resolved</option>
+                                <option value="For Replacement">For Replacement</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <div class="mb-2 flex items-center justify-between gap-4">
+                                <label
+                                    for="maintenanceFindings"
+                                    class="text-sm font-semibold text-slate-700"
+                                >
+                                    Findings
+                                </label>
+                                <span class="text-xs text-slate-400">Optional</span>
+                            </div>
+
+                            <textarea
+                                id="maintenanceFindings"
+                                name="findings"
+                                rows="3"
+                                placeholder="Describe the issue or inspection findings"
+                                class="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                            ></textarea>
+                        </div>
+
+                        <div>
+                            <div class="mb-2 flex items-center justify-between gap-4">
+                                <label
+                                    for="maintenanceRepairAction"
+                                    class="text-sm font-semibold text-slate-700"
+                                >
+                                    Repair action
+                                </label>
+                                <span class="text-xs text-slate-400">Optional</span>
+                            </div>
+
+                            <textarea
+                                id="maintenanceRepairAction"
+                                name="repair_action"
+                                rows="3"
+                                placeholder="Describe the repair or action performed"
+                                class="w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                            ></textarea>
+                        </div>
+
+                        <div>
+                            <div class="mb-2 flex items-center justify-between gap-4">
+                                <label
+                                    for="maintenanceProofImage"
+                                    class="text-sm font-semibold text-slate-700"
+                                >
+                                    Proof image
+                                </label>
+                                <span class="text-xs text-slate-400">Optional</span>
+                            </div>
+
+                            <label
+                                for="maintenanceProofImage"
+                                class="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50/50 px-4 py-4 transition hover:border-slate-400 hover:bg-slate-50"
+                            >
+                                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500">
+                                    <i data-lucide="image-plus" class="h-4 w-4"></i>
+                                </div>
+
+                                <div class="min-w-0">
+                                    <p class="text-sm font-semibold text-slate-700">
+                                        Upload an image
+                                    </p>
+                                    <p class="mt-0.5 text-xs text-slate-400">
+                                        Select a photo from your device
+                                    </p>
+                                </div>
+
+                                <input
+                                    id="maintenanceProofImage"
+                                    type="file"
+                                    name="proof_image"
+                                    accept="image/*"
+                                    class="hidden"
+                                />
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex shrink-0 items-center justify-end gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4">
+                    <button
+                        type="button"
+                        onclick="closeMaintenanceModal()"
+                        class="inline-flex h-10 items-center justify-center px-2 text-sm font-medium text-slate-600 transition hover:text-slate-950"
+                    >
+                        Cancel
+                    </button>
+
+                    <button
+                        type="submit"
+                        class="inline-flex h-10 items-center justify-center rounded-lg bg-[#0025cc] px-4 text-sm font-semibold text-white transition hover:bg-blue-800"
+                    >
+                        Save record
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {{-- ===================================================== --}}
+    {{-- TRANSFER HISTORY MODAL --}}
+    {{-- ===================================================== --}}
+
+    <div
+        id="transferHistoryModal"
+        class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
+        onclick="if (event.target === this) closeTransferHistory()"
+    >
+        <div
+            class="flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl"
+        >
+            <div class="flex shrink-0 items-start justify-between border-b border-slate-200 px-6 py-5">
+                <div class="min-w-0">
+                    <div class="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-indigo-50 text-indigo-600">
+                        <i data-lucide="git-branch" class="h-4 w-4"></i>
+                    </div>
+                    <h2 class="text-lg font-semibold tracking-tight text-slate-950">
+                        Transfer logs
+                    </h2>
+                    <p
+                        id="transferHistoryEquipmentName"
+                        class="mt-1 truncate text-sm text-slate-500"
+                    >
+                        Equipment movement records
+                    </p>
+                </div>
 
                 <button
-                    type="submit"
-                    class="rounded-lg bg-[rgba(0,55,199,0.85)] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[rgba(0,44,155,0.85)] focus:outline-none focus:ring-4 focus:ring-slate-200 active:bg-black"
+                    type="button"
+                    onclick="closeTransferHistory()"
+                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                    aria-label="Close modal"
                 >
-                    Save record
+                    <i data-lucide="x" class="h-5 w-5"></i>
                 </button>
             </div>
-        </form>
-    </div>
-</div>
 
-{{-- ===================================================== --}}
-{{-- TRANSFER HISTORY MODAL --}}
-{{-- ===================================================== --}}
-
-<div
-    id="transferHistoryModal"
-    class="fixed inset-0 z-50 hidden items-center justify-center
-        bg-[#0b1220]/70 p-4"
->
-    <div
-        class="flex max-h-[85vh] w-full max-w-4xl flex-col
-            overflow-hidden rounded-2xl border border-black/5
-            bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
-    >
-
-        {{-- ===================================== --}}
-        {{-- MODAL HEADER --}}
-        {{-- ===================================== --}}
-
-        <div
-            class="flex shrink-0 items-start justify-between gap-6
-                border-b border-dashed border-slate-500
-                px-6 pb-5 pt-6"
-        >
-            <div class="min-w-0">
-
-                <p
-                    class="text-[11px] font-medium uppercase
-                        tracking-[0.16em] text-slate-400"
-                >
-                    Equipment Movement Records
-                </p>
-
-                <h2
-                    id="transferHistoryEquipmentName"
-                    class="mt-1.5 truncate text-lg font-semibold
-                        tracking-tight text-slate-950"
-                >
-                    Transfer logs
-                </h2>
-
+            <div class="min-h-0 flex-1 overflow-y-auto">
+                <div id="transferHistoryContent" class="p-6">
+                    {{-- CONTENT LOADED USING JAVASCRIPT --}}
+                </div>
             </div>
 
-
-            <button
-                type="button"
-                onclick="closeTransferHistory()"
-
-                class="flex h-8 w-8 shrink-0 items-center
-                    justify-center rounded-full text-slate-400
-                    transition hover:bg-slate-100
-                    hover:text-slate-900"
-
-                aria-label="Close modal"
-            >
-                <i data-lucide="x" class="h-4 w-4"></i>
-            </button>
-
-        </div>
-
-
-        {{-- ===================================== --}}
-        {{-- MODAL CONTENT --}}
-        {{-- ===================================== --}}
-
-        <div class="min-h-0 flex-1 overflow-y-auto">
-
-            <div
-                id="transferHistoryContent"
-                class="p-6"
-            >
-
-                {{-- CONTENT LOADED USING JAVASCRIPT --}}
-
+            <div class="flex shrink-0 items-center justify-end border-t border-slate-200 bg-slate-50 px-6 py-4">
+                <button
+                    type="button"
+                    onclick="closeTransferHistory()"
+                    class="inline-flex h-10 items-center justify-center rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                >
+                    Close
+                </button>
             </div>
-
         </div>
-
-
-        {{-- ===================================== --}}
-        {{-- MODAL FOOTER --}}
-        {{-- ===================================== --}}
-
-        <div
-            class="flex shrink-0 items-center justify-end
-                border-t border-dashed border-slate-500
-                px-6 py-4"
-        >
-
-            <button
-                type="button"
-                onclick="closeTransferHistory()"
-
-                class="rounded-lg px-3.5 py-2.5
-                    text-sm font-medium text-slate-600
-                    transition hover:bg-slate-100
-                    hover:text-slate-950"
-            >
-                Close
-            </button>
-
-        </div>
-
     </div>
-</div>
 
     <script>
         async function openHistoryModal(id, name) {
-            document.getElementById("historyEquipmentName").innerText =
-                name + " History";
+            document.getElementById("historyEquipmentName").innerText = name;
 
             document.getElementById("historyContent").innerHTML = `
-        <div class="text-center py-10">
-            Loading...
+        <div class="flex min-h-[200px] items-center justify-center text-sm text-slate-500">
+            Loading history...
         </div>
     `;
 
             document.getElementById("historyModal").classList.remove("hidden");
 
             document.getElementById("historyModal").classList.add("flex");
+
+            if (window.lucide) lucide.createIcons();
 
             try {
                 const response = await fetch(
@@ -1912,11 +1711,18 @@
 
                 if (data.length === 0) {
                     document.getElementById("historyContent").innerHTML = `
-                <div class="text-center text-slate-500 py-10">
-                    No maintenance history found.
+                <div class="flex min-h-[280px] flex-col items-center justify-center text-center">
+                    <div class="flex h-12 w-12 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-400">
+                        <i data-lucide="history" class="h-5 w-5"></i>
+                    </div>
+                    <h3 class="mt-4 text-sm font-semibold text-slate-900">No maintenance history found</h3>
+                    <p class="mt-1.5 max-w-xs text-sm leading-6 text-slate-500">
+                        Maintenance records for this equipment will appear here.
+                    </p>
                 </div>
             `;
 
+                    if (window.lucide) lucide.createIcons();
                     return;
                 }
 
@@ -2002,14 +1808,14 @@
 
         function openTransferModal(id, name, room) {
             document.getElementById("transfer_equipment_id").value = id;
-
             document.getElementById("transferEquipmentName").innerText = name;
-
-            document.getElementById("transferCurrentRoom").innerText = room;
+            document.getElementById("transferCurrentRoom").innerText =
+                room || "—";
 
             document.getElementById("transferModal").classList.remove("hidden");
-
             document.getElementById("transferModal").classList.add("flex");
+
+            if (window.lucide) lucide.createIcons();
         }
 
         function closeTransferModal() {
@@ -2021,14 +1827,15 @@
         function openMaintenanceModal(id, name) {
             document.getElementById("maintenance_equipment_id").value = id;
 
-            document.getElementById("maintenanceEquipmentName").innerText =
-                name + " Maintenance";
+            document.getElementById("maintenanceEquipmentName").innerText = name;
 
             document
                 .getElementById("maintenanceModal")
                 .classList.remove("hidden");
 
             document.getElementById("maintenanceModal").classList.add("flex");
+
+            if (window.lucide) lucide.createIcons();
         }
 
         function closeMaintenanceModal() {
@@ -2063,7 +1870,7 @@
             // SET EQUIPMENT NAME
             // =====================================
 
-            title.innerText = name + " Transfer Logs";
+            title.innerText = name;
 
 
             // =====================================
@@ -2088,6 +1895,8 @@
             modal.classList.remove("hidden");
 
             modal.classList.add("flex");
+
+            if (window.lucide) lucide.createIcons();
 
 
             // =====================================

@@ -6242,7 +6242,7 @@
                         >
                             <i data-lucide="door-open" class="h-4 w-4"></i>
 
-                            <span class="text-xs">Enter Building</span>
+                            <!--<span class="text-xs">Enter Building</span>-->
                         </button>
 
                         {{-- ===================================================== --}}
@@ -6412,9 +6412,12 @@
                             style="display: none"
                             class="building-back-overview-btn"
                         >
-                             <i data-lucide="chevrons-left" class="h-4 w-4"></i>
+                             <!--<i data-lucide="arrow-return-left" class="h-4 w-4"></i>-->
+                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-arrow-return-left" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M14.5 1.5a.5.5 0 0 1 .5.5v4.8a2.5 2.5 0 0 1-2.5 2.5H2.707l3.347 3.346a.5.5 0 0 1-.708.708l-4.2-4.2a.5.5 0 0 1 0-.708l4-4a.5.5 0 1 1 .708.708L2.707 8.3H12.5A1.5 1.5 0 0 0 14 6.8V2a.5.5 0 0 1 .5-.5"/>
+                            </svg>
                             
-                            <span class="text-xs">Go back</span>
+                            <!--<span class="text-xs">Return</span>-->
                         </button>
 
                         {{-- 3D CONTROLS (reset icon hidden; use hold + R) --}}
@@ -6632,7 +6635,7 @@
 
                         <div>
                             <h2 class="urgent-pipeline-title">
-                                Top 5 Newest Urgent Reports
+                                5 Latest Urgent Reports
                             </h2>
 
                             <p class="urgent-pipeline-description">
@@ -7293,104 +7296,130 @@
         {{-- Daily login reminder: un-actioned/overdue reports + overdue schedules --}}
         <div
             id="dailyPriorityReminderModal"
-            class="fixed inset-0 z-[70] hidden items-center justify-center bg-[#0b1220]/70 p-4"
+            class="fixed inset-0 z-[70] hidden items-center justify-center bg-[#0b1220]/70 p-4 backdrop-blur-[2px]"
             role="dialog"
             aria-modal="true"
             aria-labelledby="dailyPriorityReminderTitle"
         >
-            <div class="flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.22)]">
-                <div class="border-b border-slate-100 px-6 pb-4 pt-6">
-                    <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-rose-500">
-                        Daily reminder
-                    </p>
-                    <h2
-                        id="dailyPriorityReminderTitle"
-                        class="mt-1 text-lg font-semibold tracking-tight text-slate-950"
+            <div
+                class="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.22)]"
+                onclick="event.stopPropagation()"
+            >
+                {{-- Header --}}
+                <div class="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
+                    <div class="min-w-0">
+                        <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                            Daily reminder
+                        </p>
+                        <h2
+                            id="dailyPriorityReminderTitle"
+                            class="mt-1 text-xl font-semibold tracking-tight text-slate-950"
+                        >
+                            Attention needed today
+                        </h2>
+                        <p class="mt-1 text-sm text-slate-500">
+                            This reminder appears once per day after you open the dashboard.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        id="dailyPriorityReminderClose"
+                        class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                        aria-label="Close reminder"
                     >
-                        Attention needed today
-                    </h2>
-                    <p class="mt-1 text-sm text-slate-500">
-                        This reminder appears once per day after you open the dashboard.
-                    </p>
+                        <i data-lucide="x" class="h-5 w-5"></i>
+                    </button>
                 </div>
 
-                <div class="space-y-3 overflow-y-auto px-6 py-5">
+                {{-- Body --}}
+                <div class="min-h-0 flex-1 space-y-2 overflow-y-auto px-6 py-5">
                     @if (($urgentReportsNeedingAction ?? 0) > 0)
                         <a
                             href="{{ url('/maintenance/reports/urgent') }}"
-                            class="flex items-start gap-3 rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 transition hover:border-rose-200 hover:bg-rose-100/80"
+                            class="group flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-rose-200 hover:bg-rose-50/50"
                         >
-                            <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-rose-600">
+                            <div class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600 ring-1 ring-rose-100 transition group-hover:bg-rose-100">
                                 <i data-lucide="triangle-alert" class="h-5 w-5"></i>
                             </div>
-                            <div>
-                                <p class="text-sm font-semibold text-rose-900">
+                            <div class="min-w-0 flex-1">
+                                <p class="text-sm font-semibold text-slate-900">
                                     {{ $urgentReportsNeedingAction }} urgent {{ \Illuminate\Support\Str::plural('report', $urgentReportsNeedingAction) }} need action
                                 </p>
-                                <p class="mt-0.5 text-xs text-rose-700/80">
+                                <p class="mt-0.5 text-xs leading-5 text-slate-500">
                                     Overdue or still pending — not yet actioned by maintenance.
                                 </p>
                             </div>
+                            <i data-lucide="chevron-right" class="mt-2 h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-rose-400"></i>
                         </a>
                     @endif
 
                     @if (($nonUrgentReportsNeedingAction ?? 0) > 0)
                         <a
                             href="{{ url('/maintenance/reports/incoming?urgency=Non-Urgent') }}"
-                            class="flex items-start gap-3 rounded-xl border border-sky-100 bg-sky-50 px-4 py-3 transition hover:border-sky-200 hover:bg-sky-100/80"
+                            class="group flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-sky-200 hover:bg-sky-50/50"
                         >
-                            <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-sky-600">
+                            <div class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-50 text-sky-600 ring-1 ring-sky-100 transition group-hover:bg-sky-100">
                                 <i data-lucide="clipboard-list" class="h-5 w-5"></i>
                             </div>
-                            <div>
-                                <p class="text-sm font-semibold text-sky-900">
+                            <div class="min-w-0 flex-1">
+                                <p class="text-sm font-semibold text-slate-900">
                                     {{ $nonUrgentReportsNeedingAction }} non-urgent {{ \Illuminate\Support\Str::plural('report', $nonUrgentReportsNeedingAction) }} need action
                                 </p>
-                                <p class="mt-0.5 text-xs text-sky-700/80">
+                                <p class="mt-0.5 text-xs leading-5 text-slate-500">
                                     Pending for 5 days or more, or the requested date has arrived.
                                 </p>
                             </div>
+                            <i data-lucide="chevron-right" class="mt-2 h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-sky-400"></i>
                         </a>
                     @endif
 
                     @if (($overdueMaintenance ?? 0) > 0)
-                        <div class="flex items-start gap-3 rounded-xl border border-orange-100 bg-orange-50 px-4 py-3">
-                            <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-orange-600">
+                        <a
+                            href="{{ url('/maintenance/schedules') }}"
+                            class="group flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-orange-200 hover:bg-orange-50/50"
+                        >
+                            <div class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-600 ring-1 ring-orange-100 transition group-hover:bg-orange-100">
                                 <i data-lucide="calendar-x-2" class="h-5 w-5"></i>
                             </div>
-                            <div>
-                                <p class="text-sm font-semibold text-orange-900">
+                            <div class="min-w-0 flex-1">
+                                <p class="text-sm font-semibold text-slate-900">
                                     {{ $overdueMaintenance }} overdue {{ \Illuminate\Support\Str::plural('schedule', $overdueMaintenance) }}
                                 </p>
-                                <p class="mt-0.5 text-xs text-orange-800/80">
+                                <p class="mt-0.5 text-xs leading-5 text-slate-500">
                                     Maintenance is past the scheduled date and still open.
                                 </p>
                             </div>
-                        </div>
+                            <i data-lucide="chevron-right" class="mt-2 h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-orange-400"></i>
+                        </a>
                     @endif
 
                     @if (($overdueBorrowings ?? 0) > 0)
-                        <div class="flex items-start gap-3 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3">
-                            <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-amber-600">
+                        <a
+                            href="{{ url('/maintenance/borrowing?status=Overdue') }}"
+                            class="group flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-amber-200 hover:bg-amber-50/50"
+                        >
+                            <div class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600 ring-1 ring-amber-100 transition group-hover:bg-amber-100">
                                 <i data-lucide="clipboard-x" class="h-5 w-5"></i>
                             </div>
-                            <div>
-                                <p class="text-sm font-semibold text-amber-900">
+                            <div class="min-w-0 flex-1">
+                                <p class="text-sm font-semibold text-slate-900">
                                     {{ $overdueBorrowings }} overdue {{ \Illuminate\Support\Str::plural('borrow', $overdueBorrowings) }}
                                 </p>
-                                <p class="mt-0.5 text-xs text-amber-800/80">
+                                <p class="mt-0.5 text-xs leading-5 text-slate-500">
                                     Equipment was due back and has not been returned.
                                 </p>
                             </div>
-                        </div>
+                            <i data-lucide="chevron-right" class="mt-2 h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-amber-400"></i>
+                        </a>
                     @endif
                 </div>
 
-                <div class="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 px-6 py-4">
+                {{-- Footer --}}
+                <div class="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/60 px-6 py-4">
                     <button
                         type="button"
                         id="dailyPriorityReminderDismiss"
-                        class="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                        class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
                     >
                         Remind me tomorrow
                     </button>
@@ -7398,28 +7427,28 @@
                     @if (($urgentReportsNeedingAction ?? 0) > 0)
                         <a
                             href="{{ url('/maintenance/reports/urgent') }}"
-                            class="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-700"
+                            class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#001fad]"
                         >
                             View urgent reports
                         </a>
                     @elseif (($nonUrgentReportsNeedingAction ?? 0) > 0)
                         <a
                             href="{{ url('/maintenance/reports/incoming?urgency=Non-Urgent') }}"
-                            class="rounded-xl bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700"
+                            class="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
                         >
                             View non-urgent reports
                         </a>
                     @elseif (($overdueMaintenance ?? 0) > 0)
                         <a
                             href="{{ url('/maintenance/schedules') }}"
-                            class="rounded-xl bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-700"
+                            class="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
                         >
                             View schedules
                         </a>
                     @elseif (($overdueBorrowings ?? 0) > 0)
                         <a
                             href="{{ url('/maintenance/borrowing?status=Overdue') }}"
-                            class="rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700"
+                            class="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800"
                         >
                             View overdue borrows
                         </a>
@@ -7430,1067 +7459,1025 @@
     @endif
 
     <!-- ========================================================= -->
-    <!-- ADD EQUIPMENT MODAL -->
+    <!-- ADD EQUIPMENT MODAL (matches inventory module) -->
     <!-- ========================================================= -->
+    @php
+        $eqField = 'h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10';
+        $eqLabel = 'mb-1.5 block text-xs font-medium uppercase tracking-wide text-slate-500';
+    @endphp
+
     <div
-    id="addEquipmentModal"
-    class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
->
-    <!-- ===================================== -->
-    <!-- ADD EQUIPMENT MODAL -->
-    <!-- ===================================== -->
-    <div
-        class="flex max-h-[70vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
+        id="addEquipmentModal"
+        x-data="inventoryAddEquipment()"
+        x-show="open"
+        x-cloak
+        x-effect="document.body.style.overflow = open ? 'hidden' : ''"
+        @keydown.escape.window="if (document.getElementById('equipmentPhotoViewer')?.classList.contains('flex')) { return; } if (open) { if (fullscreen && step === 2) { fullscreen = false; } else { close(); } }"
+        @if (
+            $errors->has('equipment_name')
+            || $errors->has('equipment_category_id')
+            || $errors->has('equipment_room_id')
+            || $errors->has('equipment_quantity')
+            || $errors->has('equipment_image')
+            || $errors->has('equipment_tracking_mode')
+            || $errors->has('items')
+            || $errors->has('equipment_asset_tag')
+            || $errors->has('equipment_serial_number')
+        )
+        x-init="
+            open = true;
+            formError = {{ json_encode($errors->first()) }};
+            errors = {
+                @if ($errors->has('equipment_name')) name: {{ json_encode($errors->first('equipment_name')) }}, @endif
+                @if ($errors->has('equipment_category_id')) category: {{ json_encode($errors->first('equipment_category_id')) }}, @endif
+                @if ($errors->has('equipment_room_id')) room: {{ json_encode($errors->first('equipment_room_id')) }}, @endif
+                @if ($errors->has('equipment_quantity')) quantity: {{ json_encode($errors->first('equipment_quantity')) }}, @endif
+                @if ($errors->has('equipment_image')) image: {{ json_encode($errors->first('equipment_image')) }}, @endif
+            };
+            $nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+        "
+        @endif
+        class="fixed inset-0 z-50 hidden items-center justify-center overflow-hidden bg-[#0b1220]/70"
+        :class="[
+            open ? '!flex' : 'hidden',
+            fullscreen && step === 2 ? 'p-0' : 'p-4'
+        ]"
     >
-        <!-- ===================================== -->
-        <!-- MODAL HEADER -->
-        <!-- ===================================== -->
-        <div
-            class="flex shrink-0 items-start justify-between gap-6 px-6 pb-5 pt-6 border-b border-dashed border-slate-500"
-        >
-            <div class="min-w-0">
-                <p
-                    class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400"
-                >
-                    Equipment Inventory
-                </p>
-
-                <h2
-                    class="mt-1.5 text-lg font-bold tracking-tight text-slate-950"
-                >
-                    Add equipment
-                </h2>
-
-                <p class="mt-1 text-sm text-slate-500">
-                    Register equipment and assign its initial inventory details.
-                </p>
-            </div>
-
-            <!-- CLOSE BUTTON -->
-            <button
-                type="button"
-                onclick="closeAddEquipmentModal()"
-                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
-                aria-label="Close modal"
-            >
-                <i data-lucide="x" class="h-4 w-4"></i>
-            </button>
-        </div>
-
-        <!-- ===================================== -->
-        <!-- ADD EQUIPMENT FORM -->
-        <!-- ===================================== -->
         <form
             action="/maintenance/equipment/store"
             method="POST"
-            class="flex min-h-0 flex-1 flex-col"
+            enctype="multipart/form-data"
+            @submit="prepareSubmit($event)"
+            class="flex w-full flex-col overflow-hidden border border-slate-200 bg-white shadow-2xl shadow-slate-950/10"
+            :class="fullscreen && step === 2
+                ? 'h-[100dvh] max-h-[100dvh] max-w-none rounded-none border-0 shadow-none'
+                : (step === 2
+                    ? 'max-h-[90vh] w-[calc(93vw-1.5rem)] max-w-[calc(93vw-1.5rem)] rounded-2xl'
+                    : 'max-h-[90vh] max-w-4xl rounded-2xl')"
         >
             @csrf
+            <input type="hidden" name="equipment_tracking_mode" :value="tracking">
+            <input type="hidden" name="equipment_quantity" :value="quantity">
 
-            <!-- ===================================== -->
-            <!-- SCROLLABLE FORM CONTENT -->
-            <!-- ===================================== -->
+            <div class="flex items-start justify-between px-6 pt-6">
+                <div>
+                    <h2 class="text-lg font-semibold tracking-tight text-slate-900" x-text="step === 2 ? 'Item details' : 'Add equipment'"></h2>
+                    <p class="mt-1 text-sm text-slate-500" x-text="step === 2
+                        ? 'Edit unique identity per unit. Shared name, category, and room apply to all.'
+                        : 'Identity on the left, status on the right.'"></p>
+                </div>
+                <div class="flex shrink-0 items-center gap-1">
+                    <button
+                        type="button"
+                        x-show="step === 2"
+                        x-cloak
+                        @click="fullscreen = !fullscreen; $nextTick(() => { if (window.lucide) window.lucide.createIcons(); })"
+                        class="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                        :title="fullscreen ? 'Exit full screen' : 'Full screen'"
+                        :aria-label="fullscreen ? 'Exit full screen' : 'Full screen'"
+                    >
+                        <i :data-lucide="fullscreen ? 'minimize-2' : 'maximize-2'" class="h-4 w-4"></i>
+                    </button>
+                    <button type="button" @click="close()" class="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-900" aria-label="Close">
+                        <i data-lucide="x" class="h-4 w-4"></i>
+                    </button>
+                </div>
+            </div>
+
             <div
-                class="min-h-0 flex-1 overflow-y-auto border-y border-slate-100 px-6 py-6"
+                x-show="formError"
+                x-cloak
+                class="mx-6 mt-4 flex items-start gap-3 rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-700 ring-1 ring-rose-100"
             >
-                <div class="space-y-8">
+                <i data-lucide="circle-alert" class="mt-0.5 h-4 w-4 shrink-0"></i>
+                <p class="min-w-0 flex-1 leading-relaxed" x-text="formError"></p>
+                <button type="button" @click="formError = ''" class="shrink-0 rounded-lg p-1 text-rose-400 transition hover:bg-rose-100 hover:text-rose-700" aria-label="Dismiss">
+                    <i data-lucide="x" class="h-3.5 w-3.5"></i>
+                </button>
+            </div>
 
-                    <!-- ===================================== -->
-                    <!-- PLACEMENT -->
-                    <!-- ===================================== -->
-                    <section>
-                        <div class="mb-4">
-                            <h3 class="text-sm font-medium text-slate-900">
-                                Placement
-                            </h3>
-
-                            <p class="mt-1 text-sm text-slate-500">
-                                Assign the equipment category and room.
-                            </p>
-                        </div>
-
-                        <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
-
-                            <!-- CATEGORY -->
-                            <div>
-                                <label
-                                    for="add_equipment_category"
-                                    class="mb-2 block text-sm font-medium text-slate-700"
-                                >
-                                    Category
-                                </label>
-
-                                <select
-                                    id="add_equipment_category"
-                                    name="equipment_category_id"
-                                    required
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                                >
-                                    <option value="">
-                                        Select category
-                                    </option>
-
-                                    @foreach ($categories as $category)
-                                        <option
-                                            value="{{ $category->equipment_category_id }}"
-                                        >
-                                            {{ $category->equipment_category_name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                                <p class="mt-1.5 text-xs text-slate-400">Filled from the equipment name. You can still choose another category.</p>
-                            </div>
-                            <div>
-                                <label
-                                    for="add_equipment_room"
-                                    class="mb-2 block text-sm font-medium text-slate-700"
-                                >
-                                    Room
-                                </label>
-
-                                <select
-                                    id="add_equipment_room"
-                                    name="equipment_room_id"
-                                    required
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                                >
-                                    <option value="">
-                                        Select room
-                                    </option>
-
-                                    @foreach ($rooms as $room)
-                                        <option value="{{ $room->room_id }}">
-                                            {{ $room->room_name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-                        </div>
-                    </section>
-
-                    <!-- ===================================== -->
-                    <!-- SECTION DIVIDER -->
-                    <!-- ===================================== -->
-                    <div class="border-t border-slate-100"></div>
-
-                    <!-- ===================================== -->
-                    <!-- EQUIPMENT DETAILS -->
-                    <!-- ===================================== -->
-                    <section>
-                        <div class="mb-4">
-                            <h3 class="text-sm font-medium text-slate-900">
-                                Equipment details
-                            </h3>
-
-                            <p class="mt-1 text-sm text-slate-500">
-                                Enter identification and technical information.
-                            </p>
-                        </div>
-
-                        <div
-                            class="grid grid-cols-1 gap-5 md:grid-cols-12"
+            <div class="eq-modal-scroll min-h-0 flex-1 overflow-y-auto px-6 py-5" x-show="step === 1">
+                <div
+                    class="mb-5 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80"
+                    x-show="!needsItemStep()"
+                    x-cloak
+                >
+                    <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Photo (optional)</p>
+                    <div class="mt-3 flex items-center gap-4">
+                        <button
+                            type="button"
+                            x-show="imagePreview"
+                            x-cloak
+                            @click="openEquipmentPhotoViewer(imagePreview, name || 'Equipment photo')"
+                            class="group relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80"
+                            aria-label="View equipment photo fullscreen"
                         >
-                            <!-- EQUIPMENT NAME -->
-                            <div class="md:col-span-7">
-                                <label
-                                    for="add_equipment_name"
-                                    class="mb-2 block text-sm font-medium text-slate-700"
-                                >
-                                    Equipment name
-                                </label>
-
-                                <input
-                                    id="add_equipment_name"
-                                    type="text"
-                                    name="equipment_name"
-                                    required
-                                    placeholder="e.g. Dell OptiPlex Desktop"
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                                />
-                            </div>
-
-                            <!-- ASSET TAG -->
-                            <div class="md:col-span-5">
-                                <div
-                                    class="mb-2 flex items-center justify-between gap-4"
-                                >
-                                    <label
-                                        for="add_equipment_asset_tag"
-                                        class="text-sm font-medium text-slate-700"
+                            <img :src="imagePreview" alt="Equipment photo preview" class="h-full w-full object-cover">
+                            <span class="absolute inset-0 flex items-center justify-center bg-slate-950/0 transition group-hover:bg-slate-950/40">
+                                <i data-lucide="expand" class="h-4 w-4 text-white opacity-0 transition group-hover:opacity-100"></i>
+                            </span>
+                        </button>
+                        <div
+                            x-show="!imagePreview"
+                            class="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80"
+                        >
+                            <span
+                                class="inline-flex h-8 w-8 items-center justify-center [&_svg]:h-full [&_svg]:w-full"
+                                x-html="window.PrismEquipmentIcons ? window.PrismEquipmentIcons.svg(name || '') : ''"
+                            ></span>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <p class="text-sm font-medium text-slate-900">Add equipment photo</p>
+                            <p class="mt-0.5 text-xs text-slate-400">JPG, PNG, WebP, or GIF. Max 5 MB.</p>
+                            <p x-show="imagePreview" x-cloak class="mt-0.5 text-xs text-slate-500">Click the photo to view it full screen.</p>
+                            <div class="mt-2 flex flex-wrap items-center gap-2">
+                                <label class="inline-flex h-9 cursor-pointer items-center rounded-lg bg-white px-3 text-xs font-semibold text-slate-700 ring-1 ring-slate-200/80 transition hover:bg-slate-50">
+                                    Choose image
+                                    <input
+                                        type="file"
+                                        :name="needsItemStep() ? null : 'equipment_image'"
+                                        accept="image/jpeg,image/png,image/webp,image/gif"
+                                        class="sr-only"
+                                        x-ref="imageInput"
+                                        :disabled="needsItemStep()"
+                                        @change="onImageChange($event)"
                                     >
-                                        Asset tag
-                                    </label>
-
-                                    <span class="text-xs text-slate-400">
-                                        Optional
-                                    </span>
-                                </div>
-
-                                <input
-                                    id="add_equipment_asset_tag"
-                                    type="text"
-                                    name="equipment_asset_tag"
-                                    placeholder="e.g. STI-PC-001"
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                                />
-                            </div>
-
-                            <!-- BRAND -->
-                            <div class="md:col-span-4">
-                                <label
-                                    for="add_equipment_brand"
-                                    class="mb-2 block text-sm font-medium text-slate-700"
-                                >
-                                    Brand
                                 </label>
-
-                                <input
-                                    id="add_equipment_brand"
-                                    type="text"
-                                    name="equipment_brand_name"
-                                    placeholder="e.g. Dell"
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                                />
-                            </div>
-
-                            <!-- MODEL -->
-                            <div class="md:col-span-4">
-                                <label
-                                    for="add_equipment_model"
-                                    class="mb-2 block text-sm font-medium text-slate-700"
+                                <button
+                                    type="button"
+                                    x-show="imagePreview"
+                                    x-cloak
+                                    @click="clearImage()"
+                                    class="inline-flex h-9 items-center rounded-lg px-3 text-xs font-semibold text-rose-600 hover:bg-rose-50"
                                 >
-                                    Model
-                                </label>
-
-                                <input
-                                    id="add_equipment_model"
-                                    type="text"
-                                    name="equipment_model"
-                                    placeholder="e.g. OptiPlex 7010"
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                                />
+                                    Remove
+                                </button>
                             </div>
-
-                            <!-- SERIAL NUMBER -->
-                            <div class="md:col-span-4">
-                                <label
-                                    for="add_equipment_serial"
-                                    class="mb-2 block text-sm font-medium text-slate-700"
-                                >
-                                    Serial number
-                                </label>
-
-                                <input
-                                    id="add_equipment_serial"
-                                    type="text"
-                                    name="equipment_serial_number"
-                                    placeholder="Enter serial number"
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                                />
-                            </div>
+                            <p x-show="errors.image" x-cloak class="mt-2 text-xs font-medium text-rose-600" x-text="errors.image"></p>
                         </div>
-                    </section>
-
-                    <!-- ===================================== -->
-                    <!-- SECTION DIVIDER -->
-                    <!-- ===================================== -->
-                    <div class="border-t border-slate-100"></div>
-
-                    <!-- ===================================== -->
-                    <!-- INVENTORY INFORMATION -->
-                    <!-- ===================================== -->
-                    <section>
-                        <div class="mb-4">
-                            <h3 class="text-sm font-medium text-slate-900">
-                                Inventory information
-                            </h3>
-
-                            <p class="mt-1 text-sm text-slate-500">
-                                Set the initial quantity and equipment condition.
-                            </p>
+                    </div>
+                </div>
+                <div
+                    class="mb-5 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200/80"
+                    x-show="needsItemStep()"
+                    x-cloak
+                >
+                    Photos are optional per unit on the next step — one shared photo isn’t used when creating multiple individually tracked assets.
+                </div>
+                <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                    <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
+                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">What & where</p>
+                        <div>
+                            <label for="add_equipment_name" class="{{ $eqLabel }}">Equipment name <span class="text-rose-500">*</span></label>
+                            <input
+                                id="add_equipment_name"
+                                type="text"
+                                name="equipment_name"
+                                x-model="name"
+                                @input="clearError('name'); onNameInput(); syncAssetTag()"
+                                placeholder="e.g. Mouse"
+                                class="{{ $eqField }}"
+                                :class="errors.name ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
+                            />
+                            <p x-show="errors.name" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.name"></p>
                         </div>
-
-                        <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
-
-                            <!-- QUANTITY -->
+                        <div>
+                            <label for="add_equipment_category" class="{{ $eqLabel }}">Category <span class="text-rose-500">*</span></label>
+                            <select
+                                id="add_equipment_category"
+                                name="equipment_category_id"
+                                x-model="category"
+                                @change="clearError('category'); onCategoryChange()"
+                                class="{{ $eqField }}"
+                                :class="errors.category ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
+                            >
+                                <option value="">Select category</option>
+                                @foreach ($categories as $category)
+                                    <option value="{{ $category->equipment_category_id }}">{{ $category->equipment_category_name }}</option>
+                                @endforeach
+                            </select>
+                            <p x-show="errors.category" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.category"></p>
+                            <p x-show="!errors.category" class="mt-1.5 text-xs text-slate-400">Filled from the equipment name. You can still choose another category.</p>
+                        </div>
+                        <div>
+                            <label for="add_equipment_room" class="{{ $eqLabel }}">Room <span class="text-rose-500">*</span></label>
+                            <select
+                                id="add_equipment_room"
+                                name="equipment_room_id"
+                                x-model="room"
+                                @change="clearError('room'); syncAssetTag()"
+                                class="{{ $eqField }}"
+                                :class="errors.room ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
+                            >
+                                <option value="">Select room</option>
+                                @foreach ($rooms as $room)
+                                    <option value="{{ $room->room_id }}">{{ $room->room_name }}</option>
+                                @endforeach
+                            </select>
+                            <p x-show="errors.room" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.room"></p>
+                        </div>
+                    </div>
+                    <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
+                        <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Status</p>
+                        <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label
-                                    for="add_equipment_quantity"
-                                    class="mb-2 block text-sm font-medium text-slate-700"
-                                >
-                                    Quantity
-                                </label>
-
+                                <label for="add_equipment_quantity" class="{{ $eqLabel }}">Qty</label>
                                 <input
                                     id="add_equipment_quantity"
                                     type="number"
                                     min="1"
-                                    value="1"
-                                    name="equipment_quantity"
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                    max="200"
+                                    x-model.number="quantity"
+                                    @input="clearError('quantity'); syncAssetTag(); onSharedPhotoModeChange()"
+                                    class="{{ $eqField }}"
+                                    :class="errors.quantity ? 'bg-rose-50/50 ring-rose-300 focus:ring-rose-200' : ''"
                                 />
+                                <p x-show="errors.quantity" x-cloak class="mt-1.5 text-xs font-medium text-rose-600" x-text="errors.quantity"></p>
                             </div>
-
-                            <!-- CONDITION -->
                             <div>
-                                <label
-                                    for="add_equipment_condition"
-                                    class="mb-2 block text-sm font-medium text-slate-700"
-                                >
-                                    Condition
-                                </label>
-
-                                <select
-                                    id="add_equipment_condition"
-                                    name="equipment_condition_status"
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                                >
-                                    <option value="Good">
-                                        Good
-                                    </option>
-
-                                    <option value="Damaged">
-                                        Damaged
-                                    </option>
-
-                                    <option value="Under Maintenance">
-                                        Under maintenance
-                                    </option>
-
-                                    <option value="Disposed">
-                                        Disposed
-                                    </option>
+                                <label for="add_equipment_condition" class="{{ $eqLabel }}">Condition</label>
+                                <select id="add_equipment_condition" name="equipment_condition_status" x-model="condition" class="{{ $eqField }}">
+                                    <option value="Good">Good</option>
+                                    <option value="Damaged">Damaged</option>
+                                    <option value="Under Maintenance">Under maintenance</option>
+                                    <option value="Disposed">Disposed</option>
                                 </select>
                             </div>
-
-                            <!-- ===================================== -->
-                            <!-- BORROWABLE -->
-                            <!-- Place below the Condition field -->
-                            <!-- ===================================== -->
-
-                            <div class="sm:col-span-2">
-                                <label
-                                    for="add_equipment_borrowable"
-                                    class="mb-2 block text-sm font-medium text-slate-700"
-                                >
-                                    Borrowable
-                                </label>
-
-                                <label
-                                    class="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 transition hover:border-slate-300"
-                                >
-                                    <div>
-                                        <p class="text-sm font-medium text-slate-900">
-                                            Allow equipment borrowing
-                                        </p>
-
-                                        <p class="mt-1 text-xs text-slate-500">
-                                            Enable this if the equipment can be borrowed by authorized users.
-                                        </p>
-                                    </div>
-
-                                    <input
-                                        id="add_equipment_borrowable"
-                                        type="checkbox"
-                                        name="equipment_is_borrowable"
-                                        value="1"
-                                        class="peer sr-only"
-                                    >
-
-                                    <div
-                                        class="relative h-6 w-11 rounded-full bg-slate-300 transition
-                                            peer-checked:bg-emerald-500
-                                            after:absolute after:left-0.5 after:top-0.5
-                                            after:h-5 after:w-5 after:rounded-full
-                                            after:bg-white after:transition-all
-                                            peer-checked:after:translate-x-5"
-                                    ></div>
-                                </label>
-                            </div>
                         </div>
-                    </section>
+                        <div>
+                            <label class="{{ $eqLabel }}">Tracking mode</label>
+                            <div class="flex h-11 rounded-xl bg-slate-100 p-1">
+                                <button type="button" @click="tracking = 'Bulk'; assetTagManual = false; syncAssetTag(); onSharedPhotoModeChange()" class="flex-1 rounded-lg text-sm font-medium transition" :class="tracking === 'Bulk' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Bulk</button>
+                                <button type="button" @click="tracking = 'Individual'; assetTagManual = false; syncAssetTag(); onSharedPhotoModeChange()" class="flex-1 rounded-lg text-sm font-medium transition" :class="tracking === 'Individual' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'">Individual</button>
+                            </div>
+                            <p class="mt-1.5 text-xs text-slate-400" x-text="tracking === 'Bulk'
+                                ? 'One stock record with combined quantity.'
+                                : 'Creates separate trackable assets (asset tag, serial, QR per unit).'"></p>
+                        </div>
+                        <label class="flex items-center justify-between rounded-2xl bg-white px-4 py-3 ring-1 ring-slate-200/80">
+                            <span class="text-sm font-medium text-slate-900">Can be borrowed</span>
+                            <input id="add_equipment_borrowable" type="checkbox" name="equipment_is_borrowable" value="1" class="peer sr-only">
+                            <span class="relative h-6 w-11 rounded-full bg-slate-300 transition peer-checked:bg-slate-900 after:absolute after:left-0.5 after:top-0.5 after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all peer-checked:after:translate-x-5"></span>
+                        </label>
+                    </div>
+                </div>
+                <details class="mt-5 rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200/80" open>
+                    <summary class="cursor-pointer text-sm font-medium text-slate-700">Shared defaults / single-item details</summary>
+                    <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                        <div x-show="tracking === 'Bulk' || quantity === 1">
+                            <label for="add_equipment_asset_tag" class="{{ $eqLabel }}">Asset tag</label>
+                            <input id="add_equipment_asset_tag" type="text" name="equipment_asset_tag" x-model="assetTag" @input="assetTagManual = true" class="{{ $eqField }}" />
+                        </div>
+                        <div>
+                            <label for="add_equipment_brand" class="{{ $eqLabel }}">Brand name</label>
+                            <input id="add_equipment_brand" type="text" name="equipment_brand_name" x-model="brand" class="{{ $eqField }}" />
+                        </div>
+                        <div>
+                            <label for="add_equipment_model" class="{{ $eqLabel }}">Model</label>
+                            <input id="add_equipment_model" type="text" name="equipment_model" x-model="model" class="{{ $eqField }}" />
+                        </div>
+                        <div x-show="tracking === 'Bulk' || quantity === 1">
+                            <label for="add_equipment_serial" class="{{ $eqLabel }}">Serial number</label>
+                            <input id="add_equipment_serial" type="text" name="equipment_serial_number" x-model="serial" class="{{ $eqField }}" />
+                        </div>
+                        <div>
+                            <label for="add_warranty_expiration" class="{{ $eqLabel }}">Warranty expiration</label>
+                            <input id="add_warranty_expiration" type="date" name="equipment_warranty_expiration" x-model="warranty" class="{{ $eqField }}" />
+                        </div>
+                    </div>
+                </details>
+            </div>
+
+            <div class="eq-modal-scroll min-h-0 flex-1 overflow-y-auto px-6 py-5" x-show="step === 2" x-cloak>
+                <div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-slate-50 px-4 py-3 ring-1 ring-slate-200/80">
+                    <div class="text-sm text-slate-600">
+                        <span class="font-medium text-slate-900" x-text="name"></span>
+                        <span class="text-slate-400"> · </span>
+                        <span x-text="items.length + ' individually tracked units'"></span>
+                        <span class="text-slate-400"> · </span>
+                        <span class="text-slate-500">Optional photo per unit</span>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button" @click="regenerateAssetTags()" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Regenerate asset tags</button>
+                        <button type="button" @click="applyDefaults()" class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Re-apply shared defaults</button>
+                    </div>
+                </div>
+                <div class="rounded-xl ring-1 ring-slate-200">
+                    <table class="w-full table-fixed divide-y divide-slate-200 text-left text-sm">
+                        <colgroup>
+                            <col class="w-[3%]">
+                            <col class="w-[14%]">
+                            <col class="w-[22%]">
+                            <col class="w-[14%]">
+                            <col class="w-[12%]">
+                            <col class="w-[12%]">
+                            <col class="w-[13%]">
+                            <col class="w-[10%]">
+                        </colgroup>
+                        <thead class="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            <tr>
+                                <th class="px-2 py-2.5">#</th>
+                                <th class="px-2 py-2.5">Photo</th>
+                                <th class="px-2 py-2.5">Asset tag</th>
+                                <th class="px-2 py-2.5">Serial</th>
+                                <th class="px-2 py-2.5">Brand</th>
+                                <th class="px-2 py-2.5">Model</th>
+                                <th class="px-2 py-2.5">Condition</th>
+                                <th class="px-2 py-2.5">Warranty</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100 bg-white">
+                            <template x-for="(item, index) in items" :key="index">
+                                <tr>
+                                    <td class="px-2 py-2 text-slate-400" x-text="index + 1"></td>
+                                    <td class="px-2 py-2">
+                                        <div class="flex min-w-0 flex-wrap items-center gap-1.5">
+                                            <button
+                                                type="button"
+                                                x-show="item._imagePreview"
+                                                x-cloak
+                                                @click="openEquipmentPhotoViewer(item._imagePreview, (item.equipment_asset_tag || name || 'Equipment') + ' photo')"
+                                                class="group relative h-9 w-9 shrink-0 overflow-hidden rounded-md bg-white ring-1 ring-slate-200"
+                                                aria-label="View unit photo"
+                                            >
+                                                <img :src="item._imagePreview" alt="" class="h-full w-full object-cover">
+                                            </button>
+                                            <div
+                                                x-show="!item._imagePreview"
+                                                class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-slate-50 ring-1 ring-slate-200"
+                                            >
+                                                <span
+                                                    class="inline-flex h-4 w-4 items-center justify-center [&_svg]:h-full [&_svg]:w-full"
+                                                    x-html="window.PrismEquipmentIcons ? window.PrismEquipmentIcons.svg(name || '') : ''"
+                                                ></span>
+                                            </div>
+                                            <label class="inline-flex h-8 cursor-pointer items-center rounded-md bg-white px-2 text-[11px] font-semibold text-slate-700 ring-1 ring-slate-200 transition hover:bg-slate-50">
+                                                <span x-text="item._imagePreview ? 'Change' : 'Add'"></span>
+                                                <input
+                                                    type="file"
+                                                    :name="'items[' + index + '][equipment_image]'"
+                                                    :data-item-image-index="index"
+                                                    accept="image/jpeg,image/png,image/webp,image/gif"
+                                                    class="sr-only"
+                                                    @change="onItemImageChange(index, $event)"
+                                                >
+                                            </label>
+                                            <button
+                                                type="button"
+                                                x-show="item._imagePreview"
+                                                x-cloak
+                                                @click="clearItemImage(index)"
+                                                class="text-[11px] font-semibold text-rose-600 hover:text-rose-700"
+                                            >
+                                                Remove
+                                            </button>
+                                        </div>
+                                    </td>
+                                    <td class="px-2 py-2">
+                                        <div class="group/eqtip relative min-w-0">
+                                            <input type="text" :name="'items[' + index + '][equipment_asset_tag]'" x-model="item.equipment_asset_tag" @input="item._tagManual = true" class="h-9 w-full min-w-0 truncate rounded-md border border-slate-200 px-2 text-sm" />
+                                            <div
+                                                x-show="String(item.equipment_asset_tag || '').trim()"
+                                                x-cloak
+                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-medium leading-snug text-white shadow-lg opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
+                                                x-text="item.equipment_asset_tag"
+                                            ></div>
+                                        </div>
+                                    </td>
+                                    <td class="px-2 py-2">
+                                        <div class="group/eqtip relative min-w-0">
+                                            <input type="text" :name="'items[' + index + '][equipment_serial_number]'" x-model="item.equipment_serial_number" class="h-9 w-full min-w-0 truncate rounded-md border border-slate-200 px-2 text-sm" />
+                                            <div
+                                                x-show="String(item.equipment_serial_number || '').trim()"
+                                                x-cloak
+                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-medium leading-snug text-white shadow-lg opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
+                                                x-text="item.equipment_serial_number"
+                                            ></div>
+                                        </div>
+                                    </td>
+                                    <td class="px-2 py-2">
+                                        <div class="group/eqtip relative min-w-0">
+                                            <input type="text" :name="'items[' + index + '][equipment_brand_name]'" x-model="item.equipment_brand_name" class="h-9 w-full min-w-0 truncate rounded-md border border-slate-200 px-2 text-sm" />
+                                            <div
+                                                x-show="String(item.equipment_brand_name || '').trim()"
+                                                x-cloak
+                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-medium leading-snug text-white shadow-lg opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
+                                                x-text="item.equipment_brand_name"
+                                            ></div>
+                                        </div>
+                                    </td>
+                                    <td class="px-2 py-2">
+                                        <div class="group/eqtip relative min-w-0">
+                                            <input type="text" :name="'items[' + index + '][equipment_model]'" x-model="item.equipment_model" class="h-9 w-full min-w-0 truncate rounded-md border border-slate-200 px-2 text-sm" />
+                                            <div
+                                                x-show="String(item.equipment_model || '').trim()"
+                                                x-cloak
+                                                class="pointer-events-none absolute left-0 top-[calc(100%+0.35rem)] z-30 max-w-[min(28rem,70vw)] whitespace-normal break-all rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-medium leading-snug text-white shadow-lg opacity-0 invisible transition group-hover/eqtip:visible group-hover/eqtip:opacity-100"
+                                                x-text="item.equipment_model"
+                                            ></div>
+                                        </div>
+                                    </td>
+                                    <td class="px-2 py-2">
+                                        <select :name="'items[' + index + '][equipment_condition_status]'" x-model="item.equipment_condition_status" class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-2 text-sm">
+                                            <option value="Good">Good</option>
+                                            <option value="Damaged">Damaged</option>
+                                            <option value="Under Maintenance">Under Maintenance</option>
+                                            <option value="Disposed">Disposed</option>
+                                        </select>
+                                    </td>
+                                    <td class="px-2 py-2">
+                                        <input type="date" :name="'items[' + index + '][equipment_warranty_expiration]'" x-model="item.equipment_warranty_expiration" class="h-9 w-full min-w-0 rounded-md border border-slate-200 px-2 text-sm" />
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
-            <div class="border-t border-dashed border-slate-500"></div>
-
-            <!-- ===================================== -->
-            <!-- MODAL FOOTER -->
-            <!-- ===================================== -->
-            <div
-                class="flex shrink-0 items-center justify-between gap-4 px-6 py-4"
-            >
-                <p class="hidden text-xs text-slate-400 sm:block">
-                    Required fields must be completed before saving.
-                </p>
-
-                <div class="flex items-center gap-2">
-                    <button
-                        type="button"
-                        onclick="closeAddEquipmentModal()"
-                        class="rounded-lg px-3.5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
-                    >
-                        Cancel
-                    </button>
-
-                    <button
-                        type="submit"
-                        class="rounded-lg bg-[rgba(0,55,199,0.85)] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[rgba(0,44,155,0.85)] focus:outline-none focus:ring-4 focus:ring-slate-200 active:bg-black"
-                    >
-                        Add equipment
-                    </button>
-                </div>
+            <div class="flex items-center justify-end gap-2 px-6 py-4">
+                <button type="button" @click="step === 2 ? (step = 1, fullscreen = false) : close()" class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100" x-text="step === 2 ? 'Back' : 'Cancel'"></button>
+                <button
+                    type="button"
+                    x-show="step === 1 && needsItemStep()"
+                    @click="goToItems()"
+                    class="h-10 rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800"
+                >
+                    Continue
+                </button>
+                <button
+                    type="submit"
+                    x-show="step === 2 || !needsItemStep()"
+                    class="h-10 rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800"
+                    x-text="step === 2 ? ('Create ' + items.length + ' assets') : 'Add equipment'"
+                ></button>
             </div>
         </form>
     </div>
-</div>
+
 
 <div
     id="scheduleModal"
-    class="fixed inset-0 z-[1300] hidden items-center justify-center bg-[#0b1220]/70 p-4"
+    x-data="scheduleEquipmentCart(@js($scheduleEquipmentJson ?? []))"
+    x-cloak
+    class="fixed inset-0 z-[1300] hidden items-start justify-center overflow-y-auto bg-[#0b1220]/70 p-4"
+    @keydown.escape.window="if (!$el.classList.contains('hidden')) closeScheduleModal()"
 >
-    <!-- ===================================== -->
-    <!-- SCHEDULE MAINTENANCE MODAL -->
-    <!-- ===================================== -->
-    <div
-        class="flex max-h-[70vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
-    >
-        <!-- ===================================== -->
-        <!-- MODAL HEADER -->
-        <!-- ===================================== -->
-        <div
-            class="flex shrink-0 items-start justify-between gap-6 px-6 pb-5 pt-6 border-b border-dashed border-slate-500"
-        >
+    <div class="my-auto flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
+        <div class="flex items-start justify-between gap-4 px-6 pt-6">
             <div class="min-w-0">
-                <p
-                    class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400"
-                >
-                    Preventive Maintenance
-                </p>
-
-                <h2
-                    class="mt-1.5 text-lg font-semibold tracking-tight text-slate-950"
-                >
-                    Schedule maintenance
-                </h2>
-
-                <p class="mt-1 text-sm text-slate-500">
-                    Create a maintenance schedule for equipment.
-                </p>
+                <h2 class="text-xl font-semibold tracking-tight text-slate-900">Schedule maintenance</h2>
+                <p class="mt-1 text-sm text-slate-500">Search and add multiple QR-tagged equipment in one go.</p>
             </div>
-
-            <!-- CLOSE BUTTON -->
             <button
                 type="button"
                 onclick="closeScheduleModal()"
-                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
                 aria-label="Close modal"
             >
                 <i data-lucide="x" class="h-4 w-4"></i>
             </button>
         </div>
 
-        <!-- ===================================== -->
-        <!-- SCHEDULE FORM -->
-        <!-- ===================================== -->
         <form
             action="/maintenance/schedules/store"
             method="POST"
             class="flex min-h-0 flex-1 flex-col"
+            @submit="prepareSubmit($event)"
         >
             @csrf
-
-            <!-- ===================================== -->
-            <!-- SCROLLABLE FORM CONTENT -->
-            <!-- ===================================== -->
-            <div
-                class="min-h-0 flex-1 overflow-y-auto border-y border-slate-100 px-6 py-5"
-            >
-                <div class="space-y-5">
-
-                    <!-- ===================================== -->
-                    <!-- EQUIPMENT -->
-                    <!-- ===================================== -->
-                    <div>
-                        <label
-                            for="scheduleEquipment"
-                            class="mb-2 block text-sm font-medium text-slate-700"
-                        >
-                            Equipment
-                        </label>
-
-                        <select
-                            id="scheduleEquipment"
-                            name="equipment_id"
-                            required
-                            class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                        >
-                            <option value="">
-                                Select equipment
-                            </option>
-
-                            @foreach ($equipment as $item)
-                                <option value="{{ $item->equipment_id }}">
-                                    {{ $item->equipment_name }}{{ isset($item->room_name) && $item->room_name ? ' · '.$item->room_name : '' }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    <!-- ===================================== -->
-                    <!-- MAINTENANCE TITLE -->
-                    <!-- ===================================== -->
-                    <div>
-                        <label
-                            for="scheduleTitle"
-                            class="mb-2 block text-sm font-medium text-slate-700"
-                        >
-                            Maintenance title
-                        </label>
-
-                        <input
-                            id="scheduleTitle"
-                            type="text"
-                            name="title"
-                            placeholder="e.g. Quarterly air conditioner inspection"
-                            required
-                            class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                        />
-                    </div>
-
-                    <!-- ===================================== -->
-                    <!-- DESCRIPTION -->
-                    <!-- ===================================== -->
-                    <div>
-                        <div
-                            class="mb-2 flex items-center justify-between gap-4"
-                        >
-                            <label
-                                for="scheduleDescription"
-                                class="text-sm font-medium text-slate-700"
-                            >
-                                Description
-                            </label>
-
-                            <span class="text-xs text-slate-400">
-                                Optional
-                            </span>
-                        </div>
-
-                        <textarea
-                            id="scheduleDescription"
-                            name="description"
-                            rows="3"
-                            placeholder="Add instructions or details about this maintenance schedule"
-                            class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                        ></textarea>
-                    </div>
-
-                    <!-- ===================================== -->
-                    <!-- SCHEDULE SETTINGS -->
-                    <!-- ===================================== -->
-                    <div class="grid gap-5 sm:grid-cols-2">
-
-                        <!-- FREQUENCY -->
+            <div class="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
+                <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
+                    <div class="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                            <label
-                                for="scheduleFrequency"
-                                class="mb-2 block text-sm font-medium text-slate-700"
-                            >
-                                Frequency
-                            </label>
-
-                            <select
-                                id="scheduleFrequency"
-                                name="frequency"
-                                class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                            >
-                                <option value="Monthly">
-                                    Monthly
-                                </option>
-
-                                <option value="Quarterly">
-                                    Quarterly
-                                </option>
-
-                                <option value="Semi Annual">
-                                    Semi annual
-                                </option>
-
-                                <option value="Annual">
-                                    Annual
-                                </option>
-                            </select>
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Equipment</p>
+                            <p class="mt-1 text-sm text-slate-500">Type to search, then add each asset to this schedule batch.</p>
                         </div>
+                        <p class="rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200/80" x-text="cart.length ? (cart.length + ' selected') : 'None selected'"></p>
+                    </div>
 
-                        <!-- NEXT MAINTENANCE DATE -->
-                        <div>
-                            <label
-                                for="scheduleNextDate"
-                                class="mb-2 block text-sm font-medium text-slate-700"
-                            >
-                                Next maintenance date
-                            </label>
-
+                    <div class="relative" @click.outside="open = false">
+                        <label class="mb-1.5 block text-sm text-slate-600">Find equipment</label>
+                        <div class="relative">
+                            <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
                             <input
-                                id="scheduleNextDate"
-                                type="date"
-                                name="next_date"
-                                required
-                                class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                            />
+                                type="text"
+                                x-model="query"
+                                @focus="open = true"
+                                @input="open = true"
+                                @keydown.arrow-down.prevent="move(1)"
+                                @keydown.arrow-up.prevent="move(-1)"
+                                @keydown.enter.prevent="addHighlighted()"
+                                placeholder="Search by name, room, QR, or asset tag"
+                                class="h-11 w-full rounded-xl border-0 bg-white pl-10 pr-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10"
+                                autocomplete="off"
+                            >
+                        </div>
+
+                        <div
+                            x-show="open"
+                            x-cloak
+                            class="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-40 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
+                        >
+                            <div class="max-h-64 overflow-y-auto py-1">
+                                <template x-if="filtered.length === 0">
+                                    <p class="px-3 py-4 text-sm text-slate-400">No matching schedulable equipment.</p>
+                                </template>
+                                <template x-for="(item, index) in filtered" :key="item.id">
+                                    <button
+                                        type="button"
+                                        @click="addItem(item)"
+                                        class="flex w-full items-start gap-3 px-3 py-2.5 text-left transition"
+                                        :class="index === highlight ? 'bg-[#0025cc]/5' : 'hover:bg-slate-50'"
+                                    >
+                                        <span class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+                                            <i data-lucide="wrench" class="h-4 w-4"></i>
+                                        </span>
+                                        <span class="min-w-0 flex-1">
+                                            <span class="block truncate text-sm font-medium text-slate-900" x-text="item.name"></span>
+                                            <span class="mt-0.5 block truncate text-xs text-slate-500" x-text="meta(item)"></span>
+                                        </span>
+                                        <span class="shrink-0 text-[11px] font-semibold text-[#0025cc]">Add</span>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+                        <p class="mt-1.5 text-xs text-slate-400">Only equipment with a generated QR code can be scheduled.</p>
+                        <p x-show="pickerError" x-cloak class="mt-2 text-xs font-medium text-rose-600" x-text="pickerError"></p>
+                    </div>
+
+                    <div class="overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80">
+                        <template x-if="cart.length === 0">
+                            <div class="px-4 py-8 text-center">
+                                <p class="text-sm font-medium text-slate-700">No equipment added</p>
+                                <p class="mt-1 text-xs text-slate-400">Search above to add one or many assets to this maintenance batch.</p>
+                            </div>
+                        </template>
+                        <template x-if="cart.length > 0">
+                            <div class="divide-y divide-slate-100">
+                                <template x-for="(line, index) in cart" :key="line.id">
+                                    <div class="flex items-center gap-3 px-4 py-3">
+                                        <input type="hidden" :name="'equipment_ids[' + index + ']'" :value="line.id">
+                                        <div class="min-w-0 flex-1">
+                                            <p class="truncate text-sm font-medium text-slate-900" x-text="line.name"></p>
+                                            <p class="mt-0.5 truncate text-xs text-slate-500" x-text="meta(line)"></p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            @click="removeLine(index)"
+                                            class="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                                            aria-label="Remove equipment"
+                                        >
+                                            <i data-lucide="trash-2" class="h-4 w-4"></i>
+                                        </button>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                    <p x-show="cartError" x-cloak class="text-xs font-medium text-rose-600" x-text="cartError"></p>
+                </div>
+
+                <div>
+                    <label for="scheduleTitle" class="mb-1.5 block text-sm text-slate-600">Title</label>
+                    <input
+                        id="scheduleTitle"
+                        type="text"
+                        name="title"
+                        placeholder="Quarterly inspection"
+                        required
+                        class="h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10"
+                    />
+                </div>
+
+                <div>
+                    <label for="scheduleDescription" class="mb-1.5 block text-sm text-slate-600">
+                        Description <span class="text-slate-400">(optional)</span>
+                    </label>
+                    <textarea
+                        id="scheduleDescription"
+                        name="description"
+                        rows="3"
+                        placeholder="Notes or instructions"
+                        class="w-full resize-none rounded-xl border-0 bg-slate-50 px-3.5 py-2.5 text-sm leading-6 text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10"
+                    ></textarea>
+                </div>
+
+                <div>
+                    <label for="scheduleFrequency" class="mb-1.5 block text-sm text-slate-600">Frequency</label>
+                    <select
+                        id="scheduleFrequency"
+                        name="frequency"
+                        class="h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10"
+                    >
+                        <option value="Monthly">Monthly</option>
+                        <option value="Quarterly">Quarterly</option>
+                        <option value="Semi Annual">Semi annual</option>
+                        <option value="Annual">Annual</option>
+                    </select>
+                </div>
+
+                <div x-data="scheduleNextDatePicker()" class="space-y-2.5">
+                    <label class="block text-sm text-slate-600">Next date</label>
+                    <input id="scheduleNextDate" type="hidden" name="next_date" x-model="value" />
+
+                    <div class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 px-3.5 py-3">
+                        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#0025cc] text-white">
+                            <i data-lucide="calendar" class="h-4 w-4"></i>
+                        </span>
+                        <div class="min-w-0">
+                            <p class="text-[11px] font-medium uppercase tracking-wide text-slate-400">Scheduled for</p>
+                            <p class="truncate text-sm font-semibold text-slate-900" x-text="display"></p>
+                        </div>
+                    </div>
+
+                    <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm">
+                        <div class="mb-3 flex items-center justify-between">
+                            <button
+                                type="button"
+                                @click="prevMonth()"
+                                class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                                aria-label="Previous month"
+                            >
+                                <i data-lucide="chevron-left" class="h-4 w-4"></i>
+                            </button>
+                            <p class="text-sm font-semibold text-slate-900" x-text="monthLabel"></p>
+                            <button
+                                type="button"
+                                @click="nextMonth()"
+                                class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                                aria-label="Next month"
+                            >
+                                <i data-lucide="chevron-right" class="h-4 w-4"></i>
+                            </button>
+                        </div>
+
+                        <div class="mb-1.5 grid grid-cols-7">
+                            <template x-for="day in weekdays" :key="day">
+                                <div class="py-1 text-center text-[10px] font-semibold uppercase tracking-wide text-slate-400" x-text="day"></div>
+                            </template>
+                        </div>
+
+                        <div class="grid grid-cols-7 gap-y-1">
+                            <template x-for="day in days" :key="day.iso + (day.outside ? '-out' : '')">
+                                <button
+                                    type="button"
+                                    @click="pick(day)"
+                                    class="mx-auto flex h-9 w-9 items-center justify-center rounded-full text-sm transition"
+                                    :class="day.selected
+                                        ? 'bg-[#0025cc] font-semibold text-white shadow-sm shadow-[#0025cc]/25'
+                                        : day.isToday
+                                            ? 'font-semibold text-[#0025cc] ring-1 ring-[#0025cc]/30'
+                                            : day.outside
+                                                ? 'text-slate-300 hover:bg-slate-50 hover:text-slate-500'
+                                                : 'text-slate-700 hover:bg-slate-100'"
+                                    x-text="day.d"
+                                ></button>
+                            </template>
+                        </div>
+
+                        <div class="mt-3 flex items-center justify-between border-t border-slate-100 pt-3">
+                            <button
+                                type="button"
+                                @click="clearDate()"
+                                class="rounded-lg px-2 py-1 text-xs font-medium text-slate-400 transition hover:bg-slate-50 hover:text-slate-700"
+                            >
+                                Clear
+                            </button>
+                            <button
+                                type="button"
+                                @click="goToday()"
+                                class="rounded-lg px-2.5 py-1 text-xs font-semibold text-[#0025cc] transition hover:bg-[#0025cc]/5"
+                            >
+                                Today
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="border-t border-dashed border-slate-500"></div>
-
-            <!-- ===================================== -->
-            <!-- MODAL FOOTER -->
-            <!-- ===================================== -->
-            <div
-                class="flex shrink-0 items-center justify-end gap-2 px-6 py-4"
-            >
+            <div class="flex shrink-0 items-center justify-end gap-2 px-6 pb-6">
                 <button
                     type="button"
                     onclick="closeScheduleModal()"
-                    class="rounded-lg px-3.5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+                    class="rounded-xl px-3.5 py-2.5 text-sm font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
                 >
                     Cancel
                 </button>
-
                 <button
                     type="submit"
-                    class="rounded-lg bg-[rgba(0,55,199,0.85)] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[rgba(0,44,155,0.85)] focus:outline-none focus:ring-4 focus:ring-slate-200 active:bg-black"
-                >
-                    Create schedule
-                </button>
+                    class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#001fa8]"
+                    x-text="cart.length ? ('Create ' + cart.length + ' schedule' + (cart.length === 1 ? '' : 's')) : 'Create schedule'"
+                ></button>
             </div>
         </form>
     </div>
 </div>
 
-<!-- ===================================================== -->
+    <!-- ===================================================== -->
     <!-- BORROW MODAL -->
     <!-- ===================================================== -->
 
     <div
-    id="borrowModal"
-    class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
->
-    <!-- ===================================== -->
-    <!-- BORROW EQUIPMENT MODAL -->
-    <!-- ===================================== -->
-    <div
-        class="flex max-h-[70vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
+        id="borrowModal"
+        x-data="borrowEquipmentCart(@js($borrowableEquipmentJson ?? []))"
+        x-cloak
+        class="fixed inset-0 z-50 hidden items-start justify-center overflow-y-auto bg-[#0b1220]/70 p-4"
+        @keydown.escape.window="if (!$el.classList.contains('hidden')) closeBorrowModal()"
     >
-        <!-- ===================================== -->
-        <!-- MODAL HEADER -->
-        <!-- ===================================== -->
-        <div
-            class="flex shrink-0 items-start justify-between gap-6 px-6 pb-5 pt-6 border-b border-dashed border-slate-500"
-        >
-            <div>
-                <p
-                    class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400"
+        <div class="my-auto flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
+            <div class="flex items-start justify-between gap-4 px-6 pt-6">
+                <div class="min-w-0">
+                    <h2 class="text-xl font-semibold tracking-tight text-slate-900">Borrow equipment</h2>
+                    <p class="mt-1 text-sm text-slate-500">Search and add multiple items for one borrower in a single record set.</p>
+                </div>
+                <button
+                    type="button"
+                    onclick="closeBorrowModal()"
+                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                    aria-label="Close modal"
                 >
-                    Equipment Borrowing
-                </p>
-
-                <h2
-                    class="mt-1.5 text-lg font-semibold tracking-tight text-slate-950"
-                >
-                    Borrow equipment
-                </h2>
+                    <i data-lucide="x" class="h-4 w-4"></i>
+                </button>
             </div>
 
-            <!-- CLOSE BUTTON -->
-            <button
-                type="button"
-                onclick="closeBorrowModal()"
-                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
-                aria-label="Close modal"
+            <form
+                method="POST"
+                action="/maintenance/borrowing/store"
+                class="flex min-h-0 flex-1 flex-col"
+                @submit="prepareSubmit($event)"
             >
-                <i data-lucide="x" class="h-4 w-4"></i>
-            </button>
-        </div>
+                @csrf
 
-        <!-- ===================================== -->
-        <!-- BORROW FORM -->
-        <!-- ===================================== -->
-        <form
-            method="POST"
-            action="/maintenance/borrowing/store"
-            class="flex min-h-0 flex-1 flex-col"
-        >
-            @csrf
-
-            <!-- ===================================== -->
-            <!-- SCROLLABLE CONTENT -->
-            <!-- ===================================== -->
-            <div
-                class="min-h-0 flex-1 overflow-y-auto border-y border-slate-100 px-6 py-6"
-            >
-                <div class="space-y-8">
-
-                    <!-- ===================================== -->
-                    <!-- EQUIPMENT DETAILS -->
-                    <!-- ===================================== -->
-                    <section>
-                        <div class="mb-4">
-                            <h3
-                                class="text-sm font-semibold text-slate-900"
-                            >
-                                Equipment details
-                            </h3>
-
-                            <p class="mt-1 text-sm text-slate-500">
-                                Select the equipment and quantity to be borrowed.
-                            </p>
+                <div class="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
+                    <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
+                        <div class="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                                <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Equipment cart</p>
+                                <p class="mt-1 text-sm text-slate-500">Type to search, then add quantity for each equipment line.</p>
+                            </div>
+                            <p class="rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200/80" x-text="cart.length ? (cart.length + ' line' + (cart.length === 1 ? '' : 's') + ' · ' + totalQty + ' pcs') : 'No items yet'"></p>
                         </div>
 
-                        <div class="grid gap-5 md:grid-cols-2">
-                            <!-- EQUIPMENT -->
-                            <div>
-                                <label
-                                    for="borrowEquipment"
-                                    class="mb-2 block text-sm font-medium text-slate-700"
-                                >
-                                    Equipment
-                                </label>
-
-                                <select
-                                    id="borrowEquipment"
-                                    name="borrowing_equipment_id"
-                                    required
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                                >
-                                    <option value="">
-                                        Select equipment
-                                    </option>
-
-                                    @foreach ($equipment as $item)
-                                        <option
-                                            value="{{ $item->equipment_id }}"
-                                        >
-                                            {{ $item->equipment_name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-
-                            <!-- QUANTITY -->
-                            <div>
-                                <label
-                                    for="borrowQuantity"
-                                    class="mb-2 block text-sm font-medium text-slate-700"
-                                >
-                                    Quantity
-                                </label>
-
+                        <div class="relative" @click.outside="open = false">
+                            <label class="mb-1.5 block text-sm text-slate-600">Find equipment</label>
+                            <div class="flex gap-2">
+                                <div class="relative min-w-0 flex-1">
+                                    <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
+                                    <input
+                                        type="text"
+                                        x-model="query"
+                                        @focus="open = true"
+                                        @input="open = true"
+                                        @keydown.arrow-down.prevent="move(1)"
+                                        @keydown.arrow-up.prevent="move(-1)"
+                                        @keydown.enter.prevent="selectHighlighted()"
+                                        placeholder="Search by name, room, or asset tag"
+                                        class="h-11 w-full rounded-xl border-0 bg-white pl-10 pr-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10"
+                                        autocomplete="off"
+                                    >
+                                </div>
                                 <input
-                                    id="borrowQuantity"
                                     type="number"
-                                    name="borrowing_quantity"
-                                    value="1"
                                     min="1"
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                                />
-                            </div>
-                        </div>
-                    </section>
-
-                    <div class="border-t border-slate-100"></div>
-
-                    <!-- ===================================== -->
-                    <!-- BORROWER INFORMATION -->
-                    <!-- ===================================== -->
-                    <section>
-                        <div class="mb-4">
-                            <h3
-                                class="text-sm font-semibold text-slate-900"
-                            >
-                                Borrower information
-                            </h3>
-
-                            <p class="mt-1 text-sm text-slate-500">
-                                Provide the details of the person borrowing the equipment.
-                            </p>
-                        </div>
-
-                        <div class="grid gap-5 md:grid-cols-2">
-                            <!-- BORROWER NAME -->
-                            <div>
-                                <label
-                                    for="borrowerName"
-                                    class="mb-2 block text-sm font-medium text-slate-700"
+                                    :max="selected?.available || 1"
+                                    x-model.number="addQty"
+                                    class="h-11 w-24 rounded-xl border-0 bg-white px-3 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 transition focus:ring-2 focus:ring-slate-900/10"
+                                    title="Quantity to add"
                                 >
-                                    Borrower name
-                                </label>
+                                <button
+                                    type="button"
+                                    @click="addSelected()"
+                                    class="inline-flex h-11 shrink-0 items-center rounded-xl bg-slate-900 px-4 text-sm font-medium text-white transition hover:bg-slate-800"
+                                >
+                                    Add
+                                </button>
+                            </div>
 
+                            <div
+                                x-show="open"
+                                x-cloak
+                                class="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-40 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
+                            >
+                                <div class="max-h-64 overflow-y-auto py-1">
+                                    <template x-if="filtered.length === 0">
+                                        <p class="px-3 py-4 text-sm text-slate-400">No matching borrowable equipment.</p>
+                                    </template>
+                                    <template x-for="(item, index) in filtered" :key="item.id">
+                                        <button
+                                            type="button"
+                                            @click="choose(item)"
+                                            class="flex w-full items-start gap-3 px-3 py-2.5 text-left transition"
+                                            :class="index === highlight ? 'bg-[#0025cc]/5' : 'hover:bg-slate-50'"
+                                        >
+                                            <span class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+                                                <i data-lucide="package" class="h-4 w-4"></i>
+                                            </span>
+                                            <span class="min-w-0 flex-1">
+                                                <span class="block truncate text-sm font-medium text-slate-900" x-text="item.name"></span>
+                                                <span class="mt-0.5 block truncate text-xs text-slate-500" x-text="meta(item)"></span>
+                                            </span>
+                                            <span class="shrink-0 rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700" x-text="item.available + ' avail'"></span>
+                                        </button>
+                                    </template>
+                                </div>
+                            </div>
+                            <p x-show="selected" x-cloak class="mt-2 text-xs text-slate-500">
+                                Selected: <span class="font-medium text-slate-800" x-text="selected?.name"></span>
+                                <span x-text="' · up to ' + (selected?.available || 0) + ' available'"></span>
+                            </p>
+                            <p x-show="pickerError" x-cloak class="mt-2 text-xs font-medium text-rose-600" x-text="pickerError"></p>
+                        </div>
+
+                        <div class="overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80">
+                            <template x-if="cart.length === 0">
+                                <div class="px-4 py-8 text-center">
+                                    <p class="text-sm font-medium text-slate-700">Cart is empty</p>
+                                    <p class="mt-1 text-xs text-slate-400">Add chairs, tables, and other items here before creating the borrow.</p>
+                                </div>
+                            </template>
+                            <template x-if="cart.length > 0">
+                                <div class="divide-y divide-slate-100">
+                                    <template x-for="(line, index) in cart" :key="line.id">
+                                        <div class="flex flex-wrap items-center gap-3 px-4 py-3">
+                                            <input type="hidden" :name="'items[' + index + '][equipment_id]'" :value="line.id">
+                                            <input type="hidden" :name="'items[' + index + '][condition]'" :value="line.condition || ''">
+                                            <div class="min-w-0 flex-1">
+                                                <p class="truncate text-sm font-medium text-slate-900" x-text="line.name"></p>
+                                                <p class="mt-0.5 truncate text-xs text-slate-500" x-text="meta(line)"></p>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <label class="sr-only" :for="'cart-qty-' + line.id">Quantity</label>
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    :max="line.available"
+                                                    :id="'cart-qty-' + line.id"
+                                                    :name="'items[' + index + '][quantity]'"
+                                                    x-model.number="line.quantity"
+                                                    @change="clampLine(line)"
+                                                    class="h-9 w-20 rounded-lg border border-slate-200 px-2 text-sm"
+                                                >
+                                                <span class="text-xs text-slate-400" x-text="'/' + line.available"></span>
+                                                <button
+                                                    type="button"
+                                                    @click="removeLine(index)"
+                                                    class="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                                                    aria-label="Remove item"
+                                                >
+                                                    <i data-lucide="trash-2" class="h-4 w-4"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                        <p x-show="cartError" x-cloak class="text-xs font-medium text-rose-600" x-text="cartError"></p>
+                    </div>
+
+                    <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
+                        <div>
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Borrower</p>
+                            <p class="mt-1 text-sm text-slate-500">Shared across every item in this borrow.</p>
+                        </div>
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <div>
+                                <label for="borrowerName" class="mb-1.5 block text-sm text-slate-600">
+                                    Borrower name <span class="text-rose-500">*</span>
+                                </label>
                                 <input
                                     id="borrowerName"
                                     type="text"
                                     name="borrowing_borrower_name"
                                     placeholder="Enter borrower name"
                                     required
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10"
                                 />
                             </div>
-
-                            <!-- DEPARTMENT -->
                             <div>
-                                <div class="mb-2 flex items-center justify-between">
-                                    <label
-                                        for="borrowDepartment"
-                                        class="text-sm font-medium text-slate-700"
-                                    >
-                                        Department
-                                    </label>
-
-                                    <span class="text-xs text-slate-400">
-                                        Optional
-                                    </span>
-                                </div>
-
+                                <label for="borrowDepartment" class="mb-1.5 block text-sm text-slate-600">
+                                    Department <span class="text-slate-400">(optional)</span>
+                                </label>
                                 <input
                                     id="borrowDepartment"
                                     type="text"
                                     name="borrowing_borrower_department"
                                     placeholder="Enter department"
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10"
                                 />
                             </div>
-
-                            <!-- AUTHORIZED BY -->
-                            <div class="md:col-span-2">
-                                <div class="mb-2 flex items-center justify-between">
-                                    <label
-                                        for="borrowAuthorizedBy"
-                                        class="text-sm font-medium text-slate-700"
-                                    >
-                                        Authorized by
-                                    </label>
-
-                                    <span class="text-xs text-slate-400">
-                                        Optional
-                                    </span>
-                                </div>
-
+                            <div class="sm:col-span-2">
+                                <label for="borrowAuthorizedBy" class="mb-1.5 block text-sm text-slate-600">
+                                    Authorized by <span class="text-slate-400">(optional)</span>
+                                </label>
                                 <input
                                     id="borrowAuthorizedBy"
                                     type="text"
                                     name="borrowing_authorized_by"
                                     placeholder="Enter authorizing personnel"
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10"
                                 />
                             </div>
                         </div>
-                    </section>
+                    </div>
 
-                    <div class="border-t border-slate-100"></div>
-
-                    <!-- ===================================== -->
-                    <!-- BORROWING SCHEDULE -->
-                    <!-- ===================================== -->
-                    <section>
-                        <div class="mb-4">
-                            <h3
-                                class="text-sm font-semibold text-slate-900"
-                            >
-                                Borrowing schedule
-                            </h3>
-
-                            <p class="mt-1 text-sm text-slate-500">
-                                Set the borrowing period and equipment condition.
-                            </p>
+                    <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
+                        <div>
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Schedule</p>
+                            <p class="mt-1 text-sm text-slate-500">One borrow / return window for the whole cart.</p>
                         </div>
-
-                        <div class="grid gap-5 md:grid-cols-2">
-                            <!-- BORROW DATE -->
+                        <div class="grid gap-4 sm:grid-cols-2">
                             <div>
-                                <label
-                                    for="borrowDate"
-                                    class="mb-2 block text-sm font-medium text-slate-700"
-                                >
-                                    Borrow date
+                                <label for="borrowDate" class="mb-1.5 block text-sm text-slate-600">
+                                    Borrow date <span class="text-rose-500">*</span>
                                 </label>
-
                                 <input
                                     id="borrowDate"
                                     type="date"
                                     name="borrowing_date"
                                     required
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 transition focus:ring-2 focus:ring-slate-900/10"
                                 />
                             </div>
-
-                            <!-- EXPECTED RETURN DATE -->
                             <div>
-                                <label
-                                    for="borrowExpectedReturn"
-                                    class="mb-2 block text-sm font-medium text-slate-700"
-                                >
-                                    Expected return date
+                                <label for="borrowExpectedReturn" class="mb-1.5 block text-sm text-slate-600">
+                                    Expected return <span class="text-rose-500">*</span>
                                 </label>
-
                                 <input
                                     id="borrowExpectedReturn"
                                     type="date"
                                     name="borrowing_expected_return_date"
                                     required
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-                                />
-                            </div>
-
-                            <!-- CONDITION -->
-                            <div class="md:col-span-2">
-                                <div class="mb-2 flex items-center justify-between">
-                                    <label
-                                        for="borrowCondition"
-                                        class="text-sm font-medium text-slate-700"
-                                    >
-                                        Equipment condition
-                                    </label>
-
-                                    <span class="text-xs text-slate-400">
-                                        Optional
-                                    </span>
-                                </div>
-
-                                <input
-                                    id="borrowCondition"
-                                    type="text"
-                                    name="borrowing_equipment_condition"
-                                    placeholder="e.g. Good condition"
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 transition focus:ring-2 focus:ring-slate-900/10"
                                 />
                             </div>
                         </div>
-                    </section>
+                    </div>
 
-                    <div class="border-t border-slate-100"></div>
-
-                    <!-- ===================================== -->
-                    <!-- ADDITIONAL DETAILS -->
-                    <!-- ===================================== -->
-                    <section>
-                        <div class="mb-4">
-                            <h3
-                                class="text-sm font-semibold text-slate-900"
-                            >
-                                Additional details
-                            </h3>
-
-                            <p class="mt-1 text-sm text-slate-500">
-                                Add the purpose, destination, or other relevant notes.
-                            </p>
+                    <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
+                        <div>
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Notes</p>
+                            <p class="mt-1 text-sm text-slate-500">Optional purpose, destination, and remarks.</p>
                         </div>
-
-                        <div class="space-y-5">
-                            <!-- PURPOSE -->
+                        <div class="space-y-4">
                             <div>
-                                <div class="mb-2 flex items-center justify-between">
-                                    <label
-                                        for="borrowPurpose"
-                                        class="text-sm font-medium text-slate-700"
-                                    >
-                                        Purpose
-                                    </label>
-
-                                    <span class="text-xs text-slate-400">
-                                        Optional
-                                    </span>
-                                </div>
-
+                                <label for="borrowPurpose" class="mb-1.5 block text-sm text-slate-600">
+                                    Purpose <span class="text-slate-400">(optional)</span>
+                                </label>
                                 <textarea
                                     id="borrowPurpose"
                                     name="borrowing_purpose"
-                                    rows="3"
+                                    rows="2"
                                     placeholder="Describe why the equipment is being borrowed"
-                                    class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                    class="w-full resize-none rounded-xl border-0 bg-white px-3.5 py-2.5 text-sm leading-6 text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10"
                                 ></textarea>
                             </div>
-
-                            <!-- DESTINATION -->
                             <div>
-                                <div class="mb-2 flex items-center justify-between">
-                                    <label
-                                        for="borrowDestination"
-                                        class="text-sm font-medium text-slate-700"
-                                    >
-                                        Destination
-                                    </label>
-
-                                    <span class="text-xs text-slate-400">
-                                        Optional
-                                    </span>
-                                </div>
-
+                                <label for="borrowDestination" class="mb-1.5 block text-sm text-slate-600">
+                                    Destination <span class="text-slate-400">(optional)</span>
+                                </label>
                                 <input
                                     id="borrowDestination"
                                     type="text"
                                     name="borrowing_destination_location"
                                     placeholder="Enter destination location"
-                                    class="w-full rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                    class="h-11 w-full rounded-xl border-0 bg-white px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10"
                                 />
                             </div>
-
-                            <!-- REMARKS -->
                             <div>
-                                <div class="mb-2 flex items-center justify-between">
-                                    <label
-                                        for="borrowRemarks"
-                                        class="text-sm font-medium text-slate-700"
-                                    >
-                                        Remarks
-                                    </label>
-
-                                    <span class="text-xs text-slate-400">
-                                        Optional
-                                    </span>
-                                </div>
-
+                                <label for="borrowRemarks" class="mb-1.5 block text-sm text-slate-600">
+                                    Remarks <span class="text-slate-400">(optional)</span>
+                                </label>
                                 <textarea
                                     id="borrowRemarks"
                                     name="borrowing_remarks"
-                                    rows="3"
+                                    rows="2"
                                     placeholder="Add any additional notes"
-                                    class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-300 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
+                                    class="w-full resize-none rounded-xl border-0 bg-white px-3.5 py-2.5 text-sm leading-6 text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10"
                                 ></textarea>
                             </div>
                         </div>
-                    </section>
+                    </div>
                 </div>
-            </div>
 
-            <div class="border-t border-dashed border-slate-500"></div>
-
-            <!-- ===================================== -->
-            <!-- MODAL FOOTER -->
-            <!-- ===================================== -->
-            <div
-                class="flex shrink-0 items-center justify-end gap-2 px-6 py-4"
-            >
-                <button
-                    type="button"
-                    onclick="closeBorrowModal()"
-                    class="rounded-lg px-3.5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
-                >
-                    Cancel
-                </button>
-
-                <button
-                    type="submit"
-                    class="rounded-lg bg-[rgba(0,55,199,0.85)] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[rgba(0,44,155,0.85)] focus:outline-none focus:ring-4 focus:ring-slate-200 active:bg-black"
-                >
-                    Create borrowing record
-                </button>
-            </div>
-        </form>
+                <div class="flex shrink-0 items-center justify-end gap-2 px-6 pb-6">
+                    <button
+                        type="button"
+                        onclick="closeBorrowModal()"
+                        class="rounded-xl px-3.5 py-2.5 text-sm font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#001fa8]"
+                        x-text="cart.length ? ('Create borrow · ' + cart.length + ' line' + (cart.length === 1 ? '' : 's')) : 'Create borrowing record'"
+                    ></button>
+                </div>
+            </form>
+        </div>
     </div>
-</div>
 
 {{-- ===================================================== --}}
 {{-- EQUIPMENT QR SCANNER MODAL --}}
@@ -9080,31 +9067,29 @@
 
 <div
     id="activityPreviewModal"
-    class="fixed inset-0 z-[100] hidden items-center justify-center bg-[#0b1220]/70 p-4"
+    class="fixed inset-0 z-[100] hidden items-center justify-center bg-[#0b1220]/70 p-4 backdrop-blur-[2px]"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="activityPreviewTitle"
     aria-hidden="true"
     onclick="closeActivityPreviewModal()"
 >
-    {{-- ================================================= --}}
-    {{-- MODAL CONTAINER --}}
-    {{-- ================================================= --}}
-
     <div
-        class="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl"
+        class="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.22)]"
         onclick="event.stopPropagation()"
     >
-        {{-- ================================================= --}}
-        {{-- HEADER --}}
-        {{-- ================================================= --}}
-
-        <div
-            class="flex items-start justify-between border-b border-gray-200 px-6 py-5"
-        >
-            <div>
-                <h2 class="text-xl font-bold text-gray-900">
+        <div class="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-6 py-5">
+            <div class="min-w-0">
+                <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                    Dashboard
+                </p>
+                <h2
+                    id="activityPreviewTitle"
+                    class="mt-1 text-xl font-semibold tracking-tight text-slate-950"
+                >
                     Recent Activity
                 </h2>
-
-                <p class="mt-1 text-sm text-gray-500">
+                <p class="mt-1 text-sm text-slate-500">
                     Your latest maintenance actions
                 </p>
             </div>
@@ -9112,140 +9097,93 @@
             <button
                 type="button"
                 onclick="closeActivityPreviewModal()"
-                class="flex h-10 w-10 items-center justify-center rounded-xl text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
                 aria-label="Close activity preview"
             >
-                <i
-                    data-lucide="x"
-                    class="h-5 w-5"
-                ></i>
+                <i data-lucide="x" class="h-5 w-5"></i>
             </button>
         </div>
 
-        {{-- ================================================= --}}
-        {{-- ACTIVITY LIST --}}
-        {{-- ================================================= --}}
-
-        <div class="overflow-y-auto px-6 py-4">
+        <div class="min-h-0 flex-1 space-y-2 overflow-y-auto px-6 py-5">
 
             @forelse ($activityPreview as $activity)
+                @php
+                    $module = $activity->audit_log_module ?? "";
 
-                <div
-                    class="flex gap-4 border-b border-gray-100 py-4 last:border-b-0"
-                >
-                    {{-- ICON --}}
+                    $moduleTone = match ($module) {
+                        "Reports" => ["bg-blue-50 text-blue-600 ring-blue-100", "border-blue-100 bg-blue-50 text-blue-700"],
+                        "Equipment" => ["bg-indigo-50 text-indigo-600 ring-indigo-100", "border-indigo-100 bg-indigo-50 text-indigo-700"],
+                        "Schedules" => ["bg-amber-50 text-amber-600 ring-amber-100", "border-amber-100 bg-amber-50 text-amber-700"],
+                        "Borrowing" => ["bg-sky-50 text-sky-600 ring-sky-100", "border-sky-100 bg-sky-50 text-sky-700"],
+                        "Infrastructure" => ["bg-emerald-50 text-emerald-600 ring-emerald-100", "border-emerald-100 bg-emerald-50 text-emerald-700"],
+                        default => ["bg-slate-50 text-slate-500 ring-slate-200/80", "border-slate-200 bg-slate-50 text-slate-600"],
+                    };
+                @endphp
 
-                    <div
-                        class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-600"
-                    >
-                        <i
-                            data-lucide="{{ $activity->icon }}"
-                            class="h-4 w-4"
-                        ></i>
+                <div class="group flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white px-4 py-3.5 transition hover:border-slate-300 hover:bg-slate-50/70">
+                    <div class="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 {{ $moduleTone[0] }}">
+                        <i data-lucide="{{ $activity->icon }}" class="h-4 w-4"></i>
                     </div>
 
-                    {{-- INFORMATION --}}
-
                     <div class="min-w-0 flex-1">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <p class="text-sm font-semibold text-slate-900">
+                                {{ $activity->title }}
+                            </p>
 
-                        <div
-                            class="flex items-start justify-between gap-4"
-                        >
-                            <div class="min-w-0">
-
-                                <p
-                                    class="font-semibold text-gray-900"
-                                >
-                                    {{ $activity->title }}
-                                </p>
-
-                                <p
-                                    class="mt-1 text-sm leading-5 text-gray-500"
-                                >
-                                    {{ $activity->description }}
-                                </p>
-
-                            </div>
-
-                            {{-- VIEW AFFECTED RECORD --}}
-
-                            @if ($activity->url)
-
-                                <a
-                                    href="{{ $activity->url }}"
-                                    class="shrink-0 text-xs font-semibold text-gray-600 transition hover:text-gray-900"
-                                >
-                                    View
-                                </a>
-
+                            @if ($module)
+                                <span class="rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide {{ $moduleTone[1] }}">
+                                    {{ $module }}
+                                </span>
                             @endif
                         </div>
 
-                        {{-- TIME --}}
+                        <p class="mt-1 text-sm leading-5 text-slate-500">
+                            {{ $activity->description }}
+                        </p>
 
-                        <div
-                            class="mt-2 flex items-center gap-2 text-xs text-gray-400"
-                        >
-                            <i
-                                data-lucide="clock-3"
-                                class="h-3.5 w-3.5"
-                            ></i>
-
-                            {{
-                                \Carbon\Carbon::parse(
-                                    $activity->created_at
-                                )->diffForHumans()
-                            }}
+                        <div class="mt-2 flex items-center gap-1.5 text-xs text-slate-400">
+                            <i data-lucide="clock-3" class="h-3.5 w-3.5"></i>
+                            {{ \Carbon\Carbon::parse($activity->created_at)->diffForHumans() }}
                         </div>
-
                     </div>
+
+                    @if ($activity->url)
+                        <a
+                            href="{{ $activity->url }}"
+                            class="mt-1 inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-500 transition hover:bg-white hover:text-[#0025cc]"
+                        >
+                            View
+                            <i data-lucide="chevron-right" class="h-3.5 w-3.5"></i>
+                        </a>
+                    @endif
                 </div>
 
             @empty
-
-                <div
-                    class="flex flex-col items-center justify-center px-6 py-12 text-center"
-                >
-                    <div
-                        class="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gray-100 text-gray-400"
-                    >
-                        <i
-                            data-lucide="history"
-                            class="h-5 w-5"
-                        ></i>
+                <div class="flex flex-col items-center justify-center px-6 py-16 text-center">
+                    <div class="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 ring-1 ring-slate-200/80">
+                        <i data-lucide="history" class="h-5 w-5"></i>
                     </div>
-
-                    <p class="font-semibold text-gray-700">
-                        No activities yet
-                    </p>
-
-                    <p class="mt-1 text-sm text-gray-400">
+                    <p class="font-semibold text-slate-800">No activities yet</p>
+                    <p class="mt-1 text-sm text-slate-400">
                         Your maintenance actions will appear here.
                     </p>
                 </div>
-
             @endforelse
 
         </div>
 
-        {{-- ================================================= --}}
-        {{-- FOOTER --}}
-        {{-- ================================================= --}}
-
-        <div
-            class="flex items-center justify-between border-t border-gray-200 bg-gray-50 px-6 py-4"
-        >
-            <span class="text-xs text-gray-400">
-                Showing your latest {{ $activityPreview->count() }} activities
+        <div class="flex shrink-0 items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/80 px-6 py-4">
+            <span class="text-xs text-slate-400">
+                Showing your latest {{ $activityPreview->count() }} {{ \Illuminate\Support\Str::plural("activity", $activityPreview->count()) }}
             </span>
-
-            {{-- WE WILL ACTIVATE THIS IN THE NEXT STEP --}}
 
             <a
                 href="{{ route('maintenance.activities.index') }}"
-                class="text-sm font-semibold text-gray-600 transition hover:text-gray-900"
+                class="inline-flex items-center gap-1.5 rounded-lg bg-[#0025cc] px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-blue-800"
             >
-                View All Activities
+                View all
+                <i data-lucide="arrow-up-right" class="h-4 w-4"></i>
             </a>
         </div>
     </div>
@@ -10649,56 +10587,614 @@ document.addEventListener(
 
 
 // =====================================================
-// ADD EQUIPMENT MODAL
+// ADD EQUIPMENT MODAL (inventory-matched Alpine flow)
 // =====================================================
 
+function inventoryAddEquipment() {
+    return {
+        open: false,
+        step: 1,
+        fullscreen: false,
+        tracking: 'Individual',
+        name: '',
+        category: '',
+        categoryManual: false,
+        room: '',
+        quantity: 1,
+        condition: 'Good',
+        brand: '',
+        model: '',
+        warranty: '',
+        assetTag: '',
+        assetTagManual: false,
+        serial: '',
+        items: [],
+        errors: {},
+        formError: '',
+        imagePreview: null,
+        onImageChange(event) {
+            const file = event.target.files?.[0];
+            if (this.imagePreview) {
+                URL.revokeObjectURL(this.imagePreview);
+            }
+            this.imagePreview = file ? URL.createObjectURL(file) : null;
+            this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+        },
+        clearImage() {
+            if (this.imagePreview) {
+                URL.revokeObjectURL(this.imagePreview);
+            }
+            this.imagePreview = null;
+            if (this.$refs.imageInput) {
+                this.$refs.imageInput.value = '';
+            }
+            this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+        },
+        onSharedPhotoModeChange() {
+            if (this.needsItemStep()) {
+                this.clearImage();
+            }
+        },
+        onItemImageChange(index, event) {
+            const item = this.items[index];
+            if (!item) return;
+            const file = event.target.files?.[0] || null;
+            if (item._imagePreview) {
+                URL.revokeObjectURL(item._imagePreview);
+            }
+            item._imageFile = file;
+            item._imagePreview = file ? URL.createObjectURL(file) : null;
+            this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+        },
+        clearItemImage(index) {
+            const item = this.items[index];
+            if (!item) return;
+            if (item._imagePreview) {
+                URL.revokeObjectURL(item._imagePreview);
+            }
+            item._imagePreview = null;
+            item._imageFile = null;
+            const input = document.querySelector(`[data-item-image-index="${index}"]`);
+            if (input) input.value = '';
+            this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+        },
+        clearAllItemImages() {
+            (this.items || []).forEach((item, index) => {
+                if (item?._imagePreview) {
+                    URL.revokeObjectURL(item._imagePreview);
+                }
+                if (item) {
+                    item._imagePreview = null;
+                    item._imageFile = null;
+                }
+                const input = document.querySelector(`[data-item-image-index="${index}"]`);
+                if (input) input.value = '';
+            });
+        },
+        restoreItemImageInputs() {
+            (this.items || []).forEach((item, index) => {
+                if (!item?._imageFile) return;
+                const input = document.querySelector(`[data-item-image-index="${index}"]`);
+                if (!input) return;
+                try {
+                    const transfer = new DataTransfer();
+                    transfer.items.add(item._imageFile);
+                    input.files = transfer.files;
+                } catch (e) {
+                    // Browser may reject DataTransfer assignment; native input value still used when unchanged.
+                }
+            });
+        },
+        needsItemStep() {
+            return this.tracking === 'Individual' && Number(this.quantity) > 1;
+        },
+        clearError(field) {
+            if (!this.errors[field]) return;
+            const next = { ...this.errors };
+            delete next[field];
+            this.errors = next;
+            this.formError = '';
+        },
+        clearErrors() {
+            this.errors = {};
+            this.formError = '';
+        },
+        validateStep1() {
+            const next = {};
+            if (!String(this.name || '').trim()) {
+                next.name = 'Equipment name is required.';
+            }
+            if (!String(this.category || '').trim()) {
+                next.category = 'Please select a category.';
+            }
+            if (!String(this.room || '').trim()) {
+                next.room = 'Please select a room.';
+            }
+            const qty = Number(this.quantity);
+            if (!Number.isFinite(qty) || qty < 1) {
+                next.quantity = 'Quantity must be at least 1.';
+            } else if (qty > 200) {
+                next.quantity = 'Quantity cannot exceed 200.';
+            }
+            this.errors = next;
+            this.formError = Object.keys(next).length
+                ? 'Please fix the highlighted fields before continuing.'
+                : '';
+            if (Object.keys(next).length) {
+                this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+            }
+            return Object.keys(next).length === 0;
+        },
+        validateItems() {
+            const tags = {};
+            const serials = {};
+            for (let i = 0; i < this.items.length; i++) {
+                const tag = String(this.items[i].equipment_asset_tag || '').trim().toLowerCase();
+                const serial = String(this.items[i].equipment_serial_number || '').trim().toLowerCase();
+                if (tag) {
+                    if (tags[tag] !== undefined) {
+                        this.formError = `Duplicate asset tag on rows ${tags[tag] + 1} and ${i + 1}.`;
+                        this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                        return false;
+                    }
+                    tags[tag] = i;
+                }
+                if (serial) {
+                    if (serials[serial] !== undefined) {
+                        this.formError = `Duplicate serial number on rows ${serials[serial] + 1} and ${i + 1}.`;
+                        this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                        return false;
+                    }
+                    serials[serial] = i;
+                }
+            }
+            this.formError = '';
+            return true;
+        },
+        onNameInput() {
+            if (!String(this.name || '').trim()) {
+                this.categoryManual = false;
+                this.category = '';
+                return;
+            }
+            if (this.categoryManual) {
+                return;
+            }
+            if (typeof detectEquipmentCategoryId === 'function') {
+                this.category = detectEquipmentCategoryId(this.name) || '';
+                if (this.category) this.clearError('category');
+            }
+        },
+        onCategoryChange() {
+            if (
+                typeof detectEquipmentCategoryId === 'function'
+                && String(this.category) === String(detectEquipmentCategoryId(this.name) || '')
+            ) {
+                return;
+            }
+            this.categoryManual = true;
+        },
+        reset() {
+            this.step = 1;
+            this.fullscreen = false;
+            this.tracking = 'Individual';
+            this.name = '';
+            this.category = '';
+            this.categoryManual = false;
+            this.room = '';
+            this.quantity = 1;
+            this.condition = 'Good';
+            this.brand = '';
+            this.model = '';
+            this.warranty = '';
+            this.assetTag = '';
+            this.assetTagManual = false;
+            this.serial = '';
+            this.clearAllItemImages();
+            this.items = [];
+            this.clearImage();
+            this.clearErrors();
+            const borrowable = document.getElementById('add_equipment_borrowable');
+            if (borrowable) borrowable.checked = false;
+        },
+        show() {
+            this.reset();
+            this.open = true;
+            this.$nextTick(() => {
+                document.getElementById('add_equipment_name')?.dispatchEvent(new Event('equipment-category-reset'));
+                if (window.lucide) window.lucide.createIcons();
+            });
+        },
+        close() {
+            this.open = false;
+            this.reset();
+            document.body.style.overflow = '';
+        },
+        slug() {
+            return this.assetTagPart(this.name, 'EQ');
+        },
+        assetTagPart(value, fallback) {
+            return String(value || '')
+                .toUpperCase()
+                .replace(/[^A-Z0-9]+/g, '')
+                || fallback;
+        },
+        selectedRoomName() {
+            const select = document.getElementById('add_equipment_room');
+            const option = select?.selectedOptions?.[0];
+            return option?.text?.trim() || '';
+        },
+        shouldAutoAssetTag() {
+            return this.tracking === 'Bulk' || Number(this.quantity) === 1;
+        },
+        syncAssetTag() {
+            if (this.assetTagManual || !this.shouldAutoAssetTag()) {
+                return;
+            }
+            const roomName = this.selectedRoomName();
+            const equipmentName = String(this.name || '').trim();
+            if (!roomName || !equipmentName || typeof window.equipmentAssetTags?.generate !== 'function') {
+                this.assetTag = '';
+                return;
+            }
+            window.equipmentAssetTags.resetReserved();
+            const tags = window.equipmentAssetTags.generate(roomName, equipmentName, 1);
+            this.assetTag = tags[0] || '';
+        },
+        buildAssetTag(index) {
+            const roomName = this.selectedRoomName();
+            const equipmentName = String(this.name || '').trim();
+            if (!roomName || !equipmentName || typeof window.equipmentAssetTags?.generate !== 'function') {
+                return '';
+            }
+            window.equipmentAssetTags.resetReserved();
+            const tags = window.equipmentAssetTags.generate(roomName, equipmentName, index + 1);
+            return tags[index] || tags[tags.length - 1] || '';
+        },
+        buildItems() {
+            const qty = Math.min(200, Math.max(1, Number(this.quantity) || 1));
+            this.quantity = qty;
+            const previous = this.items || [];
+            const roomName = this.selectedRoomName();
+            const equipmentName = String(this.name || '').trim();
+
+            window.equipmentAssetTags?.resetReserved?.();
+
+            let generated = [];
+            if (roomName && equipmentName && typeof window.equipmentAssetTags?.generate === 'function') {
+                generated = window.equipmentAssetTags.generate(roomName, equipmentName, qty);
+            }
+
+            this.items = Array.from({ length: qty }, (_, i) => ({
+                equipment_asset_tag: previous[i]?._tagManual
+                    ? previous[i].equipment_asset_tag
+                    : (generated[i] || this.buildAssetTag(i)),
+                equipment_serial_number: previous[i]?.equipment_serial_number ?? '',
+                equipment_brand_name: this.brand || '',
+                equipment_model: this.model || '',
+                equipment_condition_status: this.condition,
+                equipment_warranty_expiration: this.warranty || '',
+                _tagManual: previous[i]?._tagManual || false,
+                _imagePreview: previous[i]?._imagePreview || null,
+                _imageFile: previous[i]?._imageFile || null,
+            }));
+        },
+        regenerateAssetTags() {
+            window.equipmentAssetTags?.resetReserved?.();
+            const roomName = this.selectedRoomName();
+            const equipmentName = String(this.name || '').trim();
+            const generated = (roomName && equipmentName && typeof window.equipmentAssetTags?.generate === 'function')
+                ? window.equipmentAssetTags.generate(roomName, equipmentName, this.items.length)
+                : [];
+
+            this.items = this.items.map((item, i) => ({
+                ...item,
+                equipment_asset_tag: generated[i] || this.buildAssetTag(i),
+                _tagManual: false,
+            }));
+            this.$nextTick(() => this.restoreItemImageInputs());
+        },
+        applyDefaults() {
+            this.items = this.items.map((item) => ({
+                ...item,
+                equipment_brand_name: this.brand || '',
+                equipment_model: this.model || '',
+                equipment_condition_status: this.condition,
+                equipment_warranty_expiration: this.warranty || '',
+            }));
+        },
+        goToItems() {
+            if (!this.validateStep1()) {
+                return;
+            }
+            this.clearImage();
+            this.buildItems();
+            this.step = 2;
+            this.clearErrors();
+            this.$nextTick(() => {
+                this.restoreItemImageInputs();
+                if (window.lucide) window.lucide.createIcons();
+            });
+        },
+        prepareSubmit(event) {
+            if (this.needsItemStep() && this.step !== 2) {
+                event.preventDefault();
+                this.goToItems();
+                return;
+            }
+            if (!this.validateStep1()) {
+                event.preventDefault();
+                return;
+            }
+            if (!this.needsItemStep()) {
+                this.syncAssetTag();
+            }
+            if (this.step === 2 && !this.validateItems()) {
+                event.preventDefault();
+                return;
+            }
+            if (this.step === 2) {
+                this.restoreItemImageInputs();
+            }
+        },
+    };
+}
+
 function openAddEquipmentModal() {
-
     const modal = document.getElementById('addEquipmentModal');
-
     if (!modal) {
         console.error('Add Equipment modal not found.');
         return;
     }
-
+    if (modal._x_dataStack && modal._x_dataStack[0]) {
+        modal._x_dataStack[0].show();
+        return;
+    }
     modal.classList.remove('hidden');
     modal.classList.add('flex');
-
-    document.body.style.overflow = 'hidden';
-    document.getElementById('add_equipment_name')?.dispatchEvent(new Event('equipment-category-reset'));
-
-    if (typeof lucide !== 'undefined') {
-        lucide.createIcons();
-    }
 }
 
-
 function closeAddEquipmentModal() {
-
     const modal = document.getElementById('addEquipmentModal');
-
     if (!modal) {
         return;
     }
-
+    if (modal._x_dataStack && modal._x_dataStack[0]) {
+        modal._x_dataStack[0].close();
+        return;
+    }
     modal.classList.add('hidden');
     modal.classList.remove('flex');
-
     document.body.style.overflow = '';
 }
 
 
 // =====================================================
-// SCHEDULE MODAL
+// SCHEDULE MODAL (matches Schedules module)
 // =====================================================
 
-function openScheduleModal() {
+function scheduleEquipmentCart(catalog) {
+    return {
+        catalog: Array.isArray(catalog) ? catalog : [],
+        query: '',
+        open: false,
+        highlight: 0,
+        cart: [],
+        pickerError: '',
+        cartError: '',
+        get filtered() {
+            const q = String(this.query || '').trim().toLowerCase();
+            const selectedIds = new Set(this.cart.map((line) => line.id));
+            return this.catalog
+                .filter((item) => !selectedIds.has(item.id))
+                .filter((item) => {
+                    if (!q) return true;
+                    return [item.name, item.room, item.qr, item.assetTag]
+                        .join(' ')
+                        .toLowerCase()
+                        .includes(q);
+                })
+                .slice(0, 40);
+        },
+        meta(item) {
+            const bits = [];
+            if (item.room) bits.push(item.room);
+            if (item.qr) bits.push(item.qr);
+            if (item.assetTag) bits.push(item.assetTag);
+            return bits.join(' · ') || 'QR-ready equipment';
+        },
+        reset() {
+            this.query = '';
+            this.open = false;
+            this.highlight = 0;
+            this.cart = [];
+            this.pickerError = '';
+            this.cartError = '';
+        },
+        move(delta) {
+            if (!this.filtered.length) return;
+            this.highlight = (this.highlight + delta + this.filtered.length) % this.filtered.length;
+        },
+        addHighlighted() {
+            if (!this.filtered.length) return;
+            this.addItem(this.filtered[this.highlight] || this.filtered[0]);
+        },
+        addItem(item) {
+            this.pickerError = '';
+            if (!item) return;
+            if (this.cart.some((line) => line.id === item.id)) {
+                this.pickerError = 'That equipment is already in the list.';
+                return;
+            }
+            this.cart.push({ ...item });
+            this.query = '';
+            this.open = false;
+            this.highlight = 0;
+            this.cartError = '';
+            this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+        },
+        removeLine(index) {
+            this.cart.splice(index, 1);
+            this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+        },
+        prepareSubmit(event) {
+            this.cartError = '';
+            if (!this.cart.length) {
+                event.preventDefault();
+                this.cartError = 'Add at least one equipment item.';
+                return;
+            }
+            const nextDate = document.getElementById('scheduleNextDate')?.value;
+            if (!nextDate) {
+                event.preventDefault();
+                this.cartError = 'Please choose a next maintenance date.';
+            }
+        },
+    };
+}
+window.scheduleEquipmentCart = scheduleEquipmentCart;
+document.addEventListener("alpine:init", () => {
+    if (window.Alpine?.data) {
+        window.Alpine.data("scheduleEquipmentCart", scheduleEquipmentCart);
+    }
+});
 
+function scheduleNextDatePicker() {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const months = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December",
+    ];
+    const toIso = (date) => {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, "0");
+        const d = String(date.getDate()).padStart(2, "0");
+        return `${y}-${m}-${d}`;
+    };
+    const fromIso = (iso) => {
+        const [y, m, d] = String(iso).split("-").map(Number);
+        return new Date(y, m - 1, d);
+    };
+
+    return {
+        value: toIso(today),
+        viewYear: today.getFullYear(),
+        viewMonth: today.getMonth(),
+        todayIso: toIso(today),
+        weekdays: ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"],
+        get display() {
+            if (!this.value) {
+                return "Select a date";
+            }
+            return fromIso(this.value).toLocaleDateString("en-US", {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+            });
+        },
+        get monthLabel() {
+            return `${months[this.viewMonth]} ${this.viewYear}`;
+        },
+        get days() {
+            const first = new Date(this.viewYear, this.viewMonth, 1);
+            const start = first.getDay();
+            const daysInMonth = new Date(this.viewYear, this.viewMonth + 1, 0).getDate();
+            const prevDays = new Date(this.viewYear, this.viewMonth, 0).getDate();
+            const cells = [];
+
+            for (let i = 0; i < 42; i += 1) {
+                let year = this.viewYear;
+                let month = this.viewMonth;
+                let date;
+                let outside = false;
+
+                if (i < start) {
+                    date = prevDays - start + i + 1;
+                    month -= 1;
+                    if (month < 0) {
+                        month = 11;
+                        year -= 1;
+                    }
+                    outside = true;
+                } else if (i >= start + daysInMonth) {
+                    date = i - start - daysInMonth + 1;
+                    month += 1;
+                    if (month > 11) {
+                        month = 0;
+                        year += 1;
+                    }
+                    outside = true;
+                } else {
+                    date = i - start + 1;
+                }
+
+                const iso = toIso(new Date(year, month, date));
+                cells.push({
+                    d: date,
+                    iso,
+                    outside,
+                    isToday: iso === this.todayIso,
+                    selected: iso === this.value,
+                });
+            }
+
+            return cells;
+        },
+        prevMonth() {
+            if (this.viewMonth === 0) {
+                this.viewMonth = 11;
+                this.viewYear -= 1;
+                return;
+            }
+            this.viewMonth -= 1;
+        },
+        nextMonth() {
+            if (this.viewMonth === 11) {
+                this.viewMonth = 0;
+                this.viewYear += 1;
+                return;
+            }
+            this.viewMonth += 1;
+        },
+        pick(day) {
+            this.value = day.iso;
+            if (!day.outside) {
+                return;
+            }
+            const selected = fromIso(day.iso);
+            this.viewYear = selected.getFullYear();
+            this.viewMonth = selected.getMonth();
+        },
+        goToday() {
+            this.value = this.todayIso;
+            this.viewYear = today.getFullYear();
+            this.viewMonth = today.getMonth();
+        },
+        clearDate() {
+            this.value = "";
+        },
+    };
+}
+
+window.scheduleNextDatePicker = scheduleNextDatePicker;
+document.addEventListener("alpine:init", () => {
+    if (window.Alpine?.data) {
+        window.Alpine.data("scheduleNextDatePicker", scheduleNextDatePicker);
+    }
+});
+
+function openScheduleModal() {
     const modal = document.getElementById('scheduleModal');
 
     if (!modal) {
         console.error('Schedule modal not found.');
         return;
+    }
+
+    if (modal._x_dataStack?.[0]?.reset) {
+        modal._x_dataStack[0].reset();
     }
 
     modal.classList.remove('hidden');
@@ -10724,45 +11220,173 @@ function closeScheduleModal() {
     modal.classList.remove('flex');
 
     document.body.style.overflow = '';
+
+    if (modal._x_dataStack?.[0]?.reset) {
+        modal._x_dataStack[0].reset();
+    }
 }
 
 
+function borrowEquipmentCart(catalog) {
+    return {
+        catalog: Array.isArray(catalog) ? catalog : [],
+        query: '',
+        open: false,
+        highlight: 0,
+        selected: null,
+        addQty: 1,
+        cart: [],
+        pickerError: '',
+        cartError: '',
+        get filtered() {
+            const q = String(this.query || '').trim().toLowerCase();
+            const selectedIds = new Set(this.cart.map((line) => line.id));
+            return this.catalog
+                .filter((item) => item.available > 0)
+                .filter((item) => {
+                    if (!q) return true;
+                    return [item.name, item.room, item.assetTag]
+                        .join(' ')
+                        .toLowerCase()
+                        .includes(q);
+                })
+                .slice(0, 40);
+        },
+        get totalQty() {
+            return this.cart.reduce((sum, line) => sum + (Number(line.quantity) || 0), 0);
+        },
+        meta(item) {
+            const bits = [];
+            if (item.room) bits.push(item.room);
+            if (item.assetTag) bits.push(item.assetTag);
+            bits.push((item.tracking || 'Individual') + ' · ' + item.available + ' available');
+            return bits.join(' · ');
+        },
+        reset() {
+            this.query = '';
+            this.open = false;
+            this.highlight = 0;
+            this.selected = null;
+            this.addQty = 1;
+            this.cart = [];
+            this.pickerError = '';
+            this.cartError = '';
+        },
+        choose(item) {
+            this.selected = item;
+            this.query = item.name;
+            this.open = false;
+            this.addQty = 1;
+            this.pickerError = '';
+            this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+        },
+        move(delta) {
+            if (!this.filtered.length) return;
+            this.highlight = (this.highlight + delta + this.filtered.length) % this.filtered.length;
+        },
+        selectHighlighted() {
+            if (!this.filtered.length) return;
+            this.choose(this.filtered[this.highlight] || this.filtered[0]);
+        },
+        addSelected() {
+            this.pickerError = '';
+            if (!this.selected) {
+                this.pickerError = 'Search and select an equipment item first.';
+                return;
+            }
+            const qty = Math.max(1, Number(this.addQty) || 1);
+            if (qty > this.selected.available) {
+                this.pickerError = 'Only ' + this.selected.available + ' available for this item.';
+                return;
+            }
+            const existing = this.cart.find((line) => line.id === this.selected.id);
+            if (existing) {
+                const next = existing.quantity + qty;
+                if (next > existing.available) {
+                    this.pickerError = 'Cart would exceed available quantity (' + existing.available + ').';
+                    return;
+                }
+                existing.quantity = next;
+            } else {
+                this.cart.push({
+                    id: this.selected.id,
+                    name: this.selected.name,
+                    room: this.selected.room,
+                    assetTag: this.selected.assetTag,
+                    tracking: this.selected.tracking,
+                    available: this.selected.available,
+                    quantity: qty,
+                    condition: '',
+                });
+            }
+            this.selected = null;
+            this.query = '';
+            this.addQty = 1;
+            this.cartError = '';
+            this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+        },
+        clampLine(line) {
+            let qty = Number(line.quantity) || 1;
+            if (qty < 1) qty = 1;
+            if (qty > line.available) qty = line.available;
+            line.quantity = qty;
+        },
+        removeLine(index) {
+            this.cart.splice(index, 1);
+            this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+        },
+        prepareSubmit(event) {
+            this.cartError = '';
+            if (!this.cart.length) {
+                event.preventDefault();
+                this.cartError = 'Add at least one equipment item to the cart.';
+                return;
+            }
+            for (const line of this.cart) {
+                this.clampLine(line);
+                if (line.quantity > line.available) {
+                    event.preventDefault();
+                    this.cartError = line.name + ' exceeds available quantity.';
+                    return;
+                }
+            }
+        },
+    };
+}
+
+window.borrowEquipmentCart = borrowEquipmentCart;
+
+
 // =====================================================
-// BORROW MODAL
+// BORROW MODAL (matches Borrowing module)
 // =====================================================
 
 function openBorrowModal() {
-
     const modal = document.getElementById('borrowModal');
-
     if (!modal) {
         console.error('Borrow modal not found.');
         return;
     }
-
+    if (modal._x_dataStack?.[0]?.reset) {
+        modal._x_dataStack[0].reset();
+    }
     modal.classList.remove('hidden');
     modal.classList.add('flex');
-
     document.body.style.overflow = 'hidden';
-
-    if (typeof lucide !== 'undefined') {
-        lucide.createIcons();
-    }
+    if (window.lucide) window.lucide.createIcons();
 }
 
-
 function closeBorrowModal() {
-
     const modal = document.getElementById('borrowModal');
-
     if (!modal) {
         return;
     }
-
     modal.classList.add('hidden');
     modal.classList.remove('flex');
-
     document.body.style.overflow = '';
+    if (modal._x_dataStack?.[0]?.reset) {
+        modal._x_dataStack[0].reset();
+    }
 }
 
 
@@ -10772,29 +11396,20 @@ function closeBorrowModal() {
 
 document.addEventListener('click', function (event) {
 
-    const modalIds = [
-        'addEquipmentModal',
-        'scheduleModal',
-        'borrowModal'
-    ];
+    const addEquipmentModal = document.getElementById('addEquipmentModal');
+    if (addEquipmentModal && event.target === addEquipmentModal) {
+        closeAddEquipmentModal();
+    }
 
-    modalIds.forEach(function (modalId) {
+    const borrowModal = document.getElementById('borrowModal');
+    if (borrowModal && event.target === borrowModal) {
+        closeBorrowModal();
+    }
 
-        const modal = document.getElementById(modalId);
-
-        if (!modal) {
-            return;
-        }
-
-        if (event.target === modal) {
-
-            modal.classList.add('hidden');
-            modal.classList.remove('flex');
-
-            document.body.style.overflow = '';
-        }
-
-    });
+    const scheduleModal = document.getElementById('scheduleModal');
+    if (scheduleModal && event.target === scheduleModal) {
+        closeScheduleModal();
+    }
 
 });
 
@@ -10833,24 +11448,7 @@ document.addEventListener('keydown', function (event) {
         return;
     }
 
-    const modalIds = [
-        'addEquipmentModal',
-        'scheduleModal',
-        'borrowModal'
-    ];
-
-    modalIds.forEach(function (modalId) {
-
-        const modal = document.getElementById(modalId);
-
-        if (!modal) {
-            return;
-        }
-
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-    });
-
+    // addEquipmentModal / borrowModal / scheduleModal Escape handled by Alpine
     document.body.style.overflow = '';
 
 });
@@ -10936,7 +11534,7 @@ document.addEventListener(
                                 "width" => (float) $room->room_width,
                                 "height" => (float) $room->room_height,
 
-                                "color" => $room->room_color ?? "white",
+                                "color" => $room->room_color ?: "#60A5FA",
 
                                 "rotation" => (float) data_get(
                                     $room->room_metadata,
@@ -11931,6 +12529,8 @@ document.addEventListener(
             const mouse = new THREE.Vector2();
 
             const clickableRooms = [];
+            const criticalRoomIndicators = [];
+            const maintenanceRoomIndicators = [];
 
             let hoveredRoom = null;
 
@@ -12017,10 +12617,13 @@ document.addEventListener(
                     return;
                 }
 
-                const tone = getRoomStatusTone(room);
+                const layoutHex =
+                    room.userData.layoutColorHex ??
+                    room.userData.originalEmissive ??
+                    0x60a5fa;
 
-                room.material.emissive.setHex(tone.hex);
-                room.material.emissiveIntensity = tone.hoverIntensity;
+                room.material.emissive.setHex(layoutHex);
+                room.material.emissiveIntensity = 0.55;
             }
 
             function applyRoomSelectedVisual(room) {
@@ -12028,10 +12631,13 @@ document.addEventListener(
                     return;
                 }
 
-                const tone = getRoomStatusTone(room);
+                const layoutHex =
+                    room.userData.layoutColorHex ??
+                    room.userData.originalEmissive ??
+                    0x60a5fa;
 
-                room.material.emissive.setHex(tone.hex);
-                room.material.emissiveIntensity = tone.selectedIntensity;
+                room.material.emissive.setHex(layoutHex);
+                room.material.emissiveIntensity = 1.0;
 
                 // Slightly enlarge selected room
                 room.scale.set(1.05, 1.05, 1.05);
@@ -12407,26 +13013,44 @@ document.addEventListener(
 
             // =====================================================
             // ROOM MATERIALS
-            // THESE COLORS WILL LATER REPRESENT ROOM STATUS
+            // Uses building-layout room_color (not report status)
             // =====================================================
 
-            // =====================================================
-            // ROOM MATERIALS
-            // MODERN HOLOGRAPHIC DIGITAL TWIN
-            // =====================================================
+            function parseRoomLayoutColor(color) {
+                const raw = String(color || "").trim();
+                const hex = raw.replace(/^#/, "");
 
-            const roomMaterials = {
-                // NO ACTIVE REPORTS
-                normal: new THREE.MeshPhysicalMaterial({
-                    color: 0xbbf7d0,
+                if (/^[0-9a-fA-F]{6}$/.test(hex)) {
+                    return parseInt(hex, 16);
+                }
 
-                    emissive: 0x4ade80,
+                if (/^[0-9a-fA-F]{3}$/.test(hex)) {
+                    return parseInt(
+                        hex
+                            .split("")
+                            .map((c) => c + c)
+                            .join(""),
+                        16,
+                    );
+                }
 
-                    emissiveIntensity: 0.32,
+                // Match building layout default
+                return 0x60a5fa;
+            }
+
+            function createRoomLayoutMaterial(layoutColor) {
+                const colorHex = parseRoomLayoutColor(layoutColor);
+
+                return new THREE.MeshPhysicalMaterial({
+                    color: colorHex,
+
+                    emissive: colorHex,
+
+                    emissiveIntensity: 0.28,
 
                     transparent: true,
 
-                    opacity: 0.78,
+                    opacity: 0.82,
 
                     roughness: 0.5,
 
@@ -12439,71 +13063,8 @@ document.addEventListener(
                     side: THREE.DoubleSide,
 
                     depthWrite: true,
-                }),
-
-                // OPEN REPORTS
-                warning: new THREE.MeshPhysicalMaterial({
-                    color: 0xfde68a,
-
-                    emissive: 0xf59e0b,
-
-                    emissiveIntensity: 0.34,
-
-                    transparent: true,
-
-                    opacity: 0.8,
-
-                    roughness: 0.5,
-
-                    metalness: 0.0,
-
-                    side: THREE.DoubleSide,
-
-                    depthWrite: true,
-                }),
-
-                // URGENT REPORTS
-                urgent: new THREE.MeshPhysicalMaterial({
-                    color: 0xfecaca,
-
-                    emissive: 0xef4444,
-
-                    emissiveIntensity: 0.36,
-
-                    transparent: true,
-
-                    opacity: 0.82,
-
-                    roughness: 0.5,
-
-                    metalness: 0.0,
-
-                    side: THREE.DoubleSide,
-
-                    depthWrite: true,
-                }),
-
-                // EQUIPMENT IN MAINTENANCE
-                maintenance: new THREE.MeshPhysicalMaterial({
-                    color: 0xbae6fd,
-
-                    emissive: 0x38bdf8,
-
-                    emissiveIntensity: 0.34,
-
-                    transparent: true,
-
-                    opacity: 0.8,
-
-                    roughness: 0.5,
-
-                    metalness: 0.0,
-
-                    side: THREE.DoubleSide,
-
-                    depthWrite: true,
-                }),
-            };
+                });
+            }
 
             // =====================================================
             // ROOM BORDER MATERIAL
@@ -12521,16 +13082,16 @@ document.addEventListener(
             // =====================================================
             // CREATE INDIVIDUAL ROOM
             //
-            // name   = room name
-            // x      = horizontal position
-            // y      = floor height
-            // z      = depth position
-            // width  = room width
-            // depth  = room depth
-            // status = normal, warning, or urgent
+            // name        = room name
+            // x           = horizontal position
+            // y           = floor height
+            // z           = depth position
+            // width       = room width
+            // depth       = room depth
+            // layoutColor = building layout room_color
             // =====================================================
 
-            function createRoom(name, x, y, z, width, depth, status = "normal") {
+            function createRoom(name, x, y, z, width, depth, layoutColor = "#60A5FA") {
                 // =================================================
                 // ROOM HEIGHT
                 // =================================================
@@ -12544,10 +13105,15 @@ document.addEventListener(
                 const geometry = new THREE.BoxGeometry(width, roomHeight, depth);
 
                 // =================================================
-                // CREATE ROOM MESH
+                // CREATE ROOM MESH (layout color from Building Layout)
                 // =================================================
 
-                const room = new THREE.Mesh(geometry, roomMaterials[status].clone());
+                const layoutColorHex = parseRoomLayoutColor(layoutColor);
+
+                const room = new THREE.Mesh(
+                    geometry,
+                    createRoomLayoutMaterial(layoutColor),
+                );
 
                 // =================================================
                 // ROOM POSITION
@@ -12571,12 +13137,9 @@ document.addEventListener(
                 room.userData = {
                     type: "room",
                     name: name,
-                    status: status,
+                    layoutColor: layoutColor,
+                    layoutColorHex: layoutColorHex,
                 };
-
-                // =================================================
-                // ADD ROOM TO BUILDING
-                // =================================================
 
                 // =================================================
                 // CREATE ROOM OUTLINE
@@ -12783,6 +13346,156 @@ document.addEventListener(
             }
 
             // =====================================================
+            // CRITICAL ROOM LIGHT-BULB INDICATOR
+            // Infinite pop-up above rooms with urgent reports
+            // =====================================================
+
+            function createCriticalLightBulb() {
+                const canvas = document.createElement("canvas");
+                canvas.width = 128;
+                canvas.height = 128;
+
+                const ctx = canvas.getContext("2d");
+
+                // Soft red glow (outside the bulb)
+                const glow = ctx.createRadialGradient(64, 64, 8, 64, 64, 60);
+                glow.addColorStop(0, "rgba(248, 113, 113, 0.95)");
+                glow.addColorStop(0.45, "rgba(239, 68, 68, 0.45)");
+                glow.addColorStop(1, "rgba(239, 68, 68, 0)");
+                ctx.fillStyle = glow;
+                ctx.fillRect(0, 0, 128, 128);
+
+                // Bulb glass
+                ctx.beginPath();
+                ctx.arc(64, 48, 26, Math.PI * 0.15, Math.PI * 0.85, true);
+                ctx.lineTo(78, 78);
+                ctx.lineTo(50, 78);
+                ctx.closePath();
+                ctx.fillStyle = "#fef08a";
+                ctx.fill();
+                ctx.strokeStyle = "#fbbf24";
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                // Inner shine
+                ctx.beginPath();
+                ctx.arc(56, 42, 8, 0, Math.PI * 2);
+                ctx.fillStyle = "rgba(255, 255, 255, 0.55)";
+                ctx.fill();
+
+                // Filament
+                ctx.beginPath();
+                ctx.moveTo(56, 52);
+                ctx.quadraticCurveTo(64, 62, 72, 52);
+                ctx.strokeStyle = "#ef4444";
+                ctx.lineWidth = 2.5;
+                ctx.stroke();
+
+                // Base
+                ctx.fillStyle = "#94a3b8";
+                ctx.fillRect(52, 78, 24, 8);
+                ctx.fillStyle = "#64748b";
+                ctx.fillRect(54, 86, 20, 6);
+                ctx.fillStyle = "#475569";
+                ctx.fillRect(56, 92, 16, 5);
+
+                const texture = new THREE.CanvasTexture(canvas);
+                texture.colorSpace = THREE.SRGBColorSpace;
+
+                const material = new THREE.SpriteMaterial({
+                    map: texture,
+                    transparent: true,
+                    // Occluded by upper floor slabs when looking from above
+                    depthTest: true,
+                    depthWrite: false,
+                });
+
+                const bulb = new THREE.Sprite(material);
+                bulb.scale.set(1.15, 1.15, 1);
+                bulb.userData.type = "critical-bulb";
+                // Just above the room top (room half-height ≈ 0.9)
+                // so it reads as part of that room, not floating away
+                bulb.userData.baseY = 1.2;
+                bulb.position.set(0, bulb.userData.baseY, 0);
+
+                return bulb;
+            }
+
+            // =====================================================
+            // MAINTENANCE ROOM TOOL INDICATOR
+            // Crossed wrenches icon (matches provided tool graphic)
+            // =====================================================
+
+            const maintenanceWrenchUrl = @json(asset('images/maintenance-wrenches.png'));
+
+            function createMaintenanceToolIcon() {
+                const material = new THREE.SpriteMaterial({
+                    transparent: true,
+                    depthTest: true,
+                    depthWrite: false,
+                    opacity: 0,
+                });
+
+                const tool = new THREE.Sprite(material);
+                tool.scale.set(1.15, 1.15, 1);
+                tool.userData.type = "maintenance-tool";
+                tool.userData.baseY = 1.2;
+                tool.position.set(0, tool.userData.baseY, 0);
+
+                const img = new Image();
+                img.crossOrigin = "anonymous";
+                img.onload = () => {
+                    const canvas = document.createElement("canvas");
+                    canvas.width = 128;
+                    canvas.height = 128;
+                    const ctx = canvas.getContext("2d");
+
+                    // Fit icon into canvas with padding
+                    const pad = 8;
+                    ctx.drawImage(img, pad, pad, 128 - pad * 2, 128 - pad * 2);
+
+                    // Make near-white background transparent
+                    const imageData = ctx.getImageData(0, 0, 128, 128);
+                    const data = imageData.data;
+                    for (let i = 0; i < data.length; i += 4) {
+                        if (data[i] > 245 && data[i + 1] > 245 && data[i + 2] > 245) {
+                            data[i + 3] = 0;
+                        }
+                    }
+                    ctx.putImageData(imageData, 0, 0);
+
+                    const texture = new THREE.CanvasTexture(canvas);
+                    texture.colorSpace = THREE.SRGBColorSpace;
+                    material.map = texture;
+                    material.opacity = 1;
+                    material.needsUpdate = true;
+                };
+                img.src = maintenanceWrenchUrl;
+
+                return tool;
+            }
+
+            // =====================================================
+            // SHARED FLOOR FOOTPRINT
+            // Match Building Layout canvas so rooms on the layout
+            // edge also sit on the 3D floor-plate edge.
+            // =====================================================
+
+            const BLUEPRINT_CANVAS_WIDTH = 1180;
+            const BLUEPRINT_CANVAS_HEIGHT = 720;
+
+            const sharedFloorWidth = Math.max(
+                BLUEPRINT_CANVAS_WIDTH * BLUEPRINT_SCALE,
+                4,
+            );
+            const sharedFloorDepth = Math.max(
+                BLUEPRINT_CANVAS_HEIGHT * BLUEPRINT_SCALE,
+                4,
+            );
+            const sharedFloorCenterX = BLUEPRINT_CANVAS_WIDTH / 2;
+            const sharedFloorCenterY = BLUEPRINT_CANVAS_HEIGHT / 2;
+
+            // =====================================================
             // LOOP THROUGH EACH DATABASE FLOOR
             // =====================================================
 
@@ -12815,57 +13528,23 @@ document.addEventListener(
                 }
 
                 // =================================================
-                // STEP 1
-                // CALCULATE THIS FLOOR'S OWN BLUEPRINT BOUNDS
+                // STEP 1 / 2
+                // Use Building Layout canvas center for all floors
+                // so edge rooms stay on the edge in 3D
                 // =================================================
 
-                let floorMinX = Infinity;
-                let floorMinY = Infinity;
+                const floorCenterX = sharedFloorCenterX;
 
-                let floorMaxX = -Infinity;
-                let floorMaxY = -Infinity;
-
-                floorData.rooms.forEach((roomData) => {
-                    const roomX = Number(roomData.x) || 0;
-
-                    const roomY = Number(roomData.y) || 0;
-
-                    const roomWidth = Number(roomData.width) || 100;
-
-                    const roomHeight = Number(roomData.height) || 100;
-
-                    floorMinX = Math.min(floorMinX, roomX);
-
-                    floorMinY = Math.min(floorMinY, roomY);
-
-                    floorMaxX = Math.max(floorMaxX, roomX + roomWidth);
-
-                    floorMaxY = Math.max(floorMaxY, roomY + roomHeight);
-                });
-
-                // =================================================
-                // STEP 2
-                // CALCULATE THIS FLOOR'S CENTER
-                // =================================================
-
-                const floorCenterX = (floorMinX + floorMaxX) / 2;
-
-                const floorCenterY = (floorMinY + floorMaxY) / 2;
+                const floorCenterY = sharedFloorCenterY;
 
                 // =================================================
                 // PHASE 7.1
-                // CALCULATE ACTUAL SIZE OF THIS FLOOR
+                // SHARED SLAB SIZE = Building Layout canvas
                 // =================================================
 
-                const floorWidth = Math.max(
-                    (floorMaxX - floorMinX) * BLUEPRINT_SCALE,
-                    4,
-                );
+                const floorWidth = sharedFloorWidth;
 
-                const floorDepth = Math.max(
-                    (floorMaxY - floorMinY) * BLUEPRINT_SCALE,
-                    4,
-                );
+                const floorDepth = sharedFloorDepth;
 
                 // =================================================
                 // PHASE 7.1
@@ -12958,8 +13637,8 @@ document.addEventListener(
                 // =================================================
 
                 floorLabel.position.set(
-                    // Left side of the floor
-                    -(floorWidth / 2) - 2.5,
+                    // Right side of the floor (matches front-right side cam)
+                    floorWidth / 2 + 2.5,
 
                     // Slightly above the floor
                     floorY + 0.8,
@@ -13030,46 +13709,9 @@ document.addEventListener(
                     const roomZ = (roomCenterY - floorCenterY) * BLUEPRINT_SCALE;
 
                     // =============================================
-                    // DETERMINE ROOM STATUS
-                    // =============================================
-
-                    // =============================================
-                    // PHASE 6
-                    // DETERMINE DYNAMIC ROOM STATUS
-                    //
-                    // available    = no active issue
-                    // needs-repair = active non urgent report
-                    // maintenance  = equipment under maintenance
-                    // critical     = active urgent report
-                    // =============================================
-
-                    // =============================================
-                    // ROOM COLOR FROM REPORT COUNTS
-                    //
-                    // green  = no active reports
-                    // amber  = open reports
-                    // red    = urgent reports
-                    // sky    = equipment in maintenance
-                    // =============================================
-
-                    const urgentCount = Number(roomData.urgentReportCount || 0);
-                    const activeCount = Number(roomData.activeReportCount || 0);
-                    const maintenanceCount = Number(
-                        roomData.maintenanceEquipmentCount || 0,
-                    );
-
-                    let room3DStatus = "normal";
-
-                    if (urgentCount > 0) {
-                        room3DStatus = "urgent";
-                    } else if (activeCount > 0) {
-                        room3DStatus = "warning";
-                    } else if (maintenanceCount > 0) {
-                        room3DStatus = "maintenance";
-                    }
-
-                    // =============================================
                     // CREATE ROOM
+                    // Fill color comes from Building Layout room_color
+                    // Report status stays in tooltip / details panel
                     // =============================================
 
                     const roomMesh = createRoom(
@@ -13079,7 +13721,7 @@ document.addEventListener(
                         roomZ,
                         roomWidth,
                         roomDepth,
-                        room3DStatus,
+                        roomData.color || "#60A5FA",
                     );
 
                     // =================================================
@@ -13095,6 +13737,39 @@ document.addEventListener(
                     // Add label directly to room mesh
                     // This makes the label follow the room position
                     roomMesh.add(roomLabel);
+
+                    // =================================================
+                    // STATUS INDICATORS
+                    // Critical     -> light bulb (urgent reports)
+                    // Maintenance  -> tool (open reports / under maintenance)
+                    // =================================================
+
+                    const urgentCount = Number(roomData.urgentReportCount || 0);
+                    const activeCount = Number(roomData.activeReportCount || 0);
+                    const maintenanceCount = Number(
+                        roomData.maintenanceEquipmentCount || 0,
+                    );
+                    const roomStatus = String(roomData.status || "");
+
+                    const isCritical =
+                        urgentCount > 0 || roomStatus === "critical";
+
+                    const isMaintenance =
+                        !isCritical &&
+                        (activeCount > 0 ||
+                            maintenanceCount > 0 ||
+                            roomStatus === "needs-repair" ||
+                            roomStatus === "maintenance");
+
+                    if (isCritical) {
+                        const criticalBulb = createCriticalLightBulb();
+                        roomMesh.add(criticalBulb);
+                        criticalRoomIndicators.push(criticalBulb);
+                    } else if (isMaintenance) {
+                        const maintenanceTool = createMaintenanceToolIcon();
+                        roomMesh.add(maintenanceTool);
+                        maintenanceRoomIndicators.push(maintenanceTool);
+                    }
 
                     roomMesh.userData.originalEmissive =
                         roomMesh.material.emissive.getHex();
@@ -13128,6 +13803,12 @@ document.addEventListener(
                         floorId: floorData.id,
 
                         floorName: floorData.name,
+
+                        layoutColor: roomData.color || "#60A5FA",
+
+                        layoutColorHex: parseRoomLayoutColor(
+                            roomData.color || "#60A5FA",
+                        ),
 
                         // =========================================
                         // PHASE 7.8
@@ -15344,10 +16025,12 @@ document.addEventListener(
                     ? Math.max(Math.max(size.x, size.y, size.z, 1.4) * 3.5, 7.4)
                     : Math.max(size.x, size.y, size.z, 8) * 1.75;
 
+                // Same default interior side cam as getInteriorFocusView
+                // (front-right / Building Layout angle)
                 const targetPosition = new THREE.Vector3(
-                    center.x - distance * 0.55,
+                    center.x + distance * 0.55,
                     center.y + distance * 0.42,
-                    center.z - distance * 1.35,
+                    center.z + distance * 1.35,
                 );
 
                 cameraTransition = {
@@ -15666,7 +16349,9 @@ document.addEventListener(
             // =====================================================
             // INTERIOR DEFAULT CAMERA VIEW
             // After Enter Building / interior Reset
-            // Matches the floor overview screenshot angle
+            // Matches Building Layout orientation:
+            // layout bottom (ComLabs / front rooms) = +Z FRONT
+            // layout top (Room 301) = -Z REAR
             // =====================================================
 
             function getInteriorFocusView() {
@@ -15677,7 +16362,7 @@ document.addEventListener(
 
                 if (box.isEmpty()) {
                     return {
-                        position: new THREE.Vector3(-22, 12, -28),
+                        position: new THREE.Vector3(22, 12, 28),
                         target: new THREE.Vector3(0, 3, 0),
                     };
                 }
@@ -15688,12 +16373,13 @@ document.addEventListener(
                 // Wide enough to see all floors + room blocks
                 const distance = Math.max(size.x, size.y, size.z, 8) * 1.75;
 
-                // Rear-left corner (other side of the rear face)
-                // -X = left, +Y = elevated, -Z = REAR
+                // Front-right elevated side cam (Building Layout angle)
+                // +X = right, +Y = elevated, +Z = FRONT
+                // Opposite lateral side from the previous front-left angle.
                 const position = new THREE.Vector3(
-                    center.x - distance * 0.55,
+                    center.x + distance * 0.55,
                     center.y + distance * 0.42,
-                    center.z - distance * 1.35
+                    center.z + distance * 1.35
                 );
 
                 // Geometric center = vertically centered in viewport
@@ -16983,6 +17669,47 @@ document.addEventListener(
                 }
 
                 controls.update();
+
+                // =================================================
+                // STATUS INDICATOR ANIMATION (infinite loop)
+                // =================================================
+
+                const statusPulse = performance.now() * 0.0045;
+
+                const animateStatusIndicator = (indicator, index, offset) => {
+                    if (!indicator || !indicator.visible) {
+                        return;
+                    }
+
+                    // Wait until texture is ready (async wrench image)
+                    if (!indicator.material?.map) {
+                        return;
+                    }
+
+                    const phase = statusPulse + index * 0.7 + offset;
+                    const bob = Math.sin(phase) * 0.08;
+                    const scale = 1.05 + (Math.sin(phase * 1.1) + 1) * 0.1;
+
+                    indicator.position.y =
+                        (indicator.userData.baseY || 1.2) + bob;
+                    indicator.scale.set(scale, scale, 1);
+
+                    // Light bulb keeps a soft pulse; wrench stays solid
+                    if (indicator.userData.type === "critical-bulb") {
+                        indicator.material.opacity =
+                            0.72 + (Math.sin(phase * 1.35) + 1) * 0.2;
+                    } else {
+                        indicator.material.opacity = 1;
+                    }
+                };
+
+                criticalRoomIndicators.forEach((bulb, index) => {
+                    animateStatusIndicator(bulb, index, 0);
+                });
+
+                maintenanceRoomIndicators.forEach((tool, index) => {
+                    animateStatusIndicator(tool, index, 1.1);
+                });
 
                 updateEnterBuildingButtonPosition();
                 updateRoomDetailsPanelPosition();
@@ -20321,9 +21048,16 @@ document.addEventListener(
             const dismissButton = document.getElementById(
                 "dailyPriorityReminderDismiss",
             );
+            const closeButton = document.getElementById(
+                "dailyPriorityReminderClose",
+            );
 
             if (dismissButton) {
                 dismissButton.addEventListener("click", dismissReminder);
+            }
+
+            if (closeButton) {
+                closeButton.addEventListener("click", dismissReminder);
             }
 
             modal.addEventListener("click", function (event) {
@@ -20471,6 +21205,34 @@ document.addEventListener(
         })();
     </script>
 
+    @include('layouts.partials.equipment-layout-icons')
+    @include('layouts.partials.equipment-asset-tag')
     @include('layouts.partials.equipment-category-detect')
+    @include('layouts.partials.equipment-photo-viewer')
+
+    <style>
+        .eq-modal-scroll {
+            scrollbar-width: thin;
+            scrollbar-color: #94a3b8 transparent;
+        }
+
+        .eq-modal-scroll::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        .eq-modal-scroll::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .eq-modal-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 999px;
+        }
+
+        .eq-modal-scroll::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
 
 @endsection

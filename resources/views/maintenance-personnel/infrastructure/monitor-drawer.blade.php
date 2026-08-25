@@ -4,7 +4,7 @@
 >-->
 <aside
     data-monitor-drawer
-    class="flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-xl xl:h-[calc(100vh-14rem-20px)] xl:min-h-[550px] xl:max-h-[620px]"
+    class="flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[28px] border border-slate-200 bg-white xl:h-[calc(100vh-14rem-20px)] xl:min-h-[550px] xl:max-h-[620px]"
 >
     <!-- Empty state: no room selected — Insight Builder style -->
     <div x-show="selectedRoom === null" class="flex h-full min-h-0 flex-col overflow-hidden">
@@ -15,13 +15,24 @@
                 <p class="text-[10px] font-extrabold uppercase tracking-[.18em] text-slate-400">Room Inspector</p>
                 <h2 class="mt-0.5 text-base font-black text-slate-950">Insight Builder</h2>
             </div>
-            <button
-                class="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
-                disabled
-            >
-                <i data-lucide="bookmark" class="h-3.5 w-3.5"></i>
-                Save View
-            </button>
+                        <div class="flex shrink-0 items-center gap-1.5">
+                            <button
+                                class="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
+                                disabled
+                            >
+                                <i data-lucide="bookmark" class="h-3.5 w-3.5"></i>
+                                Save View
+                            </button>
+                            <button
+                                type="button"
+                                @click="toggleDrawer()"
+                                class="flex h-8 w-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:bg-slate-50 hover:text-slate-700"
+                                aria-label="Hide panel"
+                                data-tooltip="Hide panel"
+                            >
+                                <i data-lucide="panel-right-close" class="h-3.5 w-3.5"></i>
+                            </button>
+                        </div>
         </div>
 
         {{-- Icon tab bar (disabled/ghost) --}}
@@ -71,14 +82,6 @@
                 addEquipmentModal:false,
 
                 editRoomModal:false,
-
-                archiveRoomModal:false,
-
-                archiveBlockedModal:false,
-
-                archiveBlockedCount:0,
-
-                archiveReason:'',
 
                 transferAssetsModal:false,
 
@@ -805,30 +808,6 @@
                     return {{ (int) $room->equipment->count() }};
                 },
 
-                requestArchiveRoom(){
-                    const count = this.roomEquipmentCount();
-                    if (count > 0) {
-                        this.archiveBlockedCount = count;
-                        this.archiveRoomModal = false;
-                        this.archiveBlockedModal = true;
-                        this.$nextTick(() => {
-                            if (window.lucide) window.lucide.createIcons();
-                        });
-                        return;
-                    }
-                    this.archiveBlockedModal = false;
-                    this.archiveRoomModal = true;
-                    this.$nextTick(() => {
-                        if (window.lucide) window.lucide.createIcons();
-                    });
-                },
-
-                openTransferFromArchiveBlock(){
-                    this.archiveBlockedModal = false;
-                    this.archiveRoomModal = false;
-                    this.openTransferModal();
-                },
-
                 openTransferModal(){
                     this.resetTransferForm();
                     this.transferAssetsModal = true;
@@ -1035,90 +1014,6 @@
                     }
                 },
 
-                async archiveRoom(){
-
-                    const count = this.roomEquipmentCount();
-                    if (count > 0) {
-                        this.requestArchiveRoom();
-                        return;
-                    }
-
-                    this.roomSaving=true;
-
-                    try{
-
-                        const response=await fetch(
-
-                            `/maintenance/infrastructure/rooms/{{ $room->room_id }}`,
-
-                            {
-
-                                method:'DELETE',
-
-                                headers:{
-
-                                    'Content-Type':'application/json',
-
-                                    'Accept':'application/json',
-
-                                    'X-CSRF-TOKEN':document.querySelector(
-                                        'meta[name=csrf-token]'
-                                    ).content
-
-                                },
-
-                                body:JSON.stringify({
-
-                                    reason:this.archiveReason
-
-                                })
-
-                            }
-
-                        );
-
-                        const payload = await response.json().catch(() => ({}));
-
-                        if(!response.ok){
-                            if (payload.code === 'equipment_present' || response.status === 422) {
-                                this.archiveBlockedCount = Number(payload.equipment_count) || this.roomEquipmentCount();
-                                this.archiveRoomModal = false;
-                                this.archiveBlockedModal = true;
-                                this.$nextTick(() => {
-                                    if (window.lucide) window.lucide.createIcons();
-                                });
-                                return;
-                            }
-
-                            throw new Error(payload.message || payload.error || 'Unable to archive room.');
-
-                        }
-
-                        this.archiveRoomModal=false;
-                        this.archiveReason='';
-
-                        await window.infrastructure.refreshRoomEquipment({{ $room->room_id }});
-                        if (window.infrastructure?.selectedRoom === {{ $room->room_id }}) {
-                            window.infrastructure.selectedRoom = null;
-                        }
-                        window.location.reload();
-
-                    }
-
-                    catch(e){
-
-                        alert(e?.message || 'Unable to archive room.');
-
-                    }
-
-                    finally{
-
-                        this.roomSaving=false;
-
-                    }
-
-                }
-
             }"
             class="flex h-full min-h-0 flex-col overflow-hidden"
         >
@@ -1141,6 +1036,15 @@
                         >
                             <i data-lucide="bookmark" class="h-3 w-3"></i>
                             Save View
+                        </button>
+                        <button
+                            type="button"
+                            @click="toggleDrawer()"
+                            class="flex h-7 w-7 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-400 shadow-sm transition hover:bg-slate-50 hover:text-slate-600"
+                            aria-label="Hide panel"
+                            data-tooltip="Hide panel"
+                        >
+                            <i data-lucide="panel-right-close" class="h-3.5 w-3.5"></i>
                         </button>
                         <button
                             @click="selectedRoom = null"
@@ -1176,9 +1080,28 @@
             </div>
 
             <div
-                class="drawer-scroll relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[#F8FAFC] p-4"
+                class="drawer-scroll relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-white p-5"
             >
-                <div x-show="tab === 'overview'" x-cloak class="space-y-3">
+                <div x-show="tab === 'overview'" x-cloak class="space-y-6">
+                    @php
+                        $eqCount = (int) $room->monitoring['equipment_count'];
+                        $eqQty = (int) $room->monitoring['equipment_quantity'];
+                        $eqDenom = max(1, $eqCount);
+                        $eqGood = (int) $room->monitoring['equipment_good'];
+                        $eqMaint = (int) $room->monitoring['equipment_maintenance'];
+                        $eqDamaged = (int) $room->monitoring['equipment_damaged'];
+                        $eqDisposed = (int) $room->monitoring['equipment_disposed'];
+                        $pctGood = round(($eqGood / $eqDenom) * 100);
+                        $pctMaint = round(($eqMaint / $eqDenom) * 100);
+                        $pctDamaged = round(($eqDamaged / $eqDenom) * 100);
+                        $pctDisposed = round(($eqDisposed / $eqDenom) * 100);
+                        $healthRows = [
+                            ['label' => 'Good', 'count' => $eqGood, 'pct' => $pctGood, 'bar' => '#005EA6'],
+                            ['label' => 'Maintenance', 'count' => $eqMaint, 'pct' => $pctMaint, 'bar' => '#93C5FD'],
+                            ['label' => 'Damaged', 'count' => $eqDamaged, 'pct' => $pctDamaged, 'bar' => '#64748B'],
+                            ['label' => 'Disposed', 'count' => $eqDisposed, 'pct' => $pctDisposed, 'bar' => '#CBD5E1'],
+                        ];
+                    @endphp
 
                     {{-- ── Status hero ── --}}
                     <div class="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
@@ -1204,7 +1127,7 @@
                                     Updated
                                     <span
                                         class="text-[#005EA6]"
-                                        x-text="currentRoom?.monitoring?.room_information?.last_updated
+                                        x-text="currentRoom.monitoring.room_information.last_updated
                                             ? timeAgo(currentRoom.monitoring.room_information.last_updated)
                                             : 'Unknown'"
                                     ></span>
@@ -1217,55 +1140,41 @@
                     </div>
 
                     {{-- ── Key metrics ── --}}
-                    <div class="grid grid-cols-2 gap-2">
-                        <div class="rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm">
-                            <div class="flex items-center justify-between">
-                                <p class="text-[10px] font-bold uppercase tracking-[.14em] text-slate-400">Assets</p>
-                                <div class="flex h-6 w-6 items-center justify-center rounded-lg bg-blue-50 text-[#005EA6]">
-                                    <i data-lucide="box" class="h-3.5 w-3.5"></i>
-                                </div>
-                            </div>
-                            <p class="mt-1 text-2xl font-black text-[#005EA6]">{{ $room->monitoring["equipment_quantity"] }}</p>
-                            <p class="text-[10px] font-medium text-slate-400">registered</p>
+                    <div class="grid grid-cols-2 divide-x divide-slate-200 border-y border-slate-200 bg-white">
+                        <div class="px-4 py-3">
+                            <p class="text-[11px] font-medium tracking-[0.16em] text-slate-400 uppercase">Assets</p>
+                            <p class="mt-1 text-2xl font-semibold tracking-tight text-slate-950">{{ $room->monitoring["equipment_quantity"] }}</p>
+                            <p class="mt-0.5 text-[11px] text-slate-500">registered</p>
                         </div>
-                        <div class="rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm">
-                            <div class="flex items-center justify-between">
-                                <p class="text-[10px] font-bold uppercase tracking-[.14em] text-slate-400">Reports</p>
-                                <div class="flex h-6 w-6 items-center justify-center rounded-lg bg-blue-50 text-[#005EA6]">
-                                    <i data-lucide="triangle-alert" class="h-3.5 w-3.5"></i>
-                                </div>
-                            </div>
-                            <p class="mt-1 text-2xl font-black text-slate-800">{{ $room->monitoring["active_reports"] }}</p>
-                            <p class="text-[10px] font-medium text-slate-400">unresolved</p>
+                        <div class="px-4 py-3">
+                            <p class="text-[11px] font-medium tracking-[0.16em] text-slate-400 uppercase">Reports</p>
+                            <p class="mt-1 text-2xl font-semibold tracking-tight text-slate-950">{{ $room->monitoring["active_reports"] }}</p>
+                            <p class="mt-0.5 text-[11px] text-slate-500">unresolved</p>
                         </div>
                     </div>
 
-                    {{-- ── Schedule bento grid ── --}}
-                    <div>
-                        <p class="mb-2 px-0.5 text-[10px] font-bold uppercase tracking-[.16em] text-slate-400">Schedule & activity</p>
-                        <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                            <div class="flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm">
-                                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#005EA6]">
-                                    <i data-lucide="clipboard-check" class="h-4 w-4"></i>
-                                </div>
+                    {{-- Schedule --}}
+                    <section>
+                        <p class="mb-3 text-[11px] font-medium tracking-[0.18em] text-slate-400 uppercase">Schedule</p>
+                        <div class="space-y-0 border-y border-slate-200">
+                            <div class="flex items-start gap-3 py-3.5">
+                                <i data-lucide="clipboard-check" class="mt-0.5 h-4 w-4 shrink-0 text-[#005EA6]"></i>
                                 <div class="min-w-0 flex-1">
-                                    <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Last inspection</p>
+                                    <p class="text-[11px] text-slate-400">Last inspection</p>
                                     <p
-                                        class="truncate text-sm font-bold text-slate-800"
+                                        class="mt-0.5 text-sm font-medium leading-5 text-slate-900"
                                         x-text="currentRoom?.monitoring?.room_information?.last_inspection
                                             ? formatDate(currentRoom.monitoring.room_information.last_inspection)
                                             : 'Never'"
                                     ></p>
                                 </div>
                             </div>
-                            <div class="flex items-center gap-3 rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm">
-                                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#005EA6]">
-                                    <i data-lucide="calendar-clock" class="h-4 w-4"></i>
-                                </div>
+                            <div class="flex items-start gap-3 border-t border-slate-100 py-3.5">
+                                <i data-lucide="calendar-clock" class="mt-0.5 h-4 w-4 shrink-0 text-slate-400"></i>
                                 <div class="min-w-0 flex-1">
-                                    <p class="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Next maintenance</p>
+                                    <p class="text-[11px] text-slate-400">Next maintenance</p>
                                     <p
-                                        class="truncate text-sm font-bold text-slate-800"
+                                        class="mt-0.5 text-sm font-medium leading-5 text-slate-900"
                                         x-text="currentRoom?.monitoring?.room_information?.next_maintenance
                                             ? formatDate(currentRoom.monitoring.room_information.next_maintenance)
                                             : 'No schedule'"
@@ -1273,7 +1182,7 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </section>
 
                     {{-- ── Equipment health bar ── --}}
                     @php
@@ -1311,95 +1220,85 @@
                                 <div class="bg-slate-200 transition-all" style="width: {{ $pctDisposed }}%"></div>
                             @endif
                         </div>
+                    </div>
 
-                        {{-- Legend chips — white / light gray --}}
-                        <div class="mt-3 grid grid-cols-2 gap-1.5">
-                            <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-[#F8FAFC] px-2.5 py-2">
-                                <span class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
-                                    <span class="h-1.5 w-1.5 rounded-full bg-[#005EA6]"></span>Good
-                                </span>
-                                <span class="text-xs font-black text-[#005EA6]">{{ $eqGood }}</span>
+                    {{-- Modern legend list (outside card) --}}
+                    <div class="space-y-3 px-1">
+                        <div>
+                            <div class="mb-1.5 flex items-center justify-between gap-3">
+                                <span class="text-[13px] text-slate-600">Good</span>
+                                <span class="text-[13px] font-medium tabular-nums text-slate-950">{{ $eqGood }}<span class="ml-1 font-normal text-slate-400">{{ $pctGood }}%</span></span>
                             </div>
-                            <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-[#F8FAFC] px-2.5 py-2">
-                                <span class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
-                                    <span class="h-1.5 w-1.5 rounded-full bg-blue-300"></span>Maint.
-                                </span>
-                                <span class="text-xs font-black text-slate-700">{{ $eqMaint }}</span>
+                            <div class="h-px bg-slate-100">
+                                <div class="h-px" style="width: {{ $pctGood }}%; background: #005EA6"></div>
                             </div>
-                            <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-[#F8FAFC] px-2.5 py-2">
-                                <span class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
-                                    <span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span>Damaged
-                                </span>
-                                <span class="text-xs font-black text-slate-700">{{ $eqDamaged }}</span>
+                        </div>
+                        <div>
+                            <div class="mb-1.5 flex items-center justify-between gap-3">
+                                <span class="text-[13px] text-slate-600">Maint.</span>
+                                <span class="text-[13px] font-medium tabular-nums text-slate-950">{{ $eqMaint }}<span class="ml-1 font-normal text-slate-400">{{ $pctMaint }}%</span></span>
                             </div>
-                            <div class="flex items-center justify-between rounded-xl border border-slate-100 bg-[#F8FAFC] px-2.5 py-2">
-                                <span class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
-                                    <span class="h-1.5 w-1.5 rounded-full bg-slate-200"></span>Disposed
-                                </span>
-                                <span class="text-xs font-black text-slate-500">{{ $eqDisposed }}</span>
+                            <div class="h-px bg-slate-100">
+                                <div class="h-px" style="width: {{ $pctMaint }}%; background: #93C5FD"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="mb-1.5 flex items-center justify-between gap-3">
+                                <span class="text-[13px] text-slate-600">Damaged</span>
+                                <span class="text-[13px] font-medium tabular-nums text-slate-950">{{ $eqDamaged }}<span class="ml-1 font-normal text-slate-400">{{ $pctDamaged }}%</span></span>
+                            </div>
+                            <div class="h-px bg-slate-100">
+                                <div class="h-px" style="width: {{ $pctDamaged }}%; background: #64748B"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="mb-1.5 flex items-center justify-between gap-3">
+                                <span class="text-[13px] text-slate-600">Disposed</span>
+                                <span class="text-[13px] font-medium tabular-nums text-slate-950">{{ $eqDisposed }}<span class="ml-1 font-normal text-slate-400">{{ $pctDisposed }}%</span></span>
+                            </div>
+                            <div class="h-px bg-slate-100">
+                                <div class="h-px" style="width: {{ $pctDisposed }}%; background: #CBD5E1"></div>
                             </div>
                         </div>
                     </div>
 
-                    {{-- ── Quick actions ── --}}
-                    <div>
-                        <p class="mb-2 px-0.5 text-[10px] font-bold uppercase tracking-[.16em] text-slate-400">Quick actions</p>
-                        <div class="grid grid-cols-2 gap-2">
+                    {{-- Quick actions --}}
+                    <section>
+                        <p class="mb-3 text-[11px] font-medium tracking-[0.18em] text-slate-400 uppercase">Quick actions</p>
+                        <div class="grid grid-cols-4 overflow-hidden rounded-xl border border-slate-200">
                             <button
                                 type="button"
                                 @click="categoryManual = false; resetAddEquipment(); addEquipmentModal = true"
-                                class="group flex items-center gap-2.5 rounded-2xl border border-slate-200/80 bg-white p-3 text-left shadow-sm transition hover:border-[#005EA6]/40 hover:bg-blue-50/40 hover:shadow-md"
+                                class="flex flex-col items-center gap-1.5 px-1 py-3.5 text-center transition hover:bg-slate-50"
                             >
-                                <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#005EA6] transition group-hover:bg-[#005EA6] group-hover:text-white">
-                                    <i data-lucide="plus" class="h-4 w-4"></i>
-                                </div>
-                                <div class="min-w-0">
-                                    <p class="text-xs font-bold text-slate-800">Add asset</p>
-                                    <p class="truncate text-[10px] text-slate-400">New equipment</p>
-                                </div>
+                                <i data-lucide="plus" class="h-4 w-4 text-[#005EA6]"></i>
+                                <span class="text-[11px] font-medium text-slate-800">Equipment</span>
                             </button>
                             <button
                                 type="button"
                                 @click="editRoomModal = true"
-                                class="group flex items-center gap-2.5 rounded-2xl border border-slate-200/80 bg-white p-3 text-left shadow-sm transition hover:border-[#005EA6]/40 hover:bg-blue-50/40 hover:shadow-md"
+                                class="flex flex-col items-center gap-1.5 border-l border-slate-200 px-1 py-3.5 text-center transition hover:bg-slate-50"
                             >
-                                <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#005EA6] transition group-hover:bg-[#005EA6] group-hover:text-white">
-                                    <i data-lucide="pencil" class="h-4 w-4"></i>
-                                </div>
-                                <div class="min-w-0">
-                                    <p class="text-xs font-bold text-slate-800">Edit room</p>
-                                    <p class="truncate text-[10px] text-slate-400">Name & type</p>
-                                </div>
+                                <i data-lucide="pencil" class="h-4 w-4 text-slate-700"></i>
+                                <span class="text-[11px] font-medium text-slate-800">Room</span>
                             </button>
                             <button
                                 type="button"
                                 @click="openTransferModal()"
-                                class="group flex items-center gap-2.5 rounded-2xl border border-slate-200/80 bg-white p-3 text-left shadow-sm transition hover:border-[#005EA6]/40 hover:bg-blue-50/40 hover:shadow-md"
+                                class="flex flex-col items-center gap-1.5 border-l border-slate-200 px-1 py-3.5 text-center transition hover:bg-slate-50"
                             >
-                                <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-[#005EA6] transition group-hover:bg-[#005EA6] group-hover:text-white">
-                                    <i data-lucide="arrow-right-left" class="h-4 w-4"></i>
-                                </div>
-                                <div class="min-w-0">
-                                    <p class="text-xs font-bold text-slate-800">Transfer</p>
-                                    <p class="truncate text-[10px] text-slate-400">Move assets</p>
-                                </div>
+                                <i data-lucide="arrow-right-left" class="h-4 w-4 text-slate-700"></i>
+                                <span class="text-[11px] font-medium text-slate-800">Transfer</span>
                             </button>
-                            <button
-                                type="button"
-                                @click="requestArchiveRoom()"
-                                class="group flex items-center gap-2.5 rounded-2xl border border-slate-200/80 bg-white p-3 text-left shadow-sm transition hover:border-slate-300 hover:bg-[#F8FAFC] hover:shadow-md"
+                            <a
+                                href="{{ url('/maintenance/rooms') }}?history={{ $room->room_id }}"
+                                class="flex flex-col items-center gap-1.5 border-l border-slate-200 px-1 py-3.5 text-center transition hover:bg-slate-50"
                             >
-                                <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 transition group-hover:bg-slate-500 group-hover:text-white">
-                                    <i data-lucide="archive" class="h-4 w-4"></i>
-                                </div>
-                                <div class="min-w-0">
-                                    <p class="text-xs font-bold text-slate-800">Archive</p>
-                                    <p class="truncate text-[10px] text-slate-400">Keep records</p>
-                                </div>
-                            </button>
+                                <i data-lucide="history" class="h-4 w-4 text-slate-400"></i>
+                                <span class="text-[11px] font-medium text-slate-800">History</span>
+                            </a>
                         </div>
-                    </div>
-
+                    </section>
                 </div>
 
                 <!-- ========================================= -->
@@ -2359,483 +2258,6 @@
                                                 roomSaving
                                                     ? 'Saving...'
                                                     : 'Update Records'
-                                            "
-                                        ></span>
-
-                                    </button>
-
-                                </div>
-
-                            </div>
-
-                        </div>
-
-                    </div>
-                </template>
-
-                <!-- ===================================== -->
-                <!-- Archive blocked: equipment still present -->
-                <!-- ===================================== -->
-
-                <template x-if="archiveBlockedModal">
-                    <div
-                        x-transition.opacity
-                        @click.self="archiveBlockedModal = false"
-                        class="fixed inset-0 z-[9999] flex items-center justify-center bg-[#0b1220]/70 p-4 sm:p-6"
-                    >
-                        <div class="flex w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
-                            <div class="flex items-start justify-between border-b border-slate-100 px-6 py-4">
-                                <div class="flex items-start gap-3">
-                                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-600">
-                                        <i data-lucide="package-x" class="h-5 w-5"></i>
-                                    </div>
-                                    <div>
-                                        <h2 class="text-lg font-semibold tracking-tight text-slate-950">Cannot archive room</h2>
-                                        <p class="mt-0.5 text-xs text-slate-500">Transfer equipment first</p>
-                                    </div>
-                                </div>
-                                <button
-                                    type="button"
-                                    @click="archiveBlockedModal = false"
-                                    class="rounded-xl bg-slate-100 p-2 text-slate-500 hover:bg-slate-200"
-                                    aria-label="Close"
-                                >
-                                    <i data-lucide="x" class="h-4 w-4"></i>
-                                </button>
-                            </div>
-
-                            <div class="space-y-3 px-6 py-5 text-sm text-slate-600">
-                                <p>
-                                    <span class="font-semibold text-slate-900">{{ $room->room_name }}</span>
-                                    still has
-                                    <span class="font-semibold text-slate-900" x-text="archiveBlockedCount"></span>
-                                    <span x-text="archiveBlockedCount === 1 ? ' equipment item' : ' equipment items'"></span>.
-                                </p>
-                                <p>
-                                    Move all equipment to another room using <span class="font-medium text-slate-800">Transfer</span> before archiving this room.
-                                </p>
-                            </div>
-
-                            <div class="flex flex-col-reverse justify-end gap-3 border-t border-slate-100 px-6 py-4 sm:flex-row">
-                                <button
-                                    type="button"
-                                    @click="archiveBlockedModal = false"
-                                    class="min-w-[110px] rounded-lg border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="button"
-                                    @click="openTransferFromArchiveBlock()"
-                                    class="min-w-[145px] rounded-lg bg-[#005EA6] px-5 py-2.5 text-sm font-medium text-white transition hover:bg-[#004a85]"
-                                >
-                                    Transfer equipment
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </template>
-
-                <!-- ===================================== -->
-                <!-- Archive Room Confirmation Modal -->
-                <!-- Place AFTER Edit Room Modal -->
-                <!-- ===================================== -->
-
-                <template x-if="archiveRoomModal">
-                    <div
-                        x-transition.opacity
-                        @click.self="archiveRoomModal = false"
-                        class="
-                            fixed inset-0 z-[9999]
-                            flex items-center justify-center
-                            bg-[#0b1220]/70
-                            p-4
-                            sm:p-6
-                        "
-                    >
-
-                        <!-- ===================================================== -->
-                        <!-- MODAL CONTAINER -->
-                        <!-- ===================================================== -->
-
-                        <div
-                            class="
-                                flex
-                                max-h-[calc(100dvh-2rem)]
-                                w-full
-                                max-w-lg
-                                flex-col
-                                overflow-hidden
-                                rounded-2xl
-                                border
-                                border-slate-200
-                                bg-white
-                                shadow-2xl
-                            "
-                        >
-
-
-                            <!-- ================================================= -->
-                            <!-- HEADER -->
-                            <!-- ================================================= -->
-
-                            <div
-                                class="
-                                    flex
-                                    shrink-0
-                                    items-start
-                                    justify-between
-                                    border-b
-                                    border-slate-100
-                                    px-6
-                                    py-4
-                                "
-                            >
-
-                                <div class="flex items-center gap-3">
-
-                                    <!-- WARNING ICON -->
-
-                                    <!--<div
-                                        class="
-                                            flex
-                                            h-9
-                                            w-9
-                                            shrink-0
-                                            items-center
-                                            justify-center
-                                            rounded-lg
-                                            bg-red-50
-                                            text-red-600
-                                        "
-                                    >
-                                        <i
-                                            data-lucide="archive"
-                                            class="h-4 w-4"
-                                        ></i>
-                                    </div>-->
-
-
-                                    <!-- HEADER INFORMATION -->
-
-                                    <div>
-
-                                        <h2
-                                            class="
-                                                text-lg
-                                                font-semibold
-                                                tracking-tight
-                                                text-slate-950
-                                            "
-                                        >
-                                            Archive Room
-                                        </h2>
-
-
-                                        <p
-                                            class="
-                                                mt-0.5
-                                                text-xs
-                                                text-slate-500
-                                            "
-                                        >
-                                            Remove this room from active infrastructure.
-                                        </p>
-
-                                    </div>
-
-                                </div>
-
-
-                                <!-- CLOSE BUTTON -->
-
-                                <button
-                                    type="button"
-                                    @click="archiveRoomModal = false"
-                                    class="
-                                        flex
-                                        h-8
-                                        w-8
-                                        shrink-0
-                                        items-center
-                                        justify-center
-                                        rounded-lg
-                                        text-slate-400
-                                        transition
-
-                                        hover:bg-slate-100
-                                        hover:text-slate-700
-                                    "
-                                >
-                                    <i
-                                        data-lucide="x"
-                                        class="h-4 w-4"
-                                    ></i>
-                                </button>
-
-                            </div>
-
-
-
-                            <!-- ================================================= -->
-                            <!-- SCROLLABLE BODY -->
-                            <!-- ================================================= -->
-
-                            <div
-                                class="
-                                    min-h-0
-                                    flex-1
-                                    overflow-y-auto
-                                    overscroll-contain
-                                    px-6
-                                    py-5
-                                "
-                            >
-
-
-                                <!-- ================================================= -->
-                                <!-- WARNING MESSAGE -->
-                                <!-- ================================================= -->
-
-                                <p
-                                    class="
-                                        text-sm
-                                        leading-6
-                                        text-slate-600
-                                    "
-                                >
-                                    You are about to archive this room. Live equipment and
-                                    schedules will be removed. Historical reports will remain
-                                    available.
-                                </p>
-
-
-
-                                <!-- ================================================= -->
-                                <!-- ROOM INFORMATION -->
-                                <!-- ================================================= -->
-
-                                <div
-                                    class="
-                                        mt-5
-                                        flex
-                                        items-center
-                                        justify-between
-                                        gap-4
-                                        rounded-lg
-                                        border
-                                        border-slate-200
-                                        bg-slate-50
-                                        px-4
-                                        py-3
-                                    "
-                                >
-
-                                    <div class="min-w-0">
-
-                                        <p
-                                            class="
-                                                text-xs
-                                                font-medium
-                                                text-slate-500
-                                            "
-                                        >
-                                            Room
-                                        </p>
-
-
-                                        <p
-                                            class="
-                                                mt-0.5
-                                                truncate
-                                                text-sm
-                                                font-semibold
-                                                text-slate-900
-                                            "
-                                            x-text="roomForm.name"
-                                        ></p>
-
-                                    </div>
-
-
-                                    <div
-                                        class="
-                                            shrink-0
-                                            rounded-md
-                                            border
-                                            border-red-100
-                                            bg-red-50
-                                            px-2.5
-                                            py-1
-                                            text-xs
-                                            font-medium
-                                            text-red-600
-                                        "
-                                    >
-                                        Will be archived
-                                    </div>
-
-                                </div>
-
-
-
-                                <!-- ================================================= -->
-                                <!-- ARCHIVE REASON -->
-                                <!-- ================================================= -->
-
-                                <div class="mt-5">
-
-                                    <div
-                                        class="
-                                            mb-2
-                                            flex
-                                            items-center
-                                            justify-between
-                                        "
-                                    >
-
-                                        <label
-                                            class="
-                                                text-xs
-                                                font-medium
-                                                text-slate-600
-                                            "
-                                        >
-                                            Reason
-                                        </label>
-
-
-                                        <span
-                                            class="
-                                                text-xs
-                                                text-slate-400
-                                            "
-                                        >
-                                            Optional
-                                        </span>
-
-                                    </div>
-
-
-                                    <textarea
-                                        x-model="archiveReason"
-                                        rows="3"
-                                        placeholder="Add a reason for archiving this room..."
-                                        class="
-                                            w-full
-                                            resize-none
-                                            rounded-lg
-                                            border
-                                            border-slate-200
-                                            bg-white
-                                            px-3.5
-                                            py-3
-                                            text-sm
-                                            leading-5
-                                            text-slate-900
-                                            outline-none
-                                            transition
-
-                                            placeholder:text-slate-400
-
-                                            hover:border-slate-300
-
-                                            focus:border-red-400
-                                            focus:ring-2
-                                            focus:ring-red-100
-                                        "
-                                    ></textarea>
-
-                                </div>
-
-                            </div>
-
-
-
-                            <!-- ================================================= -->
-                            <!-- FOOTER -->
-                            <!-- ================================================= -->
-
-                            <div
-                                class="
-                                    shrink-0
-                                    border-t
-                                    border-slate-100
-                                    bg-white
-                                    px-6
-                                    py-4
-                                "
-                            >
-
-                                <div
-                                    class="
-                                        flex
-                                        flex-col-reverse
-                                        justify-end
-                                        gap-3
-                                        sm:flex-row
-                                    "
-                                >
-
-
-                                    <!-- CANCEL -->
-
-                                    <button
-                                        type="button"
-                                        @click="archiveRoomModal = false"
-                                        class="
-                                            min-w-[110px]
-                                            rounded-lg
-                                            border
-                                            border-slate-200
-                                            bg-white
-                                            px-5
-                                            py-2.5
-                                            text-sm
-                                            font-medium
-                                            text-slate-600
-                                            transition
-
-                                            hover:border-slate-300
-                                            hover:bg-slate-50
-                                            hover:text-slate-900
-                                        "
-                                    >
-                                        Cancel
-                                    </button>
-
-
-
-                                    <!-- ARCHIVE ROOM -->
-
-                                    <button
-                                        type="button"
-                                        @click="archiveRoom()"
-                                        :disabled="roomSaving"
-                                        class="
-                                            min-w-[145px]
-                                            rounded-lg
-                                            bg-red-600
-                                            px-5
-                                            py-2.5
-                                            text-sm
-                                            font-semibold
-                                            text-white
-                                            shadow-sm
-                                            transition
-
-                                            hover:bg-red-700
-
-                                            disabled:cursor-not-allowed
-                                            disabled:opacity-60
-                                        "
-                                    >
-
-                                        <span
-                                            x-text="
-                                                roomSaving
-                                                    ? 'Archiving...'
-                                                    : 'Archive Room'
                                             "
                                         ></span>
 

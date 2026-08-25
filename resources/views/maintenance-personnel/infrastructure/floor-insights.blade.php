@@ -1,7 +1,7 @@
 {{-- Floor health overview — styled after Learning Progress reference --}}
 <section
     data-floor-insights
-    class="overflow-hidden rounded-[30px] border border-slate-200/80 bg-white shadow-[0_8px_32px_rgba(0,0,0,0.06)]"
+    class="flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[30px] border border-slate-200/80 bg-white"
     x-effect="activeFloor; $nextTick(() => { if (window.lucide) lucide.createIcons(); })"
 >
     {{-- Header --}}
@@ -21,9 +21,9 @@
     <div class="mx-6 border-t border-[#DDDDDD]"></div>
 
     {{-- Main --}}
-    <div class="grid grid-cols-1 items-center gap-2 px-6 py-5 lg:grid-cols-[1fr_240px] lg:gap-4">
+    <div class="grid min-h-0 flex-1 grid-cols-1 items-center gap-6 px-6 py-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:gap-6">
         {{-- Left column --}}
-        <div class="flex min-w-0 flex-col">
+        <div class="flex min-w-0 w-full flex-1 flex-col">
             <p class="text-[13px] font-normal text-[#999999]">Overall Progress</p>
 
             <div class="mt-1 flex flex-wrap items-center gap-2.5">
@@ -37,7 +37,7 @@
                 ></span>
             </div>
 
-            <div class="mt-7 max-w-[300px] space-y-[18px]">
+            <div class="mt-7 w-full space-y-[18px]">
                 <div class="flex items-center gap-3 text-[13px]">
                     <span class="flex-1 text-[#888888]">Rooms needing attention</span>
                     <span class="text-[#DDDDDD]">|</span>
@@ -55,8 +55,10 @@
                 </div>
             </div>
 
+            <div class="min-h-0 flex-1"></div>
+
             {{-- Goal bar (reference style — gray pill, left column) --}}
-            <div class="mt-8 flex max-w-[340px] items-center gap-2.5 rounded-full bg-[#D8D8D8] px-4 py-[10px]">
+            <div class="mt-8 flex w-full items-center gap-2.5 rounded-full bg-[#D8D8D8] px-4 py-[10px]">
                 <span class="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[4px] bg-black">
                     <i data-lucide="check" class="h-2.5 w-2.5 text-white"></i>
                 </span>

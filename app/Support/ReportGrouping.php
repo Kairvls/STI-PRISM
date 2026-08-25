@@ -216,7 +216,11 @@ class ReportGrouping
         });
     }
 
-    public static function moveUnusableEquipmentToDisposal(int $equipmentId, ?string $reason = null): void
+    /**
+     * Keep unusable equipment in inventory as For Replacement.
+     * Disposal is intentional only (via Disposal module / Dispose action).
+     */
+    public static function markEquipmentForReplacement(int $equipmentId): void
     {
         $equipment = DB::table('equipment_table')
             ->where('equipment_id', $equipmentId)
@@ -226,67 +230,78 @@ class ReportGrouping
             return;
         }
 
-        $roomName = null;
-        if (!empty($equipment->equipment_room_id)) {
-            $roomName = DB::table('rooms_table')
-                ->where('room_id', $equipment->equipment_room_id)
-                ->value('room_name');
-        }
-
         $currentStatus = strtolower((string) ($equipment->equipment_inventory_status ?? ''));
 
-        if ($currentStatus !== 'disposed') {
-            DB::table('equipment_table')
-                ->where('equipment_id', $equipmentId)
-                ->update([
-                    'equipment_inventory_status' => 'For Replacement',
-                    'equipment_condition_status' => 'Damaged',
-                ]);
-        }
-
-        $alreadyDisposed = DB::table('disposal_records_table')
-            ->where('disposal_equipment_id', $equipmentId)
-            ->exists();
-
-        if ($alreadyDisposed) {
+        if ($currentStatus === 'disposed') {
             return;
         }
 
-        $reasonText = trim((string) $reason);
-        if ($reasonText === '') {
-            $reasonText = 'Marked for replacement — equipment is no longer functional.';
-        }
+        DB::table('equipment_table')
+            ->where('equipment_id', $equipmentId)
+            ->update([
+                'equipment_inventory_status' => 'For Replacement',
+                'equipment_condition_status' => 'Damaged',
+            ]);
+    }
 
-        $approverId = Auth::id();
-        if (
-            $approverId
-            && !DB::table('users_table')->where('user_id', $approverId)->exists()
-        ) {
-            $approverId = null;
-        }
-
-        DB::table('disposal_records_table')->insert([
-            'disposal_equipment_id' => $equipmentId,
-            'disposal_reason' => $reasonText,
-            'disposal_area_location' => $roomName,
-            'disposal_approved_by' => $approverId,
-            'disposal_disposed_at' => now(),
-        ]);
+    /** @deprecated Use markEquipmentForReplacement(); disposal is no longer automatic. */
+    public static function moveUnusableEquipmentToDisposal(int $equipmentId, ?string $reason = null): void
+    {
+        self::markEquipmentForReplacement($equipmentId);
     }
 
     public static function backfillMissingDisposals(): void
     {
-        $fromStatus = DB::table('equipment_table')
-            ->where('equipment_inventory_status', 'For Replacement')
+        // Intentionally empty: For Replacement stays in inventory until disposed on purpose.
+    }
+
+    /**
+     * Ensure every Disposed inventory item has a disposal record so it appears in Disposal.
+     */
+    public static function ensureDisposedAppearInDisposalModule(): void
+    {
+        $disposedIds = DB::table('equipment_table')
+            ->where('equipment_inventory_status', 'Disposed')
             ->pluck('equipment_id');
 
-        $fromReports = DB::table('reports_table')
-            ->where('report_current_status', 'For Replacement')
-            ->whereNotNull('report_equipment_id')
-            ->pluck('report_equipment_id');
+        if ($disposedIds->isEmpty()) {
+            return;
+        }
 
-        foreach ($fromStatus->merge($fromReports)->unique()->filter() as $equipmentId) {
-            self::moveUnusableEquipmentToDisposal((int) $equipmentId);
+        $existing = DB::table('disposal_records_table')
+            ->whereIn('disposal_equipment_id', $disposedIds)
+            ->pluck('disposal_equipment_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $missing = $disposedIds
+            ->map(fn ($id) => (int) $id)
+            ->diff($existing)
+            ->values();
+
+        foreach ($missing as $equipmentId) {
+            $equipment = DB::table('equipment_table')
+                ->where('equipment_id', $equipmentId)
+                ->first();
+
+            if (!$equipment) {
+                continue;
+            }
+
+            $roomName = null;
+            if (!empty($equipment->equipment_room_id)) {
+                $roomName = DB::table('rooms_table')
+                    ->where('room_id', $equipment->equipment_room_id)
+                    ->value('room_name');
+            }
+
+            DB::table('disposal_records_table')->insert([
+                'disposal_equipment_id' => $equipmentId,
+                'disposal_reason' => 'Equipment marked as disposed.',
+                'disposal_area_location' => $roomName,
+                'disposal_approved_by' => Auth::id(),
+                'disposal_disposed_at' => now(),
+            ]);
         }
     }
 

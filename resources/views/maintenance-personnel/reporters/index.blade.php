@@ -56,7 +56,7 @@
                     class="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] font-semibold text-slate-700 transition hover:bg-slate-50"
                 >
                     <i data-lucide="upload" class="h-4 w-4"></i>
-                    Upload CSV
+                    Add Bulk Reporters
                 </button>
                 <button
                     type="button"
@@ -2414,7 +2414,7 @@
 
             <div class="flex items-center justify-end gap-2 px-6 py-4">
                 <button type="button" onclick="closeCreateModal()" class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100">Cancel</button>
-                <button type="submit" class="h-10 rounded-xl bg-slate-900 px-5 text-sm font-medium text-white transition hover:bg-slate-800">Add reporter</button>
+                <button type="submit" class="h-10 rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800">Add reporter</button>
             </div>
         </form>
     </div>
@@ -2435,7 +2435,7 @@
             </div>
             <div id="reporterDetails" class="px-6 pb-2"></div>
             <div class="flex justify-end px-6 py-4">
-                <button type="button" onclick="closeViewModal()" class="h-10 rounded-xl bg-slate-900 px-4 text-sm font-medium text-white">Close</button>
+                <button type="button" onclick="closeViewModal()" class="h-10 rounded-xl  px-4 text-sm font-medium text-slate-950 hover:text-slate-600">Close</button>
             </div>
         </div>
     </div>
@@ -2506,7 +2506,7 @@
 
             <div class="flex items-center justify-end gap-2 px-6 py-4">
                 <button type="button" onclick="closeEditModal()" class="h-10 rounded-xl px-4 text-sm font-medium text-slate-600 transition hover:bg-slate-100">Cancel</button>
-                <button type="submit" class="h-10 rounded-xl bg-slate-900 px-5 text-sm font-medium text-white transition hover:bg-slate-800">Save changes</button>
+                <button type="submit" class="h-10 rounded-lg bg-[#0025cc] px-5 text-sm font-medium text-white transition hover:bg-blue-800">Save changes</button>
             </div>
         </form>
     </div>
@@ -2839,7 +2839,7 @@
             document.getElementById("reporterDetails").innerHTML = `
                 <div class="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200/70">
                     <div class="flex items-center gap-3">
-                        <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-900 text-sm font-semibold text-white">${initials}</div>
+                        <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-slate-100/80 text-sm font-semibold text-slate-950">${initials}</div>
                         <div class="min-w-0">
                             <p class="truncate text-base font-semibold text-slate-900">${displayName}</p>
                             <p class="mt-0.5 font-mono text-xs text-slate-500">${employee || "—"}</p>

@@ -900,84 +900,10 @@ class InfrastructureController extends Controller
 
     public function archiveRoom(Request $request, Room $room): JsonResponse
     {
-        abort_if($room->room_is_archived, 404);
-
-        $validated = $request->validate([
-            'reason' => ['nullable', 'string', 'max:255'],
-        ]);
-
-        $equipmentCount = DB::table('equipment_table')
-            ->where('equipment_room_id', $room->room_id)
-            ->count();
-
-        if ($equipmentCount > 0) {
-            return response()->json([
-                'code' => 'equipment_present',
-                'equipment_count' => $equipmentCount,
-                'message' => 'Transfer all equipment to another room before archiving this room.',
-            ], 422);
-        }
-
-        try {
-            DB::transaction(function () use ($room, $validated): void {
-                if (Schema::hasTable('workstation_slots_table') && Schema::hasColumn('workstation_slots_table', 'room_id')) {
-                    $slotIds = DB::table('workstation_slots_table')
-                        ->where('room_id', $room->room_id)
-                        ->pluck('id');
-
-                    if ($slotIds->isNotEmpty() && Schema::hasTable('workstation_slot_assets_table')) {
-                        $slotKey = Schema::hasColumn('workstation_slot_assets_table', 'workstation_slot_id')
-                            ? 'workstation_slot_id'
-                            : (Schema::hasColumn('workstation_slot_assets_table', 'slot_id') ? 'slot_id' : null);
-                        if ($slotKey) {
-                            DB::table('workstation_slot_assets_table')
-                                ->whereIn($slotKey, $slotIds)
-                                ->delete();
-                        }
-                    }
-
-                    DB::table('workstation_slots_table')
-                        ->where('room_id', $room->room_id)
-                        ->delete();
-                }
-
-                $metadata = $room->room_metadata ?: [];
-                $metadata['archived_snapshot'] = [
-                    'room_name' => $room->room_name,
-                    'room_type' => $room->room_type,
-                    'room_status' => $room->room_status,
-                    'equipment_ids_removed' => [],
-                    'archived_at' => now()->toDateTimeString(),
-                ];
-
-                $room->update([
-                    'room_is_archived' => true,
-                    'room_archived_at' => now(),
-                    'room_archived_reason' => $validated['reason'] ?: 'Archived from layout editor',
-                    'room_metadata' => $metadata,
-                ]);
-            });
-
-            RoomActivityLog::create([
-                'room_id' => $room->room_id,
-                'user_id' => Auth::check() ? Auth::id() : null,
-                'activity_type' => 'room_archived',
-                'activity_title' => 'Room Archived',
-                'activity_description' => $validated['reason'] ?: 'Room archived.',
-                'created_at' => now(),
-            ]);
-        } catch (\Throwable $e) {
-            report($e);
-
-            return response()->json([
-                'message' => 'Unable to archive room.',
-                'error' => config('app.debug') ? $e->getMessage() : null,
-            ], 500);
-        }
-
         return response()->json([
-            'message' => 'Room archived and live details cleared.',
-        ]);
+            'code' => 'room_permanent',
+            'message' => 'Rooms cannot be archived. A room stays in the building — edit its type, name, or status instead; changes are kept in history.',
+        ], 422);
     }
 
     public function updateEquipment(

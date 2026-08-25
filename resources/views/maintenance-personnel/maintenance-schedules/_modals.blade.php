@@ -1,12 +1,15 @@
 <div
     id="scheduleModal"
-    class="fixed inset-0 z-[1300] hidden items-start justify-center bg-[#0b1220]/70 p-4"
+    x-data="scheduleEquipmentCart(@js($scheduleEquipmentJson ?? []))"
+    x-cloak
+    class="fixed inset-0 z-[1300] hidden items-start justify-center overflow-y-auto bg-[#0b1220]/70 p-4"
+    @keydown.escape.window="if (!$el.classList.contains('hidden')) closeScheduleModal()"
 >
-    <div class="flex max-h-[86vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
+    <div class="my-auto flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
         <div class="flex items-start justify-between gap-4 px-6 pt-6">
             <div class="min-w-0">
                 <h2 class="text-xl font-semibold tracking-tight text-slate-900">Schedule maintenance</h2>
-                <p class="mt-1 text-sm text-slate-500">Create a schedule for equipment.</p>
+                <p class="mt-1 text-sm text-slate-500">Search and add multiple QR-tagged equipment in one go.</p>
             </div>
             <button
                 type="button"
@@ -18,25 +21,103 @@
             </button>
         </div>
 
-        <form action="/maintenance/schedules/store" method="POST" class="flex min-h-0 flex-1 flex-col" onsubmit="return Boolean(document.getElementById('scheduleNextDate')?.value)">
+        <form
+            action="/maintenance/schedules/store"
+            method="POST"
+            class="flex min-h-0 flex-1 flex-col"
+            @submit="prepareSubmit($event)"
+        >
             @csrf
-            <div class="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-6">
-                <div>
-                    <label for="scheduleEquipment" class="mb-1.5 block text-sm text-slate-600">Equipment</label>
-                    <select
-                        id="scheduleEquipment"
-                        name="equipment_id"
-                        required
-                        class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
-                    >
-                        <option value="">Select equipment</option>
-                        @foreach ($equipment as $item)
-                            <option value="{{ $item->equipment_id }}">
-                                {{ $item->equipment_name }}{{ isset($item->room_name) && $item->room_name ? ' · '.$item->room_name : '' }}{{ filled($item->equipment_qr_code) ? ' · '.$item->equipment_qr_code : '' }}
-                            </option>
-                        @endforeach
-                    </select>
-                    <p class="mt-1.5 text-xs text-slate-400">Only equipment with a generated QR code can be scheduled.</p>
+            <div class="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
+                <div class="space-y-4 rounded-2xl bg-slate-50/80 p-4 ring-1 ring-slate-200/80">
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                            <p class="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Equipment</p>
+                            <p class="mt-1 text-sm text-slate-500">Type to search, then add each asset to this schedule batch.</p>
+                        </div>
+                        <p class="rounded-lg bg-white px-2.5 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200/80" x-text="cart.length ? (cart.length + ' selected') : 'None selected'"></p>
+                    </div>
+
+                    <div class="relative" @click.outside="open = false">
+                        <label class="mb-1.5 block text-sm text-slate-600">Find equipment</label>
+                        <div class="relative">
+                            <i data-lucide="search" class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
+                            <input
+                                type="text"
+                                x-model="query"
+                                @focus="open = true"
+                                @input="open = true"
+                                @keydown.arrow-down.prevent="move(1)"
+                                @keydown.arrow-up.prevent="move(-1)"
+                                @keydown.enter.prevent="addHighlighted()"
+                                placeholder="Search by name, room, QR, or asset tag"
+                                class="h-11 w-full rounded-xl border-0 bg-white pl-10 pr-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:ring-2 focus:ring-slate-900/10"
+                                autocomplete="off"
+                            >
+                        </div>
+
+                        <div
+                            x-show="open"
+                            x-cloak
+                            class="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-40 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
+                        >
+                            <div class="max-h-64 overflow-y-auto py-1">
+                                <template x-if="filtered.length === 0">
+                                    <p class="px-3 py-4 text-sm text-slate-400">No matching schedulable equipment.</p>
+                                </template>
+                                <template x-for="(item, index) in filtered" :key="item.id">
+                                    <button
+                                        type="button"
+                                        @click="addItem(item)"
+                                        class="flex w-full items-start gap-3 px-3 py-2.5 text-left transition"
+                                        :class="index === highlight ? 'bg-[#0025cc]/5' : 'hover:bg-slate-50'"
+                                    >
+                                        <span class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+                                            <i data-lucide="wrench" class="h-4 w-4"></i>
+                                        </span>
+                                        <span class="min-w-0 flex-1">
+                                            <span class="block truncate text-sm font-medium text-slate-900" x-text="item.name"></span>
+                                            <span class="mt-0.5 block truncate text-xs text-slate-500" x-text="meta(item)"></span>
+                                        </span>
+                                        <span class="shrink-0 text-[11px] font-semibold text-[#0025cc]">Add</span>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+                        <p class="mt-1.5 text-xs text-slate-400">Only equipment with a generated QR code can be scheduled.</p>
+                        <p x-show="pickerError" x-cloak class="mt-2 text-xs font-medium text-rose-600" x-text="pickerError"></p>
+                    </div>
+
+                    <div class="overflow-hidden rounded-xl bg-white ring-1 ring-slate-200/80">
+                        <template x-if="cart.length === 0">
+                            <div class="px-4 py-8 text-center">
+                                <p class="text-sm font-medium text-slate-700">No equipment added</p>
+                                <p class="mt-1 text-xs text-slate-400">Search above to add one or many assets to this maintenance batch.</p>
+                            </div>
+                        </template>
+                        <template x-if="cart.length > 0">
+                            <div class="divide-y divide-slate-100">
+                                <template x-for="(line, index) in cart" :key="line.id">
+                                    <div class="flex items-center gap-3 px-4 py-3">
+                                        <input type="hidden" :name="'equipment_ids[' + index + ']'" :value="line.id">
+                                        <div class="min-w-0 flex-1">
+                                            <p class="truncate text-sm font-medium text-slate-900" x-text="line.name"></p>
+                                            <p class="mt-0.5 truncate text-xs text-slate-500" x-text="meta(line)"></p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            @click="removeLine(index)"
+                                            class="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-rose-50 hover:text-rose-600"
+                                            aria-label="Remove equipment"
+                                        >
+                                            <i data-lucide="trash-2" class="h-4 w-4"></i>
+                                        </button>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                    <p x-show="cartError" x-cloak class="text-xs font-medium text-rose-600" x-text="cartError"></p>
                 </div>
 
                 <div>
@@ -47,7 +128,7 @@
                         name="title"
                         placeholder="Quarterly inspection"
                         required
-                        class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
+                        class="h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10"
                     />
                 </div>
 
@@ -60,7 +141,7 @@
                         name="description"
                         rows="3"
                         placeholder="Notes or instructions"
-                        class="w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm leading-6 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400"
+                        class="w-full resize-none rounded-xl border-0 bg-slate-50 px-3.5 py-2.5 text-sm leading-6 text-slate-900 outline-none ring-1 ring-slate-200/80 placeholder:text-slate-400 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10"
                     ></textarea>
                 </div>
 
@@ -69,7 +150,7 @@
                     <select
                         id="scheduleFrequency"
                         name="frequency"
-                        class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+                        class="h-11 w-full rounded-xl border-0 bg-slate-50 px-3.5 text-sm text-slate-900 outline-none ring-1 ring-slate-200/80 transition focus:bg-white focus:ring-2 focus:ring-slate-900/10"
                     >
                         <option value="Monthly">Monthly</option>
                         <option value="Quarterly">Quarterly</option>
@@ -168,9 +249,8 @@
                 <button
                     type="submit"
                     class="rounded-xl bg-[#0025cc] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#001fa8]"
-                >
-                    Create schedule
-                </button>
+                    x-text="cart.length ? ('Create ' + cart.length + ' schedule' + (cart.length === 1 ? '' : 's')) : 'Create schedule'"
+                ></button>
             </div>
         </form>
     </div>

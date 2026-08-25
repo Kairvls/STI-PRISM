@@ -8,7 +8,7 @@
         <button
             type="button"
             onclick="openDisposeModal()"
-            class="inline-flex items-center gap-2 rounded-xl bg-[rgba(0,55,199,0.85)] px-4 py-3 font-semibold text-sm text-white transition hover:bg-[rgba(0,44,155,0.85)]"
+            class="inline-flex items-center gap-2 rounded-lg bg-[#0025cc] px-4 py-2.5 font-semibold text-[13px] text-white transition hover:bg-blue-800"
         >
             <i data-lucide="plus" class="w-4 h-4"></i>
 
@@ -384,7 +384,7 @@
                             value="{{ request('search') }}"
                             placeholder="Search equipment, category, reason, or disposal area..."
 
-                            class="h-10 w-full rounded-lg
+                            class="h-9 w-full rounded-lg
                                 border border-slate-200
                                 bg-white pl-10 pr-3
                                 text-sm text-slate-700
@@ -406,7 +406,7 @@
                         <select
                             name="category"
 
-                            class="h-10 min-w-[175px]
+                            class="h-9 min-w-[175px]
                                 appearance-none rounded-lg
                                 border border-slate-200
                                 bg-white pl-3 pr-9
@@ -456,7 +456,7 @@
                         <select
                             name="condition"
 
-                            class="h-10 min-w-[165px]
+                            class="h-9 min-w-[165px]
                                 appearance-none rounded-lg
                                 border border-slate-200
                                 bg-white pl-3 pr-9
@@ -520,7 +520,7 @@
                         <select
                             name="reason"
 
-                            class="h-10 min-w-[170px]
+                            class="h-9 min-w-[170px]
                                 appearance-none rounded-lg
                                 border border-slate-200
                                 bg-white pl-3 pr-9
@@ -581,11 +581,11 @@
                     <button
                         type="submit"
 
-                        class="inline-flex h-10 items-center
+                        class="inline-flex h-9 items-center
                             justify-center gap-2 rounded-lg
-                            bg-slate-950 px-4
+                            bg-[#0025cc] px-4
                             text-sm font-semibold text-white
-                            transition hover:bg-slate-800"
+                            transition hover:bg-blue-800"
                     >
 
                         <i
@@ -671,9 +671,9 @@
                                 Condition
                             </th>
 
-                            <th class="px-5 py-3">
+                            <!--<th class="px-5 py-3">
                                 Reason
-                            </th>
+                            </th>-->
 
                             <th class="px-5 py-3">
                                 Disposal Area
@@ -721,6 +721,7 @@
                                     "Fair" => "bg-sky-50 text-sky-700",
                                     "Damaged" => "bg-amber-50 text-amber-700",
                                     "Critical" => "bg-rose-50 text-rose-700",
+                                    "Disposed" => "bg-slate-800 text-white",
                                     default => "bg-slate-100 text-slate-600",
                                 };
 
@@ -738,9 +739,15 @@
                                     "Critical" =>
                                         "bg-red-500",
 
+                                    "Disposed" =>
+                                        "bg-slate-800",
+
                                     default =>
                                         "bg-slate-400",
                                 };
+
+                                $isFinallyDisposed =
+                                    $conditionStatus === 'Disposed';
                             @endphp
 
 
@@ -788,9 +795,14 @@
                                                 class="mt-0.5 text-[11px]
                                                     text-slate-400"
                                             >
-                                                {{ ($record->equipment_inventory_status ?? '') === 'For Replacement'
-                                                    ? 'Awaiting replacement / disposal'
-                                                    : 'Disposed equipment' }}
+                                                @if ($isFinallyDisposed)
+                                                    Final disposal — cannot be restored
+                                                @elseif (($record->equipment_condition_status ?? '') === 'Damaged'
+                                                    || ($record->equipment_inventory_status ?? '') === 'For Replacement')
+                                                    Damaged / queued — can still be restored
+                                                @else
+                                                    In disposal — can still be restored
+                                                @endif
                                             </p>
 
                                         </div>
@@ -839,7 +851,7 @@
                                 {{-- DISPOSAL REASON --}}
                                 {{-- ===================================== --}}
 
-                                <td class="px-5 py-4">
+                                <!--<td class="px-5 py-4">
 
                                     <p
                                         class="max-w-[230px] truncate
@@ -853,7 +865,7 @@
                                         }}
                                     </p>
 
-                                </td>
+                                </td>-->
 
 
 
@@ -951,30 +963,35 @@
                                     <div
                                         class="flex items-center justify-center gap-2"
                                     >
-                                        <form method="POST" action="/maintenance/disposal/restore">
-                                            @csrf
-                                            <input type="hidden" name="disposal_id" value="{{ $record->disposal_record_id }}" />
-                                            <button
-                                                type="submit"
-                                                class="flex h-9 items-center rounded-xl bg-white px-2.5 text-[11px] font-medium text-slate-600 ring-1 ring-slate-200 transition hover:bg-slate-50"
-                                                data-tooltip="Return to Inventory"
-                                            >
-                                                Restore
-                                            </button>
-                                        </form>
+                                        @php
+                                            // Final only when condition is Disposed.
+                                            // Damaged items can still be restored.
+                                            $isFinallyDisposed =
+                                                ($record->equipment_condition_status ?? '') === 'Disposed';
+                                        @endphp
 
-                                        @if (($record->equipment_inventory_status ?? '') !== 'Disposed')
-                                            <form method="POST" action="/maintenance/disposal/confirm">
-                                                @csrf
-                                                <input type="hidden" name="disposal_id" value="{{ $record->disposal_record_id }}" />
-                                                <button
-                                                    type="submit"
-                                                    class="flex h-9 items-center rounded-xl bg-slate-900 px-2.5 text-[11px] font-medium text-white transition hover:bg-slate-800"
-                                                    data-tooltip="Mark actually disposed"
-                                                >
-                                                    Dispose
-                                                </button>
-                                            </form>
+                                        @if (! $isFinallyDisposed)
+                                            <button
+                                                type="button"
+                                                class="js-restore-disposal flex h-9 w-9 items-center justify-center rounded-xl bg-white text-slate-600 ring-1 ring-slate-200 transition hover:bg-slate-50 hover:text-slate-900"
+                                                data-disposal-id="{{ (int) $record->disposal_record_id }}"
+                                                data-equipment-name="{{ e($record->equipment_name ?? 'this equipment') }}"
+                                                data-tooltip="Restore to Inventory"
+                                                aria-label="Restore to Inventory"
+                                            >
+                                                <i data-lucide="rotate-ccw" class="pointer-events-none h-3.5 w-3.5"></i>
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                class="js-finalize-dispose flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 text-white transition hover:bg-slate-800"
+                                                data-disposal-id="{{ (int) $record->disposal_record_id }}"
+                                                data-equipment-name="{{ e($record->equipment_name ?? 'this equipment') }}"
+                                                data-tooltip="Finalize disposal (cannot restore)"
+                                                aria-label="Finalize disposal"
+                                            >
+                                                <i data-lucide="archive-x" class="pointer-events-none h-3.5 w-3.5"></i>
+                                            </button>
                                         @endif
 
                                         {{-- ================================= --}}
@@ -983,30 +1000,28 @@
 
                                         <button
                                             type="button"
-
-                                            onclick="viewDisposal(
-                                                '{{ $record->equipment_name }}',
-                                                '{{ $record->equipment_category_name }}',
-                                                '{{ $record->equipment_condition_status }}',
-                                                '{{ $record->disposal_reason }}',
-                                                '{{ $record->disposal_area_location }}',
-                                                '{{ $record->disposal_disposed_at }}'
-                                            )"
-
+                                            onclick="event.stopPropagation(); window.openDisposalViewModal && window.openDisposalViewModal(this);"
+                                            data-payload="{{ base64_encode(json_encode([
+                                                'equipment' => (string) ($record->equipment_name ?? ''),
+                                                'category' => (string) ($record->equipment_category_name ?? ''),
+                                                'condition' => (string) ($record->equipment_condition_status ?? ''),
+                                                'reason' => (string) ($record->disposal_reason ?? ''),
+                                                'location' => (string) ($record->disposal_area_location ?? ''),
+                                                'date' => (string) ($record->disposal_disposed_at ?? ''),
+                                                'inventoryStatus' => (string) ($record->equipment_inventory_status ?? ''),
+                                            ], JSON_UNESCAPED_UNICODE)) }}"
                                             class="flex h-9 w-9 items-center
                                                 justify-center rounded-xl
                                                 bg-slate-100 text-slate-600
                                                 transition
                                                 hover:bg-slate-200
                                                 hover:text-slate-900"
-
                                             data-tooltip="View disposal details"
-
                                             aria-label="View disposal details"
                                         >
                                             <i
                                                 data-lucide="eye"
-                                                class="h-3.5 w-3.5"
+                                                class="pointer-events-none h-3.5 w-3.5"
                                             ></i>
                                         </button>
 
@@ -1444,76 +1459,212 @@
     <!-- ===================================================== -->
 
     <div
-    id="viewModal"
-    class="fixed inset-0 z-50 hidden items-center justify-center bg-[#0b1220]/70 p-4"
->
-    <!-- ===================================== -->
-    <!-- DISPOSAL DETAILS MODAL -->
-    <!-- ===================================== -->
-    <div
-        class="flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
+        id="viewModal"
+        class="fixed inset-0 hidden items-center justify-center bg-[#0b1220]/70 p-4 backdrop-blur-[2px]"
+        style="display: none; z-index: 10060;"
+        onclick="if (event.target === this) closeViewModal()"
     >
-        <!-- ===================================== -->
-        <!-- MODAL HEADER -->
-        <!-- ===================================== -->
         <div
-            class="flex shrink-0 items-start justify-between gap-6 px-6 pb-5 pt-6 border-b border-dashed border-slate-500"
+            class="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.18)]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="viewDisposalTitle"
         >
-            <div>
-                <p
-                    class="text-[11px] font-medium uppercase tracking-[0.16em] text-slate-400"
-                >
-                    Disposal Record
-                </p>
+            {{-- Header --}}
+            <div class="relative shrink-0 overflow-hidden px-6 pb-5 pt-6">
+                <div class="pointer-events-none absolute inset-0 bg-gradient-to-br from-rose-50 via-white to-slate-50"></div>
 
-                <h2
-                    class="mt-1.5 text-lg font-semibold tracking-tight text-slate-950"
-                >
-                    Disposal details
-                </h2>
+                <div class="relative flex items-start justify-between gap-4">
+                    <div class="min-w-0">
+                        <div class="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-100 text-rose-600 ring-1 ring-rose-200/80">
+                            <i data-lucide="archive-x" class="h-5 w-5"></i>
+                        </div>
+
+                        <p class="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                            Disposal record
+                        </p>
+
+                        <h2
+                            id="viewDisposalTitle"
+                            class="mt-1 truncate text-xl font-semibold tracking-tight text-slate-950"
+                        >
+                            Equipment details
+                        </h2>
+
+                        <p id="viewDisposalSubtitle" class="mt-1.5 text-sm text-slate-500">
+                            Review how this asset was written off.
+                        </p>
+                    </div>
+
+                    <button
+                        type="button"
+                        onclick="closeViewModal()"
+                        class="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-white/80 hover:text-slate-900"
+                        aria-label="Close modal"
+                    >
+                        <i data-lucide="x" class="h-4 w-4"></i>
+                    </button>
+                </div>
             </div>
 
-            <!-- CLOSE BUTTON -->
-            <button
-                type="button"
-                onclick="closeViewModal()"
-                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
-                aria-label="Close modal"
-            >
-                <i data-lucide="x" class="h-4 w-4"></i>
-            </button>
-        </div>
+            {{-- Body --}}
+            <div class="min-h-0 flex-1 overflow-y-auto px-6 pb-2 pt-1">
+                <div id="viewDisposalDetails" class="space-y-4 pb-4"></div>
+            </div>
 
-        <!-- ===================================== -->
-        <!-- DISPOSAL DETAILS CONTENT -->
-        <!-- ===================================== -->
-        <div
-            class="min-h-0 flex-1 overflow-y-auto border-y border-slate-100 px-6 py-2"
-        >
-            <div
-                id="viewDisposalDetails"
-                class="divide-y divide-slate-100"
-            ></div>
-        </div>
-
-        <div class="border-t border-dashed border-slate-500 "></div>
-
-        <!-- ===================================== -->
-        <!-- MODAL FOOTER -->
-        <!-- ===================================== -->
-        <div
-            class="flex shrink-0 items-center justify-end px-6 py-4"
-        >
-            <button
-                type="button"
-                onclick="closeViewModal()"
-                class="rounded-lg px-3.5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
-            >
-                Close
-            </button>
+            {{-- Footer --}}
+            <div class="flex shrink-0 items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/60 px-6 py-4">
+                <button
+                    type="button"
+                    onclick="closeViewModal()"
+                    class="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-slate-200"
+                >
+                    Done
+                </button>
+            </div>
         </div>
     </div>
-</div>
+
+    <!-- ===================================================== -->
+    <!-- RESTORE VALIDATION MODAL -->
+    <!-- ===================================================== -->
+
+    <div
+        id="restoreDisposalModal"
+        class="fixed inset-0 hidden items-center justify-center bg-[#0b1220]/70 p-4"
+        style="display: none; z-index: 10060;"
+        onclick="if (event.target === this) window.closeRestoreDisposalModal && window.closeRestoreDisposalModal()"
+    >
+        <div
+            class="w-full max-w-md overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="restoreDisposalTitle"
+        >
+            <div class="flex items-start justify-between gap-6 px-6 pb-5 pt-6">
+                <div class="min-w-0">
+                    <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+                        <i data-lucide="rotate-ccw" class="h-4 w-4"></i>
+                    </div>
+
+                    <h2
+                        id="restoreDisposalTitle"
+                        class="text-lg font-semibold tracking-tight text-slate-950"
+                    >
+                        Restore to inventory?
+                    </h2>
+
+                    <p class="mt-2 text-sm leading-6 text-slate-500">
+                        You are about to restore
+                        <span id="restoreDisposalEquipmentName" class="font-semibold text-slate-800">this equipment</span>
+                        back to Inventory as Active. The disposal record for this item will be removed.
+                    </p>
+                </div>
+
+                <button
+                    type="button"
+                    onclick="window.closeRestoreDisposalModal && window.closeRestoreDisposalModal()"
+                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                    aria-label="Close modal"
+                >
+                    <i data-lucide="x" class="h-4 w-4"></i>
+                </button>
+            </div>
+
+            <form action="/maintenance/disposal/restore" method="POST">
+                @csrf
+                <input type="hidden" id="restoreDisposalId" name="disposal_id" value="" />
+
+                <div class="flex items-center justify-end gap-2 border-t border-slate-100 px-6 py-4">
+                    <button
+                        type="button"
+                        onclick="window.closeRestoreDisposalModal && window.closeRestoreDisposalModal()"
+                        class="rounded-lg px-3.5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+                    >
+                        Cancel
+                    </button>
+
+                    <button
+                        type="submit"
+                        class="rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-emerald-700 focus:outline-none focus:ring-4 focus:ring-emerald-100"
+                    >
+                        Confirm restore
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===================================================== -->
+    <!-- FINALIZE DISPOSE VALIDATION MODAL -->
+    <!-- ===================================================== -->
+
+    <div
+        id="finalizeDisposeModal"
+        class="fixed inset-0 hidden items-center justify-center bg-[#0b1220]/70 p-4"
+        style="display: none; z-index: 10060;"
+        onclick="if (event.target === this) window.closeFinalizeDisposeModal && window.closeFinalizeDisposeModal()"
+    >
+        <div
+            class="w-full max-w-md overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="finalizeDisposeTitle"
+        >
+            <div class="flex items-start justify-between gap-6 px-6 pb-5 pt-6">
+                <div class="min-w-0">
+                    <div class="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-slate-900 text-white">
+                        <i data-lucide="archive-x" class="h-4 w-4"></i>
+                    </div>
+
+                    <h2
+                        id="finalizeDisposeTitle"
+                        class="text-lg font-semibold tracking-tight text-slate-950"
+                    >
+                        Finalize disposal?
+                    </h2>
+
+                    <p class="mt-2 text-sm leading-6 text-slate-500">
+                        You are about to permanently dispose
+                        <span id="finalizeDisposeEquipmentName" class="font-semibold text-slate-800">this equipment</span>.
+                        Condition will become <span class="font-medium text-slate-800">Disposed</span>,
+                        it will stay in Disposal, and it cannot be restored.
+                    </p>
+                </div>
+
+                <button
+                    type="button"
+                    onclick="closeFinalizeDisposeModal()"
+                    class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-900"
+                    aria-label="Close modal"
+                >
+                    <i data-lucide="x" class="h-4 w-4"></i>
+                </button>
+            </div>
+
+            <form action="/maintenance/disposal/confirm" method="POST">
+                @csrf
+                <input type="hidden" id="finalizeDisposeId" name="disposal_id" value="" />
+
+                <div class="flex items-center justify-end gap-2 border-t border-slate-100 px-6 py-4">
+                    <button
+                        type="button"
+                        onclick="closeFinalizeDisposeModal()"
+                        class="rounded-lg px-3.5 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+                    >
+                        Cancel
+                    </button>
+
+                    <button
+                        type="submit"
+                        class="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-800 focus:outline-none focus:ring-4 focus:ring-slate-200"
+                    >
+                        Confirm dispose
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <!-- ===================================================== -->
     <!-- DELETE DISPOSAL MODAL -->
@@ -1608,134 +1759,289 @@
     <script>
         function openDisposeModal() {
             document.getElementById("disposeModal").classList.remove("hidden");
-
             document.getElementById("disposeModal").classList.add("flex");
         }
 
         function closeDisposeModal() {
             document.getElementById("disposeModal").classList.add("hidden");
-
             document.getElementById("disposeModal").classList.remove("flex");
         }
 
-        function viewDisposal(
-            equipment,
-            category,
-            condition,
-            reason,
-            location,
-            date,
-        ) {
-            // =====================================
-            // DISPOSAL DETAILS CONTAINER
-            // =====================================
-            document.getElementById("viewDisposalDetails").innerHTML = `
+        function decodeDisposalPayload(button) {
+            var encoded = button.getAttribute("data-payload") || "";
+            if (!encoded) {
+                return {};
+            }
 
-                <!-- ===================================== -->
-                <!-- EQUIPMENT -->
-                <!-- ===================================== -->
-                <div class="flex items-start justify-between gap-8 py-3.5">
-                    <span class="shrink-0 text-sm text-slate-500">
-                        Equipment
-                    </span>
+            try {
+                var binary = atob(encoded);
+                var bytes = Uint8Array.from(binary, function (char) {
+                    return char.charCodeAt(0);
+                });
+                return JSON.parse(new TextDecoder().decode(bytes));
+            } catch (error) {
+                try {
+                    return JSON.parse(decodeURIComponent(escape(atob(encoded))));
+                } catch (fallbackError) {
+                    console.error("Disposal view payload decode failed:", fallbackError);
+                    return {};
+                }
+            }
+        }
 
-                    <span class="max-w-[65%] break-words text-right text-sm font-medium text-slate-950">
-                        ${equipment || "—"}
-                    </span>
-                </div>
+        function escapeDisposalHtml(value) {
+            return String(value == null ? "" : value)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#39;");
+        }
 
-                <!-- ===================================== -->
-                <!-- CATEGORY -->
-                <!-- ===================================== -->
-                <div class="flex items-start justify-between gap-8 py-3.5">
-                    <span class="shrink-0 text-sm text-slate-500">
-                        Category
-                    </span>
+        function displayDisposalValue(value, fallback) {
+            var text = String(value == null ? "" : value).trim();
+            return text !== "" ? escapeDisposalHtml(text) : (fallback || "—");
+        }
 
-                    <span class="max-w-[65%] break-words text-right text-sm font-medium text-slate-900">
-                        ${category || "—"}
-                    </span>
-                </div>
+        function openDisposalViewModal(button) {
+            var data = decodeDisposalPayload(button);
+            var modalEl = document.getElementById("viewModal");
+            var titleEl = document.getElementById("viewDisposalTitle");
+            var subtitleEl = document.getElementById("viewDisposalSubtitle");
+            var detailsEl = document.getElementById("viewDisposalDetails");
 
-                <!-- ===================================== -->
-                <!-- CONDITION -->
-                <!-- ===================================== -->
-                <div class="flex items-start justify-between gap-8 py-3.5">
-                    <span class="shrink-0 text-sm text-slate-500">
-                        Condition
-                    </span>
+            if (!modalEl || !titleEl || !subtitleEl || !detailsEl) {
+                console.error("Disposal view modal elements are missing.");
+                alert("Unable to open disposal details.");
+                return;
+            }
 
-                    <span class="max-w-[65%] break-words text-right text-sm font-medium text-slate-900">
-                        ${condition || "—"}
-                    </span>
-                </div>
+            var conditionClasses = {
+                Good: "bg-emerald-50 text-emerald-700 ring-emerald-100",
+                Fair: "bg-sky-50 text-sky-700 ring-sky-100",
+                Damaged: "bg-amber-50 text-amber-700 ring-amber-100",
+                Critical: "bg-rose-50 text-rose-700 ring-rose-100",
+                "Under Maintenance": "bg-amber-50 text-amber-700 ring-amber-100",
+            };
 
-                <!-- ===================================== -->
-                <!-- DISPOSAL REASON -->
-                <!-- ===================================== -->
-                <div class="flex items-start justify-between gap-8 py-3.5">
-                    <span class="shrink-0 text-sm text-slate-500">
-                        Disposal reason
-                    </span>
+            var statusClasses = {
+                Disposed: "bg-rose-50 text-rose-700 ring-rose-100",
+                "For Replacement": "bg-orange-50 text-orange-700 ring-orange-100",
+            };
 
-                    <span class="max-w-[65%] break-words text-right text-sm font-medium text-slate-900">
-                        ${reason || "—"}
-                    </span>
-                </div>
+            var conditionLabel = String(data.condition || "").trim() || "Unknown";
+            var statusLabel = String(data.inventoryStatus || "").trim() || "Disposed";
+            var conditionClass =
+                conditionClasses[conditionLabel] || "bg-slate-100 text-slate-600 ring-slate-200";
+            var statusClass =
+                statusClasses[statusLabel] || "bg-slate-100 text-slate-600 ring-slate-200";
 
-                <!-- ===================================== -->
-                <!-- DISPOSAL AREA -->
-                <!-- ===================================== -->
-                <div class="flex items-start justify-between gap-8 py-3.5">
-                    <span class="shrink-0 text-sm text-slate-500">
-                        Disposal area
-                    </span>
+            var formattedDate = displayDisposalValue(data.date);
+            if (data.date) {
+                var parsed = new Date(data.date);
+                if (!Number.isNaN(parsed.getTime())) {
+                    formattedDate = escapeDisposalHtml(
+                        parsed.toLocaleString(undefined, {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                            hour: "numeric",
+                            minute: "2-digit",
+                        })
+                    );
+                }
+            }
 
-                    <span class="max-w-[65%] break-words text-right text-sm font-medium text-slate-900">
-                        ${location || "—"}
-                    </span>
-                </div>
+            titleEl.textContent = String(data.equipment || "").trim() || "Equipment details";
+            subtitleEl.textContent =
+                statusLabel === "For Replacement"
+                    ? "Queued for disposal - not fully written off yet."
+                    : "This asset has been recorded as disposed.";
 
-                <!-- ===================================== -->
-                <!-- DISPOSED DATE -->
-                <!-- ===================================== -->
-                <div class="flex items-center justify-between gap-8 py-3.5">
-                    <span class="text-sm text-slate-500">
-                        Disposed date
-                    </span>
+            detailsEl.innerHTML =
+                '<div class="flex flex-wrap items-center gap-2">' +
+                    '<span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ' + statusClass + '">' +
+                        '<span class="h-1.5 w-1.5 rounded-full bg-current opacity-70"></span>' +
+                        displayDisposalValue(statusLabel) +
+                    "</span>" +
+                    '<span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ' + conditionClass + '">' +
+                        "Condition · " + displayDisposalValue(conditionLabel) +
+                    "</span>" +
+                "</div>" +
+                '<div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">' +
+                    '<div class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4">' +
+                        '<div class="mb-2 flex h-8 w-8 items-center justify-center rounded-xl bg-white text-slate-500 shadow-sm ring-1 ring-slate-200/80">' +
+                            '<i data-lucide="layers" class="h-3.5 w-3.5"></i>' +
+                        "</div>" +
+                        '<p class="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">Category</p>' +
+                        '<p class="mt-1 text-sm font-semibold text-slate-900">' + displayDisposalValue(data.category, "Uncategorized") + "</p>" +
+                    "</div>" +
+                    '<div class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4">' +
+                        '<div class="mb-2 flex h-8 w-8 items-center justify-center rounded-xl bg-white text-slate-500 shadow-sm ring-1 ring-slate-200/80">' +
+                            '<i data-lucide="map-pin" class="h-3.5 w-3.5"></i>' +
+                        "</div>" +
+                        '<p class="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">Disposal area</p>' +
+                        '<p class="mt-1 text-sm font-semibold text-slate-900">' + displayDisposalValue(data.location) + "</p>" +
+                    "</div>" +
+                    '<div class="rounded-2xl border border-slate-200/80 bg-slate-50/80 p-4 sm:col-span-2">' +
+                        '<div class="mb-2 flex h-8 w-8 items-center justify-center rounded-xl bg-white text-slate-500 shadow-sm ring-1 ring-slate-200/80">' +
+                            '<i data-lucide="calendar-clock" class="h-3.5 w-3.5"></i>' +
+                        "</div>" +
+                        '<p class="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">Disposed date</p>' +
+                        '<p class="mt-1 text-sm font-semibold text-slate-900">' + formattedDate + "</p>" +
+                    "</div>" +
+                "</div>" +
+                '<div class="mt-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">' +
+                    '<div class="mb-2 flex items-center gap-2">' +
+                        '<div class="flex h-8 w-8 items-center justify-center rounded-xl bg-rose-50 text-rose-600 ring-1 ring-rose-100">' +
+                            '<i data-lucide="file-text" class="h-3.5 w-3.5"></i>' +
+                        "</div>" +
+                        '<p class="text-[11px] font-medium uppercase tracking-[0.08em] text-slate-400">Disposal reason</p>' +
+                    "</div>" +
+                    '<p class="whitespace-pre-wrap text-sm leading-6 text-slate-700">' + displayDisposalValue(data.reason, "No reason provided.") + "</p>" +
+                "</div>";
 
-                    <span class="text-sm font-medium text-slate-900">
-                        ${date || "—"}
-                    </span>
-                </div>
-            `;
+            modalEl.classList.remove("hidden");
+            modalEl.classList.add("flex");
+            modalEl.style.display = "flex";
+            modalEl.style.zIndex = "10060";
 
-            // =====================================
-            // OPEN DISPOSAL DETAILS MODAL
-            // =====================================
-            document.getElementById("viewModal").classList.remove("hidden");
-            document.getElementById("viewModal").classList.add("flex");
+            // Keep modal above layout overflow/clipping by attaching to body.
+            if (modalEl.parentElement !== document.body) {
+                document.body.appendChild(modalEl);
+            }
+
+            if (window.lucide) {
+                window.lucide.createIcons();
+            }
         }
 
         function closeViewModal() {
-            document.getElementById("viewModal").classList.add("hidden");
-
-            document.getElementById("viewModal").classList.remove("flex");
+            var modalEl = document.getElementById("viewModal");
+            if (!modalEl) return;
+            modalEl.classList.add("hidden");
+            modalEl.classList.remove("flex");
+            modalEl.style.display = "none";
         }
+
+        function openRestoreDisposalModal(id, equipmentName) {
+            var modal = document.getElementById("restoreDisposalModal");
+            var idInput = document.getElementById("restoreDisposalId");
+            var nameEl = document.getElementById("restoreDisposalEquipmentName");
+
+            if (!modal || !idInput || !nameEl) {
+                console.error("Restore disposal modal markup is missing.");
+                alert("Unable to open restore confirmation.");
+                return;
+            }
+
+            idInput.value = id;
+            nameEl.textContent = equipmentName || "this equipment";
+
+            if (modal.parentElement !== document.body) {
+                document.body.appendChild(modal);
+            }
+
+            modal.classList.remove("hidden");
+            modal.classList.add("flex");
+            modal.style.display = "flex";
+            modal.style.zIndex = "10060";
+
+            if (window.lucide) {
+                window.lucide.createIcons();
+            }
+        }
+
+        function closeRestoreDisposalModal() {
+            var modal = document.getElementById("restoreDisposalModal");
+            if (!modal) return;
+            modal.classList.add("hidden");
+            modal.classList.remove("flex");
+            modal.style.display = "none";
+        }
+
+        function openFinalizeDisposeModal(id, equipmentName) {
+            var modal = document.getElementById("finalizeDisposeModal");
+            var idInput = document.getElementById("finalizeDisposeId");
+            var nameEl = document.getElementById("finalizeDisposeEquipmentName");
+
+            if (!modal || !idInput || !nameEl) {
+                console.error("Finalize dispose modal markup is missing.");
+                alert("Unable to open dispose confirmation.");
+                return;
+            }
+
+            idInput.value = id;
+            nameEl.textContent = equipmentName || "this equipment";
+
+            if (modal.parentElement !== document.body) {
+                document.body.appendChild(modal);
+            }
+
+            modal.classList.remove("hidden");
+            modal.classList.add("flex");
+            modal.style.display = "flex";
+            modal.style.zIndex = "10060";
+
+            if (window.lucide) {
+                window.lucide.createIcons();
+            }
+        }
+
+        function closeFinalizeDisposeModal() {
+            var modal = document.getElementById("finalizeDisposeModal");
+            if (!modal) return;
+            modal.classList.add("hidden");
+            modal.classList.remove("flex");
+            modal.style.display = "none";
+        }
+
+        document.addEventListener("click", function (event) {
+            var restoreButton = event.target.closest(".js-restore-disposal");
+            if (restoreButton) {
+                event.preventDefault();
+                event.stopPropagation();
+                openRestoreDisposalModal(
+                    restoreButton.getAttribute("data-disposal-id"),
+                    restoreButton.getAttribute("data-equipment-name") || "this equipment"
+                );
+                return;
+            }
+
+            var disposeButton = event.target.closest(".js-finalize-dispose");
+            if (!disposeButton) return;
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            openFinalizeDisposeModal(
+                disposeButton.getAttribute("data-disposal-id"),
+                disposeButton.getAttribute("data-equipment-name") || "this equipment"
+            );
+        });
 
         function openDeleteModal(id) {
             document.getElementById("deleteDisposalId").value = id;
-
             document.getElementById("deleteModal").classList.remove("hidden");
-
             document.getElementById("deleteModal").classList.add("flex");
         }
 
         function closeDeleteModal() {
             document.getElementById("deleteModal").classList.add("hidden");
-
             document.getElementById("deleteModal").classList.remove("flex");
         }
+
+        window.openDisposeModal = openDisposeModal;
+        window.closeDisposeModal = closeDisposeModal;
+        window.openDisposalViewModal = openDisposalViewModal;
+        window.closeViewModal = closeViewModal;
+        window.closeDisposalViewModal = closeViewModal;
+        window.openRestoreDisposalModal = openRestoreDisposalModal;
+        window.closeRestoreDisposalModal = closeRestoreDisposalModal;
+        window.openFinalizeDisposeModal = openFinalizeDisposeModal;
+        window.closeFinalizeDisposeModal = closeFinalizeDisposeModal;
+        window.openDeleteModal = openDeleteModal;
+        window.closeDeleteModal = closeDeleteModal;
     </script>
 
 @endsection

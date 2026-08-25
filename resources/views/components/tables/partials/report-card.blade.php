@@ -134,10 +134,14 @@ if ($currentStatus === "Pending") {
                         <button
                             type="button"
                             onclick="
-                                openReportModal('update-modal-{{ $report->report_id }}');
-                                const select = document.querySelector('#update-modal-{{ $report->report_id }} select[name=status]');
-                                select.value='{{ $option['value'] }}';
-                                toggleStatusFields(select);
+                                @if ($option['value'] === 'Rejected')
+                                    openReportModal('reject-modal-{{ $report->report_id }}');
+                                @else
+                                    openReportModal('update-modal-{{ $report->report_id }}');
+                                    const select = document.querySelector('#update-modal-{{ $report->report_id }} select[name=status]');
+                                    select.value='{{ $option['value'] }}';
+                                    toggleStatusFields(select);
+                                @endif
                             "
                             class="h-9 rounded-lg px-3.5 text-xs font-medium transition {{ $option['class'] }}"
                         >

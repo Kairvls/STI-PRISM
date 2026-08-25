@@ -1,28 +1,29 @@
+<template x-if="wizardOpen">
 <div
-    x-show="wizardOpen"
-    x-cloak
     x-transition.opacity
+    data-campus-wizard
     class="fixed inset-0 z-[1000] flex items-center justify-center bg-[#0b1220]/70"
     :class="wizardFullscreen ? 'p-0' : 'p-3 sm:p-6'"
     role="dialog"
     aria-modal="true"
+    @click.self="closeCampusWizard()"
 >
     <form
         method="POST"
         action="{{ route('maintenance.infrastructure.campus.store') }}"
         @submit.prevent="submitCampusWizard($event)"
-        @click.outside="closeCampusWizard()"
         class="flex w-full flex-col overflow-hidden bg-white shadow-2xl"
         :class="wizardFullscreen
             ? 'h-[100dvh] max-h-[100dvh] max-w-none rounded-none'
             : 'max-h-[80vh] max-w-5xl rounded-[28px]'"
+        @click.stop
     >
         @csrf
         <header
             class="flex shrink-0 items-start justify-between border-b border-slate-100 px-6 py-5 sm:px-8"
         >
             <div>
-                <p class="text-[10px] font-extrabold uppercase tracking-[.2em] text-[#005EA6]">Unified creation cascade</p>
+                <p class="text-[10px] font-extrabold uppercase tracking-[.2em] text-[#0025cc]">Unified creation cascade</p>
                 <h2
                     class="mt-1 text-xl font-extrabold text-slate-950 sm:text-2xl"
                 >
@@ -70,13 +71,13 @@
                     @click="goToWizardStep(item.n)"
                     class="flex items-center gap-2 py-1 text-left"
                     :class="step === item.n
-                        ? 'text-[#005EA6]'
+                        ? 'text-[#0025cc]'
                         : 'text-slate-400'"
                 >
                     <span
                         class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-extrabold"
                         :class="step === item.n
-                            ? 'bg-[#005EA6] text-white'
+                            ? 'bg-[#0025cc] text-white'
                             : 'bg-white ring-1 ring-slate-200'"
                         x-text="item.n"
                     ></span>
@@ -137,7 +138,7 @@
 
                 <div class="mx-auto max-w-xl py-8 text-center">
                     <span
-                        class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-[#005EA6]"
+                        class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-[#0025cc]"
                         ><i data-lucide="building" class="h-8 w-8"></i
                     ></span>
                     <h3 class="mt-5 text-2xl font-extrabold">
@@ -152,7 +153,7 @@
                         x-model="form.building_name"
                         required
                         :readonly="isWizardSetupLocked"
-                        class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-[#005EA6] focus:ring-[#005EA6]"
+                        class="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:border-[#0025cc] focus:ring-[#0025cc]"
                         :class="isWizardSetupLocked ? 'bg-slate-100 text-slate-500' : ''"
                         placeholder="e.g. STI College Ormoc Main Building"
                 /></label>
@@ -232,7 +233,7 @@
                             type="button"
                             @click="confirmUnlockSetup()"
                             :disabled="unlockVerifyBusy"
-                            class="rounded-lg bg-[#005EA6] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                            class="rounded-lg bg-[#0025cc] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
                             x-text="unlockVerifyBusy ? 'Verifying...' : 'Verify & Unlock'"
                         ></button>
                     </div>
@@ -261,7 +262,7 @@
                             @click="selectWizardFloor(fi)"
                             class="rounded-2xl border p-4 text-left transition"
                             :class="wizardFloorIndex === fi
-                                ? 'border-[#005EA6] bg-blue-50 ring-2 ring-blue-100'
+                                ? 'border-[#0025cc] bg-blue-50 ring-2 ring-blue-100'
                                 : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'"
                         >
                             <div class="flex items-center gap-3">
@@ -318,12 +319,11 @@
                             ></p>
                             <p
                                 class="mt-2 text-[11px] font-normal uppercase tracking-wider"
-                                :class="wizardFloorIndex === fi ? 'text-[#005EA6]' : 'text-slate-300'"
-                                x-text="wizardFloorIndex === fi ? 'Selected for step 3' : 'Click to edit this floor'
-                                "
+                                :class="wizardFloorIndex === fi ? 'text-[#0025cc]' : 'text-slate-300'"
+                                x-text="wizardFloorIndex === fi ? 'Selected for step 3' : 'Click to edit this floor'"
                             ></p>
-                        </button></template>
-                    ></template>
+                        </button>
+                    </template>
                 </div>
             </section>
 
@@ -379,7 +379,7 @@
                                             @click="selectWizardFloor(fi); open = false"
                                             class="mb-1 flex w-full items-center rounded-lg px-3 py-2 text-left text-sm transition last:mb-0"
                                             :class="wizardFloorIndex === fi
-                                                ? 'bg-[#005EA6] text-white'
+                                                ? 'bg-[#0025cc] text-white'
                                                 : 'text-slate-700 hover:bg-slate-100'"
                                             x-text="floor.level"
                                             role="option"
@@ -391,10 +391,10 @@
                         </div>
                     </div>
                 </div>
-                <div x-show="step3Mode === 'fast'" x-cloak class="mt-6 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+                <template x-if="step3Mode === 'fast'">
+                <div class="mt-6 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
                     <div class="mb-4 flex items-center justify-between gap-3">
                         <div>
-                            <!--<p class="text-[11px] font-bold uppercase tracking-[.2em] text-[#005EA6]">Quick Add</p>-->
                             <h4 class="mt-1 text-sm font-semibold text-slate-900">Add multiple room forms quickly</h4>
                         </div>
                         <div class="inline-flex rounded-full border border-slate-200 bg-slate-100 p-1">
@@ -402,145 +402,133 @@
                                 type="button"
                                 @click="step3Mode = 'fast'"
                                 class="rounded-full px-3 py-1.5 text-xs font-bold transition"
-                                :class="step3Mode === 'fast' ? 'bg-[#005EA6] text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'"
+                                :class="step3Mode === 'fast' ? 'bg-[#0025cc] text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'"
                             >
                                 Quick Add
                             </button>
                             <button
                                 type="button"
-                                @click="step3Mode = 'slow'"
+                                @click="step3Mode = 'slow'; $nextTick(() => refreshCampusWizardIcons())"
                                 class="rounded-full px-3 py-1.5 text-xs font-bold transition"
-                                :class="step3Mode === 'slow' ? 'bg-[#005EA6] text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'"
+                                :class="step3Mode === 'slow' ? 'bg-[#0025cc] text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'"
                             >
                                 Advance Setup
                             </button>
                         </div>
                     </div>
-                    <div class="space-y-5">
-                    <template x-for="(floor, fi) in form.floors" :key="`fast-${fi}`">
-                        <div
-                            x-show="wizardFloorIndex === fi"
-                            x-cloak
-                            class="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5"
-                        >
+                    <div class="space-y-5" x-show="activeWizardFloor" x-cloak>
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
                             <div class="mb-5 flex items-center justify-between">
                                 <div class="flex items-center space-x-2">
-                                    <div class="h-2 w-2 rounded-full bg-[#005EA6]"></div>
+                                    <div class="h-2 w-2 rounded-full bg-[#0025cc]"></div>
                                     <h4
                                         class="text-sm font-semibold uppercase tracking-wider text-black"
-                                        x-text="floor.level"
+                                        x-text="activeWizardFloor.level"
                                     ></h4>
                                 </div>
 
                                 <button
                                     type="button"
-                                    @click="addQuickRoom(fi)"
-                                    class="
-                                    inline-flex items-center gap-1.5 px-3 py-1.5
-                                    text-xs font-semibold rounded-lg text-[#005EA6] bg-blue-50/70 border-dashed border border-[#005EA6]
-                                    hover:bg-blue-100/70 hover:text-[#004b85] 
-                                    active:scale-95 transition-all duration-200
-                                    "
+                                    @click="addQuickRoom(wizardFloorIndex); $nextTick(() => refreshCampusWizardIcons())"
+                                    class="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-[#0025cc] bg-blue-50/70 px-3 py-1.5 text-xs font-semibold text-[#0025cc] transition-all duration-200 hover:bg-blue-100/70 hover:text-[#004b85] active:scale-95"
                                 >
                                     <i data-lucide="plus" class="h-3.5 w-3.5"></i>
                                     Add room
                                 </button>
                             </div>
-                            <div class="mb-3">
-                                <!--<p class="text-xs text-slate-500">Add multiple room forms quickly. Equipment is handled in Advance Setup.</p>-->
-                            </div>
                             <div class="space-y-4">
                                 <div
-                                    x-show="floor.rooms.length === 0"
+                                    x-show="!activeWizardFloor.rooms.length"
                                     x-cloak
                                     class="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-5 text-sm text-slate-600"
                                 >
                                     No room forms yet. Click <b>Add room</b> to create one.
                                 </div>
-                                
-                                    <template
-                                        x-for="(room, ri) in floor.rooms"
-                                        :key="room.client_key || `fast-room-${fi}-${ri}`"
-                                    >
-                                        <article class="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm">
-                                            <div class="grid gap-3 md:grid-cols-[1.3fr_1fr_1fr_auto]">
-                                                <label class="text-[11px] font-semibold uppercase tracking-wider text-black">
-                                                    Room Name
-                                                    <input
-                                                        x-model="room.name"
-                                                        @input="handleStep3RoomNameInput(fi)"
-                                                        placeholder="Room name / number"
-                                                        class="mt-1 w-full rounded-xl border border-slate-200 p-2 text-sm font-normal"
-                                                        :class="getStep3Error('room-name', fi, ri) ? 'border-red-300 ring-1 ring-red-100' : ''"
-                                                    />
-                                                    <span
-                                                        x-show="getStep3Error('room-name', fi, ri)"
-                                                        x-cloak
-                                                        x-text="getStep3Error('room-name', fi, ri)"
-                                                        class="mt-1 inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-[10px] font-semibold text-red-700"
-                                                    ></span>
-                                                </label>
 
-                                                <label class="text-[11px] font-semibold uppercase tracking-wider text-black">
-                                                    Room Type
-                                                    <select
-                                                        x-model="room.type"
-                                                        class="mt-1 w-full rounded-xl border cursor-pointer border-slate-200 p-2 text-sm font-normal focus:border-[#005EA6] focus:ring-1 focus:ring-blue-100"
-                                                    >
-                                                        <option value="Lecture Room">Lecture Room</option>
-                                                        <option value="Computer Laboratory">Computer Laboratory</option>
-                                                        <option value="HM Room">HM Room / Bar</option>
-                                                        <option value="Hotel Room Simulation">Hotel Room Simulation</option>
-                                                        <option value="Faculty Room">Faculty Room</option>
-                                                        <option value="Office">Office</option>
-                                                        <option value="Library">Library</option>
-                                                        <option value="School Clinic">School Clinic</option>
-                                                    </select>
-                                                </label>
+                                <template
+                                    x-for="(room, ri) in activeWizardFloor.rooms"
+                                    :key="room.client_key || `fast-room-${wizardFloorIndex}-${ri}`"
+                                >
+                                    <article class="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm">
+                                        <div class="grid gap-3 md:grid-cols-[1.3fr_1fr_1fr_auto]">
+                                            <label class="text-[11px] font-semibold uppercase tracking-wider text-black">
+                                                Room Name
+                                                <input
+                                                    x-model="room.name"
+                                                    @input="handleStep3RoomNameInput(wizardFloorIndex)"
+                                                    :name="`floors[${wizardFloorIndex}][rooms][${ri}][name]`"
+                                                    placeholder="Room name / number"
+                                                    class="mt-1 w-full rounded-xl border border-slate-200 p-2 text-sm font-normal"
+                                                    :class="getStep3Error('room-name', wizardFloorIndex, ri) ? 'border-red-300 ring-1 ring-red-100' : ''"
+                                                />
+                                                <span
+                                                    x-show="getStep3Error('room-name', wizardFloorIndex, ri)"
+                                                    x-cloak
+                                                    x-text="getStep3Error('room-name', wizardFloorIndex, ri)"
+                                                    class="mt-1 inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-[10px] font-semibold text-red-700"
+                                                ></span>
+                                            </label>
 
-                                                <label class="text-[11px] font-semibold uppercase tracking-wider text-black">
-                                                    Room Status
-                                                    <select
-                                                        x-model="room.status"
-                                                        class="mt-1 w-full rounded-xl border cursor-pointer border-slate-200 p-2 text-sm font-normal"
-                                                    >
-                                                        <option>Normal</option>
-                                                        <option>Maintenance Needed</option>
-                                                        <option>Critical</option>
-                                                    </select>
-                                                </label>
-
-                                                <button
-                                                    type="button"
-                                                    @click="floor.rooms.splice(ri, 1)"
-                                                    class="mt-[1.375rem] inline-flex h-[2.375rem] items-center justify-center rounded-xl p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"
-                                                    aria-label="Remove room"
+                                            <label class="text-[11px] font-semibold uppercase tracking-wider text-black">
+                                                Room Type
+                                                <select
+                                                    x-model="room.type"
+                                                    :name="`floors[${wizardFloorIndex}][rooms][${ri}][type]`"
+                                                    class="mt-1 w-full cursor-pointer rounded-xl border border-slate-200 p-2 text-sm font-normal focus:border-[#0025cc] focus:ring-1 focus:ring-blue-100"
                                                 >
-                                                    <i data-lucide="trash-2" class="h-4 w-4"></i>
-                                                </button>
-                                            </div>
-                                        </article>
-                                    </template>
-                                
-                                <!--<p class="text-xs text-slate-500">These are draft room forms only. Save on Step 4.</p>-->
+                                                    <option value="Lecture Room">Lecture Room</option>
+                                                    <option value="Computer Laboratory">Computer Laboratory</option>
+                                                    <option value="HM Room">HM Room / Bar</option>
+                                                    <option value="Hotel Room Simulation">Hotel Room Simulation</option>
+                                                    <option value="Faculty Room">Faculty Room</option>
+                                                    <option value="Office">Office</option>
+                                                    <option value="Library">Library</option>
+                                                    <option value="School Clinic">School Clinic</option>
+                                                </select>
+                                            </label>
+
+                                            <label class="text-[11px] font-semibold uppercase tracking-wider text-black">
+                                                Room Status
+                                                <select
+                                                    x-model="room.status"
+                                                    :name="`floors[${wizardFloorIndex}][rooms][${ri}][status]`"
+                                                    class="mt-1 w-full cursor-pointer rounded-xl border border-slate-200 p-2 text-sm font-normal"
+                                                >
+                                                    <option>Normal</option>
+                                                    <option>Maintenance Needed</option>
+                                                    <option>Critical</option>
+                                                </select>
+                                            </label>
+
+                                            <button
+                                                type="button"
+                                                @click="activeWizardFloor.rooms.splice(ri, 1)"
+                                                class="mt-[1.375rem] inline-flex h-[2.375rem] items-center justify-center rounded-xl p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                                                aria-label="Remove room"
+                                            >
+                                                <i data-lucide="trash-2" class="h-4 w-4"></i>
+                                            </button>
+                                        </div>
+                                    </article>
+                                </template>
                             </div>
                         </div>
-                    </template>
                     </div>
                 </div>
+                </template>
 
-                <div x-show="step3Mode === 'slow'" x-cloak class="mt-6 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+                <template x-if="step3Mode === 'slow'">
+                <div class="mt-6 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
                     <div class="mb-4 flex items-center justify-between gap-3">
                         <div>
-                            <!--<p class="text-[11px] font-bold uppercase tracking-[.2em] text-[#005EA6]">Advance Setup</p>-->
                             <h4 class="mt-1 text-sm font-semibold text-slate-900">Add rooms with equipment in one flow</h4>
                         </div>
                         <div class="inline-flex rounded-full border border-slate-200 bg-slate-100 p-1">
                             <button
                                 type="button"
-                                @click="step3Mode = 'fast'"
+                                @click="step3Mode = 'fast'; $nextTick(() => refreshCampusWizardIcons())"
                                 class="rounded-full px-3 py-1.5 text-xs font-bold transition"
-                                :class="step3Mode === 'fast' ? 'bg-[#005EA6] text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'"
+                                :class="step3Mode === 'fast' ? 'bg-[#0025cc] text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'"
                             >
                                 Quick Add
                             </button>
@@ -548,78 +536,65 @@
                                 type="button"
                                 @click="step3Mode = 'slow'"
                                 class="rounded-full px-3 py-1.5 text-xs font-bold transition"
-                                :class="step3Mode === 'slow' ? 'bg-[#005EA6] text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'"
+                                :class="step3Mode === 'slow' ? 'bg-[#0025cc] text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'"
                             >
                                 Advance Setup
                             </button>
                         </div>
                     </div>
-                    <div class="space-y-5">
-                        <template x-for="(floor, fi) in form.floors" :key="fi">
-                            <div
-                                x-show="wizardFloorIndex === fi"
-                                x-cloak
-                                class="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5"
-                            >
+                    <div class="space-y-5" x-show="activeWizardFloor" x-cloak>
+                        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 sm:p-5">
                             <div class="mb-5 flex items-center justify-between">
-                            <div class="flex items-center space-x-2">
-                                <div class="h-2 w-2 rounded-full bg-[#005EA6]"></div>
-                                <h4 
-                                class="text-sm font-semibold uppercase tracking-wider text-black"
-                                x-text="floor.level"
-                                ></h4>
-                            </div>
-                            
-                            <button
-                                type="button"
-                                @click="addRoom(fi)"
-                                class="
-                                inline-flex items-center gap-1.5 px-3 py-1.5
-                                text-xs font-semibold rounded-lg text-[#005EA6] bg-blue-50/70 border-dashed border border-[#005EA6]
-                                hover:bg-blue-100/70 hover:text-[#004b85] 
-                                active:scale-95 transition-all duration-200
-                                "
-                            >
-                                <i data-lucide="plus" class="h-3.5 w-3.5"></i>
-                                Add room
-                            </button>
+                                <div class="flex items-center space-x-2">
+                                    <div class="h-2 w-2 rounded-full bg-[#0025cc]"></div>
+                                    <h4
+                                        class="text-sm font-semibold uppercase tracking-wider text-black"
+                                        x-text="activeWizardFloor.level"
+                                    ></h4>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    @click="addRoom(wizardFloorIndex); $nextTick(() => refreshCampusWizardIcons())"
+                                    class="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-[#0025cc] bg-blue-50/70 px-3 py-1.5 text-xs font-semibold text-[#0025cc] transition-all duration-200 hover:bg-blue-100/70 hover:text-[#004b85] active:scale-95"
+                                >
+                                    <i data-lucide="plus" class="h-3.5 w-3.5"></i>
+                                    Add room
+                                </button>
                             </div>
                             <div class="space-y-4">
                                 <div
-                                    x-show="floor.rooms.length === 0"
+                                    x-show="!activeWizardFloor.rooms.length"
                                     x-cloak
                                     class="rounded-xl border border-dashed border-slate-300 bg-white px-4 py-5 text-sm text-slate-600"
                                 >
                                     No room forms yet. Click <b>Add room</b> to create one.
                                 </div>
                                 <template
-                                    x-for="(room, ri) in floor.rooms"
-                                    :key="room.client_key || `room-${fi}-${ri}`"
-                                    ><article
-                                        class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100"
-                                    >
-                                        <div
-                                            class="grid gap-3 md:grid-cols-[1.3fr_1fr_1fr_auto]"
-                                        >
+                                    x-for="(room, ri) in activeWizardFloor.rooms"
+                                    :key="room.client_key || `room-${wizardFloorIndex}-${ri}`"
+                                >
+                                    <article class="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100">
+                                        <div class="grid gap-3 md:grid-cols-[1.3fr_1fr_1fr_auto]">
                                             <input
                                                 type="hidden"
-                                                :name="`floors[${fi}][rooms][${ri}][id]`"
+                                                :name="`floors[${wizardFloorIndex}][rooms][${ri}][id]`"
                                                 :value="room.id ?? ''"
                                             >
-                                            <label class="text-[11px] font-semibold uppercase  text-black">
+                                            <label class="text-[11px] font-semibold uppercase text-black">
                                                 Room Name
                                                 <input
                                                     x-model="room.name"
-                                                    @input="handleStep3RoomNameInput(fi)"
-                                                    :name="`floors[${fi}][rooms][${ri}][name]`"
+                                                    @input="handleStep3RoomNameInput(wizardFloorIndex)"
+                                                    :name="`floors[${wizardFloorIndex}][rooms][${ri}][name]`"
                                                     placeholder="Room name / number"
                                                     class="mt-1 w-full rounded-xl border border-slate-200 p-2 text-sm font-normal"
-                                                    :class="getStep3Error('room-name', fi, ri) ? 'border-red-300 ring-1 ring-red-100' : ''"
+                                                    :class="getStep3Error('room-name', wizardFloorIndex, ri) ? 'border-red-300 ring-1 ring-red-100' : ''"
                                                 />
                                                 <span
-                                                    x-show="getStep3Error('room-name', fi, ri)"
+                                                    x-show="getStep3Error('room-name', wizardFloorIndex, ri)"
                                                     x-cloak
-                                                    x-text="getStep3Error('room-name', fi, ri)"
+                                                    x-text="getStep3Error('room-name', wizardFloorIndex, ri)"
                                                     class="mt-1 inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-[10px] font-semibold text-red-700"
                                                 ></span>
                                             </label>
@@ -627,8 +602,8 @@
                                                 Room Type
                                                 <select
                                                     x-model="room.type"
-                                                    :name="`floors[${fi}][rooms][${ri}][type]`"
-                                                    class="mt-1 w-full rounded-xl cursor-pointer border border-slate-200 p-2 text-sm focus:border-[#005EA6] focus:ring-1 focus:ring-blue-100 font-normal"
+                                                    :name="`floors[${wizardFloorIndex}][rooms][${ri}][type]`"
+                                                    class="mt-1 w-full cursor-pointer rounded-xl border border-slate-200 p-2 text-sm font-normal focus:border-[#0025cc] focus:ring-1 focus:ring-blue-100"
                                                 >
                                                     <option value="Lecture Room">Lecture Room</option>
                                                     <option value="Computer Laboratory">Computer Laboratory</option>
@@ -644,40 +619,28 @@
                                                 Status / Condition
                                                 <select
                                                     x-model="room.status"
-                                                    :name="`floors[${fi}][rooms][${ri}][status]`"
-                                                    class="mt-1 w-full rounded-xl cursor-pointer border border-slate-200 p-2 text-sm font-normal"
+                                                    :name="`floors[${wizardFloorIndex}][rooms][${ri}][status]`"
+                                                    class="mt-1 w-full cursor-pointer rounded-xl border border-slate-200 p-2 text-sm font-normal"
                                                 >
                                                     <option>Normal</option>
-                                                    <option>
-                                                        Maintenance Needed
-                                                    </option>
-                                                    <option>
-                                                        Critical
-                                                    </option>
+                                                    <option>Maintenance Needed</option>
+                                                    <option>Critical</option>
                                                 </select>
                                             </label>
                                             <button
                                                 type="button"
-                                                @click="floor.rooms.splice(ri, 1)"
+                                                @click="activeWizardFloor.rooms.splice(ri, 1)"
                                                 class="mt-[1.375rem] inline-flex h-[2.375rem] items-center justify-center rounded-xl p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"
                                                 aria-label="Remove room"
                                             >
-                                                <i
-                                                    data-lucide="trash-2"
-                                                    class="h-4 w-4"
-                                                ></i>
+                                                <i data-lucide="trash-2" class="h-4 w-4"></i>
                                             </button>
                                         </div>
-                                        <div
-                                            class="mt-4 flex items-center justify-between border-t border-slate-100 pt-4"
-                                        >
-                                            <div>
-                                                
-                                                <p class="text-[11px] text-black">Add one or more items for this room.</p>
-                                            </div>
+                                        <div class="mt-4 flex items-center justify-between border-t border-slate-100 pt-4">
+                                            <p class="text-[11px] text-black">Add one or more items for this room.</p>
                                             <button
                                                 type="button"
-                                                @click="addEquipment(fi, ri)"
+                                                @click="addEquipment(wizardFloorIndex, ri); $nextTick(() => refreshCampusWizardIcons())"
                                                 class="rounded-lg bg-slate-100 px-3 py-2 text-[11px] font-normal text-black hover:bg-slate-200"
                                             >
                                                 + Add equipment
@@ -685,23 +648,20 @@
                                         </div>
                                         <div class="mt-3 space-y-3">
                                             <div
-                                                x-show="room.equipment.length === 0"
+                                                x-show="!room.equipment.length"
                                                 x-cloak
                                                 class="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-xs text-black"
                                             >
                                                 No equipment yet. Click <b>Add equipment</b> to create the first item.
                                             </div>
                                             <template
-                                                x-for="
-                                                    (eq, ei) in room.equipment
-                                                "
-                                                :key="eq.client_key || `eq-${fi}-${ri}-${ei}`"
-                                                ><div
-                                                    class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-                                                >
+                                                x-for="(eq, ei) in room.equipment"
+                                                :key="eq.client_key || `eq-${wizardFloorIndex}-${ri}-${ei}`"
+                                            >
+                                                <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
                                                     <input
                                                         type="hidden"
-                                                        :name="`floors[${fi}][rooms][${ri}][equipment][${ei}][id]`"
+                                                        :name="`floors[${wizardFloorIndex}][rooms][${ri}][equipment][${ei}][id]`"
                                                         :value="eq.id ?? ''"
                                                     >
                                                     <div class="mb-3 flex items-center justify-between border-b border-slate-100 pb-2">
@@ -721,16 +681,15 @@
                                                             Equipment Name
                                                             <input
                                                                 x-model="eq.name"
-                                                                :name="`floors[${fi}][rooms][${ri}][equipment][${ei}][name]`"
+                                                                :name="`floors[${wizardFloorIndex}][rooms][${ri}][equipment][${ei}][name]`"
                                                                 placeholder="e.g. Dell Monitor"
                                                                 class="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-xs"
-                                                                data-tooltip="Equipment name"
-                                                                :class="getStep3Error('eq-name', fi, ri, ei) ? 'border-red-300 ring-1 ring-red-100' : ''"
+                                                                :class="getStep3Error('eq-name', wizardFloorIndex, ri, ei) ? 'border-red-300 ring-1 ring-red-100' : ''"
                                                             />
                                                             <span
-                                                                x-show="getStep3Error('eq-name', fi, ri, ei)"
+                                                                x-show="getStep3Error('eq-name', wizardFloorIndex, ri, ei)"
                                                                 x-cloak
-                                                                x-text="getStep3Error('eq-name', fi, ri, ei)"
+                                                                x-text="getStep3Error('eq-name', wizardFloorIndex, ri, ei)"
                                                                 class="mt-1 inline-flex items-center rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-[10px] font-semibold text-red-700"
                                                             ></span>
                                                         </label>
@@ -739,17 +698,12 @@
                                                             Category
                                                             <select
                                                                 x-model="eq.category_id"
-                                                                :name="`floors[${fi}][rooms][${ri}][equipment][${ei}][category_id]`"
-                                                                class="mt-1 w-full rounded-lg cursor-pointer border border-slate-200 px-2.5 py-2 text-xs"
-                                                                data-tooltip="Category"
+                                                                :name="`floors[${wizardFloorIndex}][rooms][${ri}][equipment][${ei}][category_id]`"
+                                                                class="mt-1 w-full cursor-pointer rounded-lg border border-slate-200 px-2.5 py-2 text-xs"
                                                             >
-                                                                <option value="">
-                                                                    Select category
-                                                                </option>
+                                                                <option value="">Select category</option>
                                                                 @foreach ($categories as $category)
-                                                                    <option
-                                                                        value="{{ $category->equipment_category_id }}"
-                                                                    >
+                                                                    <option value="{{ $category->equipment_category_id }}">
                                                                         {{ $category->equipment_category_name }}
                                                                     </option>
                                                                 @endforeach
@@ -762,9 +716,8 @@
                                                                 type="number"
                                                                 min="1"
                                                                 x-model="eq.quantity"
-                                                                :name="`floors[${fi}][rooms][${ri}][equipment][${ei}][quantity]`"
+                                                                :name="`floors[${wizardFloorIndex}][rooms][${ri}][equipment][${ei}][quantity]`"
                                                                 class="mt-1 w-full rounded-lg border border-slate-200 px-2.5 py-2 text-xs"
-                                                                data-tooltip="Quantity"
                                                             />
                                                         </label>
 
@@ -772,15 +725,12 @@
                                                             Condition
                                                             <select
                                                                 x-model="eq.condition"
-                                                                :name="`floors[${fi}][rooms][${ri}][equipment][${ei}][condition]`"
-                                                                class="mt-1 w-full rounded-lg cursor-pointer border border-slate-200 px-2.5 py-2 text-xs"
-                                                                data-tooltip="Condition"
+                                                                :name="`floors[${wizardFloorIndex}][rooms][${ri}][equipment][${ei}][condition]`"
+                                                                class="mt-1 w-full cursor-pointer rounded-lg border border-slate-200 px-2.5 py-2 text-xs"
                                                             >
                                                                 <option>Good</option>
                                                                 <option>Damaged</option>
-                                                                <option>
-                                                                    Under Maintenance
-                                                                </option>
+                                                                <option>Under Maintenance</option>
                                                             </select>
                                                         </label>
 
@@ -788,9 +738,8 @@
                                                             Placement
                                                             <select
                                                                 x-model="eq.zone"
-                                                                :name="`floors[${fi}][rooms][${ri}][equipment][${ei}][zone]`"
-                                                                class="mt-1 w-full rounded-lg cursor-pointer border border-slate-200 px-2.5 py-2 text-xs"
-                                                                data-tooltip="Placement"
+                                                                :name="`floors[${wizardFloorIndex}][rooms][${ri}][equipment][${ei}][zone]`"
+                                                                class="mt-1 w-full cursor-pointer rounded-lg border border-slate-200 px-2.5 py-2 text-xs"
                                                             >
                                                                 <option value="Holding">Holding Area</option>
                                                                 <option value="Floor">Floor</option>
@@ -801,38 +750,16 @@
                                                             <p class="mt-1 text-[10px] font-normal normal-case tracking-normal text-slate-400">Holding Area = unplaced. Floor = floor icon. Rows can be arranged later in Room interior layout.</p>
                                                         </label>
                                                     </div>
-
-                                                    <div class="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-2.5">
-                                                        <div class="mb-2 flex items-center justify-between px-1">
-                                                            <p class="text-[10px] font-semibold uppercase tracking-widest text-black">Placement preview</p>
-                                                            <p class="text-[10px] font-normal text-black">Zone: <span class="text-black font-normal" x-text="placementZoneLabel(eq.zone)"></span></p>
-                                                        </div>
-
-                                                        <div
-                                                            class="relative h-28 overflow-hidden rounded-lg border border-dashed border-slate-300 bg-[linear-gradient(180deg,#f8fbff_0%,#f3f6fb_100%)]"
-                                                        >
-                                                            <div class="absolute inset-0 opacity-70" style="background-image: linear-gradient(to right, rgba(148,163,184,.25) 1px, transparent 1px), linear-gradient(to bottom, rgba(148,163,184,.2) 1px, transparent 1px); background-size: 20% 33.333%;"></div>
-
-                                                            <span class="absolute left-1/2 top-1 -translate-x-1/2 text-[8px] font-black uppercase tracking-[.16em] text-slate-400">Front wall / board</span>
-                                                            <span class="absolute left-2 top-[28%] text-[8px] font-bold uppercase tracking-wider text-slate-400">Row 1</span>
-                                                            <span class="absolute left-2 top-[48%] text-[8px] font-bold uppercase tracking-wider text-slate-400">Row 2</span>
-                                                            <span class="absolute left-2 top-[68%] text-[8px] font-bold uppercase tracking-wider text-slate-400">Row 3</span>
-                                                            <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[8px] font-bold uppercase tracking-wider text-slate-400">Floor</span>
-                                                            <span class="absolute left-1/2 bottom-1 -translate-x-1/2 text-[8px] font-black uppercase tracking-[.16em] text-amber-600/80">Holding area</span>
-
-                                                            <span
-                                                                class="absolute h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-[#F39200] shadow-[0_0_0_4px_rgba(251,191,36,.25)] transition-all duration-200"
-                                                                :style="`left:${zonePosition(eq.zone).x}%;top:${zonePosition(eq.zone).y}%`"
-                                                            ></span>
-                                                        </div>
-                                                    </div></div
-                                            ></template>
-                                        </div></article
-                                ></template>
-                            </div></div>
-                                    </template>
-                                </div>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </article>
+                                </template>
                             </div>
+                        </div>
+                    </div>
+                </div>
+                </template>
             </section>
 
             <section x-show="step === 4" x-cloak>
@@ -873,21 +800,72 @@
                             class="mt-1 text-lg font-bold"
                             x-text="form.building_name || 'Unnamed building'"
                         ></h4>
-                        <div class="mt-4 grid grid-cols-2 gap-3">
-                            <div class="rounded-xl bg-white/5 p-4">
-                                <b
-                                    class="text-2xl"
-                                    x-text="form.floors.length"
-                                ></b>
+
+                        <div
+                            class="mt-4 grid gap-3"
+                            :class="wizardFloorStructureChanged()
+                                ? 'grid-cols-2'
+                                : (countDraftEquipment() > 0 ? 'grid-cols-2' : 'grid-cols-1')"
+                        >
+                            <div
+                                x-show="wizardFloorStructureChanged()"
+                                x-cloak
+                                class="rounded-xl bg-white/5 p-4"
+                            >
+                                <b class="text-2xl" x-text="form.floors.length"></b>
                                 <p class="text-xs text-slate-400">Floors</p>
                             </div>
                             <div class="rounded-xl bg-white/5 p-4">
-                                <b
-                                    class="text-2xl"
-                                    x-text="countDraftRooms()"
-                                ></b>
-                                <p class="text-xs text-slate-400">Rooms</p>
+                                <b class="text-2xl" x-text="countDraftRooms()"></b>
+                                <p class="text-xs text-slate-400">Rooms to save</p>
                             </div>
+                            <div
+                                x-show="!wizardFloorStructureChanged() && countDraftEquipment() > 0"
+                                x-cloak
+                                class="rounded-xl bg-white/5 p-4"
+                            >
+                                <b class="text-2xl" x-text="countDraftEquipment()"></b>
+                                <p class="text-xs text-slate-400">Equipment to save</p>
+                            </div>
+                        </div>
+
+                        <div
+                            x-show="wizardReviewRooms().length"
+                            x-cloak
+                            class="mt-4 space-y-2"
+                        >
+                            <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                                <span x-text="wizardFloorStructureChanged() ? 'Rooms & equipment included' : 'Added rooms & equipment'"></span>
+                            </p>
+                            <div class="max-h-48 space-y-2 overflow-y-auto pr-1">
+                                <template x-for="(item, idx) in wizardReviewRooms()" :key="`review-room-${idx}-${item.name}`">
+                                    <div class="rounded-xl bg-white/5 px-3.5 py-2.5">
+                                        <div class="flex items-start justify-between gap-3">
+                                            <p class="text-sm font-semibold text-white" x-text="item.name"></p>
+                                            <span class="shrink-0 text-[11px] text-slate-400" x-text="item.floor"></span>
+                                        </div>
+                                        <p
+                                            x-show="item.equipmentCount > 0"
+                                            x-cloak
+                                            class="mt-1 text-xs leading-5 text-slate-300"
+                                            x-text="item.equipmentNames.join(', ')"
+                                        ></p>
+                                        <p
+                                            x-show="item.equipmentCount === 0"
+                                            x-cloak
+                                            class="mt-1 text-xs text-slate-500"
+                                        >No equipment added</p>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <div
+                            x-show="!wizardFloorStructureChanged() && !wizardReviewRooms().length"
+                            x-cloak
+                            class="mt-4 rounded-xl border border-white/10 bg-white/5 px-3.5 py-3 text-sm text-slate-300"
+                        >
+                            Floors are unchanged. Add rooms or equipment in Step 3 before saving.
                         </div>
                     </div>
                 </div>
@@ -901,15 +879,16 @@
                 type="button"
                 @click="step = Math.max(1, step - 1)"
                 :disabled="step === 1"
-                class="rounded-xl px-4 py-2.5 text-sm font-bold text-slate-500 disabled:opacity-0"
+                class="rounded-xl px-4 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-950 disabled:opacity-0"
             >
-                Back
+                
+                Previous
             </button>
             <button
                 x-show="step < 4"
                 type="button"
                 @click="nextWizardStep()"
-                class="rounded-xl bg-[#005EA6] px-6 py-2.5 text-sm font-bold text-white"
+                class="rounded-lg bg-[#0025cc] px-4 py-2.5 text-sm font-bold text-white"
             >
                 Continue
             </button>
@@ -923,3 +902,4 @@
         </footer>
     </form>
 </div>
+</template>
