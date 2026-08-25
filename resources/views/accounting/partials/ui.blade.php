@@ -1035,6 +1035,16 @@
     .acc-pagination nav p { margin: 0; }
     .acc-pagination nav ul { margin: 0; }
 
+    /* Ensure the current page number is clearly filled (Tailwind may not always paint it). */
+    .acc-pagination nav span[aria-current="page"],
+    .acc-page .acc-pagination nav span[aria-current="page"],
+    nav[aria-label="Pagination Navigation"] span[aria-current="page"] {
+        background: #0f172a !important;
+        border-color: #0f172a !important;
+        color: #ffffff !important;
+        font-weight: 600;
+    }
+
     /* Flush variant for pagination inside a card section (e.g. notifications). */
     .acc-pagination--flush {
         margin-top: 0;
@@ -1049,6 +1059,96 @@
     .acc-status-badge {
         box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
         transition: background .15s ease, ring-color .15s ease;
+    }
+
+    .acc-deadline-badge {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 0.15rem 0.5rem;
+        font-size: 0.625rem;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+        line-height: 1.2;
+        white-space: nowrap;
+        border: 1px solid transparent;
+    }
+
+    .acc-deadline-badge.is-overdue {
+        background: #fff1f2;
+        color: #be123c;
+        border-color: #fecdd3;
+    }
+
+    .acc-deadline-badge.is-today {
+        background: #fffbeb;
+        color: #b45309;
+        border-color: #fde68a;
+    }
+
+    .acc-deadline-badge.is-week {
+        background: #eff6ff;
+        color: #1d4ed8;
+        border-color: #bfdbfe;
+    }
+
+    .acc-deadline-banner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 1rem;
+        padding: 0.75rem 1rem;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+        background: #f8fafc;
+    }
+
+    .acc-deadline-banner.is-overdue,
+    .acc-deadline-banner.is-rose {
+        background: #fff1f2;
+        border-color: #fecdd3;
+        color: #9f1239;
+    }
+
+    .acc-deadline-banner.is-due_today,
+    .acc-deadline-banner.is-today,
+    .acc-deadline-banner.is-amber {
+        background: #fffbeb;
+        border-color: #fde68a;
+        color: #92400e;
+    }
+
+    .acc-deadline-banner.is-this_week,
+    .acc-deadline-banner.is-week,
+    .acc-deadline-banner.is-blue {
+        background: #eff6ff;
+        border-color: #bfdbfe;
+        color: #1e40af;
+    }
+
+    .acc-deadline-banner-title {
+        margin: 0;
+        font-size: 0.8125rem;
+        font-weight: 800;
+        color: inherit;
+    }
+
+    .acc-deadline-banner-hint {
+        margin: 0.15rem 0 0;
+        font-size: 0.75rem;
+        font-weight: 500;
+        opacity: 0.85;
+    }
+
+    .acc-deadline-banner-clear,
+    .acc-deadline-banner a.acc-btn {
+        flex: 0 0 auto;
+        text-decoration: none;
+        height: 2rem;
+        padding: 0 0.75rem;
+        font-size: 0.75rem;
     }
 
     /* ---------- Notifications list ---------- */

@@ -1,12 +1,10 @@
 {{--
-  Tiled diagonal APPROVED watermark for on-screen RIS preview only.
-  Hidden when printing (@media print).
+  Diagonal APPROVED watermark for on-screen RIS preview only.
+  Exactly 3 stamps. Hidden when printing (@media print).
   Optional: $watermarkLabel (default: APPROVED)
 --}}
 @php
     $watermarkLabel = strtoupper((string) ($watermarkLabel ?? 'APPROVED'));
-    $wmRows = 16;
-    $wmCols = 10;
 @endphp
 
 @once
@@ -22,36 +20,24 @@
     }
     .approval-watermark-pattern {
         position: absolute;
+        inset: 0;
+    }
+    .approval-watermark-stamp {
+        position: absolute;
         left: 50%;
-        top: 50%;
-        width: 260%;
-        height: 260%;
-        display: flex;
-        flex-direction: column;
-        justify-content: space-evenly;
-        gap: 1.75rem;
-        transform: translate(-50%, -50%) rotate(-32deg);
-    }
-    .approval-watermark-row {
-        display: flex;
-        flex-wrap: nowrap;
-        justify-content: space-evenly;
-        gap: 2rem;
-        white-space: nowrap;
-    }
-    .approval-watermark-row:nth-child(even) {
-        transform: translateX(5.5rem);
-    }
-    .approval-watermark-row span {
-        flex-shrink: 0;
         font-family: Arial, Helvetica, sans-serif;
-        font-size: 28px;
+        font-size: 72px;
         font-weight: 800;
         letter-spacing: 0.14em;
         line-height: 1;
-        color: rgba(15, 23, 42, 0.14);
+        color: rgba(15, 23, 42, 0.16);
         text-transform: uppercase;
+        white-space: nowrap;
+        transform: translateX(-50%) rotate(-32deg);
     }
+    .approval-watermark-stamp:nth-child(1) { top: 18%; }
+    .approval-watermark-stamp:nth-child(2) { top: 48%; }
+    .approval-watermark-stamp:nth-child(3) { top: 78%; }
     html.screen-preview .approval-watermark {
         animation: approvalWatermarkIn 0.55s ease both;
     }
@@ -69,12 +55,8 @@
 
 <div class="approval-watermark" aria-hidden="true">
     <div class="approval-watermark-pattern">
-        @for ($r = 0; $r < $wmRows; $r++)
-            <div class="approval-watermark-row">
-                @for ($c = 0; $c < $wmCols; $c++)
-                    <span>{{ $watermarkLabel }}</span>
-                @endfor
-            </div>
-        @endfor
+        <span class="approval-watermark-stamp">{{ $watermarkLabel }}</span>
+        <span class="approval-watermark-stamp">{{ $watermarkLabel }}</span>
+        <span class="approval-watermark-stamp">{{ $watermarkLabel }}</span>
     </div>
 </div>

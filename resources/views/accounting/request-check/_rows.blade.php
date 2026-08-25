@@ -17,7 +17,7 @@
                 $reviewTip = ($st === 'Released' || $st === 'Approved') ? 'View request check' : 'Review request check';
             @endphp
             <a
-                href="/accounting/request-check/{{ $row->request_check_id }}"
+                href="/accounting/request-check/{{ $row->request_check_id }}?return_status={{ urlencode($filter ?? 'incoming') }}"
                 class="icon-btn"
                 data-tip="{{ $reviewTip }}"
                 aria-label="{{ $reviewTip }}"

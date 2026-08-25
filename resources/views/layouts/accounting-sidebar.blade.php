@@ -28,7 +28,7 @@
 
         <div class="quick-actions">
             <a
-                href="/accounting/authority-to-purchase"
+                href="/accounting/authority-to-purchase?status=incoming"
                 class="quick-card {{ request()->is('accounting/authority-to-purchase*') ? 'active' : '' }}"
             >
                 <i data-lucide="file-check"></i>
@@ -36,7 +36,7 @@
             </a>
 
             <a
-                href="/accounting/request-check"
+                href="/accounting/request-check?status=incoming"
                 class="quick-card {{ request()->is('accounting/request-check*') ? 'active' : '' }}"
             >
                 <i data-lucide="clipboard-list"></i>
@@ -44,7 +44,7 @@
             </a>
 
             <a
-                href="/accounting/liquidation-reports"
+                href="/accounting/liquidation-reports?status=incoming"
                 class="quick-card {{ request()->is('accounting/liquidation-reports*') ? 'active' : '' }}"
             >
                 <i data-lucide="receipt"></i>
@@ -71,21 +71,21 @@
 
         <div class="menu-title" id="transactions-section">TRANSACTIONS</div>
         <a
-            href="/accounting/authority-to-purchase"
+            href="/accounting/authority-to-purchase?status=incoming"
             class="menu-item {{ request()->is('accounting/authority-to-purchase*') ? 'active' : '' }}"
         >
             <i class="h-5 w-5" data-lucide="file-check"></i>
             <span>ATP</span>
         </a>
         <a
-            href="/accounting/request-check"
+            href="/accounting/request-check?status=incoming"
             class="menu-item {{ request()->is('accounting/request-check*') ? 'active' : '' }} mt-1"
         >
             <i class="h-5 w-5" data-lucide="clipboard-list"></i>
             <span>Request Checks</span>
         </a>
         <a
-            href="/accounting/liquidation-reports"
+            href="/accounting/liquidation-reports?status=incoming"
             class="menu-item {{ request()->is('accounting/liquidation-reports*') ? 'active' : '' }} mt-1"
         >
             <i class="h-5 w-5" data-lucide="receipt"></i>

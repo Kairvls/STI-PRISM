@@ -1,6 +1,6 @@
 <div class="topbar">
     <div class="topbar-left">
-        <button onclick="toggleSidebar()" class="mobile-sidebar-btn" type="button" aria-label="Open sidebar">
+        <button onclick="toggleSidebar()" class="mobile-sidebar-btn">
             <i data-lucide="menu"></i>
         </button>
 
@@ -12,15 +12,19 @@
                 request()->is('accounting/liquidation-reports*') => ['Liquidation Reports', 'Review liquidation documents.'],
                 request()->is('accounting/history*') || request()->is('accounting/financial-records*') => ['History', 'Processed Accounting records.'],
                 request()->is('accounting/notifications*') => ['Alerts', 'Recent activity requiring your attention.'],
-                default => [View::yieldContent('title', 'PRISM'), 'Accounting Panel'],
+                request()->is('accounting/profile*') => ['Profile settings', 'Update your Accounting account details.'],
+                default => [View::yieldContent('title', 'PRISM'), 'Accounting'],
             };
+
+            $headerUnreadCount = $headerUnreadCount ?? 0;
+            $headerNotifications = $headerNotifications ?? collect();
         @endphp
 
         <div class="min-w-0">
-            <h1 class="truncate text-[20px] font-semibold leading-tight tracking-tight text-slate-900 sm:text-[22px]">
+            <h1 class="truncate text-[22px] font-semibold leading-tight tracking-tight text-slate-900">
                 {{ $moduleHeading[0] }}
             </h1>
-            <p class="mt-0.5 truncate text-xs text-slate-500 sm:text-sm">
+            <p class="mt-0.5 truncate text-sm text-slate-500">
                 {{ $moduleHeading[1] }}
             </p>
         </div>
@@ -45,16 +49,28 @@
             data-tooltip="Messages"
         >
             <i data-lucide="messages-square" class="h-[18px] w-[18px]"></i>
+
+            {{-- ============================================= --}}
+            {{-- REAL MESSAGE UNREAD COUNT --}}
+            {{-- UPDATED BY messaging-modal.blade.php --}}
+            {{-- ============================================= --}}
+
             <span
                 id="topbarMessageBadge"
                 class="hidden absolute -right-1 -top-1 min-w-[18px] h-[18px]
                     items-center justify-center rounded-full
-                    bg-blue-600 px-1 text-[10px] font-bold text-white
+                    bg-rose-500 px-1 text-[10px] font-bold text-white
                     border-2 border-white"
-            >0</span>
+            >
+                0
+            </span>
         </a>
 
         <div class="relative">
+            <!-- ===================================== -->
+            <!-- NOTIFICATION BUTTON -->
+            <!-- ===================================== -->
+
             <button
                 type="button"
                 onclick="toggleNotifications()"
@@ -64,49 +80,105 @@
             >
                 <i data-lucide="bell" class="h-5 w-5"></i>
 
-                @if (($headerUnreadCount ?? 0) > 0)
+                <!-- ===================================== -->
+                <!-- UNREAD INDICATOR -->
+                <!-- ONLY SHOW WHEN UNREAD EXISTS -->
+                <!-- ===================================== -->
+
+                @if ($headerUnreadCount > 0)
                     <span
-                        class="absolute right-[6px] top-[6px] h-2 w-2 rounded-full border-2 border-white bg-blue-600"
+                        class="absolute right-[6px] top-[6px] h-2 w-2 rounded-full border-2 border-white bg-rose-500"
                     ></span>
+
                 @endif
             </button>
+
+            <!-- ===================================== -->
+            <!-- NOTIFICATION DROPDOWN -->
+            <!-- MORE COMPACT VERSION -->
+            <!-- ===================================== -->
 
             <div
                 id="notificationDropdown"
                 class="absolute right-0 top-[calc(100%+2px)] z-50 hidden
-                    w-[min(340px,calc(100vw-1.5rem))]
+                    w-[340px]
                     overflow-hidden
                     rounded-xl
                     border border-black/5
                     bg-white
                     shadow-[0_16px_45px_rgba(0,0,0,0.13)]"
             >
-                <div class="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+
+                <!-- ===================================== -->
+                <!-- DROPDOWN HEADER -->
+                <!-- ===================================== -->
+
+                <div
+                    class="flex items-center justify-between
+                        border-b border-slate-100
+                        px-4 py-3"
+                >
                     <div class="min-w-0">
-                        <h3 class="text-[13px] font-semibold tracking-tight text-slate-950">
+
+                        <h3
+                            class="text-[13px] font-semibold tracking-tight text-slate-950"
+                        >
                             Notifications
                         </h3>
-                        <p class="mt-0.5 text-[11px] text-slate-500">
+
+                        <p
+                            class="mt-0.5 text-[11px] text-slate-500"
+                        >
                             Recent activity requiring your attention
                         </p>
+
                     </div>
+
+                    <!-- ===================================== -->
+                    <!-- UNREAD COUNT -->
+                    <!-- ===================================== -->
+
                     <span
-                        class="ml-3 shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[10px] font-medium text-slate-600"
+                        class="ml-3 shrink-0 rounded-full
+                            bg-slate-100
+                            px-2 py-1
+                            text-[10px] font-medium
+                            text-slate-600"
                     >
-                        {{ $headerUnreadCount ?? 0 }} new
+                        {{ $headerUnreadCount }} new
                     </span>
                 </div>
 
+
+                <!-- ===================================== -->
+                <!-- NOTIFICATION LIST -->
+                <!-- REDUCED HEIGHT -->
+                <!-- ===================================== -->
+
                 <div class="max-h-[290px] overflow-y-auto">
-                    @forelse (($headerNotifications ?? collect()) as $notification)
+
+                    @forelse ($headerNotifications as $notification)
+
                         @php
+                            // =====================================
+                            // ICON BY NOTIFICATION TYPE
+                            // =====================================
+
                             $icon = match ($notification->notification_type) {
+                                'atp_submitted' => 'file-check-2',
+                                'rfc_submitted' => 'banknote',
+                                'liq_submitted' => 'receipt',
                                 'ris_forwarded' => 'clipboard-check',
                                 'ris_approved', 'decision_approved' => 'circle-check-big',
                                 'ris_rejected', 'decision_rejected' => 'x-circle',
                                 'admin_notified' => 'send',
                                 default => 'bell',
                             };
+
+
+                            // =====================================
+                            // ICON STYLE BY CATEGORY
+                            // =====================================
 
                             $iconStyle = match ($notification->notification_category) {
                                 'Approvals', 'approval', 'workflow' => 'bg-blue-50 text-blue-600',
@@ -116,105 +188,299 @@
                             };
                         @endphp
 
+
+                        <!-- ===================================== -->
+                        <!-- NOTIFICATION ITEM -->
+                        <!-- COMPACT VERSION -->
+                        <!-- ===================================== -->
+
                         <a
                             href="/accounting/notifications"
-                            class="flex w-full items-start gap-2.5 border-b border-slate-100 px-4 py-2.5 text-left transition last:border-b-0 hover:bg-slate-50 {{ empty($notification->is_read) ? 'bg-slate-50/60' : '' }}"
+
+                            class="flex w-full
+                                items-start
+                                gap-2.5
+                                border-b border-slate-100
+                                px-4 py-2.5
+                                text-left
+                                transition
+                                last:border-b-0
+                                hover:bg-slate-50
+                                {{ !$notification->is_read ? 'bg-slate-50/60' : '' }}"
                         >
-                            <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full {{ $iconStyle }}">
-                                <i data-lucide="{{ $icon }}" class="h-3.5 w-3.5"></i>
+
+                            <!-- ================================= -->
+                            <!-- ICON -->
+                            <!-- ================================= -->
+
+                            <div
+                                class="flex h-8 w-8
+                                    shrink-0
+                                    items-center
+                                    justify-center
+                                    rounded-full
+                                    {{ $iconStyle }}"
+                            >
+                                <i
+                                    data-lucide="{{ $icon }}"
+                                    class="h-3.5 w-3.5"
+                                ></i>
                             </div>
+
+
+                            <!-- ================================= -->
+                            <!-- CONTENT -->
+                            <!-- ================================= -->
 
                             <div class="min-w-0 flex-1">
-                                <div class="flex items-start justify-between gap-3">
-                                    <h4 class="truncate text-[12px] font-semibold leading-4 text-slate-900">
+
+                                <!-- ================================= -->
+                                <!-- TITLE -->
+                                <!-- ================================= -->
+
+                                <div
+                                    class="flex items-start justify-between gap-3"
+                                >
+
+                                    <h4
+                                        class="truncate
+                                            text-[12px]
+                                            font-semibold
+                                            leading-4
+                                            text-slate-900"
+                                    >
                                         {{ $notification->notification_title }}
                                     </h4>
-                                    @if (empty($notification->is_read))
-                                        <span class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-600"></span>
+
+
+                                    <!-- ================================= -->
+                                    <!-- UNREAD INDICATOR -->
+                                    <!-- ================================= -->
+
+                                    @if (!$notification->is_read)
+
+                                        <span
+                                            class="mt-1
+                                                h-1.5 w-1.5
+                                                shrink-0
+                                                rounded-full
+                                                bg-rose-500"
+                                        ></span>
+
                                     @endif
+
                                 </div>
-                                <p class="mt-0.5 line-clamp-2 text-[11px] leading-4 text-slate-500">
+
+
+                                <!-- ================================= -->
+                                <!-- MESSAGE -->
+                                <!-- ================================= -->
+
+                                <p
+                                    class="mt-0.5
+                                        line-clamp-2
+                                        text-[11px]
+                                        leading-4
+                                        text-slate-500"
+                                >
                                     {{ $notification->notification_message }}
                                 </p>
-                                <p class="mt-1 text-[10px] leading-3 text-slate-400">
-                                    {{ \Carbon\Carbon::parse($notification->notification_created_at)->diffForHumans() }}
+
+
+                                <!-- ================================= -->
+                                <!-- TIME -->
+                                <!-- ================================= -->
+
+                                <p
+                                    class="mt-1
+                                        text-[10px]
+                                        leading-3
+                                        text-slate-400"
+                                >
+                                    {{ \Carbon\Carbon::parse(
+                                        $notification->notification_created_at
+                                    )->diffForHumans() }}
                                 </p>
+
                             </div>
+
                         </a>
+
+
                     @empty
-                        <div class="flex min-h-[170px] flex-col items-center justify-center px-5 text-center">
-                            <div class="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-400">
-                                <i data-lucide="bell-off" class="h-4 w-4"></i>
+
+                        <!-- ===================================== -->
+                        <!-- EMPTY STATE -->
+                        <!-- ===================================== -->
+
+                        <div
+                            class="flex min-h-[170px]
+                                flex-col
+                                items-center
+                                justify-center
+                                px-5
+                                text-center"
+                        >
+
+                            <div
+                                class="flex h-9 w-9
+                                    items-center
+                                    justify-center
+                                    rounded-full
+                                    bg-slate-100
+                                    text-slate-400"
+                            >
+                                <i
+                                    data-lucide="bell-off"
+                                    class="h-4 w-4"
+                                ></i>
                             </div>
-                            <h4 class="mt-2 text-[12px] font-medium text-slate-700">No notifications</h4>
-                            <p class="mt-1 text-[10px] text-slate-400">New system activity will appear here.</p>
+
+                            <h4
+                                class="mt-2
+                                    text-[12px]
+                                    font-medium
+                                    text-slate-700"
+                            >
+                                No notifications
+                            </h4>
+
+                            <p
+                                class="mt-1
+                                    text-[10px]
+                                    text-slate-400"
+                            >
+                                New system activity will appear here.
+                            </p>
+
                         </div>
+
                     @endforelse
+
                 </div>
 
-                <div class="border-t border-slate-100 px-3 py-1.5">
+
+                <!-- ===================================== -->
+                <!-- DROPDOWN FOOTER -->
+                <!-- ===================================== -->
+
+                <div
+                    class="border-t border-slate-100
+                        px-3 py-1.5"
+                >
+
                     <a
                         href="/accounting/notifications"
-                        class="block w-full rounded-lg px-3 py-2 text-center text-[11px] font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
+
+                        class="block w-full
+                            rounded-lg
+                            px-3 py-2
+                            text-center
+                            text-[11px]
+                            font-medium
+                            text-slate-600
+                            transition
+                            hover:bg-slate-100
+                            hover:text-slate-950"
                     >
                         View all notifications
                     </a>
+
                 </div>
+
             </div>
         </div>
 
+        <!-- ===================================== -->
+        <!-- PROFILE -->
+        <!-- ===================================== -->
         <div class="relative">
+            <!-- PROFILE BUTTON -->
             <button
                 type="button"
                 onclick="toggleProfileDropdown()"
                 class="flex items-center gap-3 rounded-xl px-2 py-1.5 text-left transition hover:bg-slate-100"
             >
-                <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-900 text-sm font-medium text-white">
-                    {{ strtoupper(substr(Auth::user()->user_full_name, 0, 1)) }}
+                <!-- AVATAR -->
+                @include('partials.user-avatar', ['avatarUser' => Auth::user(), 'avatarSize' => 'sm'])
+
+                <!-- PROFILE INFORMATION -->
+                {{-- Do not use Tailwind "hidden sm:block" here.
+                     accounting-modern.css forces .hidden { display:none !important }
+                     which permanently hides the name/role/chevron. --}}
+                <div class="acc-topbar-profile-meta min-w-0">
+                    <p
+                        class="max-w-[150px] truncate text-sm font-medium text-slate-900"
+                    >{{ Auth::user()->user_full_name }}</p>
+
+                    <p
+                        class="mt-0.5 max-w-[150px] truncate text-xs text-slate-500"
+                    >Accounting</p>
                 </div>
-                <div class="hidden min-w-0 sm:block">
-                    <p class="max-w-[150px] truncate text-sm font-medium text-slate-900">
-                        {{ Auth::user()->user_full_name }}
-                    </p>
-                    <p class="mt-0.5 max-w-[150px] truncate text-xs text-slate-500">Accounting</p>
-                </div>
-                <i data-lucide="chevron-down" class="hidden h-4 w-4 shrink-0 text-slate-400 sm:block"></i>
+
+                <!-- CHEVRON -->
+                <i
+                    data-lucide="chevron-down"
+                    class="acc-topbar-profile-chevron h-4 w-4 shrink-0 text-slate-400"
+                ></i>
             </button>
 
+            <!-- ===================================== -->
+            <!-- PROFILE DROPDOWN -->
+            <!-- ===================================== -->
             <div
                 id="profileDropdown"
                 class="absolute right-0 top-[calc(100%+10px)] z-50 hidden w-[260px] overflow-hidden rounded-2xl border border-black/5 bg-white shadow-[0_20px_60px_rgba(0,0,0,0.14)]"
             >
+                <!-- PROFILE HEADER -->
                 <div class="border-b border-slate-100 px-4 py-4">
                     <div class="flex items-center gap-3">
-                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-900 text-sm font-medium text-white">
-                            {{ strtoupper(substr(Auth::user()->user_full_name, 0, 1)) }}
-                        </div>
+                        <!-- AVATAR -->
+                        @include('partials.user-avatar', ['avatarUser' => Auth::user(), 'avatarSize' => 'md'])
+
+                        <!-- USER INFORMATION -->
                         <div class="min-w-0">
-                            <p class="truncate text-sm font-medium text-slate-950">{{ Auth::user()->user_full_name }}</p>
-                            <p class="mt-0.5 truncate text-xs text-slate-500">{{ Auth::user()->user_email_address }}</p>
+                            <p
+                                class="truncate text-sm font-medium text-slate-950"
+                            >{{ Auth::user()->user_full_name }}</p>
+
+                            <p
+                                class="mt-0.5 truncate text-xs text-slate-500"
+                            >{{ Auth::user()->user_email_address }}</p>
                         </div>
                     </div>
                 </div>
 
+                <!-- ===================================== -->
+                <!-- PROFILE LINKS -->
+                <!-- ===================================== -->
                 <div class="p-2">
                     <a
-                        href="{{ url('/profile') }}"
+                        href="{{ url('/accounting/profile') }}"
                         class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-950"
                     >
-                        <i data-lucide="user-cog" class="h-4 w-4 text-slate-400"></i>
+                        <i
+                            data-lucide="user-cog"
+                            class="h-4 w-4 text-slate-400"
+                        ></i>
+
                         Profile settings
                     </a>
                 </div>
 
+                <!-- ===================================== -->
+                <!-- LOGOUT -->
+                <!-- ===================================== -->
                 <div class="border-t border-slate-100 p-2">
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
+
                         <button
                             type="submit"
-                            class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
+                            class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-slate-600 transition hover:bg-rose-50 hover:text-rose-600"
                         >
                             <i data-lucide="log-out" class="h-4 w-4"></i>
+
                             Log out
                         </button>
                     </form>
@@ -225,50 +491,42 @@
 </div>
 
 <style>
-    :root {
-        --primary: #2563EB;
-        --primary-dark: #1D4ED8;
-        --bg: #F8FAFC;
-        --card: #FFFFFF;
-        --text: #0F172A;
-        --muted: #64748B;
-        --border: #E5E7EB;
-    }
 
-    .topbar {
-        height: 82px;
-        background: #ffffff;
-        border-bottom: none;
-        box-shadow: none;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0 16px;
-        position: sticky;
-        top: 0;
-        z-index: 10;
-        gap: 12px;
-    }
-
-    @media (min-width: 640px) {
-        .topbar {
-            padding: 0 24px;
+        :root{
+            --primary:#2563EB;
+            --primary-dark:#1D4ED8;
+            --bg:#F8FAFC;
+            --card:#FFFFFF;
+            --text:#0F172A;
+            --muted:#64748B;
+            --border:#E5E7EB;
         }
-    }
 
-    @media (min-width: 1024px) {
-        .topbar {
-            padding: 0 32px;
+
+        .topbar{
+            height:82px;
+            background:#ffffff;
+            border-bottom:none;
+            box-shadow:none;
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            padding:0 32px;
+            position:sticky;
+            top:0;
+            z-index:10;
         }
-    }
 
-    .topbar-left {
-        display: flex;
-        align-items: center;
-        gap: 14px;
-        min-width: 0;
-        flex: 1;
-    }
+        .topbar-left{
+            display:flex;
+            align-items:center;
+            gap:18px;
+        }
+
+        /* ======================================
+       TOPBAR SEARCH
+       KEEP THIS INSIDE accounting-topbar.blade.php
+    ====================================== */
 
     .dashboard-toolbar-search {
         width: 220px;
@@ -283,120 +541,328 @@
         color: #64748b;
     }
 
+
     .dashboard-toolbar-search-icon {
         width: 18px;
         height: 18px;
+
         flex-shrink: 0;
+
         color: #94a3b8;
+
         stroke: currentColor;
     }
 
+
     .dashboard-toolbar-search input {
         min-width: 0;
+
         flex: 1;
+
         border: none;
+
         outline: none;
+
         background: transparent;
+
         font-size: 14px;
+
         color: #0f172a;
     }
+
 
     .dashboard-toolbar-search input::placeholder {
         color: #94a3b8;
     }
 
+
+    .dashboard-search-shortcut {
+        flex-shrink: 0;
+
+        padding: 3px 7px;
+
+        border: 1px solid #e2e8f0;
+
+        border-radius: 6px;
+
+        background: #f8fafc;
+
+        color: #94a3b8;
+
+        font-size: 11px;
+
+        line-height: 1;
+    }
+
+
+    /* ======================================
+       MAILBOX BUTTON
+       KEEP THIS INSIDE accounting-topbar.blade.php
+    ====================================== */
+
     .dashboard-icon-action {
         position: relative;
+
         width: 40px;
         height: 40px;
+
         display: flex;
         align-items: center;
         justify-content: center;
+
         flex-shrink: 0;
+
         border-radius: 999px;
+
         color: #64748b;
+
         text-decoration: none;
-        transition: background 0.2s ease, color 0.2s ease;
+
+        transition:
+            background 0.2s ease,
+            color 0.2s ease;
     }
+
 
     .dashboard-icon-action:hover {
         background: #f1f5f9;
+
         color: #0f172a;
     }
+
 
     .dashboard-icon-action svg {
         width: 18px;
         height: 18px;
+
         stroke: currentColor;
     }
 
-    .mobile-sidebar-btn {
-        width: 42px;
-        height: 42px;
-        border-radius: 14px;
-        border: none;
-        background: #F8FAFC;
-        display: none;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: .25s;
-        flex-shrink: 0;
+
+    .dashboard-notification-dot {
+        position: absolute;
+
+        top: 8px;
+        right: 8px;
+
+        width: 6px;
+        height: 6px;
+
+        border-radius: 999px;
+
+        background: #ef4444;
+
+        border: 1px solid #ffffff;
     }
 
-    .mobile-sidebar-btn:hover {
-        background: var(--primary);
-        transform: translateY(-2px);
-    }
-
-    @media (max-width: 1280px) {
-        .mobile-sidebar-btn {
-            display: flex;
+        .mobile-sidebar-btn{
+            width:46px;
+            height:46px;
+            border-radius:16px;
+            border:none;
+            background:#F8FAFC;
+            display:none;
+            align-items:center;
+            justify-content:center;
+            cursor:pointer;
+            transition:.25s;
         }
-    }
 
-    @media (max-width: 640px) {
-        .topbar {
-            height: 72px;
+        .mobile-sidebar-btn:hover{
+            background:var(--primary);
+            transform:translateY(-2px);
         }
-    }
+
+        .page-title{
+            font-size:22px;
+            font-weight:700;
+            color:var(--text);
+            letter-spacing:-0.5px;
+        }
+
+        .page-subtitle{
+            margin-top:3px;
+            font-size:13px;
+            color:var(--muted);
+        }
+
+        .topbar-right{
+            display:flex;
+            align-items:center;
+            gap:16px;
+        }
+
+        /* ICON BUTTONS */
+
+        .icon-btn{
+            width:48px;
+            height:48px;
+            border:none;
+            border-radius:16px;
+            background:#F8FAFC;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            position:relative;
+            cursor:pointer;
+            transition:.25s;
+        }
+
+        .icon-btn:hover{
+            background:var(--primary);
+            transform:translateY(-2px);
+            box-shadow:
+            0 10px 25px rgba(37,99,235,.25);
+        }
+
+        .icon-btn i{
+            width:20px;
+            height:20px;
+            color:#334155;
+        }
+
+        .notification-dot{
+            width:10px;
+            height:10px;
+            border-radius:50%;
+            background:#EF4444;
+            border:2px solid white;
+            position:absolute;
+            top:10px;
+            right:10px;
+        }
+
+        /* PROFILE */
+
+        .profile-btn{
+            border:none;
+
+            padding:6px 14px;
+            border-radius:18px;
+            display:flex;
+            align-items:center;
+            gap:12px;
+            cursor:pointer;
+            transition:.25s;
+            box-shadow:
+            0 2px 10px rgba(15,23,42,.04);
+        }
+
+        .profile-btn:hover{
+            transform:translateY(-2px);
+            box-shadow:
+            0 12px 30px rgba(15,23,42,.08);
+        }
+
+        .profile-avatar{
+            width:35px;
+            height:35px;
+            border-radius:14px;
+
+
+            color:#111827;
+            font-weight:700;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            font-size:15px;
+        }
+
+        .profile-info h4{
+            font-size:14px;
+            font-weight:700;
+            color:var(--text);
+        }
+
+        .profile-info p{
+            font-size:12px;
+            color:var(--muted);
+        }
+
+        .profile-arrow{
+            width:18px;
+            height:18px;
+            color:#94A3B8;
+        }
+
+        /* ======================================
+           PROFILE META / CHEVRON
+           accounting-modern.css sets:
+           .hidden { display: none !important; }
+           so Tailwind "hidden sm:block" never shows.
+           Use dedicated classes instead (same breakpoint as maintenance).
+        ====================================== */
+
+        .acc-topbar-profile-meta,
+        .acc-topbar-profile-chevron,
+        svg.acc-topbar-profile-chevron {
+            display: none !important;
+        }
+
+        @media (min-width: 640px) {
+            .acc-topbar-profile-meta {
+                display: block !important;
+            }
+
+            .acc-topbar-profile-chevron,
+            svg.acc-topbar-profile-chevron {
+                display: block !important;
+            }
+        }
+
+        @media(max-width:1280px){
+
+            .mobile-sidebar-btn{
+                display:flex;
+            }
+
+            .profile-info{
+                display:none;
+            }
+        }
 </style>
 
 <script>
     function toggleNotifications() {
-        const dropdown = document.getElementById('notificationDropdown');
-        const profile = document.getElementById('profileDropdown');
-        if (profile) profile.classList.add('hidden');
-        if (dropdown) dropdown.classList.toggle('hidden');
+        const dropdown = document.getElementById("notificationDropdown");
+        const profile = document.getElementById("profileDropdown");
+
+        if (profile) profile.classList.add("hidden");
+        if (dropdown) dropdown.classList.toggle("hidden");
         if (window.lucide) lucide.createIcons();
     }
 
     function toggleProfileDropdown() {
-        const dropdown = document.getElementById('profileDropdown');
-        const notif = document.getElementById('notificationDropdown');
-        if (notif) notif.classList.add('hidden');
-        if (dropdown) dropdown.classList.toggle('hidden');
+        const dropdown = document.getElementById("profileDropdown");
+        const notif = document.getElementById("notificationDropdown");
+
+        if (notif) notif.classList.add("hidden");
+        if (dropdown) dropdown.classList.toggle("hidden");
         if (window.lucide) lucide.createIcons();
     }
 
-    window.addEventListener('click', function (e) {
-        const notif = document.getElementById('notificationDropdown');
-        const profile = document.getElementById('profileDropdown');
+    window.addEventListener("click", function (e) {
+        const notif = document.getElementById("notificationDropdown");
+        const profile = document.getElementById("profileDropdown");
 
         if (
             notif &&
-            !e.target.closest('#notificationDropdown') &&
+            !e.target.closest("#notificationDropdown") &&
             !e.target.closest('[onclick="toggleNotifications()"]')
         ) {
-            notif.classList.add('hidden');
+            notif.classList.add("hidden");
         }
 
         if (
             profile &&
-            !e.target.closest('#profileDropdown') &&
+            !e.target.closest("#profileDropdown") &&
             !e.target.closest('[onclick="toggleProfileDropdown()"]')
         ) {
-            profile.classList.add('hidden');
+            profile.classList.add("hidden");
         }
+    });
+
+    document.addEventListener("DOMContentLoaded", function () {
+        if (window.lucide) lucide.createIcons();
     });
 </script>
