@@ -107,10 +107,6 @@
                 <h2 class="acc-dash-title">Recent incoming documents</h2>
                 <p class="acc-dash-sub">Newest ATP, Request Checks, and Liquidations waiting for Accounting</p>
             </div>
-            <span class="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700">
-                <span class="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-500"></span>
-                Live
-            </span>
         </div>
         <div class="acc-table-wrap acc-dash-flush">
             <table class="acc-table">
